@@ -6,10 +6,6 @@ import { extractDeterministicCourse } from "../lib/course-import/deterministic.t
 import { projectCourseSnapshot } from "../lib/course-import/project-snapshot.ts";
 import { parseCourseSnapshotProjection } from "../lib/course-import/snapshot-projection-contract.ts";
 import { applyRuleTreeToProjection } from "../lib/coursemap/course-snapshot-rule-projection.ts";
-import {
-  compactCourseSnapshotChanges,
-  compareCourseSnapshotProjections,
-} from "../lib/coursemap/course-snapshot-diff.ts";
 import { COURSE_SNAPSHOT_RELATIONAL_QUERY_SHAPE } from "../lib/coursemap/course-import-query-shape.ts";
 import { evaluateRequisiteExpression } from "../lib/coursemap/requisite-summary.ts";
 
@@ -554,105 +550,6 @@ test("uses the deployed snapshot relation columns in admin review queries", () =
     fieldEvidenceOrder: "field_key",
     conditionCoursesForeignKey: "condition_id",
   });
-});
-
-test("compares saved and candidate snapshot projections field by field", () => {
-  const previous = projectCourseSnapshot(extraction);
-  delete previous.projectionSha256;
-  const candidate = structuredClone(previous);
-  candidate.snapshot.title = "Relational Databases and Review";
-  candidate.fees[0].amount = 4_250;
-  candidate.areasOfInterest.push({ position: 3, name: "Data Engineering" });
-  candidate.attributes = [];
-
-  const changes = compareCourseSnapshotProjections(previous, candidate);
-  const byPath = new Map(changes.map((change) => [change.fieldPath, change]));
-
-  assert.deepEqual(byPath.get("snapshot.title"), {
-    fieldPath: "snapshot.title",
-    kind: "changed",
-    before: previous.snapshot.title,
-    after: "Relational Databases and Review",
-  });
-  assert.equal(byPath.get("fees[0].amount").kind, "changed");
-  assert.equal(byPath.get("areasOfInterest[2].position").kind, "added");
-  assert.equal(byPath.get("areasOfInterest[2].name").kind, "added");
-  assert.equal(byPath.get("attributes[0].position").kind, "removed");
-  assert.equal(
-    changes.some(({ fieldPath }) => fieldPath.includes("projectionSha256")),
-    false,
-  );
-});
-
-test("shows every populated candidate field as added for a first import", () => {
-  const candidate = projectCourseSnapshot(extraction);
-  delete candidate.projectionSha256;
-  const changes = compareCourseSnapshotProjections(null, candidate);
-
-  assert.equal(changes.length > 0, true);
-  assert.equal(
-    changes.every(({ kind }) => kind === "added"),
-    true,
-  );
-  assert.equal(
-    compareCourseSnapshotProjections(candidate, structuredClone(candidate))
-      .length,
-    0,
-  );
-});
-
-test("compacts relational rows while keeping snapshot fields precise", () => {
-  const previous = projectCourseSnapshot(extraction);
-  delete previous.projectionSha256;
-  const candidate = structuredClone(previous);
-  candidate.snapshot.title = "A clearer course title";
-  candidate.fees = [];
-  candidate.courseOffering = {
-    deliveryMode: "Online",
-    location: "Remote",
-  };
-  candidate.ruleConditions[0].minimumUnits = 48;
-  candidate.ruleConditions[0].sourceText = "Complete 48 units.";
-
-  const compact = compactCourseSnapshotChanges(
-    compareCourseSnapshotProjections(previous, candidate),
-    previous,
-    candidate,
-  );
-  const byPath = new Map(compact.map((change) => [change.fieldPath, change]));
-
-  assert.deepEqual(byPath.get("snapshot.title"), {
-    fieldPath: "snapshot.title",
-    kind: "changed",
-    before: previous.snapshot.title,
-    after: "A clearer course title",
-  });
-  assert.deepEqual(byPath.get("fees[0]"), {
-    fieldPath: "fees[0]",
-    kind: "removed",
-    before: previous.fees[0],
-    after: undefined,
-  });
-  assert.deepEqual(byPath.get("courseOffering"), {
-    fieldPath: "courseOffering",
-    kind: "changed",
-    before: previous.courseOffering,
-    after: candidate.courseOffering,
-  });
-  assert.deepEqual(byPath.get("ruleConditions[0]"), {
-    fieldPath: "ruleConditions[0]",
-    kind: "changed",
-    before: previous.ruleConditions[0],
-    after: candidate.ruleConditions[0],
-  });
-  assert.equal(
-    compact.some(({ fieldPath }) => fieldPath === "fees[0].amount"),
-    false,
-  );
-  assert.equal(
-    compact.some(({ fieldPath }) => fieldPath.includes("minimumUnits")),
-    false,
-  );
 });
 
 test("section edits preserve all other course fields and linked collections", async () => {

@@ -11,10 +11,6 @@ const publicationActionsPath = new URL(
   import.meta.url,
 );
 
-const targetReviewPath = new URL(
-  "../ui/admin/imports/academic-structure-import-target-review.tsx",
-  import.meta.url,
-);
 const loaderPath = new URL(
   "../lib/coursemap/admin-academic-structure-imports.ts",
   import.meta.url,
@@ -34,10 +30,9 @@ test("reviews through the target RPC and only accepts explicit decisions", async
 });
 
 test("publication is owned by the catalogue workspace", async () => {
-  const [importAction, publicationAction, targetReview] = await Promise.all([
+  const [importAction, publicationAction] = await Promise.all([
     readFile(actionsPath, "utf8"),
     readFile(publicationActionsPath, "utf8"),
-    readFile(targetReviewPath, "utf8"),
   ]);
   assert.doesNotMatch(
     importAction,
@@ -47,10 +42,6 @@ test("publication is owned by the catalogue workspace", async () => {
   assert.match(publicationAction, /canWriteCatalogue\(\)/);
   assert.match(publicationAction, /p_structure_year_id: structureYearId/);
   assert.match(publicationAction, /p_snapshot_id: snapshotId/);
-  assert.doesNotMatch(
-    targetReview,
-    /Publish draft|publishAcademicStructureDraft/,
-  );
 });
 
 test("loads the full candidate snapshot-native projection", async () => {

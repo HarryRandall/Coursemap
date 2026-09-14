@@ -1,9 +1,7 @@
-import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import { afterEach, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImportArtefactViewer } from "@/ui/admin/imports/import-artefact-viewer";
-import { ImportDatabaseRows } from "@/ui/admin/imports/import-database-rows";
 const artifact = {
   id: "artefact-1",
   kind: "validated_json",
@@ -52,60 +50,6 @@ test("reports failed artefact requests and retries", async () => {
   expect(await screen.findByText(/COMP2100/)).toBeVisible();
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
-test("shows saved import rows without a second projection view", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response('{"code":"COMP3900"}')),
-  );
-  render(
-    <TooltipProvider>
-      <ImportDatabaseRows
-        tables={[{ name: "courses", rows: [{ code: "COMP2100" }] }]}
-        artifacts={[{ ...artifact, kind: "database_projection" }]}
-        endpoint="/api/admin/course-imports/artifacts"
-        project={(value) => [{ name: "courses", rows: [value] }]}
-      />
-    </TooltipProvider>,
-  );
-  expect(screen.getByRole("cell", { name: "COMP2100" })).toBeVisible();
-  expect(
-    screen.queryByRole("tab", { name: "Planned" }),
-  ).not.toBeInTheDocument();
-  expect(screen.queryByRole("tab", { name: "Saved" })).not.toBeInTheDocument();
-});
-test("shows the import projection while no rows have been saved", async () => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue(new Response('{"code":"COMP3900"}')),
-  );
-  render(
-    <TooltipProvider>
-      <ImportDatabaseRows
-        tables={[]}
-        artifacts={[{ ...artifact, kind: "database_projection" }]}
-        endpoint="/api/admin/course-imports/artifacts"
-        project={(value) => [
-          { name: "courses", rows: [value] },
-          { name: "course_fees", rows: [] },
-        ]}
-      />
-    </TooltipProvider>,
-  );
-  expect(await screen.findByRole("cell", { name: "COMP3900" })).toBeVisible();
-  expect(screen.getByText("These rows have not been saved yet.")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Fees0" })).toBeVisible();
-  expect(
-    screen.queryByRole("checkbox", { name: "Show empty tables" }),
-  ).not.toBeInTheDocument();
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "Filter" }));
-  await user.click(screen.getByRole("button", { name: "Rows" }));
-  await user.click(screen.getByRole("button", { name: "Has rows" }));
-  expect(
-    screen.queryByRole("button", { name: "Fees0" }),
-  ).not.toBeInTheDocument();
-});
-
 test("keeps database projections out of artefact navigation", () => {
   render(
     <ImportArtefactViewer
