@@ -33,7 +33,7 @@ function scheduledTerms(terms: readonly Term[]) {
   return terms.filter((term) => term.id !== "unscheduled");
 }
 
-function termLabel(term: Term) {
+export function termLabel(term: Term) {
   const semester = term.id.split("-").at(-1)?.toUpperCase();
   return semester?.match(/^S[12]$/)
     ? `${semester} '${String(term.year).slice(2)}`

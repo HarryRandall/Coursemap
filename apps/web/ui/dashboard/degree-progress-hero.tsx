@@ -5,10 +5,10 @@ import {
   TooltipContent,
 } from "@coursemap/ui/primitives/tooltip";
 
-import { Badge } from "@coursemap/ui/primitives/badge";
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
 
 import { cn } from "@/lib/cn";
+import { ProgressRing } from "@/ui/common/progress-ring";
 import type { DegreeUnitProgress } from "@/lib/planner";
 
 type Segment = {
@@ -64,8 +64,19 @@ export function DegreeProgressHero({
 
   return (
     <Card className="h-full py-0">
-      <CardContent className="flex h-full flex-col justify-between gap-5 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <CardContent className="flex h-full flex-row items-center gap-6 p-5">
+        {total > 0 && (
+          <ProgressRing
+            completed={progress.completed}
+            planned={progress.planned}
+            target={total}
+            size="large"
+          >
+            {progress.percent}%
+          </ProgressRing>
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-4">
           <p className="text-3xl font-semibold tracking-tight">
             {progress.completed}
             <span className="text-base font-normal text-muted-foreground">
@@ -73,14 +84,7 @@ export function DegreeProgressHero({
               / {total} units completed
             </span>
           </p>
-          {unitTarget !== null && (
-            <Badge variant="secondary" className="font-semibold text-primary">
-              {progress.percent}%
-            </Badge>
-          )}
-        </div>
 
-        <div className="flex flex-1 flex-col justify-center gap-4">
           <div
             className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
             role="group"

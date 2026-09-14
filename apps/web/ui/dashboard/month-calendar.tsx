@@ -4,6 +4,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@coursemap/ui/primitives/tooltip";
 import type { DashboardCalendarEvent } from "@/lib/coursemap/dashboard-series";
 import { cn } from "@/lib/cn";
 import { accent } from "@/lib/ui";
@@ -171,34 +176,46 @@ export function MonthCalendar({
                 </div>
               );
             }
+            const summary = `${cell.getDate()} ${monthLabel(focus)}`;
             return (
-              <div key={cell.toISOString()} className="group relative h-9">
-                <button
-                  type="button"
-                  aria-label={`${cell.getDate()} ${monthLabel(focus)}, ${dayEvents.map((event) => event.courseCode).join(", ")}`}
-                  className={cn(
-                    dayClass,
-                    !isToday &&
-                      "hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  )}
-                >
-                  {cell.getDate()}
-                  <span
-                    className={cn(
-                      "mt-px size-1 rounded-full",
-                      isToday
-                        ? "bg-primary-foreground"
-                        : accent[dayEvents[0].accent].dot,
-                    )}
-                    aria-hidden="true"
-                  />
-                </button>
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 rounded-lg bg-foreground px-2 py-1 text-[11px] font-medium whitespace-nowrap text-background shadow-md group-focus-within:block group-hover:block"
-                >
-                  {dayEvents.map((event) => event.courseCode).join(", ")}
-                </span>
+              <div
+                key={cell.toISOString()}
+                className="grid h-9 place-items-center"
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`${summary}, ${dayEvents
+                        .map((event) => `${event.courseCode} ${event.termName}`)
+                        .join(", ")}`}
+                      className={cn(
+                        dayClass,
+                        !isToday &&
+                          "hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                      )}
+                    >
+                      {cell.getDate()}
+                      <span
+                        className={cn(
+                          "mt-px size-1 rounded-full",
+                          isToday
+                            ? "bg-primary-foreground"
+                            : accent[dayEvents[0].accent].dot,
+                        )}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="flex flex-col gap-0.5">
+                    <span className="font-medium">{summary}</span>
+                    {dayEvents.map((event) => (
+                      <span key={event.courseCode} className="opacity-80">
+                        {event.courseCode} · {event.termName}
+                      </span>
+                    ))}
+                  </TooltipContent>
+                </Tooltip>
               </div>
             );
           })}

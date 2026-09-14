@@ -1,5 +1,5 @@
 import type { DegreeUnitProgress } from "@/lib/planner";
-import { RequirementProgressRing } from "./requirement-progress-ring";
+import { ProgressRing } from "@/ui/common/progress-ring";
 
 export function StructureProgress({
   name,
@@ -17,7 +17,7 @@ export function StructureProgress({
   return (
     <section
       aria-label={`${name} progress`}
-      className="mb-6 shrink-0 rounded-2xl border border-primary/20 bg-card p-6 sm:p-8"
+      className="mb-6 shrink-0 rounded-2xl border border-border bg-card p-6 sm:p-8"
     >
       <p className="mb-6 text-sm text-muted-foreground">
         {name} · {code}
@@ -26,14 +26,14 @@ export function StructureProgress({
       <div className="flex flex-wrap items-center justify-between gap-8">
         <div className="flex flex-wrap items-center gap-6">
           {target !== null && target > 0 && (
-            <RequirementProgressRing
+            <ProgressRing
               completed={progress.completed}
               planned={progress.planned}
               target={target}
               size="large"
             >
               {Math.min(100, Math.round((progress.completed / target) * 100))}%
-            </RequirementProgressRing>
+            </ProgressRing>
           )}
           <div>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">

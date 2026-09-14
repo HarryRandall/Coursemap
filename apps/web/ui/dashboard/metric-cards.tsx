@@ -9,6 +9,16 @@ import type { DashboardTermPoint } from "@/lib/coursemap/dashboard-series";
 import type { RequirementBucketProgress } from "@/lib/coursemap/requirement-progress";
 import { STANDARD_TERM_UNITS, type DegreeUnitProgress } from "@/lib/planner";
 import { MiniBars, Ring, TickMeter } from "@/ui/dashboard/metric-visuals";
+import { TrendBars } from "@/ui/dashboard/trend-bars";
+import { GradeBars } from "@/ui/dashboard/grade-bars";
+import { MetricEmpty } from "@/ui/dashboard/metric-empty";
+import { formatMark } from "@/lib/academic/metrics";
+import type {
+  AcademicSummary,
+  AcademicTermPoint,
+  GradeTally,
+  TuitionEstimate,
+} from "@/lib/coursemap/academic-metrics";
 
 export type MetricId =
   | "load"
@@ -22,7 +32,12 @@ export type MetricId =
   | "requirements"
   | "next-term"
   | "load-balance"
-  | "finish";
+  | "finish"
+  | "wam"
+  | "gpa"
+  | "tuition"
+  | "mark-trend"
+  | "grade-mix";
 export const METRIC_OPTIONS: Record<
   MetricId,
   { title: string; blurb: string }
@@ -75,6 +90,26 @@ export const METRIC_OPTIONS: Record<
     title: "Last scheduled term",
     blurb: "When the current plan runs out of scheduled semesters.",
   },
+  wam: {
+    title: "Weighted average mark",
+    blurb: "Your WAM across every marked course, weighted by units.",
+  },
+  gpa: {
+    title: "Grade point average",
+    blurb: "Your GPA on the ANU seven-point scale.",
+  },
+  tuition: {
+    title: "Est. tuition",
+    blurb: "Published fees summed across the courses in your plan.",
+  },
+  "mark-trend": {
+    title: "WAM by semester",
+    blurb: "How your weighted average has moved each teaching period.",
+  },
+  "grade-mix": {
+    title: "Grade distribution",
+    blurb: "How your completed courses fall across the grade bands.",
+  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -97,6 +132,13 @@ export type MetricInputs = {
   upcoming: readonly DashboardTermPoint[];
   /** e.g. "Nov 2028" — the end of the last semester containing courses. */
   finishLabel: string | null;
+  /** Headline mark figures; all null until a result is recorded. */
+  academic: AcademicSummary;
+  /** One point per teaching period that has marks, oldest first. */
+  markTrend: readonly AcademicTermPoint[];
+  grades: readonly GradeTally[];
+  /** Null when no course in the plan has a published fee. */
+  tuition: TuitionEstimate | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -134,13 +176,20 @@ export function buildMetricViews(
     nextCourses,
     upcoming,
     finishLabel,
+    academic,
+    markTrend,
+    grades,
+    tuition,
   } = inputs;
 
   const focusUnits = focusCourses.reduce((total, c) => total + c.units, 0);
   const nextUnits = nextCourses.reduce((total, c) => total + c.units, 0);
   const readyCount = nextCourses.filter((c) => c.ready).length;
   const needsCheck = nextCourses.length - readyCount;
-  const freeCourses = Math.floor(progress.remaining / 6);
+  const freeSemesters = Math.max(
+    1,
+    Math.round(progress.remaining / STANDARD_TERM_UNITS),
+  );
   const nearTerms = upcoming.slice(0, 4);
   const fullTerms = nearTerms.filter(
     (term) => term.units === STANDARD_TERM_UNITS,
@@ -275,7 +324,7 @@ export function buildMetricViews(
           ? `${progress.mapped} units mapped`
           : progress.remaining === 0
             ? "Every unit of the degree has a course"
-            : `Equivalent to ${freeCourses} standard 6-unit ${courseWord(freeCourses)}`,
+            : `About ${freeSemesters} more ${semesterWord(freeSemesters)} at standard load`,
       body: unitTarget ? (
         <TickMeter
           percent={(progress.remaining / unitTarget) * 100}
@@ -450,6 +499,123 @@ export function buildMetricViews(
         <CalendarCheck2 className="size-6 opacity-50" aria-hidden="true" />
       ),
     },
+    wam: {
+      id: "wam",
+      title: METRIC_OPTIONS.wam.title,
+      value: academic.wam === null ? "No marks yet" : formatMark(academic.wam),
+      unit: academic.wam === null ? "" : (academic.band ?? ""),
+      note:
+        academic.wam === null
+          ? ""
+          : `${academic.markedCourses} marked ${courseWord(academic.markedCourses)} · ${academic.markedUnits} units${
+              academic.delta === null
+                ? ""
+                : ` · ${academic.delta >= 0 ? "up" : "down"} ${formatMark(Math.abs(academic.delta))} on last semester`
+            }`,
+      body:
+        academic.wam === null ? (
+          <MetricEmpty
+            message="Record a result and your weighted average appears here."
+            action={{ label: "Add your results", href: "/academic" }}
+          />
+        ) : markTrend.length > 1 ? (
+          <TrendBars
+            points={markTrend.map((point) => ({
+              label: point.label,
+              value: point.wam,
+            }))}
+            height={56}
+            format={formatMark}
+          />
+        ) : undefined,
+    },
+    gpa: {
+      id: "gpa",
+      title: METRIC_OPTIONS.gpa.title,
+      value: academic.gpa === null ? "No marks yet" : formatMark(academic.gpa),
+      unit: academic.gpa === null ? "" : "/ 7.0",
+      note:
+        academic.gpa === null
+          ? ""
+          : `Across ${academic.markedUnits} graded units`,
+      body:
+        academic.gpa === null ? (
+          <MetricEmpty
+            message="Your GPA is calculated once results are recorded."
+            action={{ label: "Add your results", href: "/academic" }}
+          />
+        ) : undefined,
+    },
+    tuition: {
+      id: "tuition",
+      title: METRIC_OPTIONS.tuition.title,
+      value:
+        tuition === null
+          ? "Not published"
+          : tuition.total.toLocaleString("en-AU", {
+              style: "currency",
+              currency: tuition.currency,
+              maximumFractionDigits: 0,
+            }),
+      unit: "",
+      note:
+        tuition === null
+          ? ""
+          : `${tuition.pricedCourses} of ${tuition.plannedCourses} ${courseWord(tuition.plannedCourses)} priced${
+              tuition.feeYear ? ` · ${tuition.feeYear} fees` : ""
+            }`,
+      body:
+        tuition === null ? (
+          <MetricEmpty
+            message="No course in your plan has a published fee yet."
+            action={{ label: "Browse the catalogue", href: "/courses" }}
+          />
+        ) : undefined,
+    },
+    "mark-trend": {
+      id: "mark-trend",
+      title: METRIC_OPTIONS["mark-trend"].title,
+      value:
+        markTrend.length > 0
+          ? formatMark(markTrend[markTrend.length - 1]!.wam)
+          : "No marks yet",
+      unit: markTrend.length > 0 ? "latest" : "",
+      note:
+        markTrend.length > 0
+          ? `${markTrend.length} graded ${semesterWord(markTrend.length)}`
+          : "",
+      body:
+        markTrend.length > 0 ? (
+          <TrendBars
+            points={markTrend.map((point) => ({
+              label: point.label,
+              value: point.wam,
+            }))}
+            format={formatMark}
+          />
+        ) : (
+          <MetricEmpty
+            message="Each graded semester adds a bar here."
+            action={{ label: "Add your results", href: "/academic" }}
+          />
+        ),
+    },
+    "grade-mix": {
+      id: "grade-mix",
+      title: METRIC_OPTIONS["grade-mix"].title,
+      value: String(academic.markedCourses),
+      unit: `completed ${courseWord(academic.markedCourses)}`,
+      note: "",
+      body:
+        academic.markedCourses > 0 ? (
+          <GradeBars points={grades} />
+        ) : (
+          <MetricEmpty
+            message="Your grade mix builds up as results come in."
+            action={{ label: "Add your results", href: "/academic" }}
+          />
+        ),
+    },
   };
 }
 
@@ -469,6 +635,11 @@ const metricTones: Record<MetricId, string> = {
   "next-term": "text-sky-600 dark:text-sky-400",
   "load-balance": "text-amber-600 dark:text-amber-400",
   finish: "text-rose-600 dark:text-rose-400",
+  wam: "text-emerald-600 dark:text-emerald-400",
+  gpa: "text-emerald-600 dark:text-emerald-400",
+  tuition: "text-amber-600 dark:text-amber-400",
+  "mark-trend": "text-violet-600 dark:text-violet-400",
+  "grade-mix": "text-violet-600 dark:text-violet-400",
 };
 export function MetricCardView({
   view,

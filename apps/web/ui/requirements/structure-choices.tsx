@@ -54,7 +54,7 @@ export function StructureChoices({
           {visible.map((option) => (
             <article
               key={option.code}
-              className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40 motion-reduce:transition-none"
+              className="flex flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-foreground/20 motion-reduce:transition-none"
             >
               <BookOpen
                 aria-hidden="true"
