@@ -1,11 +1,6 @@
 "use client";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@coursemap/ui/primitives/tooltip";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -18,6 +13,7 @@ import {
   ArrowUpNarrowWide,
 } from "lucide-react";
 
+import { MenuHint } from "@/ui/common/menu-hint";
 import { OptionMenu } from "@/ui/common/option-menu";
 
 export type SortOption<T extends string> = {
@@ -56,23 +52,22 @@ export function SortMenu<T extends string>({
 
   return (
     <Popover onOpenChange={setOpen} open={open}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              aria-label={label}
-              aria-pressed={sorted}
-              className="size-10 shrink-0"
-              size="icon"
-              variant={sorted ? "secondary" : "outline"}
-              type="button"
-            >
-              <Icon aria-hidden="true" size={16} />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>{label}</TooltipContent>
-      </Tooltip>
+      <MenuHint label={label} open={open}>
+        <PopoverTrigger asChild>
+          {/* The box stays outlined in every state, like the filter beside it;
+              the icon alone carries whether an order is applied. */}
+          <Button
+            aria-label={label}
+            aria-pressed={sorted}
+            className="size-10 shrink-0 aria-pressed:bg-muted aria-pressed:text-foreground"
+            size="icon"
+            variant="outline"
+            type="button"
+          >
+            <Icon aria-hidden="true" size={16} />
+          </Button>
+        </PopoverTrigger>
+      </MenuHint>
       <PopoverContent align="end" className="w-56 p-1.5">
         <OptionMenu
           items={options.map((option) => ({

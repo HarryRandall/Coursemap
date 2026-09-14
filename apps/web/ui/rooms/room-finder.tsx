@@ -1,4 +1,5 @@
 "use client";
+import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Checkbox } from "@coursemap/ui/primitives/checkbox";
 import { Field } from "@coursemap/ui/primitives/field";
@@ -1061,9 +1062,9 @@ export function RoomFinder({
                       Rooms in {selectedPlace?.name}
                     </h2>
                     {selectedIndoorMap.status === "draft" ? (
-                      <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
+                      <Badge variant="warning-light" className="shrink-0">
                         Draft preview
-                      </span>
+                      </Badge>
                     ) : null}
                   </div>
                   <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">

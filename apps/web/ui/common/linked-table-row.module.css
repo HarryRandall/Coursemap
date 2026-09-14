@@ -1,0 +1,43 @@
+.row {
+  position: relative;
+  isolation: isolate;
+}
+
+.row:has([data-row-link]):is(:hover, :focus-within) {
+  background-color: color-mix(in srgb, var(--foreground) 6%, var(--background));
+}
+
+/* The real anchor owns the hit area, including native link previews and menus. */
+.row [data-row-link]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.row
+  :is(
+    a:not([data-row-link]),
+    button,
+    input,
+    select,
+    textarea,
+    label,
+    summary,
+    [role="button"],
+    [role="checkbox"],
+    [contenteditable="true"],
+    [data-row-action]
+  ) {
+  position: relative;
+  z-index: 2;
+}
+
+.row [data-row-link]:focus-visible::after {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+.row [data-row-link]:focus-visible {
+  outline: none;
+}

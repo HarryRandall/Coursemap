@@ -105,13 +105,11 @@ export function CatalogueIdentity({
       </span>
       <div className={styles.identityText}>
         {href ? (
-          <Link className={styles.title} href={href} title={title}>
+          <Link data-row-link className={styles.title} href={href}>
             {title}
           </Link>
         ) : (
-          <span className={styles.title} title={title}>
-            {title}
-          </span>
+          <span className={styles.title}>{title}</span>
         )}
         <span className={styles.code}>
           {code}

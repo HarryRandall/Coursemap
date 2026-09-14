@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { CatalogueIdentity } from "@/ui/admin/catalogue-table/catalogue-table";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import {
@@ -14,16 +15,8 @@ import {
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { cn } from "@/lib/cn";
 import { Pagination } from "@/ui/common/pagination";
+import { CourseAvailability } from "@/ui/courses/course-availability";
 import { CourseRowActions } from "./course-row-actions";
-
-function sessionLabels(sessions: string[]) {
-  return sessions
-    .map((session) => {
-      const number = session.match(/Semester\s+(\d+)/i)?.[1];
-      return number ? `Sem ${number}` : session;
-    })
-    .sort();
-}
 
 const chipClasses =
   "rounded-md bg-muted/50 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground ring-1 ring-border ring-inset";
@@ -87,7 +80,7 @@ export function CourseDirectory({
             {courses.map((course) => {
               const href = `/courses/${course.code}?year=${academicYear}`;
               return (
-                <TableRow key={course.code} className="group">
+                <LinkedTableRow key={course.code} className="group">
                   <TableCell>
                     <CatalogueIdentity
                       code={course.code}
@@ -130,19 +123,10 @@ export function CourseDirectory({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex min-h-10 flex-wrap items-center gap-1">
-                      {course.sessions.length === 0 ? (
-                        <span className="text-[13px] text-muted-foreground/80">
-                          Not listed
-                        </span>
-                      ) : (
-                        sessionLabels(course.sessions).map((label) => (
-                          <span key={label} className={chipClasses}>
-                            {label}
-                          </span>
-                        ))
-                      )}
-                    </div>
+                    <CourseAvailability
+                      courseCode={course.code}
+                      sessions={course.sessions}
+                    />
                   </TableCell>
                   <TableCell>{course.units}</TableCell>
                   <TableCell className="text-right">
@@ -158,7 +142,7 @@ export function CourseDirectory({
                       />
                     </div>
                   </TableCell>
-                </TableRow>
+                </LinkedTableRow>
               );
             })}
           </TableBody>
