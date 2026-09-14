@@ -2,13 +2,11 @@
 
 import { TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 
-export const courseReviewTabs = [
+const courseReviewTabs = [
   { value: "review", label: "Review" },
   { value: "history", label: "History" },
   { value: "preview", label: "Preview" },
 ] as const;
-
-export type CourseReviewTab = (typeof courseReviewTabs)[number]["value"];
 
 export function CourseReviewTabs({
   hasData = true,
