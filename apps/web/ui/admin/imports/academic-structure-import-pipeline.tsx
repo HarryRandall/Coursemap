@@ -63,17 +63,21 @@ function cost(value: number | null) {
 
 export function AcademicStructureImportPipeline({
   extractions,
+  contained = true,
   diagnostics,
   stages,
 }: {
+  contained?: boolean;
   extractions: AcademicStructureImportTargetDetail["extractions"];
   diagnostics?: ReactNode;
   stages: AcademicStructureImportTargetDetail["stages"];
 }) {
   return (
-    <div className="workspace-stack">
+    <div className={contained ? "workspace-stack" : "min-w-0 space-y-4"}>
       <div
-        className="workspace-scroll space-y-4"
+        className={
+          contained ? "workspace-scroll space-y-4" : "min-w-0 space-y-4"
+        }
         role="region"
         aria-label="Import pipeline"
         tabIndex={0}
@@ -125,7 +129,9 @@ export function AcademicStructureImportPipeline({
                       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
                         {duration(stage.started_at, stage.completed_at)}
                       </TableCell>
-                      <TableCell className="max-w-72 truncate text-xs text-rose-700 dark:text-rose-300">
+                      <TableCell
+                        className={`max-w-72 truncate text-xs ${stage.error_summary ? "text-rose-700 dark:text-rose-300" : "text-muted-foreground"}`}
+                      >
                         {stage.error_summary ?? "None"}
                       </TableCell>
                     </TableRow>
@@ -154,12 +160,8 @@ export function AcademicStructureImportPipeline({
                       {extraction.resolved_model ?? extraction.requested_model}
                     </h2>
                   </CardTitle>
-                  {Boolean(
-                    `Extraction attempt ${extraction.extraction_number}`,
-                  ) && (
-                    <CardDescription>{`Extraction attempt ${extraction.extraction_number}`}</CardDescription>
-                  )}
-                  {Boolean(
+                  <CardDescription>{`Extraction attempt ${extraction.extraction_number}`}</CardDescription>
+                  <CardAction>
                     <Badge
                       variant={
                         badgeVariantForTone[
@@ -168,22 +170,8 @@ export function AcademicStructureImportPipeline({
                       }
                     >
                       {readable(extraction.validation_status)}
-                    </Badge>,
-                  ) && (
-                    <CardAction>
-                      {
-                        <Badge
-                          variant={
-                            badgeVariantForTone[
-                              statusTone(extraction.validation_status)
-                            ]
-                          }
-                        >
-                          {readable(extraction.validation_status)}
-                        </Badge>
-                      }
-                    </CardAction>
-                  )}
+                    </Badge>
+                  </CardAction>
                 </CardHeader>
                 <CardContent>
                   <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 xl:grid-cols-4">

@@ -133,6 +133,12 @@ export type AdminStructureReviewGroup = {
 };
 
 export type AdminStructureReviewRecord = {
+  reviewIssues?: {
+    id: string;
+    message: string;
+    source_text: string | null;
+    severity: string;
+  }[];
   pendingImports: PendingCatalogueImport[];
   draftSnapshotId: number | null;
   publishedSnapshotId: number | null;
@@ -370,7 +376,7 @@ export async function loadAdminStructureReview(
           .maybeSingle(),
     supabase
       .from("academic_structure_review_items")
-      .select("id", { count: "exact", head: true })
+      .select("id,message,source_text,severity", { count: "exact" })
       .eq("snapshot_id", snapshotId)
       .eq("status", "open"),
   ]);
@@ -662,6 +668,7 @@ export async function loadAdminStructureReview(
           ? "draft"
           : "candidate",
     reviewState: needsReview ? "needs_review" : "verified",
+    reviewIssues: reviewResult.data ?? [],
     source: sourceResult.data
       ? {
           canonicalUrl: sourceResult.data.canonical_url,

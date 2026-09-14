@@ -46,8 +46,8 @@ function reviewErrorMessage(error: unknown) {
   return "Coursemap could not save the review decision.";
 }
 
-function revalidateImport(targetId: string) {
-  for (const path of allAdminAcademicStructureImportPaths(targetId)) {
+function revalidateImport() {
+  for (const path of allAdminAcademicStructureImportPaths()) {
     revalidatePath(path);
   }
   for (const path of allAdminAcademicStructureCollectionPaths()) {
@@ -79,7 +79,7 @@ async function decide(
       },
     );
     if (error) throw error;
-    revalidateImport(reviewed.targetId);
+    revalidateImport();
     return {
       ok: true,
       message:

@@ -126,22 +126,27 @@ vi.mock("next/navigation", () => ({
 
 import { CourseReviewTabs } from "@/ui/admin/imports/course-review-tabs";
 import { Tabs } from "@coursemap/ui/primitives/tabs";
-test("course review exposes pipeline only for imports and locks tabs during edits", async () => {
+test("course views remain above the editor and preview is last", () => {
   const { rerender } = render(
-    <Tabs defaultValue="course">
-      <CourseReviewTabs hasImport={false} />
+    <Tabs defaultValue="review">
+      <CourseReviewTabs hasData={false} activeTab="review" />
     </Tabs>,
   );
   expect(
-    screen.queryByRole("tab", { name: "Pipeline" }),
+    screen.queryByRole("tab", { name: "Summary" }),
   ).not.toBeInTheDocument();
-  for (const name of ["Course data", "Requisites", "Course preview", "Source"])
-    expect(screen.getByRole("tab", { name })).toBeVisible();
+  expect(screen.getByRole("tab", { name: "Review" })).toBeEnabled();
+  expect(screen.getByRole("tab", { name: "History" })).toBeEnabled();
+  expect(screen.getByRole("tab", { name: "Preview" })).toBeDisabled();
+  expect(screen.getAllByRole("tab").at(-1)).toHaveTextContent("Preview");
   rerender(
-    <Tabs defaultValue="course">
-      <CourseReviewTabs hasImport editing activeTab="course" />
+    <Tabs defaultValue="review">
+      <CourseReviewTabs activeTab="review" editing />
     </Tabs>,
   );
-  expect(screen.getByRole("tab", { name: "Pipeline" })).toBeDisabled();
-  expect(screen.getByRole("tab", { name: "Course data" })).toBeEnabled();
+  expect(screen.getByRole("tab", { name: "History" })).toBeDisabled();
+  expect(
+    screen.queryByRole("tab", { name: "Summary" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Review" })).toBeEnabled();
 });

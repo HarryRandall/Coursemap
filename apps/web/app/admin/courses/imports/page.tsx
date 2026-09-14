@@ -1,3 +1,4 @@
+import { catalogueIdentities } from "@/lib/coursemap/catalogue-identities";
 import { ImportsList } from "@/ui/admin/imports/imports-list";
 import { loadCourseImportPage } from "@/lib/coursemap/admin-course-imports";
 import {
@@ -21,12 +22,20 @@ export default async function CourseImportsPage({
     statusNegated: parsed.statusNegated,
   });
 
+  const identities = await catalogueIdentities(
+    "course",
+    data.records.map((record) => record.courseCode),
+  );
+
   return (
     <ImportsList
       basePath="/admin/courses"
       data={{
         records: data.records.map((record) => ({
           id: record.id,
+          publicId:
+            identities.get(`${record.courseCode}:${record.academicYear}`) ??
+            null,
           code: record.courseCode,
           title: record.courseTitle,
           academicYear: record.academicYear,

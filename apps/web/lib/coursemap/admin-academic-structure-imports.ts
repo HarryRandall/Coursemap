@@ -384,9 +384,11 @@ async function loadSnapshotRelationalData({
 export async function loadAcademicStructureImportTargetDetail({
   structureKind,
   targetId,
+  includeRelationalData = true,
 }: {
   structureKind: AcademicStructureImportKind;
   targetId: string;
+  includeRelationalData?: boolean;
 }): Promise<AcademicStructureImportTargetDetail | null> {
   const supabase = await createClient();
   const { data: targetData, error: targetError } = await supabase
@@ -533,7 +535,7 @@ export async function loadAcademicStructureImportTargetDetail({
   );
   const previousSnapshotId = previousChoice?.id ?? null;
   const previousSnapshotResult =
-    previousSnapshotId !== null
+    includeRelationalData && previousSnapshotId !== null
       ? await supabase
           .from("academic_structure_snapshots")
           .select("*")
@@ -543,7 +545,7 @@ export async function loadAcademicStructureImportTargetDetail({
   if (previousSnapshotResult.error) throw previousSnapshotResult.error;
 
   const relationalData = await loadSnapshotRelationalData({
-    snapshot: candidateSnapshot,
+    snapshot: includeRelationalData ? candidateSnapshot : null,
     structure,
     structureYear,
   });
@@ -572,7 +574,7 @@ export async function loadAcademicStructureImportTargetDetail({
       currentDraftSnapshotId: structureYear?.draft_snapshot_id ?? null,
       currentPublishedSnapshotId: structureYear?.published_snapshot_id ?? null,
       structureId: target.structure_id,
-      structurePublicId: structure?.public_id ?? null,
+      structurePublicId: structureYear?.public_id ?? null,
       structureYearId: target.structure_year_id,
       errorCode: target.error_code,
       errorSummary: target.error_summary,

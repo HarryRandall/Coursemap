@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Checkbox } from "@coursemap/ui/primitives/checkbox";
+import { catalogueWorkspacePath } from "@/lib/coursemap/catalogue-workspace-routes";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@coursemap/ui/primitives/button";
@@ -9,7 +12,10 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { ExtractionIssue } from "@/ui/admin/imports/extraction-issue";
 import { CatalogueValue } from "@/ui/admin/imports/catalogue-value";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
-import { inspectCatalogueProposal } from "@/lib/coursemap/catalogue-proposal-actions";
+import {
+  inspectCatalogueProposal,
+  applyCatalogueProposal,
+} from "@/lib/coursemap/catalogue-proposal-actions";
 import { catalogueFieldLabel } from "@/lib/coursemap/catalogue-proposal-comparison";
 import {
   acceptCourseImportTarget,
@@ -19,7 +25,6 @@ import {
   acceptAcademicStructureImportTarget,
   rejectAcademicStructureImportTarget,
 } from "@/lib/coursemap/academic-structure-import-review-actions";
-import { adminAcademicStructureImportPath } from "@/lib/coursemap/academic-structure-routes";
 import type { PendingCatalogueImport } from "@/lib/coursemap/pending-catalogue-import";
 import type { AcademicStructureKind } from "@/lib/structure-import/contract";
 
@@ -37,6 +42,8 @@ function ImportProposal({
   onResolved: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const [selected, setSelected] = useState<string[]>([]);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,12 +51,11 @@ function ImportProposal({
   const installed =
     currentDraftSnapshotId === proposal.candidateSnapshotId ||
     proposal.isCurrentDraftSource === true;
-  const href = structureKind
-    ? adminAcademicStructureImportPath({
-        kind: structureKind,
-        targetId: proposal.targetId,
-      })
-    : `/admin/courses/imports/${proposal.targetId}`;
+  const href = catalogueWorkspacePath(
+    pathname,
+    "history",
+    `import=${proposal.targetId}`,
+  );
 
   async function inspect() {
     setExpanded(!expanded);
@@ -60,14 +66,37 @@ function ImportProposal({
       setComparison(
         await inspectCatalogueProposal(proposal.targetId, structureKind),
       );
-    } catch {
-      setError("The imported changes could not be loaded. Try again.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The imported changes could not be loaded. Try again.",
+      );
     } finally {
       setLoading(false);
     }
   }
 
   async function decide(accept: boolean) {
+    if (accept && comparison) {
+      try {
+        await applyCatalogueProposal(
+          proposal.targetId,
+          comparison.currentSnapshotId,
+          selected,
+          structureKind,
+        );
+        onResolved();
+        router.refresh();
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "The changes could not be applied.",
+        );
+      }
+      return;
+    }
     const result = structureKind
       ? await (
           accept
@@ -92,11 +121,7 @@ function ImportProposal({
     <section className="rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-sm font-semibold">
-            {installed
-              ? "Imported draft awaiting review"
-              : "New imported changes"}
-          </h2>
+          <h2 className="text-sm font-semibold">Imported differences</h2>
           <Badge variant="outline">
             {new Date(proposal.createdAt).toLocaleDateString("en-AU", {
               timeZone: "Australia/Sydney",
@@ -113,12 +138,12 @@ function ImportProposal({
             onClick={() => void inspect()}
             aria-expanded={expanded}
           >
-            {expanded ? "Hide review" : "Review import"}
+            {expanded ? "Hide changes" : "Review changes"}
           </Button>
         </div>
       </div>
       {error ? (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="m-4 w-auto">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
@@ -154,6 +179,22 @@ function ImportProposal({
                     className="rounded-lg border border-border"
                   >
                     <summary className="cursor-pointer px-3 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                      <span
+                        className="mr-3 inline-flex"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Checkbox
+                          aria-label={`Apply ${catalogueFieldLabel(field.key)}`}
+                          checked={selected.includes(field.key)}
+                          onCheckedChange={(value) =>
+                            setSelected((keys) =>
+                              value === true
+                                ? [...keys, field.key]
+                                : keys.filter((key) => key !== field.key),
+                            )
+                          }
+                        />
+                      </span>
                       {catalogueFieldLabel(field.key)}
                     </summary>
                     <div
@@ -178,7 +219,7 @@ function ImportProposal({
                 ))}
                 {!comparison.first && comparison.fields.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No course content changes.
+                    No changes found.
                   </p>
                 ) : null}
               </div>
@@ -200,19 +241,21 @@ function ImportProposal({
                 <ConfirmDialog
                   title={
                     installed
-                      ? "Confirm the imported draft?"
-                      : "Use these changes as the draft?"
+                      ? "Complete the review?"
+                      : "Apply the selected changes?"
                   }
                   description={
                     installed
                       ? "Confirm that you have checked the imported content and extraction issues."
-                      : "This replaces the current draft with the imported version. Publication remains separate."
+                      : "Only the selected changes will be applied. Affected sections will need approval before publishing."
                   }
-                  confirmLabel={installed ? "Confirm review" : "Use as draft"}
+                  confirmLabel={
+                    installed ? "Complete review" : "Apply selected changes"
+                  }
                   onConfirm={() => decide(true)}
                   trigger={
-                    <Button size="sm">
-                      {installed ? "Confirm review" : "Use as draft"}
+                    <Button size="sm" disabled={!selected.length}>
+                      {installed ? "Complete review" : "Apply selected changes"}
                     </Button>
                   }
                 />
@@ -236,7 +279,10 @@ export function PendingImportProposals({
 }) {
   const [resolved, setResolved] = useState<string[]>([]);
   const visible = pendingImports.filter(
-    (proposal) => !resolved.includes(proposal.targetId),
+    (proposal) =>
+      !resolved.includes(proposal.targetId) &&
+      proposal.candidateSnapshotId !== currentDraftSnapshotId &&
+      !proposal.isCurrentDraftSource,
   );
   if (!visible.length) return null;
   return (

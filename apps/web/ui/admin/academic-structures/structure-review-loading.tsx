@@ -12,13 +12,16 @@ import { cn } from "@/lib/cn";
  * The raw public id is hidden from the breadcrumb until the record name loads.
  */
 export function StructureReviewLoading({ noun }: { noun: string }) {
-  const { id } = useParams<{ id: string }>();
+  const { id, year } = useParams<{ id: string; year?: string }>();
 
   return (
     <AppShell
       loading
       admin
-      breadcrumbSegmentLabels={{ [id]: null }}
+      breadcrumbSegmentLabels={{
+        [id]: null,
+        ...(year ? { [year]: null } : {}),
+      }}
       tabs={<TabsLoading widths={["w-14", "w-24", "w-14"]} />}
     >
       <div aria-busy="true" className="mx-auto w-full min-w-0 space-y-4 pb-10">

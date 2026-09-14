@@ -1,41 +1,64 @@
-# Catalogue workspace refresh
+# Catalogue review workspaces
 
-Course, programme, major and minor workspaces own content editing, review and
-publication. Import target pages are read-only records of individual runs, with a
-retry action that creates a new run.
+Courses, programmes, majors, minors and specialisations use the same lifecycle:
 
-## Draft and review lifecycle
+1. Directory discovery creates a stable catalogue identity.
+2. The first successful import becomes working content automatically.
+3. An administrator reviews sections individually or clicks **Approve eligible sections**.
+4. **Publish** becomes available once all required sections are approved and blocking review work is resolved.
+5. Later edits remain unpublished until reviewed and published again.
 
-- The first valid import creates an unpublished draft automatically.
-- Later imports remain proposals and never replace a working draft silently.
-- Manual edits create descendant snapshots. Reviewing their original import
-  preserves the edited draft and resolves the original review requirement.
-- Publication checks unresolved review requirements across the draft's ancestry.
-- ANU text comes from the original imported snapshot or recorded evidence. Manual
-  edits are never presented as original ANU text.
+## Addresses
 
-## Interface organisation
+The review workspace is `/admin/{collection}/{annual-record-uuid}`. History and
+preview use `/history` and `/preview`. Historical versions use
+`/versions/{version-uuid}` and are read-only, including when the selected version
+is also current. Codes are display and search values. Numeric database IDs are
+internal; neither codes nor numeric version IDs are detail addresses.
 
-- Course data is the default course tab, followed by Requisites, Course preview,
-  Source and Pipeline. Programmes, majors and minors share section editors.
-- Section editors save complete validated projections, preserving untouched
-  fields and linked records. Advanced relational fields remain under Source.
-- Requisites and academic requirements offer a readable builder and diagram.
-- Saved and planned database rows share one inspector. Empty tables are hidden
-  initially; search accepts both readable and database names.
-- Source artefacts retain individual attempts and original diagnostic payloads.
+The UUID identifies one catalogue year, which is displayed on the page. There are no
+year-segment detail routes, code-addressed detail routes, standalone
+import detail pages or compatibility redirects. The `view` and `snapshot` query
+parameters are rejected. `section` selects a section within Review and `import`
+selects a processing entry within History. Directory pagination and filters remain
+query parameters.
 
-## Legacy and database scope
+## Approval
 
-The migration is forward-only and changes draft/review functions and triggers.
-It does not delete catalogue data. Earlier migrations already removed obsolete
-review and version tables. The older catalogue import and source-document tables
-remain in use by calendar ingestion and must not be removed as unused.
+Approval is explicit. There is no approval on import completion. Prerequisites
+and structure requirements always require manual approval. Bulk approval requires
+verified source evidence and passed checks; model confidence alone is insufficient.
+The initial policy is deliberately conservative: incomplete evidence coverage,
+model-only evidence or an open non-manual import issue prevents bulk approval.
 
-The local preview seed no longer creates variable-unit options for fixed-unit
-courses. Existing local fixtures require reseeding separately to pick up that
-correction; this change does not reset an existing database.
+Approvals are stored in the database with the administrator, method, timestamp
+and content fingerprint. Changing a section clears its approval; unchanged
+sections retain their approval. Returning a changed section to older content does
+not resurrect an earlier approval. Publication checks approvals in the database,
+not just through a disabled button.
 
-Apply `20260907020121_automatically_prepare_first_catalogue_drafts.sql` through the
-normal migration release process before deploying the corresponding application.
-Local verification does not constitute a production migration or deployment.
+Sections autosave after editing settles. Validation failures keep the entered
+content available for correction. Warnings can be acknowledged through manual
+review; structural validation and blocking requirement issues still prevent
+publication. The published version stays unchanged while editing.
+
+## Re-imports and history
+
+Re-import review compares incoming content with the working version and displays
+only differences. Administrators select fields to apply. The database applies the
+selection transactionally and refuses stale comparisons. Related fields must
+still form a valid complete projection. Unselected content is preserved. An
+unchanged import reports **No changes found**.
+
+History contains imports, version links, section decisions and publications.
+The selected import's processing details start expanded. Source files and
+processing details stay in History. Restoring a historical version creates working
+content; changed sections require review before publication.
+
+## Local verification and rollout
+
+The workspace migration adds public snapshot UUIDs, directory identity creation,
+section approval records and permission-checked review, comparison, restore and
+publication enforcement. Apply it with the application changes. Test against an
+isolated local Supabase stack before applying to a hosted database. Local
+implementation and tests do not authorise hosted migrations or publication.

@@ -110,15 +110,9 @@ export async function saveAcademicStructureManualSnapshot(
         publicId: input.structurePublicId,
       }),
     );
-    revalidatePath(
-      adminAcademicStructureDetailPath({
-        kind: projection.structureKind,
-        publicId: input.structurePublicId,
-        year: projection.academicYear,
-      }),
-    );
     return {
       ok: true,
+      snapshotId: data,
       message: `${projection.structureCode} was saved as a new draft snapshot. It has not been published.`,
     };
   } catch (error) {

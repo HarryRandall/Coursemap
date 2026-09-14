@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { randomUUID, createHash } from "node:crypto";
@@ -137,6 +138,17 @@ test("editing a first structure draft preserves its review and confirms without 
           sourcePageId: Number(page.id),
           candidateSnapshotId: candidate.candidateSnapshotId,
         });
+        // Reproduce an older completed import with no prepared workspace.
+        await tx`update public.academic_structure_years set draft_snapshot_id = null where id = ${candidate.structureYearId}`;
+        const backfill = await readFile(
+          new URL(
+            "../../../supabase/migrations/20260914090000_prepare_existing_first_catalogue_drafts.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        );
+        await tx.unsafe(backfill);
+        await tx.unsafe(backfill);
         await tx`select set_config('request.jwt.claim.sub',${actor},true)`;
         const [edited] =
           await tx`select public.create_academic_structure_manual_snapshot(${candidate.structureYearId},${candidate.candidateSnapshotId},jsonb_set(private.academic_structure_manual_projection(${candidate.candidateSnapshotId}),'{snapshot,title}','"Manually corrected major"'::jsonb)) as id`;
@@ -202,7 +214,125 @@ test("editing a first structure draft preserves its review and confirms without 
         const [review] =
           await tx`select review_status from public.academic_structure_import_targets where id=${target.id}`;
         assert.equal(review.review_status, "accepted");
+        await assert.rejects(
+          tx.savepoint(async (savepoint) => {
+            await savepoint`select public.publish_academic_structure_snapshot(${candidate.structureYearId},${edited.id})`;
+          }),
+          /Approve every required section/,
+        );
+        const [reviewState] =
+          await tx`select public.catalogue_review_state(${kind}, ${candidate.structureYearId}, ${edited.id}) as sections`;
+        await tx`select public.review_catalogue_sections(${kind}, ${candidate.structureYearId}, ${edited.id}, ${reviewState.sections.map((section) => section.key)}::text[], true, false)`;
         await tx`select public.publish_academic_structure_snapshot(${candidate.structureYearId},${edited.id})`;
+        await assert.rejects(
+          tx.savepoint(async (savepoint) => {
+            await savepoint`select public.review_catalogue_sections(${kind}, ${candidate.structureYearId}, ${edited.id}, array['requirements'], true, true)`;
+          }),
+          /manual review/,
+        );
+        const [changed] =
+          await tx`select public.create_academic_structure_manual_snapshot(${candidate.structureYearId}, ${edited.id}, jsonb_set(private.academic_structure_manual_projection(${edited.id}), '{snapshot,title}', '"Changed after approval"'::jsonb)) as id`;
+        const [changedState] =
+          await tx`select public.catalogue_review_state(${kind}, ${candidate.structureYearId}, ${changed.id}) as sections`;
+        assert.equal(
+          changedState.sections.find((section) => section.key === "details")
+            .approved,
+          false,
+        );
+        assert.ok(
+          changedState.sections
+            .filter((section) => section.key !== "details")
+            .every((section) => section.approved),
+        );
+        await assert.rejects(
+          tx.savepoint(async (savepoint) => {
+            await savepoint`select public.review_catalogue_sections(${kind}, ${candidate.structureYearId}, ${edited.id}, array['details'], true, false)`;
+          }),
+          /working content changed/,
+        );
+        const [published] =
+          await tx`select published_snapshot_id from public.academic_structure_years where id=${candidate.structureYearId}`;
+        assert.equal(
+          String(published.published_snapshot_id),
+          String(edited.id),
+        );
+        await tx`select public.review_catalogue_sections(${kind}, ${candidate.structureYearId}, ${changed.id}, array['details'], true, false)`;
+        const [original] =
+          await tx`select public_id from public.academic_structure_snapshots where id=${edited.id}`;
+        const [restored] =
+          await tx`select public.restore_catalogue_version(${kind}, ${candidate.structureYearId}, ${original.public_id}, ${changed.id}) as id`;
+        const [restoredState] =
+          await tx`select public.catalogue_review_state(${kind}, ${candidate.structureYearId}, ${restored.id}) as sections`;
+        assert.equal(
+          restoredState.sections.find((section) => section.key === "details")
+            .approved,
+          false,
+        );
+        const [secondRun] =
+          await tx`insert into public.academic_structure_import_runs ${tx({ source_id: source.id, academic_year_id: year.id, structure_kind: kind, requested_model: "google/gemini-3.1-flash-lite", parser_version: "local-fixture", prompt_version: "local-fixture", schema_version: projection.schemaVersion, target_count: 1, queued_count: 1, initiated_by: actor })} returning id`;
+        const [secondTarget] =
+          await tx`insert into public.academic_structure_import_targets ${tx({ run_id: secondRun.id, baseline_draft_snapshot_id: restored.id, baseline_published_snapshot_id: edited.id, academic_year_id: year.id, directory_entry_id: directory.id, position: 0, structure_kind: kind, structure_code: code, requested_model: "google/gemini-3.1-flash-lite" })} returning id`;
+        const secondClaim = await claimAcademicStructureImportTarget(tx, {
+          runId: secondRun.id,
+          targetId: secondTarget.id,
+          messageId: "second-import",
+          workerId,
+        });
+        const secondExtraction = {
+          ...parsed,
+          title: "Incoming title",
+          description: "Incoming description",
+        };
+        const secondCandidate = await persistAcademicStructureSnapshotCandidate(
+          tx,
+          {
+            claim: secondClaim,
+            sourcePageId: Number(page.id),
+            projection: projectAcademicStructureSnapshot(secondExtraction),
+            extraction: secondExtraction,
+            messageId: "second-import",
+            workerId,
+            expectedLockVersion: secondClaim.lockVersion,
+          },
+        );
+        await finishAcademicStructureImportTarget(tx, {
+          runId: secondRun.id,
+          targetId: secondTarget.id,
+          messageId: "second-import",
+          workerId,
+          expectedLockVersion: secondClaim.lockVersion,
+          processingStatus: "succeeded",
+          changeKind: secondCandidate.changeKind,
+          structureId: secondCandidate.structureId,
+          structureYearId: secondCandidate.structureYearId,
+          sourcePageId: Number(page.id),
+          candidateSnapshotId: secondCandidate.candidateSnapshotId,
+        });
+        const [comparison] =
+          await tx`select public.catalogue_import_comparison(${kind}, ${secondTarget.id}) as value`;
+        assert.equal(comparison.value.after.snapshot.title, "Incoming title");
+        await assert.rejects(
+          tx.savepoint(async (savepoint) => {
+            await savepoint`select public.apply_catalogue_import_changes(${kind}, ${secondTarget.id}, ${edited.id}, array['title'])`;
+          }),
+          /record changed/,
+        );
+        const [applied] =
+          await tx`select public.apply_catalogue_import_changes(${kind}, ${secondTarget.id}, ${restored.id}, array['title']) as id`;
+        const [appliedProjection] =
+          await tx`select private.academic_structure_manual_projection(${applied.id}) as value`;
+        assert.equal(appliedProjection.value.snapshot.title, "Incoming title");
+        assert.equal(
+          appliedProjection.value.snapshot.description,
+          comparison.value.before.snapshot.description,
+        );
+        await tx`select set_config('request.jwt.claim.sub', '', true)`;
+        await assert.rejects(
+          tx.savepoint(async (savepoint) => {
+            await savepoint`select public.review_catalogue_sections(${kind}, ${candidate.structureYearId}, ${restored.id}, array['details'], true, false)`;
+          }),
+          /permission/,
+        );
         throw rollback;
       }),
       (error) => error === rollback,

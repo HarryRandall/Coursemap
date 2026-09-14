@@ -32,10 +32,7 @@ test.each([acceptCourseImportTarget, rejectCourseImportTarget])(
   "%s invalidates the year-specific course review after a decision",
   async (decide) => {
     expect((await decide(input)).ok).toBe(true);
-    expect(revalidatePath).toHaveBeenCalledWith(
-      "/admin/courses/[id]/[year]",
-      "page",
-    );
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/courses/[id]", "page");
   },
 );
 

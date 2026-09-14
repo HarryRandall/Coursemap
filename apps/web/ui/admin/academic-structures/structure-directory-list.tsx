@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { StopStructureImport } from "@/ui/admin/imports/stop-structure-import";
 import { badgeVariantForTone } from "@/lib/ui";
 
@@ -50,7 +51,6 @@ import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import {
   adminAcademicStructureCollectionPath,
   adminAcademicStructureDetailPath,
-  adminAcademicStructureImportPath,
   adminAcademicStructureImportsPath,
 } from "@/lib/coursemap/academic-structure-routes";
 import type { AcademicStructureKind } from "@/lib/structure-import/contract";
@@ -609,7 +609,7 @@ export function StructureDirectoryList({
               </TableHeader>
               <TableBody>
                 {data.records.map((record) => (
-                  <TableRow
+                  <LinkedTableRow
                     className={
                       selectedSet.has(record.code) ? "bg-primary/5" : undefined
                     }
@@ -636,7 +636,6 @@ export function StructureDirectoryList({
                             ? adminAcademicStructureDetailPath({
                                 kind: record.kind,
                                 publicId: record.structurePublicId,
-                                year: record.year,
                               })
                             : undefined
                         }
@@ -675,7 +674,6 @@ export function StructureDirectoryList({
                                   href: adminAcademicStructureDetailPath({
                                     kind: record.kind,
                                     publicId: record.structurePublicId,
-                                    year: record.year,
                                   }),
                                 },
                               ]
@@ -685,10 +683,7 @@ export function StructureDirectoryList({
                             ? [
                                 {
                                   label: "Review latest import",
-                                  href: adminAcademicStructureImportPath({
-                                    kind: data.kind,
-                                    targetId: record.latestImport.targetId,
-                                  }),
+                                  href: `${adminAcademicStructureDetailPath({ kind: data.kind, publicId: record.structurePublicId! })}/history?import=${record.latestImport.targetId}`,
                                 },
                               ]
                             : []),
@@ -705,7 +700,7 @@ export function StructureDirectoryList({
                         ]}
                       />
                     </TableCell>
-                  </TableRow>
+                  </LinkedTableRow>
                 ))}
               </TableBody>
             </Table>

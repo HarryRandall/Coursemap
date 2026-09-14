@@ -3,6 +3,8 @@ const provenanceFields = new Set([
   "projectionSha256",
   "schemaVersion",
   "sourceLocator",
+  "sourceExcerpt",
+  "createdAt",
   "sourceUpdatedAt",
   "evidence",
   "validationStatus",

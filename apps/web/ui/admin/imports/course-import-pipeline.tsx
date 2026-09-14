@@ -1,3 +1,4 @@
+import { ImportErrorDetails } from "./import-error-details";
 import { ImportEmptyState } from "./import-empty-state";
 import type { ReactNode } from "react";
 import { badgeVariantForTone } from "@/lib/ui";
@@ -57,17 +58,19 @@ function duration(startedAt: string | null, completedAt: string | null) {
 
 export function CourseImportPipeline({
   extractions,
+  contained = true,
   diagnostics,
   reviewHref,
   stages,
 }: {
+  contained?: boolean;
   extractions: CourseImportTargetDetail["extractions"];
   reviewHref?: string;
   diagnostics?: ReactNode;
   stages: CourseImportTargetDetail["stages"];
 }) {
   return (
-    <div className="workspace-stack">
+    <div className={contained ? "workspace-stack" : "space-y-4"}>
       {reviewHref ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -89,7 +92,7 @@ export function CourseImportPipeline({
       ) : null}
 
       <div
-        className="workspace-scroll space-y-4"
+        className={contained ? "workspace-scroll space-y-4" : "space-y-4"}
         role="region"
         aria-label="Import pipeline"
         tabIndex={0}
@@ -141,8 +144,12 @@ export function CourseImportPipeline({
                       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
                         {duration(stage.started_at, stage.completed_at)}
                       </TableCell>
-                      <TableCell className="max-w-72 truncate text-xs text-rose-700 dark:text-rose-300">
-                        {stage.error_summary ?? "—"}
+                      <TableCell className="max-w-72 text-xs">
+                        {stage.error_summary ? (
+                          <ImportErrorDetails message={stage.error_summary} />
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -168,12 +175,8 @@ export function CourseImportPipeline({
                     {extraction.resolved_model ?? extraction.requested_model}
                   </h2>
                 </CardTitle>
-                {Boolean(
-                  `Extraction attempt ${extraction.extraction_number}`,
-                ) && (
-                  <CardDescription>{`Extraction attempt ${extraction.extraction_number}`}</CardDescription>
-                )}
-                {Boolean(
+                <CardDescription>{`Extraction attempt ${extraction.extraction_number}`}</CardDescription>
+                <CardAction>
                   <Badge
                     variant={
                       badgeVariantForTone[
@@ -182,22 +185,8 @@ export function CourseImportPipeline({
                     }
                   >
                     {readable(extraction.validation_status)}
-                  </Badge>,
-                ) && (
-                  <CardAction>
-                    {
-                      <Badge
-                        variant={
-                          badgeVariantForTone[
-                            statusTone(extraction.validation_status)
-                          ]
-                        }
-                      >
-                        {readable(extraction.validation_status)}
-                      </Badge>
-                    }
-                  </CardAction>
-                )}
+                  </Badge>
+                </CardAction>
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 xl:grid-cols-4">

@@ -1,5 +1,6 @@
 "use client";
-import { AnuSourceDialog } from "@/ui/admin/common/anu-source-dialog";
+import { useCatalogueAutosave } from "@/ui/admin/imports/use-catalogue-autosave";
+import { CourseSourceEvidence } from "@/ui/admin/courses/course-source-evidence";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Field } from "@coursemap/ui/primitives/field";
@@ -13,7 +14,7 @@ import {
 } from "@coursemap/ui/primitives/tabs";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AutomaticMapping } from "@/ui/admin/requisites/requisite-automatic-mapping";
 import { RequisiteRuleTree } from "@/ui/admin/requisites/requisite-rule-tree";
 
@@ -148,7 +149,17 @@ export function CourseSnapshotRuleEditor({
   );
   const codes = useMemo(() => extractAnuCourseCodes(sourceText), [sourceText]);
 
-  async function save() {
+  const lastSaved = useRef(JSON.stringify({ tree, sourceText, hardness }));
+  useCatalogueAutosave({ tree, sourceText, hardness }, canEdit, () =>
+    save(false),
+  );
+
+  async function save(finish = true) {
+    const signature = JSON.stringify({ tree, sourceText, hardness });
+    if (signature === lastSaved.current) {
+      if (finish) onCancel();
+      return;
+    }
     setError(null);
     if (!sourceText.trim()) {
       setError("Source wording is required.");
@@ -173,6 +184,8 @@ export function CourseSnapshotRuleEditor({
       });
       setSaving(true);
       await onSave(next);
+      lastSaved.current = signature;
+      if (finish) onCancel();
     } catch (nextError) {
       setError(
         nextError instanceof Error
@@ -187,10 +200,7 @@ export function CourseSnapshotRuleEditor({
   return (
     <div className="space-y-4 px-5 py-5 sm:px-6">
       <div className="flex justify-end">
-        <AnuSourceDialog
-          title="ANU requisite text"
-          texts={originalSourceTexts}
-        />
+        <CourseSourceEvidence texts={originalSourceTexts} />
       </div>
       <UnsupportedConditions kinds={initial.unsupportedKinds} />
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
@@ -268,7 +278,7 @@ export function CourseSnapshotRuleEditor({
         </Button>
         <Button
           disabled={!canEdit || saving || initial.unsupportedKinds.length > 0}
-          onClick={() => void save()}
+          onClick={() => void save(true)}
           variant="default"
           type="button"
         >

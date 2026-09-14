@@ -448,7 +448,7 @@ export async function loadAcademicStructureDirectoryPage({
       firstSeenAt: entry.first_seen_at,
       lastSeenAt: entry.last_seen_at,
       structureId: structure?.id ?? null,
-      structurePublicId: structure?.public_id ?? null,
+      structurePublicId: structureYear?.public_id ?? null,
       structureYearId: structureYear?.id ?? null,
       draftSnapshotId: structureYear?.draft_snapshot_id ?? null,
       publishedSnapshotId: structureYear?.published_snapshot_id ?? null,

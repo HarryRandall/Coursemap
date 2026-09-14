@@ -37,11 +37,6 @@ const positionedCollectionKeys = [
   "assessmentItems",
 ] as const;
 
-function readable(value: string) {
-  const words = value.replaceAll("_", " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -281,28 +276,4 @@ export function preparedProjection(
     snapshot,
     ...collections,
   });
-}
-
-export function projectionChanges(
-  current: CourseSnapshotProjectionData,
-  published: CourseSnapshotProjectionData | null,
-) {
-  if (!published) return ["New course year with no published snapshot"];
-  const changes: string[] = [];
-  for (const key of Object.keys(current.snapshot) as Array<
-    keyof SnapshotFields
-  >) {
-    if (
-      JSON.stringify(current.snapshot[key]) !==
-      JSON.stringify(published.snapshot[key])
-    ) {
-      changes.push(`Course field: ${readable(key)}`);
-    }
-  }
-  for (const key of advancedCollectionKeys) {
-    if (JSON.stringify(current[key]) !== JSON.stringify(published[key])) {
-      changes.push(`Collection: ${readable(key)}`);
-    }
-  }
-  return changes;
 }

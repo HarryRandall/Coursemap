@@ -1,10 +1,11 @@
 "use client";
+import { useCatalogueAutosave } from "@/ui/admin/imports/use-catalogue-autosave";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
 
 import { CircleAlert, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 import { SummaryFieldsEditor, EvidenceEditor } from "./source-fields-editor";
 import { saveAcademicStructureManualSnapshot } from "@/lib/coursemap/academic-structure-snapshot-actions";
@@ -56,15 +57,23 @@ export function AcademicStructureManualSnapshotEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const baseId = useRef(record.id);
+  const lastSaved = useRef(JSON.stringify(projection));
+  useCatalogueAutosave(projection, true, () => save(undefined, false));
+
+  async function save(event?: FormEvent<HTMLFormElement>, finish = true) {
+    event?.preventDefault();
+    if (JSON.stringify(projection) === lastSaved.current) {
+      if (finish) onSaved();
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
       const prepared =
         normaliseAcademicStructureManualSnapshotProjection(projection);
       const result = await saveAcademicStructureManualSnapshot({
-        expectedBaseSnapshotId: record.id,
+        expectedBaseSnapshotId: baseId.current,
         projection: prepared,
         structurePublicId: record.publicId,
         structureYearId: record.structureYearId,
@@ -73,7 +82,9 @@ export function AcademicStructureManualSnapshotEditor({
         setError(result.message);
         return;
       }
-      onSaved();
+      lastSaved.current = JSON.stringify(projection);
+      baseId.current = result.snapshotId ?? baseId.current;
+      if (finish) onSaved();
       router.refresh();
     } catch (caught) {
       setError(
@@ -87,7 +98,14 @@ export function AcademicStructureManualSnapshotEditor({
   }
 
   return (
-    <form className="space-y-5" onSubmit={save}>
+    <form className="space-y-5" onSubmit={(event) => void save(event)}>
+      <p role="status" className="text-xs text-muted-foreground">
+        {saving
+          ? "Saving…"
+          : error
+            ? "Changes not saved"
+            : "Changes save automatically"}
+      </p>
       {section === "details" ? (
         <DetailsSectionEditor
           projection={projection}

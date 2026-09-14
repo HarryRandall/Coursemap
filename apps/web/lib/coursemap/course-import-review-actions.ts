@@ -69,10 +69,8 @@ async function decide(
     if (error) throw error;
 
     revalidatePath("/admin/courses/imports");
-    revalidatePath(`/admin/courses/imports/${reviewed.targetId}`);
     revalidatePath("/admin/courses");
     revalidatePath("/admin/courses/[id]", "page");
-    revalidatePath("/admin/courses/[id]/[year]", "page");
     return {
       ok: true,
       message:
@@ -91,39 +89,4 @@ export async function acceptCourseImportTarget(input: ReviewDecisionInput) {
 
 export async function rejectCourseImportTarget(input: ReviewDecisionInput) {
   return decide("reject", input);
-}
-
-export async function recoverStalledCourseImportRun(
-  runId: string,
-): Promise<CoursemapActionResult> {
-  if (!(await canManageCourseImports())) {
-    return { ok: false, message: "Course import permission is required." };
-  }
-  if (!UUID_PATTERN.test(runId)) {
-    return { ok: false, message: "Choose a valid course import run." };
-  }
-
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.rpc(
-      "fail_expired_course_import_targets",
-      { p_run_id: runId },
-    );
-    if (error) throw error;
-    const result = data?.[0];
-    revalidatePath("/admin/courses/imports");
-    revalidatePath("/admin/courses");
-    return {
-      ok: true,
-      message:
-        result && result.newly_failed_target_count > 0
-          ? `${result.newly_failed_target_count} stalled course${result.newly_failed_target_count === 1 ? " was" : "s were"} marked failed.`
-          : "No expired or stale queued courses were found.",
-    };
-  } catch {
-    return {
-      ok: false,
-      message: "Coursemap could not recover stalled import work.",
-    };
-  }
 }

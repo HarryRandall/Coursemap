@@ -32,7 +32,6 @@ export function AcademicStructureImportTargetReview({
     ? adminAcademicStructureDetailPath({
         kind: detail.run.structureKind,
         publicId: detail.target.structurePublicId,
-        year: detail.run.academicYear,
       })
     : null;
   return (

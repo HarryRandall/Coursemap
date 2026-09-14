@@ -349,9 +349,12 @@ export async function loadCourseDirectoryPage({
     if (status === "directory") {
       entriesQuery = statusNegated
         ? entriesQuery.or(
-            "latest_target_id.not.is.null,course_year_id.not.is.null",
+            "latest_target_id.not.is.null,draft_snapshot_id.not.is.null,published_snapshot_id.not.is.null",
           )
-        : entriesQuery.is("latest_target_id", null).is("course_year_id", null);
+        : entriesQuery
+            .is("latest_target_id", null)
+            .is("draft_snapshot_id", null)
+            .is("published_snapshot_id", null);
     } else if (status === "draft") {
       entriesQuery = statusNegated
         ? entriesQuery.is("draft_snapshot_id", null)
@@ -397,19 +400,18 @@ export async function loadCourseDirectoryPage({
   if (activeRunResult.error) throw activeRunResult.error;
 
   const entries = entriesResult.data ?? [];
-  const courseIds = [
-    ...new Set(
-      entries
-        .map((entry) => entry.course_id)
-        .filter((courseId): courseId is number => courseId !== null),
-    ),
-  ];
-  const { data: courses, error: coursesError } = courseIds.length
-    ? await supabase.from("courses").select("id,public_id").in("id", courseIds)
+  const yearIds = entries.flatMap((entry) =>
+    entry.course_year_id === null ? [] : [entry.course_year_id],
+  );
+  const { data: workspaceYears, error: workspaceError } = yearIds.length
+    ? await supabase
+        .from("course_years")
+        .select("id,public_id")
+        .in("id", yearIds)
     : { data: [], error: null };
-  if (coursesError) throw coursesError;
-  const publicIdByCourseId = new Map(
-    (courses ?? []).map((course) => [course.id, course.public_id]),
+  if (workspaceError) throw workspaceError;
+  const publicIdByYearId = new Map(
+    (workspaceYears ?? []).map((item) => [item.id, item.public_id]),
   );
 
   return {
@@ -445,9 +447,9 @@ export async function loadCourseDirectoryPage({
             : (yearById.get(entry.academic_year_id) ?? selectedYear.year),
         courseId: entry.course_id,
         coursePublicId:
-          entry.course_id === null
+          entry.course_year_id === null
             ? null
-            : (publicIdByCourseId.get(entry.course_id) ?? null),
+            : (publicIdByYearId.get(entry.course_year_id) ?? null),
         courseYearId: entry.course_year_id,
         draftSnapshotId: entry.draft_snapshot_id,
         publishedSnapshotId: entry.published_snapshot_id,
@@ -749,8 +751,10 @@ async function snapshotRelationalData(
 /** Target ids are unique, so the review page addresses one without its run. */
 export async function loadCourseImportTargetDetail({
   targetId,
+  includeProjections = true,
 }: {
   targetId: string;
+  includeProjections?: boolean;
 }): Promise<CourseImportTargetDetail | null> {
   const supabase = await createClient();
   const { data: targetData, error: targetError } = await supabase
@@ -826,7 +830,7 @@ export async function loadCourseImportTargetDetail({
         ? Promise.resolve({ data: null, error: null })
         : supabase
             .from("course_years")
-            .select("draft_snapshot_id,published_snapshot_id")
+            .select("public_id,draft_snapshot_id,published_snapshot_id")
             .eq("id", target.course_year_id)
             .single(),
       target.source_page_id === null
@@ -887,24 +891,26 @@ export async function loadCourseImportTargetDetail({
       choice.id !== null &&
       (choice.isBaseline || choice.id !== target.candidate_snapshot_id),
   );
-  const previousSnapshotResult = previousSnapshotChoice
-    ? previousSnapshotChoice.id === target.candidate_snapshot_id
-      ? snapshotResult
-      : await supabase
-          .from("course_snapshots")
-          .select("*")
-          .eq("id", previousSnapshotChoice.id)
-          .single()
-    : { data: null, error: null };
+  const previousSnapshotResult =
+    includeProjections && previousSnapshotChoice
+      ? previousSnapshotChoice.id === target.candidate_snapshot_id
+        ? snapshotResult
+        : await supabase
+            .from("course_snapshots")
+            .select("*")
+            .eq("id", previousSnapshotChoice.id)
+            .single()
+      : { data: null, error: null };
   if (previousSnapshotResult.error) throw previousSnapshotResult.error;
 
-  const candidateProjectionPromise = snapshotResult.data
-    ? loadCourseSnapshotProjection(
-        snapshotResult.data,
-        target.course_code,
-        yearResult.data!.year,
-      )
-    : Promise.resolve(null);
+  const candidateProjectionPromise =
+    includeProjections && snapshotResult.data
+      ? loadCourseSnapshotProjection(
+          snapshotResult.data,
+          target.course_code,
+          yearResult.data!.year,
+        )
+      : Promise.resolve(null);
   const previousProjectionPromise = previousSnapshotResult.data
     ? previousSnapshotChoice?.id === target.candidate_snapshot_id
       ? candidateProjectionPromise
@@ -917,7 +923,7 @@ export async function loadCourseImportTargetDetail({
 
   const [relationalData, candidateProjection, previousProjection] =
     await Promise.all([
-      target.candidate_snapshot_id
+      includeProjections && target.candidate_snapshot_id
         ? snapshotRelationalData(target.candidate_snapshot_id)
         : Promise.resolve({}),
       candidateProjectionPromise,
@@ -935,7 +941,7 @@ export async function loadCourseImportTargetDetail({
     target: {
       id: target.id,
       courseCode: target.course_code,
-      coursePublicId: courseResult.data?.public_id ?? null,
+      coursePublicId: courseYearResult.data?.public_id ?? null,
       processingStatus: target.processing_status,
       reviewStatus: target.review_status,
       changeKind: target.change_kind,

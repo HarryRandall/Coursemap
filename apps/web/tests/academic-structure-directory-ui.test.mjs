@@ -7,7 +7,6 @@ const { academicStructureDirectoryRecordStatus } =
 const {
   adminAcademicStructureCollectionPath,
   adminAcademicStructureDetailPath,
-  legacyAdminAcademicStructureCollectionRedirect,
 } = await import("../lib/coursemap/academic-structure-routes.ts");
 
 function record(overrides = {}) {
@@ -42,45 +41,10 @@ test("builds distinct admin collection and detail routes for every structure kin
       adminAcademicStructureDetailPath({
         kind,
         publicId: "00000000-0000-4000-8000-000000000001",
-        year: 2026,
       }),
-      `${path}/00000000-0000-4000-8000-000000000001?year=2026`,
+      `${path}/00000000-0000-4000-8000-000000000001`,
     );
   }
-});
-
-test("redirects old kind query URLs to the matching collection route", () => {
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({
-      availability: "available",
-      kind: "major",
-      page: "2",
-      q: "data science",
-      status: "published",
-      year: "2026",
-    }),
-    "/admin/majors?availability=available&page=2&q=data+science&status=published&year=2026",
-  );
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({ kind: "minor" }),
-    "/admin/minors",
-  );
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({ kind: "specialisation" }),
-    "/admin/specialisations",
-  );
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({ kind: "" }),
-    "/admin/programmes",
-  );
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({ kind: "unknown" }),
-    "/admin/programmes",
-  );
-  assert.equal(
-    legacyAdminAcademicStructureCollectionRedirect({ year: "2026" }),
-    null,
-  );
 });
 
 test("derives one clear directory status from processing, review and publication state", () => {
