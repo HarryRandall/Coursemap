@@ -168,10 +168,10 @@ test("sends locally, replies with fixed text, and restores the conversation", as
     </AssistantProvider>,
   );
   expect(
-    screen.getByText(
+    screen.queryByText(
       "Preview with sample replies. Chats stay in this browser.",
     ),
-  ).toBeVisible();
+  ).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   await user.type(screen.getByRole("textbox"), "Hello Compass");
   await user.click(screen.getByRole("button", { name: "Microphone" }));

@@ -69,9 +69,6 @@ export function AssistantComposer({
           </Button>
         </div>
       </div>
-      <p className="text-center text-xs text-muted-foreground">
-        Preview with sample replies. Chats stay in this browser.
-      </p>
     </form>
   );
 }

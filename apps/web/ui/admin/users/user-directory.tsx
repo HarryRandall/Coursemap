@@ -1,3 +1,4 @@
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
 import Link from "next/link";
@@ -90,9 +91,10 @@ export function UserDirectory({
               const href = `/admin/users/${user.userId}`;
               const userRole = rolesByUser.get(user.userId);
               return (
-                <TableRow key={user.userId} className="group">
+                <LinkedTableRow key={user.userId} className="group">
                   <TableCell className="p-0">
                     <Link
+                      data-row-link
                       href={href}
                       className="flex items-center gap-2.5 rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
                     >
@@ -148,7 +150,7 @@ export function UserDirectory({
                       links={[{ label: "View user", href }]}
                     />
                   </TableCell>
-                </TableRow>
+                </LinkedTableRow>
               );
             })}
           </TableBody>

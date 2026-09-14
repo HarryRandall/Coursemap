@@ -57,7 +57,7 @@ export function NotificationsMenu() {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="relative size-10 shrink-0"
+          className="relative size-10 shrink-0 data-[state=open]:bg-accent data-[state=open]:text-foreground dark:data-[state=open]:bg-accent"
           aria-label={
             unreadCount
               ? `Notifications, ${unreadCount} unread`

@@ -186,7 +186,7 @@ function NavMenuItem({
         </Link>
       </SidebarMenuButton>
       {item.badge ? (
-        <SidebarMenuBadge className="top-1/2! right-3 -translate-y-1/2 rounded-full bg-primary/10 px-1.5 text-[9px] font-bold text-primary uppercase">
+        <SidebarMenuBadge className="top-1/2! right-3 -translate-y-1/2 rounded-sm bg-primary/10 px-1.5 text-[9px] font-bold text-primary uppercase">
           {item.badge}
         </SidebarMenuBadge>
       ) : null}

@@ -94,39 +94,41 @@ export function AppShell({
           actions={
             <>
               {actions}
-              <NotificationsMenu />
-              <div
-                className={assistantStyles.triggerSlot}
-                data-open={assistantOpen}
-              >
-                <Button
-                  ref={assistantTrigger}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    assistantStyles.trigger,
-                    "group h-10 w-28 rounded-lg hover:bg-accent dark:hover:bg-accent",
-                  )}
-                  aria-expanded={assistantOpen}
-                  onTransitionEnd={(event) => {
-                    if (
-                      event.target === event.currentTarget &&
-                      event.propertyName === "visibility" &&
-                      !assistantOpen &&
-                      restoreAssistantFocus.current
-                    ) {
-                      assistantTrigger.current?.focus();
-                      restoreAssistantFocus.current = false;
-                    }
-                  }}
-                  onClick={() => {
-                    restoreAssistantFocus.current = false;
-                    setAssistantOpen(!assistantOpen);
-                  }}
+              <div className="flex items-center">
+                <NotificationsMenu />
+                <div
+                  className={assistantStyles.triggerSlot}
+                  data-open={assistantOpen}
                 >
-                  <AssistantIcon className="size-4" />
-                  Compass
-                </Button>
+                  <Button
+                    ref={assistantTrigger}
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      assistantStyles.trigger,
+                      "group h-10 w-24 rounded-lg hover:bg-accent dark:hover:bg-accent",
+                    )}
+                    aria-expanded={assistantOpen}
+                    onTransitionEnd={(event) => {
+                      if (
+                        event.target === event.currentTarget &&
+                        event.propertyName === "visibility" &&
+                        !assistantOpen &&
+                        restoreAssistantFocus.current
+                      ) {
+                        assistantTrigger.current?.focus();
+                        restoreAssistantFocus.current = false;
+                      }
+                    }}
+                    onClick={() => {
+                      restoreAssistantFocus.current = false;
+                      setAssistantOpen(!assistantOpen);
+                    }}
+                  >
+                    <AssistantIcon className="size-4" />
+                    Compass
+                  </Button>
+                </div>
               </div>
             </>
           }

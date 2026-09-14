@@ -14,6 +14,7 @@ import {
 import { useState, useTransition } from "react";
 import { ChevronDown, Download, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { MenuHint } from "@/ui/common/menu-hint";
 
 import { toast } from "sonner";
 import { setImportModel } from "@/lib/admin/settings-actions";
@@ -181,31 +182,31 @@ export function DirectorySelectionBar({
           </span>
         ) : (
           <Popover onOpenChange={setModelOpen} open={modelOpen}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <button
-                    aria-label={`Import model: ${model}`}
-                    className="hidden h-8 max-w-64 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 data-[state=open]:bg-accent sm:inline-flex"
-                    disabled={!canManageModel || savingModel}
-                    type="button"
-                  >
-                    <ImportModelLogo model={model} className="size-4" />
-                    <ModelName model={model} />
-                    <ChevronDown
-                      aria-hidden="true"
-                      className="shrink-0 text-muted-foreground/80"
-                      size={13}
-                    />
-                  </button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              <TooltipContent>
-                {canManageModel
+            <MenuHint
+              label={
+                canManageModel
                   ? "Change the import model"
-                  : "Imports run on this model"}
-              </TooltipContent>
-            </Tooltip>
+                  : "Imports run on this model"
+              }
+              open={modelOpen}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  aria-label={`Import model: ${model}`}
+                  className="hidden h-8 max-w-64 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 data-[state=open]:bg-accent sm:inline-flex"
+                  disabled={!canManageModel || savingModel}
+                  type="button"
+                >
+                  <ImportModelLogo model={model} className="size-4" />
+                  <ModelName model={model} />
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="shrink-0 text-muted-foreground/80"
+                    size={13}
+                  />
+                </button>
+              </PopoverTrigger>
+            </MenuHint>
             <PopoverContent align="center" className="w-72 p-1.5" side="top">
               <OptionMenu
                 items={modelOptions.map((option) => ({

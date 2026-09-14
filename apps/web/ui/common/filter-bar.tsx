@@ -2,11 +2,6 @@
 import { Button } from "@coursemap/ui/primitives/button";
 import { Input } from "@coursemap/ui/primitives/input";
 import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@coursemap/ui/primitives/tooltip";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -17,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Funnel, ListFilter, Search, X } from "lucide-react";
 
 import { encodeNegatableValue, parseNegatableValue } from "@/lib/filter-params";
+import { MenuHint } from "@/ui/common/menu-hint";
 import { OptionMenu } from "@/ui/common/option-menu";
 
 export type FilterConfig = {
@@ -71,7 +67,6 @@ export function FilterBar({
   }
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [tooltipOpen, setTooltipOpen] = useState(false);
   const [field, setField] = useState<FilterConfig | null>(null);
   const [openChip, setOpenChip] = useState<{
     key: string;
@@ -132,7 +127,6 @@ export function FilterBar({
 
   function openMenu(open: boolean) {
     setMenuOpen(open);
-    setTooltipOpen(false);
     if (open) setField(null);
   }
 
@@ -179,42 +173,37 @@ export function FilterBar({
         </label>
         {filters.length > 0 ? (
           <Popover onOpenChange={openMenu} open={menuOpen}>
-            <Tooltip
-              disableHoverableContent
-              open={tooltipOpen && !menuOpen}
-              onOpenChange={setTooltipOpen}
-            >
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <Button
-                    aria-label={
-                      active.length > 0
-                        ? `Filter (${active.length} active)`
-                        : "Filter"
-                    }
-                    aria-pressed={active.length > 0}
-                    className="size-10 shrink-0"
-                    size="icon"
-                    variant="outline"
-                    onFocus={(event) => event.preventDefault()}
-                    type="button"
-                  >
-                    {/* A solid funnel reads as "filtering" at a glance; the
-                    outline is the resting state. */}
-                    <Funnel
-                      aria-hidden="true"
-                      fill={active.length > 0 ? "currentColor" : "none"}
-                      size={16}
-                    />
-                  </Button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              <TooltipContent>
-                {active.length > 0
+            <MenuHint
+              label={
+                active.length > 0
                   ? `${active.length} filter${active.length === 1 ? "" : "s"} applied`
-                  : "Filter"}
-              </TooltipContent>
-            </Tooltip>
+                  : "Filter"
+              }
+              open={menuOpen}
+            >
+              <PopoverTrigger asChild>
+                <Button
+                  aria-label={
+                    active.length > 0
+                      ? `Filter (${active.length} active)`
+                      : "Filter"
+                  }
+                  aria-pressed={active.length > 0}
+                  className="size-10 shrink-0"
+                  size="icon"
+                  variant="outline"
+                  type="button"
+                >
+                  {/* A solid funnel reads as "filtering" at a glance; the
+                  outline is the resting state. */}
+                  <Funnel
+                    aria-hidden="true"
+                    fill={active.length > 0 ? "currentColor" : "none"}
+                    size={16}
+                  />
+                </Button>
+              </PopoverTrigger>
+            </MenuHint>
             <PopoverContent align="end" className="w-56 p-1.5">
               {field ? (
                 <OptionMenu
