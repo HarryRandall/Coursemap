@@ -71,7 +71,7 @@ export function RequirementCondition({
         ? `${progress.completedUnits} units completed · ${progress.plannedUnits} planned`
         : null;
   return (
-    <section className="relative rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:hover]:border-primary/50 has-[button[data-section-toggle]:hover]:shadow-sm motion-reduce:transition-none sm:p-5">
+    <section className="relative rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:hover]:border-foreground/20 has-[button[data-section-toggle]:hover]:shadow-sm motion-reduce:transition-none sm:p-5">
       <div className="group flex items-center gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
           {required ? (

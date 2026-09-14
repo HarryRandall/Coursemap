@@ -15,6 +15,10 @@ import {
 export type RequirementBucketProgress = {
   key: string;
   title: string;
+  /** Full rule prose, untruncated, for tooltips and wider layouts. */
+  description: string;
+  /** "Major", "Minor", "Specialisation", or "Requirement" for the programme. */
+  kind: string;
   /** Unit goal for the bucket, when the published rule states one. */
   targetUnits: number | null;
   completedUnits: number;
@@ -107,21 +111,55 @@ function collectPredicates(node: PlanRequirementNode): CoursePredicate[] {
   return node.children.flatMap(collectPredicates);
 }
 
+/**
+ * Published rule prose leads with its unit count — "30 units from the
+ * completion of the following compulsory courses". The lead is dropped from the
+ * label because it truncates to nothing useful in a narrow card, and the count
+ * is recovered separately as the unit target.
+ */
+const RULE_LEAD =
+  /^\d+\s*units?\s+from\s+(?:the\s+)?(?:completion\s+of\s+)?(?:the\s+)?(?:following\s+)?/i;
+
+function bucketDescription(node: PlanRequirementNode): string | null {
+  const text =
+    node.type === "group"
+      ? (node.title ?? node.description ?? null)
+      : (node.freeText ??
+        (node.subjectCode ? `${node.subjectCode} courses` : null) ??
+        node.sourceText ??
+        null);
+  return text ? text.replace(/\s+/g, " ").trim() : null;
+}
+
 function bucketTitle(node: PlanRequirementNode): string | null {
-  if (node.type === "group") {
-    return node.title ?? node.description ?? null;
-  }
-  if (node.freeText) return node.freeText;
-  if (node.subjectCode) return `${node.subjectCode} courses`;
-  if (node.sourceText) {
-    const text = node.sourceText.replace(/\s+/g, " ").trim();
-    return text.length > 64 ? `${text.slice(0, 61)}…` : text;
-  }
-  return null;
+  const text = bucketDescription(node);
+  if (!text) return null;
+  const stripped = text.replace(RULE_LEAD, "").trim();
+  const label = stripped.length > 2 ? stripped : text;
+  const cased = label.charAt(0).toUpperCase() + label.slice(1);
+  return cased.length > 64 ? `${cased.slice(0, 61)}…` : cased;
+}
+
+/** The unit count stated at the head of the rule prose, when there is one. */
+function unitsFromRuleText(text: string | null): number | null {
+  if (!text) return null;
+  const match = /^(\d+)\s*units?\b/i.exec(text);
+  return match ? Number(match[1]) : null;
+}
+
+/** The published structure a group belongs to, titled for display. */
+function bucketKind(node: PlanRequirementNode): string {
+  const kind = node.type === "condition" ? node.structureKind : null;
+  if (!kind || kind === "programme") return "Requirement";
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
 function bucketTargetUnits(node: PlanRequirementNode): number | null {
-  return node.minimumUnits ?? node.maximumUnits ?? null;
+  return (
+    node.minimumUnits ??
+    node.maximumUnits ??
+    unitsFromRuleText(bucketDescription(node))
+  );
 }
 
 /** Keep earned credit even when a later planned entry repeats the course. */
@@ -163,6 +201,7 @@ export function requirementBucketProgress({
     .map((node) => ({
       node,
       title: bucketTitle(node),
+      description: bucketDescription(node) ?? "",
       predicates: collectPredicates(node),
     }))
     .filter(
@@ -172,7 +211,7 @@ export function requirementBucketProgress({
 
   const credited = creditedAttempts(attempts, catalogue);
 
-  return buckets.map(({ node, title, predicates }) => {
+  return buckets.map(({ node, title, description, predicates }) => {
     let completedUnits = 0;
     let plannedUnits = 0;
     credited.forEach(({ attempt, course, units }) => {
@@ -183,6 +222,8 @@ export function requirementBucketProgress({
     return {
       key: `${node.type}-${node.id}`,
       title,
+      description,
+      kind: bucketKind(node),
       targetUnits: bucketTargetUnits(node),
       completedUnits,
       plannedUnits,
@@ -451,4 +492,32 @@ export function requirementTreeProgress({
   const rootProgress = groupProgress(root, credited, progress);
   progress.set(rootProgress.key, rootProgress);
   return progress;
+}
+
+export type RequirementBucketStatus =
+  "complete" | "scheduled" | "short" | "untargeted";
+
+/**
+ * How a group reads at a glance. Groups whose published rule states no unit
+ * target cannot be judged complete, so they report "untargeted" rather than
+ * borrowing a target from the units that happen to be mapped.
+ */
+export function requirementBucketStatus(bucket: RequirementBucketProgress): {
+  status: RequirementBucketStatus;
+  label: string;
+} {
+  const target = bucket.targetUnits;
+  if (target === null || target === 0)
+    return {
+      status: "untargeted",
+      label: `${bucket.completedUnits + bucket.plannedUnits} units mapped`,
+    };
+  if (bucket.completedUnits >= target)
+    return { status: "complete", label: "Complete" };
+  if (bucket.completedUnits + bucket.plannedUnits >= target)
+    return { status: "scheduled", label: "Scheduled" };
+  return {
+    status: "short",
+    label: `${target - bucket.completedUnits - bucket.plannedUnits}u short`,
+  };
 }

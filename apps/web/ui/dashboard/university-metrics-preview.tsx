@@ -87,7 +87,7 @@ function Metric({
 }) {
   return (
     <Card className="min-w-0 py-0">
-      <CardContent className="flex flex-col gap-3 p-4">
+      <CardContent className="flex flex-1 flex-col gap-3 p-4">
         {header ? (
           <div className="flex min-h-7 items-center justify-between gap-2">
             {header}
@@ -117,18 +117,18 @@ export function TuitionMetric({ preview = false }: { preview?: boolean }) {
   return (
     <Metric title="Est. tuition" value={preview ? "$32,400" : undefined}>
       {preview ? (
-        <div className="flex h-24 flex-col justify-center gap-2">
+        <div className="flex min-h-24 flex-1 flex-col justify-between gap-2 py-1">
           {fees.map((fee, i) => (
             <div
               key={fee.year}
               className="grid grid-cols-[2rem_1fr_3.5rem] items-center gap-2 text-[10px]"
             >
               <span className="text-muted-foreground">{fee.year}</span>
-              <div className="h-2 overflow-hidden rounded-sm bg-muted">
+              <div className="h-3 overflow-hidden rounded-sm bg-muted">
                 <div
                   className="h-full rounded-sm"
                   style={{
-                    width: `${(fee.amount / 12000) * 100}%`,
+                    width: `${(fee.amount / Math.max(...fees.map((entry) => entry.amount))) * 100}%`,
                     background: ["#60a5fa", "#818cf8", "#a78bfa"][i],
                   }}
                 />
@@ -239,7 +239,7 @@ export function UniversityMetricsPreview() {
         }
       >
         <div
-          className="h-24"
+          className="min-h-24 flex-1"
           role="img"
           aria-label="Mock grades: N 1, Pass 2, CR 4, D 5, HD 8 courses"
         >
@@ -258,9 +258,10 @@ export function UniversityMetricsPreview() {
                 stroke="var(--color-border)"
                 strokeDasharray="2 4"
               />
-              <YAxis hide domain={[0, 10]} />
+              <YAxis hide domain={[0, "dataMax"]} />
               <XAxis
                 dataKey="grade"
+                height={20}
                 tick={axis}
                 tickLine={false}
                 axisLine={false}

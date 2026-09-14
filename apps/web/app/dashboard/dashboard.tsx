@@ -10,11 +10,11 @@ import {
 } from "@/ui/dashboard/metric-cards";
 import { MonthCalendar } from "@/ui/dashboard/month-calendar";
 import { PlanEmptyState } from "@/ui/dashboard/plan-empty-state";
-import { RequirementsPanel } from "@/ui/dashboard/requirements-panel";
+import { PlanDetailPanel } from "@/ui/dashboard/plan-detail-panel";
+import type { PlanCourseRow } from "@/ui/dashboard/plan-course-table";
 import {
   UniversityMetricsPreview,
   PlanningMetricsPreview,
-  TuitionMetric,
 } from "@/ui/dashboard/university-metrics-preview";
 import { DegreeComposition } from "@/ui/dashboard/degree-composition";
 import { AppShell } from "@/ui/shell";
@@ -26,6 +26,14 @@ import {
   dashboardTermLoads,
   type DashboardTermPoint,
 } from "@/lib/coursemap/dashboard-series";
+import {
+  academicSummary,
+  academicTermPoints,
+  gradeDistribution,
+  tuitionEstimate,
+  type CourseFeeLookup,
+} from "@/lib/coursemap/academic-metrics";
+import { planRisks } from "@/lib/coursemap/plan-risks";
 import { requirementBucketProgress } from "@/lib/coursemap/requirement-progress";
 import {
   planTimelineTerms,
@@ -36,8 +44,11 @@ import {
   degreeUnitProgress,
   effectiveStatus,
   planningCourseForAttempt,
+  statusLabel,
   unitsForAttempt,
 } from "@/lib/planner";
+
+const NO_COURSE_FEES: CourseFeeLookup = new Map();
 
 function finishLabelFor(
   termLoads: readonly DashboardTermPoint[],
@@ -148,6 +159,60 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
     [catalogue.structureRequirements, planningCatalogue, state.attempts],
   );
 
+  const academicInputs = useMemo(
+    () => ({ ...planningCatalogue, attempts: state.attempts }),
+    [planningCatalogue, state.attempts],
+  );
+  const academic = useMemo(
+    () => academicSummary(academicInputs),
+    [academicInputs],
+  );
+  const markTrend = useMemo(
+    () => academicTermPoints(academicInputs),
+    [academicInputs],
+  );
+  const grades = useMemo(
+    () => gradeDistribution(academicInputs),
+    [academicInputs],
+  );
+  // Fees live on CourseDetails, which the plan catalogue does not carry, so the
+  // estimate stays empty until fee data is loaded alongside the plan.
+  const tuition = useMemo(
+    () => tuitionEstimate({ ...academicInputs, fees: NO_COURSE_FEES }),
+    [academicInputs],
+  );
+
+  const planCourseRows = useMemo<PlanCourseRow[]>(() => {
+    const termName = new Map(
+      timelineTerms.map((term) => [term.id, term.shortName]),
+    );
+    return planned
+      .map(({ attempt, course }) => {
+        const status = effectiveStatus(attempt, state.attempts, catalogue);
+        return {
+          code: course.code,
+          name: course.name,
+          units: unitsForAttempt(attempt, course),
+          termLabel: termName.get(attempt.termId) ?? "Unscheduled",
+          grade: attempt.resultCode ?? attempt.mark?.toString() ?? "—",
+          status,
+          statusLabel: statusLabel(status),
+        };
+      })
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }, [catalogue, planned, state.attempts, timelineTerms]);
+
+  const risks = useMemo(
+    () =>
+      planRisks({
+        buckets,
+        attempts: state.attempts,
+        catalogue: planningCatalogue,
+        progress,
+      }),
+    [buckets, planningCatalogue, progress, state.attempts],
+  );
+
   const metricViews = useMemo(() => {
     const coursesInTerm = (termId: string | undefined): MetricCourse[] =>
       termId
@@ -191,9 +256,17 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
       nextCourses: coursesInTerm(next?.id),
       upcoming,
       finishLabel: finishLabelFor(termLoads, timelineTerms),
+      academic,
+      markTrend,
+      grades,
+      tuition,
     });
   }, [
+    academic,
     buckets,
+    grades,
+    markTrend,
+    tuition,
     cumulativeUnits,
     currentTermId,
     enrolledUnits,
@@ -225,37 +298,18 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCardView view={metricViews["completion-ring"]} />
-              <MetricCardView view={metricViews.remaining} />
-              <TuitionMetric />
-              <MetricCardView view={metricViews.readiness} />
+              <MetricCardView view={metricViews.wam} />
+              <MetricCardView view={metricViews.tuition} />
+              <MetricCardView view={metricViews.load} />
             </div>
           )}
         </section>
 
-        <div
-          className={
-            buckets.length > 0
-              ? "grid gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(20rem,1fr)]"
-              : "grid gap-4"
-          }
-        >
-          <DegreeProgressHero
-            progress={progress}
-            unitTarget={unitTarget}
-            enrolledUnits={enrolledUnits}
-          />
-          <RequirementsPanel buckets={buckets} />
-        </div>
-
-        {previewMetrics ? (
-          <PlanningMetricsPreview />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {(["load", "coverage", "semester-bars"] as const).map((id) => (
-              <MetricCardView compact key={id} view={metricViews[id]} />
-            ))}
-          </div>
-        )}
+        <DegreeProgressHero
+          progress={progress}
+          unitTarget={unitTarget}
+          enrolledUnits={enrolledUnits}
+        />
 
         <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
           <DegreeComposition
@@ -268,6 +322,24 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
           />
           <MonthCalendar events={calendarEvents} />
         </div>
+
+        {previewMetrics ? (
+          <PlanningMetricsPreview />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {(["mark-trend", "grade-mix", "semester-bars"] as const).map(
+              (id) => (
+                <MetricCardView compact key={id} view={metricViews[id]} />
+              ),
+            )}
+          </div>
+        )}
+
+        <PlanDetailPanel
+          buckets={buckets}
+          courses={planCourseRows}
+          risks={risks}
+        />
       </div>
     </AppShell>
   );

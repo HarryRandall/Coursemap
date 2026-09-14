@@ -8,6 +8,7 @@ import {
   LockKeyhole,
   Plus,
 } from "lucide-react";
+import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Hint } from "@/ui/common/hint";
 import { cn } from "@/lib/cn";
@@ -41,7 +42,7 @@ export function RequirementCourseRow({
             ? "border-success/25 bg-success/5 hover:border-success/50 hover:bg-success/10"
             : planned
               ? "border-primary/25 bg-primary/5 hover:border-primary/50 hover:bg-primary/10"
-              : "border-border bg-card hover:border-primary/40 hover:bg-primary/5",
+              : "border-border bg-card hover:border-foreground/20 hover:bg-muted/40",
       )}
     >
       <p className="mb-2 text-xs text-muted-foreground">
@@ -80,15 +81,15 @@ export function RequirementCourseRow({
         </Hint>
       )}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        <Badge
+          variant={
             completed
-              ? "bg-success/10 text-success"
+              ? "success-light"
               : planned
-                ? "bg-primary/10 text-primary"
-                : "bg-muted text-muted-foreground",
-          )}
+                ? "primary-light"
+                : "secondary"
+          }
+          size="lg"
         >
           {completed ? (
             <Check className="size-3.5" aria-hidden="true" />
@@ -104,7 +105,7 @@ export function RequirementCourseRow({
               : planned
                 ? "Planned"
                 : "Not planned"}
-        </span>
+        </Badge>
         {course && !status && onAdd && (
           <Button
             variant="outline"

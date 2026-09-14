@@ -1,7 +1,11 @@
 import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
-export function RequirementProgressRing({
+/**
+ * Completed and planned progress as one ring — completed in the success tone,
+ * planned continuing from where it ends, over a muted remainder.
+ */
+export function ProgressRing({
   completed,
   planned,
   target,
