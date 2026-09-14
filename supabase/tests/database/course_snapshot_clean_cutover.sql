@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -399,6 +400,11 @@ from public.course_rules as rules
 join public.courses as prerequisites on prerequisites.code = 'MISS1000'
 where rules.source_text = 'You must have completed MISS1000.';
 
+select pg_temp.approve_catalogue_fixture('course', snapshots.id)
+from public.course_snapshots as snapshots
+cross join public.course_years as course_years
+where snapshots.course_year_id = course_years.id;
+
 update public.course_years
 set published_snapshot_id = snapshots.id
 from public.course_snapshots as snapshots
@@ -637,6 +643,12 @@ join public.academic_years as years
   on years.id = snapshots.academic_year_id
 where years.year = 2025
   and snapshots.snapshot_number = 1;
+
+select pg_temp.approve_catalogue_fixture('course', snapshots.id)
+from public.course_snapshots as snapshots
+cross join public.course_years as course_years
+where snapshots.course_year_id = course_years.id
+  and snapshots.snapshot_number = 2;
 
 update public.course_years
 set published_snapshot_id = snapshots.id

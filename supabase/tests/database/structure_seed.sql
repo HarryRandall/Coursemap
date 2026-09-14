@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -240,6 +241,14 @@ select extensions.throws_ok(
   'Academic structure projected rows may only be inserted while their snapshot is being assembled.',
   'projected rows cannot be appended after a snapshot becomes the draft'
 );
+
+select pg_temp.approve_catalogue_fixture('programme', snapshots.id)
+from public.academic_structure_snapshots as snapshots
+join public.academic_structures as structures
+  on structures.code = 'CAPABILITY-PROGRAMME'
+cross join public.academic_structure_years as structure_years
+where snapshots.structure_year_id = structure_years.id
+  and structure_years.structure_id = structures.id;
 
 update public.academic_structure_years as structure_years
 set draft_snapshot_id = null, published_snapshot_id = snapshots.id

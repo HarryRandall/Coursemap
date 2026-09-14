@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -99,6 +100,16 @@ join public.course_source_pages as documents
   on documents.academic_year_id = years.id
  and documents.external_key = courses.code
 where courses.code = 'COMP1110'
+  and years.year = 2030;
+
+select pg_temp.approve_catalogue_fixture('course', snapshots.id)
+from public.course_snapshots as snapshots
+join public.courses on true
+join public.academic_years as years on years.id = snapshots.academic_year_id
+cross join public.course_years as course_years
+where snapshots.course_year_id = course_years.id
+  and courses.id = course_years.course_id
+  and courses.code = 'COMP1110'
   and years.year = 2030;
 
 update public.course_years
@@ -436,6 +447,11 @@ where courses.code = 'COMP1100'
   and snapshots.title = 'Programming as Problem Solving, revised';
 
 grant select on table first_attempt_state, later_snapshot to authenticated;
+
+select pg_temp.approve_catalogue_fixture('course', later_snapshot.snapshot_id)
+from later_snapshot
+cross join public.course_years as course_years
+where course_years.id = later_snapshot.course_year_id;
 
 update public.course_years
 set published_snapshot_id = later_snapshot.snapshot_id

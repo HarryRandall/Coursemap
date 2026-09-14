@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -307,6 +308,18 @@ join public.courses as prerequisites on prerequisites.code = case
 end
 where courses.code = 'VARI1000';
 
+select pg_temp.approve_catalogue_fixture('course', snapshots.id)
+from public.course_snapshots as snapshots
+cross join public.course_years as course_years
+where snapshots.course_year_id = course_years.id
+  and snapshots.snapshot_number = 1
+  and exists (
+    select 1
+    from public.courses
+    where courses.id = course_years.course_id
+      and courses.code in ('RANG1000', 'VARI1000')
+  );
+
 update public.course_years
 set published_snapshot_id = snapshots.id
 from public.course_snapshots as snapshots
@@ -579,6 +592,15 @@ select extensions.ok(
 );
 
 reset role;
+
+select pg_temp.approve_catalogue_fixture('course', snapshots.id)
+from public.course_snapshots as snapshots
+join public.courses on true
+cross join public.course_years as course_years
+where snapshots.course_year_id = course_years.id
+  and courses.id = course_years.course_id
+  and courses.code = 'VARI1000'
+  and snapshots.snapshot_number = 2;
 
 update public.course_years
 set published_snapshot_id = snapshots.id

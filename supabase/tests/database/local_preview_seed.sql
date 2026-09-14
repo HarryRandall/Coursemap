@@ -100,8 +100,9 @@ select extensions.ok(
     from public.course_years
     join public.courses on courses.id = course_years.course_id
     where courses.code = 'MATH1005'
+      and (course_years.draft_snapshot_id is not null or course_years.published_snapshot_id is not null)
   ),
-  'the prerequisite remains a placeholder identity without an invented year'
+  'the prerequisite has an annual identity without invented imported content'
 );
 
 select extensions.ok(
