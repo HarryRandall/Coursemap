@@ -1,9 +1,8 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   AcademicStructureDirectoryPage,
   type AcademicStructureDirectorySearchParams,
 } from "@/ui/admin/academic-structures/structure-directory-page";
-import { legacyAdminAcademicStructureCollectionRedirect } from "@/lib/coursemap/academic-structure-routes";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +16,7 @@ export default async function AdminProgrammesPage({
   >;
 }) {
   const params = await searchParams;
-  const legacyRedirect = legacyAdminAcademicStructureCollectionRedirect(params);
-  if (legacyRedirect) redirect(legacyRedirect);
+  if (params.kind !== undefined) notFound();
 
   return (
     <AcademicStructureDirectoryPage

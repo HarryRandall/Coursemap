@@ -88,13 +88,13 @@ test("administrator can inspect course review tabs", async ({
       page.getByRole("button", { name: /Academic year/ }),
     ).toBeVisible();
   }
-  await page.goto("/admin/courses/COMP1100/2026");
-  for (const name of [
-    "Course data",
-    "Requisites",
-    "Course preview",
-    "Source",
-  ]) {
+  await page.goto("/admin/courses");
+  await page
+    .getByRole("link", { name: /COMP1100/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/admin\/courses\/[0-9a-f-]{36}$/);
+  for (const name of ["History", "Preview", "Review"]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute(
       "aria-selected",

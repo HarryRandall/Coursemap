@@ -1,3 +1,4 @@
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
@@ -56,6 +57,7 @@ const SORT_CAPTIONS: Record<ImportListSort, string> = {
 };
 
 export type ImportListRow = {
+  publicId?: string | null;
   id: string;
   code: string;
   title: string;
@@ -166,13 +168,17 @@ export function ImportsList({
               </TableHeader>
               <TableBody>
                 {data.records.map((record) => (
-                  <TableRow key={record.id}>
+                  <LinkedTableRow key={record.id}>
                     <TableCell>
                       <CatalogueIdentity
                         code={record.code}
                         title={record.title}
                         kind={system === "course" ? "course" : noun}
-                        href={`${importsPath}/${record.id}`}
+                        href={
+                          record.publicId
+                            ? `${basePath}/${record.publicId}/history?import=${record.id}`
+                            : undefined
+                        }
                       />
                     </TableCell>
                     <TableCell className="text-xs tabular-nums">
@@ -218,10 +224,14 @@ export function ImportsList({
                       <CatalogueRowActions
                         code={record.code}
                         links={[
-                          {
-                            label: "View import",
-                            href: `${importsPath}/${record.id}`,
-                          },
+                          ...(record.publicId
+                            ? [
+                                {
+                                  label: "View import",
+                                  href: `${basePath}/${record.publicId}/history?import=${record.id}`,
+                                },
+                              ]
+                            : []),
                           {
                             label: "Import history",
                             href: `${importsPath}?q=${encodeURIComponent(record.code)}`,
@@ -234,7 +244,7 @@ export function ImportsList({
                         ]}
                       />
                     </TableCell>
-                  </TableRow>
+                  </LinkedTableRow>
                 ))}
               </TableBody>
             </Table>

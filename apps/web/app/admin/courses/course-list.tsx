@@ -1,4 +1,5 @@
 "use client";
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { adminCourseDetailPath } from "@/lib/coursemap/course-routes";
 import { badgeVariantForTone } from "@/lib/ui";
 
@@ -562,7 +563,7 @@ export function AdminCourseDirectory({
               </TableHeader>
               <TableBody>
                 {data.records.map((record) => (
-                  <TableRow
+                  <LinkedTableRow
                     className={
                       selectedSet.has(record.code) ? "bg-primary/5" : undefined
                     }
@@ -584,15 +585,11 @@ export function AdminCourseDirectory({
                         code={record.code}
                         title={record.title}
                         href={
-                          record.coursePublicId &&
-                          record.draftSnapshotId !== null
+                          record.coursePublicId
                             ? adminCourseDetailPath({
                                 publicId: record.coursePublicId,
-                                year: record.year,
                               })
-                            : record.publishedSnapshotId !== null
-                              ? `/courses/${record.code}?year=${record.year}`
-                              : undefined
+                            : undefined
                         }
                       />
                     </TableCell>
@@ -621,10 +618,9 @@ export function AdminCourseDirectory({
                           record.courseYearId
                             ? [
                                 {
-                                  label: "Preview draft",
+                                  label: "Open course",
                                   href: adminCourseDetailPath({
                                     publicId: record.coursePublicId,
-                                    year: record.year,
                                   }),
                                 },
                               ]
@@ -637,12 +633,13 @@ export function AdminCourseDirectory({
                                 },
                               ]
                             : []),
-                          ...(shouldOpenLatestImport(record) &&
+                          ...(record.coursePublicId &&
+                          shouldOpenLatestImport(record) &&
                           record.latestImport
                             ? [
                                 {
                                   label: "Review latest import",
-                                  href: `/admin/courses/imports/${record.latestImport.targetId}`,
+                                  href: `${adminCourseDetailPath({ publicId: record.coursePublicId! })}/history?import=${record.latestImport.targetId}`,
                                 },
                               ]
                             : []),
@@ -651,15 +648,19 @@ export function AdminCourseDirectory({
                             href: `https://programsandcourses.anu.edu.au/${record.year}/course/${record.code}`,
                             icon: "source",
                           },
-                          {
-                            label: "Import history",
-                            href: `/admin/courses/imports?q=${encodeURIComponent(record.code)}`,
-                            icon: "history",
-                          },
+                          ...(record.coursePublicId
+                            ? [
+                                {
+                                  label: "Import history",
+                                  href: `${adminCourseDetailPath({ publicId: record.coursePublicId! })}/history`,
+                                  icon: "history" as const,
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </TableCell>
-                  </TableRow>
+                  </LinkedTableRow>
                 ))}
               </TableBody>
             </Table>

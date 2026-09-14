@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -131,6 +132,8 @@ where snapshots.structure_year_id = structure_years.id
   and snapshots.name = 'Publishable draft';
 
 set local role authenticated;
+
+select pg_temp.approve_catalogue_fixture('programme', id) from public.academic_structure_snapshots where name = 'Publishable draft';
 
 select extensions.lives_ok(
   format(

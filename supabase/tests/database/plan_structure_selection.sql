@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -145,6 +146,18 @@ cross join (
     (4, 'specialisation', 'PLAN-LINK-SPEC')
 ) as selected(position, target_kind, target_code)
 where structures.code = 'PLAN-LINK-PROG';
+
+select pg_temp.approve_catalogue_fixture('programme', snapshots.id)
+from public.academic_structure_snapshots as snapshots
+cross join public.academic_structure_years as structure_years
+where snapshots.structure_year_id = structure_years.id
+  and snapshots.academic_year_id = structure_years.academic_year_id
+  and exists (
+    select 1
+    from public.academic_structures as structures
+    where structures.id = structure_years.structure_id
+      and structures.code like 'PLAN-LINK-%'
+  );
 
 update public.academic_structure_years as structure_years
 set published_snapshot_id = snapshots.id

@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { AcademicStructureImportTargetReview } from "@/ui/admin/imports/academic-structure-import-target-review";
+import { catalogueIdentities } from "@/lib/coursemap/catalogue-identities";
 import { ImportsList } from "@/ui/admin/imports/imports-list";
 import {
   parseImportListSearchParams,
@@ -7,7 +6,6 @@ import {
 } from "@/lib/coursemap/import-list-params";
 import {
   loadAcademicStructureImportPage,
-  loadAcademicStructureImportTargetDetail,
   type AcademicStructureImportKind,
 } from "@/lib/coursemap/admin-academic-structure-imports";
 
@@ -53,12 +51,20 @@ export async function AcademicStructureImportsPage({
     statusNegated: parsed.statusNegated,
   });
 
+  const identities = await catalogueIdentities(
+    kind,
+    data.records.map((record) => record.structureCode),
+  );
+
   return (
     <ImportsList
       basePath={academicStructureBasePaths[kind]}
       data={{
         records: data.records.map((record) => ({
           id: record.id,
+          publicId:
+            identities.get(`${record.structureCode}:${record.academicYear}`) ??
+            null,
           code: record.structureCode,
           title: record.structureTitle,
           academicYear: record.academicYear,
@@ -80,20 +86,4 @@ export async function AcademicStructureImportsPage({
       system="structure"
     />
   );
-}
-
-export async function AcademicStructureImportReviewPage({
-  kind,
-  params,
-}: {
-  kind: AcademicStructureImportKind;
-  params: Promise<{ targetId: string }>;
-}) {
-  const { targetId } = await params;
-  const detail = await loadAcademicStructureImportTargetDetail({
-    structureKind: kind,
-    targetId,
-  });
-  if (!detail) notFound();
-  return <AcademicStructureImportTargetReview detail={detail} />;
 }

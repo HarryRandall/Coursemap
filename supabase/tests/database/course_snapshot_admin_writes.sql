@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-review.inc
 
 insert into public.import_models(id,name,provider) values ('test/model', 'Test model', 'Test') on conflict do nothing;
 
@@ -154,7 +155,8 @@ select courses.id, years.id
 from public.courses
 cross join public.academic_years as years
 where courses.code in ('EDIT1000', 'CRIT1000')
-  and years.year = 2028;
+  and years.year = 2028
+on conflict (course_id, academic_year_id) do nothing;
 
 insert into public.course_snapshots (
   course_year_id, academic_year_id, snapshot_number, origin,
@@ -974,6 +976,8 @@ select extensions.throws_ok(
   'The published course changed while it was being reviewed.',
   'publication rejects a stale published pointer'
 );
+
+select pg_temp.approve_catalogue_fixture('course', snapshot_id) from manual_snapshot_result;
 
 select extensions.lives_ok(
   format(

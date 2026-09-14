@@ -1,10 +1,8 @@
 "use client";
-import Link from "next/link";
 import type {
   AdminStructureReviewCondition,
   AdminStructureReviewGroup,
 } from "@/lib/coursemap/admin-catalogue";
-import { adminAcademicStructureDetailPath } from "@/lib/coursemap/academic-structure-routes";
 
 export function conditionText(condition: AdminStructureReviewCondition) {
   if (condition.optionCodes.length > 1) {
@@ -14,12 +12,7 @@ export function conditionText(condition: AdminStructureReviewCondition) {
     return (
       <>
         Complete{" "}
-        <Link
-          className="font-mono font-semibold text-primary hover:text-primary"
-          href={`/admin/courses/${condition.courseCode}`}
-        >
-          {condition.courseCode}
-        </Link>
+        <span className="font-mono font-semibold">{condition.courseCode}</span>
       </>
     );
   }
@@ -27,15 +20,9 @@ export function conditionText(condition: AdminStructureReviewCondition) {
     return (
       <>
         Complete{" "}
-        <Link
-          className="font-mono font-semibold text-primary hover:text-primary"
-          href={adminAcademicStructureDetailPath({
-            kind: condition.targetStructureKind,
-            publicId: condition.targetStructureCode,
-          })}
-        >
+        <span className="font-mono font-semibold">
           {condition.targetStructureCode}
-        </Link>
+        </span>
       </>
     );
   }

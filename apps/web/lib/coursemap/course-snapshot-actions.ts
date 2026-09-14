@@ -32,11 +32,6 @@ export type PublishCourseSnapshotInput = {
   year: number;
 };
 
-export type ConfirmCourseSnapshotInput = SaveCourseSnapshotInput & {
-  blockingReviewItemIds: string[];
-  confirmationNote: string;
-};
-
 export type ArchiveCourseYearInput = {
   code: string;
   coursePublicId: string;
@@ -49,8 +44,6 @@ export type ArchiveCourseYearInput = {
 const PUBLIC_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/u;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 function positiveId(value: number, label: string) {
   if (!Number.isSafeInteger(value) || value <= 0) {
@@ -124,7 +117,6 @@ function revalidateCourse({
 }) {
   revalidatePath("/admin/courses");
   revalidatePath(`/admin/courses/${coursePublicId}`);
-  revalidatePath(`/admin/courses/${coursePublicId}/${year}`);
   revalidatePath("/courses");
   revalidatePath(`/courses/${code}`);
   revalidatePath("/plan");
@@ -176,6 +168,7 @@ export async function saveCourseSnapshot(
     });
     return {
       ok: true,
+      snapshotId: data,
       message: `${projection.courseCode} was saved as a new draft snapshot.`,
     };
   } catch (error) {
@@ -184,68 +177,6 @@ export async function saveCourseSnapshot(
       message: actionError(
         error,
         "Coursemap could not save this course draft.",
-      ),
-    };
-  }
-}
-
-export async function confirmCourseSnapshot(
-  input: ConfirmCourseSnapshotInput,
-): Promise<CoursemapActionResult> {
-  try {
-    const projection = parseCourseSnapshotProjection(input.projection);
-    identifiers({
-      code: projection.courseCode,
-      coursePublicId: input.coursePublicId,
-      year: projection.academicYear,
-    });
-    const note = input.confirmationNote.trim();
-    if (!note) throw new TypeError("A confirmation note is required.");
-    if (
-      new Set(input.blockingReviewItemIds).size !==
-        input.blockingReviewItemIds.length ||
-      input.blockingReviewItemIds.some((id) => !UUID_PATTERN.test(id))
-    ) {
-      throw new TypeError("The blocking review selection is invalid.");
-    }
-    const courseYearId = positiveId(input.courseYearId, "Course year");
-    const expectedBaseSnapshotId = positiveId(
-      input.expectedBaseSnapshotId,
-      "Base snapshot",
-    );
-    const client = await authorisedRpcClient();
-    if ("ok" in client) return client;
-    const { data, error } = await client.rpc("confirm_course_manual_snapshot", {
-      p_blocking_review_item_ids: input.blockingReviewItemIds,
-      p_confirmation_note: note,
-      p_course_year_id: courseYearId,
-      p_expected_base_snapshot_id: expectedBaseSnapshotId,
-      p_projection: projection as unknown as Json,
-    });
-    if (error) throw error;
-    if (
-      typeof data !== "object" ||
-      data === null ||
-      !("snapshotId" in data) ||
-      typeof data.snapshotId !== "number"
-    ) {
-      throw new Error("The confirmed snapshot identifier was not returned.");
-    }
-    revalidateCourse({
-      code: projection.courseCode,
-      coursePublicId: input.coursePublicId,
-      year: projection.academicYear,
-    });
-    return {
-      ok: true,
-      message: `${projection.courseCode} was explicitly confirmed and is ready for publication.`,
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message: actionError(
-        error,
-        "Coursemap could not confirm this course snapshot.",
       ),
     };
   }

@@ -1,40 +1,38 @@
 "use client";
+
 import { TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 
 export const courseReviewTabs = [
-  { value: "course", label: "Course data", importOnly: false },
-  { value: "requisites", label: "Requisites", importOnly: false },
-  { value: "student", label: "Course preview", importOnly: false },
-  { value: "source", label: "Source", importOnly: false },
-  { value: "pipeline", label: "Pipeline", importOnly: true },
+  { value: "review", label: "Review" },
+  { value: "history", label: "History" },
+  { value: "preview", label: "Preview" },
 ] as const;
 
 export type CourseReviewTab = (typeof courseReviewTabs)[number]["value"];
 
 export function CourseReviewTabs({
-  hasImport,
+  hasData = true,
   editing = false,
   activeTab,
 }: {
-  hasImport: boolean;
+  hasData?: boolean;
   editing?: boolean;
-  activeTab?: CourseReviewTab;
+  activeTab: string;
 }) {
   return (
-    <div className="min-w-max flex-1">
-      <TabsList variant="line">
-        {courseReviewTabs
-          .filter((tab) => !tab.importOnly || hasImport)
-          .map((tab) => (
-            <TabsTrigger
-              key={tab.value}
-              value={tab.value}
-              disabled={editing && tab.value !== activeTab}
-            >
-              {tab.label}
-            </TabsTrigger>
-          ))}
-      </TabsList>
-    </div>
+    <TabsList variant="line" aria-label="Course views">
+      {courseReviewTabs.map((tab) => (
+        <TabsTrigger
+          key={tab.value}
+          value={tab.value}
+          disabled={
+            (editing && tab.value !== activeTab) ||
+            (!hasData && tab.value === "preview")
+          }
+        >
+          {tab.label}
+        </TabsTrigger>
+      ))}
+    </TabsList>
   );
 }

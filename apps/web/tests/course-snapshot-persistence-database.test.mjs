@@ -44,6 +44,9 @@ extraction.requisites = {
     ],
   },
 };
+extraction.evidence = extraction.evidence.map((row) =>
+  row.fieldKey === "attributes" ? { ...row, confidence: 0.7 } : row,
+);
 const projection = projectCourseSnapshot(extraction);
 
 function hash(value) {
@@ -359,6 +362,17 @@ test("persists and idempotently reuses a complete review candidate", async () =>
             ${first.candidateSnapshotId}, null, null
           )
         `;
+        // Reproduce an older completed import with no prepared workspace.
+        await tx`update public.course_years set draft_snapshot_id = null where id = ${first.courseYearId}`;
+        const backfill = await readFile(
+          new URL(
+            "../../../supabase/migrations/20260914090000_prepare_existing_first_catalogue_drafts.sql",
+            import.meta.url,
+          ),
+          "utf8",
+        );
+        await tx.unsafe(backfill);
+        await tx.unsafe(backfill);
         const [prepared] = await tx`
           select draft_snapshot_id, published_snapshot_id
           from public.course_years where id = ${first.courseYearId}
@@ -391,6 +405,25 @@ test("persists and idempotently reuses a complete review candidate", async () =>
           where user_id = ${workerId}::uuid
         `;
         await tx`select set_config('request.jwt.claim.sub', ${workerId}, true)`;
+        const [assessment] =
+          await tx`select public.catalogue_review_state('course', ${first.courseYearId}, ${first.candidateSnapshotId}) as sections`;
+        assert.equal(
+          assessment.sections.find((section) => section.key === "fees")
+            .eligible,
+          true,
+          "Verified fees remain eligible when attributes are uncertain",
+        );
+        assert.equal(
+          assessment.sections.find((section) => section.key === "attributes")
+            .eligible,
+          false,
+        );
+        assert.equal(
+          assessment.sections.find((section) => section.key === "requisites")
+            .eligible,
+          false,
+        );
+
         await tx.unsafe("savepoint acceptance_check");
         await tx`
           select public.accept_course_import_target(

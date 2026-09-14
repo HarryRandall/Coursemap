@@ -1194,6 +1194,7 @@ export type Database = {
           origin: string
           overall_confidence: number | null
           parent_snapshot_id: number | null
+          public_id: string
           schema_version: string
           sealed_at: string
           selection_rank: number | null
@@ -1230,6 +1231,7 @@ export type Database = {
           origin: string
           overall_confidence?: number | null
           parent_snapshot_id?: number | null
+          public_id?: string
           schema_version: string
           sealed_at?: string
           selection_rank?: number | null
@@ -1266,6 +1268,7 @@ export type Database = {
           origin?: string
           overall_confidence?: number | null
           parent_snapshot_id?: number | null
+          public_id?: string
           schema_version?: string
           sealed_at?: string
           selection_rank?: number | null
@@ -1498,6 +1501,7 @@ export type Database = {
           created_at: string
           draft_snapshot_id: number | null
           id: number
+          public_id: string
           published_snapshot_id: number | null
           structure_id: number
           updated_at: string
@@ -1507,6 +1511,7 @@ export type Database = {
           created_at?: string
           draft_snapshot_id?: number | null
           id?: never
+          public_id?: string
           published_snapshot_id?: number | null
           structure_id: number
           updated_at?: string
@@ -1516,6 +1521,7 @@ export type Database = {
           created_at?: string
           draft_snapshot_id?: number | null
           id?: never
+          public_id?: string
           published_snapshot_id?: number | null
           structure_id?: number
           updated_at?: string
@@ -2249,6 +2255,67 @@ export type Database = {
           },
         ]
       }
+      catalogue_section_reviews: {
+        Row: {
+          actor_id: string | null
+          approved: boolean
+          content_hash: string
+          course_year_id: number | null
+          created_at: string
+          id: string
+          method: string
+          section_key: string
+          structure_year_id: number | null
+          version_id: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          approved: boolean
+          content_hash: string
+          course_year_id?: number | null
+          created_at?: string
+          id?: string
+          method: string
+          section_key: string
+          structure_year_id?: number | null
+          version_id?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          approved?: boolean
+          content_hash?: string
+          course_year_id?: number | null
+          created_at?: string
+          id?: string
+          method?: string
+          section_key?: string
+          structure_year_id?: number | null
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_section_reviews_course_year_id_fkey"
+            columns: ["course_year_id"]
+            isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_section_reviews_course_year_id_fkey"
+            columns: ["course_year_id"]
+            isOneToOne: false
+            referencedRelation: "course_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_section_reviews_structure_year_id_fkey"
+            columns: ["structure_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_structure_years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogue_source_documents: {
         Row: {
           canonical_url: string
@@ -2539,6 +2606,13 @@ export type Database = {
             foreignKeyName: "course_attempts_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_attempts_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -2648,6 +2722,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "academic_years"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_directory_entries_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_directory_entries_course_id_fkey"
@@ -3239,6 +3320,13 @@ export type Database = {
             foreignKeyName: "course_import_targets_course_id_fkey"
             columns: ["course_id"]
             isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_import_targets_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -3429,6 +3517,13 @@ export type Database = {
             foreignKeyName: "course_related_courses_related_course_id_fkey"
             columns: ["related_course_id"]
             isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_related_courses_related_course_id_fkey"
+            columns: ["related_course_id"]
+            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -3581,6 +3676,13 @@ export type Database = {
             foreignKeyName: "course_rule_condition_courses_referenced_course_id_fkey"
             columns: ["referenced_course_id"]
             isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_rule_condition_courses_referenced_course_id_fkey"
+            columns: ["referenced_course_id"]
+            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -3680,6 +3782,13 @@ export type Database = {
             foreignKeyName: "course_rule_conditions_required_course_id_fkey"
             columns: ["required_course_id"]
             isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
+          {
+            foreignKeyName: "course_rule_conditions_required_course_id_fkey"
+            columns: ["required_course_id"]
+            isOneToOne: false
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
@@ -3734,6 +3843,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "course_rule_course_references_course_fkey"
+            columns: ["referenced_course_id"]
+            isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
+          },
           {
             foreignKeyName: "course_rule_course_references_course_fkey"
             columns: ["referenced_course_id"]
@@ -4068,6 +4184,7 @@ export type Database = {
           overall_confidence: number | null
           prescribed_texts: string | null
           projection_sha256: string
+          public_id: string
           schema_version: string
           school: string | null
           sealed_at: string | null
@@ -4107,6 +4224,7 @@ export type Database = {
           overall_confidence?: number | null
           prescribed_texts?: string | null
           projection_sha256: string
+          public_id?: string
           schema_version?: string
           school?: string | null
           sealed_at?: string | null
@@ -4146,6 +4264,7 @@ export type Database = {
           overall_confidence?: number | null
           prescribed_texts?: string | null
           projection_sha256?: string
+          public_id?: string
           schema_version?: string
           school?: string | null
           sealed_at?: string | null
@@ -4333,6 +4452,7 @@ export type Database = {
           draft_snapshot_id: number | null
           id: number
           lifecycle_status: string
+          public_id: string
           published_snapshot_id: number | null
           updated_at: string
         }
@@ -4343,6 +4463,7 @@ export type Database = {
           draft_snapshot_id?: number | null
           id?: never
           lifecycle_status?: string
+          public_id?: string
           published_snapshot_id?: number | null
           updated_at?: string
         }
@@ -4353,6 +4474,7 @@ export type Database = {
           draft_snapshot_id?: number | null
           id?: never
           lifecycle_status?: string
+          public_id?: string
           published_snapshot_id?: number | null
           updated_at?: string
         }
@@ -4363,6 +4485,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "academic_years"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_years_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "course_years_course_id_fkey"
@@ -4616,6 +4745,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "course_years"
             referencedColumns: ["course_id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "plan_items_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "course_directory_admin_entries"
+            referencedColumns: ["course_id"]
           },
           {
             foreignKeyName: "plan_items_course_id_fkey"
@@ -4974,13 +5110,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "course_directory_entries_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "course_years_draft_snapshot_same_year_fkey"
             columns: ["draft_snapshot_id", "course_year_id"]
             isOneToOne: false
@@ -5069,6 +5198,19 @@ export type Database = {
         }
         Returns: string
       }
+      admin_catalogue_projection: {
+        Args: { p_kind: string; p_snapshot_id: number }
+        Returns: Json
+      }
+      apply_catalogue_import_changes: {
+        Args: {
+          p_expected_snapshot_id: number
+          p_fields: string[]
+          p_kind: string
+          p_target_id: string
+        }
+        Returns: number
+      }
       archive_course_year: {
         Args: {
           p_course_year_id: number
@@ -5080,6 +5222,18 @@ export type Database = {
       cancel_academic_structure_import: {
         Args: { p_run_id: string }
         Returns: undefined
+      }
+      catalogue_import_comparison: {
+        Args: { p_kind: string; p_target_id: string }
+        Returns: Json
+      }
+      catalogue_review_history: {
+        Args: { p_kind: string; p_year_id: number }
+        Returns: Json
+      }
+      catalogue_review_state: {
+        Args: { p_kind: string; p_snapshot_id: number; p_year_id: number }
+        Returns: Json
       }
       confirm_course_manual_snapshot: {
         Args: {
@@ -5237,9 +5391,29 @@ export type Database = {
         Args: { p_plan_item_id: string }
         Returns: boolean
       }
+      restore_catalogue_version: {
+        Args: {
+          p_expected_snapshot_id: number
+          p_kind: string
+          p_version_id: string
+          p_year_id: number
+        }
+        Returns: number
+      }
       review_academic_structure_import_target: {
         Args: { p_decision: string; p_note?: string; p_target_id: string }
         Returns: undefined
+      }
+      review_catalogue_sections: {
+        Args: {
+          p_approved: boolean
+          p_bulk?: boolean
+          p_kind: string
+          p_sections: string[]
+          p_snapshot_id: number
+          p_year_id: number
+        }
+        Returns: Json
       }
       save_current_user_academic_result: {
         Args: {

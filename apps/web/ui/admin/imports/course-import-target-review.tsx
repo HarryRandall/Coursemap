@@ -39,7 +39,6 @@ export function CourseImportTargetReview({
   const workspaceHref = detail.target.coursePublicId
     ? adminCourseDetailPath({
         publicId: detail.target.coursePublicId,
-        year: detail.run.academicYear,
       })
     : null;
   return (

@@ -44,6 +44,7 @@ export function ConfirmDialog({
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [internalOpen, setInternalOpen] = useState(false);
   const resolvedOpen = open ?? internalOpen;
 
@@ -54,9 +55,16 @@ export function ConfirmDialog({
 
   async function confirm() {
     setPending(true);
+    setError(null);
     try {
       await onConfirm();
       changeOpen(false);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The action could not be completed. Try again.",
+      );
     } finally {
       setPending(false);
     }
@@ -117,6 +125,11 @@ export function ConfirmDialog({
             </div>
           </DialogDescription>
         </DialogHeader>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
         <DialogFooter className="m-0 min-w-0 rounded-none border-0 bg-transparent p-0">
           <Button
             data-confirm-cancel

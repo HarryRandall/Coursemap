@@ -81,9 +81,9 @@ export function DatabaseRowsViewer({
             setFilters((current) => ({ ...current, [key]: value })),
         }}
       />
-      <div className="grid min-h-0 min-w-0 gap-4 md:flex-1 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
-        <div className="relative min-h-0">
-          <DatabaseScrollPreview className="h-48 md:absolute md:inset-0 md:h-auto">
+      <div className="grid min-h-0 min-w-0 gap-4 md:flex-1 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
+        <div className="min-h-0">
+          <DatabaseScrollPreview className="h-48 md:h-full">
             <nav
               aria-label="Database tables"
               className="flex flex-col gap-1 pr-3"

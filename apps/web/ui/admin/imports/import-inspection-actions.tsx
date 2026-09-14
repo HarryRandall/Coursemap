@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@coursemap/ui/primitives/dropdown-menu";
 import type { AcademicStructureKind } from "@/lib/structure-import/contract";
-import { adminAcademicStructureImportPath } from "@/lib/coursemap/academic-structure-routes";
+import { catalogueWorkspacePath } from "@/lib/coursemap/catalogue-workspace-routes";
 
 export function ImportInspectionActions({
   code,
@@ -70,10 +70,10 @@ export function ImportInspectionActions({
       }
       const targetId = result.targets?.[0]?.targetId;
       if (!targetId) throw new Error("The new import target was not returned.");
+      if (!workspaceHref)
+        throw new Error("The catalogue workspace is unavailable.");
       router.push(
-        structureKind
-          ? adminAcademicStructureImportPath({ kind: structureKind, targetId })
-          : `/admin/courses/imports/${targetId}`,
+        catalogueWorkspacePath(workspaceHref, "history", `import=${targetId}`),
       );
       router.refresh();
     } catch (cause) {
