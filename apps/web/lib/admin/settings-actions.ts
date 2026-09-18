@@ -5,7 +5,7 @@ import { canManageCourseImports } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { IMPORT_MODEL_SETTING_KEY } from "@/lib/admin/settings";
 import { fetchCatalogueModel } from "@/lib/admin/model-catalogue";
-import { assertOpenRouterModel } from "@/lib/course-import/openrouter";
+import { assertOpenRouterModel } from "@/lib/catalogue-import/openrouter";
 
 export type ImportModelActionResult = {
   ok: boolean;
