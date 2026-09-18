@@ -534,6 +534,12 @@ begin
 end;
 $$;
 
+-- Manual snapshots have no source page, so page provenance on the year-scoped
+-- children is optional.
+alter table public.course_offerings alter column source_page_id drop not null;
+alter table public.offering_sessions alter column source_page_id drop not null;
+alter table public.course_rules alter column source_page_id drop not null;
+
 alter table public.course_related_courses
   add constraint course_related_courses_related_item_fkey
     foreign key (related_course_id) references public.catalogue_items (id);

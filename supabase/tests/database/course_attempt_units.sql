@@ -1,5 +1,5 @@
 begin;
-\ir ../helpers/catalogue-review.inc
+\ir ../helpers/catalogue-fixtures.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -34,17 +34,20 @@ select extensions.ok(
     'execute'
   )
   and (
-    select count(*) = 15
+    select count(*) = 16
     from pg_catalog.pg_policies
     where schemaname = 'public'
-      and policyname like '%\_read\_own\_attempt\_snapshots' escape '\'
-  )
-  and exists (
-    select 1
-    from pg_catalog.pg_policies
-    where schemaname = 'public'
-      and tablename = 'courses'
-      and policyname = 'courses_read_own_attempt_history'
+      and tablename in (
+        'course_snapshot_details', 'course_offerings', 'offering_sessions',
+        'course_learning_outcomes', 'course_assessment_items',
+        'course_assessment_outcomes', 'course_fees', 'course_attributes',
+        'course_unit_options', 'course_areas_of_interest',
+        'course_related_courses', 'course_rules', 'course_rule_groups',
+        'course_rule_conditions', 'course_rule_condition_courses',
+        'course_rule_course_references'
+      )
+      and policyname like '%\_read'
+      and qual like '%can_read_snapshot(%.snapshot_id)%'
   ),
   'attempt owners alone receive the exact historical projection contract and rich-row policies'
 );
@@ -75,127 +78,50 @@ insert into public.plans (
   'full_time'
 );
 
-insert into public.course_source_pages (
-  source_id, academic_year_id, page_kind, external_key, canonical_url,
-  media_type, content_sha256, http_status, byte_size
-)
+-- Two courses: a range-unit course and a variable-unit course with two
+-- versions. Version 1 is published first; version 2 is published midway.
+create temporary table fixture_snapshots on commit drop as
 select
-  sources.id,
-  years.id,
-  'course_page',
-  documents.external_key,
-  documents.canonical_url,
-  'text/html',
-  documents.content_sha256,
-  200,
-  256
-from public.course_sources as sources
-join public.academic_years as years on years.year = 2026
-cross join (values
-  (
-    'RANG1000'::text,
-    'https://coursemap.local.test/2026/rang1000',
-    repeat('3', 64)
-  ),
-  (
-    'VARI1000'::text,
-    'https://coursemap.local.test/2026/vari1000-v1',
-    repeat('4', 64)
-  ),
-  (
-    'VARI1000'::text,
-    'https://coursemap.local.test/2026/vari1000-v2',
-    repeat('5', 64)
-  )
-) as documents(external_key, canonical_url, content_sha256)
-where sources.kind = 'local_mock';
-
-insert into public.courses (code)
-values ('RANG1000'), ('VARI1000');
-
-insert into public.course_years (course_id, academic_year_id)
-select courses.id, years.id
-from public.courses
-join public.academic_years as years on years.year = 2026
-where courses.code in ('RANG1000', 'VARI1000');
-
-insert into public.course_snapshots (
-  course_year_id, academic_year_id, snapshot_number, origin,
-  source_page_id, projection_sha256, validation_status,
-  has_critical_uncertainty, title, unit_value_kind, units,
-  minimum_units, maximum_units, level, subject_code, academic_career,
-  offering_status, created_by
-)
+  'RANG1000'::text as code,
+  1 as version,
+  pg_temp.create_course_snapshot('RANG1000', 2026::smallint, 'Range course', 'range', null, 6, 12) as snapshot_id
+union all
 select
-  course_years.id,
-  years.id,
-  snapshots.snapshot_number,
-  'import',
-  documents.id,
-  snapshots.projection_sha256,
-  'valid',
-  false,
-  snapshots.title,
-  snapshots.unit_value_kind,
-  null,
-  6,
-  case when snapshots.snapshot_number = 2 then 9 else 12 end,
-  1000,
-  left(courses.code, 4),
-  'UGRD',
-  'offered',
-  '95000000-0000-4000-8000-000000000001'
-from public.course_years
-join public.courses on courses.id = course_years.course_id
-join public.academic_years as years
-  on years.id = course_years.academic_year_id
-join (values
-  ('RANG1000'::text, 1, 'Range course', 'range'::text, repeat('6', 64)),
-  ('VARI1000'::text, 1, 'Variable course v1', 'variable'::text, repeat('7', 64)),
-  ('VARI1000'::text, 2, 'Variable course v2', 'variable'::text, repeat('8', 64))
-) as snapshots(code, snapshot_number, title, unit_value_kind, projection_sha256)
-  on snapshots.code = courses.code
-join public.course_source_pages as documents
-  on documents.academic_year_id = years.id
- and documents.external_key = courses.code
- and documents.content_sha256 = case snapshots.snapshot_number
-   when 1 then case courses.code
-     when 'RANG1000' then repeat('3', 64)
-     else repeat('4', 64)
-   end
-   else repeat('5', 64)
- end
-where years.year = 2026;
+  'VARI1000',
+  1,
+  pg_temp.create_course_snapshot('VARI1000', 2026::smallint, 'Variable course v1', 'variable', null)
+union all
+select
+  'VARI1000',
+  2,
+  pg_temp.create_course_snapshot('VARI1000', 2026::smallint, 'Variable course v2', 'variable', null);
+
+grant select on table fixture_snapshots to authenticated;
 
 insert into public.course_unit_options (
-  course_snapshot_id, position, units, label, source_text
+  snapshot_id, position, units, label, source_text
 )
 select
-  snapshots.id,
+  fixture.snapshot_id,
   options.position,
   options.units,
   options.units::text || ' units',
   options.units::text || ' units'
-from public.course_snapshots as snapshots
+from fixture_snapshots as fixture
 cross join lateral (
   select options.position, options.units
-  from (values (1, 6::numeric), (2, 12::numeric))
-    as options(position, units)
-  where snapshots.snapshot_number = 1
+  from (values (1, 6::numeric), (2, 12::numeric)) as options(position, units)
+  where fixture.version = 1
   union all
   select options.position, options.units
-  from (values (1, 6::numeric), (2, 9::numeric))
-    as options(position, units)
-  where snapshots.snapshot_number = 2
+  from (values (1, 6::numeric), (2, 9::numeric)) as options(position, units)
+  where fixture.version = 2
 ) as options
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-where courses.code = 'VARI1000';
+where fixture.code = 'VARI1000';
 
 insert into public.course_rules (
-  course_snapshot_id,
+  snapshot_id,
   academic_year_id,
-  course_source_page_id,
   rule_kind,
   hardness,
   source_text,
@@ -203,49 +129,34 @@ insert into public.course_rules (
   confidence
 )
 select
-  snapshots.id,
+  fixture.snapshot_id,
   snapshots.academic_year_id,
-  snapshots.source_page_id,
   'prerequisite',
   'hard',
-  case snapshots.snapshot_number
-    when 1 then 'Complete RANG1000.'
-    else 'Complete COMP1100.'
-  end,
-  case snapshots.snapshot_number when 1 then 'verified' else 'review' end,
-  case snapshots.snapshot_number when 1 then 0.91 else 0.41 end
-from public.course_snapshots as snapshots
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-where courses.code = 'VARI1000';
+  case fixture.version when 1 then 'Complete RANG1000.' else 'Complete COMP1100.' end,
+  case fixture.version when 1 then 'verified' else 'review' end,
+  case fixture.version when 1 then 0.91 else 0.41 end
+from fixture_snapshots as fixture
+join public.catalogue_snapshots as snapshots on snapshots.id = fixture.snapshot_id
+where fixture.code = 'VARI1000';
 
 insert into public.course_rule_groups (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   projection_key,
   parent_group_id,
   operator,
   minimum_count,
   position
 )
-select
-  rules.id,
-  rules.course_snapshot_id,
-  'prerequisite:group:root',
-  null,
-  'all_of',
-  null,
-  0
+select rules.id, rules.snapshot_id, 'prerequisite:group:root', null, 'all_of', null, 0
 from public.course_rules as rules
-join public.course_snapshots as snapshots
-  on snapshots.id = rules.course_snapshot_id
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-where courses.code = 'VARI1000';
+join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
+where fixture.code = 'VARI1000';
 
 insert into public.course_rule_conditions (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   projection_key,
   group_id,
   condition_kind,
@@ -259,7 +170,7 @@ insert into public.course_rule_conditions (
 )
 select
   rules.id,
-  rules.course_snapshot_id,
+  rules.snapshot_id,
   'prerequisite:condition:direct',
   groups.id,
   'course',
@@ -267,24 +178,20 @@ select
   'completed',
   'hard',
   rules.source_text,
-  case snapshots.snapshot_number when 1 then 0.87 else 0.37 end,
-  case snapshots.snapshot_number when 1 then 'verified' else 'review' end,
+  case fixture.version when 1 then 0.87 else 0.37 end,
+  case fixture.version when 1 then 'verified' else 'review' end,
   0
 from public.course_rules as rules
-join public.course_snapshots as snapshots
-  on snapshots.id = rules.course_snapshot_id
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
+join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
 join public.course_rule_groups as groups on groups.course_rule_id = rules.id
-join public.courses as prerequisites on prerequisites.code = case
-  when snapshots.snapshot_number = 1 then 'RANG1000'
-  else 'COMP1100'
-end
-where courses.code = 'VARI1000';
+join public.catalogue_items as prerequisites
+  on prerequisites.kind = 'course'
+ and prerequisites.code = case when fixture.version = 1 then 'RANG1000' else 'COMP1100' end
+where fixture.code = 'VARI1000';
 
 insert into public.course_rule_course_references (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   referenced_course_id,
   source_text,
   confidence,
@@ -292,45 +199,21 @@ insert into public.course_rule_course_references (
 )
 select
   rules.id,
-  rules.course_snapshot_id,
+  rules.snapshot_id,
   prerequisites.id,
   rules.source_text,
-  case snapshots.snapshot_number when 1 then 0.83 else 0.33 end,
-  case snapshots.snapshot_number when 1 then 'verified' else 'automatic' end
+  case fixture.version when 1 then 0.83 else 0.33 end,
+  case fixture.version when 1 then 'verified' else 'automatic' end
 from public.course_rules as rules
-join public.course_snapshots as snapshots
-  on snapshots.id = rules.course_snapshot_id
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-join public.courses as prerequisites on prerequisites.code = case
-  when snapshots.snapshot_number = 1 then 'RANG1000'
-  else 'COMP1100'
-end
-where courses.code = 'VARI1000';
+join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
+join public.catalogue_items as prerequisites
+  on prerequisites.kind = 'course'
+ and prerequisites.code = case when fixture.version = 1 then 'RANG1000' else 'COMP1100' end
+where fixture.code = 'VARI1000';
 
-select pg_temp.approve_catalogue_fixture('course', snapshots.id)
-from public.course_snapshots as snapshots
-cross join public.course_years as course_years
-where snapshots.course_year_id = course_years.id
-  and snapshots.snapshot_number = 1
-  and exists (
-    select 1
-    from public.courses
-    where courses.id = course_years.course_id
-      and courses.code in ('RANG1000', 'VARI1000')
-  );
-
-update public.course_years
-set published_snapshot_id = snapshots.id
-from public.course_snapshots as snapshots
-where snapshots.course_year_id = course_years.id
-  and snapshots.snapshot_number = 1
-  and exists (
-    select 1
-    from public.courses
-    where courses.id = course_years.course_id
-      and courses.code in ('RANG1000', 'VARI1000')
-  );
+select pg_temp.publish_snapshot(fixture.snapshot_id)
+from fixture_snapshots as fixture
+where fixture.version = 1;
 
 select set_config(
   'request.jwt.claim.sub',
@@ -355,7 +238,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1100'
       ),
@@ -373,7 +256,7 @@ select extensions.ok(
   exists (
     select 1
     from public.plan_items
-    join public.courses on courses.id = plan_items.course_id
+    join public.catalogue_items as courses on courses.id = plan_items.course_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'COMP1100'
   ),
@@ -386,7 +269,7 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1100'
       ),
@@ -401,7 +284,7 @@ select extensions.ok(
   exists (
     select 1
     from public.course_attempts
-    join public.courses on courses.id = course_attempts.course_id
+    join public.catalogue_items as courses on courses.id = course_attempts.course_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'COMP1100'
       and course_attempts.units_attempted = 6
@@ -425,7 +308,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'RANG1000'
       ),
@@ -444,7 +327,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'RANG1000'
       ),
@@ -464,7 +347,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'RANG1000'
       ),
@@ -484,7 +367,7 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'RANG1000'
       ),
@@ -500,7 +383,7 @@ select extensions.ok(
   exists (
     select 1
     from public.course_attempts
-    join public.courses on courses.id = course_attempts.course_id
+    join public.catalogue_items as courses on courses.id = course_attempts.course_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'RANG1000'
       and course_attempts.units_attempted = 9
@@ -524,7 +407,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'VARI1000'
       ),
@@ -543,7 +426,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'VARI1000'
       ),
@@ -563,7 +446,7 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'VARI1000'
       ),
@@ -579,9 +462,9 @@ select extensions.ok(
   exists (
     select 1
     from public.course_attempts
-    join public.courses on courses.id = course_attempts.course_id
-    join public.course_snapshots
-      on course_snapshots.id = course_attempts.course_snapshot_id
+    join public.catalogue_items as courses on courses.id = course_attempts.course_id
+    join public.course_snapshot_details as course_snapshots
+      on course_snapshots.snapshot_id = course_attempts.course_snapshot_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'VARI1000'
       and course_snapshots.title = 'Variable course v1'
@@ -593,30 +476,16 @@ select extensions.ok(
 
 reset role;
 
-select pg_temp.approve_catalogue_fixture('course', snapshots.id)
-from public.course_snapshots as snapshots
-join public.courses on true
-cross join public.course_years as course_years
-where snapshots.course_year_id = course_years.id
-  and courses.id = course_years.course_id
-  and courses.code = 'VARI1000'
-  and snapshots.snapshot_number = 2;
-
-update public.course_years
-set published_snapshot_id = snapshots.id
-from public.course_snapshots as snapshots
-join public.courses on true
-where snapshots.course_year_id = course_years.id
-  and courses.id = course_years.course_id
-  and courses.code = 'VARI1000'
-  and snapshots.snapshot_number = 2;
+select pg_temp.publish_snapshot(fixture.snapshot_id)
+from fixture_snapshots as fixture
+where fixture.code = 'VARI1000' and fixture.version = 2;
 
 create temporary table historical_attempt_snapshots
 on commit drop
 as
 select course_attempts.course_snapshot_id as snapshot_id
 from public.course_attempts
-join public.courses on courses.id = course_attempts.course_id
+join public.catalogue_items as courses on courses.id = course_attempts.course_id
 where course_attempts.owner_id = '95000000-0000-4000-8000-000000000001'
   and courses.code = 'VARI1000';
 
@@ -627,10 +496,10 @@ set local role authenticated;
 select extensions.ok(
   exists (
     select 1
-    from public.course_years
-    join public.courses on courses.id = course_years.course_id
-    join public.course_snapshots
-      on course_snapshots.id = course_years.published_snapshot_id
+    from public.catalogue_item_years as course_years
+    join public.catalogue_items as courses on courses.id = course_years.item_id
+    join public.course_snapshot_details as course_snapshots
+      on course_snapshots.snapshot_id = course_years.published_snapshot_id
     where courses.code = 'VARI1000'
       and course_snapshots.title = 'Variable course v2'
   ),
@@ -641,7 +510,7 @@ select extensions.is(
   (
     select count(*)
     from public.course_unit_options
-    where course_unit_options.course_snapshot_id = (
+    where course_unit_options.snapshot_id = (
       select snapshot_id from historical_attempt_snapshots
     )
   ),
@@ -693,7 +562,7 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'VARI1000'
       ),
@@ -711,16 +580,16 @@ select extensions.ok(
   exists (
     select 1
     from public.plan_items
-    join public.courses on courses.id = plan_items.course_id
+    join public.catalogue_items as courses on courses.id = plan_items.course_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'VARI1000'
   )
   and exists (
     select 1
     from public.course_attempts
-    join public.courses on courses.id = course_attempts.course_id
-    join public.course_snapshots
-      on course_snapshots.id = course_attempts.course_snapshot_id
+    join public.catalogue_items as courses on courses.id = course_attempts.course_id
+    join public.course_snapshot_details as course_snapshots
+      on course_snapshots.snapshot_id = course_attempts.course_snapshot_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'VARI1000'
       and course_snapshots.title = 'Variable course v1'
@@ -736,7 +605,7 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.courses on courses.id = plan_items.course_id
+        join public.catalogue_items as courses on courses.id = plan_items.course_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'VARI1000'
       ),
@@ -751,9 +620,9 @@ select extensions.ok(
   exists (
     select 1
     from public.course_attempts
-    join public.courses on courses.id = course_attempts.course_id
-    join public.course_snapshots
-      on course_snapshots.id = course_attempts.course_snapshot_id
+    join public.catalogue_items as courses on courses.id = course_attempts.course_id
+    join public.course_snapshot_details as course_snapshots
+      on course_snapshots.snapshot_id = course_attempts.course_snapshot_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'VARI1000'
       and course_snapshots.title = 'Variable course v1'
@@ -766,7 +635,7 @@ select extensions.ok(
   and not exists (
     select 1
     from public.plan_items
-    join public.courses on courses.id = plan_items.course_id
+    join public.catalogue_items as courses on courses.id = plan_items.course_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'VARI1000'
   ),
@@ -783,7 +652,7 @@ select extensions.ok(
   not exists (
     select 1
     from public.course_unit_options
-    where course_unit_options.course_snapshot_id = (
+    where course_unit_options.snapshot_id = (
       select snapshot_id from historical_attempt_snapshots
     )
   )

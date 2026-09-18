@@ -1810,7 +1810,7 @@ export type Database = {
           id: number
           location: string | null
           snapshot_id: number
-          source_page_id: number
+          source_page_id: number | null
           updated_at: string
         }
         Insert: {
@@ -1820,7 +1820,7 @@ export type Database = {
           id?: never
           location?: string | null
           snapshot_id: number
-          source_page_id: number
+          source_page_id?: number | null
           updated_at?: string
         }
         Update: {
@@ -1830,7 +1830,7 @@ export type Database = {
           id?: never
           location?: string | null
           snapshot_id?: number
-          source_page_id?: number
+          source_page_id?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -2303,7 +2303,7 @@ export type Database = {
           review_state: string
           rule_kind: string
           snapshot_id: number
-          source_page_id: number
+          source_page_id: number | null
           source_text: string
           updated_at: string
         }
@@ -2316,7 +2316,7 @@ export type Database = {
           review_state?: string
           rule_kind: string
           snapshot_id: number
-          source_page_id: number
+          source_page_id?: number | null
           source_text: string
           updated_at?: string
         }
@@ -2329,7 +2329,7 @@ export type Database = {
           review_state?: string
           rule_kind?: string
           snapshot_id?: number
-          source_page_id?: number
+          source_page_id?: number | null
           source_text?: string
           updated_at?: string
         }
@@ -2552,7 +2552,7 @@ export type Database = {
           location: string | null
           position: number
           snapshot_id: number
-          source_page_id: number
+          source_page_id: number | null
           source_text: string
           starts_on: string | null
           updated_at: string
@@ -2574,7 +2574,7 @@ export type Database = {
           location?: string | null
           position: number
           snapshot_id: number
-          source_page_id: number
+          source_page_id?: number | null
           source_text: string
           starts_on?: string | null
           updated_at?: string
@@ -2596,7 +2596,7 @@ export type Database = {
           location?: string | null
           position?: number
           snapshot_id?: number
-          source_page_id?: number
+          source_page_id?: number | null
           source_text?: string
           starts_on?: string | null
           updated_at?: string
