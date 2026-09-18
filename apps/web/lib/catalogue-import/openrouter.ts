@@ -9,7 +9,7 @@ const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/;
 
 type JsonSchema = Record<string, unknown>;
 
-export type OpenRouterCourseRequestBody = {
+export type OpenRouterRequestBody = {
   model: string;
   messages: Array<{ role: "system" | "user"; content: string }>;
   temperature: 0;
@@ -62,7 +62,7 @@ export type OpenRouterRouterMetadata = {
   }>;
 };
 
-export type OpenRouterCourseExtraction = {
+export type OpenRouterExtraction = {
   generationId: string | null;
   requestedModel: string;
   resolvedModel: string;
@@ -89,7 +89,7 @@ export type OpenRouterCourseExtraction = {
     responseError: string | null;
     rawResponseText: string | null;
     routerMetadata: OpenRouterRouterMetadata | null;
-    usage: OpenRouterCourseExtraction["usage"];
+    usage: OpenRouterExtraction["usage"];
     latencyMilliseconds: number;
   };
 };
@@ -212,7 +212,7 @@ function requireOpenRouterKey(env: NodeJS.ProcessEnv) {
   return key;
 }
 
-export function buildOpenRouterCourseRequestBody({
+export function buildOpenRouterRequestBody({
   model,
   systemPrompt,
   modelInput,
@@ -227,7 +227,7 @@ export function buildOpenRouterCourseRequestBody({
   schemaName?: string;
   maxOutputTokens?: number;
   env?: NodeJS.ProcessEnv;
-}): OpenRouterCourseRequestBody {
+}): OpenRouterRequestBody {
   const requestedModel = assertOpenRouterModel(model);
   if (!systemPrompt.trim() || !modelInput.trim()) {
     throw new TypeError(
@@ -291,10 +291,10 @@ function auditNullableNumber(value: unknown, field: string) {
 }
 
 /** Reconstructs a paid model result from its verified audit artefact. */
-export function restoreOpenRouterCourseExtraction(
+export function restoreOpenRouterExtraction(
   value: unknown,
   requestedModel: string,
-): OpenRouterCourseExtraction {
+): OpenRouterExtraction {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TypeError("Stored OpenRouter response is invalid.");
   }
@@ -352,7 +352,7 @@ export function restoreOpenRouterCourseExtraction(
       costUsd: auditNullableNumber(usage.costUsd, "cost"),
     },
     responseForAudit: {
-      ...(audit as OpenRouterCourseExtraction["responseForAudit"]),
+      ...(audit as OpenRouterExtraction["responseForAudit"]),
       rawResponseText,
       routerMetadata: restoredRouterMetadata,
     },
@@ -399,7 +399,7 @@ function safeErrorMessage(body: unknown, status: number) {
  * Request one schema-guided course extraction. The API key and response
  * reasoning are deliberately excluded from the returned audit object.
  */
-export async function extractCourseWithOpenRouter({
+export async function extractWithOpenRouter({
   model,
   systemPrompt,
   modelInput,
@@ -419,8 +419,8 @@ export async function extractCourseWithOpenRouter({
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
-}): Promise<OpenRouterCourseExtraction> {
-  const requestBody = buildOpenRouterCourseRequestBody({
+}): Promise<OpenRouterExtraction> {
+  const requestBody = buildOpenRouterRequestBody({
     model,
     systemPrompt,
     modelInput,
