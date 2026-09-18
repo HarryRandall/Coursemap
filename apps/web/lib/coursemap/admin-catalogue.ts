@@ -357,7 +357,7 @@ export async function loadImportTargetDetail(
     supabase
       .from("catalogue_extractions")
       .select(
-        "resolved_model,validation_status,input_tokens,output_tokens,cost_usd,latency_ms,warning_count,error_count,error_summary",
+        "resolved_model,finish_reason,validation_status,input_tokens,output_tokens,cost_usd,latency_ms,warning_count,error_count,error_summary",
       )
       .eq("target_id", targetId)
       .order("started_at", { ascending: false })
@@ -396,6 +396,7 @@ export async function loadImportTargetDetail(
     extraction: extraction.data
       ? {
           resolvedModel: extraction.data.resolved_model,
+          finishReason: extraction.data.finish_reason,
           validationStatus: extraction.data.validation_status,
           inputTokens: extraction.data.input_tokens,
           outputTokens: extraction.data.output_tokens,

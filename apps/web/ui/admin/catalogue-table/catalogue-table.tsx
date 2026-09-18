@@ -38,7 +38,7 @@ export function DataTableShell({
   footer?: ReactNode;
   selectable?: boolean;
   imports?: boolean;
-  layout?: "public-courses" | "users";
+  layout?: "public-courses" | "users" | "directory";
 }) {
   return (
     <div

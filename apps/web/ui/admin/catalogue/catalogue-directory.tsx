@@ -352,7 +352,7 @@ export function CatalogueDirectory({
         />
       ) : (
         <DataTableShell
-          imports
+          layout="directory"
           footer={
             <Pagination
               page={page.page}
