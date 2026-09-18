@@ -143,10 +143,11 @@ test("imports, replays and archives university calendar events", async () => {
           assert.equal(failing.counts.failed, 55);
 
           const runs = await tx`
-          select status
-          from public.catalogue_import_runs
-          where scope = ${`university_calendar:${calendarYear}`}
-          order by started_at
+          select imports.status, imports.archived_count
+          from public.university_calendar_imports as imports
+          join public.academic_years as years on years.id = imports.academic_year_id
+          where years.year = ${calendarYear}
+          order by imports.imported_at
         `;
           assert.deepEqual(runs.map((row) => row.status).slice(-5), [
             "succeeded",
@@ -155,6 +156,17 @@ test("imports, replays and archives university calendar events", async () => {
             "succeeded",
             "failed",
           ]);
+          assert.deepEqual(
+            runs.map((row) => row.archived_count).slice(-5),
+            [0, 0, 1, 1, 0],
+          );
+
+          const [year] = await tx`
+          select calendar_published_at
+          from public.academic_years
+          where year = ${calendarYear}
+        `;
+          assert.ok(year.calendar_published_at instanceof Date);
 
           throw rollbackSignal;
         },

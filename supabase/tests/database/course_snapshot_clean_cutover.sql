@@ -203,12 +203,6 @@ insert into auth.users (
   now(), now()
 );
 
-insert into public.catalogue_years (year, status, published_at)
-values (2025, 'published', now())
-on conflict (year) do update
-set status = excluded.status,
-    published_at = excluded.published_at;
-
 insert into public.academic_periods (
   calendar_year, code, name, short_name, starts_on, ends_on, sort_order, status
 ) values

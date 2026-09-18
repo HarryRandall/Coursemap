@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(7);
+select extensions.plan(10);
 
 select extensions.hasnt_table(
   'public',
@@ -23,28 +23,35 @@ select extensions.hasnt_function(
   'the retired generic catalogue change classifier is absent'
 );
 
-select extensions.ok(
-  exists (
-    select 1
-    from pg_catalog.pg_constraint
-    where conrelid = 'public.catalogue_source_documents'::regclass
-      and conname = 'catalogue_source_documents_entity_kind_check'
-      and pg_catalog.pg_get_constraintdef(oid)
-        = 'CHECK ((entity_kind = ''calendar''::text))'
-  ),
-  'generic source documents are limited to the remaining calendar importer'
+select extensions.hasnt_table(
+  'public',
+  'catalogue_years',
+  'the legacy catalogue year registry is absent'
 );
 
-select extensions.ok(
-  exists (
-    select 1
-    from pg_catalog.pg_constraint
-    where conrelid = 'public.catalogue_import_items'::regclass
-      and conname = 'catalogue_import_items_target_kind_check'
-      and pg_catalog.pg_get_constraintdef(oid)
-        = 'CHECK ((target_kind = ''university_calendar''::text))'
-  ),
-  'generic import items are limited to university calendar targets'
+select extensions.hasnt_table(
+  'public',
+  'catalogue_source_documents',
+  'the legacy catalogue source document table is absent'
+);
+
+select extensions.hasnt_table(
+  'public',
+  'catalogue_import_runs',
+  'the legacy generic import run table is absent'
+);
+
+select extensions.hasnt_table(
+  'public',
+  'catalogue_import_items',
+  'the legacy generic import item table is absent'
+);
+
+select extensions.hasnt_column(
+  'public',
+  'university_calendar_events',
+  'source_document_id',
+  'calendar events no longer reference legacy source documents'
 );
 
 select extensions.ok(
