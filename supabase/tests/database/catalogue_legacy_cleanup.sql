@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(10);
+select extensions.plan(12);
 
 select extensions.hasnt_table(
   'public',
@@ -54,35 +54,29 @@ select extensions.hasnt_column(
   'calendar events no longer reference legacy source documents'
 );
 
-select extensions.ok(
-  not has_sequence_privilege(
-    'authenticated',
-    'public.academic_structure_import_runs_run_number_seq',
-    'usage'
-  )
-  and not has_sequence_privilege(
-    'authenticated',
-    'public.academic_structure_import_runs_run_number_seq',
-    'select'
-  )
-  and not has_sequence_privilege(
-    'authenticated',
-    'public.course_import_runs_run_number_seq',
-    'usage'
-  )
-  and not has_sequence_privilege(
-    'authenticated',
-    'public.course_import_runs_run_number_seq',
-    'select'
-  ),
-  'authenticated clients cannot allocate or inspect importer run sequences directly'
+select extensions.hasnt_table(
+  'public',
+  'course_import_runs',
+  'the retired course import queue is absent'
 );
 
-select extensions.ok(
-  pg_catalog.pg_get_functiondef(
-    'public.review_academic_structure_import_target(uuid,text,text)'::regprocedure
-  ) like '%severity <> ''error''%',
-  'acceptance resolves non-blocking review observations while preserving errors'
+select extensions.hasnt_table(
+  'public',
+  'academic_structure_import_runs',
+  'the retired academic structure import queue is absent'
+);
+
+select extensions.hasnt_table(
+  'public',
+  'catalogue_section_reviews',
+  'the retired section approval ledger is absent'
+);
+
+select extensions.hasnt_function(
+  'public',
+  'publish_course_snapshot',
+  array['bigint', 'bigint', 'bigint'],
+  'the retired course publication function is absent'
 );
 
 select * from extensions.finish();
