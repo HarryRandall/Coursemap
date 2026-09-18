@@ -1,6 +1,11 @@
 import "server-only";
+import { withImportDatabaseClient } from "@/lib/catalogue-import/import-store";
+import { readSnapshotWrite } from "@/lib/catalogue-import/snapshot-read";
+import type { CatalogueSnapshotWrite } from "@/lib/catalogue-import/snapshot-write";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/types/database";
 import type { CatalogueKind } from "./catalogue-kinds";
+import { courseFromSnapshotProjection } from "./published-courses";
 
 export type ReviewEntry = {
   id: number;
@@ -220,4 +225,22 @@ export async function loadCatalogueRecord({
       entries: entriesByTarget.get(target.id) ?? [],
     })),
   };
+}
+
+/** The editable content of a snapshot, read through the import connection. */
+export async function loadSnapshotWrite(
+  snapshotId: number,
+): Promise<CatalogueSnapshotWrite | null> {
+  return withImportDatabaseClient((sql) => readSnapshotWrite(sql, snapshotId));
+}
+
+/** The student-facing course details for a snapshot, or null for structures. */
+export async function loadSnapshotCoursePreview(snapshotId: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_snapshot_projection", {
+    p_snapshot_id: snapshotId,
+  });
+  if (error) throw error;
+  if (data === null) return null;
+  return courseFromSnapshotProjection(data as Json, snapshotId);
 }

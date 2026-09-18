@@ -1,5 +1,17 @@
+"use client";
+
 import { Badge } from "@coursemap/ui/components/badge";
+import { Button } from "@coursemap/ui/primitives/button";
+import { History, Trash2 } from "lucide-react";
+import { useTransition } from "react";
+import { toast } from "sonner";
+
+import {
+  discardDraftAction,
+  restoreSnapshotAction,
+} from "@/lib/coursemap/admin-catalogue-actions";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
+import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
@@ -10,10 +22,27 @@ function formatDateTime(value: string | null) {
 }
 
 /** Every snapshot of the record with its role, and the publication log. */
-export function RecordHistory({ record }: { record: CatalogueRecord }) {
+export function RecordHistory({
+  record,
+  path,
+}: {
+  record: CatalogueRecord;
+  path: string;
+}) {
   const targetRun = new Map(
     record.reviews.map((review) => [review.id, review.runNumber]),
   );
+  const [pending, startTransition] = useTransition();
+  const locked = pending || Boolean(record.archivedAt);
+  function run(
+    action: () => Promise<{ ok: boolean; error?: string; message?: string }>,
+  ) {
+    startTransition(async () => {
+      const result = await action();
+      if (result.ok) toast.success(result.message ?? "Done.");
+      else toast.error(result.error ?? "The action failed.");
+    });
+  }
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <section
@@ -48,7 +77,7 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
                   based on #{snapshot.basedOnSnapshotId}
                 </span>
               ) : null}
-              <span className="ml-auto flex gap-1">
+              <span className="ml-auto flex items-center gap-1">
                 {snapshot.id === record.publishedSnapshotId ? (
                   <Badge variant="success-light">Published</Badge>
                 ) : null}
@@ -57,6 +86,53 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
                 ) : null}
                 {!snapshot.sealedAt ? (
                   <Badge variant="info-light">Unsealed</Badge>
+                ) : null}
+                {snapshot.id === record.draftSnapshotId ? (
+                  <ConfirmDialog
+                    title="Discard this draft?"
+                    description="The draft pointer is cleared. The snapshot stays in history and can be restored."
+                    confirmLabel="Discard draft"
+                    destructive
+                    onConfirm={() =>
+                      run(() =>
+                        discardDraftAction({
+                          itemYearId: record.itemYearId,
+                          path,
+                        }),
+                      )
+                    }
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={locked}
+                        type="button"
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                        Discard
+                      </Button>
+                    }
+                  />
+                ) : snapshot.id !== record.publishedSnapshotId ||
+                  record.draftSnapshotId ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={locked}
+                    type="button"
+                    onClick={() =>
+                      run(() =>
+                        restoreSnapshotAction({
+                          itemYearId: record.itemYearId,
+                          snapshotId: snapshot.id,
+                          path,
+                        }),
+                      )
+                    }
+                  >
+                    <History size={14} aria-hidden="true" />
+                    Restore as draft
+                  </Button>
                 ) : null}
               </span>
             </li>
