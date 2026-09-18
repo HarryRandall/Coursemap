@@ -45,7 +45,10 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
       ...new Set(attemptRows.map((attempt) => attempt.course_id)),
     ];
     const { data: courses, error: coursesError } = courseIds.length
-      ? await supabase.from("courses").select("code,id").in("id", courseIds)
+      ? await supabase
+          .from("catalogue_items")
+          .select("code,id")
+          .in("id", courseIds)
       : { data: [], error: null };
     if (coursesError) throw coursesError;
 
@@ -105,19 +108,19 @@ async function loadEnrolledProgrammeCodes(
   if (structureYearIds.length === 0) return [];
 
   const { data: structureYears, error: structureYearsError } = await supabase
-    .from("academic_structure_years")
-    .select("structure_id")
+    .from("catalogue_item_years")
+    .select("item_id")
     .in("id", structureYearIds);
   if (structureYearsError) return [];
   const structureIds = [
     ...new Set(
-      (structureYears ?? []).map((structureYear) => structureYear.structure_id),
+      (structureYears ?? []).map((structureYear) => structureYear.item_id),
     ),
   ];
   if (structureIds.length === 0) return [];
 
   const { data: structures, error: structuresError } = await supabase
-    .from("academic_structures")
+    .from("catalogue_items")
     .select("code")
     .in("id", structureIds);
   if (structuresError) return [];
