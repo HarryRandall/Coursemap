@@ -165,10 +165,16 @@ follows.
 
 Import (shared)
 
-- `catalogue_sources`: `kind`, `base_url`, `is_active`.
-- `catalogue_source_pages`: `source_id`, `academic_year_id`, `kind`, `url`,
-  `content_hash`, `storage_path`, `fetched_at`. Immutable. Also records the
-  university calendar manifest.
+- `catalogue_sources`: `name`, `kind`, `base_url`, `is_active`. Landed in A2.
+- `catalogue_source_pages`: `source_id`, `academic_year_id`, `kind`,
+  `external_key`, `canonical_url`, `content_sha256`, `media_type`, HTTP
+  metadata, `storage_bucket`, `storage_path`, `fetched_at`. Immutable. Landed
+  in A2 with the university calendar as its first writer; A5 extends `kind`
+  if directory pages need finer values.
+- `university_calendar_imports`: one row per command-line calendar import with
+  counts and diagnostics. The calendar does not use the queue or model
+  pipeline, so it keeps its own audit table rather than sharing
+  `catalogue_import_runs`. Landed in A2.
 - `catalogue_directory_entries`: `academic_year_id`, `kind`, `code`, `title`,
   `item_id`, `source_page_id`, `first_seen_at`, `last_seen_at`.
 - `catalogue_directory_statuses`: `academic_year_id`, `kind`, `status`,
@@ -301,7 +307,7 @@ step squashes the migration history.
 | Order | Branch                                           | Scope                                                                                                                                                                                                                                                                                                                                           |
 | ----- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A1    | `refactor/catalogue-redesign-01-plan`            | This document. Remove `catalogue-review-design.md` (absorbed here). Index update.                                                                                                                                                                                                                                                               |
-| A2    | `refactor/catalogue-redesign-02-calendar`        | Re-key `university_calendar_events` to `academic_years`. Update `calendar-importer.mjs` to write `catalogue_source_pages`. Drop the five legacy `catalogue_*` tables. Frees the `catalogue_` names for later steps.                                                                                                                             |
+| A2    | `refactor/catalogue-redesign-02-calendar`        | Key `university_calendar_events` to `academic_years` with a composite foreign key on `(academic_year_id, calendar_year)`. Create `catalogue_sources`, `catalogue_source_pages` and `university_calendar_imports`. Update `calendar-importer.mjs`. Drop the five legacy `catalogue_*` tables. Frees the `catalogue_` names for later steps.      |
 | A3    | `refactor/catalogue-redesign-03-items`           | `catalogue_items`, `catalogue_item_years`, `catalogue_snapshots`, `catalogue_publications`, kind detail tables, `snapshot_field_evidence`. Re-point plans, attempts and the two existing import stacks. Rewrite published read functions. Update `published-courses.ts`, planner catalogue loading, onboarding and admin workspace projections. |
 | A4    | `refactor/catalogue-redesign-04-requirements`    | The shared `requirement_*` tables and the condition vocabulary. Update `requisite-conditions.ts`, both projection modules, the admin editor, `published_requirement_graph`, structure requirement display and `planner.ts`. Drop both old rule sets.                                                                                            |
 | A5    | `refactor/catalogue-redesign-05-import-pipeline` | Shared import tables and the single `lib/catalogue-import/` pipeline with kind adapters, one consumer, one admin API, run and target lifecycle functions with per-target recovery. Delete `lib/course-import/` and `lib/structure-import/`. `test:catalogue-db` rewritten.                                                                      |
@@ -317,6 +323,9 @@ each half still passes verification.
 
 Per pull request: `pnpm verify`, `pnpm db:reset`, `pnpm db:test`, `pnpm db:lint`,
 `pnpm db:types` with a clean diff, and `pnpm test:catalogue-db` from A5 on.
+Migrations and pgTAP stay green on every step. The local preview seed and the
+Playwright fixtures receive only the minimal edits needed to keep `pnpm db:reset`
+working; they are rebuilt once in A8 rather than maintained slice by slice.
 Playwright covers the administrator journey from directory refresh through
 review to publication for one course and one programme from A7 on. Database
 tests assert that anonymous users read only published snapshots, that a

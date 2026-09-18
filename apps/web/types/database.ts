@@ -1588,6 +1588,7 @@ export type Database = {
         Row: {
           availability_checked_at: string | null
           availability_note: string | null
+          calendar_published_at: string | null
           created_at: string
           directory_refreshed_at: string | null
           id: number
@@ -1599,6 +1600,7 @@ export type Database = {
         Insert: {
           availability_checked_at?: string | null
           availability_note?: string | null
+          calendar_published_at?: string | null
           created_at?: string
           directory_refreshed_at?: string | null
           id?: never
@@ -1610,6 +1612,7 @@ export type Database = {
         Update: {
           availability_checked_at?: string | null
           availability_note?: string | null
+          calendar_published_at?: string | null
           created_at?: string
           directory_refreshed_at?: string | null
           id?: never
@@ -2129,132 +2132,6 @@ export type Database = {
           },
         ]
       }
-      catalogue_import_items: {
-        Row: {
-          catalogue_year_id: number
-          created_at: string
-          diagnostics: Json
-          id: number
-          outcome: string
-          run_id: string
-          source_document_id: number
-          source_id: number
-          target_key: string | null
-          target_kind: string
-        }
-        Insert: {
-          catalogue_year_id: number
-          created_at?: string
-          diagnostics?: Json
-          id?: never
-          outcome: string
-          run_id: string
-          source_document_id: number
-          source_id: number
-          target_key?: string | null
-          target_kind: string
-        }
-        Update: {
-          catalogue_year_id?: number
-          created_at?: string
-          diagnostics?: Json
-          id?: never
-          outcome?: string
-          run_id?: string
-          source_document_id?: number
-          source_id?: number
-          target_key?: string | null
-          target_kind?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_items_document_provenance_fkey"
-            columns: ["source_document_id", "source_id", "catalogue_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_source_documents"
-            referencedColumns: ["id", "source_id", "catalogue_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_items_run_provenance_fkey"
-            columns: ["run_id", "source_id", "catalogue_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_runs"
-            referencedColumns: ["id", "source_id", "catalogue_year_id"]
-          },
-        ]
-      }
-      catalogue_import_runs: {
-        Row: {
-          added_count: number
-          catalogue_year_id: number
-          changed_count: number
-          checked_count: number
-          completed_at: string | null
-          error_summary: string | null
-          failed_count: number
-          id: string
-          initiated_by: string | null
-          parser_version: string
-          scope: string
-          source_id: number
-          started_at: string
-          status: string
-          trigger_kind: string
-          unchanged_count: number
-        }
-        Insert: {
-          added_count?: number
-          catalogue_year_id: number
-          changed_count?: number
-          checked_count?: number
-          completed_at?: string | null
-          error_summary?: string | null
-          failed_count?: number
-          id?: string
-          initiated_by?: string | null
-          parser_version: string
-          scope: string
-          source_id: number
-          started_at?: string
-          status?: string
-          trigger_kind: string
-          unchanged_count?: number
-        }
-        Update: {
-          added_count?: number
-          catalogue_year_id?: number
-          changed_count?: number
-          checked_count?: number
-          completed_at?: string | null
-          error_summary?: string | null
-          failed_count?: number
-          id?: string
-          initiated_by?: string | null
-          parser_version?: string
-          scope?: string
-          source_id?: number
-          started_at?: string
-          status?: string
-          trigger_kind?: string
-          unchanged_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_runs_catalogue_year_id_fkey"
-            columns: ["catalogue_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_years"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_runs_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_sources"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       catalogue_section_reviews: {
         Row: {
           actor_id: string | null
@@ -2316,56 +2193,71 @@ export type Database = {
           },
         ]
       }
-      catalogue_source_documents: {
+      catalogue_source_pages: {
         Row: {
+          academic_year_id: number
+          byte_size: number | null
           canonical_url: string
-          catalogue_year_id: number
           content_sha256: string
-          entity_kind: string
+          created_at: string
           external_key: string
           fetched_at: string
           http_etag: string | null
+          http_status: number | null
           id: number
+          kind: string
+          media_type: string
           source_id: number
           source_last_modified: string | null
+          storage_bucket: string | null
           storage_path: string | null
         }
         Insert: {
+          academic_year_id: number
+          byte_size?: number | null
           canonical_url: string
-          catalogue_year_id: number
           content_sha256: string
-          entity_kind: string
+          created_at?: string
           external_key: string
           fetched_at?: string
           http_etag?: string | null
+          http_status?: number | null
           id?: never
+          kind: string
+          media_type?: string
           source_id: number
           source_last_modified?: string | null
+          storage_bucket?: string | null
           storage_path?: string | null
         }
         Update: {
+          academic_year_id?: number
+          byte_size?: number | null
           canonical_url?: string
-          catalogue_year_id?: number
           content_sha256?: string
-          entity_kind?: string
+          created_at?: string
           external_key?: string
           fetched_at?: string
           http_etag?: string | null
+          http_status?: number | null
           id?: never
+          kind?: string
+          media_type?: string
           source_id?: number
           source_last_modified?: string | null
+          storage_bucket?: string | null
           storage_path?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_source_documents_catalogue_year_id_fkey"
-            columns: ["catalogue_year_id"]
+            foreignKeyName: "catalogue_source_pages_academic_year_id_fkey"
+            columns: ["academic_year_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_years"
+            referencedRelation: "academic_years"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_source_documents_source_id_fkey"
+            foreignKeyName: "catalogue_source_pages_source_id_fkey"
             columns: ["source_id"]
             isOneToOne: false
             referencedRelation: "catalogue_sources"
@@ -2400,33 +2292,6 @@ export type Database = {
           kind?: string
           name?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      catalogue_years: {
-        Row: {
-          created_at: string
-          id: number
-          published_at: string | null
-          status: string
-          updated_at: string
-          year: number
-        }
-        Insert: {
-          created_at?: string
-          id?: never
-          published_at?: string | null
-          status?: string
-          updated_at?: string
-          year: number
-        }
-        Update: {
-          created_at?: string
-          id?: never
-          published_at?: string | null
-          status?: string
-          updated_at?: string
-          year?: number
         }
         Relationships: []
       }
@@ -4899,41 +4764,114 @@ export type Database = {
       }
       university_calendar_events: {
         Row: {
+          academic_year_id: number
           calendar_year: number
           created_at: string
           event_date: string
           id: number
-          source_document_id: number | null
+          source_page_id: number | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          academic_year_id: number
           calendar_year: number
           created_at?: string
           event_date: string
           id?: never
-          source_document_id?: number | null
+          source_page_id?: number | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          academic_year_id?: number
           calendar_year?: number
           created_at?: string
           event_date?: string
           id?: never
-          source_document_id?: number | null
+          source_page_id?: number | null
           status?: string
           title?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "university_calendar_events_source_document_id_fkey"
-            columns: ["source_document_id"]
+            foreignKeyName: "university_calendar_events_academic_year_fkey"
+            columns: ["academic_year_id", "calendar_year"]
             isOneToOne: false
-            referencedRelation: "catalogue_source_documents"
+            referencedRelation: "academic_years"
+            referencedColumns: ["id", "year"]
+          },
+          {
+            foreignKeyName: "university_calendar_events_source_page_id_fkey"
+            columns: ["source_page_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      university_calendar_imports: {
+        Row: {
+          academic_year_id: number
+          added_count: number
+          archived_count: number
+          changed_count: number
+          checked_count: number
+          diagnostics: Json
+          failed_count: number
+          id: string
+          imported_at: string
+          parser_version: string
+          source_page_id: number
+          status: string
+          unchanged_count: number
+        }
+        Insert: {
+          academic_year_id: number
+          added_count?: number
+          archived_count?: number
+          changed_count?: number
+          checked_count?: number
+          diagnostics?: Json
+          failed_count?: number
+          id?: string
+          imported_at?: string
+          parser_version: string
+          source_page_id: number
+          status: string
+          unchanged_count?: number
+        }
+        Update: {
+          academic_year_id?: number
+          added_count?: number
+          archived_count?: number
+          changed_count?: number
+          checked_count?: number
+          diagnostics?: Json
+          failed_count?: number
+          id?: string
+          imported_at?: string
+          parser_version?: string
+          source_page_id?: number
+          status?: string
+          unchanged_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "university_calendar_imports_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "university_calendar_imports_source_page_id_fkey"
+            columns: ["source_page_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
             referencedColumns: ["id"]
           },
         ]

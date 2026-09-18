@@ -105,13 +105,6 @@ begin
 end;
 $seed$;
 
-insert into public.catalogue_years (year, status, published_at)
-values (2026, 'published', '2026-08-01 00:00:00+10')
-on conflict (year) do update
-set status = excluded.status,
-    published_at = excluded.published_at,
-    updated_at = now();
-
 insert into public.catalogue_sources (name, kind, base_url, is_active)
 values (
   'Coursemap local preview calendar',
@@ -124,10 +117,10 @@ set name = excluded.name,
     is_active = true,
     updated_at = now();
 
-insert into public.catalogue_source_documents (
+insert into public.catalogue_source_pages (
   source_id,
-  catalogue_year_id,
-  entity_kind,
+  academic_year_id,
+  kind,
   external_key,
   canonical_url,
   content_sha256,
@@ -144,33 +137,36 @@ select
   '2026-08-01 00:00:00+10',
   '2026-08-01 00:00:00+10'
 from public.catalogue_sources as sources
-join public.catalogue_years as years on years.year = 2026
+join public.academic_years as years on years.year = 2026
 where sources.kind = 'local_mock'
   and sources.base_url = 'https://coursemap.local.test'
 on conflict (
   source_id,
-  catalogue_year_id,
-  entity_kind,
+  academic_year_id,
+  kind,
   external_key,
   content_sha256
-) do update
-set canonical_url = excluded.canonical_url,
-    source_last_modified = excluded.source_last_modified,
-    fetched_at = excluded.fetched_at;
+) do nothing;
+
+update public.academic_years
+set calendar_published_at = '2026-08-01 00:00:00+10'
+where year = 2026;
 
 insert into public.university_calendar_events (
+  academic_year_id,
   calendar_year,
   event_date,
   title,
   status,
-  source_document_id
+  source_page_id
 )
 select
+  years.id,
   2026,
   events.event_date,
   events.title,
   'published',
-  documents.id
+  pages.id
 from (
   values
     ('2026-01-01'::date, 'New Year''s Day public holiday'),
@@ -190,19 +186,18 @@ from (
     ('2026-11-20'::date, 'Second Semester results released'),
     ('2026-12-14'::date, 'Graduation ceremonies commence')
 ) as events(event_date, title)
-join public.catalogue_source_documents as documents
-  on documents.entity_kind = 'calendar'
- and documents.external_key = '2026-KEY-DATES'
- and documents.catalogue_year_id = (
-   select id from public.catalogue_years where year = 2026
- )
+join public.academic_years as years on years.year = 2026
+join public.catalogue_source_pages as pages
+  on pages.kind = 'calendar'
+ and pages.external_key = '2026-KEY-DATES'
+ and pages.academic_year_id = years.id
 join public.catalogue_sources as sources
-  on sources.id = documents.source_id
+  on sources.id = pages.source_id
  and sources.kind = 'local_mock'
  and sources.base_url = 'https://coursemap.local.test'
 on conflict (calendar_year, event_date, title) do update
 set status = excluded.status,
-    source_document_id = excluded.source_document_id,
+    source_page_id = excluded.source_page_id,
     updated_at = now();
 
 insert into public.academic_periods (
