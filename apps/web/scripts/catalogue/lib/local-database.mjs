@@ -1,12 +1,26 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { isIP } from "node:net";
+import { dirname, join } from "node:path";
 
 import postgres from "postgres";
 
-const DEFAULT_CONFIG_PATH = new URL(
-  "../../../../../supabase/config.toml",
-  import.meta.url,
-);
+/**
+ * supabase/config.toml, searched upward from the working directory so the
+ * lookup also works inside a Next.js bundle, where import.meta.url no longer
+ * points at this source file. The module-relative path covers plain scripts.
+ */
+function defaultConfigPath() {
+  let directory = process.cwd();
+  for (;;) {
+    const candidate = join(directory, "supabase", "config.toml");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  return new URL("../../../../../supabase/config.toml", import.meta.url);
+}
 const verifiedImportClients = new WeakSet();
 const DEFAULT_LOCAL_DATABASE = {
   database: "postgres",
@@ -120,7 +134,7 @@ function parseSupabaseDatabasePort(configText) {
 
 export async function discoverLocalDatabaseUrl({
   env = process.env,
-  configPath = DEFAULT_CONFIG_PATH,
+  configPath = defaultConfigPath(),
   readConfig = readFile,
 } = {}) {
   const configuredUrl =
