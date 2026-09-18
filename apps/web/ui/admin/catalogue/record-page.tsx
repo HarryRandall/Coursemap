@@ -6,7 +6,11 @@ import {
 } from "@coursemap/ui/primitives/tabs";
 import Link from "next/link";
 import { canManageCourseImports } from "@/lib/auth/viewer";
-import { loadCatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
+import {
+  loadCatalogueRecord,
+  loadSnapshotCoursePreview,
+  loadSnapshotWrite,
+} from "@/lib/coursemap/admin-catalogue-record";
 import {
   CATALOGUE_KIND_LABELS,
   type CatalogueKind,
@@ -18,6 +22,8 @@ import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { RecordHeader } from "./record-header";
 import { RecordHistory } from "./record-history";
 import { ReviewPanel } from "./review-panel";
+import { SnapshotEditor } from "./snapshot-editor";
+import { CoursePreview, StructurePreview } from "./snapshot-preview";
 import type { SearchParams } from "./catalogue-pages";
 
 function first(value: string | string[] | undefined) {
@@ -44,7 +50,23 @@ export async function CatalogueRecordPage({
     ? await loadCatalogueRecord({ kind, code: upperCode, academicYear })
     : null;
   const path = `${basePath}/${upperCode}?year=${academicYear}`;
-  const tab = first(params.tab) === "history" ? "history" : "review";
+  const requestedTab = first(params.tab);
+  const tab = ["review", "preview", "edit", "history"].includes(
+    requestedTab ?? "",
+  )
+    ? (requestedTab as "review" | "preview" | "edit" | "history")
+    : "review";
+  const currentSnapshotId = record
+    ? (record.draftSnapshotId ?? record.publishedSnapshotId)
+    : null;
+  const [write, coursePreview] = currentSnapshotId
+    ? await Promise.all([
+        loadSnapshotWrite(currentSnapshotId),
+        record?.kind === "course"
+          ? loadSnapshotCoursePreview(currentSnapshotId)
+          : Promise.resolve(null),
+      ])
+    : [null, null];
 
   return (
     <AppShell
@@ -80,6 +102,15 @@ export async function CatalogueRecordPage({
                   />
                 ) : null}
               </TabsTrigger>
+              <TabsTrigger value="preview" disabled={!currentSnapshotId}>
+                Preview
+              </TabsTrigger>
+              <TabsTrigger
+                value="edit"
+                disabled={!currentSnapshotId || Boolean(record.archivedAt)}
+              >
+                Edit
+              </TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
             <TabsContent value="review" className="mt-4 flex flex-col gap-4">
@@ -94,8 +125,40 @@ export async function CatalogueRecordPage({
                 ))
               )}
             </TabsContent>
+            <TabsContent value="preview" className="mt-4">
+              {record.draftSnapshotId ? (
+                <p className="mb-3 text-sm text-muted-foreground">
+                  Showing the draft. Students see the published version until
+                  the draft is published.
+                </p>
+              ) : null}
+              {coursePreview ? (
+                <CoursePreview course={coursePreview} />
+              ) : write ? (
+                <StructurePreview write={write} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Nothing to preview yet.
+                </p>
+              )}
+            </TabsContent>
+            <TabsContent value="edit" className="mt-4">
+              {write && currentSnapshotId ? (
+                <SnapshotEditor
+                  key={currentSnapshotId}
+                  initial={write}
+                  itemYearId={record.itemYearId}
+                  baseSnapshotId={currentSnapshotId}
+                  path={path}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Import the record before editing it.
+                </p>
+              )}
+            </TabsContent>
             <TabsContent value="history" className="mt-4">
-              <RecordHistory record={record} />
+              <RecordHistory record={record} path={path} />
             </TabsContent>
           </Tabs>
         </div>
