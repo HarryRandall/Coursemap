@@ -235,13 +235,27 @@ export async function loadCatalogueDirectoryPage({
   for (const record of allRecords) workflowCounts[record.workflow] += 1;
 
   const needle = query.trim().toUpperCase();
-  const filtered = allRecords.filter(
-    (record) =>
-      (filter === "all" || record.workflow === filter) &&
-      (!needle ||
-        record.code.includes(needle) ||
-        (record.title ?? "").toUpperCase().includes(needle)),
-  );
+  // Code prefix matches come first, then other code matches, then titles.
+  const rank = (record: CatalogueDirectoryRecord) =>
+    !needle
+      ? 0
+      : record.code.startsWith(needle)
+        ? 0
+        : record.code.includes(needle)
+          ? 1
+          : 2;
+  const filtered = allRecords
+    .filter(
+      (record) =>
+        (filter === "all" || record.workflow === filter) &&
+        (!needle ||
+          record.code.includes(needle) ||
+          (record.title ?? "").toUpperCase().includes(needle)),
+    )
+    .sort(
+      (left, right) =>
+        rank(left) - rank(right) || left.code.localeCompare(right.code),
+    );
   const safePage = Math.max(
     1,
     Math.min(page, Math.ceil(filtered.length / PAGE_SIZE) || 1),
