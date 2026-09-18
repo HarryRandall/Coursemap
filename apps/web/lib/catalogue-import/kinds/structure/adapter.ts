@@ -90,9 +90,19 @@ export const structureKindAdapter: CatalogueKindAdapter<AcademicStructureExtract
         expectedYear: claim.academicYear,
         evidenceMethod: "model",
       });
-      return { success: result.success, issues: result.success ? [] : result.issues };
+      return {
+        success: result.success,
+        issues: result.success ? [] : result.issues,
+      };
     },
-    merge({ claim, deterministic, model, modelValid, modelInput, responseError }) {
+    merge({
+      claim,
+      deterministic,
+      model,
+      modelValid,
+      modelInput,
+      responseError,
+    }) {
       const normalised = normaliseAcademicStructureModelExtraction(model);
       const validation = validateAcademicStructureExtraction(normalised.value, {
         expectedKind: structureKind(claim.kind),
@@ -104,9 +114,15 @@ export const structureKindAdapter: CatalogueKindAdapter<AcademicStructureExtract
         ? academicStructureModelEvidenceIssues(validation.data, modelInput)
         : [];
       const usable =
-        modelValid && validation.success && !responseError && evidenceIssues.length === 0;
+        modelValid &&
+        validation.success &&
+        !responseError &&
+        evidenceIssues.length === 0;
       const extraction = usable
-        ? mergeAcademicStructureExtractions({ deterministic, model: validation.data })
+        ? mergeAcademicStructureExtractions({
+            deterministic,
+            model: validation.data,
+          })
         : deterministic;
       const warningCount = extraction.reviewItems.filter(
         ({ severity }) => severity === "warning",

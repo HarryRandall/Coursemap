@@ -38,7 +38,12 @@ import {
 import { persistSnapshotCandidate } from "./persist-snapshot.ts";
 import type { CatalogueKind } from "./snapshot-write.ts";
 
-const TERMINAL_TARGET_STATUSES = new Set(["ready", "unchanged", "failed", "cancelled"]);
+const TERMINAL_TARGET_STATUSES = new Set([
+  "ready",
+  "unchanged",
+  "failed",
+  "cancelled",
+]);
 
 export const CATALOGUE_KIND_ADAPTERS: readonly CatalogueKindAdapter[] = [
   courseKindAdapter as CatalogueKindAdapter,
@@ -74,7 +79,10 @@ export class ImportVersionMismatchError extends TypeError {
   }
 }
 
-function assertCurrentVersions(adapter: CatalogueKindAdapter, claim: ClaimedImportTarget) {
+function assertCurrentVersions(
+  adapter: CatalogueKindAdapter,
+  claim: ClaimedImportTarget,
+) {
   if (
     claim.parserVersion !== adapter.parserVersion ||
     claim.promptVersion !== adapter.promptVersion ||
@@ -85,7 +93,8 @@ function assertCurrentVersions(adapter: CatalogueKindAdapter, claim: ClaimedImpo
 }
 
 export function safeErrorSummary(error: unknown) {
-  const source = error instanceof Error ? error.message : "Catalogue import failed.";
+  const source =
+    error instanceof Error ? error.message : "Catalogue import failed.";
   return source
     .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[database URL redacted]")
     .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
@@ -94,9 +103,12 @@ export function safeErrorSummary(error: unknown) {
 }
 
 export function importErrorCode(error: unknown) {
-  if (error instanceof ImportPaidOutcomeUncertainError) return "OPENROUTER_OUTCOME_UNCERTAIN";
-  if (error instanceof OpenRouterConfigurationError) return "OPENROUTER_NOT_CONFIGURED";
-  if (error instanceof OpenRouterRequestError) return `OPENROUTER_HTTP_${error.status}`;
+  if (error instanceof ImportPaidOutcomeUncertainError)
+    return "OPENROUTER_OUTCOME_UNCERTAIN";
+  if (error instanceof OpenRouterConfigurationError)
+    return "OPENROUTER_NOT_CONFIGURED";
+  if (error instanceof OpenRouterRequestError)
+    return `OPENROUTER_HTTP_${error.status}`;
   if (
     typeof error === "object" &&
     error !== null &&
@@ -293,29 +305,35 @@ async function processClaimedTarget({
       return result;
     });
 
-    const userPrompt = await runStage("model_input_prepare", async (stageId) => {
-      const prompt = adapter.buildUserPrompt(claim, prepared.modelInput);
-      await persistArtifact({
-        stageId,
-        stageName: "model_input_prepare",
-        kind: "model_input",
-        mediaType: "text/plain",
-        body: prompt,
-      });
-      return prompt;
-    });
+    const userPrompt = await runStage(
+      "model_input_prepare",
+      async (stageId) => {
+        const prompt = adapter.buildUserPrompt(claim, prepared.modelInput);
+        await persistArtifact({
+          stageId,
+          stageName: "model_input_prepare",
+          kind: "model_input",
+          mediaType: "text/plain",
+          body: prompt,
+        });
+        return prompt;
+      },
+    );
 
-    const deterministic = await runStage("deterministic_extract", async (stageId) => {
-      const result = adapter.extractDeterministic(claim, page);
-      await persistArtifact({
-        stageId,
-        stageName: "deterministic_extract",
-        kind: "deterministic_output",
-        mediaType: "application/json",
-        body: stableStringify(result),
-      });
-      return result;
-    });
+    const deterministic = await runStage(
+      "deterministic_extract",
+      async (stageId) => {
+        const result = adapter.extractDeterministic(claim, page);
+        await persistArtifact({
+          stageId,
+          stageName: "deterministic_extract",
+          kind: "deterministic_output",
+          mediaType: "application/json",
+          body: stableStringify(result),
+        });
+        return result;
+      },
+    );
 
     const systemPrompt = adapter.buildSystemPrompt();
     const requestBody = buildOpenRouterRequestBody({
@@ -360,8 +378,13 @@ async function processClaimedTarget({
       if (reusable) {
         // Identical input already produced a validated response; reuse it
         // instead of paying for another call.
-        const body = await readImportArtifact({ artifact: reusable.responseArtifact });
-        result = restoreOpenRouterExtraction(JSON.parse(body) as unknown, claim.requestedModel);
+        const body = await readImportArtifact({
+          artifact: reusable.responseArtifact,
+        });
+        result = restoreOpenRouterExtraction(
+          JSON.parse(body) as unknown,
+          claim.requestedModel,
+        );
         const responseArtifact = await persistArtifact({
           stageId,
           stageName: "model_extract",
@@ -370,7 +393,8 @@ async function processClaimedTarget({
           body: stableStringify(result.responseForAudit),
         });
         responseArtifactId = responseArtifact.id;
-        reusedFromExtractionId = reusable.id === reservation.id ? null : reusable.id;
+        reusedFromExtractionId =
+          reusable.id === reservation.id ? null : reusable.id;
       } else if (!reservation.created) {
         if (!reservation.responseArtifactId) {
           throw new ImportPaidOutcomeUncertainError(null);
@@ -389,7 +413,10 @@ async function processClaimedTarget({
             byteSize: Number(artifact.byte_size),
           },
         });
-        result = restoreOpenRouterExtraction(JSON.parse(body) as unknown, claim.requestedModel);
+        result = restoreOpenRouterExtraction(
+          JSON.parse(body) as unknown,
+          claim.requestedModel,
+        );
       } else {
         try {
           result = await extractWithOpenRouter({
@@ -432,7 +459,11 @@ async function processClaimedTarget({
         outputTokens: result.usage.outputTokens ?? 0,
         reasoningTokens: result.usage.reasoningTokens ?? 0,
         costUsd: reusable ? 0 : (result.usage.costUsd ?? 0),
-        costSource: reusable ? "cache" : result.usage.costUsd === null ? "unknown" : "provider",
+        costSource: reusable
+          ? "cache"
+          : result.usage.costUsd === null
+            ? "unknown"
+            : "provider",
         latencyMs: result.latencyMilliseconds,
       });
       return { result, extractionId: reservation.id };
@@ -499,7 +530,11 @@ async function processClaimedTarget({
     });
 
     const persisted = await runStage("snapshot_persist", async (stageId) => {
-      const result = await persistSnapshotCandidate(sql, { claim, sourcePageId, write });
+      const result = await persistSnapshotCandidate(sql, {
+        claim,
+        sourcePageId,
+        write,
+      });
       await persistArtifact({
         stageId,
         stageName: "snapshot_persist",
@@ -523,7 +558,11 @@ async function processClaimedTarget({
   } catch (error) {
     const code = importErrorCode(error);
     const summary = safeErrorSummary(error);
-    if (isRetryableImportError(error) && !finalDelivery && claim.attemptCount < 5) {
+    if (
+      isRetryableImportError(error) &&
+      !finalDelivery &&
+      claim.attemptCount < 5
+    ) {
       await releaseImportTargetForRetry(sql, {
         runId: claim.runId,
         targetId: claim.targetId,
