@@ -119,19 +119,21 @@ export function ImportRuns({
     return () => clearInterval(timer);
   }, [active, router]);
 
+  const targetKey = selectedTargetId
+    ? `${selectedTargetId}:${run?.completedCount ?? 0}:${run?.status ?? ""}`
+    : null;
   useEffect(() => {
+    if (!targetKey || !selectedTargetId) return;
     let cancelled = false;
-    if (!selectedTargetId) {
-      setDetail(null);
-      return;
-    }
     loadTarget(selectedTargetId).then((value) => {
       if (!cancelled) setDetail(value);
     });
     return () => {
       cancelled = true;
     };
-  }, [selectedTargetId, loadTarget, run?.completedCount, run?.status]);
+  }, [targetKey, selectedTargetId, loadTarget]);
+  const visibleDetail =
+    selectedTargetId && detail?.id === selectedTargetId ? detail : null;
 
   function select(params: Record<string, string | null>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -331,8 +333,8 @@ export function ImportRuns({
           </Card>
 
           {selectedTargetId ? (
-            detail ? (
-              <TargetDetail detail={detail} />
+            visibleDetail ? (
+              <TargetDetail detail={visibleDetail} />
             ) : (
               <p className="text-sm text-muted-foreground">Loading target…</p>
             )
