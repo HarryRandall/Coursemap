@@ -47,7 +47,8 @@ function referencedItems(write: CatalogueSnapshotWrite) {
   for (const condition of write.requirements.conditions) {
     add(condition.itemKind, condition.itemCode);
   }
-  for (const option of write.requirements.options) add(option.kind, option.code);
+  for (const option of write.requirements.options)
+    add(option.kind, option.code);
   for (const reference of write.requirements.references) {
     add("course", reference.code);
   }
@@ -76,7 +77,11 @@ async function ensureItemIds(
   return ids;
 }
 
-function itemId(ids: Map<string, number>, kind: CatalogueKind | null, code: string | null) {
+function itemId(
+  ids: Map<string, number>,
+  kind: CatalogueKind | null,
+  code: string | null,
+) {
   if (!kind || !code) return null;
   return ids.get(`${kind}:${code.trim().toUpperCase()}`) ?? null;
 }
@@ -342,7 +347,9 @@ async function insertRequirements(
     const ruleId = ruleIds.get(condition.ruleKey);
     const groupId = groupIds.get(condition.groupKey);
     if (ruleId === undefined || groupId === undefined) {
-      throw new TypeError(`Requirement condition ${condition.key} has no group.`);
+      throw new TypeError(
+        `Requirement condition ${condition.key} has no group.`,
+      );
     }
     const [row] = await tx`
       insert into public.requirement_conditions (
@@ -421,7 +428,9 @@ export async function persistSnapshotCandidate(
     write.code !== claim.code ||
     write.academicYear !== claim.academicYear
   ) {
-    throw new TypeError("The snapshot content does not match its import target.");
+    throw new TypeError(
+      "The snapshot content does not match its import target.",
+    );
   }
 
   return sql.begin(async (tx) => {
@@ -432,9 +441,14 @@ export async function persistSnapshotCandidate(
       for update
     `;
     if (!itemYear) throw new Error("The catalogue item year was not resolved.");
-    const draftId = itemYear.draft_snapshot_id === null ? null : Number(itemYear.draft_snapshot_id);
+    const draftId =
+      itemYear.draft_snapshot_id === null
+        ? null
+        : Number(itemYear.draft_snapshot_id);
     const publishedId =
-      itemYear.published_snapshot_id === null ? null : Number(itemYear.published_snapshot_id);
+      itemYear.published_snapshot_id === null
+        ? null
+        : Number(itemYear.published_snapshot_id);
     const baselineSnapshotId = draftId ?? publishedId;
     const [baseline] = baselineSnapshotId
       ? await tx`select content_hash from public.catalogue_snapshots where id = ${baselineSnapshotId}`
@@ -481,12 +495,26 @@ export async function persistSnapshotCandidate(
     const snapshotId = Number(snapshot.id);
 
     if (write.course) {
-      await insertCourseContent(tx, snapshotId, claim.academicYearId, sourcePageId, ids, write.course);
+      await insertCourseContent(
+        tx,
+        snapshotId,
+        claim.academicYearId,
+        sourcePageId,
+        ids,
+        write.course,
+      );
     }
     if (write.structure) {
       await insertStructureContent(tx, snapshotId, claim.kind, write.structure);
     }
-    await insertRequirements(tx, snapshotId, claim.academicYearId, sourcePageId, ids, write.requirements);
+    await insertRequirements(
+      tx,
+      snapshotId,
+      claim.academicYearId,
+      sourcePageId,
+      ids,
+      write.requirements,
+    );
     for (const evidence of write.evidence) {
       await tx`
         insert into public.snapshot_field_evidence (
