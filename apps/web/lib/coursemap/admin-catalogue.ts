@@ -1,0 +1,541 @@
+import "server-only";
+import type { CatalogueKind } from "@/lib/catalogue-import/snapshot-write";
+import { createClient } from "@/lib/supabase/server";
+
+export type { CatalogueKind };
+
+export const CATALOGUE_KIND_LABELS: Record<
+  CatalogueKind,
+  { singular: string; plural: string; segment: string }
+> = {
+  course: { singular: "Course", plural: "Courses", segment: "courses" },
+  programme: {
+    singular: "Programme",
+    plural: "Programmes",
+    segment: "programmes",
+  },
+  major: { singular: "Major", plural: "Majors", segment: "majors" },
+  minor: { singular: "Minor", plural: "Minors", segment: "minors" },
+  specialisation: {
+    singular: "Specialisation",
+    plural: "Specialisations",
+    segment: "specialisations",
+  },
+};
+
+export function adminCataloguePath(kind: CatalogueKind) {
+  return `/admin/${CATALOGUE_KIND_LABELS[kind].segment}`;
+}
+
+export type DirectoryWorkflowStatus =
+  | "not_imported"
+  | "queued"
+  | "running"
+  | "ready"
+  | "draft"
+  | "published"
+  | "published_with_draft"
+  | "failed";
+
+export type CatalogueDirectoryRecord = {
+  code: string;
+  title: string | null;
+  summary: Record<string, unknown>;
+  itemYearPublicId: string | null;
+  hasDraft: boolean;
+  isPublished: boolean;
+  workflow: DirectoryWorkflowStatus;
+  latestTarget: {
+    id: string;
+    runId: string;
+    status: string;
+    changeKind: string | null;
+    errorMessage: string | null;
+    completedAt: string | null;
+  } | null;
+};
+
+export type CatalogueDirectoryPage = {
+  kind: CatalogueKind;
+  academicYear: number;
+  years: number[];
+  status: {
+    state: "never" | "refreshing" | "available" | "failed";
+    refreshedAt: string | null;
+    message: string | null;
+    entryCount: number;
+  };
+  records: CatalogueDirectoryRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  workflowCounts: Record<DirectoryWorkflowStatus, number>;
+};
+
+export type DirectoryFilter = "all" | DirectoryWorkflowStatus;
+
+const PAGE_SIZE = 50;
+
+function workflowFor(input: {
+  hasDraft: boolean;
+  isPublished: boolean;
+  latestStatus: string | null;
+}): DirectoryWorkflowStatus {
+  if (input.latestStatus === "queued") return "queued";
+  if (input.latestStatus === "running") return "running";
+  if (input.latestStatus === "failed" && !input.isPublished && !input.hasDraft)
+    return "failed";
+  if (input.isPublished && input.hasDraft) return "published_with_draft";
+  if (input.isPublished) return "published";
+  if (input.latestStatus === "ready") return "ready";
+  if (input.hasDraft) return "draft";
+  if (input.latestStatus === "failed") return "failed";
+  return "not_imported";
+}
+
+function emptyCounts(): Record<DirectoryWorkflowStatus, number> {
+  return {
+    not_imported: 0,
+    queued: 0,
+    running: 0,
+    ready: 0,
+    draft: 0,
+    published: 0,
+    published_with_draft: 0,
+    failed: 0,
+  };
+}
+
+export async function loadCatalogueYears() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("academic_years")
+    .select("year")
+    .gte("year", 2020)
+    .lte("year", 2030)
+    .order("year", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => row.year);
+}
+
+/**
+ * Directory entries for one kind and year with each record's workflow state.
+ * Filtering by workflow happens in memory because the state derives from
+ * three tables; a directory holds a few thousand rows at most.
+ */
+export async function loadCatalogueDirectoryPage({
+  kind,
+  academicYear,
+  query = "",
+  filter = "all",
+  page = 1,
+}: {
+  kind: CatalogueKind;
+  academicYear: number;
+  query?: string;
+  filter?: DirectoryFilter;
+  page?: number;
+}): Promise<CatalogueDirectoryPage> {
+  const supabase = await createClient();
+  const years = await loadCatalogueYears();
+  const { data: yearRow } = await supabase
+    .from("academic_years")
+    .select("id")
+    .eq("year", academicYear)
+    .maybeSingle();
+  const empty: CatalogueDirectoryPage = {
+    kind,
+    academicYear,
+    years,
+    status: { state: "never", refreshedAt: null, message: null, entryCount: 0 },
+    records: [],
+    total: 0,
+    page: 1,
+    pageSize: PAGE_SIZE,
+    workflowCounts: emptyCounts(),
+  };
+  if (!yearRow) return empty;
+
+  const [statusResult, entriesResult, itemYearsResult, targetsResult] =
+    await Promise.all([
+      supabase
+        .from("catalogue_directory_statuses")
+        .select("status,refreshed_at,message,entry_count")
+        .eq("academic_year_id", yearRow.id)
+        .eq("kind", kind)
+        .maybeSingle(),
+      supabase
+        .from("catalogue_directory_entries")
+        .select("code,title,summary,item_id")
+        .eq("academic_year_id", yearRow.id)
+        .eq("kind", kind)
+        .eq("is_current", true)
+        .order("code"),
+      supabase
+        .from("catalogue_item_years")
+        .select(
+          "item_id,public_id,draft_snapshot_id,published_snapshot_id,archived_at",
+        )
+        .eq("academic_year_id", yearRow.id)
+        .eq("kind", kind),
+      supabase
+        .from("catalogue_import_targets")
+        .select(
+          "id,run_id,item_id,status,change_kind,error_message,completed_at,created_at",
+        )
+        .eq("academic_year_id", yearRow.id)
+        .eq("kind", kind)
+        .order("created_at", { ascending: false }),
+    ]);
+  if (statusResult.error) throw statusResult.error;
+  if (entriesResult.error) throw entriesResult.error;
+  if (itemYearsResult.error) throw itemYearsResult.error;
+  if (targetsResult.error) throw targetsResult.error;
+
+  const itemYearByItem = new Map(
+    (itemYearsResult.data ?? []).map((row) => [row.item_id, row]),
+  );
+  const latestTargetByItem = new Map<
+    number,
+    (typeof targetsResult.data)[number]
+  >();
+  for (const target of targetsResult.data ?? []) {
+    if (!latestTargetByItem.has(target.item_id)) {
+      latestTargetByItem.set(target.item_id, target);
+    }
+  }
+
+  // Items imported directly (without a directory row) still appear so the
+  // administrator can see everything the year holds.
+  const entryCodes = new Set((entriesResult.data ?? []).map((row) => row.code));
+  const extraItemIds = [...itemYearByItem.keys()].filter(
+    (itemId) =>
+      !(entriesResult.data ?? []).some((entry) => entry.item_id === itemId),
+  );
+  const { data: extraItems } = extraItemIds.length
+    ? await supabase
+        .from("catalogue_items")
+        .select("id,code")
+        .in("id", extraItemIds)
+    : { data: [] as Array<{ id: number; code: string }> };
+
+  const allRecords: CatalogueDirectoryRecord[] = [
+    ...(entriesResult.data ?? []).map((entry) => ({
+      code: entry.code,
+      title: entry.title,
+      summary: (entry.summary ?? {}) as Record<string, unknown>,
+      itemId: entry.item_id,
+    })),
+    ...(extraItems ?? [])
+      .filter((item) => !entryCodes.has(item.code))
+      .map((item) => ({
+        code: item.code,
+        title: null,
+        summary: {},
+        itemId: item.id,
+      })),
+  ]
+    .map(({ code, title, summary, itemId }) => {
+      const itemYear = itemId === null ? undefined : itemYearByItem.get(itemId);
+      const latest =
+        itemId === null ? undefined : latestTargetByItem.get(itemId);
+      const hasDraft = Boolean(itemYear?.draft_snapshot_id);
+      const isPublished =
+        Boolean(itemYear?.published_snapshot_id) && !itemYear?.archived_at;
+      return {
+        code,
+        title,
+        summary,
+        itemYearPublicId: itemYear?.public_id ?? null,
+        hasDraft,
+        isPublished,
+        workflow: workflowFor({
+          hasDraft,
+          isPublished,
+          latestStatus: latest?.status ?? null,
+        }),
+        latestTarget: latest
+          ? {
+              id: latest.id,
+              runId: latest.run_id,
+              status: latest.status,
+              changeKind: latest.change_kind,
+              errorMessage: latest.error_message,
+              completedAt: latest.completed_at,
+            }
+          : null,
+      } satisfies CatalogueDirectoryRecord;
+    })
+    .sort((left, right) => left.code.localeCompare(right.code));
+
+  const workflowCounts = emptyCounts();
+  for (const record of allRecords) workflowCounts[record.workflow] += 1;
+
+  const needle = query.trim().toUpperCase();
+  const filtered = allRecords.filter(
+    (record) =>
+      (filter === "all" || record.workflow === filter) &&
+      (!needle ||
+        record.code.includes(needle) ||
+        (record.title ?? "").toUpperCase().includes(needle)),
+  );
+  const safePage = Math.max(
+    1,
+    Math.min(page, Math.ceil(filtered.length / PAGE_SIZE) || 1),
+  );
+  const start = (safePage - 1) * PAGE_SIZE;
+
+  return {
+    kind,
+    academicYear,
+    years,
+    status: {
+      state:
+        (statusResult.data
+          ?.status as CatalogueDirectoryPage["status"]["state"]) ?? "never",
+      refreshedAt: statusResult.data?.refreshed_at ?? null,
+      message: statusResult.data?.message ?? null,
+      entryCount: statusResult.data?.entry_count ?? 0,
+    },
+    records: filtered.slice(start, start + PAGE_SIZE),
+    total: filtered.length,
+    page: safePage,
+    pageSize: PAGE_SIZE,
+    workflowCounts,
+  };
+}
+
+export type ImportRunSummary = {
+  id: string;
+  runNumber: number;
+  kind: CatalogueKind;
+  academicYear: number;
+  status: string;
+  requestedModel: string;
+  targetCount: number;
+  completedCount: number;
+  failedCount: number;
+  costUsd: number;
+  createdAt: string;
+  completedAt: string | null;
+  targets: Array<{
+    id: string;
+    code: string;
+    status: string;
+    changeKind: string | null;
+    attemptCount: number;
+    errorCode: string | null;
+    errorMessage: string | null;
+    candidateSnapshotId: number | null;
+    itemYearPublicId: string | null;
+  }>;
+};
+
+export async function loadCatalogueImportRuns({
+  kind,
+  limit = 25,
+}: {
+  kind: CatalogueKind;
+  limit?: number;
+}): Promise<ImportRunSummary[]> {
+  const supabase = await createClient();
+  const { data: runs, error } = await supabase
+    .from("catalogue_import_runs")
+    .select(
+      "id,run_number,kind,status,requested_model,target_count,completed_count,failed_count,cost_usd,created_at,completed_at,academic_years(year)",
+    )
+    .eq("kind", kind)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const runIds = (runs ?? []).map((run) => run.id);
+  const { data: targets, error: targetsError } = runIds.length
+    ? await supabase
+        .from("catalogue_import_targets")
+        .select(
+          "id,run_id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id)",
+        )
+        .in("run_id", runIds)
+        .order("code")
+    : { data: [], error: null };
+  if (targetsError) throw targetsError;
+  const targetsByRun = new Map<string, ImportRunSummary["targets"]>();
+  for (const target of targets ?? []) {
+    const list = targetsByRun.get(target.run_id) ?? [];
+    list.push({
+      id: target.id,
+      code: target.code,
+      status: target.status,
+      changeKind: target.change_kind,
+      attemptCount: target.attempt_count,
+      errorCode: target.error_code,
+      errorMessage: target.error_message,
+      candidateSnapshotId: target.candidate_snapshot_id,
+      itemYearPublicId: target.catalogue_item_years?.public_id ?? null,
+    });
+    targetsByRun.set(target.run_id, list);
+  }
+  return (runs ?? []).map((run) => ({
+    id: run.id,
+    runNumber: run.run_number,
+    kind: run.kind as CatalogueKind,
+    academicYear: run.academic_years?.year ?? 0,
+    status: run.status,
+    requestedModel: run.requested_model,
+    targetCount: run.target_count,
+    completedCount: run.completed_count,
+    failedCount: run.failed_count,
+    costUsd: Number(run.cost_usd),
+    createdAt: run.created_at,
+    completedAt: run.completed_at,
+    targets: targetsByRun.get(run.id) ?? [],
+  }));
+}
+
+export type ImportTargetDetail = {
+  id: string;
+  code: string;
+  kind: CatalogueKind;
+  status: string;
+  attemptCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  stages: Array<{
+    id: string;
+    name: string;
+    attemptNumber: number;
+    status: string;
+    startedAt: string;
+    completedAt: string | null;
+    errorCode: string | null;
+    errorSummary: string | null;
+  }>;
+  artifacts: Array<{
+    id: string;
+    stageId: string;
+    kind: string;
+    attemptNumber: number;
+    mediaType: string;
+    byteSize: number;
+  }>;
+  extraction: {
+    resolvedModel: string | null;
+    validationStatus: string;
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+    latencyMs: number | null;
+    warningCount: number;
+    errorCount: number;
+    errorSummary: string | null;
+  } | null;
+};
+
+export async function loadImportTargetDetail(
+  targetId: string,
+): Promise<ImportTargetDetail | null> {
+  const supabase = await createClient();
+  const { data: target, error } = await supabase
+    .from("catalogue_import_targets")
+    .select("id,code,kind,status,attempt_count,error_code,error_message")
+    .eq("id", targetId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!target) return null;
+  const [stages, artifacts, extraction] = await Promise.all([
+    supabase
+      .from("catalogue_import_stages")
+      .select(
+        "id,stage_name,attempt_number,status,started_at,completed_at,error_code,error_summary",
+      )
+      .eq("target_id", targetId)
+      .order("attempt_number")
+      .order("started_at"),
+    supabase
+      .from("catalogue_import_artifacts")
+      .select("id,stage_id,kind,attempt_number,media_type,byte_size")
+      .eq("target_id", targetId)
+      .order("created_at"),
+    supabase
+      .from("catalogue_extractions")
+      .select(
+        "resolved_model,validation_status,input_tokens,output_tokens,cost_usd,latency_ms,warning_count,error_count,error_summary",
+      )
+      .eq("target_id", targetId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (stages.error) throw stages.error;
+  if (artifacts.error) throw artifacts.error;
+  if (extraction.error) throw extraction.error;
+  return {
+    id: target.id,
+    code: target.code,
+    kind: target.kind as CatalogueKind,
+    status: target.status,
+    attemptCount: target.attempt_count,
+    errorCode: target.error_code,
+    errorMessage: target.error_message,
+    stages: (stages.data ?? []).map((stage) => ({
+      id: stage.id,
+      name: stage.stage_name,
+      attemptNumber: stage.attempt_number,
+      status: stage.status,
+      startedAt: stage.started_at,
+      completedAt: stage.completed_at,
+      errorCode: stage.error_code,
+      errorSummary: stage.error_summary,
+    })),
+    artifacts: (artifacts.data ?? []).map((artifact) => ({
+      id: artifact.id,
+      stageId: artifact.stage_id,
+      kind: artifact.kind,
+      attemptNumber: artifact.attempt_number,
+      mediaType: artifact.media_type,
+      byteSize: artifact.byte_size,
+    })),
+    extraction: extraction.data
+      ? {
+          resolvedModel: extraction.data.resolved_model,
+          validationStatus: extraction.data.validation_status,
+          inputTokens: extraction.data.input_tokens,
+          outputTokens: extraction.data.output_tokens,
+          costUsd: Number(extraction.data.cost_usd),
+          latencyMs: extraction.data.latency_ms,
+          warningCount: extraction.data.warning_count,
+          errorCount: extraction.data.error_count,
+          errorSummary: extraction.data.error_summary,
+        }
+      : null,
+  };
+}
+
+export type AdminCatalogueSummary = Record<
+  CatalogueKind,
+  { published: number; drafts: number; identities: number }
+>;
+
+export async function loadAdminCatalogueSummary(): Promise<AdminCatalogueSummary> {
+  const supabase = await createClient();
+  const [{ data: itemYears }, { data: items }] = await Promise.all([
+    supabase
+      .from("catalogue_item_years")
+      .select("kind,draft_snapshot_id,published_snapshot_id,archived_at"),
+    supabase.from("catalogue_items").select("kind"),
+  ]);
+  const summary = Object.fromEntries(
+    (Object.keys(CATALOGUE_KIND_LABELS) as CatalogueKind[]).map((kind) => [
+      kind,
+      { published: 0, drafts: 0, identities: 0 },
+    ]),
+  ) as AdminCatalogueSummary;
+  for (const item of items ?? [])
+    summary[item.kind as CatalogueKind].identities += 1;
+  for (const year of itemYears ?? []) {
+    const bucket = summary[year.kind as CatalogueKind];
+    if (year.published_snapshot_id && !year.archived_at) bucket.published += 1;
+    if (year.draft_snapshot_id) bucket.drafts += 1;
+  }
+  return summary;
+}
