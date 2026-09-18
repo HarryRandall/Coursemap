@@ -1088,6 +1088,77 @@ export type Database = {
           },
         ]
       }
+      catalogue_import_changes: {
+        Row: {
+          created_at: string
+          entry_kind: string
+          field_path: string
+          id: number
+          is_blocking: boolean
+          issue_code: string | null
+          new_value: Json | null
+          old_value: Json | null
+          position: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string | null
+          source_excerpt: string | null
+          source_locator: string | null
+          status: string
+          summary: string | null
+          target_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_kind: string
+          field_path: string
+          id?: never
+          is_blocking?: boolean
+          issue_code?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          position?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          source_excerpt?: string | null
+          source_locator?: string | null
+          status?: string
+          summary?: string | null
+          target_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_kind?: string
+          field_path?: string
+          id?: never
+          is_blocking?: boolean
+          issue_code?: string | null
+          new_value?: Json | null
+          old_value?: Json | null
+          position?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          source_excerpt?: string | null
+          source_locator?: string | null
+          status?: string
+          summary?: string | null
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_import_changes_target_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_import_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogue_import_runs: {
         Row: {
           academic_year_id: number
@@ -1216,6 +1287,8 @@ export type Database = {
       catalogue_import_targets: {
         Row: {
           academic_year_id: number
+          applied_at: string | null
+          applied_snapshot_id: number | null
           attempt_count: number
           baseline_snapshot_id: number | null
           candidate_snapshot_id: number | null
@@ -1242,6 +1315,8 @@ export type Database = {
         }
         Insert: {
           academic_year_id: number
+          applied_at?: string | null
+          applied_snapshot_id?: number | null
           attempt_count?: number
           baseline_snapshot_id?: number | null
           candidate_snapshot_id?: number | null
@@ -1268,6 +1343,8 @@ export type Database = {
         }
         Update: {
           academic_year_id?: number
+          applied_at?: string | null
+          applied_snapshot_id?: number | null
           attempt_count?: number
           baseline_snapshot_id?: number | null
           candidate_snapshot_id?: number | null
@@ -1293,6 +1370,13 @@ export type Database = {
           worker_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "catalogue_import_targets_applied_fkey"
+            columns: ["applied_snapshot_id", "item_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_snapshots"
+            referencedColumns: ["id", "item_year_id"]
+          },
           {
             foreignKeyName: "catalogue_import_targets_baseline_fkey"
             columns: ["baseline_snapshot_id", "item_year_id"]
@@ -3453,6 +3537,10 @@ export type Database = {
         Returns: string
       }
       cancel_catalogue_import: { Args: { p_run_id: string }; Returns: number }
+      catalogue_publish_blockers: {
+        Args: { p_item_year_id: number }
+        Returns: string[]
+      }
       current_user_course_attempt_snapshot_projections: {
         Args: { p_snapshot_ids: number[] }
         Returns: {
@@ -3472,6 +3560,10 @@ export type Database = {
           p_planned_period_code?: string
         }
         Returns: undefined
+      }
+      publish_catalogue_snapshot: {
+        Args: { p_item_year_id: number }
+        Returns: number
       }
       published_course_availability: {
         Args: { p_academic_year: number; p_course_code: string }
@@ -3510,6 +3602,10 @@ export type Database = {
       remove_current_user_plan_item: {
         Args: { p_plan_item_id: string }
         Returns: boolean
+      }
+      resolve_catalogue_import_change: {
+        Args: { p_change_id: number; p_note?: string; p_status: string }
+        Returns: undefined
       }
       save_current_user_academic_result: {
         Args: {
@@ -3558,6 +3654,10 @@ export type Database = {
           p_schema_version: string
         }
         Returns: Json
+      }
+      unpublish_catalogue_item_year: {
+        Args: { p_item_year_id: number }
+        Returns: undefined
       }
     }
     Enums: {
