@@ -28,6 +28,7 @@ export default defineConfig({
               "rendered.spec.*",
               "catalogue-admin.spec.*",
               "catalogue-review.spec.*",
+              "catalogue-workspace.spec.*",
             ]
           : "access.spec.*",
     },
