@@ -17,7 +17,8 @@ Turn authoritative ANU source material into idempotent, versioned Coursemap reco
 4. Upsert through stable natural keys inside a transaction. Do not delete previously published data merely because a source is temporarily incomplete.
 5. Send ambiguities, conflicts and unsupported rule expressions to a review queue with the original source fragment.
 6. Compare created, changed, unchanged, rejected and missing counts against the previous successful run.
-7. For courses and academic structures, keep imported candidates as drafts for explicit administrator review and a separate publication action. The calendar manifest importer publishes validated events directly; inspect diagnostics and removals before running it. See `docs/architecture.md`.
+7. For courses and academic structures, imported candidates stay drafts until an administrator reviews the recorded changes, applies them and publishes. The calendar manifest importer publishes validated events directly; inspect diagnostics and removals before running it. See `docs/architecture.md` and `docs/catalogue-operations.md`.
+8. Add a new kind by writing an adapter under `apps/web/lib/catalogue-import/kinds/` that satisfies `CatalogueKindAdapter` and mapping its projection to `CatalogueSnapshotWrite`; the processor, review and workspace need no changes.
 
 ## Data rules
 
