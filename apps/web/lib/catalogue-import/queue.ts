@@ -171,12 +171,10 @@ export async function dispatchImportRun({
   runId,
   targetIds,
   send,
-  process = processImportTarget,
 }: {
   runId: string;
   targetIds: readonly string[];
   send?: ImportQueueSend;
-  process?: (input: ProcessImportTargetInput) => Promise<void>;
 }) {
   if (importQueueEnabled()) {
     try {
