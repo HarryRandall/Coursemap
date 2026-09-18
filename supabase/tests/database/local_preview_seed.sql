@@ -113,7 +113,7 @@ select extensions.ok(
 select extensions.ok(
   exists (
     select 1
-    from public.published_course_requisite_graph('COMP1110', 2026::smallint)
+    from public.published_requirement_graph('COMP1110', 2026::smallint)
     where from_code = 'MATH1005'
       and to_code = 'COMP1110'
       and not from_is_available
