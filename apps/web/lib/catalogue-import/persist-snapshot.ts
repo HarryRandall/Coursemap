@@ -1,5 +1,11 @@
 import type postgres from "postgres";
+import {
+  diffSnapshotWrites,
+  isBlockingFlag,
+  type SnapshotChange,
+} from "./changes.ts";
 import type { ClaimedImportTarget, ImportSql } from "./import-store.ts";
+import { readSnapshotWrite } from "./snapshot-read.ts";
 import type {
   CatalogueKind,
   CatalogueSnapshotWrite,
@@ -20,6 +26,7 @@ export type PersistedSnapshotCandidate = {
     baselineContentHash: string | null;
     candidateSnapshotId: number | null;
     becameDraft: boolean;
+    changes: SnapshotChange[];
     flags: CatalogueSnapshotWrite["flags"];
   };
 };
@@ -406,10 +413,109 @@ async function insertRequirements(
   }
 }
 
+/** Writes every content, requirement and evidence row for a new snapshot. */
+export async function insertSnapshotContent(
+  tx: Tx,
+  {
+    snapshotId,
+    kind,
+    academicYearId,
+    sourcePageId,
+    write,
+  }: {
+    snapshotId: number;
+    kind: CatalogueKind;
+    academicYearId: number;
+    sourcePageId: number | null;
+    write: CatalogueSnapshotWrite;
+  },
+) {
+  const ids = await ensureItemIds(tx, referencedItems(write));
+  if (write.course) {
+    await insertCourseContent(
+      tx,
+      snapshotId,
+      academicYearId,
+      sourcePageId,
+      ids,
+      write.course,
+    );
+  }
+  if (write.structure) {
+    await insertStructureContent(tx, snapshotId, kind, write.structure);
+  }
+  await insertRequirements(
+    tx,
+    snapshotId,
+    academicYearId,
+    sourcePageId,
+    ids,
+    write.requirements,
+  );
+  for (const evidence of write.evidence) {
+    await tx`
+      insert into public.snapshot_field_evidence (
+        snapshot_id, academic_year_id, source_page_id, field_path, method, confidence,
+        source_locator, source_excerpt
+      ) values (
+        ${snapshotId}, ${academicYearId}, ${sourcePageId}, ${evidence.fieldPath},
+        ${evidence.method}, ${evidence.confidence}, ${evidence.sourceLocator},
+        ${evidence.sourceExcerpt}
+      )
+    `;
+  }
+}
+
+/** Records the review entries for a target: one row per change and per flag. */
+export async function insertImportChanges(
+  tx: Tx,
+  {
+    targetId,
+    changes,
+    flags,
+    acceptAll,
+  }: {
+    targetId: string;
+    changes: SnapshotChange[];
+    flags: CatalogueSnapshotWrite["flags"];
+    acceptAll: boolean;
+  },
+) {
+  await tx`delete from public.catalogue_import_changes where target_id = ${targetId}::uuid`;
+  let position = 0;
+  for (const change of changes) {
+    await tx`
+      insert into public.catalogue_import_changes (
+        target_id, entry_kind, field_path, old_value, new_value, summary, source_locator,
+        source_excerpt, status, resolved_at, position
+      ) values (
+        ${targetId}::uuid, 'change', ${change.fieldPath},
+        ${tx.json(change.oldValue as never)}, ${tx.json(change.newValue as never)},
+        ${change.summary}, ${change.sourceLocator}, ${change.sourceExcerpt},
+        ${acceptAll ? "accepted" : "open"}, ${acceptAll ? tx`now()` : null}, ${position}
+      )
+    `;
+    position += 1;
+  }
+  for (const flag of flags) {
+    await tx`
+      insert into public.catalogue_import_changes (
+        target_id, entry_kind, field_path, severity, is_blocking, issue_code, summary,
+        source_excerpt, position
+      ) values (
+        ${targetId}::uuid, 'flag', ${flag.fieldPath ?? "snapshot"}, ${flag.severity},
+        ${isBlockingFlag(flag)}, ${flag.code}, ${flag.message}, ${flag.sourceExcerpt}, ${position}
+      )
+    `;
+    position += 1;
+  }
+}
+
 /**
  * Assembles a candidate snapshot for an import target. Returns `unchanged`
  * without writing when the content hash matches the baseline. A first import
- * for an item year becomes its draft immediately.
+ * for an item year becomes its draft immediately with every change accepted;
+ * otherwise the changes stay open for review.
  */
 export async function persistSnapshotCandidate(
   sql: ImportSql,
@@ -456,6 +562,12 @@ export async function persistSnapshotCandidate(
     const baselineContentHash = baseline ? String(baseline.content_hash) : null;
 
     if (baselineContentHash === write.contentHash) {
+      await insertImportChanges(tx, {
+        targetId: claim.targetId,
+        changes: [],
+        flags: write.flags,
+        acceptAll: true,
+      });
       return {
         changeKind: "unchanged" as const,
         candidateSnapshotId: null,
@@ -468,12 +580,16 @@ export async function persistSnapshotCandidate(
           baselineContentHash,
           candidateSnapshotId: null,
           becameDraft: false,
+          changes: [],
           flags: write.flags,
         },
       };
     }
 
-    const ids = await ensureItemIds(tx, referencedItems(write));
+    const baselineWrite = baselineSnapshotId
+      ? await readSnapshotWrite(tx, baselineSnapshotId)
+      : null;
+    const changes = diffSnapshotWrites(baselineWrite, write);
     if (claim.directoryEntryId !== null) {
       await tx`
         update public.catalogue_directory_entries
@@ -493,42 +609,21 @@ export async function persistSnapshotCandidate(
       returning id
     `;
     const snapshotId = Number(snapshot.id);
-
-    if (write.course) {
-      await insertCourseContent(
-        tx,
-        snapshotId,
-        claim.academicYearId,
-        sourcePageId,
-        ids,
-        write.course,
-      );
-    }
-    if (write.structure) {
-      await insertStructureContent(tx, snapshotId, claim.kind, write.structure);
-    }
-    await insertRequirements(
-      tx,
+    await insertSnapshotContent(tx, {
       snapshotId,
-      claim.academicYearId,
+      kind: claim.kind,
+      academicYearId: claim.academicYearId,
       sourcePageId,
-      ids,
-      write.requirements,
-    );
-    for (const evidence of write.evidence) {
-      await tx`
-        insert into public.snapshot_field_evidence (
-          snapshot_id, academic_year_id, source_page_id, field_path, method, confidence,
-          source_locator, source_excerpt
-        ) values (
-          ${snapshotId}, ${claim.academicYearId}, ${sourcePageId}, ${evidence.fieldPath},
-          ${evidence.method}, ${evidence.confidence}, ${evidence.sourceLocator},
-          ${evidence.sourceExcerpt}
-        )
-      `;
-    }
+      write,
+    });
 
     const becameDraft = baselineSnapshotId === null;
+    await insertImportChanges(tx, {
+      targetId: claim.targetId,
+      changes,
+      flags: write.flags,
+      acceptAll: becameDraft,
+    });
     if (becameDraft) {
       await tx`
         update public.catalogue_item_years
@@ -549,6 +644,7 @@ export async function persistSnapshotCandidate(
         baselineContentHash,
         candidateSnapshotId: snapshotId,
         becameDraft,
+        changes,
         flags: write.flags,
       },
     };

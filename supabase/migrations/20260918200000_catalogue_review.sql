@@ -151,10 +151,7 @@ as $function$
     case when not exists (select 1 from item_year) then 'The record does not exist.' end,
     case when exists (select 1 from item_year where archived_at is not null) then 'The record is archived.' end,
     case when exists (select 1 from item_year where draft_snapshot_id is null) then 'There is no draft to publish.' end,
-    case when exists (
-      select 1 from item_year where draft_snapshot_id is not null
-        and draft_snapshot_id = published_snapshot_id
-    ) then 'The draft is already published.' end,
+
     case when exists (
       select 1 from draft
       join public.catalogue_import_changes as changes on changes.target_id = draft.import_target_id
@@ -194,8 +191,11 @@ begin
     raise exception using errcode = '55000', message = array_to_string(blockers, ' ');
   end if;
 
+  -- A draft exists only while it differs from what is published, so
+  -- publishing moves the pointer and clears the draft.
   update public.catalogue_item_years
-  set published_snapshot_id = draft_snapshot_id
+  set published_snapshot_id = draft_snapshot_id,
+      draft_snapshot_id = null
   where id = p_item_year_id
   returning published_snapshot_id into draft_id;
   return draft_id;
