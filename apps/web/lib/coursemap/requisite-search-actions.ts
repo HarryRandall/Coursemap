@@ -11,12 +11,32 @@ export type RequisiteCourseSearchResult = {
   code: string;
   subject: string | null;
   title: string | null;
-  /** Academic years with a native course-year record, newest first. */
+  /** Academic years with a catalogue year record, newest first. */
   years: number[];
 };
 
+// The details tables join through a composite key, so PostgREST types them as
+// arrays even though each snapshot has at most one details row.
+type ItemYearEmbed = {
+  academic_years: { year: number } | null;
+  published: {
+    course_snapshot_details: { title: string }[];
+    structure_snapshot_details: { name: string }[];
+  } | null;
+};
+
+const ITEM_SEARCH_SELECT =
+  "code,kind,catalogue_item_years(academic_years(year),published:catalogue_snapshots!catalogue_item_years_published_snapshot_fkey(course_snapshot_details(title),structure_snapshot_details(name)))";
+
+function yearsNewestFirst(itemYears: ItemYearEmbed[]) {
+  return itemYears
+    .map((itemYear) => itemYear.academic_years?.year)
+    .filter((year): year is number => typeof year === "number")
+    .sort((left, right) => right - left);
+}
+
 /**
- * Search course identities for requisite editing. Titles come from the newest
+ * Search course identities for requisite editing. Titles come from a
  * published snapshot, so identities that have never been published match on
  * code only.
  */
@@ -31,32 +51,27 @@ export async function searchRequisiteCourses(
 
   try {
     const supabase = await createClient();
-    const { data: courses, error: coursesError } = await supabase
-      .from("courses")
-      .select(
-        "code,course_years(academic_years(year),published:course_snapshots!course_years_published_snapshot_same_year_fkey(title))",
-      )
+    const { data, error } = await supabase
+      .from("catalogue_items")
+      .select(ITEM_SEARCH_SELECT)
+      .eq("kind", "course")
       .ilike("code", `%${term}%`)
       .order("code")
       .limit(25);
-    if (coursesError) throw coursesError;
+    if (error) throw error;
 
-    return (courses ?? []).map((course) => {
-      const years = course.course_years
-        .map((courseYear) => courseYear.academic_years?.year)
-        .filter((year): year is number => typeof year === "number")
-        .sort((left, right) => right - left);
-      const title =
-        course.course_years
-          .map((courseYear) => courseYear.published?.title ?? null)
-          .find((value) => value !== null) ?? null;
-      return {
-        code: course.code,
-        subject: course.code.slice(0, 4),
-        title,
-        years,
-      };
-    });
+    return (data ?? []).map((item) => ({
+      code: item.code,
+      subject: item.code.slice(0, 4),
+      title:
+        item.catalogue_item_years
+          .map(
+            (itemYear) =>
+              itemYear.published?.course_snapshot_details[0]?.title ?? null,
+          )
+          .find((value) => value !== null) ?? null,
+      years: yearsNewestFirst(item.catalogue_item_years),
+    }));
   } catch {
     return [];
   }
@@ -78,27 +93,27 @@ export async function searchRequisiteProgrammes(
 
   try {
     const supabase = await createClient();
-    const { data: structures, error } = await supabase
-      .from("academic_structures")
-      .select(
-        "code,kind,academic_structure_years(academic_years(year),published:academic_structure_snapshots!academic_structure_years_published_snapshot_fkey(name))",
-      )
+    const { data, error } = await supabase
+      .from("catalogue_items")
+      .select(ITEM_SEARCH_SELECT)
+      .neq("kind", "course")
       .ilike("code", `%${term}%`)
       .order("code")
       .limit(25);
     if (error) throw error;
 
-    return (structures ?? []).map((structure) => {
-      const years = structure.academic_structure_years
-        .map((structureYear) => structureYear.academic_years?.year)
-        .filter((year): year is number => typeof year === "number")
-        .sort((left, right) => right - left);
-      const title =
-        structure.academic_structure_years
-          .map((structureYear) => structureYear.published?.name ?? null)
-          .find((value) => value !== null) ?? null;
-      return { code: structure.code, kind: structure.kind, title, years };
-    });
+    return (data ?? []).map((item) => ({
+      code: item.code,
+      kind: item.kind,
+      title:
+        item.catalogue_item_years
+          .map(
+            (itemYear) =>
+              itemYear.published?.structure_snapshot_details[0]?.name ?? null,
+          )
+          .find((value) => value !== null) ?? null,
+      years: yearsNewestFirst(item.catalogue_item_years),
+    }));
   } catch {
     return [];
   }

@@ -451,19 +451,19 @@ export async function loadAdminUserDetail(
     ] = await Promise.all([
       structureYearIds.length
         ? supabase
-            .from("academic_structure_years")
-            .select("id,published_snapshot_id,structure_id")
+            .from("catalogue_item_years")
+            .select("id,published_snapshot_id,item_id")
             .in("id", structureYearIds)
         : Promise.resolve({ data: [], error: null }),
       courseIds.length
-        ? supabase.from("courses").select("id,code").in("id", courseIds)
+        ? supabase.from("catalogue_items").select("id,code").in("id", courseIds)
         : Promise.resolve({ data: [], error: null }),
       courseIds.length
         ? supabase
-            .from("course_years")
-            .select("course_id,academic_year_id,published_snapshot_id")
-            .eq("lifecycle_status", "active")
-            .in("course_id", courseIds)
+            .from("catalogue_item_years")
+            .select("item_id,academic_year_id,published_snapshot_id")
+            .is("archived_at", null)
+            .in("item_id", courseIds)
         : Promise.resolve({ data: [], error: null }),
       periodIds.length
         ? supabase
@@ -484,11 +484,11 @@ export async function loadAdminUserDetail(
 
     const structureYears = structureYearsResult.data ?? [];
     const structureIdentityIds = structureYears.map(
-      (structureYear) => structureYear.structure_id,
+      (structureYear) => structureYear.item_id,
     );
     const structureIdentitiesResult = structureIdentityIds.length
       ? await supabase
-          .from("academic_structures")
+          .from("catalogue_items")
           .select("id,code")
           .in("id", structureIdentityIds)
       : { data: [], error: null };
@@ -512,16 +512,16 @@ export async function loadAdminUserDetail(
     );
     const structureSnapshotsResult = structureSnapshotIds.length
       ? await supabase
-          .from("academic_structure_snapshots")
-          .select("id,name,units")
-          .in("id", structureSnapshotIds)
+          .from("structure_snapshot_details")
+          .select("snapshot_id,name,units")
+          .in("snapshot_id", structureSnapshotIds)
       : { data: [], error: null };
     if (structureSnapshotsResult.error) {
       throw new Error("Coursemap could not load that user's programme.");
     }
     const structureSnapshotById = new Map(
       (structureSnapshotsResult.data ?? []).map((snapshot) => [
-        snapshot.id,
+        snapshot.snapshot_id,
         snapshot,
       ]),
     );
@@ -536,7 +536,7 @@ export async function loadAdminUserDetail(
         courseYear.published_snapshot_id
           ? [
               [
-                `${courseYear.course_id}:${courseYear.academic_year_id}`,
+                `${courseYear.item_id}:${courseYear.academic_year_id}`,
                 courseYear.published_snapshot_id,
               ] as const,
             ]
@@ -551,15 +551,18 @@ export async function loadAdminUserDetail(
     ];
     const snapshotsResult = snapshotIds.length
       ? await supabase
-          .from("course_snapshots")
-          .select("id,title,units,minimum_units,maximum_units")
-          .in("id", snapshotIds)
+          .from("course_snapshot_details")
+          .select("snapshot_id,title,units,minimum_units,maximum_units")
+          .in("snapshot_id", snapshotIds)
       : { data: [], error: null };
     if (snapshotsResult.error) {
       throw new Error("Coursemap could not load that user's course details.");
     }
     const snapshotById = new Map(
-      (snapshotsResult.data ?? []).map((snapshot) => [snapshot.id, snapshot]),
+      (snapshotsResult.data ?? []).map((snapshot) => [
+        snapshot.snapshot_id,
+        snapshot,
+      ]),
     );
     const periodById = new Map(
       (periodsResult.data ?? []).map((period) => [period.id, period]),
@@ -648,7 +651,7 @@ export async function loadAdminUserDetail(
           ? structureSnapshotById.get(structureYear.published_snapshot_id)
           : null;
         const code = structureYear
-          ? structureCodeById.get(structureYear.structure_id)
+          ? structureCodeById.get(structureYear.item_id)
           : null;
         return snapshot && code
           ? [
