@@ -43,9 +43,24 @@ export type CourseRuleExpression =
       minimumYear: number;
     })
   | (CourseRuleConditionBase & {
-      kind: "admission";
+      kind: "structure";
       structureCode: string | null;
       text: string | null;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "structure_set";
+      minimumCount: number | null;
+      structureCodes: string[];
+      structureKind: string | null;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "tagged_units";
+      tag: string;
+      units: number;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "elective_units";
+      units: number;
     })
   | (CourseRuleConditionBase & {
       kind: "gpa";

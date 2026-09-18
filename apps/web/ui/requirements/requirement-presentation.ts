@@ -38,25 +38,28 @@ export function levelCourseDescription(
 
 export function conditionInterpretation(condition: PlanRequirementCondition) {
   const parts: string[] = [];
-  if (condition.conditionKind === "unit_total") {
+  if (condition.conditionKind === "units_total") {
     const units = unitsDescription(
       condition.minimumUnits,
       condition.maximumUnits,
     );
     if (units) parts.push(units);
-  } else if (condition.conditionKind === "course_list") {
+  } else if (condition.conditionKind === "course_set_units") {
     parts.push(
       condition.minimumCourses
         ? `Complete at least ${condition.minimumCourses} listed course${condition.minimumCourses === 1 ? "" : "s"}`
         : "Complete from the listed courses",
     );
-  } else if (condition.conditionKind === "structure_list") {
+  } else if (condition.conditionKind === "structure_set") {
     parts.push(
       condition.minimumCourses
         ? `Complete at least ${condition.minimumCourses} listed academic structure${condition.minimumCourses === 1 ? "" : "s"}`
         : "Complete from the listed academic structures",
     );
-  } else if (condition.conditionKind === "subject" && condition.subjectCode) {
+  } else if (
+    condition.conditionKind === "subject_units" &&
+    condition.subjectCode
+  ) {
     const levels = levelCourseDescription(
       condition.minimumLevel,
       condition.maximumLevel,
@@ -66,21 +69,21 @@ export function conditionInterpretation(condition: PlanRequirementCondition) {
         ? `${condition.subjectCode} ${levels.toLowerCase()}`
         : `${condition.subjectCode} coded courses`,
     );
-  } else if (condition.conditionKind === "level") {
+  } else if (condition.conditionKind === "level_units") {
     const levels = levelCourseDescription(
       condition.minimumLevel,
       condition.maximumLevel,
     );
     if (levels) parts.push(levels);
-  } else if (condition.conditionKind === "tag" && condition.tag) {
+  } else if (condition.conditionKind === "tagged_units" && condition.tag) {
     parts.push(condition.tag);
-  } else if (condition.conditionKind === "unrestricted") {
+  } else if (condition.conditionKind === "elective_units") {
     parts.push("Unrestricted elective courses");
   } else if (condition.freeText) {
     parts.push(condition.freeText);
   }
 
-  if (condition.conditionKind !== "unit_total") {
+  if (condition.conditionKind !== "units_total") {
     const units = unitsDescription(
       condition.minimumUnits,
       condition.maximumUnits,

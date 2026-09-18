@@ -30,7 +30,7 @@ export /** ANU codes the year of a course in its level, from 1000 up to 9000. */
 const COURSE_LEVELS = [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000];
 export function middleOptions(family: ConditionFamilyKind) {
   if (family === "course") return COURSE_MATCH_OPTIONS;
-  if (family === "admission") {
+  if (family === "structure") {
     return [{ value: "enrolled", label: "Enrolment required" }];
   }
   if (family === "permission") {

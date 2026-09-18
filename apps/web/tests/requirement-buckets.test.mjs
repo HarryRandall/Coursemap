@@ -52,7 +52,7 @@ function condition(id, overrides) {
   return {
     type: "condition",
     id,
-    conditionKind: "course_list",
+    conditionKind: "course_set_units",
     freeText: null,
     maximumLevel: null,
     maximumUnits: null,

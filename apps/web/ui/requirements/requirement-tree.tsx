@@ -13,12 +13,12 @@ export function RequirementGroupView({
   context: TreeContext;
 }) {
   const alternative =
-    group.operator === "any_of" || group.operator === "minimum_count";
+    group.operator === "any_of" || group.operator === "at_least";
   const children = group.children.filter(
     (child) =>
       !(
         child.type === "condition" &&
-        child.conditionKind === "unit_total" &&
+        child.conditionKind === "units_total" &&
         (child.minimumUnits === context.unitTarget ||
           child.maximumUnits === context.unitTarget) &&
         (child.minimumUnits === null ||
@@ -47,7 +47,7 @@ export function RequirementGroupView({
           <h3 className="text-sm font-semibold">
             {group.operator === "any_of"
               ? "Choose one of these options"
-              : group.operator === "minimum_count"
+              : group.operator === "at_least"
                 ? `Choose at least ${group.minimumCount ?? 1} of these options`
                 : "Course requirements"}
           </h3>
