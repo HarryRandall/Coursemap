@@ -1684,6 +1684,52 @@ as $function$
     on details.snapshot_id = item_years.published_snapshot_id;
 $function$;
 
+-- The course directory lists published snapshots with their identity in one
+-- relation. Security invoker keeps the underlying row policies in force.
+create view public.published_course_summaries
+with (security_invoker = true)
+as
+select
+  snapshots.id as snapshot_id,
+  items.id as item_id,
+  items.code,
+  item_years.id as item_year_id,
+  item_years.academic_year_id,
+  academic_years.year as academic_year,
+  details.title,
+  details.unit_value_kind,
+  details.units,
+  details.minimum_units,
+  details.maximum_units,
+  details.eftsl,
+  details.level,
+  details.subject_code,
+  details.subject_name,
+  details.school,
+  details.college,
+  details.academic_career,
+  details.convener_text,
+  details.delivery_summary,
+  details.introduction,
+  details.description,
+  details.workload_text,
+  details.workload_hours,
+  details.inherent_requirements,
+  details.prescribed_texts,
+  details.offering_status,
+  details.source_updated_at
+from public.catalogue_item_years as item_years
+join public.catalogue_items as items on items.id = item_years.item_id
+join public.academic_years on academic_years.id = item_years.academic_year_id
+join public.catalogue_snapshots as snapshots
+  on snapshots.id = item_years.published_snapshot_id
+join public.course_snapshot_details as details
+  on details.snapshot_id = snapshots.id
+where item_years.kind = 'course'
+  and item_years.archived_at is null;
+
+grant select on public.published_course_summaries to anon, authenticated, service_role;
+
 grant execute on function public.published_course_detail(text, smallint)
 to anon, authenticated;
 grant execute on function public.published_course_requisite_graph(text, smallint)
