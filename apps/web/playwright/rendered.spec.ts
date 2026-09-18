@@ -55,18 +55,12 @@ test("key dates expose the calendar controls", async ({ page }) => {
   await expect(page.getByLabel("Calendar year")).toBeVisible();
 });
 
-test("administrator pages use live users, roles and import directories", async ({
+test("administrator pages use live users and roles", async ({
   page,
   administrator,
 }) => {
   await login(page, administrator);
-  for (const path of [
-    "/admin/dashboard",
-    "/admin/users",
-    "/admin/roles",
-    "/admin/courses",
-    "/admin/courses/imports",
-  ]) {
+  for (const path of ["/admin/dashboard", "/admin/users", "/admin/roles"]) {
     await page.goto(path);
     await expect(page.getByRole("main")).toBeVisible();
     await expect(page).not.toHaveURL(/\/login/);
@@ -88,6 +82,11 @@ test("retired import and component-reference routes stay absent", async ({
     "/admin/imports/history",
     "/admin/imports/runs",
     "/admin/imports/structures/runs",
+    "/admin/courses",
+    "/admin/courses/imports",
+    "/admin/programmes",
+    "/api/admin/course-imports",
+    "/api/queues/course-import",
     "/design-system",
     "/design-system/typography",
     "/admin/design-system/components",
