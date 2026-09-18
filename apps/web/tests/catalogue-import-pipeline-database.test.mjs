@@ -5,6 +5,7 @@ import { afterAll, beforeAll, test } from "vitest";
 import { processImportTarget } from "../lib/catalogue-import/process-target.ts";
 import { adapterForKind } from "../lib/catalogue-import/process-target.ts";
 import { processImportRunInline } from "../lib/catalogue-import/queue.ts";
+import { applyImportReview } from "../lib/catalogue-import/apply-review.ts";
 import { extractDeterministicCourse } from "../lib/catalogue-import/kinds/course/deterministic.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
@@ -36,15 +37,18 @@ const modelAnswer = {
     method: "model",
   })),
 };
+const modelAnswerRef = { current: modelAnswer };
 
 let openRouterCalls = 0;
 const realFetch = globalThis.fetch;
+
+const pageRef = { current: fixtureHtml };
 
 function stubbedFetch(input, init) {
   const url = typeof input === "string" ? input : input.url;
   if (url.startsWith("https://programsandcourses.anu.edu.au/")) {
     return Promise.resolve(
-      new Response(fixtureHtml, {
+      new Response(pageRef.current, {
         status: 200,
         headers: { "content-type": "text/html; charset=utf-8" },
       }),
@@ -59,7 +63,7 @@ function stubbedFetch(input, init) {
         choices: [
           {
             finish_reason: "stop",
-            message: { content: JSON.stringify(modelAnswer) },
+            message: { content: JSON.stringify(modelAnswerRef.current) },
           },
         ],
         usage: {
@@ -234,6 +238,147 @@ test("a first import becomes the draft and a repeat import is unchanged", async 
     1,
     "identical input does not pay for a second model call",
   );
+});
+
+test("a changed import records open changes, applies accepted ones and publishes", async () => {
+  // Alter the published fixture so the next import differs in the title only.
+  const [item] = await sql`
+    select item_years.id as item_year_id, item_years.draft_snapshot_id
+    from public.catalogue_item_years as item_years
+    join public.catalogue_items as items on items.id = item_years.item_id
+    where items.code = ${CODE}
+  `;
+  await sql.begin(async (tx) => {
+    await tx`select set_config('request.jwt.claim.sub', ${ADMIN_ID}, true)`;
+    await tx`select public.publish_catalogue_snapshot(${item.item_year_id})`;
+  });
+  const [{ count: acceptedOnFirst }] = await sql`
+    select count(*)::int as count from public.catalogue_import_changes as changes
+    join public.catalogue_import_targets as targets on targets.id = changes.target_id
+    where targets.item_year_id = ${item.item_year_id} and changes.entry_kind = 'change' and changes.status = 'accepted'
+  `;
+  assert.ok(
+    acceptedOnFirst > 0,
+    "a first import records its fields as accepted changes",
+  );
+
+  // The revised page changes the title and the introduction; the canned model
+  // answer follows the page so the merge sees a consistent extraction.
+  const revisedHtml = fixtureHtml
+    .replaceAll("Relational Databases", "Relational Databases (revised)")
+    .replace(
+      "Students design, query and reason about relational databases.",
+      "Students design, query, tune and reason about relational databases.",
+    );
+  const revisedDeterministic = extractDeterministicCourse({
+    html: revisedHtml,
+    courseCode: CODE,
+    year: YEAR,
+    sourceUrl,
+  });
+  const previousPage = pageRef.current;
+  const previousModel = modelAnswerRef.current;
+  pageRef.current = revisedHtml;
+  modelAnswerRef.current = {
+    ...revisedDeterministic,
+    evidence: revisedDeterministic.evidence.map((item) => ({
+      ...item,
+      method: "model",
+    })),
+  };
+  try {
+    const run = await startRun([CODE]);
+    await processImportRunInline({ runId: run.runId });
+    const [target] = await sql`
+      select id, status, change_kind, candidate_snapshot_id from public.catalogue_import_targets
+      where run_id = ${run.runId}::uuid
+    `;
+    assert.equal(target.status, "ready");
+    assert.equal(target.change_kind, "changed");
+
+    const changes = await sql`
+      select id, field_path, status, old_value, new_value from public.catalogue_import_changes
+      where target_id = ${target.id}::uuid and entry_kind = 'change' order by position
+    `;
+    const paths = changes.map((change) => change.field_path);
+    assert.ok(paths.includes("course.details.title"), paths.join(","));
+    assert.ok(paths.includes("course.details.introduction"), paths.join(","));
+    assert.ok(changes.every((change) => change.status === "open"));
+
+    // Publishing is blocked while changes are open.
+    const [{ blockers }] = await sql`
+      select public.catalogue_publish_blockers(${item.item_year_id}) as blockers
+    `;
+    assert.ok(
+      blockers.some((reason) =>
+        /open changes|no draft|already published/.test(reason),
+      ),
+      blockers.join(" "),
+    );
+
+    // Accept the title, reject the description.
+    await sql.begin(async (tx) => {
+      await tx`select set_config('request.jwt.claim.sub', ${ADMIN_ID}, true)`;
+      for (const change of changes) {
+        await tx`
+          select public.resolve_catalogue_import_change(
+            ${change.id}, ${change.field_path === "course.details.introduction" ? "rejected" : "accepted"}
+          )
+        `;
+      }
+    });
+    const applied = await applyImportReview({
+      targetId: target.id,
+      userId: ADMIN_ID,
+      sql,
+    });
+    assert.equal(
+      applied.reusedCandidate,
+      false,
+      "a partial acceptance builds a merged snapshot",
+    );
+
+    const [merged] = await sql`
+      select details.title, details.introduction
+      from public.course_snapshot_details as details
+      where details.snapshot_id = ${applied.draftSnapshotId}
+    `;
+    assert.equal(merged.title, revisedDeterministic.title);
+    assert.equal(
+      merged.introduction,
+      deterministicAnswer.introduction,
+      "the rejected change keeps the baseline value",
+    );
+
+    const [pointer] = await sql`
+      select draft_snapshot_id, published_snapshot_id from public.catalogue_item_years where id = ${item.item_year_id}
+    `;
+    assert.equal(Number(pointer.draft_snapshot_id), applied.draftSnapshotId);
+    assert.notEqual(
+      Number(pointer.published_snapshot_id),
+      applied.draftSnapshotId,
+    );
+
+    await assert.rejects(
+      applyImportReview({ targetId: target.id, userId: ADMIN_ID, sql }),
+      /already been applied/,
+    );
+
+    await sql.begin(async (tx) => {
+      await tx`select set_config('request.jwt.claim.sub', ${ADMIN_ID}, true)`;
+      await tx`select public.publish_catalogue_snapshot(${item.item_year_id})`;
+    });
+    const [published] = await sql`
+      select published_snapshot_id from public.catalogue_item_years where id = ${item.item_year_id}
+    `;
+    assert.equal(
+      Number(published.published_snapshot_id),
+      applied.draftSnapshotId,
+    );
+  } finally {
+    pageRef.current = previousPage;
+    modelAnswerRef.current = previousModel;
+  }
 });
 
 test("a run refuses a second unfinished target for the same item year", async () => {
