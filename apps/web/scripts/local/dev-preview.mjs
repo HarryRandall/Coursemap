@@ -10,6 +10,7 @@ export function parseSupabaseEnvironment(output) {
 
   return {
     apiUrl: values.get("API_URL"),
+    databaseUrl: values.get("DB_URL"),
     publishableKey: values.get("PUBLISHABLE_KEY") ?? values.get("ANON_KEY"),
     secretKey: values.get("SECRET_KEY") ?? values.get("SERVICE_ROLE_KEY"),
   };
@@ -29,9 +30,8 @@ function readSupabaseEnvironment() {
     process.exit(result.status ?? 1);
   }
 
-  const { apiUrl, publishableKey, secretKey } = parseSupabaseEnvironment(
-    result.stdout,
-  );
+  const { apiUrl, databaseUrl, publishableKey, secretKey } =
+    parseSupabaseEnvironment(result.stdout);
   if (!apiUrl || !publishableKey || !secretKey) {
     console.error(
       "Supabase did not return its local API URL, public key and server key.",
@@ -39,10 +39,11 @@ function readSupabaseEnvironment() {
     process.exit(1);
   }
 
-  return { apiUrl, publishableKey, secretKey };
+  return { apiUrl, databaseUrl, publishableKey, secretKey };
 }
 
-const { apiUrl, publishableKey, secretKey } = readSupabaseEnvironment();
+const { apiUrl, databaseUrl, publishableKey, secretKey } =
+  readSupabaseEnvironment();
 const child = spawn(
   "pnpm",
   ["run", "dev", "--hostname", "127.0.0.1", "--port", "3000"],
@@ -51,6 +52,8 @@ const child = spawn(
     env: {
       ...process.env,
       NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3000",
+      // The import pipeline and admin workspace connect to Postgres directly.
+      COURSEMAP_DATABASE_URL: databaseUrl,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
       NEXT_PUBLIC_SUPABASE_URL: apiUrl,
       SUPABASE_SECRET_KEY: secretKey,
