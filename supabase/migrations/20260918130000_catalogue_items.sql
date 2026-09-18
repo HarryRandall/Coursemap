@@ -2579,6 +2579,23 @@ grant execute on function public.save_current_user_primary_plan(
   text, text, smallint, smallint, text, text, text, text[], text[]
 ) to authenticated;
 
+-- Recreating a function restores the default public execute grant, so the
+-- student write functions are re-restricted to authenticated callers.
+revoke all on function public.current_user_course_attempt_snapshot_projections(bigint[])
+from public, anon;
+revoke all on function public.add_current_user_plan_item(text, smallint, smallint, text)
+from public, anon;
+revoke all on function public.record_current_user_course_attempt(uuid, text, numeric, numeric)
+from public, anon;
+revoke all on function public.save_current_user_academic_result(uuid, text, numeric, text, numeric)
+from public, anon;
+revoke all on function public.save_current_user_primary_plan(
+  text, text, smallint, smallint, text, text, text, text[], text[]
+) from public, anon;
+revoke all on function public.published_course_detail(text, smallint) from public;
+revoke all on function public.published_course_requisite_graph(text, smallint) from public;
+revoke all on function public.published_course_availability(text, smallint) from public;
+
 comment on table public.catalogue_items is
   'Permanent identity for courses, programmes, majors, minors and specialisations.';
 comment on table public.catalogue_item_years is
