@@ -9,7 +9,7 @@ import {
   assertOpenRouterModel,
   extractCourseWithOpenRouter,
   restoreOpenRouterCourseExtraction,
-} from "../lib/course-import/openrouter.ts";
+} from "../lib/catalogue-import/openrouter.ts";
 
 const TEST_SCHEMA = {
   type: "object",
