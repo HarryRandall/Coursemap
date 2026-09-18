@@ -4,8 +4,6 @@
 
 - [Code conventions](conventions.md): naming, comments, modules and file placement.
 - [Architecture](architecture.md): application boundaries and the data model.
-- [Catalogue workspaces](catalogue-workspace-refresh.md): shared routes, section approval, re-imports and publication.
-- [Import recovery](import-run-recovery.md): stopping or recovering structure imports.
 - [Environment template](../apps/web/.env.example): required settings, optional services and defaults.
 - [Database setup](../supabase/README.md): local services and database operations.
 - [Contributing](../CONTRIBUTING.md): workflow and verification requirements.
