@@ -85,12 +85,12 @@ type RuleRow = {
   source_text: string;
 };
 type RuleReferenceRow = {
-  course_rule_id: number;
-  referenced_course_id: number;
+  rule_id: number;
+  item_id: number;
 };
 type RuleConditionRow = {
-  course_rule_id: number;
-  required_course_id: number | null;
+  rule_id: number;
+  item_id: number | null;
 };
 
 const SNAPSHOT_LIST_SELECT =
@@ -954,7 +954,7 @@ async function loadListRelationships(
       .select("id,snapshot_id,delivery_mode,location")
       .in("snapshot_id", snapshotIds),
     supabase
-      .from("course_rules")
+      .from("requirement_rules")
       .select("id,snapshot_id,rule_kind,source_text,confidence,review_state")
       .in("snapshot_id", snapshotIds)
       .in("rule_kind", ["prerequisite", "incompatibility"]),
@@ -977,16 +977,17 @@ async function loadListRelationships(
         : Promise.resolve({ data: [], error: null }),
       ruleIds.length
         ? supabase
-            .from("course_rule_course_references")
-            .select("course_rule_id,referenced_course_id")
-            .in("course_rule_id", ruleIds)
+            .from("requirement_item_references")
+            .select("rule_id,item_id")
+            .in("rule_id", ruleIds)
         : Promise.resolve({ data: [], error: null }),
       ruleIds.length
         ? supabase
-            .from("course_rule_conditions")
-            .select("course_rule_id,required_course_id")
-            .in("course_rule_id", ruleIds)
-            .not("required_course_id", "is", null)
+            .from("requirement_conditions")
+            .select("rule_id,item_id")
+            .in("rule_id", ruleIds)
+            .eq("condition_kind", "course")
+            .not("item_id", "is", null)
         : Promise.resolve({ data: [], error: null }),
     ]);
   if (sessionsResult.error) throw sessionsResult.error;
@@ -996,11 +997,9 @@ async function loadListRelationships(
   const conditions = (conditionsResult.data ?? []) as RuleConditionRow[];
   const referencedIds = [
     ...new Set([
-      ...references.map((reference) => reference.referenced_course_id),
+      ...references.map((reference) => reference.item_id),
       ...conditions.flatMap((condition) =>
-        condition.required_course_id === null
-          ? []
-          : [condition.required_course_id],
+        condition.item_id === null ? [] : [condition.item_id],
       ),
     ]),
   ];
@@ -1055,16 +1054,16 @@ async function loadListRelationships(
   const referencedIdsByRule = new Map<number, Set<number>>();
   for (const reference of references) {
     const existing =
-      referencedIdsByRule.get(reference.course_rule_id) ?? new Set<number>();
-    existing.add(reference.referenced_course_id);
-    referencedIdsByRule.set(reference.course_rule_id, existing);
+      referencedIdsByRule.get(reference.rule_id) ?? new Set<number>();
+    existing.add(reference.item_id);
+    referencedIdsByRule.set(reference.rule_id, existing);
   }
   for (const condition of conditions) {
-    if (condition.required_course_id === null) continue;
+    if (condition.item_id === null) continue;
     const existing =
-      referencedIdsByRule.get(condition.course_rule_id) ?? new Set<number>();
-    existing.add(condition.required_course_id);
-    referencedIdsByRule.set(condition.course_rule_id, existing);
+      referencedIdsByRule.get(condition.rule_id) ?? new Set<number>();
+    existing.add(condition.item_id);
+    referencedIdsByRule.set(condition.rule_id, existing);
   }
 
   return snapshots.flatMap((snapshot) => {
