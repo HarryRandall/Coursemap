@@ -1,4 +1,4 @@
-import { assertOpenRouterModel } from "@/lib/course-import/openrouter";
+import { assertOpenRouterModel } from "@/lib/catalogue-import/openrouter";
 import type { ImportModel } from "@/lib/admin/import-model";
 
 function isRecord(value: unknown): value is Record<string, unknown> {

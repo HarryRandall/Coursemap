@@ -1,5 +1,5 @@
 import type { CoursePrerequisiteEdge } from "./course-types";
-import { extractAnuCourseCodes } from "../course-import/course-codes.ts";
+import { extractAnuCourseCodes } from "./course-codes";
 
 const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/u;
 
