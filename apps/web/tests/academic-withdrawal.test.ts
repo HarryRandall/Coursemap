@@ -64,9 +64,9 @@ for (const grade of ["WD", "WL"]) {
           units_earned: 0,
         },
       ],
-      courses: [{ id: 1, code: "COMP1100" }],
+      catalogue_items: [{ id: 1, code: "COMP1100" }],
       academic_periods: [{ id: 1, calendar_year: 2026, code: "S1" }],
-      course_snapshots: [{ id: 10, academic_year_id: 1 }],
+      catalogue_snapshots: [{ id: 10, academic_year_id: 1 }],
     };
     const state = await loadCoursemapState({ id: "owner", email: null });
     expect(state.attempts).toEqual([
