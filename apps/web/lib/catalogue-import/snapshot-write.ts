@@ -2,11 +2,7 @@ import type { CourseSnapshotProjection } from "./kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "./kinds/structure/project.ts";
 
 export type CatalogueKind =
-  | "course"
-  | "programme"
-  | "major"
-  | "minor"
-  | "specialisation";
+  "course" | "programme" | "major" | "minor" | "specialisation";
 
 export const CATALOGUE_KINDS: readonly CatalogueKind[] = [
   "course",
@@ -18,7 +14,8 @@ export const CATALOGUE_KINDS: readonly CatalogueKind[] = [
 
 export function isCatalogueKind(value: unknown): value is CatalogueKind {
   return (
-    typeof value === "string" && CATALOGUE_KINDS.includes(value as CatalogueKind)
+    typeof value === "string" &&
+    CATALOGUE_KINDS.includes(value as CatalogueKind)
   );
 }
 

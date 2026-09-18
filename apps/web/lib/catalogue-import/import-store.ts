@@ -3,7 +3,10 @@ import {
   createHostedImportDatabaseClient,
   createLocalDatabaseClient,
 } from "../../scripts/catalogue/lib/local-database.mjs";
-import type { ImportArtifactKind, ImportArtifactLocator } from "./artifact-store.ts";
+import type {
+  ImportArtifactKind,
+  ImportArtifactLocator,
+} from "./artifact-store.ts";
 import { ANU_PROGRAMS_AND_COURSES_SOURCE } from "./import-source.ts";
 import type { CatalogueKind } from "./snapshot-write.ts";
 
@@ -121,7 +124,12 @@ export async function claimImportTarget(
     targetId,
     workerId,
     leaseSeconds = 120,
-  }: { runId: string; targetId: string; workerId: string; leaseSeconds?: number },
+  }: {
+    runId: string;
+    targetId: string;
+    workerId: string;
+    leaseSeconds?: number;
+  },
 ): Promise<ClaimedImportTarget | null> {
   return sql.begin(async (tx) => {
     const sourceId = await ensureAnuSourceId(tx);

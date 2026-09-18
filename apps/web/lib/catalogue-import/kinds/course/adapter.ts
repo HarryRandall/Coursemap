@@ -6,7 +6,10 @@ import {
   validateCourseExtraction,
 } from "./contract.ts";
 import { extractDeterministicCourse } from "./deterministic.ts";
-import { buildCourseModelInput, convertCourseHtmlToMarkdown } from "./markdown.ts";
+import {
+  buildCourseModelInput,
+  convertCourseHtmlToMarkdown,
+} from "./markdown.ts";
 import { mergeCourseExtractions } from "./merge.ts";
 import {
   canonicaliseCourseModelExtraction,
@@ -29,7 +32,10 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
   schemaVersion: COURSE_SNAPSHOT_SCHEMA_VERSION,
   schemaName: "course_extraction",
   maxOutputTokens: 12_000,
-  extractionJsonSchema: COURSE_EXTRACTION_JSON_SCHEMA as Record<string, unknown>,
+  extractionJsonSchema: COURSE_EXTRACTION_JSON_SCHEMA as Record<
+    string,
+    unknown
+  >,
   async fetchSource(claim, { signal }) {
     return fetchAnuCoursePage(claim.academicYear, claim.code, { signal });
   },
@@ -42,7 +48,8 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
     });
     return {
       markdown,
-      modelInput: buildCourseModelInput(markdown, claim.academicYear).modelInput,
+      modelInput: buildCourseModelInput(markdown, claim.academicYear)
+        .modelInput,
     };
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
@@ -96,8 +103,9 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
       ({ severity }) => severity === "warning",
     ).length;
     const errorCount = modelValid
-      ? result.extraction.reviewItems.filter(({ severity }) => severity === "error")
-          .length
+      ? result.extraction.reviewItems.filter(
+          ({ severity }) => severity === "error",
+        ).length
       : result.modelValidationIssues.length;
     return {
       extraction: result.extraction,

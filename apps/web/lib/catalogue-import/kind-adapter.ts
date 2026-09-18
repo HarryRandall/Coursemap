@@ -1,5 +1,8 @@
 import type { ClaimedImportTarget } from "./import-store.ts";
-import type { CatalogueKind, CatalogueSnapshotWrite } from "./snapshot-write.ts";
+import type {
+  CatalogueKind,
+  CatalogueSnapshotWrite,
+} from "./snapshot-write.ts";
 
 export type FetchedSourcePage = {
   sourceUrl: string;
@@ -59,7 +62,10 @@ export type CatalogueKindAdapter<Extraction = unknown> = {
     page: FetchedSourcePage,
   ): Extraction;
   /** Strict validation of raw model output against the extraction contract. */
-  validateModelOutput(claim: ClaimedImportTarget, value: unknown): ValidationOutcome;
+  validateModelOutput(
+    claim: ClaimedImportTarget,
+    value: unknown,
+  ): ValidationOutcome;
   merge(input: {
     claim: ClaimedImportTarget;
     deterministic: Extraction;
