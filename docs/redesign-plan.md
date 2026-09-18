@@ -85,41 +85,49 @@ legacy_backfill` on one side and `imported | manual` on the other, lifecycle
 Tables are listed by area. Every exposed table gets RLS, explicit grants and a
 database test. Names are proposals; keep them once the first migration lands.
 
-Identity and years
+Identity and years (landed in A3b)
 
 - `academic_years`: unchanged role, gains `calendar_published_at`.
 - `catalogue_items`: `id`, `public_id`, `kind`
   (`course | programme | major | minor | specialisation`), `code`. Replaces
-  `courses` and `academic_structures`. A unique index on `(kind, code)`.
-- `catalogue_item_years`: `item_id`, `academic_year_id`, `draft_snapshot_id`,
-  `published_snapshot_id`, `archived_at`. Replaces `course_years` and
-  `academic_structure_years` and the `lifecycle_status` and
-  `confirmation_status` columns.
+  `courses` and `academic_structures`. Unique on `(kind, code)`.
+- `catalogue_item_years`: `item_id`, `kind`, `academic_year_id`,
+  `draft_snapshot_id`, `published_snapshot_id`, `archived_at`. Replaces
+  `course_years` and `academic_structure_years` and the `lifecycle_status`
+  and `confirmation_status` columns. `kind` is denormalised so composite
+  foreign keys enforce kind consistency without triggers.
 - `catalogue_snapshots`: `id`, `public_id`, `item_year_id`, `kind`,
-  `origin` (`import | manual`), `based_on_snapshot_id`, `import_target_id`,
-  `source_page_id`, `sealed_at`, `content_hash`, `created_by`. Immutable after
-  sealing, enforced by trigger as today.
+  `academic_year_id`, `origin` (`import | manual`), `based_on_snapshot_id`,
+  `source_page_id`, `content_hash`, `sealed_at`, `created_by`. Immutable
+  once sealed; setting a draft or published pointer seals. A5 adds
+  `import_target_id` when the targets table exists.
 - `catalogue_publications`: `item_year_id`, `snapshot_id`, `published_by`,
-  `published_at`. A ledger; the pointer on `catalogue_item_years` is the
-  current value.
+  `published_at`. Written by trigger on every published pointer change,
+  including unpublishing.
 
-Kind-specific content (one row set per snapshot)
+Kind-specific content (one row set per snapshot; landed in A3b)
 
-- Course: `course_snapshot_details` (title, units, college, description,
-  delivery, level and the scalar fields now on `course_snapshots`),
-  `course_offerings`, `offering_sessions`, `course_learning_outcomes`,
-  `course_assessment_items`, `course_assessment_outcomes`, `course_fees`,
-  `course_attributes`, `course_unit_options`, `course_areas_of_interest`,
-  `course_related_items`.
-- Structure: `structure_snapshot_details` (title, units, award, college,
-  duration and the scalar summary fields), `structure_sections`,
-  `structure_learning_outcomes`, `structure_fees`, `structure_relationships`.
-  `academic_structure_summary_fields` and
-  `academic_structure_unmodelled_requirements` are removed; summary fields
-  become typed columns or `other` conditions and unmodelled text becomes an
-  import flag.
-- Shared: `snapshot_field_evidence` (`snapshot_id`, `field_path`,
-  `source_page_id`, `locator`, `excerpt`, `confidence`, `method`).
+- Course: `course_snapshot_details` (the scalar fields formerly on
+  `course_snapshots`) plus the existing child tables re-pointed at the shared
+  snapshot through `snapshot_id`: `course_offerings`, `offering_sessions`,
+  `course_learning_outcomes`, `course_assessment_items`,
+  `course_assessment_outcomes`, `course_fees`, `course_attributes`,
+  `course_unit_options`, `course_areas_of_interest`, `course_related_courses`.
+  Page provenance on offerings, sessions and rules is optional because manual
+  snapshots have no source page.
+- Structure: `structure_snapshot_details` (the scalar fields formerly on
+  `academic_structure_snapshots`). The `academic_structure_*` child tables keep
+  their names for now and are renamed or replaced in A4 (requirements) and A5
+  (sections, outcomes, fees, relationships); `summary_fields` and
+  `unmodelled_requirements` are decided in A4.
+- Shared: `snapshot_field_evidence` (`snapshot_id`, `academic_year_id`,
+  `source_page_id`, `field_path`, `method`, `confidence`, `source_locator`,
+  `source_excerpt`). Replaces both kind-specific evidence tables.
+- `published_course_summaries`: security-invoker view for the directory.
+- User tables keep their column names (`plan_items.course_id`,
+  `course_attempts.course_id`, `course_attempts.course_snapshot_id`,
+  `plan_structures.structure_year_id`) and now reference the shared tables.
+  Renaming them is deferred to A8 to avoid churn across the planner surface.
 
 Requirements (shared by every kind)
 

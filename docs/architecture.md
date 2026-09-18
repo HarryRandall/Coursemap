@@ -29,30 +29,49 @@ Next.js owns routing, server rendering and mutations. Supabase Auth owns identit
 
 ## Data model
 
-Course identity, year-specific records and immutable saved states are separate:
+Courses, programmes, majors, minors and specialisations share one identity,
+year and snapshot model. Identity, year-specific pointers and immutable saved
+states are separate:
 
-- `academic_years`, `course_directory_entries`, `courses` and `course_years`
-- `course_sources` and immutable `course_source_pages`
-- `course_snapshots` and their relational fees, attributes, outcomes, assessments,
-  offerings, sessions and requisite rules
-- `course_rules`, nested `course_rule_groups` and `course_rule_conditions`
-- `academic_structures` as permanent programme, major, minor and specialisation
-  identities, with year-specific `academic_structure_years`
-- immutable `academic_structure_source_pages` and `academic_structure_snapshots`
-- relational structure sections, summary fields, learning outcomes, fees,
-  relationships, nested requirement groups and conditions, unmodelled source
-  requirements and evidence
-- `catalogue_sources` and immutable `catalogue_source_pages`, the shared
-  retrieval provenance that the university calendar already uses and the
-  unified import pipeline will adopt
+- `academic_years`
+- `catalogue_items`: permanent identity with a `kind` and `code`
+- `catalogue_item_years`: one row per item and academic year, carrying the
+  `draft_snapshot_id` and `published_snapshot_id` pointers and `archived_at`.
+  Composite foreign keys keep the kind consistent across item, year and
+  snapshot.
+- `catalogue_snapshots`: immutable versions, sealed when they become a pointer.
+  `catalogue_publications` records every change of the published pointer.
+- `course_snapshot_details` and `structure_snapshot_details` hold the scalar
+  content for their kind. Course child tables (offerings, sessions, outcomes,
+  assessments, fees, attributes, unit options, areas of interest, related
+  courses and requisite rules) and structure child tables (sections, summary
+  fields, outcomes, fees, relationships, requirement groups, conditions,
+  options and unmodelled requirements) reference the shared snapshot through
+  `snapshot_id`. Child rows can be assembled until the snapshot is sealed.
+- `snapshot_field_evidence`: shared field-level source evidence
+- `course_rules`, nested `course_rule_groups` and `course_rule_conditions`,
+  and the structure requirement tables, still use separate vocabularies until
+  the shared requirement model replaces both
+- `catalogue_sources` and immutable `catalogue_source_pages`: retrieval
+  provenance shared by every kind and the university calendar
+- `published_course_summaries`: a security-invoker view joining published
+  course snapshots to their identity for the directory
 - `university_calendar_events` keyed by academic year, date and title, and
   `university_calendar_imports` recording each command-line import
+
+Published reads resolve through `catalogue_item_years.published_snapshot_id`
+where `archived_at` is null. Anonymous readers see published snapshots and
+their children, identities with a published year, and identities referenced
+as placeholders by a published rule. Students keep reading the exact snapshot
+their recorded attempts point at.
 
 User-owned planning data is also separate:
 
 - `profiles`
-- `plans` and ordered `plan_items`
-- `course_attempts`
+- `plans`, ordered `plan_items` referencing a course item and year, and
+  `plan_structures` referencing a structure item year
+- `course_attempts`, each pinned to the course snapshot that was published
+  when the attempt was recorded
 - approval requests and immutable approval events
 
 The development cutover clears every previous course identity, version,
