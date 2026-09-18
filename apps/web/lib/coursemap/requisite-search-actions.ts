@@ -15,7 +15,11 @@ export type RequisiteCourseSearchResult = {
   years: number[];
 };
 
-/** Search the native lightweight directory for requisite editing. */
+/**
+ * Search course identities for requisite editing. Titles come from the newest
+ * published snapshot, so identities that have never been published match on
+ * code only.
+ */
 export async function searchRequisiteCourses(
   query: string,
 ): Promise<RequisiteCourseSearchResult[]> {
@@ -27,83 +31,30 @@ export async function searchRequisiteCourses(
 
   try {
     const supabase = await createClient();
-    const [
-      { data: byCode, error: codeError },
-      { data: byTitle, error: titleError },
-    ] = await Promise.all([
-      supabase
-        .from("course_directory_entries")
-        .select("academic_year_id,code,course_id,title")
-        .eq("is_current", true)
-        .ilike("code", `%${term}%`)
-        .limit(25),
-      supabase
-        .from("course_directory_entries")
-        .select("academic_year_id,code,course_id,title")
-        .eq("is_current", true)
-        .ilike("title", `%${term}%`)
-        .limit(50),
-    ]);
-    if (codeError) throw codeError;
-    if (titleError) throw titleError;
+    const { data: courses, error: coursesError } = await supabase
+      .from("courses")
+      .select(
+        "code,course_years(academic_years(year),published:course_snapshots!course_years_published_snapshot_same_year_fkey(title))",
+      )
+      .ilike("code", `%${term}%`)
+      .order("code")
+      .limit(25);
+    if (coursesError) throw coursesError;
 
-    const entries = new Map<
-      string,
-      { courseId: number | null; title: string }
-    >();
-    for (const row of [...(byCode ?? []), ...(byTitle ?? [])]) {
-      if (!entries.has(row.code)) {
-        entries.set(row.code, { courseId: row.course_id, title: row.title });
-      }
-    }
-    const codes = [...entries.keys()]
-      .sort((left, right) => left.localeCompare(right))
-      .slice(0, 25);
-    const courseIds = codes
-      .map((code) => entries.get(code)?.courseId)
-      .filter((id): id is number => id !== null && id !== undefined);
-    const { data: courseYears, error: courseYearsError } = courseIds.length
-      ? await supabase
-          .from("course_years")
-          .select("academic_year_id,course_id")
-          .in("course_id", courseIds)
-      : { data: [], error: null };
-    if (courseYearsError) throw courseYearsError;
-    const academicYearIds = [
-      ...new Set((courseYears ?? []).map((row) => row.academic_year_id)),
-    ];
-    const { data: academicYears, error: academicYearsError } =
-      academicYearIds.length
-        ? await supabase
-            .from("academic_years")
-            .select("id,year")
-            .in("id", academicYearIds)
-        : { data: [], error: null };
-    if (academicYearsError) throw academicYearsError;
-    const yearById = new Map(
-      (academicYears ?? []).map((row) => [row.id, row.year]),
-    );
-    const yearsByCourseId = new Map<number, number[]>();
-    for (const row of courseYears ?? []) {
-      const year = yearById.get(row.academic_year_id);
-      if (year === undefined) continue;
-      const years = yearsByCourseId.get(row.course_id) ?? [];
-      years.push(year);
-      yearsByCourseId.set(row.course_id, years);
-    }
-
-    return codes.map((code) => {
-      const entry = entries.get(code)!;
+    return (courses ?? []).map((course) => {
+      const years = course.course_years
+        .map((courseYear) => courseYear.academic_years?.year)
+        .filter((year): year is number => typeof year === "number")
+        .sort((left, right) => right - left);
+      const title =
+        course.course_years
+          .map((courseYear) => courseYear.published?.title ?? null)
+          .find((value) => value !== null) ?? null;
       return {
-        code,
-        subject: code.slice(0, 4),
-        title: entry.title,
-        years:
-          entry.courseId === null
-            ? []
-            : (yearsByCourseId
-                .get(entry.courseId)
-                ?.sort((left, right) => right - left) ?? []),
+        code: course.code,
+        subject: course.code.slice(0, 4),
+        title,
+        years,
       };
     });
   } catch {
@@ -127,61 +78,26 @@ export async function searchRequisiteProgrammes(
 
   try {
     const supabase = await createClient();
-    const [
-      { data: byCode, error: codeError },
-      { data: byTitle, error: titleError },
-    ] = await Promise.all([
-      supabase
-        .from("academic_structure_directory_entries")
-        .select("academic_year_id,code,structure_kind,title")
-        .eq("is_available", true)
-        .ilike("code", `%${term}%`)
-        .limit(50),
-      supabase
-        .from("academic_structure_directory_entries")
-        .select("academic_year_id,code,structure_kind,title")
-        .eq("is_available", true)
-        .ilike("title", `%${term}%`)
-        .limit(50),
-    ]);
-    if (codeError) throw codeError;
-    if (titleError) throw titleError;
+    const { data: structures, error } = await supabase
+      .from("academic_structures")
+      .select(
+        "code,kind,academic_structure_years(academic_years(year),published:academic_structure_snapshots!academic_structure_years_published_snapshot_fkey(name))",
+      )
+      .ilike("code", `%${term}%`)
+      .order("code")
+      .limit(25);
+    if (error) throw error;
 
-    const entries = [...(byCode ?? []), ...(byTitle ?? [])];
-    const codes = [...new Set(entries.map((entry) => entry.code))]
-      .sort((left, right) => left.localeCompare(right))
-      .slice(0, 25);
-    if (codes.length === 0) return [];
-    const academicYearIds = [
-      ...new Set(entries.map((entry) => entry.academic_year_id)),
-    ];
-    const { data: years, error: yearsError } = await supabase
-      .from("academic_years")
-      .select("id,year")
-      .in("id", academicYearIds);
-    if (yearsError) throw yearsError;
-    const yearById = new Map((years ?? []).map((row) => [row.id, row.year]));
-
-    return codes.map((code) => {
-      const matches = entries.filter((entry) => entry.code === code);
-      const latest = [...matches].sort(
-        (left, right) =>
-          (yearById.get(right.academic_year_id) ?? 0) -
-          (yearById.get(left.academic_year_id) ?? 0),
-      )[0];
-      return {
-        code,
-        kind: latest?.structure_kind ?? null,
-        title: latest?.title ?? null,
-        years: [
-          ...new Set(
-            matches.flatMap((entry) => {
-              const year = yearById.get(entry.academic_year_id);
-              return year === undefined ? [] : [year];
-            }),
-          ),
-        ].sort((left, right) => right - left),
-      };
+    return (structures ?? []).map((structure) => {
+      const years = structure.academic_structure_years
+        .map((structureYear) => structureYear.academic_years?.year)
+        .filter((year): year is number => typeof year === "number")
+        .sort((left, right) => right - left);
+      const title =
+        structure.academic_structure_years
+          .map((structureYear) => structureYear.published?.name ?? null)
+          .find((value) => value !== null) ?? null;
+      return { code: structure.code, kind: structure.kind, title, years };
     });
   } catch {
     return [];
