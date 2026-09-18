@@ -374,6 +374,9 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
           {detail.extraction?.errorSummary
             ? ` ${detail.extraction.errorSummary}`
             : ""}
+          {detail.extraction?.finishReason === "length"
+            ? " The model ran out of output tokens; choose a model with a larger output budget for this record."
+            : ""}
         </CardDescription>
       </CardHeader>
       <CardContent>
