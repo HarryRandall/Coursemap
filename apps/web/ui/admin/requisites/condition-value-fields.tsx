@@ -51,7 +51,7 @@ export function InlineValueFields({
     );
   }
 
-  if (condition.kind === "admission") {
+  if (condition.kind === "structure") {
     return (
       <SearchPicker
         className={cn(

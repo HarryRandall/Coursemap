@@ -22,12 +22,12 @@ export function RequirementCondition({
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
   if (
-    condition.conditionKind === "unit_total" &&
+    condition.conditionKind === "units_total" &&
     condition.minimumUnits === context.unitTarget &&
     condition.maximumUnits === null
   )
     return null;
-  if (condition.conditionKind === "structure_list") return null;
+  if (condition.conditionKind === "structure_set") return null;
   const options = condition.options.filter(
     (option) => option.kind === "course",
   );

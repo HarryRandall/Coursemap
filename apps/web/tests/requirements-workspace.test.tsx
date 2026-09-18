@@ -69,7 +69,7 @@ const state: AppState = {
 const condition: PlanRequirementCondition = {
   type: "condition",
   id: 1,
-  conditionKind: "course_list",
+  conditionKind: "course_set_units",
   freeText: null,
   maximumLevel: null,
   maximumUnits: null,
@@ -407,7 +407,7 @@ test("degree requirements do not repeat structure selection cards", () => {
         children: [
           {
             ...condition,
-            conditionKind: "structure_list",
+            conditionKind: "structure_set",
             structureKind: "major",
           },
         ],

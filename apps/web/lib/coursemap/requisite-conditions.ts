@@ -10,7 +10,7 @@ export type ReviewedOperator = (typeof REVIEWED_OPERATORS)[number];
 export const REVIEWED_CONDITION_KINDS = [
   "course",
   "incompatible",
-  "admission",
+  "structure",
   "units_total",
   "subject_units",
   "level_units",
@@ -468,10 +468,10 @@ function storedConditionToView(
             courseTitle: condition.courseTitle,
           }
         : null;
-    case "admission":
+    case "structure":
       return condition.structureCode || condition.freeText
         ? {
-            kind: "admission",
+            kind: "structure",
             structureCode: condition.structureCode,
             structureName: condition.structureName,
             freeText: condition.freeText,
@@ -648,16 +648,16 @@ function normaliseCondition(
       }
       return { condition: { kind: "incompatible", courseCode: code } };
     }
-    case "admission": {
+    case "structure": {
       const code = (condition.structureCode ?? "").trim().toUpperCase();
       const freeText = (condition.freeText ?? "").trim() || null;
       if (code) {
         if (!STRUCTURE_CODE_PATTERN.test(code)) {
           return { message: "Choose a programme code." };
         }
-        return { condition: { kind: "admission", structureCode: code } };
+        return { condition: { kind: "structure", structureCode: code } };
       }
-      if (freeText) return { condition: { kind: "admission", freeText } };
+      if (freeText) return { condition: { kind: "structure", freeText } };
       return { message: "Choose a programme." };
     }
     case "units_total": {
@@ -817,7 +817,7 @@ function expressionToNode(expression: RequisiteExpression): ReviewedRuleNode {
       return {
         type: "condition",
         id,
-        kind: "admission",
+        kind: "structure",
         structureCode: expression.code,
         structureName: expression.name,
       };
@@ -879,7 +879,7 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       return condition.courseCode
         ? `Must not have completed ${condition.courseCode}`
         : "";
-    case "admission":
+    case "structure":
       return (
         (condition.structureName
           ? `${condition.structureName} (${condition.structureCode})`
@@ -913,7 +913,7 @@ export function conditionSourceText(condition: ReviewedConditionView) {
 export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   course: "Course",
   incompatible: "Course",
-  admission: "Programme",
+  structure: "Programme",
   units_total: "Units of study",
   subject_units: "Units in a subject",
   level_units: "Units at a level",
@@ -928,7 +928,7 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
 /** First dropdown: the subject of the condition, not the completed/mark sense. */
 export const CONDITION_FAMILY_KINDS = [
   "course",
-  "admission",
+  "structure",
   "units_total",
   "subject_units",
   "level_units",
@@ -998,7 +998,7 @@ export function isConditionComplete(condition: ReviewedConditionView) {
       return Boolean(condition.courseCode);
     case "incompatible":
       return Boolean(condition.courseCode);
-    case "admission":
+    case "structure":
       return Boolean(condition.structureCode || condition.freeText?.trim());
     case "units_total":
       return condition.units != null;
@@ -1041,7 +1041,7 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.courseCode
         ? `Must not have completed ${condition.courseCode}`
         : "Choose a course";
-    case "admission": {
+    case "structure": {
       const code = condition.structureCode?.trim();
       if (code) return `Enrolled in ${code}`;
       const freeText = condition.freeText?.trim();

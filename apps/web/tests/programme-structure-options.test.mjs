@@ -29,16 +29,16 @@ test("keeps only explicit programme structure relationship semantics", () => {
   assert.equal(codes.has(202), false);
 });
 
-test("includes structure options from programme structure-list requirements", () => {
+test("includes structure options from programme structure-set requirements", () => {
   const codes = collectSelectableStructureCodes({
     programmeSnapshotIds: new Set([101]),
     relationships: [],
     requirementConditions: [
-      condition(1, "structure_list", "major"),
-      condition(2, "course_list", "major"),
-      condition(3, "structure_list", "minor"),
-      condition(5, "structure_list", "specialisation"),
-      { ...condition(4, "structure_list", "major"), snapshot_id: 202 },
+      condition(1, "structure_set", "major"),
+      condition(2, "course_set_units", "major"),
+      condition(3, "structure_set", "minor"),
+      condition(5, "structure_set", "specialisation"),
+      { ...condition(4, "structure_set", "major"), snapshot_id: 202 },
     ],
     requirementOptions: [
       option(1, "MATH-MAJ"),
@@ -48,7 +48,7 @@ test("includes structure options from programme structure-list requirements", ()
       option(5, "AI-SPEC", "specialisation"),
       { ...option(1, "PHYS-MAJ"), snapshot_id: 202 },
       { ...option(4, "CHEM-MAJ"), snapshot_id: 202 },
-      { ...option(1, "ECON-MAJ"), option_kind: "course" },
+      { ...option(1, "ECON-MAJ"), kind: "course" },
     ],
   });
 
@@ -60,7 +60,7 @@ test("includes structure options from programme structure-list requirements", ()
   assert.equal(codes.has(202), false);
 });
 
-test("onboarding loads explicit relationship and structure-list semantics without zero fallbacks", async () => {
+test("onboarding loads explicit relationship and structure-set semantics without zero fallbacks", async () => {
   const source = await readFile(
     new URL("../lib/coursemap/onboarding-catalogue.ts", import.meta.url),
     "utf8",
@@ -71,8 +71,8 @@ test("onboarding loads explicit relationship and structure-list semantics withou
     source,
     /relationship_kind,snapshot_id,target_code,target_kind/u,
   );
-  assert.match(source, /academic_structure_requirement_conditions/u);
-  assert.match(source, /academic_structure_requirement_options/u);
+  assert.match(source, /from\("requirement_conditions"\)/u);
+  assert.match(source, /from\("requirement_condition_options"\)/u);
   assert.doesNotMatch(source, /snapshot\.units === null \? 0/u);
 });
 
@@ -94,12 +94,11 @@ function condition(id, conditionKind, structureKind) {
   };
 }
 
-function option(conditionId, optionCode, structureKind = "major") {
+function option(conditionId, code, kind = "major") {
   return {
-    option_code: optionCode,
-    option_kind: "structure",
-    requirement_condition_id: conditionId,
+    code,
+    condition_id: conditionId,
+    kind,
     snapshot_id: 101,
-    structure_kind: structureKind,
   };
 }

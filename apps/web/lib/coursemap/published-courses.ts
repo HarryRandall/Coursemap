@@ -249,6 +249,10 @@ type ProjectionCondition = {
   courseSetCodes: string[];
   freeText: string | null;
   groupKey: string;
+  minimumCount: number | null;
+  optionCodes: string[];
+  structureKind: string | null;
+  tag: string | null;
   hardness: string;
   key: string;
   kind: string;
@@ -297,13 +301,18 @@ export function readProjectionPrerequisiteRule(root: {
     },
   );
   const courseSetCodesByCondition = new Map<string, string[]>();
+  const optionCodesByCondition = new Map<string, string[]>();
   for (const value of readArray(root.ruleConditionCourses)) {
     if (!isRecord(value)) continue;
     const conditionKey = readString(value.conditionKey);
-    const courseCode = readString(value.sourceCourseCode).toUpperCase();
-    if (!conditionKey || !COURSE_CODE_PATTERN.test(courseCode)) continue;
+    const code = readString(value.sourceCourseCode).toUpperCase();
+    if (!conditionKey || !code) continue;
+    const options = optionCodesByCondition.get(conditionKey) ?? [];
+    if (!options.includes(code)) options.push(code);
+    optionCodesByCondition.set(conditionKey, options);
+    if (!COURSE_CODE_PATTERN.test(code)) continue;
     const codes = courseSetCodesByCondition.get(conditionKey) ?? [];
-    if (!codes.includes(courseCode)) codes.push(courseCode);
+    if (!codes.includes(code)) codes.push(code);
     courseSetCodesByCondition.set(conditionKey, codes);
   }
   const conditions = readArray(
@@ -331,15 +340,19 @@ export function readProjectionPrerequisiteRule(root: {
         kind,
         level: readNullableNumber(value.minimumCourseLevel),
         maximumLevel: readNullableNumber(value.maximumCourseLevel),
+        minimumCount: readNullableNumber(value.minimumCount),
         minimumGpa: readNullableNumber(value.minimumGpa),
         minimumMark: readNullableNumber(value.minimumMark),
         minimumWam: readNullableNumber(value.minimumWam),
         minimumYear: readNullableNumber(value.minimumYear),
+        optionCodes: optionCodesByCondition.get(key) ?? [],
         position,
         programmeCode: readNullableString(value.requiredStructureCode),
         reviewState: readString(value.reviewState),
         sourceText: readString(value.sourceText),
+        structureKind: readNullableString(value.structureKind),
         subject: readNullableString(value.subjectCode)?.toUpperCase() ?? null,
+        tag: readNullableString(value.tag),
         units: readNullableNumber(value.minimumUnits),
       },
     ];
@@ -442,13 +455,37 @@ export function readProjectionPrerequisiteRule(root: {
         minimumYear: condition.minimumYear,
       };
     }
-    if (condition.kind === "admission") {
+    if (condition.kind === "structure") {
       return {
         ...base,
-        kind: "admission",
+        kind: "structure",
         structureCode: condition.programmeCode,
         text: condition.freeText,
       };
+    }
+    if (condition.kind === "structure_set") {
+      return {
+        ...base,
+        kind: "structure_set",
+        minimumCount: condition.minimumCount,
+        structureCodes: condition.optionCodes,
+        structureKind: condition.structureKind,
+      };
+    }
+    if (
+      condition.kind === "tagged_units" &&
+      condition.tag &&
+      condition.units !== null
+    ) {
+      return {
+        ...base,
+        kind: "tagged_units",
+        tag: condition.tag,
+        units: condition.units,
+      };
+    }
+    if (condition.kind === "elective_units" && condition.units !== null) {
+      return { ...base, kind: "elective_units", units: condition.units };
     }
     if (condition.kind === "gpa" && condition.minimumGpa !== null) {
       return { ...base, kind: "gpa", minimumGpa: condition.minimumGpa };
@@ -583,7 +620,7 @@ export function readProjectionPrerequisiteRule(root: {
         });
       } else if (condition.kind === "units_total" && condition.units) {
         expressions.push({ kind: "units_total", units: condition.units });
-      } else if (condition.kind === "admission" && condition.programmeCode) {
+      } else if (condition.kind === "structure" && condition.programmeCode) {
         expressions.push({
           kind: "programme_enrolment",
           code: condition.programmeCode,

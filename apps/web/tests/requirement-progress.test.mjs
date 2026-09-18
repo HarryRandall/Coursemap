@@ -54,7 +54,7 @@ function condition(id, overrides) {
   return {
     type: "condition",
     id,
-    conditionKind: "course_list",
+    conditionKind: "course_set_units",
     freeText: null,
     maximumLevel: null,
     maximumUnits: null,
@@ -144,7 +144,7 @@ test("a listed-course rule is satisfied once its minimum units are completed", (
 
 test("planned courses count as in progress and not as satisfied", () => {
   const rule = condition(1, {
-    conditionKind: "subject",
+    conditionKind: "subject_units",
     subjectCode: "COMP",
     minimumLevel: 3000,
     minimumUnits: 24,
@@ -162,7 +162,7 @@ test("planned courses count as in progress and not as satisfied", () => {
 
 test("a maximum-only rule reports over_limit once the plan exceeds it", () => {
   const rule = condition(1, {
-    conditionKind: "level",
+    conditionKind: "level_units",
     maximumLevel: 1000,
     maximumUnits: 12,
   });
@@ -187,7 +187,7 @@ test("a maximum-only rule reports over_limit once the plan exceeds it", () => {
 
 test("unmeasured mandatory rules prevent certifying their group", () => {
   const tagRule = condition(1, {
-    conditionKind: "tag",
+    conditionKind: "tagged_units",
     tag: "Transdisciplinary Problem-Solving",
     minimumUnits: 12,
   });
@@ -253,7 +253,7 @@ test("an empty tree yields no progress", () => {
 
 test("a bounded unit rule still enforces its maximum after meeting the minimum", () => {
   const rule = condition(1, {
-    conditionKind: "subject",
+    conditionKind: "subject_units",
     subjectCode: "COMP",
     minimumUnits: 6,
     maximumUnits: 6,
@@ -295,7 +295,7 @@ test("completed credit survives a later planned duplicate", () => {
 test("an exceeded alternative does not invalidate a satisfied any_of branch", () => {
   const root = group(10, "any_of", [
     condition(1, {
-      conditionKind: "subject",
+      conditionKind: "subject_units",
       subjectCode: "COMP",
       maximumUnits: 0,
     }),
@@ -312,10 +312,10 @@ test("an exceeded alternative does not invalidate a satisfied any_of branch", ()
 test("minimum_count requires enough measured alternatives", () => {
   const root = group(
     10,
-    "minimum_count",
+    "at_least",
     [
       condition(1, { minimumUnits: 6, options: [option("COMP1100")] }),
-      condition(2, { conditionKind: "tag", tag: "Unknown", minimumUnits: 6 }),
+      condition(2, { conditionKind: "tagged_units", tag: "Unknown", minimumUnits: 6 }),
     ],
     { minimumCount: 2 },
   );
