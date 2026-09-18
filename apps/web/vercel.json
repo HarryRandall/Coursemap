@@ -1,27 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "app/api/queues/course-import/route.ts": {
-      "maxDuration": 60,
-      "experimentalTriggers": [
-        {
-          "type": "queue/v2beta",
-          "topic": "course-import-v1",
-          "retryAfterSeconds": 30,
-          "initialDelaySeconds": 0
-        }
-      ]
-    },
-    "app/api/queues/academic-structure-import/route.ts": {
-      "maxDuration": 60,
-      "experimentalTriggers": [
-        {
-          "type": "queue/v2beta",
-          "topic": "academic-structure-import-v1",
-          "retryAfterSeconds": 30,
-          "initialDelaySeconds": 0
-        }
-      ]
-    }
-  }
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
