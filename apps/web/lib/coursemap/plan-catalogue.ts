@@ -110,13 +110,11 @@ type StructureSnapshotRow = {
 };
 type StructureIdentityRow = { code: string; id: number; kind: string };
 type RequirementGroupRow =
-  Database["public"]["Tables"]["academic_structure_requirement_groups"]["Row"];
+  Database["public"]["Tables"]["requirement_groups"]["Row"];
 type RequirementConditionRow =
-  Database["public"]["Tables"]["academic_structure_requirement_conditions"]["Row"];
+  Database["public"]["Tables"]["requirement_conditions"]["Row"];
 type RequirementOptionRow =
-  Database["public"]["Tables"]["academic_structure_requirement_options"]["Row"];
-type UnmodelledRequirementRow =
-  Database["public"]["Tables"]["academic_structure_unmodelled_requirements"]["Row"];
+  Database["public"]["Tables"]["requirement_condition_options"]["Row"];
 type PlanCourseRow = { academic_year_id: number; course_id: number };
 type PlanStructureRow = { structure_year_id: number };
 type AttemptCourseRow = {
@@ -198,17 +196,15 @@ export function buildAcademicStructureRequirementTree({
   }
   const conditionsByGroup = new Map<number, RequirementConditionRow[]>();
   for (const condition of conditions) {
-    const siblings =
-      conditionsByGroup.get(condition.requirement_group_id) ?? [];
+    const siblings = conditionsByGroup.get(condition.group_id) ?? [];
     siblings.push(condition);
-    conditionsByGroup.set(condition.requirement_group_id, siblings);
+    conditionsByGroup.set(condition.group_id, siblings);
   }
   const optionsByCondition = new Map<number, RequirementOptionRow[]>();
   for (const option of options) {
-    const siblings =
-      optionsByCondition.get(option.requirement_condition_id) ?? [];
+    const siblings = optionsByCondition.get(option.condition_id) ?? [];
     siblings.push(option);
-    optionsByCondition.set(option.requirement_condition_id, siblings);
+    optionsByCondition.set(option.condition_id, siblings);
   }
 
   function conditionNode(
@@ -221,21 +217,21 @@ export function buildAcademicStructureRequirementTree({
       id: condition.id,
       maximumLevel: condition.maximum_level,
       maximumUnits: condition.maximum_units,
-      minimumCourses: condition.minimum_courses,
+      minimumCourses: condition.minimum_count,
       minimumLevel: condition.minimum_level,
       minimumUnits: condition.minimum_units,
       options: (optionsByCondition.get(condition.id) ?? [])
         .toSorted((left, right) => left.position - right.position)
         .map((option) => ({
-          code: option.option_code,
-          kind: option.option_kind,
+          code: option.code,
+          kind: option.kind === "course" ? "course" : "structure",
           position: option.position,
-          structureKind: option.structure_kind,
+          structureKind: option.kind === "course" ? null : option.kind,
         })),
       position: condition.position,
-      projectionKey: condition.projection_key,
-      sourceLocator: condition.source_locator,
-      sourceText: condition.source_text,
+      projectionKey: condition.condition_key,
+      sourceLocator: condition.source_locator ?? "",
+      sourceText: condition.source_text ?? "",
       structureKind: condition.structure_kind,
       subjectCode: condition.subject_code,
       tag: condition.tag,
@@ -266,9 +262,9 @@ export function buildAcademicStructureRequirementTree({
       minimumUnits: group.minimum_units,
       operator: group.operator,
       position: group.position,
-      sourceLocator: group.source_locator,
-      sourceText: group.source_text,
-      title: group.title,
+      sourceLocator: group.source_locator ?? "",
+      sourceText: group.source_text ?? "",
+      title: group.label,
     };
   }
 
@@ -417,42 +413,33 @@ export async function loadPublishedPlanCatalogue(
       : [];
   });
   const requirementsSnapshotIdSet = new Set(requirementsSnapshotIds);
-  const [groupsResult, conditionsResult, optionsResult, unmodelledResult] =
-    await Promise.all([
-      requirementsSnapshotIds.length
-        ? supabase
-            .from("academic_structure_requirement_groups")
-            .select("*")
-            .in("snapshot_id", requirementsSnapshotIds)
-            .order("position")
-        : Promise.resolve({ data: [], error: null }),
-      requirementsSnapshotIds.length
-        ? supabase
-            .from("academic_structure_requirement_conditions")
-            .select("*")
-            .in("snapshot_id", requirementsSnapshotIds)
-            .order("position")
-        : Promise.resolve({ data: [], error: null }),
-      requirementsSnapshotIds.length
-        ? supabase
-            .from("academic_structure_requirement_options")
-            .select("*")
-            .in("snapshot_id", requirementsSnapshotIds)
-            .order("position")
-        : Promise.resolve({ data: [], error: null }),
-      requirementsSnapshotIds.length
-        ? supabase
-            .from("academic_structure_unmodelled_requirements")
-            .select("*")
-            .in("snapshot_id", requirementsSnapshotIds)
-            .order("position")
-        : Promise.resolve({ data: [], error: null }),
-    ]);
+  const [groupsResult, conditionsResult, optionsResult] = await Promise.all([
+    requirementsSnapshotIds.length
+      ? supabase
+          .from("requirement_groups")
+          .select("*")
+          .in("snapshot_id", requirementsSnapshotIds)
+          .order("position")
+      : Promise.resolve({ data: [], error: null }),
+    requirementsSnapshotIds.length
+      ? supabase
+          .from("requirement_conditions")
+          .select("*")
+          .in("snapshot_id", requirementsSnapshotIds)
+          .order("position")
+      : Promise.resolve({ data: [], error: null }),
+    requirementsSnapshotIds.length
+      ? supabase
+          .from("requirement_condition_options")
+          .select("*")
+          .in("snapshot_id", requirementsSnapshotIds)
+          .order("position")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
   const requirementsError = [
     groupsResult.error,
     conditionsResult.error,
     optionsResult.error,
-    unmodelledResult.error,
   ].find(Boolean);
   if (requirementsError) throw requirementsError;
 
@@ -461,14 +448,12 @@ export async function loadPublishedPlanCatalogue(
     []) as RequirementConditionRow[];
   const requirementOptions = (optionsResult.data ??
     []) as RequirementOptionRow[];
-  const unmodelledRequirements = (unmodelledResult.data ??
-    []) as UnmodelledRequirementRow[];
   const courseCodesBySnapshotId = new Map<number, Set<string>>();
   for (const option of requirementOptions) {
-    if (option.option_kind !== "course") continue;
+    if (option.kind !== "course") continue;
     const codes =
       courseCodesBySnapshotId.get(option.snapshot_id) ?? new Set<string>();
-    codes.add(option.option_code);
+    codes.add(option.code);
     courseCodesBySnapshotId.set(option.snapshot_id, codes);
   }
   const degrees = structureYears.flatMap((structureYear) => {
@@ -531,12 +516,19 @@ export async function loadPublishedPlanCatalogue(
         structureCode: identity.code,
         structureKind: identity.kind,
         structureName: snapshot.name,
-        unmodelled: unmodelledRequirements
-          .filter((item) => item.snapshot_id === snapshotId)
-          .map((item) => ({
-            position: item.position,
-            sourceLocator: item.source_locator,
-            sourceText: item.source_text,
+        // Source wording the importer could not model is kept as `other`
+        // conditions so students still see it.
+        unmodelled: requirementConditions
+          .filter(
+            (condition) =>
+              condition.snapshot_id === snapshotId &&
+              condition.condition_kind === "other" &&
+              condition.free_text !== null,
+          )
+          .map((condition) => ({
+            position: condition.position,
+            sourceLocator: condition.source_locator,
+            sourceText: condition.free_text ?? "",
           })),
       } satisfies PlanStructureRequirements,
     ];

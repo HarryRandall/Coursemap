@@ -98,17 +98,15 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
       .select("relationship_kind,snapshot_id,target_code,target_kind")
       .in("snapshot_id", snapshotIds),
     supabase
-      .from("academic_structure_requirement_conditions")
+      .from("requirement_conditions")
       .select("condition_kind,id,snapshot_id,structure_kind")
       .in("snapshot_id", snapshotIds)
-      .eq("condition_kind", "structure_list"),
+      .eq("condition_kind", "structure_set"),
     supabase
-      .from("academic_structure_requirement_options")
-      .select(
-        "option_code,option_kind,requirement_condition_id,snapshot_id,structure_kind",
-      )
+      .from("requirement_condition_options")
+      .select("code,condition_id,kind,snapshot_id")
       .in("snapshot_id", snapshotIds)
-      .eq("option_kind", "structure"),
+      .neq("kind", "course"),
   ]);
   const error = [
     yearsResult.error,
