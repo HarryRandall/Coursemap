@@ -413,7 +413,10 @@ export function CatalogueDirectory({
                         href={href}
                       />
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell
+                      className="truncate text-sm text-muted-foreground"
+                      title={summaryLine(record) || undefined}
+                    >
                       {summaryLine(record) || "—"}
                     </TableCell>
                     <TableCell>
