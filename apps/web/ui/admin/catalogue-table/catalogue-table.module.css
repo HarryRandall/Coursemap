@@ -176,7 +176,10 @@ a.title:focus-visible {
 /* Catalogue directory: select, identity, details, workflow status, latest import. */
 .shell[data-layout="directory"] tr {
   min-width: 820px;
-  grid-template-columns: 48px minmax(280px, 1.4fr) minmax(160px, 1fr) 170px 170px;
+  grid-template-columns: 48px minmax(280px, 1.4fr) minmax(
+      160px,
+      1fr
+    ) 170px 170px;
 }
 
 @media (pointer: coarse) {
