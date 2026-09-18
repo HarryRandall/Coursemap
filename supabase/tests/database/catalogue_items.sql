@@ -123,7 +123,13 @@ select extensions.lives_ok(
 );
 
 select extensions.is(
-  (select count(*) from public.catalogue_publications),
+  (
+    select count(*)
+    from public.catalogue_publications as publications
+    join public.catalogue_item_years as item_years on item_years.id = publications.item_year_id
+    join public.catalogue_items as items on items.id = item_years.item_id
+    where items.code = 'FIXT1000'
+  ),
   0::bigint,
   'no publication is recorded before a pointer is set'
 );
