@@ -85,15 +85,20 @@ compatibility schema. No legacy course or academic-structure lineage is
 retained. The generic `catalogue_years`, `catalogue_source_documents`,
 `catalogue_import_runs` and `catalogue_import_items` tables have been removed.
 
-The course and academic-structure import pipelines, their review workspaces
-and the manual snapshot editors have also been removed. The
-[redesign plan](redesign-plan.md) replaces them with one pipeline on a shared
-catalogue model; until it lands, administrators cannot import or edit
-catalogue content and the local preview seed is the only source of published
-courses and structures. `import_models`, `app_settings[imports.model]` and the
-private `course-import-artifacts` bucket declared in `supabase/config.toml`
-remain for the replacement. Planning, onboarding and public requirement views
-read only the published snapshot for the selected academic year.
+Imports run through one pipeline in `apps/web/lib/catalogue-import/` for every
+kind. `catalogue_directory_entries` mirrors the ANU listing per kind and year;
+`catalogue_import_runs` hold up to ten `catalogue_import_targets`, each
+processed through the same ten stages with `catalogue_import_stages`,
+`catalogue_import_artifacts` (in the private `course-import-artifacts` bucket)
+and `catalogue_extractions` recording every model call and its cost. Kind
+adapters under `lib/catalogue-import/kinds/` own fetching, Markdown, the
+deterministic parser, the model contract and the projection to the shared
+snapshot write shape; `process-target.ts` owns leases, retries, artefacts and
+persistence. A target whose content matches its baseline finishes `unchanged`;
+otherwise it assembles a candidate snapshot and finishes `ready` for review.
+The first snapshot for an item year becomes its draft immediately. Runs
+dispatch to Vercel Queues when `COURSEMAP_QUEUE_IMPORTS_ENABLED=true` and run
+inline after the request otherwise.
 
 ## University calendar
 
