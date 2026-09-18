@@ -61,7 +61,10 @@ export function RecordHeader({
   }
 
   return (
-    <header className="flex flex-wrap items-start justify-between gap-4">
+    <header
+      role="banner"
+      className="flex flex-wrap items-start justify-between gap-4"
+    >
       <div className="flex min-w-0 flex-col gap-1">
         <p className="font-mono text-sm text-muted-foreground">
           {labels.singular} · {record.code} · {record.academicYear}
