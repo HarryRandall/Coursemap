@@ -23,7 +23,11 @@ export default defineConfig({
       name: profile,
       testMatch:
         profile === "authenticated"
-          ? ["authenticated.spec.*", "rendered.spec.*"]
+          ? [
+              "authenticated.spec.*",
+              "rendered.spec.*",
+              "catalogue-admin.spec.*",
+            ]
           : "access.spec.*",
     },
   ],

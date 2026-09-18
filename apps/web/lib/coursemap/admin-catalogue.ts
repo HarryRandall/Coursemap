@@ -1,78 +1,18 @@
 import "server-only";
-import type { CatalogueKind } from "@/lib/catalogue-import/snapshot-write";
 import { createClient } from "@/lib/supabase/server";
+import {
+  type AdminCatalogueSummary,
+  CATALOGUE_KIND_LABELS,
+  type CatalogueDirectoryPage,
+  type CatalogueDirectoryRecord,
+  type CatalogueKind,
+  type DirectoryFilter,
+  type DirectoryWorkflowStatus,
+  type ImportRunSummary,
+  type ImportTargetDetail,
+} from "./catalogue-kinds";
 
-export type { CatalogueKind };
-
-export const CATALOGUE_KIND_LABELS: Record<
-  CatalogueKind,
-  { singular: string; plural: string; segment: string }
-> = {
-  course: { singular: "Course", plural: "Courses", segment: "courses" },
-  programme: {
-    singular: "Programme",
-    plural: "Programmes",
-    segment: "programmes",
-  },
-  major: { singular: "Major", plural: "Majors", segment: "majors" },
-  minor: { singular: "Minor", plural: "Minors", segment: "minors" },
-  specialisation: {
-    singular: "Specialisation",
-    plural: "Specialisations",
-    segment: "specialisations",
-  },
-};
-
-export function adminCataloguePath(kind: CatalogueKind) {
-  return `/admin/${CATALOGUE_KIND_LABELS[kind].segment}`;
-}
-
-export type DirectoryWorkflowStatus =
-  | "not_imported"
-  | "queued"
-  | "running"
-  | "ready"
-  | "draft"
-  | "published"
-  | "published_with_draft"
-  | "failed";
-
-export type CatalogueDirectoryRecord = {
-  code: string;
-  title: string | null;
-  summary: Record<string, unknown>;
-  itemYearPublicId: string | null;
-  hasDraft: boolean;
-  isPublished: boolean;
-  workflow: DirectoryWorkflowStatus;
-  latestTarget: {
-    id: string;
-    runId: string;
-    status: string;
-    changeKind: string | null;
-    errorMessage: string | null;
-    completedAt: string | null;
-  } | null;
-};
-
-export type CatalogueDirectoryPage = {
-  kind: CatalogueKind;
-  academicYear: number;
-  years: number[];
-  status: {
-    state: "never" | "refreshing" | "available" | "failed";
-    refreshedAt: string | null;
-    message: string | null;
-    entryCount: number;
-  };
-  records: CatalogueDirectoryRecord[];
-  total: number;
-  page: number;
-  pageSize: number;
-  workflowCounts: Record<DirectoryWorkflowStatus, number>;
-};
-
-export type DirectoryFilter = "all" | DirectoryWorkflowStatus;
+export * from "./catalogue-kinds";
 
 const PAGE_SIZE = 50;
 
@@ -116,6 +56,29 @@ export async function loadCatalogueYears() {
     .order("year", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((row) => row.year);
+}
+
+/**
+ * The year an administrator most likely wants: the newest with catalogue
+ * content for the kind, else the current calendar year, else the newest.
+ */
+export async function defaultCatalogueYear(
+  kind: CatalogueKind,
+  years: number[],
+) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("catalogue_item_years")
+    .select("academic_years(year)")
+    .eq("kind", kind)
+    .order("academic_year_id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const withContent = data?.academic_years?.year;
+  if (withContent && years.includes(withContent)) return withContent;
+  const current = new Date().getFullYear();
+  if (years.includes(current)) return current;
+  return years[0] ?? current;
 }
 
 /**
@@ -305,32 +268,6 @@ export async function loadCatalogueDirectoryPage({
   };
 }
 
-export type ImportRunSummary = {
-  id: string;
-  runNumber: number;
-  kind: CatalogueKind;
-  academicYear: number;
-  status: string;
-  requestedModel: string;
-  targetCount: number;
-  completedCount: number;
-  failedCount: number;
-  costUsd: number;
-  createdAt: string;
-  completedAt: string | null;
-  targets: Array<{
-    id: string;
-    code: string;
-    status: string;
-    changeKind: string | null;
-    attemptCount: number;
-    errorCode: string | null;
-    errorMessage: string | null;
-    candidateSnapshotId: number | null;
-    itemYearPublicId: string | null;
-  }>;
-};
-
 export async function loadCatalogueImportRuns({
   kind,
   limit = 25,
@@ -391,45 +328,6 @@ export async function loadCatalogueImportRuns({
     targets: targetsByRun.get(run.id) ?? [],
   }));
 }
-
-export type ImportTargetDetail = {
-  id: string;
-  code: string;
-  kind: CatalogueKind;
-  status: string;
-  attemptCount: number;
-  errorCode: string | null;
-  errorMessage: string | null;
-  stages: Array<{
-    id: string;
-    name: string;
-    attemptNumber: number;
-    status: string;
-    startedAt: string;
-    completedAt: string | null;
-    errorCode: string | null;
-    errorSummary: string | null;
-  }>;
-  artifacts: Array<{
-    id: string;
-    stageId: string;
-    kind: string;
-    attemptNumber: number;
-    mediaType: string;
-    byteSize: number;
-  }>;
-  extraction: {
-    resolvedModel: string | null;
-    validationStatus: string;
-    inputTokens: number;
-    outputTokens: number;
-    costUsd: number;
-    latencyMs: number | null;
-    warningCount: number;
-    errorCount: number;
-    errorSummary: string | null;
-  } | null;
-};
 
 export async function loadImportTargetDetail(
   targetId: string,
@@ -510,11 +408,6 @@ export async function loadImportTargetDetail(
       : null,
   };
 }
-
-export type AdminCatalogueSummary = Record<
-  CatalogueKind,
-  { published: number; drafts: number; identities: number }
->;
 
 export async function loadAdminCatalogueSummary(): Promise<AdminCatalogueSummary> {
   const supabase = await createClient();
