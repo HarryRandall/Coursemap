@@ -102,6 +102,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_fees_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_learning_outcomes: {
@@ -136,6 +143,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_structure_learning_outcomes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -212,6 +226,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_requirement_conditions_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_requirement_groups: {
@@ -275,6 +296,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_requirement_groups_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_requirement_options: {
@@ -320,6 +348,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_requirement_options_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_snapshot_relationships: {
@@ -364,6 +399,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_snapshot_relationships_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_snapshot_sections: {
@@ -404,6 +446,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_structure_snapshot_sections_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -446,6 +495,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "academic_structure_summary_fields_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       academic_structure_unmodelled_requirements: {
@@ -477,6 +533,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_structure_unmodelled_requirements_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1154,11 +1217,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalogue_publications_item_year_id_fkey"
+            columns: ["item_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_year_id"]
+          },
+          {
             foreignKeyName: "catalogue_publications_snapshot_id_fkey"
             columns: ["snapshot_id"]
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_publications_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1219,6 +1296,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_item_years"
             referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_snapshots_item_year_fkey"
+            columns: ["item_year_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_year_id", "academic_year_id"]
           },
           {
             foreignKeyName: "catalogue_snapshots_item_year_kind_fkey"
@@ -1368,6 +1452,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_areas_of_interest_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       course_assessment_items: {
@@ -1418,6 +1509,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_assessment_items_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       course_assessment_outcomes: {
@@ -1460,6 +1558,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_assessment_outcomes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1525,11 +1630,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_attempts_course_item_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "course_attempts_snapshot_fkey"
             columns: ["course_snapshot_id"]
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attempts_snapshot_fkey"
+            columns: ["course_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1568,6 +1687,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_attributes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1625,6 +1751,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_fees_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       course_learning_outcomes: {
@@ -1659,6 +1792,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_learning_outcomes_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1700,6 +1840,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_offerings_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: true
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
           {
             foreignKeyName: "course_offerings_snapshot_year_fkey"
@@ -1760,11 +1907,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_related_courses_related_item_fkey"
+            columns: ["related_course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "course_related_courses_snapshot_id_fkey"
             columns: ["snapshot_id"]
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_related_courses_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1815,11 +1976,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_rule_condition_courses_referenced_item_fkey"
+            columns: ["referenced_course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "course_rule_condition_courses_snapshot_id_fkey"
             columns: ["snapshot_id"]
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_rule_condition_courses_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1921,11 +2096,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_rule_conditions_required_course_fkey"
+            columns: ["required_course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "course_rule_conditions_required_structure_fkey"
             columns: ["required_structure_id"]
             isOneToOne: false
             referencedRelation: "catalogue_items"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_rule_conditions_required_structure_fkey"
+            columns: ["required_structure_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
           },
           {
             foreignKeyName: "course_rule_conditions_rule_snapshot_fkey"
@@ -1940,6 +2129,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_rule_conditions_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -1986,6 +2182,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "course_rule_course_references_referenced_item_fkey"
+            columns: ["referenced_course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "course_rule_course_references_rule_fkey"
             columns: ["course_rule_id"]
             isOneToOne: false
@@ -2005,6 +2208,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_rule_course_references_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -2074,6 +2284,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_rule_groups_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       course_rules: {
@@ -2123,6 +2340,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_rules_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
           },
           {
             foreignKeyName: "course_rules_snapshot_year_fkey"
@@ -2265,6 +2489,13 @@ export type Database = {
             referencedRelation: "catalogue_snapshots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "course_unit_options_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
         ]
       }
       import_models: {
@@ -2393,6 +2624,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "offering_sessions_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
+          {
             foreignKeyName: "offering_sessions_snapshot_year_fkey"
             columns: ["snapshot_id", "academic_year_id"]
             isOneToOne: false
@@ -2481,6 +2719,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "plan_items_course_item_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
             foreignKeyName: "plan_items_course_item_year_fkey"
             columns: ["course_id", "academic_year_id"]
             isOneToOne: false
@@ -2537,6 +2782,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_item_years"
             referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "plan_structures_item_year_fkey"
+            columns: ["structure_year_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_year_id", "academic_year_id"]
           },
           {
             foreignKeyName: "plan_structures_plan_owner_academic_year_fkey"
@@ -2964,6 +3216,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      published_course_summaries: {
+        Row: {
+          academic_career: string | null
+          academic_year: number | null
+          academic_year_id: number | null
+          code: string | null
+          college: string | null
+          convener_text: string | null
+          delivery_summary: string | null
+          description: string | null
+          eftsl: number | null
+          inherent_requirements: string | null
+          introduction: string | null
+          item_id: number | null
+          item_year_id: number | null
+          level: number | null
+          maximum_units: number | null
+          minimum_units: number | null
+          offering_status: string | null
+          prescribed_texts: string | null
+          school: string | null
+          snapshot_id: number | null
+          source_updated_at: string | null
+          subject_code: string | null
+          subject_name: string | null
+          title: string | null
+          unit_value_kind: string | null
+          units: number | null
+          workload_hours: number | null
+          workload_text: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_item_years_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
