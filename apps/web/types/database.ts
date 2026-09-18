@@ -3536,6 +3536,10 @@ export type Database = {
         }
         Returns: string
       }
+      admin_snapshot_projection: {
+        Args: { p_snapshot_id: number }
+        Returns: Json
+      }
       cancel_catalogue_import: { Args: { p_run_id: string }; Returns: number }
       catalogue_publish_blockers: {
         Args: { p_item_year_id: number }
@@ -3551,6 +3555,10 @@ export type Database = {
       current_user_has_permission: {
         Args: { required_permission: string }
         Returns: boolean
+      }
+      discard_catalogue_draft: {
+        Args: { p_item_year_id: number }
+        Returns: undefined
       }
       move_current_user_plan_item: {
         Args: {
