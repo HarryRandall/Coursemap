@@ -27,7 +27,7 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
   label:
     {
       course: "Course",
-      admission: "Programme",
+      structure: "Programme",
       units_total: "Total units",
       subject_units: "Subject units",
       level_units: "Level units",
@@ -186,7 +186,7 @@ export function ConditionInlineEditor({
               <span className={stackedValueCell}>{markControl}</span>
             ) : null}
           </span>
-        ) : family === "admission" ? (
+        ) : family === "structure" ? (
           <span className="grid min-w-0 md:grid-cols-[minmax(12rem,1.4fr)_minmax(10rem,0.7fr)]">
             <span
               className={cn(
@@ -222,7 +222,7 @@ export function ConditionInlineEditor({
       )}
     >
       {familyControl}
-      {family === "course" || family === "admission" ? (
+      {family === "course" || family === "structure" ? (
         <>
           {values}
           {matchControl}

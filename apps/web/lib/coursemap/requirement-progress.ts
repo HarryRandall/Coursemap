@@ -66,7 +66,7 @@ function conditionPredicates(
   if (codes.size > 0) {
     predicates.push((course) => codes.has(course.code));
   }
-  if (condition.conditionKind === "subject" && condition.subjectCode) {
+  if (condition.conditionKind === "subject_units" && condition.subjectCode) {
     const subject = condition.subjectCode;
     predicates.push(
       (course) =>
@@ -77,7 +77,7 @@ function conditionPredicates(
           condition.maximumLevel,
         ),
     );
-  } else if (condition.conditionKind === "level") {
+  } else if (condition.conditionKind === "level_units") {
     predicates.push((course) =>
       levelWithin(course.level, condition.minimumLevel, condition.maximumLevel),
     );
@@ -382,7 +382,7 @@ function groupStateFromChildren(
   const required =
     group.operator === "any_of"
       ? 1
-      : group.operator === "minimum_count"
+      : group.operator === "at_least"
         ? (group.minimumCount ?? 1)
         : children.length;
   if (satisfied >= required) return "satisfied";
