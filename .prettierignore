@@ -15,6 +15,9 @@ apps/web/public
 apps/web/tests/fixtures/calendar
 apps/web/types/database.ts
 
+# psql include files are SQL; Prettier would otherwise infer HTML.
+supabase/tests/helpers/*.inc
+
 # Retained ReUI source stays diffable against upstream; format our integration code.
 packages/ui/primitives
 packages/ui/components
