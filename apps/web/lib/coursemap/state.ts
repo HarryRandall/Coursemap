@@ -156,16 +156,14 @@ export async function loadCoursemapState(
     const structureYearIds = structures.map((item) => item.structure_year_id);
     const { data: structureYears } = structureYearIds.length
       ? await supabase
-          .from("academic_structure_years")
-          .select("id,structure_id")
+          .from("catalogue_item_years")
+          .select("id,item_id")
           .in("id", structureYearIds)
       : { data: [] };
-    const structureIds = (structureYears ?? []).map(
-      (item) => item.structure_id,
-    );
+    const structureIds = (structureYears ?? []).map((item) => item.item_id);
     const { data: structureIdentities } = structureIds.length
       ? await supabase
-          .from("academic_structures")
+          .from("catalogue_items")
           .select("id,code")
           .in("id", structureIds)
       : { data: [] };
@@ -173,7 +171,7 @@ export async function loadCoursemapState(
       (structureYears ?? []).map((structureYear) => [
         structureYear.id,
         (structureIdentities ?? []).find(
-          (identity) => identity.id === structureYear.structure_id,
+          (identity) => identity.id === structureYear.item_id,
         )?.code,
       ]),
     );
@@ -196,7 +194,10 @@ export async function loadCoursemapState(
     const [{ data: courseIdentities }, { data: periods }, snapshotsResult] =
       await Promise.all([
         courseIds.length
-          ? supabase.from("courses").select("id,code").in("id", courseIds)
+          ? supabase
+              .from("catalogue_items")
+              .select("id,code")
+              .in("id", courseIds)
           : Promise.resolve({ data: [] }),
         periodIds.length
           ? supabase
@@ -206,7 +207,7 @@ export async function loadCoursemapState(
           : Promise.resolve({ data: [] }),
         snapshotIds.length
           ? supabase
-              .from("course_snapshots")
+              .from("catalogue_snapshots")
               .select("id,academic_year_id")
               .in("id", snapshotIds)
           : Promise.resolve({ data: [] }),

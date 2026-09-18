@@ -104,7 +104,7 @@ type StructureSnapshotRow = {
   college: string | null;
   description: string | null;
   duration_years: number | null;
-  id: number;
+  snapshot_id: number;
   name: string;
   units: number | null;
 };
@@ -289,20 +289,11 @@ async function loadAcademicYearRecord(
     return result.data;
   }
 
-  const programmeStructuresResult = await supabase
-    .from("academic_structures")
-    .select("id")
-    .eq("kind", "programme");
-  if (programmeStructuresResult.error) throw programmeStructuresResult.error;
-  const programmeStructureIds = (programmeStructuresResult.data ?? []).map(
-    (structure) => structure.id,
-  );
-  if (programmeStructureIds.length === 0) return null;
-
   const programmeYearsResult = await supabase
-    .from("academic_structure_years")
+    .from("catalogue_item_years")
     .select("academic_year_id")
-    .in("structure_id", programmeStructureIds)
+    .eq("kind", "programme")
+    .is("archived_at", null)
     .not("published_snapshot_id", "is", null);
   if (programmeYearsResult.error) throw programmeYearsResult.error;
   const academicYearIds = [
@@ -356,9 +347,11 @@ export async function loadPublishedPlanCatalogue(
         .order("calendar_year")
         .order("sort_order"),
       supabase
-        .from("academic_structure_years")
-        .select("id,published_snapshot_id,structure_id")
+        .from("catalogue_item_years")
+        .select("id,published_snapshot_id,item_id")
         .eq("academic_year_id", academicYearRecord.id)
+        .neq("kind", "course")
+        .is("archived_at", null)
         .not("published_snapshot_id", "is", null),
     ]);
   if (periodsResult.error) throw periodsResult.error;
@@ -372,9 +365,7 @@ export async function loadPublishedPlanCatalogue(
     } => row.published_snapshot_id !== null,
   );
   const structureIds = [
-    ...new Set(
-      structureYears.map((structureYear) => structureYear.structure_id),
-    ),
+    ...new Set(structureYears.map((structureYear) => structureYear.item_id)),
   ];
   const snapshotIds = structureYears.map(
     (structureYear) => structureYear.published_snapshot_id,
@@ -383,15 +374,15 @@ export async function loadPublishedPlanCatalogue(
     await Promise.all([
       structureIds.length
         ? supabase
-            .from("academic_structures")
+            .from("catalogue_items")
             .select("code,id,kind")
             .in("id", structureIds)
         : Promise.resolve({ data: [], error: null }),
       snapshotIds.length
         ? supabase
-            .from("academic_structure_snapshots")
-            .select("college,description,duration_years,id,name,units")
-            .in("id", snapshotIds)
+            .from("structure_snapshot_details")
+            .select("college,description,duration_years,snapshot_id,name,units")
+            .in("snapshot_id", snapshotIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
   const structureError = [
@@ -407,7 +398,7 @@ export async function loadPublishedPlanCatalogue(
   );
   const snapshotsById = new Map(
     ((structureSnapshotsResult.data ?? []) as StructureSnapshotRow[]).map(
-      (snapshot) => [snapshot.id, snapshot],
+      (snapshot) => [snapshot.snapshot_id, snapshot],
     ),
   );
 
@@ -418,7 +409,7 @@ export async function loadPublishedPlanCatalogue(
     ),
   );
   const requirementsSnapshotIds = structureYears.flatMap((structureYear) => {
-    const kind = identitiesById.get(structureYear.structure_id)?.kind;
+    const kind = identitiesById.get(structureYear.item_id)?.kind;
     return selectedStructureYears.has(structureYear.id) &&
       kind !== undefined &&
       isPlanStructureKind(kind)
@@ -481,7 +472,7 @@ export async function loadPublishedPlanCatalogue(
     courseCodesBySnapshotId.set(option.snapshot_id, codes);
   }
   const degrees = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.structure_id);
+    const identity = identitiesById.get(structureYear.item_id);
     const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
     if (!identity || !snapshot || identity.kind !== "programme") return [];
     return [
@@ -499,7 +490,7 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const structures = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.structure_id);
+    const identity = identitiesById.get(structureYear.item_id);
     const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
     if (!identity || !snapshot || !isPlanStructureKind(identity.kind))
       return [];
@@ -512,7 +503,7 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const structureRequirements = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.structure_id);
+    const identity = identitiesById.get(structureYear.item_id);
     const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
     if (
       !identity ||
@@ -551,7 +542,7 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const majors = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.structure_id);
+    const identity = identitiesById.get(structureYear.item_id);
     const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
     if (!identity || !snapshot || identity.kind !== "major") return [];
     return [
@@ -659,11 +650,11 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   ];
   const [coursesResult, snapshotsResult] = await Promise.all([
     courseIds.length
-      ? supabase.from("courses").select("id,code").in("id", courseIds)
+      ? supabase.from("catalogue_items").select("id,code").in("id", courseIds)
       : Promise.resolve({ data: [], error: null }),
     snapshotIds.length
       ? supabase
-          .from("course_snapshots")
+          .from("catalogue_snapshots")
           .select("id,academic_year_id")
           .in("id", snapshotIds)
       : Promise.resolve({ data: [], error: null }),
