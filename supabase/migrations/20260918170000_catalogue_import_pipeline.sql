@@ -173,6 +173,34 @@ alter table public.catalogue_snapshots
     foreign key (import_target_id) references public.catalogue_import_targets (id)
     on delete set null;
 
+-- Removing a run detaches its snapshots' provenance link. That is the only
+-- change a sealed snapshot accepts besides the sealing itself.
+create or replace function private.enforce_catalogue_snapshot_immutability()
+returns trigger
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  if tg_op = 'UPDATE'
+    and old.sealed_at is null
+    and new.sealed_at is not null
+    and (to_jsonb(new) - 'sealed_at') = (to_jsonb(old) - 'sealed_at')
+  then
+    return new;
+  end if;
+  if tg_op = 'UPDATE'
+    and new.import_target_id is null
+    and old.import_target_id is not null
+    and (to_jsonb(new) - 'import_target_id') = (to_jsonb(old) - 'import_target_id')
+  then
+    return new;
+  end if;
+  raise exception
+    'catalogue_snapshots records are immutable; create a new snapshot instead'
+    using errcode = '55000';
+end;
+$function$;
+
 create table public.catalogue_import_stages (
   id uuid primary key default gen_random_uuid(),
   target_id uuid not null,
@@ -231,8 +259,9 @@ create table public.catalogue_import_artifacts (
 create index catalogue_import_artifacts_target_idx
   on public.catalogue_import_artifacts (target_id, created_at);
 
+-- Artefact records never change, but they leave with their run.
 create trigger catalogue_import_artifacts_reject_mutation
-before update or delete on public.catalogue_import_artifacts
+before update on public.catalogue_import_artifacts
 for each row execute function private.reject_immutable_catalogue_record_mutation();
 
 create table public.catalogue_extractions (

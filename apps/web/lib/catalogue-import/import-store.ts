@@ -362,7 +362,11 @@ export type ReusableExtraction = {
   responseArtifact: ImportArtifactLocator;
 };
 
-/** A validated extraction for identical input can be reused without a paid call. */
+/**
+ * A recorded response for identical input can be reused without a paid call.
+ * Validation is deterministic, so an invalid response stays invalid and the
+ * merge falls back to deterministic data exactly as it did the first time.
+ */
 export async function findReusableExtraction(
   sql: AnyImportSql,
   { fingerprint }: { fingerprint: string },
@@ -375,7 +379,7 @@ export async function findReusableExtraction(
     join public.catalogue_import_artifacts as artifacts
       on artifacts.id = extractions.response_artifact_id
     where extractions.fingerprint = ${fingerprint}
-      and extractions.validation_status = 'valid'
+      and extractions.completed_at is not null
     order by extractions.completed_at desc
     limit 1
   `;
