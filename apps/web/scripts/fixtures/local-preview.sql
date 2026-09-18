@@ -443,15 +443,6 @@ where structures.kind <> 'programme'
     'LOCAL-SPEC'
   );
 
-select set_config('request.jwt.claim.sub', '90000000-0000-4000-8000-000000000001', true);
-insert into public.catalogue_section_reviews(structure_year_id, section_key, content_hash, approved, method, actor_id, version_id)
-select snapshots.structure_year_id, sections.section_key, sections.content_hash, true, 'manual',
-  '90000000-0000-4000-8000-000000000001'::uuid, snapshots.public_id
-from public.academic_structure_snapshots snapshots
-join public.academic_structure_years years on years.id = snapshots.structure_year_id
-join public.academic_structures structures on structures.id = years.structure_id
-cross join lateral private.catalogue_review_sections(structures.kind, snapshots.id) sections;
-
 update public.academic_structure_years as structure_years
 set published_snapshot_id = snapshots.id,
     updated_at = now()
@@ -508,41 +499,9 @@ insert into public.courses (code)
 values ('COMP1100'), ('COMP1110'), ('MATH1005')
 on conflict (code) do nothing;
 
-insert into public.course_directory_entries (
-  academic_year_id,
-  course_id,
-  code,
-  title,
-  units,
-  academic_career,
-  session,
-  mode_of_delivery,
-  source_page_id
-)
-select
-  years.id,
-  courses.id,
-  entries.code,
-  entries.title,
-  6,
-  'UGRD',
-  'Semester 1',
-  'In person',
-  documents.id
-from (values
-  ('COMP1100'::text, 'Programming as Problem Solving'::text),
-  ('COMP1110'::text, 'Structured Programming'::text),
-  ('MATH1005'::text, 'Discrete Mathematical Models'::text)
-) as entries(code, title)
-join public.courses on courses.code = entries.code
-join public.academic_years as years on years.year = 2026
-join public.course_source_pages as documents
-  on documents.academic_year_id = years.id
- and documents.page_kind = 'course_directory';
-
--- MATH1005 deliberately remains an identity and directory entry only. It is
--- visible as a prerequisite placeholder without pretending its full 2026
--- course page has been imported.
+-- MATH1005 deliberately remains an identity only. It is visible as a
+-- prerequisite placeholder without pretending its full 2026 course page has
+-- been imported.
 insert into public.course_years (course_id, academic_year_id)
 select courses.id, years.id
 from public.courses
@@ -906,11 +865,6 @@ join public.courses as prerequisite on prerequisite.code = 'MATH1005';
 
 -- Setting the publication pointer is the only publication action. The
 -- existing trigger seals the snapshot after every rich child has been stored.
-insert into public.catalogue_section_reviews(course_year_id, section_key, content_hash, approved, method, actor_id, version_id)
-select snapshots.course_year_id, sections.section_key, sections.content_hash, true, 'manual',
-  '90000000-0000-4000-8000-000000000001'::uuid, snapshots.public_id
-from public.course_snapshots snapshots
-cross join lateral private.catalogue_review_sections('course', snapshots.id) sections;
 
 update public.course_years
 set published_snapshot_id = snapshots.id

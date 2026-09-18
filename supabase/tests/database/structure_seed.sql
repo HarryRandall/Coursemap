@@ -21,7 +21,6 @@ select extensions.is(
       and table_name in (
         'academic_structure_sources',
         'academic_structure_source_pages',
-        'academic_structure_directory_entries',
         'academic_structure_years',
         'academic_structure_snapshots',
         'academic_structure_snapshot_sections',
@@ -36,7 +35,7 @@ select extensions.is(
         'academic_structure_snapshot_evidence'
       )
   ),
-  15::bigint,
+  14::bigint,
   'the snapshot-native academic structure tables are available'
 );
 

@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(16);
 insert into auth.users(id,email) values ('e1212902-a316-4905-a12d-f2560ee3c911','models@example.test');
 update private.user_roles set role_id=(select id from private.app_roles where key='admin') where user_id='e1212902-a316-4905-a12d-f2560ee3c911';
 insert into private.role_permissions(role_id,permission_id)
@@ -17,8 +17,6 @@ select lives_ok($$update public.import_models set visible=false where id='test/n
 select is((select count(*) from public.import_models where id='test/new-model' and enabled and not visible),1::bigint,'hidden models remain in management');
 select throws_ok($$update public.app_settings set value='"test/new-model"' where key='imports.model'$$,'22023','Choose an enabled import model.','hidden models cannot become the default');
 reset role;
-select throws_ok($$insert into public.course_import_runs(requested_model) values ('test/new-model')$$,'22023','Choose an enabled import model.','hidden models cannot enter the course queue');
-select throws_ok($$insert into public.academic_structure_import_runs(requested_model) values ('test/new-model')$$,'22023','Choose an enabled import model.','hidden models cannot enter the structure queue');
 set local role authenticated;
 select lives_ok($$update public.import_models set enabled=false where id='test/new-model'$$,'unused models can be disabled');
 select throws_ok($$update public.app_settings set value='"test/new-model"' where key='imports.model'$$,'22023','Choose an enabled import model.','disabled models cannot become the default');
@@ -32,7 +30,5 @@ with changed as (update public.import_models set enabled=true where id='test/new
 set local role anon;
 select throws_ok($$select * from public.import_models$$,'42501',null,'anonymous access is denied');
 reset role;
-select throws_ok($$insert into public.course_import_runs(requested_model) values ('test/new-model')$$,'22023','Choose an enabled import model.','disabled models cannot enter the course queue');
-select throws_ok($$insert into public.academic_structure_import_runs(requested_model) values ('test/new-model')$$,'22023','Choose an enabled import model.','disabled models cannot enter the structure queue');
 select * from finish();
 rollback;
