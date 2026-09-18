@@ -371,74 +371,83 @@ cross join (
 ) as options(position, target_kind, target_code, target_title, source_text)
 where items.code = 'LOCAL-PROGRAMME';
 
-insert into public.academic_structure_requirement_groups (
-  snapshot_id,
-  group_key,
-  title,
-  operator,
-  source_text,
-  source_locator,
-  position
+-- Structure completion requirements: one rule per structure with a root group
+-- and a single condition. Programmes require 144 units; every other structure
+-- requires one listed local course.
+insert into public.requirement_rules (
+  snapshot_id, academic_year_id, rule_kind, source_text, review_state
 )
 select
   snapshots.id,
-  'root',
-  details.name || ' requirements',
-  'all_of',
+  snapshots.academic_year_id,
+  'structure',
   'Complete all published requirements for ' || details.name || '.',
-  '#local-requirements',
-  0
+  'verified'
 from public.catalogue_snapshots as snapshots
 join public.structure_snapshot_details as details on details.snapshot_id = snapshots.id;
 
-insert into public.academic_structure_requirement_conditions (
-  snapshot_id,
-  requirement_group_id,
-  position,
-  projection_key,
-  condition_kind,
-  minimum_units,
-  source_text,
-  source_locator
+insert into public.requirement_groups (
+  rule_id, snapshot_id, group_key, label, operator, source_text, source_locator, position
 )
 select
+  rules.id,
+  rules.snapshot_id,
+  'root',
+  details.name || ' requirements',
+  'all_of',
+  rules.source_text,
+  '#local-requirements',
+  0
+from public.requirement_rules as rules
+join public.structure_snapshot_details as details on details.snapshot_id = rules.snapshot_id
+where rules.rule_kind = 'structure';
+
+insert into public.requirement_conditions (
+  rule_id, snapshot_id, group_id, condition_key, position, condition_kind,
+  minimum_units, source_text, source_locator, review_state
+)
+select
+  groups.rule_id,
   groups.snapshot_id,
   groups.id,
-  0,
   'root:local-requirement',
-  case when snapshots.kind = 'programme' then 'unit_total' else 'course_list' end,
+  0,
+  case when snapshots.kind = 'programme' then 'units_total' else 'course_set_units' end,
   case when snapshots.kind = 'programme' then 144 else 6 end,
   case
     when snapshots.kind = 'programme' then 'Complete 144 units.'
     else 'Complete the listed local fixture course.'
   end,
-  '#local-requirements'
-from public.academic_structure_requirement_groups as groups
-join public.catalogue_snapshots as snapshots on snapshots.id = groups.snapshot_id;
+  '#local-requirements',
+  'verified'
+from public.requirement_groups as groups
+join public.requirement_rules as rules on rules.id = groups.rule_id
+join public.catalogue_snapshots as snapshots on snapshots.id = groups.snapshot_id
+where rules.rule_kind = 'structure';
 
-insert into public.academic_structure_requirement_options (
-  snapshot_id,
-  requirement_condition_id,
-  position,
-  option_kind,
-  option_code
+insert into public.requirement_condition_options (
+  condition_id, snapshot_id, position, kind, code, item_id
 )
 select
-  conditions.snapshot_id,
   conditions.id,
+  conditions.snapshot_id,
   1,
   'course',
-  case items.code
-    when 'LOCAL-MAJ' then 'COMP1110'
-    when 'LOCALA-MIN' then 'MATH1005'
-    when 'LOCALB-MIN' then 'COMP1100'
-    else 'COMP1110'
-  end
-from public.academic_structure_requirement_conditions as conditions
+  selected.code,
+  selected.id
+from public.requirement_conditions as conditions
 join public.catalogue_snapshots as snapshots on snapshots.id = conditions.snapshot_id
 join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
 join public.catalogue_items as items on items.id = item_years.item_id
-where snapshots.kind not in ('programme', 'course');
+join public.catalogue_items as selected
+  on selected.kind = 'course'
+ and selected.code = case items.code
+   when 'LOCAL-MAJ' then 'COMP1110'
+   when 'LOCALA-MIN' then 'MATH1005'
+   when 'LOCALB-MIN' then 'COMP1100'
+   else 'COMP1110'
+ end
+where conditions.condition_kind = 'course_set_units';
 
 -- Published courses ------------------------------------------------------------
 
@@ -666,15 +675,9 @@ select
 from public.catalogue_snapshots as snapshots
 join public.course_snapshot_details as details on details.snapshot_id = snapshots.id;
 
-insert into public.course_rules (
-  snapshot_id,
-  academic_year_id,
-  source_page_id,
-  rule_kind,
-  hardness,
-  source_text,
-  review_state,
-  confidence
+insert into public.requirement_rules (
+  snapshot_id, academic_year_id, source_page_id, rule_kind, hardness,
+  source_text, review_state, confidence
 )
 select
   snapshots.id,
@@ -690,75 +693,44 @@ join public.catalogue_item_years as item_years on item_years.id = snapshots.item
 join public.catalogue_items as items on items.id = item_years.item_id
 where items.code = 'COMP1110';
 
-insert into public.course_rule_groups (
-  course_rule_id,
-  snapshot_id,
-  projection_key,
-  parent_group_id,
-  operator,
-  minimum_count,
-  position
+insert into public.requirement_groups (
+  rule_id, snapshot_id, group_key, operator, position
 )
-select
-  rules.id,
-  rules.snapshot_id,
-  'prerequisite:group:root',
-  null,
-  'all_of',
-  null,
-  0
-from public.course_rules as rules;
+select rules.id, rules.snapshot_id, 'prerequisite:group:root', 'all_of', 0
+from public.requirement_rules as rules
+where rules.rule_kind = 'prerequisite';
 
-insert into public.course_rule_conditions (
-  course_rule_id,
-  snapshot_id,
-  projection_key,
-  group_id,
-  condition_kind,
-  required_course_id,
-  course_requirement_mode,
-  hardness,
-  source_text,
-  confidence,
-  review_state,
-  position
+insert into public.requirement_conditions (
+  rule_id, snapshot_id, group_id, condition_key, position, condition_kind,
+  item_id, requirement_mode, hardness, source_text, confidence, review_state
 )
 select
   rules.id,
   rules.snapshot_id,
-  'prerequisite:condition:0',
   groups.id,
+  'prerequisite:condition:0',
+  0,
   'course',
   prerequisite.id,
   'completed',
   'hard',
   'You must have completed MATH1005.',
   0.99,
-  'verified',
-  0
-from public.course_rules as rules
-join public.course_rule_groups as groups on groups.course_rule_id = rules.id
-join public.catalogue_items as prerequisite
-  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005';
-
-insert into public.course_rule_course_references (
-  course_rule_id,
-  snapshot_id,
-  referenced_course_id,
-  source_text,
-  confidence,
-  review_state
-)
-select
-  rules.id,
-  rules.snapshot_id,
-  prerequisite.id,
-  'MATH1005',
-  0.99,
   'verified'
-from public.course_rules as rules
+from public.requirement_rules as rules
+join public.requirement_groups as groups on groups.rule_id = rules.id
 join public.catalogue_items as prerequisite
-  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005';
+  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005'
+where rules.rule_kind = 'prerequisite';
+
+insert into public.requirement_item_references (
+  rule_id, snapshot_id, item_id, source_text, confidence, review_state
+)
+select rules.id, rules.snapshot_id, prerequisite.id, 'MATH1005', 0.99, 'verified'
+from public.requirement_rules as rules
+join public.catalogue_items as prerequisite
+  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005'
+where rules.rule_kind = 'prerequisite';
 
 -- Setting the publication pointer is the only publication action. The pointer
 -- trigger seals each snapshot after every child row has been stored.

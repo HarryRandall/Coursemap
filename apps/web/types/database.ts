@@ -153,210 +153,6 @@ export type Database = {
           },
         ]
       }
-      academic_structure_requirement_conditions: {
-        Row: {
-          condition_kind: string
-          free_text: string | null
-          id: number
-          maximum_level: number | null
-          maximum_units: number | null
-          minimum_courses: number | null
-          minimum_level: number | null
-          minimum_units: number | null
-          position: number
-          projection_key: string
-          requirement_group_id: number
-          snapshot_id: number
-          source_locator: string
-          source_text: string
-          structure_kind: string | null
-          subject_code: string | null
-          tag: string | null
-        }
-        Insert: {
-          condition_kind: string
-          free_text?: string | null
-          id?: never
-          maximum_level?: number | null
-          maximum_units?: number | null
-          minimum_courses?: number | null
-          minimum_level?: number | null
-          minimum_units?: number | null
-          position: number
-          projection_key: string
-          requirement_group_id: number
-          snapshot_id: number
-          source_locator: string
-          source_text: string
-          structure_kind?: string | null
-          subject_code?: string | null
-          tag?: string | null
-        }
-        Update: {
-          condition_kind?: string
-          free_text?: string | null
-          id?: never
-          maximum_level?: number | null
-          maximum_units?: number | null
-          minimum_courses?: number | null
-          minimum_level?: number | null
-          minimum_units?: number | null
-          position?: number
-          projection_key?: string
-          requirement_group_id?: number
-          snapshot_id?: number
-          source_locator?: string
-          source_text?: string
-          structure_kind?: string | null
-          subject_code?: string | null
-          tag?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "academic_structure_requirement_conditions_group_fkey"
-            columns: ["requirement_group_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "academic_structure_requirement_groups"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_conditions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_conditions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      academic_structure_requirement_groups: {
-        Row: {
-          description: string | null
-          group_key: string
-          id: number
-          maximum_units: number | null
-          minimum_count: number | null
-          minimum_units: number | null
-          operator: string
-          parent_group_id: number | null
-          position: number
-          snapshot_id: number
-          source_locator: string
-          source_text: string
-          title: string | null
-        }
-        Insert: {
-          description?: string | null
-          group_key: string
-          id?: never
-          maximum_units?: number | null
-          minimum_count?: number | null
-          minimum_units?: number | null
-          operator: string
-          parent_group_id?: number | null
-          position: number
-          snapshot_id: number
-          source_locator: string
-          source_text: string
-          title?: string | null
-        }
-        Update: {
-          description?: string | null
-          group_key?: string
-          id?: never
-          maximum_units?: number | null
-          minimum_count?: number | null
-          minimum_units?: number | null
-          operator?: string
-          parent_group_id?: number | null
-          position?: number
-          snapshot_id?: number
-          source_locator?: string
-          source_text?: string
-          title?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "academic_structure_requirement_groups_parent_fkey"
-            columns: ["parent_group_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "academic_structure_requirement_groups"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_groups_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_groups_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      academic_structure_requirement_options: {
-        Row: {
-          id: number
-          option_code: string
-          option_kind: string
-          position: number
-          requirement_condition_id: number
-          snapshot_id: number
-          structure_kind: string | null
-        }
-        Insert: {
-          id?: never
-          option_code: string
-          option_kind: string
-          position: number
-          requirement_condition_id: number
-          snapshot_id: number
-          structure_kind?: string | null
-        }
-        Update: {
-          id?: never
-          option_code?: string
-          option_kind?: string
-          position?: number
-          requirement_condition_id?: number
-          snapshot_id?: number
-          structure_kind?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "academic_structure_requirement_options_condition_fkey"
-            columns: ["requirement_condition_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "academic_structure_requirement_conditions"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_options_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_structure_requirement_options_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
       academic_structure_snapshot_relationships: {
         Row: {
           id: number
@@ -449,93 +245,6 @@ export type Database = {
           },
           {
             foreignKeyName: "academic_structure_snapshot_sections_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      academic_structure_summary_fields: {
-        Row: {
-          field_key: string
-          field_value: string
-          id: number
-          label: string
-          position: number
-          snapshot_id: number
-          source_text: string
-          value_position: number
-        }
-        Insert: {
-          field_key: string
-          field_value: string
-          id?: never
-          label: string
-          position: number
-          snapshot_id: number
-          source_text: string
-          value_position: number
-        }
-        Update: {
-          field_key?: string
-          field_value?: string
-          id?: never
-          label?: string
-          position?: number
-          snapshot_id?: number
-          source_text?: string
-          value_position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "academic_structure_summary_fields_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_structure_summary_fields_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      academic_structure_unmodelled_requirements: {
-        Row: {
-          id: number
-          position: number
-          snapshot_id: number
-          source_locator: string | null
-          source_text: string
-        }
-        Insert: {
-          id?: never
-          position: number
-          snapshot_id: number
-          source_locator?: string | null
-          source_text: string
-        }
-        Update: {
-          id?: never
-          position?: number
-          snapshot_id?: number
-          source_locator?: string | null
-          source_text?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "academic_structure_unmodelled_requirements_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "academic_structure_unmodelled_requirements_snapshot_id_fkey"
             columns: ["snapshot_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
@@ -1929,441 +1638,6 @@ export type Database = {
           },
         ]
       }
-      course_rule_condition_courses: {
-        Row: {
-          condition_id: number
-          created_at: string
-          id: number
-          position: number
-          referenced_course_id: number
-          snapshot_id: number
-          source_course_code: string
-          source_text: string
-        }
-        Insert: {
-          condition_id: number
-          created_at?: string
-          id?: never
-          position: number
-          referenced_course_id: number
-          snapshot_id: number
-          source_course_code: string
-          source_text: string
-        }
-        Update: {
-          condition_id?: number
-          created_at?: string
-          id?: never
-          position?: number
-          referenced_course_id?: number
-          snapshot_id?: number
-          source_course_code?: string
-          source_text?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_rule_condition_courses_condition_snapshot_fkey"
-            columns: ["condition_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "course_rule_conditions"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "course_rule_condition_courses_referenced_item_fkey"
-            columns: ["referenced_course_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_condition_courses_referenced_item_fkey"
-            columns: ["referenced_course_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "course_rule_condition_courses_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_condition_courses_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      course_rule_conditions: {
-        Row: {
-          condition_kind: string
-          confidence: number
-          course_requirement_mode: string | null
-          course_rule_id: number
-          created_at: string
-          free_text: string | null
-          group_id: number
-          hardness: string
-          id: number
-          maximum_course_level: number | null
-          minimum_course_level: number | null
-          minimum_gpa: number | null
-          minimum_mark: number | null
-          minimum_units: number | null
-          minimum_wam: number | null
-          minimum_year: number | null
-          position: number
-          projection_key: string
-          required_course_id: number | null
-          required_structure_id: number | null
-          review_state: string
-          snapshot_id: number
-          source_text: string | null
-          subject_code: string | null
-          updated_at: string
-        }
-        Insert: {
-          condition_kind: string
-          confidence?: number
-          course_requirement_mode?: string | null
-          course_rule_id: number
-          created_at?: string
-          free_text?: string | null
-          group_id: number
-          hardness: string
-          id?: never
-          maximum_course_level?: number | null
-          minimum_course_level?: number | null
-          minimum_gpa?: number | null
-          minimum_mark?: number | null
-          minimum_units?: number | null
-          minimum_wam?: number | null
-          minimum_year?: number | null
-          position?: number
-          projection_key: string
-          required_course_id?: number | null
-          required_structure_id?: number | null
-          review_state?: string
-          snapshot_id: number
-          source_text?: string | null
-          subject_code?: string | null
-          updated_at?: string
-        }
-        Update: {
-          condition_kind?: string
-          confidence?: number
-          course_requirement_mode?: string | null
-          course_rule_id?: number
-          created_at?: string
-          free_text?: string | null
-          group_id?: number
-          hardness?: string
-          id?: never
-          maximum_course_level?: number | null
-          minimum_course_level?: number | null
-          minimum_gpa?: number | null
-          minimum_mark?: number | null
-          minimum_units?: number | null
-          minimum_wam?: number | null
-          minimum_year?: number | null
-          position?: number
-          projection_key?: string
-          required_course_id?: number | null
-          required_structure_id?: number | null
-          review_state?: string
-          snapshot_id?: number
-          source_text?: string | null
-          subject_code?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_rule_conditions_group_rule_fkey"
-            columns: ["group_id", "course_rule_id"]
-            isOneToOne: false
-            referencedRelation: "course_rule_groups"
-            referencedColumns: ["id", "course_rule_id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_required_course_fkey"
-            columns: ["required_course_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_required_course_fkey"
-            columns: ["required_course_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_required_structure_fkey"
-            columns: ["required_structure_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_required_structure_fkey"
-            columns: ["required_structure_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_rule_snapshot_fkey"
-            columns: ["course_rule_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "course_rules"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_conditions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      course_rule_course_references: {
-        Row: {
-          confidence: number
-          course_rule_id: number
-          created_at: string
-          id: number
-          referenced_course_id: number
-          review_state: string
-          snapshot_id: number
-          source_text: string
-          updated_at: string
-        }
-        Insert: {
-          confidence?: number
-          course_rule_id: number
-          created_at?: string
-          id?: never
-          referenced_course_id: number
-          review_state?: string
-          snapshot_id: number
-          source_text: string
-          updated_at?: string
-        }
-        Update: {
-          confidence?: number
-          course_rule_id?: number
-          created_at?: string
-          id?: never
-          referenced_course_id?: number
-          review_state?: string
-          snapshot_id?: number
-          source_text?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_rule_course_references_referenced_item_fkey"
-            columns: ["referenced_course_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_course_references_referenced_item_fkey"
-            columns: ["referenced_course_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "course_rule_course_references_rule_fkey"
-            columns: ["course_rule_id"]
-            isOneToOne: false
-            referencedRelation: "course_rules"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_course_references_rule_snapshot_fkey"
-            columns: ["course_rule_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "course_rules"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "course_rule_course_references_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_course_references_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      course_rule_groups: {
-        Row: {
-          course_rule_id: number
-          created_at: string
-          id: number
-          minimum_count: number | null
-          operator: string
-          parent_group_id: number | null
-          position: number
-          projection_key: string
-          snapshot_id: number
-          updated_at: string
-        }
-        Insert: {
-          course_rule_id: number
-          created_at?: string
-          id?: never
-          minimum_count?: number | null
-          operator: string
-          parent_group_id?: number | null
-          position?: number
-          projection_key: string
-          snapshot_id: number
-          updated_at?: string
-        }
-        Update: {
-          course_rule_id?: number
-          created_at?: string
-          id?: never
-          minimum_count?: number | null
-          operator?: string
-          parent_group_id?: number | null
-          position?: number
-          projection_key?: string
-          snapshot_id?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_rule_groups_course_rule_id_fkey"
-            columns: ["course_rule_id"]
-            isOneToOne: false
-            referencedRelation: "course_rules"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_groups_parent_rule_fkey"
-            columns: ["parent_group_id", "course_rule_id"]
-            isOneToOne: false
-            referencedRelation: "course_rule_groups"
-            referencedColumns: ["id", "course_rule_id"]
-          },
-          {
-            foreignKeyName: "course_rule_groups_rule_snapshot_fkey"
-            columns: ["course_rule_id", "snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "course_rules"
-            referencedColumns: ["id", "snapshot_id"]
-          },
-          {
-            foreignKeyName: "course_rule_groups_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rule_groups_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      course_rules: {
-        Row: {
-          academic_year_id: number
-          confidence: number
-          created_at: string
-          hardness: string
-          id: number
-          review_state: string
-          rule_kind: string
-          snapshot_id: number
-          source_page_id: number | null
-          source_text: string
-          updated_at: string
-        }
-        Insert: {
-          academic_year_id: number
-          confidence?: number
-          created_at?: string
-          hardness?: string
-          id?: never
-          review_state?: string
-          rule_kind: string
-          snapshot_id: number
-          source_page_id?: number | null
-          source_text: string
-          updated_at?: string
-        }
-        Update: {
-          academic_year_id?: number
-          confidence?: number
-          created_at?: string
-          hardness?: string
-          id?: never
-          review_state?: string
-          rule_kind?: string
-          snapshot_id?: number
-          source_page_id?: number | null
-          source_text?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_rules_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_rules_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-          {
-            foreignKeyName: "course_rules_snapshot_year_fkey"
-            columns: ["snapshot_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "course_rules_source_page_year_fkey"
-            columns: ["source_page_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_source_pages"
-            referencedColumns: ["id", "academic_year_id"]
-          },
-        ]
-      }
       course_snapshot_details: {
         Row: {
           academic_career: string | null
@@ -2876,6 +2150,354 @@ export type Database = {
         }
         Relationships: []
       }
+      requirement_condition_options: {
+        Row: {
+          code: string
+          condition_id: number
+          id: number
+          item_id: number | null
+          kind: string
+          position: number
+          snapshot_id: number
+          source_text: string | null
+          title: string | null
+        }
+        Insert: {
+          code: string
+          condition_id: number
+          id?: never
+          item_id?: number | null
+          kind: string
+          position: number
+          snapshot_id: number
+          source_text?: string | null
+          title?: string | null
+        }
+        Update: {
+          code?: string
+          condition_id?: number
+          id?: never
+          item_id?: number | null
+          kind?: string
+          position?: number
+          snapshot_id?: number
+          source_text?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_condition_options_condition_fkey"
+            columns: ["condition_id", "snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_conditions"
+            referencedColumns: ["id", "snapshot_id"]
+          },
+          {
+            foreignKeyName: "requirement_condition_options_item_fkey"
+            columns: ["item_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "catalogue_items"
+            referencedColumns: ["id", "kind"]
+          },
+        ]
+      }
+      requirement_conditions: {
+        Row: {
+          condition_key: string
+          condition_kind: string
+          confidence: number
+          free_text: string | null
+          group_id: number
+          hardness: string
+          id: number
+          item_id: number | null
+          maximum_level: number | null
+          maximum_units: number | null
+          minimum_count: number | null
+          minimum_gpa: number | null
+          minimum_level: number | null
+          minimum_mark: number | null
+          minimum_units: number | null
+          minimum_wam: number | null
+          minimum_year: number | null
+          position: number
+          requirement_mode: string | null
+          review_state: string
+          rule_id: number
+          snapshot_id: number
+          source_locator: string | null
+          source_text: string | null
+          structure_kind: string | null
+          subject_code: string | null
+          tag: string | null
+        }
+        Insert: {
+          condition_key: string
+          condition_kind: string
+          confidence?: number
+          free_text?: string | null
+          group_id: number
+          hardness?: string
+          id?: never
+          item_id?: number | null
+          maximum_level?: number | null
+          maximum_units?: number | null
+          minimum_count?: number | null
+          minimum_gpa?: number | null
+          minimum_level?: number | null
+          minimum_mark?: number | null
+          minimum_units?: number | null
+          minimum_wam?: number | null
+          minimum_year?: number | null
+          position?: number
+          requirement_mode?: string | null
+          review_state?: string
+          rule_id: number
+          snapshot_id: number
+          source_locator?: string | null
+          source_text?: string | null
+          structure_kind?: string | null
+          subject_code?: string | null
+          tag?: string | null
+        }
+        Update: {
+          condition_key?: string
+          condition_kind?: string
+          confidence?: number
+          free_text?: string | null
+          group_id?: number
+          hardness?: string
+          id?: never
+          item_id?: number | null
+          maximum_level?: number | null
+          maximum_units?: number | null
+          minimum_count?: number | null
+          minimum_gpa?: number | null
+          minimum_level?: number | null
+          minimum_mark?: number | null
+          minimum_units?: number | null
+          minimum_wam?: number | null
+          minimum_year?: number | null
+          position?: number
+          requirement_mode?: string | null
+          review_state?: string
+          rule_id?: number
+          snapshot_id?: number
+          source_locator?: string | null
+          source_text?: string | null
+          structure_kind?: string | null
+          subject_code?: string | null
+          tag?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_conditions_group_fkey"
+            columns: ["group_id", "rule_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_groups"
+            referencedColumns: ["id", "rule_id"]
+          },
+          {
+            foreignKeyName: "requirement_conditions_item_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_conditions_item_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "requirement_conditions_rule_fkey"
+            columns: ["rule_id", "snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_rules"
+            referencedColumns: ["id", "snapshot_id"]
+          },
+        ]
+      }
+      requirement_groups: {
+        Row: {
+          description: string | null
+          group_key: string
+          id: number
+          label: string | null
+          maximum_units: number | null
+          minimum_count: number | null
+          minimum_units: number | null
+          operator: string
+          parent_group_id: number | null
+          position: number
+          rule_id: number
+          snapshot_id: number
+          source_locator: string | null
+          source_text: string | null
+        }
+        Insert: {
+          description?: string | null
+          group_key: string
+          id?: never
+          label?: string | null
+          maximum_units?: number | null
+          minimum_count?: number | null
+          minimum_units?: number | null
+          operator: string
+          parent_group_id?: number | null
+          position?: number
+          rule_id: number
+          snapshot_id: number
+          source_locator?: string | null
+          source_text?: string | null
+        }
+        Update: {
+          description?: string | null
+          group_key?: string
+          id?: never
+          label?: string | null
+          maximum_units?: number | null
+          minimum_count?: number | null
+          minimum_units?: number | null
+          operator?: string
+          parent_group_id?: number | null
+          position?: number
+          rule_id?: number
+          snapshot_id?: number
+          source_locator?: string | null
+          source_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_groups_parent_fkey"
+            columns: ["parent_group_id", "rule_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_groups"
+            referencedColumns: ["id", "rule_id"]
+          },
+          {
+            foreignKeyName: "requirement_groups_rule_fkey"
+            columns: ["rule_id", "snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_rules"
+            referencedColumns: ["id", "snapshot_id"]
+          },
+        ]
+      }
+      requirement_item_references: {
+        Row: {
+          confidence: number
+          id: number
+          item_id: number
+          review_state: string
+          rule_id: number
+          snapshot_id: number
+          source_text: string
+        }
+        Insert: {
+          confidence?: number
+          id?: never
+          item_id: number
+          review_state?: string
+          rule_id: number
+          snapshot_id: number
+          source_text: string
+        }
+        Update: {
+          confidence?: number
+          id?: never
+          item_id?: number
+          review_state?: string
+          rule_id?: number
+          snapshot_id?: number
+          source_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_item_references_item_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "requirement_item_references_item_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["item_id"]
+          },
+          {
+            foreignKeyName: "requirement_item_references_rule_fkey"
+            columns: ["rule_id", "snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "requirement_rules"
+            referencedColumns: ["id", "snapshot_id"]
+          },
+        ]
+      }
+      requirement_rules: {
+        Row: {
+          academic_year_id: number
+          confidence: number
+          created_at: string
+          hardness: string
+          id: number
+          position: number
+          review_state: string
+          rule_kind: string
+          snapshot_id: number
+          source_locator: string | null
+          source_page_id: number | null
+          source_text: string
+        }
+        Insert: {
+          academic_year_id: number
+          confidence?: number
+          created_at?: string
+          hardness?: string
+          id?: never
+          position?: number
+          review_state?: string
+          rule_kind: string
+          snapshot_id: number
+          source_locator?: string | null
+          source_page_id?: number | null
+          source_text: string
+        }
+        Update: {
+          academic_year_id?: number
+          confidence?: number
+          created_at?: string
+          hardness?: string
+          id?: never
+          position?: number
+          review_state?: string
+          rule_kind?: string
+          snapshot_id?: number
+          source_locator?: string | null
+          source_page_id?: number | null
+          source_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requirement_rules_snapshot_fkey"
+            columns: ["snapshot_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_snapshots"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "requirement_rules_source_page_fkey"
+            columns: ["source_page_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+        ]
+      }
       snapshot_field_evidence: {
         Row: {
           academic_year_id: number
@@ -3305,7 +2927,7 @@ export type Database = {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: Json
       }
-      published_course_requisite_graph: {
+      published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: {
           from_code: string
