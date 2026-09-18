@@ -55,11 +55,11 @@ select extensions.is(
         'course_learning_outcomes',
         'course_assessment_items',
         'course_assessment_outcomes',
-        'course_rules',
-        'course_rule_groups',
-        'course_rule_conditions',
-        'course_rule_condition_courses',
-        'course_rule_course_references'
+        'requirement_rules',
+        'requirement_groups',
+        'requirement_conditions',
+        'requirement_condition_options',
+        'requirement_item_references'
       )
       and relations.relrowsecurity
   ),
@@ -83,7 +83,7 @@ select extensions.hasnt_function(
 
 select extensions.has_function(
   'public',
-  'published_course_requisite_graph',
+  'published_requirement_graph',
   array['text', 'smallint'],
   'published prerequisite graphs require an explicit academic year'
 );

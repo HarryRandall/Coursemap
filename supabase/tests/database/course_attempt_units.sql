@@ -42,9 +42,9 @@ select extensions.ok(
         'course_learning_outcomes', 'course_assessment_items',
         'course_assessment_outcomes', 'course_fees', 'course_attributes',
         'course_unit_options', 'course_areas_of_interest',
-        'course_related_courses', 'course_rules', 'course_rule_groups',
-        'course_rule_conditions', 'course_rule_condition_courses',
-        'course_rule_course_references'
+        'course_related_courses', 'requirement_rules', 'requirement_groups',
+        'requirement_conditions', 'requirement_condition_options',
+        'requirement_item_references'
       )
       and policyname like '%\_read'
       and qual like '%can_read_snapshot(%.snapshot_id)%'
@@ -119,7 +119,7 @@ cross join lateral (
 ) as options
 where fixture.code = 'VARI1000';
 
-insert into public.course_rules (
+insert into public.requirement_rules (
   snapshot_id,
   academic_year_id,
   rule_kind,
@@ -140,28 +140,28 @@ from fixture_snapshots as fixture
 join public.catalogue_snapshots as snapshots on snapshots.id = fixture.snapshot_id
 where fixture.code = 'VARI1000';
 
-insert into public.course_rule_groups (
-  course_rule_id,
+insert into public.requirement_groups (
+  rule_id,
   snapshot_id,
-  projection_key,
+  group_key,
   parent_group_id,
   operator,
   minimum_count,
   position
 )
 select rules.id, rules.snapshot_id, 'prerequisite:group:root', null, 'all_of', null, 0
-from public.course_rules as rules
+from public.requirement_rules as rules
 join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
 where fixture.code = 'VARI1000';
 
-insert into public.course_rule_conditions (
-  course_rule_id,
+insert into public.requirement_conditions (
+  rule_id,
   snapshot_id,
-  projection_key,
+  condition_key,
   group_id,
   condition_kind,
-  required_course_id,
-  course_requirement_mode,
+  item_id,
+  requirement_mode,
   hardness,
   source_text,
   confidence,
@@ -181,18 +181,18 @@ select
   case fixture.version when 1 then 0.87 else 0.37 end,
   case fixture.version when 1 then 'verified' else 'review' end,
   0
-from public.course_rules as rules
+from public.requirement_rules as rules
 join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
-join public.course_rule_groups as groups on groups.course_rule_id = rules.id
+join public.requirement_groups as groups on groups.rule_id = rules.id
 join public.catalogue_items as prerequisites
   on prerequisites.kind = 'course'
  and prerequisites.code = case when fixture.version = 1 then 'RANG1000' else 'COMP1100' end
 where fixture.code = 'VARI1000';
 
-insert into public.course_rule_course_references (
-  course_rule_id,
+insert into public.requirement_item_references (
+  rule_id,
   snapshot_id,
-  referenced_course_id,
+  item_id,
   source_text,
   confidence,
   review_state
@@ -204,7 +204,7 @@ select
   rules.source_text,
   case fixture.version when 1 then 0.83 else 0.33 end,
   case fixture.version when 1 then 'verified' else 'automatic' end
-from public.course_rules as rules
+from public.requirement_rules as rules
 join fixture_snapshots as fixture on fixture.snapshot_id = rules.snapshot_id
 join public.catalogue_items as prerequisites
   on prerequisites.kind = 'course'
