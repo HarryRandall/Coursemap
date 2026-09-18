@@ -12,7 +12,7 @@
 
 ## Proposals
 
-- [Catalogue review design](catalogue-review-design.md): original field-level review proposal; recheck implementation claims before using it.
+- [Redesign plan](redesign-plan.md): decisions, target model and stacked pull request sequence for the catalogue schema and import redesign, prerequisites, student interface and campus map.
 
 Keep current operating instructions in the guides and label proposals explicitly.
 When work lands, move lasting decisions into the relevant guide and remove the
