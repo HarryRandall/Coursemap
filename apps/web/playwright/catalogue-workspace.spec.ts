@@ -72,11 +72,9 @@ test("administrators edit, preview, publish and restore a course snapshot", asyn
     ).toBeVisible();
 
     await page.getByRole("tab", { name: "History" }).click();
-    const originalRow = page
-      .getByRole("listitem")
-      .filter({
-        has: page.getByText(`#${seed.published_snapshot_id}`, { exact: true }),
-      });
+    const originalRow = page.getByRole("listitem").filter({
+      has: page.getByText(`#${seed.published_snapshot_id}`, { exact: true }),
+    });
     await originalRow.getByRole("button", { name: "Restore as draft" }).click();
     await expect(page.getByText(/is now the draft/)).toBeVisible();
     await expect(
