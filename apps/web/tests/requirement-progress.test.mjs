@@ -315,7 +315,11 @@ test("minimum_count requires enough measured alternatives", () => {
     "at_least",
     [
       condition(1, { minimumUnits: 6, options: [option("COMP1100")] }),
-      condition(2, { conditionKind: "tagged_units", tag: "Unknown", minimumUnits: 6 }),
+      condition(2, {
+        conditionKind: "tagged_units",
+        tag: "Unknown",
+        minimumUnits: 6,
+      }),
     ],
     { minimumCount: 2 },
   );
