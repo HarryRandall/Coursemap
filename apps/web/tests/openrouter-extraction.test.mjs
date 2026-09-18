@@ -7,8 +7,8 @@ import {
   OpenRouterConfigurationError,
   OpenRouterRequestError,
   assertOpenRouterModel,
-  extractCourseWithOpenRouter,
-  restoreOpenRouterCourseExtraction,
+  extractWithOpenRouter,
+  restoreOpenRouterExtraction,
 } from "../lib/catalogue-import/openrouter.ts";
 
 const TEST_SCHEMA = {
@@ -35,7 +35,7 @@ test("validates saved model identifiers without an environment allow-list", () =
 
 test("sends one schema-guided, low-cost extraction and strips model reasoning from audit data", async () => {
   let capturedRequest;
-  const result = await extractCourseWithOpenRouter({
+  const result = await extractWithOpenRouter({
     model: DEFAULT_OPENROUTER_MODEL,
     systemPrompt: "Return the course.",
     modelInput: "COMP1100",
@@ -157,7 +157,7 @@ test("sends one schema-guided, low-cost extraction and strips model reasoning fr
     false,
   );
 
-  const restored = restoreOpenRouterCourseExtraction(
+  const restored = restoreOpenRouterExtraction(
     result.responseForAudit,
     DEFAULT_OPENROUTER_MODEL,
   );
@@ -169,7 +169,7 @@ test("sends one schema-guided, low-cost extraction and strips model reasoning fr
 
 test("never starts an extraction without the dedicated key", async () => {
   await assert.rejects(
-    extractCourseWithOpenRouter({
+    extractWithOpenRouter({
       model: DEFAULT_OPENROUTER_MODEL,
       systemPrompt: "Return the course.",
       modelInput: "COMP1100",
@@ -181,7 +181,7 @@ test("never starts an extraction without the dedicated key", async () => {
 });
 
 test("preserves a paid malformed response for validation and retry reuse", async () => {
-  const result = await extractCourseWithOpenRouter({
+  const result = await extractWithOpenRouter({
     model: DEFAULT_OPENROUTER_MODEL,
     systemPrompt: "Return the course.",
     modelInput: "COMP1100",
@@ -198,7 +198,7 @@ test("preserves a paid malformed response for validation and retry reuse", async
 
   assert.equal(result.parsed, null);
   assert.match(result.responseError, /invalid JSON/);
-  const restored = restoreOpenRouterCourseExtraction(
+  const restored = restoreOpenRouterExtraction(
     result.responseForAudit,
     DEFAULT_OPENROUTER_MODEL,
   );
@@ -208,7 +208,7 @@ test("preserves a paid malformed response for validation and retry reuse", async
 });
 
 test("preserves a successful non-JSON provider response for audit", async () => {
-  const result = await extractCourseWithOpenRouter({
+  const result = await extractWithOpenRouter({
     model: DEFAULT_OPENROUTER_MODEL,
     systemPrompt: "Return the course.",
     modelInput: "COMP1100",
@@ -224,7 +224,7 @@ test("preserves a successful non-JSON provider response for audit", async () => 
     result.responseForAudit.rawResponseText,
     "provider returned an unexpected body",
   );
-  const restored = restoreOpenRouterCourseExtraction(
+  const restored = restoreOpenRouterExtraction(
     result.responseForAudit,
     DEFAULT_OPENROUTER_MODEL,
   );
@@ -233,7 +233,7 @@ test("preserves a successful non-JSON provider response for audit", async () => 
 
 test("classifies temporary provider failures at the request boundary", async () => {
   await assert.rejects(
-    extractCourseWithOpenRouter({
+    extractWithOpenRouter({
       model: DEFAULT_OPENROUTER_MODEL,
       systemPrompt: "Return the course.",
       modelInput: "COMP1100",
@@ -258,7 +258,7 @@ test("classifies temporary provider failures at the request boundary", async () 
 test("preserves bounded single-line provider detail for definitive failures", async () => {
   const rawDetail = `Schema rejected:\n${"x".repeat(600)}`;
   await assert.rejects(
-    extractCourseWithOpenRouter({
+    extractWithOpenRouter({
       model: DEFAULT_OPENROUTER_MODEL,
       systemPrompt: "Return the course.",
       modelInput: "COMP1100",
