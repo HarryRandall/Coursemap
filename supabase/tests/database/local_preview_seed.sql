@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(13);
+select extensions.plan(12);
 
 select extensions.is(
   (
@@ -61,19 +61,6 @@ select extensions.is(
   ),
   6::bigint,
   'the local preview retains three years of semester planning periods'
-);
-
-select extensions.is(
-  (
-    select count(*)
-    from public.course_directory_entries
-    where academic_year_id = (
-      select id from public.academic_years where year = 2026
-    )
-      and is_current
-  ),
-  3::bigint,
-  'the preview directory has three lightweight searchable entries'
 );
 
 select extensions.is(

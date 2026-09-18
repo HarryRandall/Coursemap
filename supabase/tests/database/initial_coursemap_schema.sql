@@ -11,22 +11,15 @@ select extensions.is(
     where table_schema = 'public'
       and table_name in (
         'academic_years',
-        'course_directory_entries',
         'courses',
         'course_years',
         'course_snapshots',
         'course_sources',
-        'course_source_pages',
-        'course_import_runs',
-        'course_import_targets',
-        'course_import_stages',
-        'course_import_artifacts',
-        'course_extractions',
-        'course_review_items'
+        'course_source_pages'
       )
   ),
-  13::bigint,
-  'the snapshot-native course and import tables exist'
+  6::bigint,
+  'the snapshot-native course tables exist'
 );
 
 select extensions.hasnt_table(
@@ -50,18 +43,11 @@ select extensions.is(
     where namespaces.nspname = 'public'
       and relations.relname in (
         'academic_years',
-        'course_directory_entries',
         'courses',
         'course_years',
         'course_snapshots',
         'course_sources',
         'course_source_pages',
-        'course_import_runs',
-        'course_import_targets',
-        'course_import_stages',
-        'course_import_artifacts',
-        'course_extractions',
-        'course_review_items',
         'course_offerings',
         'offering_sessions',
         'course_learning_outcomes',
@@ -75,7 +61,7 @@ select extensions.is(
       )
       and relations.relrowsecurity
   ),
-  23::bigint,
+  16::bigint,
   'RLS is enabled on every exposed snapshot-native course table'
 );
 

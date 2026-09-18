@@ -21,9 +21,6 @@ select extensions.ok(
     select 1 from public.academic_years where year not between 2020 and 2030
   )
   and not exists (
-    select 1 from public.course_import_runs
-  )
-  and not exists (
     select 1 from public.plans
   )
   and to_regclass('public.academic_structure_versions') is null
@@ -32,7 +29,7 @@ select extensions.ok(
     from public.course_snapshots
     where origin = 'legacy_backfill'
   ),
-  'the cutover leaves no legacy years, imports, plans, programmes or snapshots'
+  'the cutover leaves no legacy years, plans, programmes or snapshots'
 );
 
 select extensions.ok(
