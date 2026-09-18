@@ -78,10 +78,7 @@ const studentNav: NavSection[] = [
   },
 ];
 
-/**
- * Grouped around the operator's jobs: campus data and access control. The
- * catalogue section returns with the unified import pipeline.
- */
+/** Grouped around the operator's jobs: catalogue, campus data and access control. */
 const adminNav: NavSection[] = [
   {
     label: null,
@@ -90,6 +87,24 @@ const adminNav: NavSection[] = [
         href: "/admin/dashboard",
         label: "Dashboard",
         icon: routeIcons["admin-dashboard"],
+      },
+    ],
+  },
+  {
+    label: "Catalogue",
+    items: [
+      { href: "/admin/courses", label: "Courses", icon: routeIcons.courses },
+      {
+        href: "/admin/programmes",
+        label: "Programmes",
+        icon: routeIcons.programmes,
+      },
+      { href: "/admin/majors", label: "Majors", icon: routeIcons.majors },
+      { href: "/admin/minors", label: "Minors", icon: routeIcons.minors },
+      {
+        href: "/admin/specialisations",
+        label: "Specialisations",
+        icon: routeIcons.specialisations,
       },
     ],
   },
