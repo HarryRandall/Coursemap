@@ -4,6 +4,7 @@
 
 - [Code conventions](conventions.md): naming, comments, modules and file placement.
 - [Architecture](architecture.md): application boundaries and the data model.
+- [Catalogue operations](catalogue-operations.md): importing, reviewing, editing and publishing catalogue records.
 - [Environment template](../apps/web/.env.example): required settings, optional services and defaults.
 - [Database setup](../supabase/README.md): local services and database operations.
 - [Contributing](../CONTRIBUTING.md): workflow and verification requirements.
