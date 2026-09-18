@@ -5,6 +5,7 @@ import {
   type CatalogueKind,
   type DirectoryFilter,
   adminCataloguePath,
+  defaultCatalogueYear,
   loadCatalogueDirectoryPage,
   loadCatalogueImportRuns,
   loadCatalogueYears,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
-import { CatalogueLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
+import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 import { CatalogueDirectory } from "./catalogue-directory";
 import { CatalogueTabs } from "./catalogue-tabs";
 import { ImportRuns } from "./import-runs";
@@ -52,7 +53,7 @@ export async function CatalogueDirectoryPage({
   const requestedYear = Number(first(params.year));
   const academicYear = years.includes(requestedYear)
     ? requestedYear
-    : (years[0] ?? new Date().getFullYear());
+    : await defaultCatalogueYear(kind, years);
   const labels = CATALOGUE_KIND_LABELS[kind];
   const page = loadCatalogueDirectoryPage({
     kind,
@@ -69,11 +70,7 @@ export async function CatalogueDirectoryPage({
       currentBreadcrumbLabel={labels.plural}
     >
       <h1 className="sr-only">{labels.plural}</h1>
-      <Suspense
-        fallback={
-          <CatalogueLoading noun={labels.plural.toLowerCase()} imports />
-        }
-      >
+      <Suspense fallback={<DirectorySkeleton />}>
         <DirectoryContent page={page} kind={kind} />
       </Suspense>
     </AppShell>
@@ -119,7 +116,7 @@ export async function CatalogueImportRunsPage({
       breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
     >
       <h1 className="sr-only">{labels.singular} import runs</h1>
-      <Suspense fallback={<CatalogueLoading noun="import runs" imports />}>
+      <Suspense fallback={<DirectorySkeleton />}>
         <ImportRuns
           runs={runs}
           basePath={adminCataloguePath(kind)}
@@ -128,5 +125,18 @@ export async function CatalogueImportRunsPage({
         />
       </Suspense>
     </AppShell>
+  );
+}
+
+function DirectorySkeleton() {
+  return (
+    <div aria-busy="true" className="flex flex-1 flex-col gap-4">
+      <div className="flex justify-between">
+        <Skeleton className="h-9 w-28" />
+        <Skeleton className="h-9 w-40" />
+      </div>
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="min-h-64 flex-1" />
+    </div>
   );
 }

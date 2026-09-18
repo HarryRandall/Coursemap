@@ -1,5 +1,5 @@
 import { Badge } from "@coursemap/ui/components/badge";
-import type { DirectoryWorkflowStatus } from "@/lib/coursemap/admin-catalogue";
+import type { DirectoryWorkflowStatus } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 
 export const WORKFLOW_LABELS: Record<
