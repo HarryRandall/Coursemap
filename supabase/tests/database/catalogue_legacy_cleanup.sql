@@ -35,10 +35,12 @@ select extensions.hasnt_table(
   'the legacy catalogue source document table is absent'
 );
 
+-- The shared pipeline reuses the catalogue_import_runs name; the legacy
+-- table is recognisable by its per-item child, which stays gone.
 select extensions.hasnt_table(
   'public',
-  'catalogue_import_runs',
-  'the legacy generic import run table is absent'
+  'catalogue_import_items',
+  'the legacy generic import item table is absent'
 );
 
 select extensions.hasnt_table(
