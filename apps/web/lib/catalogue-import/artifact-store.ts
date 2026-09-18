@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-export const COURSE_IMPORT_ARTIFACT_BUCKET = "course-import-artifacts";
-export const MAX_COURSE_IMPORT_ARTIFACT_BYTES = 5 * 1024 * 1024;
+export const IMPORT_ARTIFACT_BUCKET = "course-import-artifacts";
+export const MAX_IMPORT_ARTIFACT_BYTES = 5 * 1024 * 1024;
 
-export type CourseImportArtifactKind =
+export type ImportArtifactKind =
   | "raw_html"
   | "normalised_markdown"
   | "model_input"
@@ -30,22 +30,22 @@ const EXTENSION_BY_MEDIA_TYPE: Record<string, string> = {
   "text/plain": "txt",
 };
 
-export type StoredCourseImportArtifact = {
-  bucket: typeof COURSE_IMPORT_ARTIFACT_BUCKET;
+export type StoredImportArtifact = {
+  bucket: typeof IMPORT_ARTIFACT_BUCKET;
   path: string;
   mediaType: string;
   byteSize: number;
   contentSha256: string;
 };
 
-export type CourseImportArtifactLocator = StoredCourseImportArtifact;
+export type ImportArtifactLocator = StoredImportArtifact;
 
-export class CourseImportArtifactConfigurationError extends Error {
+export class ImportArtifactConfigurationError extends Error {
   constructor() {
     super(
       "Configure NEXT_PUBLIC_SUPABASE_URL and the server-only SUPABASE_SECRET_KEY before running durable imports.",
     );
-    this.name = "CourseImportArtifactConfigurationError";
+    this.name = "ImportArtifactConfigurationError";
   }
 }
 
@@ -75,7 +75,7 @@ function isDuplicateStorageError(error: unknown) {
 function configuredStorageClient(env: NodeJS.ProcessEnv = process.env) {
   const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const secretKey = env.SUPABASE_SECRET_KEY?.trim();
-  if (!url || !secretKey) throw new CourseImportArtifactConfigurationError();
+  if (!url || !secretKey) throw new ImportArtifactConfigurationError();
   return createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -85,7 +85,7 @@ function configuredStorageClient(env: NodeJS.ProcessEnv = process.env) {
  * Stores an immutable content-addressed artefact. A duplicate upload is safe on
  * worker redelivery because the hash is part of the object path.
  */
-export async function storeCourseImportArtifact({
+export async function storeImportArtifact({
   academicYear,
   runId,
   targetId,
@@ -99,11 +99,11 @@ export async function storeCourseImportArtifact({
   runId: string;
   targetId: string;
   stage: string;
-  kind: CourseImportArtifactKind;
+  kind: ImportArtifactKind;
   mediaType: string;
   body: string | Uint8Array;
   client?: SupabaseClient;
-}): Promise<StoredCourseImportArtifact> {
+}): Promise<StoredImportArtifact> {
   if (
     !Number.isInteger(academicYear) ||
     academicYear < 2000 ||
@@ -120,7 +120,7 @@ export async function storeCourseImportArtifact({
   }
 
   const bytes = typeof body === "string" ? Buffer.from(body, "utf8") : body;
-  if (bytes.byteLength > MAX_COURSE_IMPORT_ARTIFACT_BYTES) {
+  if (bytes.byteLength > MAX_IMPORT_ARTIFACT_BYTES) {
     throw new RangeError("The course import artefact exceeds the 5 MiB limit.");
   }
 
@@ -135,7 +135,7 @@ export async function storeCourseImportArtifact({
   ].join("/");
 
   const { error } = await client.storage
-    .from(COURSE_IMPORT_ARTIFACT_BUCKET)
+    .from(IMPORT_ARTIFACT_BUCKET)
     .upload(path, bytes, {
       cacheControl: "31536000",
       contentType: mediaType,
@@ -144,7 +144,7 @@ export async function storeCourseImportArtifact({
   if (error && !isDuplicateStorageError(error)) throw error;
 
   return {
-    bucket: COURSE_IMPORT_ARTIFACT_BUCKET,
+    bucket: IMPORT_ARTIFACT_BUCKET,
     path,
     mediaType,
     byteSize: bytes.byteLength,
@@ -156,14 +156,14 @@ export async function storeCourseImportArtifact({
  * Reads an immutable private artefact and verifies it against the database
  * metadata before a retried worker trusts the contents.
  */
-export async function readCourseImportArtifact({
+export async function readImportArtifact({
   artifact,
   client = configuredStorageClient(),
 }: {
-  artifact: CourseImportArtifactLocator;
+  artifact: ImportArtifactLocator;
   client?: SupabaseClient;
 }) {
-  if (artifact.bucket !== COURSE_IMPORT_ARTIFACT_BUCKET) {
+  if (artifact.bucket !== IMPORT_ARTIFACT_BUCKET) {
     throw new TypeError(
       "The course import artefact uses an unexpected bucket.",
     );
