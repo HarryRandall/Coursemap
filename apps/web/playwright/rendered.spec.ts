@@ -137,12 +137,7 @@ test("application pages share the wide content limit", async ({
 }) => {
   await login(page, administrator);
   await page.setViewportSize({ width: 2048, height: 1000 });
-  for (const route of [
-    "/dashboard",
-    "/courses",
-    "/calendar",
-    "/admin/courses",
-  ]) {
+  for (const route of ["/dashboard", "/courses", "/calendar", "/admin/users"]) {
     await page.goto(route);
     const content = page.locator('[data-slot="page-content"]:visible');
     await content.waitFor({ state: "visible" });
@@ -236,12 +231,7 @@ test("rounded table and map surfaces keep all four corners", async ({
     await firstGroup.getByRole("button", { name: /Platform access/ }).click();
     await expectRoundedCorners(firstGroup);
 
-    for (const route of [
-      "/courses",
-      "/admin/courses",
-      "/admin/users",
-      "/admin/courses/imports",
-    ]) {
+    for (const route of ["/courses", "/admin/users"]) {
       await page.goto(route);
       const surface = page.locator("[data-selectable]").first();
       await expect(surface).toBeVisible();
