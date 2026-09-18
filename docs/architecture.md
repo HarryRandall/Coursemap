@@ -100,6 +100,15 @@ The first snapshot for an item year becomes its draft immediately. Runs
 dispatch to Vercel Queues when `COURSEMAP_QUEUE_IMPORTS_ENABLED=true` and run
 inline after the request otherwise.
 
+Review reads `catalogue_import_changes`: one `change` row per field or section
+that differs from the baseline (with old and new values and the source
+excerpt) and one `flag` row per parser review item. Administrators accept or
+reject each change and acknowledge flags; **Apply** writes a new draft from
+the baseline plus the accepted changes (or points the draft at the candidate
+when everything is accepted). **Publish** moves `published_snapshot_id` to the
+draft and clears the draft pointer once `catalogue_publish_blockers` is empty:
+no open changes and no open blocking flag on the draft's target.
+
 ## University calendar
 
 Fetch a reviewable manifest from the [ANU university calendar](https://www.anu.edu.au/directories/university-calendar), then import it into local Supabase:
