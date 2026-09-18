@@ -45,14 +45,21 @@ export class ImportDatabaseConfigurationError extends Error {
   }
 }
 
-/** Development uses the local database; every other environment needs the worker URL. */
+/**
+ * Development and the local test server use the loopback database (the
+ * latter through COURSEMAP_DATABASE_URL); every other environment needs the
+ * hosted worker URL.
+ */
 export async function createImportDatabaseClient() {
   const configured = process.env.COURSEMAP_IMPORT_DATABASE_URL?.trim();
-  if (process.env.NODE_ENV === "development" && !configured) {
+  if (configured) return createHostedImportDatabaseClient(configured);
+  if (
+    process.env.NODE_ENV === "development" ||
+    process.env.COURSEMAP_DATABASE_URL?.trim()
+  ) {
     return createLocalDatabaseClient();
   }
-  if (!configured) throw new ImportDatabaseConfigurationError();
-  return createHostedImportDatabaseClient(configured);
+  throw new ImportDatabaseConfigurationError();
 }
 
 export async function withImportDatabaseClient<T>(

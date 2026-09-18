@@ -18,7 +18,7 @@ import {
   type CatalogueDirectoryPage,
   type CatalogueDirectoryRecord,
   type DirectoryFilter,
-} from "@/lib/coursemap/admin-catalogue";
+} from "@/lib/coursemap/catalogue-kinds";
 import {
   CatalogueIdentity,
   DataTableShell,
@@ -288,7 +288,7 @@ export function CatalogueDirectory({
         ]}
         state={{
           query,
-          values: { status: filter },
+          values: { status: filter === "all" ? "" : filter },
           onQueryChange: (value) => navigate({ q: value }),
           onFilterChange: (key, value) => navigate({ [key]: value }),
         }}
@@ -310,7 +310,7 @@ export function CatalogueDirectory({
               type="button"
             >
               <X size={14} aria-hidden="true" />
-              Clear
+              Clear selection
             </Button>
             <Button
               size="sm"

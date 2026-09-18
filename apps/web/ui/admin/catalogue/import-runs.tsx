@@ -25,7 +25,7 @@ import {
   CATALOGUE_KIND_LABELS,
   type ImportRunSummary,
   type ImportTargetDetail,
-} from "@/lib/coursemap/admin-catalogue";
+} from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { TargetStatusBadge } from "./workflow-badge";
