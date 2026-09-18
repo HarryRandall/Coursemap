@@ -359,7 +359,17 @@ export function structureSnapshotWrite({
     projection.requirementGroups.find(
       (group) => group.key === projection.requirementRootKey,
     )?.sourceText ?? `${projection.snapshot.title} requirements`;
-  const unmodelledStart = projection.requirementConditions.length;
+  // Unmodelled entries follow the last condition already under the root, so
+  // positions stay unique within that group.
+  const unmodelledStart =
+    projection.requirementConditions
+      .filter(
+        (condition) => condition.groupKey === projection.requirementRootKey,
+      )
+      .reduce(
+        (highest, condition) => Math.max(highest, condition.position),
+        0,
+      ) + 1;
   return {
     kind: projection.structureKind,
     code: projection.structureCode,

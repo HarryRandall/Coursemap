@@ -126,6 +126,7 @@ export type ImportTargetDetail = {
   }>;
   extraction: {
     resolvedModel: string | null;
+    finishReason: string | null;
     validationStatus: string;
     inputTokens: number;
     outputTokens: number;
