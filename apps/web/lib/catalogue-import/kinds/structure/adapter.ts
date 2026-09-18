@@ -39,6 +39,7 @@ export const structureKindAdapter: CatalogueKindAdapter<AcademicStructureExtract
     schemaVersion: ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION,
     schemaName: "academic_structure_extraction",
     maxOutputTokens: ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS,
+    requestTimeoutMs: 150_000,
     extractionJsonSchema: ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA as Record<
       string,
       unknown

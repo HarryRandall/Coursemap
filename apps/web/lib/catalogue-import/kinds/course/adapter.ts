@@ -32,6 +32,7 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
   schemaVersion: COURSE_SNAPSHOT_SCHEMA_VERSION,
   schemaName: "course_extraction",
   maxOutputTokens: 12_000,
+  requestTimeoutMs: 35_000,
   extractionJsonSchema: COURSE_EXTRACTION_JSON_SCHEMA as Record<
     string,
     unknown

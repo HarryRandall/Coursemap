@@ -93,8 +93,15 @@ function assertCurrentVersions(
 }
 
 export function safeErrorSummary(error: unknown) {
+  // The cause matters most for uncertain outcomes, where the wrapper message
+  // alone says nothing about what went wrong.
+  const cause =
+    error instanceof Error && error.cause instanceof Error
+      ? ` Cause: ${error.cause.message}`
+      : "";
   const source =
-    error instanceof Error ? error.message : "Catalogue import failed.";
+    (error instanceof Error ? error.message : "Catalogue import failed.") +
+    cause;
   return source
     .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[database URL redacted]")
     .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
@@ -133,6 +140,16 @@ export function isRetryableImportError(error: unknown) {
   // A definitive HTTP failure is safe to report, but retrying the same target
   // would be misread as an uncertain paid outcome by the reservation check.
   if (error instanceof OpenRouterRequestError) return false;
+  // Constraint and data errors from Postgres repeat identically on retry.
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    /^(22|23|42)/.test(error.code)
+  ) {
+    return false;
+  }
   if (
     error instanceof OpenRouterConfigurationError ||
     error instanceof ImportPaidOutcomeUncertainError ||
@@ -426,6 +443,7 @@ async function processClaimedTarget({
             schema: adapter.extractionJsonSchema,
             schemaName: adapter.schemaName,
             maxOutputTokens: adapter.maxOutputTokens,
+            requestTimeoutMs: adapter.requestTimeoutMs,
             signal,
           });
           const responseArtifact = await persistArtifact({

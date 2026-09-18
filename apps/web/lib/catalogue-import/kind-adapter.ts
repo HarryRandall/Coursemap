@@ -45,6 +45,8 @@ export type CatalogueKindAdapter<Extraction = unknown> = {
   schemaVersion: string;
   schemaName: string;
   maxOutputTokens: number;
+  /** Structure pages produce long outputs; each kind sets its own budget. */
+  requestTimeoutMs: number;
   extractionJsonSchema: Record<string, unknown>;
   fetchSource(
     claim: ClaimedImportTarget,

@@ -406,6 +406,7 @@ export async function extractWithOpenRouter({
   schema,
   schemaName = "course_extraction",
   maxOutputTokens = 12_000,
+  requestTimeoutMs = OPENROUTER_REQUEST_TIMEOUT_MS,
   env = process.env,
   fetchImpl = fetch,
   signal,
@@ -416,6 +417,7 @@ export async function extractWithOpenRouter({
   schema: JsonSchema;
   schemaName?: string;
   maxOutputTokens?: number;
+  requestTimeoutMs?: number;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
   signal?: AbortSignal;
@@ -447,11 +449,8 @@ export async function extractWithOpenRouter({
     body: JSON.stringify(requestBody),
     redirect: "error",
     signal: signal
-      ? AbortSignal.any([
-          signal,
-          AbortSignal.timeout(OPENROUTER_REQUEST_TIMEOUT_MS),
-        ])
-      : AbortSignal.timeout(OPENROUTER_REQUEST_TIMEOUT_MS),
+      ? AbortSignal.any([signal, AbortSignal.timeout(requestTimeoutMs)])
+      : AbortSignal.timeout(requestTimeoutMs),
   });
 
   const responseText = await response.text();
