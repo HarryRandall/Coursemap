@@ -49,9 +49,12 @@ states are separate:
   options and unmodelled requirements) reference the shared snapshot through
   `snapshot_id`. Child rows can be assembled until the snapshot is sealed.
 - `snapshot_field_evidence`: shared field-level source evidence
-- `course_rules`, nested `course_rule_groups` and `course_rule_conditions`,
-  and the structure requirement tables, still use separate vocabularies until
-  the shared requirement model replaces both
+- `requirement_rules`, nested `requirement_groups`, typed
+  `requirement_conditions`, `requirement_condition_options` for set members
+  and `requirement_item_references` for graph edges. One rule per kind per
+  snapshot: course requisites (`prerequisite`, `corequisite`,
+  `incompatibility`, `permission`, `assumed_knowledge`) and structure
+  completion requirements (`structure`) share fifteen condition kinds
 - `catalogue_sources` and immutable `catalogue_source_pages`: retrieval
   provenance shared by every kind and the university calendar
 - `published_course_summaries`: a security-invoker view joining published
