@@ -23,9 +23,7 @@ export function localTestEnvironment() {
     }
   }
   return {
-    COURSEMAP_QUEUE_IMPORTS_ENABLED: "false",
     COURSEMAP_DATABASE_URL: status.DB_URL,
-    COURSEMAP_IMPORT_DATABASE_URL: status.DB_URL,
     NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:4319",
     NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:

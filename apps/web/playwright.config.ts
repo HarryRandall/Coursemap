@@ -36,7 +36,6 @@ export default defineConfig({
     timeout: 60_000,
     env: {
       ...(profile === "authenticated" ? localTestEnvironment() : {}),
-      COURSEMAP_QUEUE_IMPORTS_ENABLED: "false",
       NEXT_PUBLIC_SITE_URL: origin,
       ...(profile === "access"
         ? {
