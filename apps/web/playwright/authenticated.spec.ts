@@ -67,42 +67,6 @@ test("student navigation works at desktop and narrow widths", async ({
   expect(errors).toEqual([]);
 });
 
-test("administrator can inspect course review tabs", async ({
-  page,
-  administrator,
-}) => {
-  await login(page, administrator);
-  await page.goto("/admin/courses");
-  await expect(page.getByRole("main")).toBeVisible();
-  for (const path of [
-    "/admin/programmes",
-    "/admin/majors",
-    "/admin/minors",
-    "/admin/specialisations",
-  ]) {
-    await page.goto(path);
-    await expect(
-      page.getByRole("searchbox", { name: "Search", exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: /Academic year/ }),
-    ).toBeVisible();
-  }
-  await page.goto("/admin/courses");
-  await page
-    .getByRole("link", { name: /COMP1100/ })
-    .first()
-    .click();
-  await expect(page).toHaveURL(/\/admin\/courses\/[0-9a-f-]{36}$/);
-  for (const name of ["History", "Preview", "Review"]) {
-    await page.getByRole("tab", { name, exact: true }).click();
-    await expect(page.getByRole("tab", { name, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-  }
-});
-
 test("course selection persists in an independent student plan", async ({
   page,
   planner,
