@@ -1049,10 +1049,16 @@ as $function$
     );
 $function$;
 
-revoke all on function private.is_published_snapshot(bigint) from public, anon, authenticated;
-revoke all on function private.can_manage_catalogue() from public, anon, authenticated;
-revoke all on function private.can_read_snapshot(bigint) from public, anon, authenticated;
-revoke all on function private.can_read_catalogue_item(bigint) from public, anon, authenticated;
+-- Policies evaluate these with the querying role's privileges, so the roles
+-- the policies apply to must be able to execute them.
+revoke all on function private.is_published_snapshot(bigint) from public;
+revoke all on function private.can_manage_catalogue() from public;
+revoke all on function private.can_read_snapshot(bigint) from public;
+revoke all on function private.can_read_catalogue_item(bigint) from public;
+grant execute on function private.is_published_snapshot(bigint) to anon, authenticated;
+grant execute on function private.can_manage_catalogue() to anon, authenticated;
+grant execute on function private.can_read_snapshot(bigint) to anon, authenticated;
+grant execute on function private.can_read_catalogue_item(bigint) to anon, authenticated;
 
 alter table public.catalogue_items enable row level security;
 alter table public.catalogue_item_years enable row level security;

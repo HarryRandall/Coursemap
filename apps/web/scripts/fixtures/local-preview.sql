@@ -234,52 +234,94 @@ where year = 2026;
 
 -- Published academic structures for exercising the complete student selection
 -- and requirements flow locally. These remain loopback-only fixture records.
-insert into public.academic_structures (code, kind)
+insert into public.catalogue_items (kind, code)
 values
-  ('LOCAL-PROGRAMME', 'programme'),
-  ('LOCAL-MAJ', 'major'),
-  ('LOCALA-MIN', 'minor'),
-  ('LOCALB-MIN', 'minor'),
-  ('LOCAL-SPEC', 'specialisation')
-on conflict (code) do update
-set kind = excluded.kind,
-    updated_at = now();
+  ('programme', 'LOCAL-PROGRAMME'),
+  ('major', 'LOCAL-MAJ'),
+  ('minor', 'LOCALA-MIN'),
+  ('minor', 'LOCALB-MIN'),
+  ('specialisation', 'LOCAL-SPEC'),
+  ('course', 'COMP1100'),
+  ('course', 'COMP1110'),
+  ('course', 'MATH1005')
+on conflict (kind, code) do nothing;
 
-insert into public.academic_structure_years (structure_id, academic_year_id)
-select structures.id, years.id
-from public.academic_structures as structures
+-- MATH1005 deliberately remains an identity only. It is visible as a
+-- prerequisite placeholder without pretending its full 2026 course page has
+-- been imported.
+insert into public.catalogue_item_years (item_id, kind, academic_year_id)
+select items.id, items.kind, years.id
+from public.catalogue_items as items
 join public.academic_years as years on years.year = 2026
-where structures.code in (
-  'LOCAL-PROGRAMME',
-  'LOCAL-MAJ',
-  'LOCALA-MIN',
-  'LOCALB-MIN',
-  'LOCAL-SPEC'
-)
-on conflict (structure_id, academic_year_id) do nothing;
+where items.code <> 'MATH1005'
+on conflict (item_id, academic_year_id) do nothing;
 
-insert into public.academic_structure_snapshots (
-  structure_year_id,
+insert into public.catalogue_source_pages (
+  source_id,
+  academic_year_id,
+  kind,
+  external_key,
+  canonical_url,
+  content_sha256,
+  http_status,
+  byte_size
+)
+select
+  sources.id,
+  years.id,
+  'course',
+  documents.external_key,
+  'https://coursemap.local.test/2026/' || lower(documents.external_key),
+  documents.content_sha256,
+  200,
+  1024
+from public.catalogue_sources as sources
+join public.academic_years as years on years.year = 2026
+cross join (values
+  ('COMP1100'::text, repeat('1', 64)),
+  ('COMP1110'::text, repeat('2', 64))
+) as documents(external_key, content_sha256)
+where sources.kind = 'local_mock'
+on conflict (source_id, academic_year_id, kind, external_key, content_sha256) do nothing;
+
+-- One snapshot per item year. Course snapshots carry their source page; the
+-- structure fixtures are manual.
+insert into public.catalogue_snapshots (
+  item_year_id,
+  kind,
   academic_year_id,
   origin,
-  schema_version,
-  semantic_hash,
-  name,
-  description,
-  units,
-  duration_years,
-  overall_confidence,
-  confirmation_status,
+  source_page_id,
+  content_hash,
   created_by
 )
 select
-  structure_years.id,
-  structure_years.academic_year_id,
-  'manual',
-  'local-preview.v1',
-  md5(structures.code || ':2026:local-preview')
-    || md5('published:' || structures.code),
-  case structures.code
+  item_years.id,
+  item_years.kind,
+  item_years.academic_year_id,
+  case when item_years.kind = 'course' then 'import' else 'manual' end,
+  pages.id,
+  md5(items.code || ':2026:local-preview') || md5('published:' || items.code),
+  '90000000-0000-4000-8000-000000000001'::uuid
+from public.catalogue_item_years as item_years
+join public.catalogue_items as items on items.id = item_years.item_id
+left join public.catalogue_source_pages as pages
+  on pages.academic_year_id = item_years.academic_year_id
+ and pages.kind = 'course'
+ and pages.external_key = items.code;
+
+insert into public.structure_snapshot_details (
+  snapshot_id,
+  kind,
+  name,
+  description,
+  units,
+  duration_years
+)
+select
+  snapshots.id,
+  snapshots.kind,
+  case items.code
     when 'LOCAL-PROGRAMME' then 'Local Bachelor of Testing'
     when 'LOCAL-MAJ' then 'Local Systems Major'
     when 'LOCALA-MIN' then 'Local Data Minor'
@@ -287,28 +329,16 @@ select
     else 'Local Artificial Intelligence Specialisation'
   end,
   'Published local fixture used to verify student academic structure selection.',
-  case structures.kind
+  case snapshots.kind
     when 'programme' then 144
     when 'major' then 48
     else 24
   end,
-  case when structures.kind = 'programme' then 3 else null end,
-  1,
-  'not_required',
-  '90000000-0000-4000-8000-000000000001'
-from public.academic_structure_years as structure_years
-join public.academic_structures as structures
-  on structures.id = structure_years.structure_id
-join public.academic_years as years
-  on years.id = structure_years.academic_year_id
- and years.year = 2026
-where structures.code in (
-  'LOCAL-PROGRAMME',
-  'LOCAL-MAJ',
-  'LOCALA-MIN',
-  'LOCALB-MIN',
-  'LOCAL-SPEC'
-);
+  case when snapshots.kind = 'programme' then 3 else null end
+from public.catalogue_snapshots as snapshots
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
+where snapshots.kind <> 'course';
 
 insert into public.academic_structure_snapshot_relationships (
   snapshot_id,
@@ -329,11 +359,9 @@ select
   options.target_title,
   options.source_text,
   '#local-structure-options'
-from public.academic_structure_snapshots as snapshots
-join public.academic_structure_years as structure_years
-  on structure_years.id = snapshots.structure_year_id
-join public.academic_structures as structures
-  on structures.id = structure_years.structure_id
+from public.catalogue_snapshots as snapshots
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
 cross join (
   values
     (1, 'major'::text, 'LOCAL-MAJ'::text, 'Local Systems Major'::text, 'Choose the Local Systems Major.'::text),
@@ -341,7 +369,7 @@ cross join (
     (3, 'minor', 'LOCALB-MIN', 'Local Design Minor', 'Choose the Local Design Minor.'),
     (4, 'specialisation', 'LOCAL-SPEC', 'Local Artificial Intelligence Specialisation', 'Choose the Local Artificial Intelligence Specialisation.')
 ) as options(position, target_kind, target_code, target_title, source_text)
-where structures.code = 'LOCAL-PROGRAMME';
+where items.code = 'LOCAL-PROGRAMME';
 
 insert into public.academic_structure_requirement_groups (
   snapshot_id,
@@ -355,23 +383,13 @@ insert into public.academic_structure_requirement_groups (
 select
   snapshots.id,
   'root',
-  snapshots.name || ' requirements',
+  details.name || ' requirements',
   'all_of',
-  'Complete all published requirements for ' || snapshots.name || '.',
+  'Complete all published requirements for ' || details.name || '.',
   '#local-requirements',
   0
-from public.academic_structure_snapshots as snapshots
-join public.academic_structure_years as structure_years
-  on structure_years.id = snapshots.structure_year_id
-join public.academic_structures as structures
-  on structures.id = structure_years.structure_id
-where structures.code in (
-  'LOCAL-PROGRAMME',
-  'LOCAL-MAJ',
-  'LOCALA-MIN',
-  'LOCALB-MIN',
-  'LOCAL-SPEC'
-);
+from public.catalogue_snapshots as snapshots
+join public.structure_snapshot_details as details on details.snapshot_id = snapshots.id;
 
 insert into public.academic_structure_requirement_conditions (
   snapshot_id,
@@ -388,27 +406,15 @@ select
   groups.id,
   0,
   'root:local-requirement',
-  case when structures.kind = 'programme' then 'unit_total' else 'course_list' end,
-  case when structures.kind = 'programme' then 144 else 6 end,
+  case when snapshots.kind = 'programme' then 'unit_total' else 'course_list' end,
+  case when snapshots.kind = 'programme' then 144 else 6 end,
   case
-    when structures.kind = 'programme' then 'Complete 144 units.'
+    when snapshots.kind = 'programme' then 'Complete 144 units.'
     else 'Complete the listed local fixture course.'
   end,
   '#local-requirements'
 from public.academic_structure_requirement_groups as groups
-join public.academic_structure_snapshots as snapshots
-  on snapshots.id = groups.snapshot_id
-join public.academic_structure_years as structure_years
-  on structure_years.id = snapshots.structure_year_id
-join public.academic_structures as structures
-  on structures.id = structure_years.structure_id
-where structures.code in (
-  'LOCAL-PROGRAMME',
-  'LOCAL-MAJ',
-  'LOCALA-MIN',
-  'LOCALB-MIN',
-  'LOCAL-SPEC'
-);
+join public.catalogue_snapshots as snapshots on snapshots.id = groups.snapshot_id;
 
 insert into public.academic_structure_requirement_options (
   snapshot_id,
@@ -422,105 +428,22 @@ select
   conditions.id,
   1,
   'course',
-  case structures.code
+  case items.code
     when 'LOCAL-MAJ' then 'COMP1110'
     when 'LOCALA-MIN' then 'MATH1005'
     when 'LOCALB-MIN' then 'COMP1100'
     else 'COMP1110'
   end
 from public.academic_structure_requirement_conditions as conditions
-join public.academic_structure_snapshots as snapshots
-  on snapshots.id = conditions.snapshot_id
-join public.academic_structure_years as structure_years
-  on structure_years.id = snapshots.structure_year_id
-join public.academic_structures as structures
-  on structures.id = structure_years.structure_id
-where structures.kind <> 'programme'
-  and structures.code in (
-    'LOCAL-MAJ',
-    'LOCALA-MIN',
-    'LOCALB-MIN',
-    'LOCAL-SPEC'
-  );
+join public.catalogue_snapshots as snapshots on snapshots.id = conditions.snapshot_id
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
+where snapshots.kind not in ('programme', 'course');
 
-update public.academic_structure_years as structure_years
-set published_snapshot_id = snapshots.id,
-    updated_at = now()
-from public.academic_structure_snapshots as snapshots
-join public.academic_structures as structures
-  on structures.code in (
-    'LOCAL-PROGRAMME',
-    'LOCAL-MAJ',
-    'LOCALA-MIN',
-    'LOCALB-MIN',
-    'LOCAL-SPEC'
-  )
-where snapshots.structure_year_id = structure_years.id
-  and structure_years.structure_id = structures.id;
+-- Published courses ------------------------------------------------------------
 
-insert into public.course_sources (name, kind, base_url)
-values (
-  'Coursemap local preview',
-  'local_mock',
-  'https://coursemap.local.test'
-);
-
-insert into public.course_source_pages (
-  source_id,
-  academic_year_id,
-  page_kind,
-  external_key,
-  canonical_url,
-  media_type,
-  content_sha256,
-  http_status,
-  byte_size
-)
-select
-  sources.id,
-  years.id,
-  documents.page_kind,
-  documents.external_key,
-  'https://coursemap.local.test/2026/' || lower(documents.external_key),
-  'text/html',
-  documents.content_sha256,
-  200,
-  1024
-from public.course_sources as sources
-join public.academic_years as years on years.year = 2026
-cross join (values
-  ('course_directory'::text, 'COURSE-DIRECTORY'::text, repeat('d', 64)),
-  ('course_page'::text, 'COMP1100'::text, repeat('1', 64)),
-  ('course_page'::text, 'COMP1110'::text, repeat('2', 64))
-) as documents(page_kind, external_key, content_sha256)
-where sources.kind = 'local_mock';
-
-insert into public.courses (code)
-values ('COMP1100'), ('COMP1110'), ('MATH1005')
-on conflict (code) do nothing;
-
--- MATH1005 deliberately remains an identity only. It is visible as a
--- prerequisite placeholder without pretending its full 2026 course page has
--- been imported.
-insert into public.course_years (course_id, academic_year_id)
-select courses.id, years.id
-from public.courses
-cross join public.academic_years as years
-where courses.code in ('COMP1100', 'COMP1110')
-  and years.year = 2026
-on conflict (course_id, academic_year_id) do nothing;
-
-insert into public.course_snapshots (
-  course_year_id,
-  academic_year_id,
-  snapshot_number,
-  origin,
-  source_page_id,
-  projection_sha256,
-  schema_version,
-  validation_status,
-  overall_confidence,
-  has_critical_uncertainty,
+insert into public.course_snapshot_details (
+  snapshot_id,
   title,
   unit_value_kind,
   units,
@@ -540,24 +463,11 @@ insert into public.course_snapshots (
   inherent_requirements,
   prescribed_texts,
   offering_status,
-  source_updated_at,
-  created_by
+  source_updated_at
 )
 select
-  course_years.id,
-  years.id,
-  1,
-  'import',
-  documents.id,
-  case courses.code
-    when 'COMP1100' then repeat('a', 64)
-    else repeat('b', 64)
-  end,
-  'course-snapshot.v1',
-  'valid',
-  0.98,
-  false,
-  case courses.code
+  snapshots.id,
+  case items.code
     when 'COMP1100' then 'Programming as Problem Solving'
     else 'Structured Programming'
   end,
@@ -573,7 +483,7 @@ select
   'Local preview convenor',
   'In person at Acton campus',
   'A compact local preview of a parsed ANU course.',
-  case courses.code
+  case items.code
     when 'COMP1100' then 'Learn foundational programming and problem solving.'
     else 'Develop structured programming techniques using larger programs.'
   end,
@@ -582,22 +492,17 @@ select
   'None listed.',
   'No prescribed text.',
   'offered',
-  '2026-08-01 00:00:00+10',
-  '90000000-0000-4000-8000-000000000001'::uuid
-from public.course_years
-join public.courses on courses.id = course_years.course_id
-join public.academic_years as years
-  on years.id = course_years.academic_year_id
-join public.course_source_pages as documents
-  on documents.academic_year_id = years.id
- and documents.external_key = courses.code
-where years.year = 2026;
+  '2026-08-01 00:00:00+10'
+from public.catalogue_snapshots as snapshots
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
+where snapshots.kind = 'course';
 
--- Fixed-unit courses store their single value on the snapshot. Unit options
--- are reserved for courses whose unit value is variable.
+-- Fixed-unit courses store their single value on the details row. Unit
+-- options are reserved for courses whose unit value is variable.
 
 insert into public.course_fees (
-  course_snapshot_id,
+  snapshot_id,
   position,
   fee_year,
   audience,
@@ -619,30 +524,29 @@ select
   'course',
   'Indicative domestic fee',
   'Indicative domestic fee: $1,110'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
-insert into public.course_areas_of_interest (
-  course_snapshot_id,
-  position,
-  name
-)
+insert into public.course_areas_of_interest (snapshot_id, position, name)
 select snapshots.id, 1, 'Computer Science'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
 insert into public.course_attributes (
-  course_snapshot_id,
+  snapshot_id,
   position,
   attribute_kind,
   value,
   source_text
 )
 select snapshots.id, 1, 'stem', 'STEM', 'STEM course'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
 insert into public.course_offerings (
-  course_snapshot_id,
+  snapshot_id,
   academic_year_id,
-  course_source_page_id,
+  source_page_id,
   delivery_mode,
   location
 )
@@ -652,13 +556,14 @@ select
   snapshots.source_page_id,
   'In person',
   'Acton'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
 insert into public.offering_sessions (
   course_offering_id,
-  course_snapshot_id,
+  snapshot_id,
   academic_year_id,
-  course_source_page_id,
+  source_page_id,
   academic_period_id,
   academic_period_code,
   academic_period_name,
@@ -682,34 +587,31 @@ select
   'S1',
   'Semester 1',
   1,
-  case courses.code when 'COMP1100' then '11001' else '11101' end,
+  case items.code when 'COMP1100' then '11001' else '11101' end,
   '2026-02-23',
   '2026-03-02',
   '2026-03-31',
   '2026-05-30',
   'In person',
   'Acton',
-  'https://coursemap.local.test/2026/classes/' || lower(courses.code),
+  'https://coursemap.local.test/2026/classes/' || lower(items.code),
   'Semester 1, in person at Acton'
-from public.course_snapshots as snapshots
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-join public.course_offerings as offerings
-  on offerings.course_snapshot_id = snapshots.id
+from public.catalogue_snapshots as snapshots
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
+join public.course_offerings as offerings on offerings.snapshot_id = snapshots.id
 join public.academic_periods as periods
   on periods.calendar_year = 2026
- and periods.code = 'S1';
+ and periods.code = 'S1'
+where snapshots.kind = 'course';
 
-insert into public.course_learning_outcomes (
-  course_snapshot_id,
-  position,
-  body
-)
+insert into public.course_learning_outcomes (snapshot_id, position, body)
 select snapshots.id, 1, 'Apply foundational programming concepts.'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
 insert into public.course_assessment_items (
-  course_snapshot_id,
+  snapshot_id,
   position,
   title,
   weight,
@@ -725,56 +627,49 @@ select
   false,
   'Week 8',
   'Programming assignment (40%)'
-from public.course_snapshots as snapshots;
+from public.catalogue_snapshots as snapshots
+where snapshots.kind = 'course';
 
 insert into public.course_assessment_outcomes (
-  course_snapshot_id,
+  snapshot_id,
   assessment_item_id,
   learning_outcome_id
 )
 select snapshots.id, assessments.id, outcomes.id
-from public.course_snapshots as snapshots
+from public.catalogue_snapshots as snapshots
 join public.course_assessment_items as assessments
-  on assessments.course_snapshot_id = snapshots.id
+  on assessments.snapshot_id = snapshots.id
 join public.course_learning_outcomes as outcomes
-  on outcomes.course_snapshot_id = snapshots.id
- and outcomes.position = 1;
+  on outcomes.snapshot_id = snapshots.id
+ and outcomes.position = 1
+where snapshots.kind = 'course';
 
-insert into public.course_snapshot_field_evidence (
-  course_snapshot_id,
+insert into public.snapshot_field_evidence (
+  snapshot_id,
   academic_year_id,
   source_page_id,
-  entity_kind,
-  entity_key,
-  field_key,
-  importance,
-  extraction_state,
+  field_path,
+  method,
   confidence,
-  confidence_band,
-  verification_status,
   source_locator,
-  evidence_excerpt
+  source_excerpt
 )
 select
   snapshots.id,
   snapshots.academic_year_id,
   snapshots.source_page_id,
-  'course',
-  'root',
   'title',
-  'high',
-  'present',
+  'deterministic',
   0.99,
-  'high',
-  'source_matched',
   'h1',
-  snapshots.title
-from public.course_snapshots as snapshots;
+  details.title
+from public.catalogue_snapshots as snapshots
+join public.course_snapshot_details as details on details.snapshot_id = snapshots.id;
 
 insert into public.course_rules (
-  course_snapshot_id,
+  snapshot_id,
   academic_year_id,
-  course_source_page_id,
+  source_page_id,
   rule_kind,
   hardness,
   source_text,
@@ -790,14 +685,14 @@ select
   'You must have completed MATH1005.',
   'verified',
   0.99
-from public.course_snapshots as snapshots
-join public.course_years on course_years.id = snapshots.course_year_id
-join public.courses on courses.id = course_years.course_id
-where courses.code = 'COMP1110';
+from public.catalogue_snapshots as snapshots
+join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
+join public.catalogue_items as items on items.id = item_years.item_id
+where items.code = 'COMP1110';
 
 insert into public.course_rule_groups (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   projection_key,
   parent_group_id,
   operator,
@@ -806,7 +701,7 @@ insert into public.course_rule_groups (
 )
 select
   rules.id,
-  rules.course_snapshot_id,
+  rules.snapshot_id,
   'prerequisite:group:root',
   null,
   'all_of',
@@ -816,7 +711,7 @@ from public.course_rules as rules;
 
 insert into public.course_rule_conditions (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   projection_key,
   group_id,
   condition_kind,
@@ -830,7 +725,7 @@ insert into public.course_rule_conditions (
 )
 select
   rules.id,
-  rules.course_snapshot_id,
+  rules.snapshot_id,
   'prerequisite:condition:0',
   groups.id,
   'course',
@@ -843,11 +738,12 @@ select
   0
 from public.course_rules as rules
 join public.course_rule_groups as groups on groups.course_rule_id = rules.id
-join public.courses as prerequisite on prerequisite.code = 'MATH1005';
+join public.catalogue_items as prerequisite
+  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005';
 
 insert into public.course_rule_course_references (
   course_rule_id,
-  course_snapshot_id,
+  snapshot_id,
   referenced_course_id,
   source_text,
   confidence,
@@ -855,20 +751,20 @@ insert into public.course_rule_course_references (
 )
 select
   rules.id,
-  rules.course_snapshot_id,
+  rules.snapshot_id,
   prerequisite.id,
   'MATH1005',
   0.99,
   'verified'
 from public.course_rules as rules
-join public.courses as prerequisite on prerequisite.code = 'MATH1005';
+join public.catalogue_items as prerequisite
+  on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005';
 
--- Setting the publication pointer is the only publication action. The
--- existing trigger seals the snapshot after every rich child has been stored.
-
-update public.course_years
+-- Setting the publication pointer is the only publication action. The pointer
+-- trigger seals each snapshot after every child row has been stored.
+update public.catalogue_item_years as item_years
 set published_snapshot_id = snapshots.id
-from public.course_snapshots as snapshots
-where snapshots.course_year_id = course_years.id;
+from public.catalogue_snapshots as snapshots
+where snapshots.item_year_id = item_years.id;
 
 commit;
