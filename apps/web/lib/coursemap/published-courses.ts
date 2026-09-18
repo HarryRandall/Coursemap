@@ -29,20 +29,14 @@ const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/u;
 
 type AcademicYearRow = { id: number; year: number };
 type CourseIdentityRow = { id: number; code: string };
-type CourseYearRow = {
-  course_id: number;
-  id: number;
-  published_snapshot_id: number | null;
-};
 type SnapshotListRow = {
   academic_career: string | null;
+  code: string;
   college: string | null;
   convener_text: string | null;
-  course_year_id: number;
   delivery_summary: string | null;
   description: string | null;
   eftsl: number | null;
-  id: number;
   inherent_requirements: string | null;
   introduction: string | null;
   level: number | null;
@@ -51,6 +45,7 @@ type SnapshotListRow = {
   offering_status: string;
   prescribed_texts: string | null;
   school: string | null;
+  snapshot_id: number;
   source_updated_at: string | null;
   subject_code: string | null;
   subject_name: string | null;
@@ -61,7 +56,7 @@ type SnapshotListRow = {
   workload_text: string | null;
 };
 type OfferingRow = {
-  course_snapshot_id: number;
+  snapshot_id: number;
   delivery_mode: string | null;
   id: number;
   location: string | null;
@@ -73,7 +68,7 @@ type OfferingSessionRow = {
   class_number: string | null;
   class_summary_url: string | null;
   course_offering_id: number;
-  course_snapshot_id: number | null;
+  snapshot_id: number | null;
   delivery_mode: string | null;
   ends_on: string | null;
   enrol_closes_on: string | null;
@@ -83,7 +78,7 @@ type OfferingSessionRow = {
 };
 type RuleRow = {
   confidence: number;
-  course_snapshot_id: number | null;
+  snapshot_id: number | null;
   id: number;
   review_state: string;
   rule_kind: string;
@@ -99,7 +94,7 @@ type RuleConditionRow = {
 };
 
 const SNAPSHOT_LIST_SELECT =
-  "id,course_year_id,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
+  "snapshot_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
 
 export type PublishedCourseFilters = {
   query?: string;
@@ -892,10 +887,11 @@ async function loadAcademicYearOptionsUncached(): Promise<
   return Promise.all(
     ((years ?? []) as AcademicYearRow[]).map(async (year) => {
       const { count, error: countError } = await supabase
-        .from("course_years")
+        .from("catalogue_item_years")
         .select("id", { count: "exact", head: true })
         .eq("academic_year_id", year.id)
-        .eq("lifecycle_status", "active")
+        .eq("kind", "course")
+        .is("archived_at", null)
         .not("published_snapshot_id", "is", null);
       if (countError) throw countError;
       return { year: year.year, hasPublishedCourses: (count ?? 0) > 0 };
@@ -932,43 +928,17 @@ async function snapshotIdsForSession(
 ) {
   const { data, error } = await supabase
     .from("offering_sessions")
-    .select("course_snapshot_id")
+    .select("snapshot_id")
     .eq("academic_year_id", yearId)
     .eq("academic_period_name", session);
   if (error) throw error;
   return [
     ...new Set(
       (data ?? []).flatMap((row) =>
-        row.course_snapshot_id === null ? [] : [row.course_snapshot_id],
+        row.snapshot_id === null ? [] : [row.snapshot_id],
       ),
     ),
   ];
-}
-
-async function snapshotIdsForCodeSearch(
-  supabase: SupabaseClient<Database>,
-  yearId: number,
-  query: string,
-) {
-  const { data: courses, error: coursesError } = await supabase
-    .from("courses")
-    .select("id")
-    .ilike("code", `%${query}%`)
-    .limit(500);
-  if (coursesError) throw coursesError;
-  const courseIds = (courses ?? []).map((course) => course.id);
-  if (courseIds.length === 0) return [];
-  const { data: years, error: yearsError } = await supabase
-    .from("course_years")
-    .select("published_snapshot_id")
-    .eq("academic_year_id", yearId)
-    .eq("lifecycle_status", "active")
-    .in("course_id", courseIds)
-    .not("published_snapshot_id", "is", null);
-  if (yearsError) throw yearsError;
-  return (years ?? []).flatMap((row) =>
-    row.published_snapshot_id === null ? [] : [row.published_snapshot_id],
-  );
 }
 
 async function loadListRelationships(
@@ -976,43 +946,32 @@ async function loadListRelationships(
   snapshots: SnapshotListRow[],
   year: AcademicYearRow,
 ) {
-  const snapshotIds = snapshots.map((snapshot) => snapshot.id);
-  const courseYearIds = snapshots.map((snapshot) => snapshot.course_year_id);
+  const snapshotIds = snapshots.map((snapshot) => snapshot.snapshot_id);
   if (snapshotIds.length === 0) return [];
-  const [courseYearsResult, offeringsResult, rulesResult] = await Promise.all([
-    supabase
-      .from("course_years")
-      .select("id,course_id,published_snapshot_id")
-      .in("id", courseYearIds),
+  const [offeringsResult, rulesResult] = await Promise.all([
     supabase
       .from("course_offerings")
-      .select("id,course_snapshot_id,delivery_mode,location")
-      .in("course_snapshot_id", snapshotIds),
+      .select("id,snapshot_id,delivery_mode,location")
+      .in("snapshot_id", snapshotIds),
     supabase
       .from("course_rules")
-      .select(
-        "id,course_snapshot_id,rule_kind,source_text,confidence,review_state",
-      )
-      .in("course_snapshot_id", snapshotIds)
+      .select("id,snapshot_id,rule_kind,source_text,confidence,review_state")
+      .in("snapshot_id", snapshotIds)
       .in("rule_kind", ["prerequisite", "incompatibility"]),
   ]);
-  if (courseYearsResult.error) throw courseYearsResult.error;
   if (offeringsResult.error) throw offeringsResult.error;
   if (rulesResult.error) throw rulesResult.error;
-  const courseYears = (courseYearsResult.data ?? []) as CourseYearRow[];
-  const courseIds = courseYears.map((courseYear) => courseYear.course_id);
   const offerings = (offeringsResult.data ?? []) as OfferingRow[];
   const rules = (rulesResult.data ?? []) as RuleRow[];
   const offeringIds = offerings.map((offering) => offering.id);
   const ruleIds = rules.map((rule) => rule.id);
-  const [identitiesResult, sessionsResult, referencesResult, conditionsResult] =
+  const [sessionsResult, referencesResult, conditionsResult] =
     await Promise.all([
-      supabase.from("courses").select("id,code").in("id", courseIds),
       offeringIds.length
         ? supabase
             .from("offering_sessions")
             .select(
-              "course_offering_id,course_snapshot_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
+              "course_offering_id,snapshot_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
             )
             .in("course_offering_id", offeringIds)
         : Promise.resolve({ data: [], error: null }),
@@ -1030,11 +989,9 @@ async function loadListRelationships(
             .not("required_course_id", "is", null)
         : Promise.resolve({ data: [], error: null }),
     ]);
-  if (identitiesResult.error) throw identitiesResult.error;
   if (sessionsResult.error) throw sessionsResult.error;
   if (referencesResult.error) throw referencesResult.error;
   if (conditionsResult.error) throw conditionsResult.error;
-  const identities = (identitiesResult.data ?? []) as CourseIdentityRow[];
   const references = (referencesResult.data ?? []) as RuleReferenceRow[];
   const conditions = (conditionsResult.data ?? []) as RuleConditionRow[];
   const referencedIds = [
@@ -1049,48 +1006,51 @@ async function loadListRelationships(
   ];
   const [referencedResult, publishedReferencesResult] = await Promise.all([
     referencedIds.length
-      ? supabase.from("courses").select("id,code").in("id", referencedIds)
+      ? supabase
+          .from("catalogue_items")
+          .select("id,code")
+          .in("id", referencedIds)
       : Promise.resolve({ data: [], error: null }),
     referencedIds.length
       ? supabase
-          .from("course_years")
-          .select("course_id")
+          .from("catalogue_item_years")
+          .select("item_id")
           .eq("academic_year_id", year.id)
-          .eq("lifecycle_status", "active")
-          .in("course_id", referencedIds)
+          .eq("kind", "course")
+          .is("archived_at", null)
+          .in("item_id", referencedIds)
           .not("published_snapshot_id", "is", null)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (referencedResult.error) throw referencedResult.error;
   if (publishedReferencesResult.error) throw publishedReferencesResult.error;
 
-  const courseYearById = new Map(courseYears.map((row) => [row.id, row]));
   const codeById = new Map(
-    [
-      ...identities,
-      ...((referencedResult.data ?? []) as CourseIdentityRow[]),
-    ].map((row) => [row.id, row.code]),
+    ((referencedResult.data ?? []) as CourseIdentityRow[]).map((row) => [
+      row.id,
+      row.code,
+    ]),
   );
   const publishedReferenceIds = new Set(
-    (publishedReferencesResult.data ?? []).map((row) => row.course_id),
+    (publishedReferencesResult.data ?? []).map((row) => row.item_id),
   );
   const offeringBySnapshot = new Map(
-    offerings.map((offering) => [offering.course_snapshot_id, offering]),
+    offerings.map((offering) => [offering.snapshot_id, offering]),
   );
   const sessions = (sessionsResult.data ?? []) as OfferingSessionRow[];
   const sessionsBySnapshot = new Map<number, OfferingSessionRow[]>();
   for (const session of sessions) {
-    if (session.course_snapshot_id === null) continue;
-    const existing = sessionsBySnapshot.get(session.course_snapshot_id) ?? [];
+    if (session.snapshot_id === null) continue;
+    const existing = sessionsBySnapshot.get(session.snapshot_id) ?? [];
     existing.push(session);
-    sessionsBySnapshot.set(session.course_snapshot_id, existing);
+    sessionsBySnapshot.set(session.snapshot_id, existing);
   }
   const rulesBySnapshot = new Map<number, RuleRow[]>();
   for (const rule of rules) {
-    if (rule.course_snapshot_id === null) continue;
-    const existing = rulesBySnapshot.get(rule.course_snapshot_id) ?? [];
+    if (rule.snapshot_id === null) continue;
+    const existing = rulesBySnapshot.get(rule.snapshot_id) ?? [];
     existing.push(rule);
-    rulesBySnapshot.set(rule.course_snapshot_id, existing);
+    rulesBySnapshot.set(rule.snapshot_id, existing);
   }
   const referencedIdsByRule = new Map<number, Set<number>>();
   for (const reference of references) {
@@ -1108,12 +1068,10 @@ async function loadListRelationships(
   }
 
   return snapshots.flatMap((snapshot) => {
-    const courseYear = courseYearById.get(snapshot.course_year_id);
-    const code = courseYear ? codeById.get(courseYear.course_id) : null;
-    if (!courseYear || !code) return [];
-    const snapshotSessions = sessionsBySnapshot.get(snapshot.id) ?? [];
-    const offering = offeringBySnapshot.get(snapshot.id);
-    const snapshotRules = rulesBySnapshot.get(snapshot.id) ?? [];
+    const code = snapshot.code;
+    const snapshotSessions = sessionsBySnapshot.get(snapshot.snapshot_id) ?? [];
+    const offering = offeringBySnapshot.get(snapshot.snapshot_id);
+    const snapshotRules = rulesBySnapshot.get(snapshot.snapshot_id) ?? [];
     const prerequisiteRules = snapshotRules.filter(
       (rule) => rule.rule_kind === "prerequisite",
     );
@@ -1166,7 +1124,7 @@ async function loadListRelationships(
         attributes: [],
         availableCourseCodes: availableCodes,
         code,
-        snapshotId: snapshot.id,
+        snapshotId: snapshot.snapshot_id,
         college: snapshot.college,
         convener: snapshot.convener_text ?? "Not listed",
         corequisiteText: "",
@@ -1261,18 +1219,15 @@ async function loadPublishedCoursePageUncached({
     return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
   }
   const cleanedQuery = searchPattern(query);
-  const [codeSnapshotIds, sessionSnapshotIds] = await Promise.all([
-    cleanedQuery
-      ? snapshotIdsForCodeSearch(supabase, year.id, cleanedQuery)
-      : [],
-    session ? snapshotIdsForSession(supabase, year.id, session) : null,
-  ]);
+  const sessionSnapshotIds = session
+    ? await snapshotIdsForSession(supabase, year.id, session)
+    : null;
   if (sessionSnapshotIds?.length === 0) {
     return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
   }
 
   let snapshotsQuery = supabase
-    .from("course_snapshots")
+    .from("published_course_summaries")
     .select(SNAPSHOT_LIST_SELECT, { count: "exact" })
     .eq("academic_year_id", year.id);
   if (subject) snapshotsQuery = snapshotsQuery.eq("subject_code", subject);
@@ -1280,15 +1235,12 @@ async function loadPublishedCoursePageUncached({
     snapshotsQuery = snapshotsQuery.eq("level", level * 1000);
   }
   if (sessionSnapshotIds) {
-    snapshotsQuery = snapshotsQuery.in("id", sessionSnapshotIds);
+    snapshotsQuery = snapshotsQuery.in("snapshot_id", sessionSnapshotIds);
   }
   if (cleanedQuery) {
     const pattern = `*${cleanedQuery}*`;
-    const codeClause = codeSnapshotIds.length
-      ? `,id.in.(${codeSnapshotIds.join(",")})`
-      : "";
     snapshotsQuery = snapshotsQuery.or(
-      `title.ilike.${pattern},subject_code.ilike.${pattern},school.ilike.${pattern},convener_text.ilike.${pattern}${codeClause}`,
+      `code.ilike.${pattern},title.ilike.${pattern},subject_code.ilike.${pattern},school.ilike.${pattern},convener_text.ilike.${pattern}`,
     );
   }
   const start = (safePage - 1) * safePageSize;
@@ -1394,7 +1346,7 @@ export async function loadPublishedCourseFilterOptions(academicYear: number) {
   if (!year) return { subjects: [], levels: [], sessions: [] };
   const [snapshotsResult, sessionsResult] = await Promise.all([
     supabase
-      .from("course_snapshots")
+      .from("published_course_summaries")
       .select("subject_code,level")
       .eq("academic_year_id", year.id),
     supabase
