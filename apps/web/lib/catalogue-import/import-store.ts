@@ -51,14 +51,16 @@ export class ImportDatabaseConfigurationError extends Error {
  * hosted worker URL.
  */
 export async function createImportDatabaseClient() {
-  const configured = process.env.COURSEMAP_IMPORT_DATABASE_URL?.trim();
-  if (configured) return createHostedImportDatabaseClient(configured);
+  // A loopback COURSEMAP_DATABASE_URL marks the local test server, which must
+  // never reach the hosted database even when .env.local names one.
   if (
     process.env.NODE_ENV === "development" ||
     process.env.COURSEMAP_DATABASE_URL?.trim()
   ) {
     return createLocalDatabaseClient();
   }
+  const configured = process.env.COURSEMAP_IMPORT_DATABASE_URL?.trim();
+  if (configured) return createHostedImportDatabaseClient(configured);
   throw new ImportDatabaseConfigurationError();
 }
 

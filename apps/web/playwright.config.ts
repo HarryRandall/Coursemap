@@ -27,6 +27,7 @@ export default defineConfig({
               "authenticated.spec.*",
               "rendered.spec.*",
               "catalogue-admin.spec.*",
+              "catalogue-review.spec.*",
             ]
           : "access.spec.*",
     },

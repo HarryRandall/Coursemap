@@ -173,8 +173,8 @@ alter table public.catalogue_snapshots
     foreign key (import_target_id) references public.catalogue_import_targets (id)
     on delete set null;
 
--- Removing a run detaches its snapshots' provenance link. That is the only
--- change a sealed snapshot accepts besides the sealing itself.
+-- Removing a run or a user detaches the snapshot's provenance links. Those
+-- and the sealing itself are the only changes a sealed snapshot accepts.
 create or replace function private.enforce_catalogue_snapshot_immutability()
 returns trigger
 language plpgsql
@@ -189,9 +189,10 @@ begin
     return new;
   end if;
   if tg_op = 'UPDATE'
-    and new.import_target_id is null
-    and old.import_target_id is not null
-    and (to_jsonb(new) - 'import_target_id') = (to_jsonb(old) - 'import_target_id')
+    and (to_jsonb(new) - 'import_target_id' - 'created_by')
+      = (to_jsonb(old) - 'import_target_id' - 'created_by')
+    and (new.import_target_id is null or new.import_target_id = old.import_target_id)
+    and (new.created_by is null or new.created_by = old.created_by)
   then
     return new;
   end if;

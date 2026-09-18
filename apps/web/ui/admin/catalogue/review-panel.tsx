@@ -21,7 +21,6 @@ import {
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { fieldLabel } from "@/lib/catalogue-import/changes";
 import {
   applyReviewAction,
   resolveAllChangesAction,
@@ -31,6 +30,7 @@ import type {
   ReviewEntry,
   ReviewTarget,
 } from "@/lib/coursemap/admin-catalogue-record";
+import { fieldLabel } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone } from "@/lib/ui";
 import { ValueDiff } from "./value-diff";
 
