@@ -66,10 +66,11 @@ select extensions.is(
 select extensions.is(
   (
     select count(*)
-    from public.course_years
+    from public.catalogue_item_years
     where academic_year_id = (
       select id from public.academic_years where year = 2026
     )
+      and kind = 'course'
       and published_snapshot_id is not null
   ),
   2::bigint,
@@ -79,17 +80,16 @@ select extensions.is(
 select extensions.ok(
   exists (
     select 1
-    from public.courses
-    where code = 'MATH1005'
+    from public.catalogue_items
+    where kind = 'course' and code = 'MATH1005'
   )
   and not exists (
     select 1
-    from public.course_years
-    join public.courses on courses.id = course_years.course_id
-    where courses.code = 'MATH1005'
-      and (course_years.draft_snapshot_id is not null or course_years.published_snapshot_id is not null)
+    from public.catalogue_item_years
+    join public.catalogue_items as items on items.id = catalogue_item_years.item_id
+    where items.code = 'MATH1005'
   ),
-  'the prerequisite has an annual identity without invented imported content'
+  'the prerequisite has an identity without invented imported content'
 );
 
 select extensions.ok(
@@ -127,7 +127,7 @@ set local role anon;
 select extensions.is(
   (
     select count(*)
-    from public.courses
+    from public.catalogue_items
     where code in ('COMP1100', 'COMP1110', 'MATH1005')
   ),
   3::bigint,
@@ -140,20 +140,17 @@ select extensions.ok(
   (select count(*) from public.plans) = 0
   and (
     select count(*)
-    from public.academic_structure_years
-    where published_snapshot_id is not null
+    from public.catalogue_item_years
+    where kind <> 'course' and published_snapshot_id is not null
   ) = 5,
   'the preview keeps plans empty while publishing every selectable structure fixture'
 );
 
 select extensions.ok(
   not exists (
-    select 1 from public.course_snapshots as snapshots
-    join public.course_unit_options as options on options.course_snapshot_id = snapshots.id
-    join public.course_years as years on years.id = snapshots.course_year_id
-    join public.courses as courses on courses.id = years.course_id
-    where courses.code in ('COMP1100', 'COMP1110')
-      and snapshots.unit_value_kind = 'fixed'
+    select 1 from public.course_snapshot_details as details
+    join public.course_unit_options as options on options.snapshot_id = details.snapshot_id
+    where details.unit_value_kind = 'fixed'
   ),
   'fixed-unit preview courses have no variable unit options'
 );

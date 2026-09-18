@@ -11,15 +11,16 @@ select extensions.is(
     where table_schema = 'public'
       and table_name in (
         'academic_years',
-        'courses',
-        'course_years',
-        'course_snapshots',
-        'course_sources',
-        'course_source_pages'
+        'catalogue_items',
+        'catalogue_item_years',
+        'catalogue_snapshots',
+        'catalogue_sources',
+        'catalogue_source_pages',
+        'course_snapshot_details'
       )
   ),
-  6::bigint,
-  'the snapshot-native course tables exist'
+  7::bigint,
+  'the shared catalogue and course detail tables exist'
 );
 
 select extensions.hasnt_table(
@@ -43,11 +44,12 @@ select extensions.is(
     where namespaces.nspname = 'public'
       and relations.relname in (
         'academic_years',
-        'courses',
-        'course_years',
-        'course_snapshots',
-        'course_sources',
-        'course_source_pages',
+        'catalogue_items',
+        'catalogue_item_years',
+        'catalogue_snapshots',
+        'catalogue_sources',
+        'catalogue_source_pages',
+        'course_snapshot_details',
         'course_offerings',
         'offering_sessions',
         'course_learning_outcomes',
@@ -61,8 +63,8 @@ select extensions.is(
       )
       and relations.relrowsecurity
   ),
-  16::bigint,
-  'RLS is enabled on every exposed snapshot-native course table'
+  17::bigint,
+  'RLS is enabled on every exposed catalogue and course table'
 );
 
 select extensions.has_function(

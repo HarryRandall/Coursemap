@@ -1,4 +1,5 @@
 begin;
+\ir ../helpers/catalogue-fixtures.inc
 
 create extension if not exists pgtap with schema extensions;
 
@@ -39,14 +40,7 @@ values
     now()
   );
 
-insert into public.courses (code)
-values ('TEST1000');
-
-insert into public.course_years (course_id, academic_year_id)
-select courses.id, years.id
-from public.courses
-join public.academic_years as years on years.year = 2029
-where courses.code = 'TEST1000';
+select pg_temp.catalogue_item_year('course', 'TEST1000', 2029::smallint);
 
 insert into public.plans (
   id,
@@ -76,7 +70,7 @@ values (
   '32000000-0000-4000-8000-000000000001',
   '31000000-0000-4000-8000-000000000001',
   '30000000-0000-4000-8000-000000000001',
-  (select id from public.courses where code = 'TEST1000'),
+  (select id from public.catalogue_items where code = 'TEST1000'),
   (select id from public.academic_years where year = 2029)
 );
 
