@@ -47,7 +47,11 @@ Course identity, year-specific records and immutable saved states are separate:
   requirements and evidence
 - `academic_structure_import_runs`, targets, stages, artefacts, extractions and
   review items
-- `university_calendar_events` keyed by calendar year, date and title
+- `catalogue_sources` and immutable `catalogue_source_pages`, the shared
+  retrieval provenance that the university calendar already uses and the
+  unified import pipeline will adopt
+- `university_calendar_events` keyed by academic year, date and title, and
+  `university_calendar_imports` recording each command-line import
 
 User-owned planning data is also separate:
 
@@ -61,11 +65,11 @@ snapshot, plan, attempt and academic-structure row, then removes the old
 `course_versions`, `academic_structure_versions`, `requirement_groups`,
 `requirement_conditions`, `academic_structure_relationships` and directory
 compatibility schema. No legacy course or academic-structure lineage is
-retained. The generic `catalogue_years`, `catalogue_sources`,
-`catalogue_source_documents`, `catalogue_import_runs` and
-`catalogue_import_items` tables remain only because the university-calendar
-importer still uses them; course and academic-structure imports use their
-domain-specific provenance tables.
+retained. The generic `catalogue_years`, `catalogue_source_documents`,
+`catalogue_import_runs` and `catalogue_import_items` tables have been removed;
+course and academic-structure imports still use their domain-specific
+provenance tables until the [redesign plan](redesign-plan.md) merges them onto
+`catalogue_source_pages`.
 
 Course imports run asynchronously through a private Vercel Queue consumer. A
 durable run contains no more than ten course targets. Each target records HTML,
@@ -116,9 +120,12 @@ Change the year and filename together. The import script refuses hosted database
 connections. Each manifest keeps the source URL, retrieval time, content hash and
 parser diagnostics.
 
-A clean import publishes validated events idempotently using year, date and title,
-and archives previously published events missing from the manifest. A manifest
-with error diagnostics records a failed run and leaves published events untouched.
+A clean import registers the year in `academic_years` if needed, records the
+manifest as a `catalogue_source_pages` row, publishes validated events
+idempotently using year, date and title, archives previously published events
+missing from the manifest and stamps `academic_years.calendar_published_at`. A
+manifest with error diagnostics records a failed `university_calendar_imports`
+row and leaves published events untouched.
 Review diagnostics and removals before importing. Calendar publication differs
 from the draft-review workflow for course and academic-structure snapshots.
 

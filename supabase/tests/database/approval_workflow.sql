@@ -39,12 +39,6 @@ values
     now()
   );
 
-insert into public.catalogue_years (year, status, published_at)
-values (2029, 'published', now())
-on conflict (year) do update
-set status = excluded.status,
-    published_at = excluded.published_at;
-
 insert into public.courses (code)
 values ('TEST1000');
 

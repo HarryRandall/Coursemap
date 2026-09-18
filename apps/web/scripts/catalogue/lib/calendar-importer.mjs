@@ -26,10 +26,12 @@ async function upsertSource(tx, source) {
   return existing.id;
 }
 
-async function upsertCatalogueYear(tx, year) {
+// A calendar year is an academic year. Importing a calendar registers the year
+// without enabling course imports for it.
+async function upsertAcademicYear(tx, year) {
   const inserted = await tx`
-    insert into public.catalogue_years (year, status)
-    values (${year}, 'draft')
+    insert into public.academic_years (year)
+    values (${year})
     on conflict (year) do nothing
     returning id
   `;
@@ -38,21 +40,18 @@ async function upsertCatalogueYear(tx, year) {
   }
 
   const [existing] = await tx`
-    select id from public.catalogue_years where year = ${year}
+    select id from public.academic_years where year = ${year}
   `;
   return existing.id;
 }
 
-async function upsertSourceDocument(
-  tx,
-  { catalogueYearId, manifest, sourceId },
-) {
+async function upsertSourcePage(tx, { academicYearId, manifest, sourceId }) {
   const { document } = manifest;
   const inserted = await tx`
-    insert into public.catalogue_source_documents (
+    insert into public.catalogue_source_pages (
       source_id,
-      catalogue_year_id,
-      entity_kind,
+      academic_year_id,
+      kind,
       external_key,
       canonical_url,
       content_sha256,
@@ -60,14 +59,14 @@ async function upsertSourceDocument(
     )
     values (
       ${sourceId},
-      ${catalogueYearId},
+      ${academicYearId},
       'calendar',
       ${document.externalKey},
       ${document.canonicalUrl},
       ${document.contentSha256},
       ${document.fetchedAt}
     )
-    on conflict (source_id, catalogue_year_id, entity_kind, external_key, content_sha256)
+    on conflict (source_id, academic_year_id, kind, external_key, content_sha256)
     do nothing
     returning id
   `;
@@ -77,31 +76,36 @@ async function upsertSourceDocument(
 
   const [existing] = await tx`
     select id
-    from public.catalogue_source_documents
+    from public.catalogue_source_pages
     where source_id = ${sourceId}
-      and catalogue_year_id = ${catalogueYearId}
-      and entity_kind = 'calendar'
+      and academic_year_id = ${academicYearId}
+      and kind = 'calendar'
       and external_key = ${document.externalKey}
       and content_sha256 = ${document.contentSha256}
   `;
   return existing.id;
 }
 
-async function upsertEvent(tx, { calendarYear, event, sourceDocumentId }) {
+async function upsertEvent(
+  tx,
+  { academicYearId, calendarYear, event, sourcePageId },
+) {
   const inserted = await tx`
     insert into public.university_calendar_events (
+      academic_year_id,
       calendar_year,
       event_date,
       title,
       status,
-      source_document_id
+      source_page_id
     )
     values (
+      ${academicYearId},
       ${calendarYear},
       ${event.date},
       ${event.title},
       'published',
-      ${sourceDocumentId}
+      ${sourcePageId}
     )
     on conflict (calendar_year, event_date, title) do nothing
     returning id
@@ -112,7 +116,7 @@ async function upsertEvent(tx, { calendarYear, event, sourceDocumentId }) {
 
   const republished = await tx`
     update public.university_calendar_events
-    set status = 'published', source_document_id = ${sourceDocumentId}
+    set status = 'published', source_page_id = ${sourcePageId}
     where calendar_year = ${calendarYear}
       and event_date = ${event.date}
       and title = ${event.title}
@@ -127,30 +131,9 @@ async function importManifestInTransaction(tx, manifest) {
   await tx`select pg_advisory_xact_lock(hashtext(${lockKey}))`;
 
   const sourceId = await upsertSource(tx, manifest.source);
-  const catalogueYearId = await upsertCatalogueYear(tx, manifest.calendarYear);
-
-  const [run] = await tx`
-      insert into public.catalogue_import_runs (
-        source_id,
-        catalogue_year_id,
-        scope,
-        trigger_kind,
-        parser_version,
-        status
-      )
-      values (
-        ${sourceId},
-        ${catalogueYearId},
-        ${`university_calendar:${manifest.calendarYear}`},
-        'cli',
-        ${manifest.parserVersion},
-        'running'
-      )
-      returning id
-    `;
-
-  const sourceDocumentId = await upsertSourceDocument(tx, {
-    catalogueYearId,
+  const academicYearId = await upsertAcademicYear(tx, manifest.calendarYear);
+  const sourcePageId = await upsertSourcePage(tx, {
+    academicYearId,
     manifest,
     sourceId,
   });
@@ -174,9 +157,10 @@ async function importManifestInTransaction(tx, manifest) {
   } else {
     for (const event of manifest.events) {
       const action = await upsertEvent(tx, {
+        academicYearId,
         calendarYear: manifest.calendarYear,
         event,
-        sourceDocumentId,
+        sourcePageId,
       });
       if (action === "created") {
         counts.added += 1;
@@ -215,51 +199,46 @@ async function importManifestInTransaction(tx, manifest) {
           : "unchanged";
   }
 
-  const diagnostics = serialisable({ issues: manifest.diagnostics });
-  await tx`
-      insert into public.catalogue_import_items (
-        run_id,
-        source_document_id,
-        source_id,
-        catalogue_year_id,
-        outcome,
-        target_kind,
-        target_key,
+  const status = errors.length > 0 ? "failed" : "succeeded";
+  const [run] = await tx`
+      insert into public.university_calendar_imports (
+        academic_year_id,
+        source_page_id,
+        parser_version,
+        status,
+        checked_count,
+        added_count,
+        changed_count,
+        archived_count,
+        unchanged_count,
+        failed_count,
         diagnostics
       )
       values (
-        ${run.id},
-        ${sourceDocumentId},
-        ${sourceId},
-        ${catalogueYearId},
-        ${outcome},
-        'university_calendar',
-        ${manifest.document.externalKey},
-        ${diagnostics}
+        ${academicYearId},
+        ${sourcePageId},
+        ${manifest.parserVersion},
+        ${status},
+        ${counts.checked},
+        ${counts.added},
+        ${counts.changed},
+        ${counts.archived},
+        ${counts.unchanged},
+        ${counts.failed},
+        ${tx.json(serialisable(manifest.diagnostics))}
       )
+      returning id
     `;
 
-  const status = errors.length > 0 ? "failed" : "succeeded";
-  const errorSummary =
-    manifest.diagnostics.length > 0
-      ? JSON.stringify({ issues: serialisable(manifest.diagnostics) })
-      : null;
-
-  await tx`
-      update public.catalogue_import_runs
-      set
-        status = ${status},
-        checked_count = ${counts.checked},
-        added_count = ${counts.added},
-        changed_count = ${counts.changed + counts.archived},
-        unchanged_count = ${counts.unchanged},
-        failed_count = ${counts.failed},
-        error_summary = ${errorSummary},
-        completed_at = now()
-      where id = ${run.id}
+  if (status === "succeeded") {
+    await tx`
+      update public.academic_years
+      set calendar_published_at = now()
+      where id = ${academicYearId}
     `;
+  }
 
-  return { counts, runId: run.id, status };
+  return { counts, outcome, runId: run.id, status };
 }
 
 /**
