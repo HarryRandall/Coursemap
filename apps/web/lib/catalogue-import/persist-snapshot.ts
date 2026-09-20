@@ -358,16 +358,20 @@ async function insertRequirements(
         `Requirement condition ${condition.key} has no group.`,
       );
     }
+    // item_kind travels with item_id so the composite foreign key can hold the
+    // referenced item to the kind the condition expects.
+    const conditionItemId = itemId(ids, condition.itemKind, condition.itemCode);
     const [row] = await tx`
       insert into public.requirement_conditions (
         rule_id, snapshot_id, group_id, condition_key, position, condition_kind, item_id,
-        structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
+        item_kind, structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
         review_state, confidence
       ) values (
         ${ruleId}, ${snapshotId}, ${groupId}, ${condition.key}, ${condition.position},
-        ${condition.kind}, ${itemId(ids, condition.itemKind, condition.itemCode)},
+        ${condition.kind}, ${conditionItemId},
+        ${conditionItemId === null ? null : condition.itemKind},
         ${condition.structureKind}, ${condition.requirementMode}, ${condition.minimumMark},
         ${condition.minimumUnits}, ${condition.maximumUnits}, ${condition.minimumCount},
         ${condition.subjectCode}, ${condition.minimumLevel}, ${condition.maximumLevel},
