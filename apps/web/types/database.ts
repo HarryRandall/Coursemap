@@ -2453,6 +2453,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          dedupe_key: string | null
+          href: string | null
+          id: string
+          kind: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          href?: string | null
+          id?: string
+          kind: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          href?: string | null
+          id?: string
+          kind?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       offering_sessions: {
         Row: {
           academic_period_code: string
@@ -3604,6 +3640,10 @@ export type Database = {
       discard_catalogue_draft: {
         Args: { p_item_year_id: number }
         Returns: undefined
+      }
+      mark_notifications_read: {
+        Args: { p_notification_ids?: string[] }
+        Returns: number
       }
       move_current_user_plan_item: {
         Args: {
