@@ -1,0 +1,25 @@
+/* This vertical navigation must not inherit the Nova segmented-tab track. */
+.list {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0;
+}
+
+.list [role="tab"] {
+  flex: none;
+  height: 36px;
+  border: 0;
+  box-shadow: none;
+  background: transparent !important;
+}
+.list [role="tab"]:hover {
+  background: var(--accent) !important;
+}
+.list [role="tab"][data-state="active"] {
+  background: color-mix(
+    in oklab,
+    var(--primary) 12%,
+    var(--background)
+  ) !important;
+  color: var(--primary) !important;
+}

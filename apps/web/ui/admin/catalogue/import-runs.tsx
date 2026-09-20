@@ -52,6 +52,7 @@ import {
   TableHeader as PlainTableHeader,
   TableRow as PlainTableRow,
 } from "@coursemap/ui/primitives/table";
+import { ArtefactViewer } from "./artefact-viewer";
 import { TargetStatusBadge } from "./workflow-badge";
 
 const RUN_TONE: Record<string, Tone> = {
@@ -96,19 +97,6 @@ const STAGE_LABELS: Record<string, string> = {
   snapshot_persist: "Save snapshot",
 };
 
-const ARTIFACT_LABELS: Record<string, string> = {
-  raw_html: "Raw HTML",
-  normalised_markdown: "Markdown",
-  model_input: "Model input",
-  deterministic_output: "Deterministic output",
-  model_request: "Model request",
-  model_response: "Model response",
-  validated_json: "Merged extraction",
-  validation_report: "Validation report",
-  database_projection: "Projection",
-  change_set: "Change set",
-};
-
 function formatDateTime(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-AU", {
@@ -119,12 +107,6 @@ function formatDateTime(value: string | null) {
 
 function formatCost(value: number) {
   return value === 0 ? "No cost" : `US$${value.toFixed(4)}`;
-}
-
-function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** Run history for one kind with per-target stages and artefacts. */
@@ -476,26 +458,6 @@ export function ImportRuns({
   );
 }
 
-function ArtifactLink({
-  artifact,
-}: {
-  artifact: ImportTargetDetail["artifacts"][number];
-}) {
-  return (
-    <a
-      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs underline-offset-4 hover:underline"
-      href={`/api/admin/catalogue-imports/artifacts/${artifact.id}`}
-      target="_blank"
-      rel="noreferrer"
-    >
-      {ARTIFACT_LABELS[artifact.kind] ?? artifact.kind}
-      <span className="text-muted-foreground">
-        {formatBytes(artifact.byteSize)}
-      </span>
-    </a>
-  );
-}
-
 function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
   const latestAttempt = Math.max(
     1,
@@ -504,12 +466,6 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
   const stages = detail.stages.filter(
     (stage) => stage.attemptNumber === latestAttempt,
   );
-  const artifactsByStage = new Map<string, ImportTargetDetail["artifacts"]>();
-  for (const artifact of detail.artifacts) {
-    const list = artifactsByStage.get(artifact.stageId) ?? [];
-    list.push(artifact);
-    artifactsByStage.set(artifact.stageId, list);
-  }
   return (
     <Card>
       <CardHeader>
@@ -611,13 +567,11 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
                   <PlainTableHead className="text-right">
                     Duration
                   </PlainTableHead>
-                  <PlainTableHead>Artefacts</PlainTableHead>
                   <PlainTableHead>Error</PlainTableHead>
                 </PlainTableRow>
               </PlainTableHeader>
               <PlainTableBody>
                 {stages.map((stage, index) => {
-                  const artifacts = artifactsByStage.get(stage.id) ?? [];
                   return (
                     <PlainTableRow key={stage.id}>
                       <PlainTableCell className="text-xs text-muted-foreground tabular-nums">
@@ -640,19 +594,6 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
                       <PlainTableCell className="text-right text-xs text-muted-foreground tabular-nums">
                         {duration(stage.startedAt, stage.completedAt)}
                       </PlainTableCell>
-                      <PlainTableCell className="text-xs">
-                        {artifacts.length ? (
-                          <ul className="flex flex-wrap gap-1.5">
-                            {artifacts.map((artifact) => (
-                              <li key={artifact.id}>
-                                <ArtifactLink artifact={artifact} />
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </PlainTableCell>
                       <PlainTableCell className="max-w-72 text-xs">
                         {stage.errorSummary ? (
                           <span className="text-destructive">
@@ -670,6 +611,18 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
             </PlainTable>
           </PlainTableShell>
         </div>
+        <section
+          aria-label="Import artefacts"
+          className="flex min-h-0 min-w-0 flex-col gap-2"
+        >
+          <h4 className="text-sm font-semibold">Artefacts</h4>
+          <ArtefactViewer
+            artifacts={detail.artifacts.filter(
+              (artifact) => artifact.attemptNumber === latestAttempt,
+            )}
+            endpoint="/api/admin/catalogue-imports/artifacts"
+          />
+        </section>
       </CardContent>
     </Card>
   );
