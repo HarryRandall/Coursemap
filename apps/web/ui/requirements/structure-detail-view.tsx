@@ -82,6 +82,50 @@ function feeAmount(fee: StructureFee) {
   return basis ? `${amount} ${basis}` : amount;
 }
 
+const CODE_LINE = /^[A-Z]{4}[0-9]{4}[A-Z]?$|^[A-Z0-9][A-Z0-9-]{1,31}$/u;
+
+/**
+ * ANU section bodies arrive as one line per scraped element, so rendering them
+ * as pre-wrapped text produced a wall with no rhythm: a course code, its
+ * title and its unit value read as three unrelated sentences. Each line is
+ * given its own row, and a bare code is set in the monospace face so a study
+ * plan scans as a list of courses rather than prose.
+ */
+function SectionLines({ markdown }: { markdown: string }) {
+  const lines = markdown
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground">
+        The ANU page left this section empty.
+      </p>
+    );
+  if (lines.length === 1)
+    return (
+      <p className="text-sm leading-relaxed text-foreground/80">{lines[0]}</p>
+    );
+  return (
+    <ul className="flex flex-col gap-1 text-sm text-foreground/80">
+      {lines.map((line, index) => (
+        <li
+          key={`${index}-${line}`}
+          className={
+            CODE_LINE.test(line)
+              ? "font-mono text-xs tracking-wide text-foreground"
+              : line === "OR" || line === "AND"
+                ? "text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                : "leading-relaxed"
+          }
+        >
+          {line}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function sectionAnchor(sectionKey: string) {
   return `section-${sectionKey}`;
 }
@@ -332,8 +376,8 @@ export function StructureDetailView({
                     <h2>{section.heading}</h2>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="border-t border-border/60 pt-5 text-sm leading-relaxed whitespace-pre-line text-foreground/80">
-                  {section.markdown}
+                <CardContent className="border-t border-border/60 pt-5">
+                  <SectionLines markdown={section.markdown} />
                 </CardContent>
               </Card>
             ))}
