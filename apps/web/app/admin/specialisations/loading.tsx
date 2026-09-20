@@ -1,5 +1,5 @@
 import { CatalogueLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 
 export default function Loading() {
-  return <CatalogueLoading noun="specialisations" />;
+  return <CatalogueLoading noun="specialisations" layout="directory" />;
 }

@@ -13,7 +13,7 @@ import {
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
-import { Skeleton } from "@coursemap/ui/primitives/skeleton";
+import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
 import { CatalogueTabs } from "./catalogue-tabs";
 import { ImportRuns } from "./import-runs";
@@ -70,7 +70,11 @@ export async function CatalogueDirectoryPage({
       currentBreadcrumbLabel={labels.plural}
     >
       <h1 className="sr-only">{labels.plural}</h1>
-      <Suspense fallback={<DirectorySkeleton />}>
+      <Suspense
+        fallback={
+          <CatalogueTableLoading noun={labels.plural} layout="directory" />
+        }
+      >
         <DirectoryContent page={page} kind={kind} />
       </Suspense>
     </AppShell>
@@ -116,7 +120,14 @@ export async function CatalogueImportRunsPage({
       breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
     >
       <h1 className="sr-only">{labels.singular} import runs</h1>
-      <Suspense fallback={<DirectorySkeleton />}>
+      <Suspense
+        fallback={
+          <CatalogueTableLoading
+            noun="import records"
+            layout="import-targets"
+          />
+        }
+      >
         <ImportRuns
           runs={runs}
           basePath={adminCataloguePath(kind)}
@@ -125,18 +136,5 @@ export async function CatalogueImportRunsPage({
         />
       </Suspense>
     </AppShell>
-  );
-}
-
-function DirectorySkeleton() {
-  return (
-    <div aria-busy="true" className="flex flex-1 flex-col gap-4">
-      <div className="flex justify-between">
-        <Skeleton className="h-9 w-28" />
-        <Skeleton className="h-9 w-40" />
-      </div>
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="min-h-64 flex-1" />
-    </div>
   );
 }
