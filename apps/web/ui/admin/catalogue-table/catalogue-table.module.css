@@ -186,3 +186,19 @@ a.title:focus-visible {
     min-height: 44px;
   }
 }
+
+/* Import runs: run, year, status, progress, model, cost, started. */
+.shell[data-layout="runs"] tr {
+  min-width: 860px;
+  grid-template-columns:
+    90px 70px 116px 132px
+    minmax(150px, 1fr) 88px 168px;
+}
+
+/* Import stages: step, stage, status, duration, artefacts. */
+.shell[data-layout="stages"] tr {
+  min-width: 760px;
+  grid-template-columns:
+    56px minmax(180px, 1fr) 116px 92px
+    minmax(200px, 1.2fr);
+}

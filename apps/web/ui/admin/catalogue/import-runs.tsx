@@ -2,6 +2,7 @@
 
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
+import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 import {
   Card,
   CardContent,
@@ -28,6 +29,16 @@ import {
 } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import {
+  DataTableShell,
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/ui/admin/catalogue-table/catalogue-table";
 import { TargetStatusBadge } from "./workflow-badge";
 
 const RUN_TONE: Record<string, Tone> = {
@@ -36,6 +47,21 @@ const RUN_TONE: Record<string, Tone> = {
   completed: "success",
   failed: "danger",
   cancelled: "neutral",
+};
+
+const RUN_STATUS_LABELS: Record<string, string> = {
+  queued: "Queued",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
+};
+
+const STAGE_TONE: Record<string, Tone> = {
+  completed: "success",
+  failed: "danger",
+  running: "info",
+  queued: "neutral",
 };
 
 const STAGE_LABELS: Record<string, string> = {
@@ -189,23 +215,48 @@ export function ImportRuns({
   }
 
   return (
-    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(16rem,20rem)_1fr]">
-      <nav aria-label="Import runs" className="min-h-0 overflow-auto">
-        <ul className="flex flex-col gap-2">
-          {runs.map((candidate) => {
-            const current = candidate.id === run?.id;
-            return (
-              <li key={candidate.id}>
-                <button
-                  type="button"
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <DataTableShell layout="runs" selectable={false}>
+        <Table>
+          <TableCaption className="sr-only">
+            Import runs for {labels.plural.toLowerCase()}, newest first.
+          </TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Run</TableHead>
+              <TableHead>Year</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Records</TableHead>
+              <TableHead>Model</TableHead>
+              <TableHead>Cost</TableHead>
+              <TableHead>Started</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {runs.map((candidate) => {
+              const current = candidate.id === run?.id;
+              return (
+                <TableRow
+                  key={candidate.id}
                   aria-current={current ? "true" : undefined}
-                  onClick={() => select({ run: candidate.id, target: null })}
-                  className="flex w-full flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2 text-left text-sm transition-colors hover:bg-accent aria-[current=true]:border-primary aria-[current=true]:bg-primary/5"
+                  className="aria-[current=true]:bg-primary/5"
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="font-medium">
-                      Run #{candidate.runNumber}
-                    </span>
+                  <TableCell>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        select({ run: candidate.id, target: null })
+                      }
+                      aria-current={current ? "true" : undefined}
+                      className="text-sm font-medium underline-offset-4 hover:underline aria-[current=true]:text-primary"
+                    >
+                      #{candidate.runNumber}
+                    </button>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {candidate.academicYear}
+                  </TableCell>
+                  <TableCell>
                     <Badge
                       variant={
                         badgeVariantForTone[
@@ -220,25 +271,35 @@ export function ImportRuns({
                           aria-hidden="true"
                         />
                       ) : null}
-                      {candidate.status}
+                      {RUN_STATUS_LABELS[candidate.status] ?? candidate.status}
                     </Badge>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {candidate.academicYear} · {candidate.completedCount}/
-                    {candidate.targetCount} done
-                    {candidate.failedCount
-                      ? `, ${candidate.failedCount} failed`
-                      : ""}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDateTime(candidate.createdAt)}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {candidate.completedCount}/{candidate.targetCount}
+                    {candidate.failedCount ? (
+                      <span className="text-destructive">
+                        {" "}
+                        · {candidate.failedCount} failed
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="truncate text-sm text-muted-foreground">
+                    {candidate.requestedModel}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground tabular-nums">
+                    {formatCost(candidate.costUsd)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    <time dateTime={candidate.createdAt}>
+                      {formatDateTime(candidate.createdAt)}
+                    </time>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </DataTableShell>
 
       {run ? (
         <div className="flex min-h-0 flex-col gap-4 overflow-auto">
@@ -272,63 +333,90 @@ export function ImportRuns({
               ) : null}
             </CardHeader>
             <CardContent>
-              <ul className="divide-y divide-border">
-                {run.targets.map((target) => {
-                  const current = target.id === selectedTargetId;
-                  return (
-                    <li
-                      key={target.id}
-                      className="flex flex-wrap items-center gap-3 py-2"
-                    >
-                      <button
-                        type="button"
-                        aria-current={current ? "true" : undefined}
-                        onClick={() =>
-                          select({ target: current ? null : target.id })
-                        }
-                        className="font-mono text-sm font-medium underline-offset-4 hover:underline aria-[current=true]:text-primary"
-                      >
-                        {target.code}
-                      </button>
-                      <TargetStatusBadge status={target.status} />
-                      {target.changeKind ? (
-                        <span className="text-xs text-muted-foreground">
-                          {target.changeKind === "new"
-                            ? "First snapshot"
-                            : target.changeKind === "changed"
-                              ? "Content changed"
-                              : "No change"}
-                        </span>
-                      ) : null}
-                      {target.attemptCount > 1 ? (
-                        <span className="text-xs text-muted-foreground">
-                          {target.attemptCount} attempts
-                        </span>
-                      ) : null}
-                      {target.errorMessage ? (
-                        <span className="text-xs text-destructive">
-                          {target.errorMessage}
-                        </span>
-                      ) : null}
-                      {target.status === "ready" && target.itemYearPublicId ? (
-                        <Button
-                          asChild
-                          size="sm"
-                          variant="ghost"
-                          className="ml-auto"
+              <DataTableShell selectable={false} imports>
+                <Table>
+                  <TableCaption className="sr-only">
+                    Records processed by run {run.runNumber}.
+                  </TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{labels.singular}</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Outcome</TableHead>
+                      <TableHead>Attempts</TableHead>
+                      <TableHead>Detail</TableHead>
+                      <TableHead>
+                        <span className="sr-only">Actions</span>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {run.targets.map((target) => {
+                      const current = target.id === selectedTargetId;
+                      return (
+                        <TableRow
+                          key={target.id}
+                          aria-current={current ? "true" : undefined}
+                          className="aria-[current=true]:bg-primary/5"
                         >
-                          <Link
-                            href={`${basePath}/${target.code}?year=${run.academicYear}&tab=review`}
-                          >
-                            Review
-                            <ExternalLink size={14} aria-hidden="true" />
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
+                          <TableCell>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                select({ target: current ? null : target.id })
+                              }
+                              className="font-mono text-sm font-medium underline-offset-4 hover:underline aria-[current=true]:text-primary"
+                              aria-current={current ? "true" : undefined}
+                              aria-expanded={current}
+                            >
+                              {target.code}
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <TargetStatusBadge status={target.status} />
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {target.changeKind === "new"
+                              ? "First snapshot"
+                              : target.changeKind === "changed"
+                                ? "Content changed"
+                                : target.changeKind === "unchanged"
+                                  ? "No change"
+                                  : "\u2014"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground tabular-nums">
+                            {target.attemptCount}
+                          </TableCell>
+                          <TableCell>
+                            {target.errorMessage ? (
+                              <span className="text-xs text-destructive">
+                                {target.errorMessage}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {"\u2014"}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {target.status === "ready" &&
+                            target.itemYearPublicId ? (
+                              <Button asChild size="sm" variant="ghost">
+                                <Link
+                                  href={`${basePath}/${target.code}?year=${run.academicYear}&tab=review`}
+                                >
+                                  Review
+                                  <ExternalLink size={14} aria-hidden="true" />
+                                </Link>
+                              </Button>
+                            ) : null}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </DataTableShell>
             </CardContent>
           </Card>
 
@@ -336,12 +424,49 @@ export function ImportRuns({
             visibleDetail ? (
               <TargetDetail detail={visibleDetail} />
             ) : (
-              <p className="text-sm text-muted-foreground">Loading target…</p>
+              <Card aria-busy="true">
+                <CardHeader>
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-72" />
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <Skeleton key={index} className="h-9 w-full" />
+                  ))}
+                </CardContent>
+              </Card>
             )
           ) : null}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Milliseconds are unreadable past a second, which most stages are. */
+function formatDuration(milliseconds: number | null) {
+  if (milliseconds === null) return "\u2014";
+  if (milliseconds < 1000) return `${milliseconds} ms`;
+  return `${(milliseconds / 1000).toFixed(1)} s`;
+}
+
+function ArtifactLink({
+  artifact,
+}: {
+  artifact: ImportTargetDetail["artifacts"][number];
+}) {
+  return (
+    <a
+      className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs underline-offset-4 hover:underline"
+      href={`/api/admin/catalogue-imports/artifacts/${artifact.id}`}
+      target="_blank"
+      rel="noreferrer"
+    >
+      {ARTIFACT_LABELS[artifact.kind] ?? artifact.kind}
+      <span className="text-muted-foreground">
+        {formatBytes(artifact.byteSize)}
+      </span>
+    </a>
   );
 }
 
@@ -380,73 +505,86 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ol className="flex flex-col gap-2">
-          {stages.map((stage) => {
-            const duration = durationMs(stage.startedAt, stage.completedAt);
-            const artifacts = artifactsByStage.get(stage.id) ?? [];
-            return (
-              <li
-                key={stage.id}
-                className="flex flex-col gap-1 rounded-md border border-border px-3 py-2"
-              >
-                <div className="flex items-center gap-2 text-sm">
-                  {stage.status === "completed" ? (
-                    <Check
-                      size={16}
-                      className="text-emerald-600"
-                      aria-hidden="true"
-                    />
-                  ) : stage.status === "failed" ? (
-                    <CircleX
-                      size={16}
-                      className="text-destructive"
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <LoaderCircle
-                      size={16}
-                      className="animate-spin"
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="font-medium">
-                    {STAGE_LABELS[stage.name] ?? stage.name}
-                  </span>
-                  {duration !== null ? (
-                    <span className="text-xs text-muted-foreground">
-                      {duration} ms
-                    </span>
-                  ) : null}
-                </div>
-                {stage.errorSummary ? (
-                  <p className="text-xs text-destructive">
-                    {stage.errorCode ? `${stage.errorCode}: ` : ""}
-                    {stage.errorSummary}
-                  </p>
-                ) : null}
-                {artifacts.length ? (
-                  <ul className="flex flex-wrap gap-2">
-                    {artifacts.map((artifact) => (
-                      <li key={artifact.id}>
-                        <a
-                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-xs underline-offset-4 hover:underline"
-                          href={`/api/admin/catalogue-imports/artifacts/${artifact.id}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {ARTIFACT_LABELS[artifact.kind] ?? artifact.kind}
-                          <span className="text-muted-foreground">
-                            {formatBytes(artifact.byteSize)}
-                          </span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
+        <DataTableShell layout="stages" selectable={false}>
+          <Table>
+            <TableCaption className="sr-only">
+              Pipeline stages for {detail.code}, attempt {latestAttempt}.
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Step</TableHead>
+                <TableHead>Stage</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Artefacts</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stages.map((stage, index) => {
+                const duration = durationMs(stage.startedAt, stage.completedAt);
+                const artifacts = artifactsByStage.get(stage.id) ?? [];
+                return (
+                  <TableRow key={stage.id}>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm font-medium">
+                        {STAGE_LABELS[stage.name] ?? stage.name}
+                      </span>
+                      {stage.errorSummary ? (
+                        <p className="text-xs text-destructive">
+                          {stage.errorCode ? `${stage.errorCode}: ` : ""}
+                          {stage.errorSummary}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          badgeVariantForTone[
+                            STAGE_TONE[stage.status] ?? "neutral"
+                          ]
+                        }
+                      >
+                        {stage.status === "completed" ? (
+                          <Check size={11} aria-hidden="true" />
+                        ) : stage.status === "failed" ? (
+                          <CircleX size={11} aria-hidden="true" />
+                        ) : (
+                          <LoaderCircle
+                            size={11}
+                            className="animate-spin"
+                            aria-hidden="true"
+                          />
+                        )}
+                        {stage.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground tabular-nums">
+                      {formatDuration(duration)}
+                    </TableCell>
+                    <TableCell>
+                      {artifacts.length ? (
+                        <ul className="flex flex-wrap gap-1.5">
+                          {artifacts.map((artifact) => (
+                            <li key={artifact.id}>
+                              <ArtifactLink artifact={artifact} />
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          None
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </CardContent>
     </Card>
   );
