@@ -9,16 +9,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@coursemap/ui/primitives/card";
+import { Field, FieldLabel } from "@coursemap/ui/primitives/field";
+import { Progress } from "@coursemap/ui/primitives/progress";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@coursemap/ui/primitives/table";
 import { Textarea } from "@coursemap/ui/primitives/textarea";
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   CircleAlert,
+  ExternalLink,
   LoaderCircle,
   TriangleAlert,
   Undo2,
   X,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -33,6 +48,7 @@ import type {
 import { humaniseKey, fieldLabel } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone } from "@/lib/ui";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
+import { DataTableShell } from "@/ui/common/data-table";
 import { ValueDiff } from "./value-diff";
 
 function formatDateTime(value: string | null) {
@@ -51,9 +67,12 @@ function formatDateTime(value: string | null) {
 export function ReviewPanel({
   review,
   path,
+  sourceHref,
 }: {
   review: ReviewTarget;
   path: string;
+  /** The ANU page this import read, so a reviewer can check a value at source. */
+  sourceHref: string;
 }) {
   const [pending, startTransition] = useTransition();
   const changes = review.entries.filter(
@@ -210,33 +229,33 @@ export function ReviewPanel({
           aria-labelledby={`changes-${review.id}`}
           className="flex flex-col gap-2"
         >
-          <h3 id={`changes-${review.id}`} className="text-sm font-semibold">
-            Changes{" "}
-            <span className="font-normal text-muted-foreground">
-              {changes.length === 0
-                ? "none"
-                : reviewable
-                  ? `${openChanges.length} of ${changes.length} to decide`
-                  : `${changes.length}`}
-            </span>
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 id={`changes-${review.id}`} className="text-sm font-semibold">
+              Changes{" "}
+              <span className="font-normal text-muted-foreground">
+                {changes.length === 0 ? "none" : changes.length}
+              </span>
+            </h3>
+            {reviewable && changes.length > 0 ? (
+              <DecisionProgress
+                decided={changes.length - openChanges.length}
+                total={changes.length}
+              />
+            ) : null}
+          </div>
           {changes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               The page content matched the current draft.
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
-              {changes.map((change) => (
-                <ChangeRow
-                  key={change.id}
-                  change={change}
-                  path={path}
-                  editable={reviewable}
-                  disabled={pending}
-                  run={run}
-                />
-              ))}
-            </ul>
+            <ChangeTable
+              changes={changes}
+              path={path}
+              editable={reviewable}
+              disabled={pending}
+              run={run}
+              sourceHref={sourceHref}
+            />
           )}
         </section>
       </CardContent>
@@ -284,86 +303,270 @@ function StatusBadge({ status }: { status: ReviewEntry["status"] }) {
   );
 }
 
-function ChangeRow({
+/** How much of the decision list is behind the reviewer, not how much is left. */
+function DecisionProgress({
+  decided,
+  total,
+}: {
+  decided: number;
+  total: number;
+}) {
+  const label = `${decided} of ${total} decided`;
+  return (
+    <div className="flex items-center gap-2">
+      <Progress
+        aria-label={label}
+        className="w-28"
+        value={total === 0 ? 0 : (decided / total) * 100}
+      />
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function isNested(value: unknown) {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * One side of a change, small enough to sit in a table cell. A collection is
+ * counted rather than printed; comparing it item by item is what the detail
+ * row is for.
+ */
+function ValueCell({ value }: { value: unknown }) {
+  if (value === null || value === undefined || value === "")
+    return <span className="text-muted-foreground">Not set</span>;
+  if (Array.isArray(value))
+    return (
+      <span className="text-muted-foreground">
+        {value.length} {value.length === 1 ? "item" : "items"}
+      </span>
+    );
+  if (typeof value === "object") {
+    const fields = Object.keys(value).length;
+    return (
+      <span className="text-muted-foreground">
+        {fields} {fields === 1 ? "field" : "fields"}
+      </span>
+    );
+  }
+  if (typeof value === "boolean") return <>{value ? "Yes" : "No"}</>;
+  return (
+    <span className="line-clamp-3 break-words whitespace-pre-wrap">
+      {String(value)}
+    </span>
+  );
+}
+
+/**
+ * The changes are decisions over a fixed schema, so they read as a table: the
+ * field, what the record holds, what the import read, where it read it and the
+ * decision. A change whose values are collections, or that carries a source
+ * excerpt, opens a detail row underneath with the field-by-field diff.
+ */
+function ChangeTable({
+  changes,
+  path,
+  editable,
+  disabled,
+  run,
+  sourceHref,
+}: {
+  changes: ReviewEntry[];
+  path: string;
+  editable: boolean;
+  disabled: boolean;
+  run: Run;
+  sourceHref: string;
+}) {
+  return (
+    <div
+      className="min-w-0 overflow-x-auto"
+      role="region"
+      aria-label="Imported changes"
+      data-scroll-kind="table"
+      tabIndex={0}
+    >
+      <DataTableShell>
+        <Table className="min-w-[940px]">
+          <TableCaption className="sr-only">
+            Every field the import changed, with the current value, the imported
+            value and the decision taken
+          </TableCaption>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-52">Field</TableHead>
+              <TableHead>Current</TableHead>
+              <TableHead>Imported</TableHead>
+              <TableHead className="w-40">Source</TableHead>
+              <TableHead className="w-56">Decision</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {changes.map((change) => (
+              <ChangeRows
+                key={change.id}
+                change={change}
+                path={path}
+                editable={editable}
+                disabled={disabled}
+                run={run}
+                sourceHref={sourceHref}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </DataTableShell>
+    </div>
+  );
+}
+
+function ChangeRows({
   change,
   path,
   editable,
   disabled,
   run,
+  sourceHref,
 }: {
   change: ReviewEntry;
   path: string;
   editable: boolean;
   disabled: boolean;
   run: Run;
+  sourceHref: string;
 }) {
+  const detailId = useId();
+  const [open, setOpen] = useState(false);
+  const nested = isNested(change.oldValue) || isNested(change.newValue);
+  const expandable = nested || Boolean(change.sourceExcerpt);
   const decide = (status: ReviewEntry["status"]) =>
     run(() => resolveReviewEntryAction({ entryId: change.id, status, path }));
   return (
-    <li
-      className="flex flex-col gap-2 rounded-lg border border-border p-3 data-[status=rejected]:opacity-70"
-      data-status={change.status}
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{fieldLabel(change.fieldPath)}</span>
-        <StatusBadge status={change.status} />
-        {change.sourceLocator ? (
-          <span className="text-xs text-muted-foreground">
-            from {change.sourceLocator}
-          </span>
-        ) : null}
-        {editable ? (
-          <div className="ml-auto flex items-center gap-1">
-            {change.status !== "accepted" ? (
+    <>
+      <TableRow
+        data-status={change.status}
+        className="align-top data-[status=rejected]:opacity-70"
+      >
+        <TableCell>
+          <div className="flex flex-col items-start gap-1">
+            <span className="font-medium text-foreground">
+              {fieldLabel(change.fieldPath)}
+            </span>
+            {expandable ? (
               <Button
+                aria-controls={detailId}
+                aria-expanded={open}
+                className="-ml-2 h-7 px-2 text-xs"
+                onClick={() => setOpen((current) => !current)}
                 size="sm"
-                variant="outline"
-                disabled={disabled}
                 type="button"
-                onClick={() => decide("accepted")}
-              >
-                <Check size={14} aria-hidden="true" />
-                Accept
-              </Button>
-            ) : null}
-            {change.status !== "rejected" ? (
-              <Button
-                size="sm"
                 variant="ghost"
-                disabled={disabled}
-                type="button"
-                onClick={() => decide("rejected")}
               >
-                <X size={14} aria-hidden="true" />
-                Reject
-              </Button>
-            ) : null}
-            {change.status !== "open" ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={disabled}
-                type="button"
-                onClick={() => decide("open")}
-              >
-                <Undo2 size={14} aria-hidden="true" />
-                Undo
+                {open ? (
+                  <ChevronDown size={14} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={14} aria-hidden="true" />
+                )}
+                {open ? "Hide detail" : "Compare"}
               </Button>
             ) : null}
           </div>
-        ) : null}
-      </div>
-      <ValueDiff
-        fieldPath={change.fieldPath}
-        oldValue={change.oldValue}
-        newValue={change.newValue}
-      />
-      {change.sourceExcerpt ? (
-        <blockquote className="border-l-2 border-border pl-3 text-xs text-muted-foreground">
-          {change.sourceExcerpt}
-        </blockquote>
+        </TableCell>
+        <TableCell className="text-sm">
+          <ValueCell value={change.oldValue} />
+        </TableCell>
+        <TableCell className="text-sm">
+          <ValueCell value={change.newValue} />
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-col items-start gap-1 text-xs">
+            {change.sourceLocator ? (
+              <span className="break-words text-muted-foreground">
+                {change.sourceLocator}
+              </span>
+            ) : null}
+            <Link
+              className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+              href={sourceHref}
+              rel="noreferrer"
+              target="_blank"
+            >
+              ANU page
+              <ExternalLink size={11} aria-hidden="true" />
+              <span className="sr-only"> (opens in a new tab)</span>
+            </Link>
+          </div>
+        </TableCell>
+        <TableCell>
+          <div className="flex flex-col items-start gap-1.5">
+            <StatusBadge status={change.status} />
+            {editable ? (
+              <div className="flex flex-wrap items-center gap-1">
+                {change.status !== "accepted" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={disabled}
+                    type="button"
+                    onClick={() => decide("accepted")}
+                  >
+                    <Check size={14} aria-hidden="true" />
+                    Accept
+                  </Button>
+                ) : null}
+                {change.status !== "rejected" ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    type="button"
+                    onClick={() => decide("rejected")}
+                  >
+                    <X size={14} aria-hidden="true" />
+                    Reject
+                  </Button>
+                ) : null}
+                {change.status !== "open" ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                    type="button"
+                    onClick={() => decide("open")}
+                  >
+                    <Undo2 size={14} aria-hidden="true" />
+                    Undo
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </TableCell>
+      </TableRow>
+      {expandable && open ? (
+        <TableRow className="hover:bg-transparent">
+          <TableCell className="bg-muted/20 p-4" colSpan={5} id={detailId}>
+            <div className="flex flex-col gap-3">
+              {nested ? (
+                <ValueDiff
+                  fieldPath={change.fieldPath}
+                  oldValue={change.oldValue}
+                  newValue={change.newValue}
+                />
+              ) : null}
+              {change.sourceExcerpt ? (
+                <blockquote className="border-l-2 border-primary/30 pl-3 text-sm leading-6 whitespace-pre-wrap">
+                  {change.sourceExcerpt}
+                </blockquote>
+              ) : null}
+            </div>
+          </TableCell>
+        </TableRow>
       ) : null}
-    </li>
+    </>
   );
 }
 
@@ -465,16 +668,18 @@ function FlagRow({
       </div>
       {noting && flag.status === "open" ? (
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium" htmlFor={`note-${flag.id}`}>
-            Why publication may proceed despite this flag
-          </label>
-          <Textarea
-            id={`note-${flag.id}`}
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            rows={2}
-            placeholder="Checked against the ANU page on…"
-          />
+          <Field>
+            <FieldLabel htmlFor={`note-${flag.id}`}>
+              Why publication may proceed despite this flag
+            </FieldLabel>
+            <Textarea
+              id={`note-${flag.id}`}
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={2}
+              placeholder="Checked against the ANU page on…"
+            />
+          </Field>
           <div className="flex gap-2">
             <Button
               size="sm"

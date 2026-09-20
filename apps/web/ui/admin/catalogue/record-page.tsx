@@ -8,6 +8,7 @@ import { badgeVariantForTone } from "@/lib/ui";
 import Link from "next/link";
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import {
+  type CatalogueRecord,
   loadCatalogueRecord,
   loadSnapshotCoursePreview,
   loadSnapshotWrite,
@@ -20,6 +21,7 @@ import {
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { anuSourceUrl } from "./anu-source";
 import { RecordHeader } from "./record-header";
 import { RecordTabs } from "./record-tabs";
 import { RecordHistory } from "./record-history";
@@ -130,9 +132,11 @@ export async function CatalogueRecordPage({
                   directory.
                 </p>
               ) : (
-                record.reviews.map((review) => (
-                  <ReviewPanel key={review.id} review={review} path={path} />
-                ))
+                <ReviewStack
+                  reviews={record.reviews}
+                  path={path}
+                  sourceHref={anuSourceUrl(record)}
+                />
               )}
             </TabsContent>
             <TabsContent value="preview" className="mt-4">
@@ -174,5 +178,44 @@ export async function CatalogueRecordPage({
         </div>
       )}
     </AppShell>
+  );
+}
+
+/**
+ * Reviews arrive newest first. Only the latest is a live decision, so it is the
+ * one on screen; the rest stay behind a disclosure rather than stacking five
+ * 400px cards of settled history under it.
+ */
+function ReviewStack({
+  reviews,
+  path,
+  sourceHref,
+}: {
+  reviews: CatalogueRecord["reviews"];
+  path: string;
+  sourceHref: string;
+}) {
+  const [latest, ...earlier] = reviews;
+  return (
+    <>
+      <ReviewPanel review={latest} path={path} sourceHref={sourceHref} />
+      {earlier.length > 0 ? (
+        <details className="rounded-xl border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+            {earlier.length} earlier import{earlier.length === 1 ? "" : "s"}
+          </summary>
+          <div className="flex flex-col gap-4 border-t border-border p-4">
+            {earlier.map((review) => (
+              <ReviewPanel
+                key={review.id}
+                review={review}
+                path={path}
+                sourceHref={sourceHref}
+              />
+            ))}
+          </div>
+        </details>
+      ) : null}
+    </>
   );
 }
