@@ -1,297 +1,438 @@
 "use client";
 
 import Link from "next/link";
-import { Check, LockKeyhole } from "lucide-react";
-import { useMemo } from "react";
+import {
+  CalendarDays,
+  Check,
+  CircleAlert,
+  CircleDashed,
+  GaugeCircle,
+  LockKeyhole,
+} from "lucide-react";
+import { Fragment, useMemo } from "react";
+import { Badge } from "@coursemap/ui/components/badge";
 import { Hint } from "@/ui/common/hint";
 import { cn } from "@/lib/cn";
-import type { CoursePrerequisiteEdge } from "@/lib/coursemap/course-types";
+import type {
+  CoursePrerequisiteEdge,
+  CourseRuleExpression,
+} from "@/lib/coursemap/course-types";
+import {
+  buildRequisiteGraph,
+  requisiteConditionNode,
+  type RequisiteGraphNode,
+} from "@/lib/coursemap/requisite-tree";
+import {
+  conditionHeading,
+  conditionInterpretation,
+} from "@/ui/requirements/requirement-presentation";
 
-const NODE_H = 46;
-const GAP = 14;
-const STEP = NODE_H + GAP;
+const COLUMN_WIDTH = 184;
+const COLUMN_GAP = 52;
+const ROW_GAP = 14;
+const CHOICE_HEIGHT = 34;
+const REQUIREMENT_HEIGHT = 68;
+const EMPTY_HEIGHT = 46;
 
-type Layout = {
-  columns: { label: string; codes: string[] }[];
-  edges: CoursePrerequisiteEdge[];
-  position: Map<string, { col: number; row: number }>;
-  rows: number;
+type CourseStatus = "completed" | "enrolled" | "planned";
+
+/** A node, or a column's empty state, with somewhere to sit on the canvas. */
+type Placed = {
+  column: number;
+  height: number;
+  id: string;
+  node: RequisiteGraphNode | null;
+  top: number;
+};
+
+function courseHeight(showStudentState: boolean) {
+  return showStudentState ? 64 : 46;
+}
+
+function nodeHeight(node: RequisiteGraphNode, showStudentState: boolean) {
+  if (node.kind === "choice") return CHOICE_HEIGHT;
+  if (node.kind === "requirement") return REQUIREMENT_HEIGHT;
+  if (node.kind === "current") return courseHeight(false);
+  return courseHeight(showStudentState);
+}
+
+const STATUS_LABEL: Record<CourseStatus, string> = {
+  completed: "Completed",
+  enrolled: "Enrolled",
+  planned: "Planned",
 };
 
 /**
- * Display the complete upstream chain and the direct courses this course
- * unlocks. The graph is intentionally descriptive: an imported reference is
- * not treated as a verified enrolment rule until its source has been reviewed.
+ * The same words and icons the requirement kit puts on a course row, so a
+ * course means the same thing in the graph and in the card underneath it.
  */
-function buildLayout(
-  code: string,
-  prerequisiteEdges: readonly CoursePrerequisiteEdge[],
-): Layout {
-  const incoming = new Map<string, CoursePrerequisiteEdge[]>();
-  for (const edge of prerequisiteEdges) {
-    const existing = incoming.get(edge.to) ?? [];
-    existing.push(edge);
-    incoming.set(edge.to, existing);
-  }
-
-  const level = new Map<string, number>([[code, 0]]);
-  const visitUpstream = (
-    courseCode: string,
-    depth: number,
-    path: Set<string>,
-  ) => {
-    for (const edge of incoming.get(courseCode) ?? []) {
-      if (path.has(edge.from)) continue;
-      const nextDepth = depth - 1;
-      const existing = level.get(edge.from);
-      if (existing === undefined || nextDepth < existing) {
-        level.set(edge.from, nextDepth);
+function CourseStatusBadge({ status }: { status: CourseStatus | null }) {
+  return (
+    <Badge
+      variant={
+        status === "completed"
+          ? "success-light"
+          : status
+            ? "primary-light"
+            : "secondary"
       }
-      visitUpstream(edge.from, nextDepth, new Set([...path, edge.from]));
-    }
-  };
-  visitUpstream(code, 0, new Set([code]));
-
-  for (const edge of prerequisiteEdges) {
-    if (edge.from === code && edge.to !== code) {
-      level.set(edge.to, 1);
-    }
-  }
-
-  const minLevel = Math.min(-1, ...level.values());
-  const maxLevel = Math.max(1, ...level.values());
-  const columns = Array.from(
-    { length: maxLevel - minLevel + 1 },
-    (_, index) => {
-      const columnLevel = index + minLevel;
-      return {
-        label:
-          columnLevel === 0
-            ? "This course"
-            : columnLevel === 1
-              ? "Unlocks"
-              : columnLevel === -1
-                ? "Requires"
-                : "Then requires",
-        codes: [...level.entries()]
-          .filter(([, nodeLevel]) => nodeLevel === columnLevel)
-          .map(([courseCode]) => courseCode)
-          .sort(),
-      };
-    },
+    >
+      {status === "completed" ? (
+        <Check className="size-3" aria-hidden="true" />
+      ) : status ? (
+        <CalendarDays className="size-3" aria-hidden="true" />
+      ) : (
+        <CircleDashed className="size-3" aria-hidden="true" />
+      )}
+      {status ? STATUS_LABEL[status] : "Not planned"}
+    </Badge>
   );
-  const position = new Map<string, { col: number; row: number }>();
-  columns.forEach((column, col) =>
-    column.codes.forEach((item, row) => position.set(item, { col, row })),
-  );
-  const edges = prerequisiteEdges.filter(
-    (edge) => position.has(edge.from) && position.has(edge.to),
-  );
-
-  return {
-    columns,
-    edges,
-    position,
-    rows: Math.max(1, ...columns.map((column) => column.codes.length)),
-  };
 }
 
+function choiceLabel(node: Extract<RequisiteGraphNode, { kind: "choice" }>) {
+  if (node.operator === "all_of") return "All of these";
+  if (node.operator === "any_of") return "Choose one";
+  return `Choose at least ${node.minimumCount ?? 1}`;
+}
+
+/**
+ * The prerequisite rule as a left-to-right dependency graph, with a node for
+ * every condition the rule states. Alternatives get a group node so an OR
+ * cannot be mistaken for a list of separate requirements, and a unit rule is
+ * a node like any other rather than being dropped for naming no single course.
+ *
+ * Drawn with layout and SVG rather than the React Flow canvas the reviewer's
+ * editor uses: every node here is a real link or a real piece of text in
+ * reading order, which a student on a phone or a screen reader needs and a
+ * pannable canvas takes away.
+ */
 export function PrereqGraph({
   academicYear,
+  availableCourseCodes,
   code,
-  prerequisiteEdges,
-  completedCodes,
+  expression,
   hasPrerequisiteWording,
-  plannedCodes,
+  prerequisiteEdges,
+  showStudentState,
+  statusByCode,
+  unlocksAreKnown,
 }: {
   academicYear: number;
+  availableCourseCodes: ReadonlySet<string>;
   code: string;
-  prerequisiteEdges: readonly CoursePrerequisiteEdge[];
-  completedCodes: ReadonlySet<string>;
+  expression: CourseRuleExpression | null;
   hasPrerequisiteWording: boolean;
-  plannedCodes: ReadonlySet<string>;
+  prerequisiteEdges: readonly CoursePrerequisiteEdge[];
+  showStudentState: boolean;
+  statusByCode: ReadonlyMap<string, CourseStatus>;
+  unlocksAreKnown: boolean;
 }) {
-  const layout = useMemo(
-    () => buildLayout(code, prerequisiteEdges),
-    [code, prerequisiteEdges],
+  const graph = useMemo(
+    () =>
+      buildRequisiteGraph({
+        availableCourseCodes,
+        code,
+        expression,
+        prerequisiteEdges,
+      }),
+    [availableCourseCodes, code, expression, prerequisiteEdges],
   );
-  const { columns, edges, position, rows } = layout;
-  const height = rows * STEP - GAP;
-  const columnCount = columns.length;
-  const availability = new Map<string, boolean>([[code, true]]);
-  for (const edge of prerequisiteEdges) {
-    availability.set(
-      edge.from,
-      availability.get(edge.from) === true || edge.fromIsAvailable,
-    );
-    availability.set(
-      edge.to,
-      availability.get(edge.to) === true || edge.toIsAvailable,
-    );
+
+  const columnCount = graph.maximumDepth + 2;
+  const currentColumn = graph.maximumDepth;
+  const columnOf = (node: RequisiteGraphNode) =>
+    node.kind === "unlocked"
+      ? columnCount - 1
+      : graph.maximumDepth - node.depth;
+
+  const placed: Placed[] = [];
+  const byColumn = new Map<number, Placed[]>();
+  const push = (entry: Placed) => {
+    placed.push(entry);
+    byColumn.set(entry.column, [...(byColumn.get(entry.column) ?? []), entry]);
+  };
+  for (const node of graph.nodes) {
+    push({
+      column: columnOf(node),
+      height: nodeHeight(node, showStudentState),
+      id: node.id,
+      node,
+      top: 0,
+    });
+  }
+  if ((byColumn.get(currentColumn - 1) ?? []).length === 0) {
+    push({
+      column: currentColumn - 1,
+      height: EMPTY_HEIGHT,
+      id: "empty-requires",
+      node: null,
+      top: 0,
+    });
+  }
+  if ((byColumn.get(columnCount - 1) ?? []).length === 0) {
+    push({
+      column: columnCount - 1,
+      height: EMPTY_HEIGHT,
+      id: "empty-unlocks",
+      node: null,
+      top: 0,
+    });
   }
 
-  const yOf = (item: string) => {
-    const spot = position.get(item);
-    if (!spot) return 0;
-    const colRows = columns[spot.col].codes.length;
-    const offset = (height - (colRows * STEP - GAP)) / 2;
-    return offset + spot.row * STEP + NODE_H / 2;
-  };
-  const xOf = (item: string) => {
-    const spot = position.get(item);
-    return spot ? ((spot.col + 0.5) / columnCount) * 100 : 0;
-  };
+  const columnHeights = new Map<number, number>();
+  for (const [column, entries] of byColumn) {
+    columnHeights.set(
+      column,
+      entries.reduce((total, entry) => total + entry.height, 0) +
+        ROW_GAP * Math.max(0, entries.length - 1),
+    );
+  }
+  const height = Math.max(EMPTY_HEIGHT, ...columnHeights.values());
+  for (const [column, entries] of byColumn) {
+    let offset = (height - (columnHeights.get(column) ?? 0)) / 2;
+    for (const entry of entries) {
+      entry.top = offset;
+      offset += entry.height + ROW_GAP;
+    }
+  }
+
+  const geometry = new Map(placed.map((entry) => [entry.id, entry]));
+  const width = columnCount * COLUMN_WIDTH + (columnCount - 1) * COLUMN_GAP;
+  const leftOf = (column: number) => column * (COLUMN_WIDTH + COLUMN_GAP);
 
   return (
-    <div className="overflow-x-auto px-5 pb-5">
-      <div className="min-w-[34rem]">
+    <div className="overflow-x-auto px-5 pb-5" data-testid="prereq-graph">
+      <div style={{ width }}>
         <div
-          className="grid gap-4"
+          className="grid pb-2 text-center text-[10px] font-bold tracking-wider text-muted-foreground/80 uppercase"
           style={{
-            gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+            columnGap: COLUMN_GAP,
+            gridTemplateColumns: `repeat(${columnCount}, ${COLUMN_WIDTH}px)`,
           }}
         >
-          {columns.map((column, index) => (
-            <p
-              key={index}
-              className="pb-2 text-center text-[10px] font-bold tracking-wider text-muted-foreground/80 uppercase"
-            >
-              {column.label}
-            </p>
-          ))}
+          <p style={{ gridColumn: `span ${currentColumn}` }}>Requires</p>
+          <p>This course</p>
+          <p>Unlocks</p>
         </div>
 
         <div className="relative" style={{ height }}>
           <svg
-            viewBox={`0 0 100 ${height}`}
-            preserveAspectRatio="none"
-            className="absolute inset-0 h-full w-full"
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+            className="absolute top-0 left-0"
             aria-hidden="true"
           >
-            {edges.map((edge) => {
-              const x1 = xOf(edge.from);
-              const x2 = xOf(edge.to);
-              const y1 = yOf(edge.from);
-              const y2 = yOf(edge.to);
+            {graph.edges.map((edge) => {
+              const from = geometry.get(edge.from);
+              const to = geometry.get(edge.to);
+              if (!from || !to) return null;
+              const x1 = leftOf(from.column) + COLUMN_WIDTH;
+              const x2 = leftOf(to.column);
+              const y1 = from.top + from.height / 2;
+              const y2 = to.top + to.height / 2;
               const mid = (x1 + x2) / 2;
-              const touches = edge.from === code || edge.to === code;
-              const completedPath =
-                completedCodes.has(edge.from) && completedCodes.has(edge.to);
+              const met =
+                from.node?.kind === "course" &&
+                statusByCode.get(from.node.code) === "completed";
               return (
                 <path
                   key={`${edge.from}:${edge.to}`}
                   d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
                   fill="none"
-                  vectorEffect="non-scaling-stroke"
-                  className={
-                    completedPath
-                      ? "stroke-emerald-400"
-                      : touches
-                        ? "stroke-primary/70"
-                        : "stroke-border"
-                  }
-                  strokeWidth={completedPath || touches ? 1.75 : 1.25}
+                  strokeDasharray={edge.alternative ? "4 4" : undefined}
+                  className={met ? "stroke-success" : "stroke-border"}
+                  strokeWidth={1.5}
                 />
               );
             })}
           </svg>
 
-          <div
-            className="relative grid h-full gap-4"
-            style={{
-              gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-            }}
-          >
-            {columns.map((column, colIndex) => {
-              const colRows = column.codes.length;
-              const offset = (height - (colRows * STEP - GAP)) / 2;
-              return (
-                <div key={colIndex} className="relative">
-                  {column.codes.length === 0 && (
-                    <div
-                      style={{ top: (height - NODE_H) / 2, height: NODE_H }}
-                      className="absolute inset-x-0 mx-auto flex w-full max-w-36 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-2 text-center text-[10px] font-medium text-muted-foreground/80"
-                    >
-                      {column.label === "Unlocks"
-                        ? "No linked courses"
-                        : hasPrerequisiteWording
-                          ? "See prerequisite requirements"
-                          : "No prerequisite listed"}
-                    </div>
-                  )}
-                  {column.codes.map((item, row) => {
-                    const isCurrent = item === code;
-                    const isAvailable = availability.get(item) === true;
-                    const isCompleted = completedCodes.has(item);
-                    const isPlanned = plannedCodes.has(item);
-                    const nodeClassName = cn(
-                      "absolute inset-x-0 mx-auto flex w-full max-w-36 items-center justify-center gap-1.5 rounded-lg px-2 font-mono text-[11px] font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                      isCompleted
-                        ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-900"
-                        : isCurrent
-                          ? "bg-primary text-white shadow-sm"
-                          : !isAvailable
-                            ? "cursor-not-allowed bg-muted text-muted-foreground ring-1 ring-border"
-                            : isPlanned
-                              ? "bg-card text-foreground/80 ring-1 ring-border hover:bg-accent/50 hover:ring-input"
-                              : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900 hover:bg-rose-100 dark:hover:bg-rose-950/60 hover:ring-rose-300",
-                    );
-                    const content = (
-                      <>
-                        {isCompleted && <Check size={12} strokeWidth={2.5} />}
-                        <span>{item}</span>
-                        {!isAvailable && (
-                          <span className="sr-only">
-                            Course details unavailable
-                          </span>
-                        )}
-                      </>
-                    );
-                    const style = { top: offset + row * STEP, height: NODE_H };
-
-                    if (isCurrent) {
-                      return (
-                        <span
-                          key={item}
-                          style={style}
-                          aria-current="page"
-                          className={nodeClassName}
-                        >
-                          {content}
-                        </span>
-                      );
-                    }
-                    if (!isAvailable) {
-                      return (
-                        <Hint
-                          key={item}
-                          label={`${item}: course details unavailable`}
-                        >
-                          <span style={style} className={nodeClassName}>
-                            <LockKeyhole size={11} aria-hidden="true" />
-                            {content}
-                          </span>
-                        </Hint>
-                      );
-                    }
-                    return (
-                      <Link
-                        key={item}
-                        href={`/courses/${item}?year=${academicYear}`}
-                        prefetch={false}
-                        style={style}
-                        className={nodeClassName}
-                      >
-                        {content}
-                      </Link>
-                    );
-                  })}
-                </div>
+          {placed.map((entry) => {
+            const style = {
+              height: entry.height,
+              left: leftOf(entry.column),
+              top: entry.top,
+              width: COLUMN_WIDTH,
+            };
+            if (!entry.node) {
+              const unlocks = entry.id === "empty-unlocks";
+              const label = unlocks
+                ? unlocksAreKnown
+                  ? "No published course lists this one"
+                  : "Not known yet"
+                : hasPrerequisiteWording
+                  ? "See prerequisite requirements"
+                  : "No prerequisite listed";
+              const box = (
+                <p
+                  style={style}
+                  className="absolute flex items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-3 text-center text-[11px] font-medium text-muted-foreground"
+                >
+                  {label}
+                </p>
               );
-            })}
-          </div>
+              if (!unlocks || unlocksAreKnown) {
+                return <Fragment key={entry.id}>{box}</Fragment>;
+              }
+              return (
+                <Hint
+                  key={entry.id}
+                  label="This course is not published for this year, so the courses it unlocks have not been looked up."
+                >
+                  {box}
+                </Hint>
+              );
+            }
+            return (
+              <GraphNode
+                academicYear={academicYear}
+                key={entry.id}
+                node={entry.node}
+                showStudentState={showStudentState}
+                statusByCode={statusByCode}
+                style={style}
+              />
+            );
+          })}
         </div>
+
+        {graph.incompatibleCodes.length > 0 ? (
+          <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+            <CircleAlert
+              className="mt-px size-3.5 shrink-0 text-warning"
+              aria-hidden="true"
+            />
+            <span>
+              Not a prerequisite: this course cannot be counted with{" "}
+              {graph.incompatibleCodes.join(", ")}.
+            </span>
+          </p>
+        ) : null}
+        {graph.source === "references" ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            Drawn from the course codes found in the prerequisite wording. The
+            rule has not been reviewed, so any choice between them is not shown.
+          </p>
+        ) : null}
       </div>
     </div>
+  );
+}
+
+function GraphNode({
+  academicYear,
+  node,
+  showStudentState,
+  statusByCode,
+  style,
+}: {
+  academicYear: number;
+  node: RequisiteGraphNode;
+  showStudentState: boolean;
+  statusByCode: ReadonlyMap<string, CourseStatus>;
+  style: { height: number; left: number; top: number; width: number };
+}) {
+  if (node.kind === "choice") {
+    return (
+      <p
+        style={style}
+        className="absolute flex items-center justify-center rounded-full border border-primary/30 bg-primary/5 px-3 text-center text-xs font-semibold text-primary"
+      >
+        {choiceLabel(node)}
+      </p>
+    );
+  }
+
+  if (node.kind === "requirement") {
+    const condition = requisiteConditionNode(node.condition);
+    const detail = conditionInterpretation(condition);
+    return (
+      <div
+        style={style}
+        className="absolute flex items-center gap-2 rounded-lg border border-border bg-card px-3"
+      >
+        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+          <GaugeCircle className="size-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-xs font-semibold">
+            {conditionHeading(condition)}
+          </span>
+          <span className="mt-0.5 line-clamp-2 block text-[11px] leading-tight text-muted-foreground">
+            {detail || node.condition.sourceText}
+          </span>
+        </span>
+      </div>
+    );
+  }
+
+  if (node.kind === "current") {
+    return (
+      <span
+        style={style}
+        aria-current="page"
+        className="absolute flex items-center justify-center gap-1.5 rounded-lg bg-primary px-3 font-mono text-[13px] font-semibold text-white shadow-sm"
+      >
+        {node.code}
+      </span>
+    );
+  }
+
+  const status = statusByCode.get(node.code) ?? null;
+  const body = (
+    <>
+      <span className="font-mono text-[13px] font-semibold">{node.code}</span>
+      {node.kind === "course" &&
+      node.condition?.kind === "course" &&
+      node.condition.requirementMode === "completed_or_concurrent" ? (
+        <span className="text-[10px] leading-tight text-muted-foreground">
+          Completed or taken at the same time
+        </span>
+      ) : null}
+      {showStudentState && node.isAvailable ? (
+        <CourseStatusBadge status={status} />
+      ) : null}
+    </>
+  );
+  const className = cn(
+    "absolute flex flex-col items-center justify-center gap-1 rounded-lg px-2 text-center transition-colors motion-reduce:transition-none",
+    !node.isAvailable
+      ? "border border-border bg-muted/40 text-muted-foreground"
+      : status === "completed"
+        ? "border border-success/30 bg-success/5 hover:bg-success/10"
+        : status
+          ? "border border-primary/30 bg-primary/5 hover:bg-primary/10"
+          : "border border-border bg-card hover:border-foreground/20 hover:bg-muted/40",
+  );
+
+  if (!node.isAvailable) {
+    return (
+      <Hint label={`${node.code}: course details unavailable`}>
+        <span style={style} className={className}>
+          <span className="flex items-center gap-1">
+            <LockKeyhole className="size-3" aria-hidden="true" />
+            <span className="font-mono text-[13px] font-semibold">
+              {node.code}
+            </span>
+          </span>
+          <span className="text-[10px] leading-tight">Not available</span>
+        </span>
+      </Hint>
+    );
+  }
+
+  return (
+    <Link
+      href={`/courses/${node.code}?year=${academicYear}`}
+      prefetch={false}
+      style={style}
+      className={cn(
+        className,
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+      )}
+    >
+      {body}
+    </Link>
   );
 }

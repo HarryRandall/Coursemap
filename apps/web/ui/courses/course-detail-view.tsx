@@ -44,6 +44,8 @@ import {
 import { Hint } from "@/ui/common/hint";
 import { PrereqGraph } from "@/ui/prereq-graph";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
+import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
+import type { Attempt } from "@/lib/coursemap/types";
 import {
   evaluateRequisiteExpression,
   type CompletedRequisiteCourse,
@@ -57,13 +59,11 @@ import {
   sessionLabel,
   unitValueLabel,
 } from "@/ui/courses/course-detail-format";
-import {
-  CourseReferenceChips,
-  CourseReferenceText,
-} from "@/ui/courses/course-reference";
+import { CourseReferenceText } from "@/ui/courses/course-reference";
 import {
   RequisiteExpressionSummary,
   RequisiteProgressSummary,
+  RequisiteRuleSummary,
 } from "@/ui/courses/requisite-summary";
 
 export const courseDetailTabs = [
@@ -99,29 +99,23 @@ export function CourseDetailTabsList() {
     </TabsList>
   );
 }
-const EMPTY_CODES: ReadonlySet<string> = new Set();
+const NO_ATTEMPTS: readonly Attempt[] = [];
 
 /**
  * The student-facing body of a course page. The student route and the admin
  * import review both render this component, so a draft preview cannot drift
  * away from what a student will actually see.
  */
-/**
- * The student-facing body of a course page. The student route and the admin
- * import review both render this component, so a draft preview cannot drift
- * away from what a student will actually see.
- */
 export function CourseDetailView({
-  completedCodes = EMPTY_CODES,
+  attempts = NO_ATTEMPTS,
   course,
   onAddToPlan,
-  plannedCodes = EMPTY_CODES,
   requisiteCompletion,
 }: {
-  completedCodes?: ReadonlySet<string>;
+  /** The reader's own plan, so the graph can mark what they have done. */
+  attempts?: readonly Attempt[];
   course: CourseDetails;
   onAddToPlan?: () => void;
-  plannedCodes?: ReadonlySet<string>;
   requisiteCompletion: {
     completedCourses: CompletedRequisiteCourse[];
     enrolledProgrammeCodes?: string[];
@@ -130,6 +124,15 @@ export function CourseDetailView({
 }) {
   const availableCourseCodes = new Set(course.availableCourseCodes);
   const structuredRule = course.prerequisiteRule?.expression ?? null;
+  const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
+  const statusByCode = new Map(
+    [...new Set(attempts.map((attempt) => attempt.courseCode))].flatMap(
+      (attemptCode) => {
+        const status = requirementCourseStatus(attemptCode, attempts);
+        return status ? [[attemptCode, status] as const] : [];
+      },
+    ),
+  );
   const requisiteSummary =
     structuredRule ?? parseRequisiteSummary(course.prerequisiteText);
   const requisiteProgress = structuredRule
@@ -505,11 +508,16 @@ export function CourseDetailView({
           <CardContent className="border-t border-border/60 px-0 pt-5 pb-0">
             <PrereqGraph
               academicYear={course.year}
+              availableCourseCodes={availableCourseCodes}
               code={course.code}
-              prerequisiteEdges={course.prerequisiteEdges}
-              completedCodes={completedCodes}
+              expression={relationalRule}
               hasPrerequisiteWording={hasPrerequisiteWording}
-              plannedCodes={plannedCodes}
+              prerequisiteEdges={course.prerequisiteEdges}
+              showStudentState={
+                requisiteCompletion.isAuthenticated || attempts.length > 0
+              }
+              statusByCode={statusByCode}
+              unlocksAreKnown={course.unlocksAreKnown}
             />
           </CardContent>
         </Card>
@@ -524,7 +532,7 @@ export function CourseDetailView({
             {requisiteProgress && requisiteCompletion.isAuthenticated ? (
               <div>
                 <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Your completed-course progress
+                  Prerequisites against your completed courses
                 </h3>
                 <div className="mt-2">
                   <RequisiteProgressSummary
@@ -534,13 +542,23 @@ export function CourseDetailView({
                   />
                 </div>
               </div>
-            ) : null}
-            {requisiteSummary ? (
+            ) : relationalRule ? (
               <div>
                 <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  {structuredRule
-                    ? "Prerequisite requirements"
-                    : "Coursemap summary"}
+                  Prerequisite requirements
+                </h3>
+                <div className="mt-2">
+                  <RequisiteRuleSummary
+                    academicYear={course.year}
+                    expression={relationalRule}
+                    availableCourseCodes={availableCourseCodes}
+                  />
+                </div>
+              </div>
+            ) : requisiteSummary ? (
+              <div>
+                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  Coursemap summary
                 </h3>
                 <div className="mt-2">
                   <RequisiteExpressionSummary
@@ -553,7 +571,7 @@ export function CourseDetailView({
             ) : null}
             <div>
               <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Prerequisites
+                Prerequisites as published
               </h3>
               <p className="mt-2 whitespace-pre-line">
                 <CourseReferenceText
@@ -562,11 +580,6 @@ export function CourseDetailView({
                   availableCourseCodes={availableCourseCodes}
                 />
               </p>
-              <CourseReferenceChips
-                academicYear={course.year}
-                course={course}
-                availableCourseCodes={availableCourseCodes}
-              />
             </div>
             {course.corequisiteText ? (
               <div className="border-t border-border/60 pt-5">

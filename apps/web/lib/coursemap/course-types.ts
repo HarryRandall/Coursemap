@@ -185,6 +185,12 @@ export type CourseDetails = {
   /** Published courses which can be opened from requisite prose. */
   availableCourseCodes: string[];
   incompatibilityText: string;
+  /**
+   * Whether the reverse lookup for courses this one unlocks actually ran. It
+   * only runs over published courses, so a draft cannot tell an empty result
+   * from an unasked question and must say so rather than imply nothing.
+   */
+  unlocksAreKnown: boolean;
   sourceUrl: string;
   sourceUpdatedAt: string | null;
   publicationStatus: "published" | "draft";

@@ -879,6 +879,9 @@ function detailAsCourseDetails(
     sessions,
     sourceUpdatedAt: readNullableString(snapshot.sourceUpdatedAt),
     sourceUrl: sourceUrl(academicYear, code),
+    // The published detail always carries a graph array, even when empty. A
+    // draft projection has no key at all, so the reverse lookup never ran.
+    unlocksAreKnown: Array.isArray(value.prerequisiteEdges),
     subject: readString(snapshot.subjectCode, code.slice(0, 4)),
     subjectName: readNullableString(snapshot.subjectName),
     unitValue,
@@ -1219,6 +1222,8 @@ async function loadListRelationships(
         sessions: sessionNames,
         sourceUpdatedAt: snapshot.source_updated_at,
         sourceUrl: sourceUrl(year.year, code),
+        // The list query reads prerequisite references only, never the reverse.
+        unlocksAreKnown: false,
         subject: snapshot.subject_code ?? code.slice(0, 4),
         subjectName: snapshot.subject_name,
         unitValue,

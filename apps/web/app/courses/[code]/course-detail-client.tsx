@@ -33,19 +33,6 @@ export function CourseDetailClient({
     courseTabFromSearch(searchParams.get("tab")),
   );
   const [planOpen, setPlanOpen] = useState(false);
-  const completedCodes = new Set(
-    state.attempts
-      .filter((attempt) => attempt.status === "completed")
-      .map((attempt) => attempt.courseCode),
-  );
-  const plannedCodes = new Set(
-    state.attempts
-      .filter(
-        (attempt) =>
-          attempt.status === "planned" || attempt.status === "enrolled",
-      )
-      .map((attempt) => attempt.courseCode),
-  );
 
   useEffect(() => {
     const syncTabFromHistory = () => {
@@ -75,10 +62,9 @@ export function CourseDetailClient({
     >
       <AppShell tabs={<CourseDetailTabsList />}>
         <CourseDetailView
-          completedCodes={completedCodes}
+          attempts={state.attempts}
           course={course}
           onAddToPlan={() => setPlanOpen(true)}
-          plannedCodes={plannedCodes}
           requisiteCompletion={requisiteCompletion}
         />
         {planOpen ? (
