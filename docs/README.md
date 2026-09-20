@@ -11,6 +11,7 @@
 
 ## Proposals
 
+- [Catalogue admin rework](catalogue-admin-rework.md): the component reuse list and the interface, pipeline and test work left after A7.
 - [Redesign plan](redesign-plan.md): decisions, target model and stacked pull request sequence for the catalogue schema and import redesign, prerequisites, student interface and campus map.
 
 Keep current operating instructions in the guides and label proposals explicitly.

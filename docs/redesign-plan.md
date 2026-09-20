@@ -333,6 +333,18 @@ student-facing surface. Administrators cannot import or edit catalogue content
 locally between A3a and A7. If A5 exceeds a reviewable size, split along the
 course and structure kind boundary rather than across layers.
 
+### Interface reuse
+
+A5 to A7 specified data flow and routes and said nothing about reusing the
+existing component kit, so the rebuild hand-rolled tables, selects, labels,
+diffs and loading states the repository already owns and deleted four finished
+components that had no schema problem. Every remaining project in this plan
+reuses the kit listed in
+[catalogue admin rework](catalogue-admin-rework.md#reuse-list), and a pull
+request that introduces another bespoke table, form control or status label is
+not ready. That document also carries the interface, pipeline and test work
+still outstanding from Project A.
+
 ### Verification
 
 Per pull request: `pnpm verify`, `pnpm db:reset`, `pnpm db:test`, `pnpm db:lint`,
