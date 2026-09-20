@@ -69,10 +69,10 @@ select extensions.lives_ok(
   $$
     insert into public.requirement_conditions (
       rule_id, snapshot_id, group_id, condition_key, position, condition_kind,
-      item_id, requirement_mode
+      item_id, item_kind, requirement_mode
     )
     select groups.rule_id, groups.snapshot_id, groups.id, 'course', 0, 'course',
-      (select id from public.catalogue_items where code = 'REQT1001'), 'completed'
+      (select id from public.catalogue_items where code = 'REQT1001'), 'course', 'completed'
     from public.requirement_groups as groups join fixture on fixture.snapshot_id = groups.snapshot_id
   $$,
   'course conditions reference a catalogue item'

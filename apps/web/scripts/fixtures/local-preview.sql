@@ -702,7 +702,7 @@ where rules.rule_kind = 'prerequisite';
 
 insert into public.requirement_conditions (
   rule_id, snapshot_id, group_id, condition_key, position, condition_kind,
-  item_id, requirement_mode, hardness, source_text, confidence, review_state
+  item_id, item_kind, requirement_mode, hardness, source_text, confidence, review_state
 )
 select
   rules.id,
@@ -712,6 +712,7 @@ select
   0,
   'course',
   prerequisite.id,
+  prerequisite.kind,
   'completed',
   'hard',
   'You must have completed MATH1005.',

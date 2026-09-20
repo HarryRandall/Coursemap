@@ -2856,6 +2856,7 @@ export type Database = {
           hardness: string
           id: number
           item_id: number | null
+          item_kind: string | null
           maximum_level: number | null
           maximum_units: number | null
           minimum_count: number | null
@@ -2885,6 +2886,7 @@ export type Database = {
           hardness?: string
           id?: never
           item_id?: number | null
+          item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
           minimum_count?: number | null
@@ -2914,6 +2916,7 @@ export type Database = {
           hardness?: string
           id?: never
           item_id?: number | null
+          item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
           minimum_count?: number | null
@@ -2944,17 +2947,10 @@ export type Database = {
           },
           {
             foreignKeyName: "requirement_conditions_item_fkey"
-            columns: ["item_id"]
+            columns: ["item_id", "item_kind"]
             isOneToOne: false
             referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "requirement_conditions_item_fkey"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
+            referencedColumns: ["id", "kind"]
           },
           {
             foreignKeyName: "requirement_conditions_rule_fkey"
