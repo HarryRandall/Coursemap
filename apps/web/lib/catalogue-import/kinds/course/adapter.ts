@@ -113,6 +113,10 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
       modelValid,
       warningCount,
       errorCount,
+      errorCode: modelValid ? null : "MODEL_OUTPUT_REJECTED",
+      errorSummary: modelValid
+        ? null
+        : "The model response failed the strict course extraction contract; only deterministic parsing reached this snapshot.",
       report: {
         schemaValid: modelValid,
         modelValidationIssues: result.modelValidationIssues,

@@ -3264,6 +3264,51 @@ export type Database = {
           },
         ]
       }
+      structure_snapshot_summary_fields: {
+        Row: {
+          field_key: string
+          field_value: string
+          label: string
+          position: number
+          snapshot_id: number
+          source_text: string
+          value_position: number
+        }
+        Insert: {
+          field_key: string
+          field_value: string
+          label: string
+          position: number
+          snapshot_id: number
+          source_text: string
+          value_position: number
+        }
+        Update: {
+          field_key?: string
+          field_value?: string
+          label?: string
+          position?: number
+          snapshot_id?: number
+          source_text?: string
+          value_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["snapshot_id"]
+          },
+        ]
+      }
       university_calendar_events: {
         Row: {
           academic_year_id: number
@@ -3552,6 +3597,10 @@ export type Database = {
         Args: { required_permission: string }
         Returns: boolean
       }
+      delete_catalogue_item: {
+        Args: { p_code: string; p_kind: string }
+        Returns: undefined
+      }
       discard_catalogue_draft: {
         Args: { p_item_year_id: number }
         Returns: undefined
@@ -3594,6 +3643,17 @@ export type Database = {
           to_is_available: boolean
         }[]
       }
+      published_structure_detail: {
+        Args: { p_academic_year: number; p_structure_code: string }
+        Returns: Json
+      }
+      published_structure_years: {
+        Args: { p_structure_code: string }
+        Returns: {
+          academic_year: number
+          structure_kind: string
+        }[]
+      }
       record_current_user_course_attempt: {
         Args: {
           p_attempt_mark?: number
@@ -3602,6 +3662,11 @@ export type Database = {
           p_units_attempted?: number
         }
         Returns: string
+      }
+      recover_catalogue_import_targets: { Args: never; Returns: number }
+      release_catalogue_import_target: {
+        Args: { p_target_id: string }
+        Returns: undefined
       }
       remove_current_user_plan_item: {
         Args: { p_plan_item_id: string }

@@ -165,6 +165,7 @@ export type StructureContentWrite = {
     studyAs: string | null;
     contactText: string | null;
   };
+  summaryFields: AcademicStructureSnapshotProjection["summaryFields"];
   sections: AcademicStructureSnapshotProjection["sections"];
   learningOutcomes: AcademicStructureSnapshotProjection["learningOutcomes"];
   fees: AcademicStructureSnapshotProjection["fees"];
@@ -395,6 +396,7 @@ export function structureSnapshotWrite({
         studyAs: projection.snapshot.studyAs,
         contactText: projection.snapshot.contactText,
       },
+      summaryFields: projection.summaryFields,
       sections: projection.sections,
       learningOutcomes: projection.learningOutcomes,
       fees: projection.fees,

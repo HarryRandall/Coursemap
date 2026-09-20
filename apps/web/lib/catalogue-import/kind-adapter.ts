@@ -30,6 +30,14 @@ export type MergeOutcome<Extraction> = {
   warningCount: number;
   errorCount: number;
   report: unknown;
+  /**
+   * Set when the model output was discarded. The processor records it on the
+   * target so a snapshot built from deterministic parsing alone says so,
+   * rather than finishing `ready` with no error at all.
+   */
+  errorCode?: string | null;
+  /** The reason, for `catalogue_extractions.error_summary`. */
+  errorSummary?: string | null;
 };
 
 /**
@@ -75,6 +83,8 @@ export type CatalogueKindAdapter<Extraction = unknown> = {
     modelValid: boolean;
     modelInput: string;
     responseError: string | null;
+    /** The provider's stop reason; `length` means the response was truncated. */
+    finishReason: string | null;
   }): MergeOutcome<Extraction>;
   project(extraction: Extraction): CatalogueSnapshotWrite;
 };

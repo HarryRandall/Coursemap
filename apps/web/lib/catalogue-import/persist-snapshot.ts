@@ -246,6 +246,16 @@ async function insertStructureContent(
       ${details.contactText}
     )
   `;
+  for (const field of content.summaryFields) {
+    await tx`
+      insert into public.structure_snapshot_summary_fields (
+        snapshot_id, position, value_position, field_key, label, field_value, source_text
+      ) values (
+        ${snapshotId}, ${field.position}, ${field.valuePosition}, ${field.fieldKey},
+        ${field.label}, ${field.fieldValue}, ${field.sourceText}
+      )
+    `;
+  }
   for (const section of content.sections) {
     await tx`
       insert into public.academic_structure_snapshot_sections (

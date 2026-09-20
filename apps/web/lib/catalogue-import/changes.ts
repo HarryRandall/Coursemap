@@ -30,6 +30,7 @@ const COURSE_COLLECTIONS = [
 ] as const;
 
 const STRUCTURE_COLLECTIONS = [
+  "summaryFields",
   "sections",
   "learningOutcomes",
   "fees",

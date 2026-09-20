@@ -499,6 +499,7 @@ async function processClaimedTarget({
         modelValid: modelValidation.success,
         modelInput: userPrompt,
         responseError: modelResult.result.responseError,
+        finishReason: modelResult.result.finishReason,
       });
       const validated = await persistArtifact({
         stageId,
@@ -528,9 +529,10 @@ async function processClaimedTarget({
         warningCount: outcome.warningCount,
         errorCount: outcome.errorCount,
         errorSummary:
-          outcome.modelValid && outcome.errorCount === 0
+          outcome.errorSummary ??
+          (outcome.modelValid && outcome.errorCount === 0
             ? null
-            : "The model response failed strict extraction validation; deterministic data was retained.",
+            : "The model response failed strict extraction validation; deterministic data was retained."),
       });
       return outcome;
     });
@@ -572,6 +574,12 @@ async function processClaimedTarget({
       changeKind: persisted.changeKind,
       sourcePageId,
       candidateSnapshotId: persisted.candidateSnapshotId,
+      // Discarding the model extraction used to be silent: the target ended
+      // `ready` with no error code, and only catalogue_extractions recorded
+      // it. The blocking flag the merge emitted holds publication; this says
+      // why on the target itself.
+      errorCode: merged.errorCode ?? null,
+      errorMessage: merged.errorSummary ?? null,
     });
   } catch (error) {
     const code = importErrorCode(error);

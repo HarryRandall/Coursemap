@@ -307,12 +307,14 @@ async function readStructureContent(
     select * from public.structure_snapshot_details where snapshot_id = ${snapshotId}
   `;
   if (!details) return null;
-  const [sections, outcomes, fees, relationships] = await Promise.all([
-    sql`select section_key, heading, markdown, source_text, source_locator, position from public.academic_structure_snapshot_sections where snapshot_id = ${snapshotId} order by position`,
-    sql`select position, outcome_text, source_text, source_locator from public.academic_structure_learning_outcomes where snapshot_id = ${snapshotId} order by position`,
-    sql`select * from public.academic_structure_fees where snapshot_id = ${snapshotId} order by position`,
-    sql`select * from public.academic_structure_snapshot_relationships where snapshot_id = ${snapshotId} order by position`,
-  ]);
+  const [summaryFields, sections, outcomes, fees, relationships] =
+    await Promise.all([
+      sql`select position, value_position, field_key, label, field_value, source_text from public.structure_snapshot_summary_fields where snapshot_id = ${snapshotId} order by position, value_position`,
+      sql`select section_key, heading, markdown, source_text, source_locator, position from public.academic_structure_snapshot_sections where snapshot_id = ${snapshotId} order by position`,
+      sql`select position, outcome_text, source_text, source_locator from public.academic_structure_learning_outcomes where snapshot_id = ${snapshotId} order by position`,
+      sql`select * from public.academic_structure_fees where snapshot_id = ${snapshotId} order by position`,
+      sql`select * from public.academic_structure_snapshot_relationships where snapshot_id = ${snapshotId} order by position`,
+    ]);
   return {
     details: {
       name: String(details.name),
@@ -336,6 +338,14 @@ async function readStructureContent(
       studyAs: str(details.study_as),
       contactText: str(details.contact_text),
     },
+    summaryFields: summaryFields.map((row) => ({
+      position: Number(row.position),
+      valuePosition: Number(row.value_position),
+      fieldKey: String(row.field_key),
+      label: String(row.label),
+      fieldValue: String(row.field_value),
+      sourceText: String(row.source_text),
+    })),
     sections: sections.map((row) => ({
       position: Number(row.position),
       sectionKey: String(row.section_key),
