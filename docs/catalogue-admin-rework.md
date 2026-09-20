@@ -87,6 +87,12 @@ Branch `fix/catalogue-security-and-imports`, then
 - The runs page searches, filters, sorts and pages, and watches an active run
   through four counters rather than refetching every run and target every four
   seconds.
+- The imports page is one table of records across every run rather than a run
+  list stacked over one run's records. The run is a column and a filter, so a
+  record is found by its code rather than by guessing which batch carried it,
+  and search, outcome, sort and paging act on the records themselves. The
+  section tabs carry an icon each and the record tabs dropped the open-flag
+  count, which repeated the panel below and moved the tabs as flags resolved.
 - Four pipeline defects are closed: a manual edit no longer clears the
   publication gate, structure summary fields are stored rather than parsed and
   discarded, a discarded model extraction raises a blocking flag and an error
@@ -130,10 +136,6 @@ until the editor covers `structure_set`, `tagged_units` and `elective_units`.
 
 Most of this has landed. What is left:
 
-- `import-runs.tsx` has no search, filter, sort or paging and
-  `loadCatalogueImportRuns` caps at twenty-five with no offset. It polls with
-  `router.refresh()` every four seconds, refetching every run and target;
-  `readImportStream` already exists for this.
 - `record-header.tsx` shows publish blockers as the faintest text on the page
   and repeats them in a `title` attribute. They belong in an `Alert`.
 - Record pages under `/admin/<kind>/[code]` still have no error boundary.
