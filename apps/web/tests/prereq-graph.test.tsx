@@ -224,3 +224,29 @@ test("a course with no rule and no references still explains the gap", () => {
   renderGraph({ expression: null, hasPrerequisiteWording: false });
   expect(screen.getByText("No prerequisite listed")).toBeInTheDocument();
 });
+
+test("nodes in a column are stacked without overlapping", () => {
+  renderGraph({ showStudentState: true });
+  const placed = [
+    ...screen.getByTestId("prereq-graph").querySelectorAll<HTMLElement>("*"),
+  ]
+    .filter((element) => element.style.left && element.style.top)
+    .map((element) => ({
+      left: Number.parseFloat(element.style.left),
+      top: Number.parseFloat(element.style.top),
+      bottom:
+        Number.parseFloat(element.style.top) +
+        Number.parseFloat(element.style.height),
+    }));
+  expect(placed.length).toBeGreaterThan(3);
+  for (const column of new Set(placed.map((item) => item.left))) {
+    const stacked = placed
+      .filter((item) => item.left === column)
+      .sort((left, right) => left.top - right.top);
+    for (let index = 1; index < stacked.length; index += 1) {
+      expect(stacked[index].top).toBeGreaterThanOrEqual(
+        stacked[index - 1].bottom,
+      );
+    }
+  }
+});
