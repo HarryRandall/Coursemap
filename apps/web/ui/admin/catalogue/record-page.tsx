@@ -1,10 +1,5 @@
-import {
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@coursemap/ui/primitives/tabs";
-import { Badge } from "@coursemap/ui/components/badge";
-import { badgeVariantForTone } from "@/lib/ui";
+import { TabsContent } from "@coursemap/ui/primitives/tabs";
+import { ClipboardCheck, Eye, History, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import {
@@ -20,6 +15,7 @@ import {
 } from "@/lib/coursemap/catalogue-kinds";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
+import { SectionTabs } from "@/ui/common/section-tabs";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { anuSourceUrl } from "./anu-source";
 import { RecordHeader } from "./record-header";
@@ -72,37 +68,37 @@ export async function CatalogueRecordPage({
       ])
     : [null, null];
 
-  const openReviewCount =
-    record?.reviews.reduce(
-      (total, review) =>
-        total +
-        review.entries.filter((entry) => entry.status === "open").length,
-      0,
-    ) ?? 0;
-
+  // Each tab carries an icon rather than a count. A badge on Review reported
+  // the open flags a second time, under a label that already says what the
+  // tab is for, and it moved the tab's width every time one was resolved.
   const sectionTabs = record ? (
-    <div className="min-w-max flex-1">
-      <TabsList aria-label="Record sections" variant="line">
-        <TabsTrigger value="review">
-          Review
-          {openReviewCount > 0 ? (
-            <Badge variant={badgeVariantForTone.warning} className="ml-1.5">
-              {openReviewCount}
-            </Badge>
-          ) : null}
-        </TabsTrigger>
-        <TabsTrigger value="preview" disabled={!currentSnapshotId}>
-          Preview
-        </TabsTrigger>
-        <TabsTrigger
-          value="edit"
-          disabled={!currentSnapshotId || Boolean(record.archivedAt)}
-        >
-          Edit
-        </TabsTrigger>
-        <TabsTrigger value="history">History</TabsTrigger>
-      </TabsList>
-    </div>
+    <SectionTabs
+      label="Record sections"
+      tabs={[
+        {
+          value: "review",
+          label: "Review",
+          icon: <ClipboardCheck aria-hidden="true" size={16} />,
+        },
+        {
+          value: "preview",
+          label: "Preview",
+          disabled: !currentSnapshotId,
+          icon: <Eye aria-hidden="true" size={16} />,
+        },
+        {
+          value: "edit",
+          label: "Edit",
+          disabled: !currentSnapshotId || Boolean(record.archivedAt),
+          icon: <SquarePen aria-hidden="true" size={16} />,
+        },
+        {
+          value: "history",
+          label: "History",
+          icon: <History aria-hidden="true" size={16} />,
+        },
+      ]}
+    />
   ) : null;
 
   return (
