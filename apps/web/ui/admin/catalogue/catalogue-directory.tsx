@@ -286,12 +286,6 @@ export function CatalogueDirectory({
             })),
           },
         ]}
-        state={{
-          query,
-          values: { status: filter === "all" ? "" : filter },
-          onQueryChange: (value) => navigate({ q: value }),
-          onFilterChange: (key, value) => navigate({ [key]: value }),
-        }}
       />
 
       {selected.length > 0 ? (

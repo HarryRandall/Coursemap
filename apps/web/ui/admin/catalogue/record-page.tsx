@@ -1,9 +1,10 @@
 import {
-  Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
+import { Badge } from "@coursemap/ui/components/badge";
+import { badgeVariantForTone } from "@/lib/ui";
 import Link from "next/link";
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import {
@@ -20,6 +21,7 @@ import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { RecordHeader } from "./record-header";
+import { RecordTabs } from "./record-tabs";
 import { RecordHistory } from "./record-history";
 import { ReviewPanel } from "./review-panel";
 import { SnapshotEditor } from "./snapshot-editor";
@@ -68,6 +70,14 @@ export async function CatalogueRecordPage({
       ])
     : [null, null];
 
+  const openReviewCount =
+    record?.reviews.reduce(
+      (total, review) =>
+        total +
+        review.entries.filter((entry) => entry.status === "open").length,
+      0,
+    ) ?? 0;
+
   return (
     <AppShell
       admin
@@ -87,19 +97,19 @@ export async function CatalogueRecordPage({
           </Link>
         </CatalogueEmpty>
       ) : (
-        <div className="mx-auto flex w-full min-w-0 flex-col gap-5">
+        <div className="flex w-full min-w-0 flex-col gap-5">
           <RecordHeader record={record} path={path} />
-          <Tabs defaultValue={tab} className="block">
+          <RecordTabs value={tab} path={path}>
             <TabsList aria-label="Record sections" variant="line">
               <TabsTrigger value="review">
                 Review
-                {record.reviews.some((review) =>
-                  review.entries.some((entry) => entry.status === "open"),
-                ) ? (
-                  <span
-                    className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-500"
-                    aria-label="open items"
-                  />
+                {openReviewCount > 0 ? (
+                  <Badge
+                    variant={badgeVariantForTone.warning}
+                    className="ml-1.5"
+                  >
+                    {openReviewCount}
+                  </Badge>
                 ) : null}
               </TabsTrigger>
               <TabsTrigger value="preview" disabled={!currentSnapshotId}>
@@ -160,7 +170,7 @@ export async function CatalogueRecordPage({
             <TabsContent value="history" className="mt-4">
               <RecordHistory record={record} path={path} />
             </TabsContent>
-          </Tabs>
+          </RecordTabs>
         </div>
       )}
     </AppShell>

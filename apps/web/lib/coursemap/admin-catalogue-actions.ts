@@ -28,6 +28,16 @@ function failure(error: unknown, fallback: string): ActionResult {
   };
 }
 
+/**
+ * The record page identifies itself with a URL carrying the academic year, but
+ * revalidatePath matches a route path. Passing the query string made every
+ * revalidation silently miss, so an accepted change only appeared after a
+ * manual reload.
+ */
+function revalidateRecord(path: string) {
+  revalidatePath(path.split("?")[0] ?? path);
+}
+
 export async function resolveReviewEntryAction({
   entryId,
   status,
@@ -48,7 +58,7 @@ export async function resolveReviewEntryAction({
     p_note: note ?? undefined,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath(path);
+  revalidateRecord(path);
   return { ok: true };
 }
 
@@ -81,7 +91,7 @@ export async function resolveAllChangesAction({
     );
     if (resolveError) return { ok: false, error: resolveError.message };
   }
-  revalidatePath(path);
+  revalidateRecord(path);
   return {
     ok: true,
     message: `${entries?.length ?? 0} change${entries?.length === 1 ? "" : "s"} ${status}.`,
@@ -101,7 +111,7 @@ export async function applyReviewAction({
   if (!viewer) return { ok: false, error: "Authentication is required." };
   try {
     const result = await applyImportReview({ targetId, userId: viewer.id });
-    revalidatePath(path);
+    revalidateRecord(path);
     return {
       ok: true,
       message: result.reusedCandidate
@@ -129,7 +139,7 @@ export async function publishDraftAction({
     p_item_year_id: itemYearId,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath(path);
+  revalidateRecord(path);
   return { ok: true, message: "Published. Students now see this version." };
 }
 
@@ -147,7 +157,7 @@ export async function unpublishAction({
     p_item_year_id: itemYearId,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath(path);
+  revalidateRecord(path);
   return {
     ok: true,
     message: "Unpublished. Students no longer see this record for the year.",
@@ -176,7 +186,7 @@ export async function saveManualSnapshotAction({
       write,
       userId: viewer.id,
     });
-    revalidatePath(path);
+    revalidateRecord(path);
     return {
       ok: true,
       snapshotId: result.snapshotId,
@@ -210,7 +220,7 @@ export async function restoreSnapshotAction({
       snapshotId,
       userId: viewer.id,
     });
-    revalidatePath(path);
+    revalidateRecord(path);
     return {
       ok: true,
       message: result.unchanged
@@ -238,7 +248,7 @@ export async function discardDraftAction({
     p_item_year_id: itemYearId,
   });
   if (error) return { ok: false, error: error.message };
-  revalidatePath(path);
+  revalidateRecord(path);
   return {
     ok: true,
     message: "Draft discarded. The snapshot stays in history.",
