@@ -1,5 +1,5 @@
-import { ImportRunsLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
+import { ImportRecordsLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 
 export default function Loading() {
-  return <ImportRunsLoading noun="import runs" />;
+  return <ImportRecordsLoading noun="imports" />;
 }

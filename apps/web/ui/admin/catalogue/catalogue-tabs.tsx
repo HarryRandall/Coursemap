@@ -1,14 +1,34 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
+import { Import, LibraryBig } from "lucide-react";
+import { Tabs } from "@coursemap/ui/primitives/tabs";
 import { usePathname, useRouter } from "next/navigation";
 
-/** Route-backed section tabs so the directory and runs each have a URL. */
+import { SectionTabs } from "@/ui/common/section-tabs";
+
+/**
+ * The icons the directory tab bar can show. Naming them here keeps Lucide out
+ * of the server component that describes the tabs, and keeps the set closed:
+ * a tab bar with an icon per section only reads if the icons are chosen
+ * together.
+ */
+const TAB_ICONS = {
+  directory: LibraryBig,
+  imports: Import,
+} as const;
+
+export type CatalogueTab = {
+  href: string;
+  icon: keyof typeof TAB_ICONS;
+  label: string;
+};
+
+/** Route-backed section tabs so the directory and imports each have a URL. */
 export function CatalogueTabs({
   tabs,
   label,
 }: {
-  tabs: ReadonlyArray<{ href: string; label: string }>;
+  tabs: readonly CatalogueTab[];
   label: string;
 }) {
   const pathname = usePathname();
@@ -25,13 +45,19 @@ export function CatalogueTabs({
       onValueChange={(href) => router.push(href)}
       className="block"
     >
-      <TabsList aria-label={label} variant="line">
-        {tabs.map((tab) => (
-          <TabsTrigger key={tab.href} value={tab.href}>
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <SectionTabs
+        label={label}
+        tabs={tabs.map((tab) => {
+          const Icon = TAB_ICONS[tab.icon];
+          // The label beside it is the accessible name, so the icon is
+          // decorative and must not be read out a second time.
+          return {
+            value: tab.href,
+            label: tab.label,
+            icon: <Icon aria-hidden="true" size={16} />,
+          };
+        })}
+      />
     </Tabs>
   );
 }

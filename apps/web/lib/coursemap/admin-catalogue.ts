@@ -6,14 +6,13 @@ import {
   type CatalogueDirectoryPage,
   type CatalogueDirectoryRecord,
   type CatalogueKind,
-  DEFAULT_IMPORT_RUN_SORT,
+  DEFAULT_IMPORT_RECORD_SORT,
   type DirectoryFilter,
   type DirectoryWorkflowStatus,
+  type ImportRecordSort,
+  type ImportRecordsPage,
   type ImportRunProgress,
   type ImportRunRow,
-  type ImportRunSort,
-  type ImportRunSummary,
-  type ImportRunsPage,
   type ImportTargetDetail,
 } from "./catalogue-kinds";
 
@@ -287,7 +286,8 @@ export async function loadCatalogueDirectoryPage({
   };
 }
 
-const IMPORT_RUN_PAGE_SIZE = 20;
+const IMPORT_RECORD_PAGE_SIZE = 25;
+const RECENT_RUN_LIMIT = 20;
 
 const RUN_COLUMNS =
   "id,run_number,kind,status,requested_model,target_count,completed_count,failed_count,cost_usd,created_at,completed_at,academic_years(year)";
@@ -324,132 +324,246 @@ function runRow(run: RunRow): ImportRunRow {
   };
 }
 
-/** The targets of one run, which is the only run whose records are on screen. */
-async function loadRunTargets(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  runId: string,
-): Promise<ImportRunSummary["targets"]> {
-  const { data, error } = await supabase
-    .from("catalogue_import_targets")
-    .select(
-      "id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,applied_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
-    )
-    .eq("run_id", runId)
-    .order("code");
-  if (error) throw error;
-  return (data ?? []).map((target) => ({
-    id: target.id,
-    code: target.code,
-    title: target.catalogue_directory_entries?.title ?? null,
-    status: target.status,
-    changeKind: target.change_kind,
-    attemptCount: target.attempt_count,
-    errorCode: target.error_code,
-    errorMessage: target.error_message,
-    candidateSnapshotId: target.candidate_snapshot_id,
-    appliedSnapshotId: target.applied_snapshot_id,
-    itemYearPublicId: target.catalogue_item_years?.public_id ?? null,
-  }));
+// The year is taken from the target's own column and resolved through the
+// academic year table, rather than reached by a nested embed through the run:
+// PostgREST resolves `catalogue_import_targets -> catalogue_item_years` by two
+// foreign keys of the same name, so the embedded shape is not typed.
+const RECORD_COLUMNS =
+  "id,code,academic_year_id,status,change_kind,attempt_count,error_code,error_message,applied_snapshot_id,created_at,completed_at,run_id,directory_entry_id,item_year_id";
+
+type RecordRow = {
+  id: string;
+  code: string;
+  academic_year_id: number;
+  status: string;
+  change_kind: string | null;
+  attempt_count: number;
+  error_code: string | null;
+  error_message: string | null;
+  applied_snapshot_id: number | null;
+  created_at: string;
+  completed_at: string | null;
+  run_id: string;
+  directory_entry_id: number | null;
+  item_year_id: number;
+};
+
+/**
+ * A PostgREST `or` list is comma separated and parenthesised, so a needle
+ * carrying either character would change the shape of the filter rather than
+ * be matched by it.
+ */
+function safeNeedle(query: string) {
+  return query
+    .trim()
+    .replace(/[(),*]/g, " ")
+    .trim();
 }
 
 /**
- * One page of import runs for a kind, narrowed by a search over the run number
- * and the codes it imported, and by run status. Only the selected run carries
- * its targets, because only that run's records are on screen; the list itself
- * reads its counts from the run row.
+ * One page of imported records for a kind: a flat history across every run,
+ * narrowed by a search over code and title, by the record's own outcome and
+ * by the run that produced it. The run travels on each row, so a reader never
+ * has to pick a batch before seeing what was imported.
+ *
+ * The recent runs come back with the page because they are the run filter's
+ * options and, when one is chosen, the strip that carries its progress and
+ * its Stop control.
  */
-export async function loadCatalogueImportRuns({
+export async function loadCatalogueImportRecords({
   kind,
   query = "",
   status = "",
-  sort = DEFAULT_IMPORT_RUN_SORT,
+  runId = null,
+  sort = DEFAULT_IMPORT_RECORD_SORT,
   page = 1,
-  selectedRunId = null,
 }: {
   kind: CatalogueKind;
   query?: string;
   status?: string;
-  sort?: ImportRunSort;
+  runId?: string | null;
+  sort?: ImportRecordSort;
   page?: number;
-  selectedRunId?: string | null;
-}): Promise<ImportRunsPage> {
+}): Promise<ImportRecordsPage> {
   const supabase = await createClient();
-  const needle = query.trim();
-  const empty: ImportRunsPage = {
-    runs: [],
-    selected: null,
-    page: 1,
-    pageSize: IMPORT_RUN_PAGE_SIZE,
-    total: 0,
-    sort,
-  };
+  const needle = safeNeedle(query);
 
-  // A reader looks for a run by its number or by a code it imported, so the
-  // codes are resolved to run ids first and both are matched together.
-  const clauses: string[] = [];
-  if (needle) {
-    const runNumber = Number(needle.replace(/^#/, ""));
-    if (Number.isInteger(runNumber) && runNumber > 0) {
-      clauses.push(`run_number.eq.${runNumber}`);
-    }
-    const { data: matches, error: matchError } = await supabase
-      .from("catalogue_import_targets")
-      .select("run_id")
+  const { data: runData, error: runError } = await supabase
+    .from("catalogue_import_runs")
+    .select(RUN_COLUMNS)
+    .eq("kind", kind)
+    .order("created_at", { ascending: false })
+    .limit(RECENT_RUN_LIMIT);
+  if (runError) throw runError;
+  const runs = ((runData ?? []) as RunRow[]).map(runRow);
+
+  // A run chosen from an older page is not in the recent list, so it is read
+  // on its own rather than silently dropping the filter the reader applied.
+  let run = runs.find((candidate) => candidate.id === runId) ?? null;
+  if (runId && !run) {
+    const { data: single } = await supabase
+      .from("catalogue_import_runs")
+      .select(RUN_COLUMNS)
+      .eq("id", runId)
       .eq("kind", kind)
-      .ilike("code", `%${needle}%`)
-      .limit(1000);
-    if (matchError) throw matchError;
-    const runIds = [...new Set((matches ?? []).map((match) => match.run_id))];
-    if (runIds.length) clauses.push(`id.in.(${runIds.join(",")})`);
-    if (clauses.length === 0) return empty;
+      .maybeSingle();
+    run = single ? runRow(single as RunRow) : null;
   }
 
-  let runsQuery = supabase
-    .from("catalogue_import_runs")
-    .select(RUN_COLUMNS, { count: "exact" })
-    .eq("kind", kind);
-  if (status) runsQuery = runsQuery.eq("status", status);
-  if (clauses.length) runsQuery = runsQuery.or(clauses.join(","));
-  runsQuery =
-    sort === "oldest"
-      ? runsQuery.order("created_at", { ascending: true })
-      : sort === "records"
-        ? runsQuery.order("target_count", { ascending: false })
-        : sort === "cost"
-          ? runsQuery.order("cost_usd", { ascending: false })
-          : runsQuery.order("created_at", { ascending: false });
+  const empty: ImportRecordsPage = {
+    records: [],
+    page: 1,
+    pageSize: IMPORT_RECORD_PAGE_SIZE,
+    total: 0,
+    sort,
+    runs,
+    run,
+  };
 
-  const { count, error: countError } = await runsQuery.range(0, 0);
+  let recordsQuery = supabase
+    .from("catalogue_import_targets")
+    .select(RECORD_COLUMNS, { count: "exact" })
+    .eq("kind", kind);
+  if (status) recordsQuery = recordsQuery.eq("status", status);
+  if (runId) {
+    // An unknown run id would otherwise return every record, which reads as
+    // though the filter had been ignored.
+    if (!run) return empty;
+    recordsQuery = recordsQuery.eq("run_id", runId);
+  }
+
+  if (needle) {
+    // The title lives on the directory entry, which PostgREST cannot reach
+    // from inside an `or`, so matching titles are resolved to entry ids first.
+    const { data: titleMatches, error: titleError } = await supabase
+      .from("catalogue_directory_entries")
+      .select("id")
+      .eq("kind", kind)
+      .ilike("title", `%${needle}%`)
+      .limit(1000);
+    if (titleError) throw titleError;
+    const clauses = [`code.ilike.*${needle}*`];
+    const entryIds = (titleMatches ?? []).map((match) => match.id);
+    if (entryIds.length)
+      clauses.push(`directory_entry_id.in.(${entryIds.join(",")})`);
+    recordsQuery = recordsQuery.or(clauses.join(","));
+  }
+
+  recordsQuery =
+    sort === "oldest"
+      ? recordsQuery.order("created_at", { ascending: true })
+      : sort === "code-asc"
+        ? recordsQuery.order("code", { ascending: true })
+        : sort === "code-desc"
+          ? recordsQuery.order("code", { ascending: false })
+          : recordsQuery.order("created_at", { ascending: false });
+  // Ties on code or on a shared run timestamp would otherwise order
+  // differently per page, so rows could repeat or go missing across pages.
+  recordsQuery = recordsQuery.order("id", { ascending: true });
+
+  const { count, error: countError } = await recordsQuery.range(0, 0);
   if (countError) throw countError;
   const total = count ?? 0;
   const safePage = Math.max(
     1,
-    Math.min(page, Math.ceil(total / IMPORT_RUN_PAGE_SIZE) || 1),
+    Math.min(page, Math.ceil(total / IMPORT_RECORD_PAGE_SIZE) || 1),
   );
-  const from = (safePage - 1) * IMPORT_RUN_PAGE_SIZE;
-  const { data, error } = await runsQuery.range(
+  const from = (safePage - 1) * IMPORT_RECORD_PAGE_SIZE;
+  const { data, error } = await recordsQuery.range(
     from,
-    from + IMPORT_RUN_PAGE_SIZE - 1,
+    from + IMPORT_RECORD_PAGE_SIZE - 1,
   );
   if (error) throw error;
-  const runs = ((data ?? []) as RunRow[]).map(runRow);
+  const rows = (data ?? []) as RecordRow[];
 
-  const selectedRow =
-    runs.find((run) => run.id === selectedRunId) ?? runs[0] ?? null;
-  const selected = selectedRow
-    ? {
-        ...selectedRow,
-        targets: await loadRunTargets(supabase, selectedRow.id),
-      }
-    : null;
+  // The labels a row needs are resolved by id over the page rather than by
+  // embedding them in the select above. One page is twenty-five rows, so this
+  // is four small reads, and it keeps the ambiguous embeds out: PostgREST
+  // reaches `catalogue_item_years` from a target through two foreign keys of
+  // the same name, which it will not resolve and cannot type.
+  const distinct = <Value>(values: Value[]) => [...new Set(values)];
+  const entryIds = distinct(
+    rows.map((row) => row.directory_entry_id).filter((id) => id !== null),
+  );
+  const yearIds = distinct(rows.map((row) => row.academic_year_id));
+  const itemYearIds = distinct(rows.map((row) => row.item_year_id));
+  // The recent runs are already loaded, so only a row from an older run than
+  // the list offers costs a read.
+  const olderRunIds = distinct(rows.map((row) => row.run_id)).filter(
+    (id) => !runs.some((candidate) => candidate.id === id),
+  );
+
+  const [entries, years, itemYears, olderRuns] = await Promise.all([
+    entryIds.length
+      ? supabase
+          .from("catalogue_directory_entries")
+          .select("id,title")
+          .in("id", entryIds)
+      : null,
+    yearIds.length
+      ? supabase.from("academic_years").select("id,year").in("id", yearIds)
+      : null,
+    itemYearIds.length
+      ? supabase
+          .from("catalogue_item_years")
+          .select("id,public_id")
+          .in("id", itemYearIds)
+      : null,
+    olderRunIds.length
+      ? supabase
+          .from("catalogue_import_runs")
+          .select("id,run_number")
+          .in("id", olderRunIds)
+      : null,
+  ]);
+  if (entries?.error) throw entries.error;
+  if (years?.error) throw years.error;
+  if (itemYears?.error) throw itemYears.error;
+  if (olderRuns?.error) throw olderRuns.error;
+
+  const titleById = new Map(
+    (entries?.data ?? []).map((entry) => [entry.id, entry.title]),
+  );
+  const yearById = new Map(
+    (years?.data ?? []).map((year) => [year.id, year.year]),
+  );
+  const publicIdById = new Map(
+    (itemYears?.data ?? []).map((itemYear) => [
+      itemYear.id,
+      itemYear.public_id,
+    ]),
+  );
+  const runNumberById = new Map(runs.map((row) => [row.id, row.runNumber]));
+  for (const row of olderRuns?.data ?? [])
+    runNumberById.set(row.id, row.run_number);
 
   return {
-    runs,
-    selected,
+    records: rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      title:
+        row.directory_entry_id === null
+          ? null
+          : (titleById.get(row.directory_entry_id) ?? null),
+      academicYear: yearById.get(row.academic_year_id) ?? 0,
+      status: row.status,
+      changeKind: row.change_kind,
+      attemptCount: row.attempt_count,
+      errorCode: row.error_code,
+      errorMessage: row.error_message,
+      appliedSnapshotId: row.applied_snapshot_id,
+      itemYearPublicId: publicIdById.get(row.item_year_id) ?? null,
+      createdAt: row.created_at,
+      completedAt: row.completed_at,
+      runId: row.run_id,
+      runNumber: runNumberById.get(row.run_id) ?? 0,
+    })),
     page: safePage,
-    pageSize: IMPORT_RUN_PAGE_SIZE,
+    pageSize: IMPORT_RECORD_PAGE_SIZE,
     total,
     sort,
+    runs,
+    run,
   };
 }
 

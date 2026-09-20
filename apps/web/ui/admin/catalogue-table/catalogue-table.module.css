@@ -53,9 +53,12 @@
 .shell[data-selectable="false"] tr {
   grid-template-columns: minmax(240px, 1fr) 88px 180px 76px 60px;
 }
+/* Imported records: identity, year, outcome, change, run, started, actions.
+   The run is a column on the record rather than a pane above the table, so
+   this grid carries one more column than the other admin layouts. */
 .shell[data-imports="true"] tr {
-  min-width: 850px;
-  grid-template-columns: minmax(240px, 1fr) 88px 168px 96px 165px 60px;
+  min-width: 940px;
+  grid-template-columns: minmax(240px, 1fr) 76px 150px 96px 84px 160px 60px;
 }
 .viewport thead tr {
   min-height: 49px;

@@ -2,17 +2,17 @@ import { Suspense } from "react";
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
-  DEFAULT_IMPORT_RUN_SORT,
-  IMPORT_RUN_SORTS,
+  DEFAULT_IMPORT_RECORD_SORT,
+  IMPORT_RECORD_SORTS,
   type CatalogueKind,
   type DirectoryFilter,
+  type ImportRecordSort,
   type ImportRunProgress,
-  type ImportRunSort,
   type ImportTargetDetail,
   adminCataloguePath,
   defaultCatalogueYear,
   loadCatalogueDirectoryPage,
-  loadCatalogueImportRuns,
+  loadCatalogueImportRecords,
   loadCatalogueYears,
   loadImportRunProgress,
   loadImportTargetDetail,
@@ -21,11 +21,11 @@ import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import {
   CatalogueTableLoading,
-  ImportRunsSkeleton,
+  ImportRecordsSkeleton,
 } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
 import { CatalogueTabs } from "./catalogue-tabs";
-import { ImportRuns } from "./import-runs";
+import { ImportRecords } from "./import-runs";
 
 export type SearchParams = Promise<
   Record<string, string | string[] | undefined>
@@ -41,8 +41,8 @@ function tabsFor(kind: CatalogueKind) {
     <CatalogueTabs
       label={`${CATALOGUE_KIND_LABELS[kind].singular} sections`}
       tabs={[
-        { href: base, label: "Directory" },
-        { href: `${base}/imports`, label: "Import runs" },
+        { href: base, icon: "directory", label: "Directory" },
+        { href: `${base}/imports`, icon: "imports", label: "Imports" },
       ]}
     />
   );
@@ -107,7 +107,7 @@ async function DirectoryContent({
   );
 }
 
-export async function CatalogueImportRunsPage({
+export async function CatalogueImportsPage({
   kind,
   searchParams,
 }: {
@@ -117,17 +117,17 @@ export async function CatalogueImportRunsPage({
   if (!(await canManageCourseImports())) return <AccessDeniedError />;
   const params = await searchParams;
   const labels = CATALOGUE_KIND_LABELS[kind];
-  const requestedSort = first(params.sort) as ImportRunSort | undefined;
-  const runs = loadCatalogueImportRuns({
+  const requestedSort = first(params.sort) as ImportRecordSort | undefined;
+  const records = loadCatalogueImportRecords({
     kind,
     query: first(params.q) ?? "",
     status: first(params.status) ?? "",
+    runId: first(params.run) ?? null,
     sort:
-      requestedSort && IMPORT_RUN_SORTS.includes(requestedSort)
+      requestedSort && IMPORT_RECORD_SORTS.includes(requestedSort)
         ? requestedSort
-        : DEFAULT_IMPORT_RUN_SORT,
+        : DEFAULT_IMPORT_RECORD_SORT,
     page: Number(first(params.page)) || 1,
-    selectedRunId: first(params.run) ?? null,
   });
   async function loadTarget(targetId: string) {
     "use server";
@@ -144,13 +144,13 @@ export async function CatalogueImportRunsPage({
       admin
       fill
       tabs={tabsFor(kind)}
-      currentBreadcrumbLabel="Import runs"
+      currentBreadcrumbLabel="Imports"
       breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
     >
-      <h1 className="sr-only">{labels.singular} import runs</h1>
-      <Suspense fallback={<ImportRunsSkeleton />}>
-        <ImportRunsContent
-          runs={runs}
+      <h1 className="sr-only">{labels.singular} imports</h1>
+      <Suspense fallback={<ImportRecordsSkeleton />}>
+        <ImportRecordsContent
+          records={records}
           kind={kind}
           loadTarget={loadTarget}
           readRunProgress={readRunProgress}
@@ -160,20 +160,20 @@ export async function CatalogueImportRunsPage({
   );
 }
 
-async function ImportRunsContent({
-  runs,
+async function ImportRecordsContent({
+  records,
   kind,
   loadTarget,
   readRunProgress,
 }: {
-  runs: ReturnType<typeof loadCatalogueImportRuns>;
+  records: ReturnType<typeof loadCatalogueImportRecords>;
   kind: CatalogueKind;
   loadTarget: (targetId: string) => Promise<ImportTargetDetail | null>;
   readRunProgress: (runId: string) => Promise<ImportRunProgress | null>;
 }) {
   return (
-    <ImportRuns
-      page={await runs}
+    <ImportRecords
+      page={await records}
       basePath={adminCataloguePath(kind)}
       kind={kind}
       loadTarget={loadTarget}

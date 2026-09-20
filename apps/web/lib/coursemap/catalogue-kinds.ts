@@ -228,38 +228,64 @@ export function humaniseKey(key: string) {
 }
 
 /**
- * The import runs list is read on the server and driven from the client, so
- * its vocabulary lives here rather than beside the loader, which is
- * server-only and would pull the Supabase client into the browser bundle.
+ * The imports list is read on the server and driven from the client, so its
+ * vocabulary lives here rather than beside the loader, which is server-only
+ * and would pull the Supabase client into the browser bundle.
  */
-export const IMPORT_RUN_SORTS = [
+export const IMPORT_RECORD_SORTS = [
   "newest",
   "oldest",
-  "records",
-  "cost",
+  "code-asc",
+  "code-desc",
 ] as const;
-export type ImportRunSort = (typeof IMPORT_RUN_SORTS)[number];
-export const DEFAULT_IMPORT_RUN_SORT: ImportRunSort = "newest";
+export type ImportRecordSort = (typeof IMPORT_RECORD_SORTS)[number];
+export const DEFAULT_IMPORT_RECORD_SORT: ImportRecordSort = "newest";
 
-export const IMPORT_RUN_STATUSES = [
+/** `catalogue_import_targets.status`, as the check constraint defines it. */
+export const IMPORT_RECORD_STATUSES = [
   "queued",
   "running",
-  "completed",
+  "ready",
+  "unchanged",
   "failed",
   "cancelled",
 ] as const;
 
-/** A run as it appears in the list: the counters, without its target rows. */
+/** A run as it appears beside the records it produced: counters, no targets. */
 export type ImportRunRow = Omit<ImportRunSummary, "targets">;
 
-export type ImportRunsPage = {
-  runs: ImportRunRow[];
-  /** The run whose records are shown, with its targets loaded. */
-  selected: ImportRunSummary | null;
+/**
+ * One imported record. The run that produced it is carried on the row, because
+ * the list is a flat history of records rather than a list of batches.
+ */
+export type ImportRecordRow = {
+  id: string;
+  code: string;
+  title: string | null;
+  academicYear: number;
+  status: string;
+  changeKind: string | null;
+  attemptCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  appliedSnapshotId: number | null;
+  itemYearPublicId: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  runId: string;
+  runNumber: number;
+};
+
+export type ImportRecordsPage = {
+  records: ImportRecordRow[];
   page: number;
   pageSize: number;
   total: number;
-  sort: ImportRunSort;
+  sort: ImportRecordSort;
+  /** Recent runs, offered as the run filter's options. */
+  runs: ImportRunRow[];
+  /** The run the list is narrowed to, when the reader has chosen one. */
+  run: ImportRunRow | null;
 };
 
 export type ImportRunProgress = {

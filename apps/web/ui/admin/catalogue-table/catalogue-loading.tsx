@@ -1,7 +1,5 @@
-import { Card, CardContent, CardHeader } from "@coursemap/ui/primitives/card";
 import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 import { AppShell } from "@/ui/shell";
-import { DataTableShell as PlainTableShell } from "@/ui/common/data-table";
 
 import {
   DataTableShell,
@@ -20,7 +18,7 @@ import {
  * replaces it and the whole list reflows on arrival.
  */
 export type CatalogueLoadingLayout =
-  "public-courses" | "users" | "directory" | "import-targets";
+  "public-courses" | "users" | "directory" | "import-records";
 
 /**
  * A skeleton cell per real cell. The kind decides the shape, so a placeholder
@@ -49,13 +47,14 @@ function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
       { label: "Updated", kind: "text" },
       { label: "Actions", kind: "actions" },
     ];
-  if (layout === "import-targets")
+  if (layout === "import-records")
     return [
       { label: "Import", kind: "identity" },
       { label: "Year", kind: "text" },
       { label: "Outcome", kind: "text" },
       { label: "Change", kind: "text" },
-      { label: "Attempts", kind: "text" },
+      { label: "Run", kind: "text" },
+      { label: "Started", kind: "text" },
       { label: "Actions", kind: "actions" },
     ];
   return [
@@ -83,7 +82,7 @@ export function CatalogueTableLoading({
   rows?: number;
 }) {
   const columns = columnsFor(noun, layout);
-  const imports = layout === "import-targets";
+  const imports = layout === "import-records";
   return (
     <div
       aria-busy="true"
@@ -94,7 +93,7 @@ export function CatalogueTableLoading({
         // directory's filter bar, so the skeleton holds that row open too.
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-28" />
+            <Skeleton className="h-8 w-20" />
             <Skeleton className="h-4 w-56 max-w-[40vw]" />
           </div>
           <div className="flex items-center gap-2">
@@ -103,7 +102,10 @@ export function CatalogueTableLoading({
           </div>
         </div>
       ) : null}
-      {imports ? null : <Skeleton className="h-10 w-full shrink-0" />}
+      <div className="flex items-start gap-2">
+        <Skeleton className="h-10 min-w-0 flex-1" />
+        {imports ? <Skeleton className="size-10 shrink-0" /> : null}
+      </div>
       <DataTableShell
         imports={imports}
         layout={imports ? undefined : layout}
@@ -184,64 +186,24 @@ export function CatalogueLoading({
   );
 }
 
-/** A whole `loading.tsx` route for the import runs page. */
-export function ImportRunsLoading({ noun }: { noun: string }) {
+/** A whole `loading.tsx` route for the imports page. */
+export function ImportRecordsLoading({ noun }: { noun: string }) {
   return (
     <AppShell loading admin fill>
       <h1 className="sr-only">Loading {noun}</h1>
-      <ImportRunsSkeleton />
+      <ImportRecordsSkeleton />
     </AppShell>
   );
 }
 
 /**
- * The import runs page: the toolbar and run table it opens with, then the
- * selected run's card. A plain table skeleton alone sat in front of a card
- * layout and moved everything down as soon as the data arrived. The route
- * skeleton and the in-page Suspense boundary share this shape.
+ * The imports page is one table of records with a filter bar above it, so its
+ * skeleton is the record table and nothing else. It previously drew a run
+ * table and a card beneath it, which is the stacked layout the page no longer
+ * has; the route skeleton and the in-page Suspense boundary share this shape.
  */
-export function ImportRunsSkeleton() {
+export function ImportRecordsSkeleton() {
   return (
-    <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
-      <div className="flex items-start gap-2">
-        <Skeleton className="h-10 min-w-0 flex-1" />
-        <Skeleton className="size-10 shrink-0" />
-      </div>
-      <PlainTableShell
-        footer={
-          <div className="flex h-8 items-center justify-between">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-7 w-28" />
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3 p-4">
-          {Array.from({ length: 6 }, (_, row) => (
-            <div key={row} className="flex items-center gap-4">
-              <Skeleton className="h-3 w-10 shrink-0" />
-              <Skeleton className="h-3 w-12 shrink-0" />
-              <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
-              <Skeleton className="h-3 w-14 shrink-0" />
-              <Skeleton className="h-3 min-w-0 flex-1" />
-              <Skeleton className="h-3 w-16 shrink-0" />
-              <Skeleton className="h-3 w-28 shrink-0" />
-            </div>
-          ))}
-        </div>
-      </PlainTableShell>
-      <Card>
-        <CardHeader className="gap-2">
-          <Skeleton className="h-5 w-56" />
-          <Skeleton className="h-4 w-80 max-w-full" />
-        </CardHeader>
-        <CardContent>
-          <CatalogueTableLoading
-            noun="import records"
-            layout="import-targets"
-            rows={4}
-          />
-        </CardContent>
-      </Card>
-    </div>
+    <CatalogueTableLoading noun="import records" layout="import-records" />
   );
 }

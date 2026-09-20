@@ -1,4 +1,5 @@
 import { Badge } from "@coursemap/ui/components/badge";
+import { LoaderCircle } from "lucide-react";
 import type { DirectoryWorkflowStatus } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 
@@ -57,7 +58,7 @@ export function WorkflowBadge({ status }: { status: DirectoryWorkflowStatus }) {
   );
 }
 
-const TARGET_STATUS: Record<string, { label: string; tone: Tone }> = {
+export const TARGET_STATUS: Record<string, { label: string; tone: Tone }> = {
   queued: { label: "Queued", tone: "info" },
   running: { label: "Running", tone: "info" },
   ready: { label: "Ready for review", tone: "warning" },
@@ -88,4 +89,26 @@ export function TargetStatusBadge({
           tone: "neutral" as Tone,
         });
   return <Badge variant={badgeVariantForTone[meta.tone]}>{meta.label}</Badge>;
+}
+
+const RUN_STATUS: Record<string, { label: string; tone: Tone }> = {
+  queued: { label: "Queued", tone: "info" },
+  running: { label: "Running", tone: "info" },
+  completed: { label: "Completed", tone: "success" },
+  failed: { label: "Failed", tone: "danger" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+};
+
+/** Where a batch got to. The spinner repeats "Running" so motion is not the
+ * only signal that work is still in flight. */
+export function RunStatusBadge({ status }: { status: string }) {
+  const meta = RUN_STATUS[status] ?? { label: status, tone: "neutral" as Tone };
+  return (
+    <Badge variant={badgeVariantForTone[meta.tone]}>
+      {status === "running" ? (
+        <LoaderCircle size={11} className="animate-spin" aria-hidden="true" />
+      ) : null}
+      {meta.label}
+    </Badge>
+  );
 }

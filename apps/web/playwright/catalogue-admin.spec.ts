@@ -43,17 +43,19 @@ test("administrators browse the programme directory and import runs", async ({
     page.getByText(/Directory refreshed: 1 programmes/),
   ).toBeVisible();
 
-  await page.getByRole("tab", { name: "Import runs" }).click();
+  await page.getByRole("tab", { name: "Imports" }).click();
   await expect(page).toHaveURL(/\/admin\/programmes\/imports/);
   await expect(
     page.getByRole("heading", {
-      name: "Programme import runs",
+      name: "Programme imports",
       level: 1,
       exact: true,
     }),
   ).toBeAttached();
+  // The page is one table of imported records, so its search box is there
+  // whether or not anything has been imported yet.
   await expect(
-    page.getByText(/No programme imports yet|Run #/).first(),
+    page.getByPlaceholder("Search imported programmes by code or title"),
   ).toBeVisible();
 
   await page.goto("/admin/courses?status=published");
