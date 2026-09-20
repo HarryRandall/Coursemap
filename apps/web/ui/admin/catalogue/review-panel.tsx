@@ -427,7 +427,7 @@ function BlockingFlag({
       className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/4 p-3"
       data-status={flag.status}
     >
-      <div className="flex flex-wrap items-start gap-2 text-sm">
+      <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-start">
         <CircleAlert
           size={16}
           className="mt-0.5 shrink-0 text-destructive"
@@ -460,20 +460,27 @@ function BlockingFlag({
             </span>
           ) : null}
         </div>
-        <StatusBadge status={flag.status} />
-        {flag.status === "open" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={disabled}
-            type="button"
-            onClick={() => setNoting(true)}
-          >
-            Acknowledge
-          </Button>
-        ) : (
-          <ReopenButton disabled={disabled} flag={flag} path={path} run={run} />
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={flag.status} />
+          {flag.status === "open" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={disabled}
+              type="button"
+              onClick={() => setNoting(true)}
+            >
+              Acknowledge
+            </Button>
+          ) : (
+            <ReopenButton
+              disabled={disabled}
+              flag={flag}
+              path={path}
+              run={run}
+            />
+          )}
+        </div>
       </div>
       {noting && flag.status === "open" ? (
         <div className="flex flex-col gap-2">
@@ -632,7 +639,10 @@ function WarningFlagGroup({
       <CollapsibleContent>
         <ul className="flex flex-col gap-3 border-t border-border p-3 text-sm">
           {group.entries.map((flag) => (
-            <li key={flag.id} className="flex flex-wrap items-start gap-2">
+            <li
+              key={flag.id}
+              className="flex flex-col gap-2 sm:flex-row sm:items-start"
+            >
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="font-medium">
                   {flagFieldLabel(flag.fieldPath)}
@@ -651,33 +661,35 @@ function WarningFlagGroup({
                   </span>
                 ) : null}
               </div>
-              <StatusBadge status={flag.status} />
-              {flag.status === "open" ? (
-                <Button
-                  disabled={disabled}
-                  onClick={() =>
-                    run(() =>
-                      resolveReviewEntryAction({
-                        entryId: flag.id,
-                        status: "acknowledged",
-                        path,
-                      }),
-                    )
-                  }
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                >
-                  Acknowledge
-                </Button>
-              ) : (
-                <ReopenButton
-                  disabled={disabled}
-                  flag={flag}
-                  path={path}
-                  run={run}
-                />
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={flag.status} />
+                {flag.status === "open" ? (
+                  <Button
+                    disabled={disabled}
+                    onClick={() =>
+                      run(() =>
+                        resolveReviewEntryAction({
+                          entryId: flag.id,
+                          status: "acknowledged",
+                          path,
+                        }),
+                      )
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    Acknowledge
+                  </Button>
+                ) : (
+                  <ReopenButton
+                    disabled={disabled}
+                    flag={flag}
+                    path={path}
+                    run={run}
+                  />
+                )}
+              </div>
             </li>
           ))}
         </ul>
