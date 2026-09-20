@@ -62,39 +62,56 @@ export async function resolveReviewEntryAction({
   return { ok: true };
 }
 
-export async function resolveAllChangesAction({
-  targetId,
+/**
+ * Several review entries at once: one group of changes, one kind of flag, or
+ * everything still open. The reviewer already has the entries on screen, so
+ * the ids come with the request rather than being looked up again, which keeps
+ * a bulk decision to exactly the rows the reviewer was shown.
+ */
+export async function resolveReviewEntriesAction({
+  entryIds,
   status,
+  note,
   path,
 }: {
-  targetId: string;
-  status: "accepted" | "rejected";
+  entryIds: number[];
+  status: "open" | "accepted" | "rejected" | "acknowledged";
+  note?: string;
   path: string;
 }): Promise<ActionResult> {
   if (!(await canManageCourseImports()))
     return { ok: false, error: "Import permission is required." };
+  if (entryIds.length === 0)
+    return { ok: false, error: "There was nothing to decide." };
   const supabase = await createClient();
-  const { data: entries, error } = await supabase
-    .from("catalogue_import_changes")
-    .select("id")
-    .eq("target_id", targetId)
-    .eq("entry_kind", "change")
-    .eq("status", "open");
-  if (error) return { ok: false, error: error.message };
-  for (const entry of entries ?? []) {
-    const { error: resolveError } = await supabase.rpc(
-      "resolve_catalogue_import_change",
-      {
-        p_change_id: entry.id,
-        p_status: status,
-      },
-    );
-    if (resolveError) return { ok: false, error: resolveError.message };
+  let resolved = 0;
+  for (const entryId of entryIds) {
+    const { error } = await supabase.rpc("resolve_catalogue_import_change", {
+      p_change_id: entryId,
+      p_status: status,
+      p_note: note ?? undefined,
+    });
+    // Report what did land, so a partial failure is not read as none at all.
+    if (error)
+      return {
+        ok: false,
+        error:
+          resolved === 0
+            ? error.message
+            : `${resolved} of ${entryIds.length} were saved, then: ${error.message}`,
+      };
+    resolved += 1;
   }
   revalidateRecord(path);
+  const verb =
+    status === "acknowledged"
+      ? "acknowledged"
+      : status === "open"
+        ? "reopened"
+        : status;
   return {
     ok: true,
-    message: `${entries?.length ?? 0} change${entries?.length === 1 ? "" : "s"} ${status}.`,
+    message: `${resolved} ${resolved === 1 ? "entry" : "entries"} ${verb}.`,
   };
 }
 

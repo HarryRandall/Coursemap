@@ -92,37 +92,48 @@ test("administrators review, apply and publish an import candidate", async ({
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       seed.title,
     );
-    const publish = page.getByRole("button", { name: "Publish draft" });
-    await expect(publish).toBeDisabled();
+    // The verdict leads with what is left, and offers no publish control while
+    // the reviewer still owes the record a decision.
+    await expect(page.getByText("2 decisions outstanding")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Publish draft" }),
+    ).toHaveCount(0);
 
     // Accept the title, reject the description.
     const titleRow = page
-      .getByRole("listitem")
+      .getByRole("row")
       .filter({ hasText: "Title" })
       .filter({ hasText: "(revised)" });
     await titleRow.getByRole("button", { name: "Accept" }).click();
-    await expect(titleRow.getByText("accepted")).toBeVisible();
+    await expect(titleRow.getByText("Accepted")).toBeVisible();
     const descriptionRow = page
-      .getByRole("listitem")
+      .getByRole("row")
       .filter({ hasText: "A revised description for review." });
     await descriptionRow.getByRole("button", { name: "Reject" }).click();
-    await expect(descriptionRow.getByText("rejected")).toBeVisible();
+    await expect(descriptionRow.getByText("Rejected")).toBeVisible();
 
     // A blocking flag needs a note before it is acknowledged.
     const flagRow = page
       .getByRole("listitem")
-      .filter({ hasText: "blocks publication" });
+      .filter({ hasText: "Blocks publication" });
     await flagRow.getByRole("button", { name: "Acknowledge" }).click();
     await flagRow
       .getByLabel(/Why publication may proceed/)
       .fill("Checked units on the ANU page.");
     await flagRow.getByRole("button", { name: "Save and acknowledge" }).click();
-    await expect(flagRow.getByText("acknowledged")).toBeVisible();
+    await expect(flagRow.getByText("Acknowledged")).toBeVisible();
 
     await page.getByRole("button", { name: "Apply to draft" }).click();
     await expect(page.getByText(/new draft combines/)).toBeVisible();
-    await expect(publish).toBeEnabled();
-    await publish.click();
+
+    // Only once nothing holds the record back does publishing become the
+    // next step, and it confirms before students see anything.
+    await expect(page.getByText("Ready to publish")).toBeVisible();
+    await page.getByRole("button", { name: "Publish draft" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Publish", exact: true })
+      .click();
     await expect(
       page.getByText("Published. Students now see this version."),
     ).toBeVisible();

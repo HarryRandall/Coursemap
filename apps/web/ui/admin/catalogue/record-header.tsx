@@ -8,8 +8,12 @@ import {
 } from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
+import { Progress } from "@coursemap/ui/primitives/progress";
 import {
+  CircleCheck,
   ExternalLink,
+  Info,
+  ListChecks,
   LoaderCircle,
   Send,
   TriangleAlert,
@@ -27,9 +31,10 @@ import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
 import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { anuSourceUrl } from "./anu-source";
+import { type RecordStep, recordNextStep } from "./review-state";
 import { WorkflowBadge } from "./workflow-badge";
 
-/** Title, pointers and the publish controls for one record and year. */
+/** Title, pointers, the verdict and the publish controls for one record and year. */
 export function RecordHeader({
   record,
   path,
@@ -39,12 +44,7 @@ export function RecordHeader({
 }) {
   const [pending, startTransition] = useTransition();
   const labels = CATALOGUE_KIND_LABELS[record.kind];
-  // Without a draft there is nothing to publish, which is the ordinary state of
-  // a finished record rather than a problem, so it is not reported as one. The
-  // blockers that remain are the reasons a pending draft is being held back.
-  const hasDraft = record.draftSnapshotId !== null;
-  const blockers = hasDraft ? record.publishBlockers : [];
-  const canPublish = hasDraft && blockers.length === 0;
+  const step = recordNextStep(record);
   const workflow =
     record.publishedSnapshotId && record.draftSnapshotId
       ? "published_with_draft"
@@ -64,111 +64,164 @@ export function RecordHeader({
     });
   }
 
-  const header = (
-    <header
-      role="banner"
-      className="flex flex-wrap items-start justify-between gap-4"
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <p className="font-mono text-sm text-muted-foreground">
-          {labels.singular} · {record.code} · {record.academicYear}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {record.title}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-          <WorkflowBadge status={workflow} />
-          {record.archivedAt ? <Badge variant="outline">Archived</Badge> : null}
-          <Link
-            className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
-            href={anuSourceUrl(record)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            ANU page
-            <ExternalLink size={12} aria-hidden="true" />
-          </Link>
-        </div>
-      </div>
-      <div className="flex flex-col items-end gap-2">
-        <div className="flex items-center gap-2">
-          {record.publishedSnapshotId ? (
-            <ConfirmDialog
-              title={`Unpublish ${record.code} for ${record.academicYear}?`}
-              description="Students will no longer see this record for the year. The content stays in history and can be published again."
-              confirmLabel="Unpublish"
-              destructive
-              onConfirm={() =>
-                run(() =>
-                  unpublishAction({ itemYearId: record.itemYearId, path }),
-                )
-              }
-              trigger={
-                <Button variant="outline" disabled={pending} type="button">
-                  <Undo2 size={16} aria-hidden="true" />
-                  Unpublish
-                </Button>
-              }
-            />
-          ) : null}
-          {hasDraft ? (
-            <Button
-              disabled={pending || !canPublish}
-              type="button"
-              onClick={() =>
-                run(() =>
-                  publishDraftAction({ itemYearId: record.itemYearId, path }),
-                )
-              }
-            >
-              {pending ? (
-                <LoaderCircle
-                  size={16}
-                  className="animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Send size={16} aria-hidden="true" />
-              )}
-              Publish draft
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </header>
-  );
-
-  if (blockers.length === 0) return header;
-
-  // Why the draft cannot go live is the most important thing on the page, so it
-  // reads as an alert rather than as the faintest line of text on it.
   return (
     <div className="flex flex-col gap-3">
-      {header}
-      <Alert variant="warning">
-        <TriangleAlert className="size-4" aria-hidden="true" />
-        <AlertTitle>
-          {blockers.length === 1
-            ? "The draft cannot be published yet"
-            : `${blockers.length} things hold the draft back`}
-        </AlertTitle>
-        <AlertDescription>
-          {blockers.length === 1 ? (
-            <p>{blockers[0]}</p>
-          ) : (
-            <ul className="list-disc space-y-0.5 pl-4">
-              {blockers.map((blocker) => (
-                <li key={blocker}>{blocker}</li>
-              ))}
-            </ul>
-          )}
-        </AlertDescription>
-        <AlertAction>
+      <header
+        role="banner"
+        className="flex flex-wrap items-start justify-between gap-4"
+      >
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="font-mono text-sm text-muted-foreground">
+            {labels.singular} · {record.code} · {record.academicYear}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {record.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <WorkflowBadge status={workflow} />
+            {record.archivedAt ? (
+              <Badge variant="outline">Archived</Badge>
+            ) : null}
+            <Link
+              className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
+              href={anuSourceUrl(record)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              ANU page
+              <ExternalLink size={12} aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+        {record.publishedSnapshotId ? (
+          <ConfirmDialog
+            title={`Unpublish ${record.code} for ${record.academicYear}?`}
+            description="Students will no longer see this record for the year. The content stays in history and can be published again."
+            confirmLabel="Unpublish"
+            destructive
+            onConfirm={() =>
+              run(() =>
+                unpublishAction({ itemYearId: record.itemYearId, path }),
+              )
+            }
+            trigger={
+              <Button variant="outline" disabled={pending} type="button">
+                <Undo2 size={16} aria-hidden="true" />
+                Unpublish
+              </Button>
+            }
+          />
+        ) : null}
+      </header>
+      <NextStep
+        pending={pending}
+        path={path}
+        record={record}
+        run={run}
+        step={step}
+      />
+    </div>
+  );
+}
+
+const STEP_VARIANTS = {
+  success: "success",
+  warning: "warning",
+  info: "info",
+  neutral: "default",
+} as const;
+
+/**
+ * The verdict on the record and the one control that moves it forward. It
+ * carries the reason a draft is held back as well, because why a record cannot
+ * go live is the most important thing on the page and used to be the faintest
+ * line of text on it.
+ */
+function NextStep({
+  pending,
+  path,
+  record,
+  run,
+  step,
+}: {
+  pending: boolean;
+  path: string;
+  record: CatalogueRecord;
+  run: (
+    action: () => Promise<{ ok: boolean; error?: string; message?: string }>,
+  ) => void;
+  step: RecordStep;
+}) {
+  const Icon =
+    step.tone === "success"
+      ? CircleCheck
+      : step.tone === "warning"
+        ? TriangleAlert
+        : step.tone === "info"
+          ? Info
+          : ListChecks;
+  return (
+    <Alert variant={STEP_VARIANTS[step.tone]}>
+      <Icon className="size-4" aria-hidden="true" />
+      <AlertTitle>{step.headline}</AlertTitle>
+      <AlertDescription>
+        {step.detail ? <p>{step.detail}</p> : null}
+        {step.blockers.length > 0 ? (
+          <ul className="list-disc space-y-0.5 pl-4">
+            {step.blockers.map((blocker) => (
+              <li key={blocker}>{blocker}</li>
+            ))}
+          </ul>
+        ) : null}
+        {step.decisions > 0 && step.decided < step.decisions ? (
+          <div className="mt-1 flex w-full max-w-sm items-center gap-2">
+            <Progress
+              aria-label={`${step.decided} of ${step.decisions} decided`}
+              className="w-32"
+              value={(step.decided / step.decisions) * 100}
+            />
+            <span className="text-xs tabular-nums">
+              {step.decided} of {step.decisions} decided
+            </span>
+          </div>
+        ) : null}
+      </AlertDescription>
+      <AlertAction>
+        {step.next === "publish" ? (
+          <ConfirmDialog
+            confirmLabel="Publish"
+            description={
+              record.publishedSnapshotId
+                ? `The draft replaces the ${record.academicYear} record students see for ${record.code}. The version it replaces stays in history.`
+                : `${record.code} becomes visible to students for ${record.academicYear}. It can be unpublished again from this page.`
+            }
+            onConfirm={() =>
+              run(() =>
+                publishDraftAction({ itemYearId: record.itemYearId, path }),
+              )
+            }
+            title={`Publish ${record.code} for ${record.academicYear}?`}
+            trigger={
+              <Button disabled={pending} type="button">
+                {pending ? (
+                  <LoaderCircle
+                    size={16}
+                    className="animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Send size={16} aria-hidden="true" />
+                )}
+                Publish draft
+              </Button>
+            }
+          />
+        ) : step.next === "review" ? (
           <Button asChild size="sm" variant="outline">
             <Link href={`${path}&tab=review`}>Open review</Link>
           </Button>
-        </AlertAction>
-      </Alert>
-    </div>
+        ) : null}
+      </AlertAction>
+    </Alert>
   );
 }
