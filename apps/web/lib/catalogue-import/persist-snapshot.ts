@@ -644,6 +644,16 @@ export async function persistSnapshotCandidate(
         set draft_snapshot_id = ${snapshotId}
         where id = ${claim.itemYearId}
       `;
+      // A first import has nothing to compare against, so its changes are
+      // recorded as already accepted and the candidate becomes the draft
+      // without anyone pressing Apply. Recording that here keeps the target
+      // honest: it was applied, and leaving applied_snapshot_id null made a
+      // published record still read "Ready for review".
+      await tx`
+        update public.catalogue_import_targets
+        set applied_snapshot_id = ${snapshotId}, applied_at = now()
+        where id = ${claim.targetId}::uuid
+      `;
     }
     const changeKind: SnapshotChangeKind = becameDraft ? "new" : "changed";
     return {

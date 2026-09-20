@@ -332,7 +332,7 @@ async function loadRunTargets(
   const { data, error } = await supabase
     .from("catalogue_import_targets")
     .select(
-      "id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
+      "id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,applied_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
     )
     .eq("run_id", runId)
     .order("code");
@@ -347,6 +347,7 @@ async function loadRunTargets(
     errorCode: target.error_code,
     errorMessage: target.error_message,
     candidateSnapshotId: target.candidate_snapshot_id,
+    appliedSnapshotId: target.applied_snapshot_id,
     itemYearPublicId: target.catalogue_item_years?.public_id ?? null,
   }));
 }

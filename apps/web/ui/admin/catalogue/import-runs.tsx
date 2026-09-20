@@ -464,7 +464,10 @@ export function ImportRuns({
                             {run.academicYear}
                           </TableCell>
                           <TableCell>
-                            <TargetStatusBadge status={target.status} />
+                            <TargetStatusBadge
+                              status={target.status}
+                              applied={target.appliedSnapshotId !== null}
+                            />
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {target.changeKind ? (

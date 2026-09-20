@@ -67,10 +67,25 @@ const TARGET_STATUS: Record<string, { label: string; tone: Tone }> = {
   completed: { label: "Completed", tone: "success" },
 };
 
-export function TargetStatusBadge({ status }: { status: string }) {
-  const meta = TARGET_STATUS[status] ?? {
-    label: status,
-    tone: "neutral" as Tone,
-  };
+/**
+ * What the run did to this record. A first import has nothing to compare
+ * against, so its changes are accepted and the candidate becomes the draft
+ * without anyone pressing Apply; reporting that as "Ready for review" made a
+ * record that was already published read as though it still needed a decision.
+ */
+export function TargetStatusBadge({
+  status,
+  applied = false,
+}: {
+  status: string;
+  applied?: boolean;
+}) {
+  const meta =
+    applied && status === "ready"
+      ? { label: "Applied", tone: "success" as Tone }
+      : (TARGET_STATUS[status] ?? {
+          label: status,
+          tone: "neutral" as Tone,
+        });
   return <Badge variant={badgeVariantForTone[meta.tone]}>{meta.label}</Badge>;
 }

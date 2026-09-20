@@ -7,7 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
-import { History, LoaderCircle, RefreshCw, Upload, X } from "lucide-react";
+import { LoaderCircle, RefreshCw, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
@@ -235,32 +235,28 @@ export function CatalogueDirectory({
             years={page.years}
             onChange={(year) => navigate({ year: String(year) })}
           />
-          <p className="text-sm text-muted-foreground">
-            {page.status.state === "never"
-              ? "The listing has not been fetched yet."
-              : page.status.state === "failed"
-                ? `Last refresh failed${page.status.message ? `: ${page.status.message}` : "."}`
-                : `${page.status.entryCount} listed${refreshedAt ? `, refreshed ${refreshedAt}` : ""}.`}
-            {page.status.state === "available" && page.status.message ? (
-              <span className="text-amber-700 dark:text-amber-400">
-                {" "}
-                {page.status.message}
-              </span>
-            ) : null}
-          </p>
+          {/* The row count is already in the table footer, so only the state
+              of the listing itself is worth a line here. */}
+          {page.status.state === "never" ? (
+            <p className="text-sm text-muted-foreground">Not fetched yet.</p>
+          ) : page.status.state === "failed" ? (
+            <p className="text-sm text-destructive">
+              Last refresh failed
+              {page.status.message ? `: ${page.status.message}` : "."}
+            </p>
+          ) : page.status.message ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              {page.status.message}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost">
-            <Link href={`${basePath}/imports`}>
-              <History size={16} aria-hidden="true" />
-              Import runs
-            </Link>
-          </Button>
           <Button
             variant="outline"
             onClick={refreshDirectory}
             disabled={refreshing || !importsEnabled}
             type="button"
+            title={refreshedAt ? `Last refreshed ${refreshedAt}` : undefined}
           >
             {refreshing ? (
               <LoaderCircle

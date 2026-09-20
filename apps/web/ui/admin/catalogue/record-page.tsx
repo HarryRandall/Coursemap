@@ -80,51 +80,54 @@ export async function CatalogueRecordPage({
       0,
     ) ?? 0;
 
-  return (
-    <AppShell
-      admin
-      currentBreadcrumbLabel={upperCode}
-      breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
-    >
-      {!record ? (
-        <CatalogueEmpty
-          title={`${upperCode} has no ${academicYear || ""} record`}
-          description={`Import ${upperCode} from the ${labels.singular.toLowerCase()} directory to create one.`}
+  const sectionTabs = record ? (
+    <div className="min-w-max flex-1">
+      <TabsList aria-label="Record sections" variant="line">
+        <TabsTrigger value="review">
+          Review
+          {openReviewCount > 0 ? (
+            <Badge variant={badgeVariantForTone.warning} className="ml-1.5">
+              {openReviewCount}
+            </Badge>
+          ) : null}
+        </TabsTrigger>
+        <TabsTrigger value="preview" disabled={!currentSnapshotId}>
+          Preview
+        </TabsTrigger>
+        <TabsTrigger
+          value="edit"
+          disabled={!currentSnapshotId || Boolean(record.archivedAt)}
         >
-          <Link
-            className="text-sm underline underline-offset-4"
-            href={basePath}
+          Edit
+        </TabsTrigger>
+        <TabsTrigger value="history">History</TabsTrigger>
+      </TabsList>
+    </div>
+  ) : null;
+
+  return (
+    <RecordTabs value={tab} path={path}>
+      <AppShell
+        admin
+        currentBreadcrumbLabel={upperCode}
+        breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
+        tabs={sectionTabs}
+      >
+        {!record ? (
+          <CatalogueEmpty
+            title={`${upperCode} has no ${academicYear || ""} record`}
+            description={`Import ${upperCode} from the ${labels.singular.toLowerCase()} directory to create one.`}
           >
-            Back to {labels.plural.toLowerCase()}
-          </Link>
-        </CatalogueEmpty>
-      ) : (
-        <div className="flex w-full min-w-0 flex-col gap-5">
-          <RecordHeader record={record} path={path} />
-          <RecordTabs value={tab} path={path}>
-            <TabsList aria-label="Record sections" variant="line">
-              <TabsTrigger value="review">
-                Review
-                {openReviewCount > 0 ? (
-                  <Badge
-                    variant={badgeVariantForTone.warning}
-                    className="ml-1.5"
-                  >
-                    {openReviewCount}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-              <TabsTrigger value="preview" disabled={!currentSnapshotId}>
-                Preview
-              </TabsTrigger>
-              <TabsTrigger
-                value="edit"
-                disabled={!currentSnapshotId || Boolean(record.archivedAt)}
-              >
-                Edit
-              </TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-            </TabsList>
+            <Link
+              className="text-sm underline underline-offset-4"
+              href={basePath}
+            >
+              Back to {labels.plural.toLowerCase()}
+            </Link>
+          </CatalogueEmpty>
+        ) : (
+          <div className="flex w-full min-w-0 flex-col gap-5">
+            <RecordHeader record={record} path={path} />
             <TabsContent value="review" className="mt-4 flex flex-col gap-4">
               {record.reviews.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -174,10 +177,10 @@ export async function CatalogueRecordPage({
             <TabsContent value="history" className="mt-4">
               <RecordHistory record={record} path={path} />
             </TabsContent>
-          </RecordTabs>
-        </div>
-      )}
-    </AppShell>
+          </div>
+        )}
+      </AppShell>
+    </RecordTabs>
   );
 }
 

@@ -95,6 +95,7 @@ export type ImportRunSummary = {
     errorCode: string | null;
     errorMessage: string | null;
     candidateSnapshotId: number | null;
+    appliedSnapshotId: number | null;
     itemYearPublicId: string | null;
   }>;
 };
