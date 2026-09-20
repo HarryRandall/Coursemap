@@ -22,20 +22,22 @@ Read [UI conventions](../apps/web/ui/AGENTS.md) before touching any of this.
 Nothing in `apps/web/ui/admin/` or `apps/web/ui/common/` is a second primitive
 library, and neither is a reason to write a third.
 
-| Need                       | Use                                                                   |
-| -------------------------- | --------------------------------------------------------------------- |
-| Any tabular list           | `ui/admin/catalogue-table/` `DataTableShell` and the Table parts      |
-| A row identity             | `CatalogueIdentity`                                                   |
-| A whole-row link           | `ui/common/linked-table-row.tsx`                                      |
-| Search and filtering       | `ui/common/filter-bar.tsx` above the table, never inside it           |
-| Sorting, paging            | `ui/common/sort-menu.tsx`, `ui/common/pagination.tsx`                 |
-| A choice or boolean field  | `ui/common/option-picker.tsx`, `ui/common/select-field.tsx`           |
-| A labelled field           | `@coursemap/ui/primitives/field`                                      |
-| Long-form or section forms | `ui/common/section-navigation.tsx`                                    |
-| A destructive bulk action  | `ui/common/confirm-dialog.tsx`                                        |
-| Empty, loading, error      | `ui/admin/catalogue-table/catalogue-{empty,loading,error}.tsx`        |
-| A status label             | `ui/common/status-pill.tsx`, or a tone map plus `badgeVariantForTone` |
-| JSON or source display     | `ui/common/json-code.tsx`                                             |
+| Need                           | Use                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------- |
+| A list of catalogue records    | `ui/admin/catalogue-table/` `DataTableShell`, whose CSS grid owns the column widths         |
+| Any other table                | `ui/common/data-table.tsx` `DataTableShell` around a primitive `Table` with a minimum width |
+| An activity or version history | A timeline, as `CourseImportHistory` and `CatalogueReviewHistory` were. Not a table         |
+| A row identity                 | `CatalogueIdentity`                                                                         |
+| A whole-row link               | `ui/common/linked-table-row.tsx`                                                            |
+| Search and filtering           | `ui/common/filter-bar.tsx` above the table, never inside it                                 |
+| Sorting, paging                | `ui/common/sort-menu.tsx`, `ui/common/pagination.tsx`                                       |
+| A choice or boolean field      | `ui/common/option-picker.tsx`, `ui/common/select-field.tsx`                                 |
+| A labelled field               | `@coursemap/ui/primitives/field`                                                            |
+| Long-form or section forms     | `ui/common/section-navigation.tsx`                                                          |
+| A destructive bulk action      | `ui/common/confirm-dialog.tsx`                                                              |
+| Empty, loading, error          | `ui/admin/catalogue-table/catalogue-{empty,loading,error}.tsx`                              |
+| A status label                 | `ui/common/status-pill.tsx`, or a tone map plus `badgeVariantForTone`                       |
+| JSON or source display         | `ui/common/json-code.tsx`                                                                   |
 
 Rules that the rebuild broke and that reviews should enforce: no `<ul>` or
 `<li>` standing in for a table, no hand-rolled `<select>` or `<label>`, no
@@ -64,7 +66,14 @@ Branch `fix/catalogue-security-and-imports`, then
   effect without a reload. The record page tabs are controlled from the URL.
   The directory lets `FilterBar` bind to the URL rather than navigating per
   keystroke. The ten admin `error.tsx` boundaries are restored.
-- Import runs, records and pipeline stages render as tables.
+- Import runs, records and pipeline stages render as tables, built from the
+  components they replaced: the record table uses `LinkedTableRow`,
+  `CatalogueIdentity` and `CatalogueRowActions` over the `data-imports` grid,
+  and the run and stage tables use the ordinary shell around a primitive
+  table. The record history is a timeline again, with snapshots and
+  publications merged into one ordered story.
+- The review diff walks into a change and lists the fields that differ, through
+  `CatalogueValue`, instead of two blocks of JSON.
 
 ## Left to do
 
@@ -79,24 +88,20 @@ Each was removed for schema reasons, not design reasons. Recover with
   application into a browser JSON dump. The viewer was in-page vertical tabs
   with an attempt picker, highlighting, a loading state and a retry.
   Its dependencies (`JsonCode`, `OptionPicker`, `Alert`, `Tabs`) all survive.
-- `ui/admin/courses/course-section-diff.tsx` and
-  `ui/admin/imports/catalogue-value.tsx`. See item 2.
 - `lib/coursemap/course-review-sections.ts`, the per-field registry. See item 3.
 
 ### 2. Review is not reviewable
 
-`lib/catalogue-import/changes.ts` diffs whole collections, so changing one
-session's delivery mode produces a single entry whose old and new values are
-the entire array. `value-diff.tsx` renders that as two walls of JSON and the
-reviewer must accept or reject the collection entire. Restore the per-field
-walk from `course-section-diff.tsx` and render values through `catalogue-value.tsx`,
-keeping `JsonCode` as the last resort.
-
-Also in `review-panel.tsx`: changes are a `<ul>` that should be a decision
-table, "Reject all" has no confirmation although `ConfirmDialog` is used two
-files away, status badges print the raw enum, `issueCode` is shown as prose,
-progress is plain text, and the source excerpt has no link back to the ANU page.
+The diff itself is fixed. What remains in `review-panel.tsx`: changes are a
+`<ul>` that should be a decision table, progress is plain text where the
+vendored `Progress` primitive and `ui/common/progress-ring.tsx` exist, and the
+source excerpt has no link back to the ANU page.
 `record-page.tsx` stacks every review for the record at full size forever.
+
+`lib/catalogue-import/changes.ts` still records a whole collection as one row,
+so a reviewer accepts or rejects every field in it together. The diff now shows
+which fields differ, but resolving them one by one needs the change rows to be
+finer.
 
 ### 3. Editing
 
@@ -110,8 +115,6 @@ until the editor covers `structure_set`, `tagged_units` and `elective_units`.
 
 ### 4. Remaining list and table work
 
-- `record-history.tsx` is two bare `<ol>` lists exposing raw bigint identifiers.
-  Snapshot history is tabular: snapshot, created, origin, run, role, actions.
 - `catalogue-directory.tsx` should use `LinkedTableRow` so the whole row is a
   target, and gained no actions column although the grid reserves one.
 - `catalogue-loading.tsx` has no `directory` layout even though `DataTableShell`
@@ -184,6 +187,14 @@ Publish.
   `course-import-artifacts` from `supabase/config.toml`.
 - `package.json` still exposes `course-import:benchmark`, whose script was
   deleted.
+
+## A note on matching the old interface
+
+Before rebuilding a surface, read the component it replaced rather than
+inferring its shape from the data. Two corrections already came from doing
+this: the pipeline table uses the ordinary table shell, not the catalogue grid,
+and version history is a timeline, not a table. `git show 80b95de^:<path>` and
+`git log --diff-filter=D --name-only` find them.
 
 ## Before A8
 
