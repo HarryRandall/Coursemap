@@ -1,8 +1,20 @@
 "use client";
 
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
-import { ExternalLink, LoaderCircle, Send, Undo2 } from "lucide-react";
+import {
+  ExternalLink,
+  LoaderCircle,
+  Send,
+  TriangleAlert,
+  Undo2,
+} from "lucide-react";
 import Link from "next/link";
 import { useTransition } from "react";
 import { toast } from "sonner";
@@ -14,20 +26,8 @@ import {
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
 import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
+import { anuSourceUrl } from "./anu-source";
 import { WorkflowBadge } from "./workflow-badge";
-
-function sourceUrl(record: CatalogueRecord) {
-  const base = "https://programsandcourses.anu.edu.au";
-  if (record.kind === "course")
-    return `${base}/${record.academicYear}/course/${record.code}`;
-  const segment =
-    record.kind === "programme"
-      ? "program"
-      : record.kind === "specialisation"
-        ? "specialisation"
-        : record.kind;
-  return `${base}/${record.academicYear}/${segment}/${record.code}`;
-}
 
 /** Title, pointers and the publish controls for one record and year. */
 export function RecordHeader({
@@ -39,8 +39,12 @@ export function RecordHeader({
 }) {
   const [pending, startTransition] = useTransition();
   const labels = CATALOGUE_KIND_LABELS[record.kind];
-  const canPublish =
-    record.publishBlockers.length === 0 && record.draftSnapshotId !== null;
+  // Without a draft there is nothing to publish, which is the ordinary state of
+  // a finished record rather than a problem, so it is not reported as one. The
+  // blockers that remain are the reasons a pending draft is being held back.
+  const hasDraft = record.draftSnapshotId !== null;
+  const blockers = hasDraft ? record.publishBlockers : [];
+  const canPublish = hasDraft && blockers.length === 0;
   const workflow =
     record.publishedSnapshotId && record.draftSnapshotId
       ? "published_with_draft"
@@ -60,7 +64,7 @@ export function RecordHeader({
     });
   }
 
-  return (
+  const header = (
     <header
       role="banner"
       className="flex flex-wrap items-start justify-between gap-4"
@@ -77,7 +81,7 @@ export function RecordHeader({
           {record.archivedAt ? <Badge variant="outline">Archived</Badge> : null}
           <Link
             className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
-            href={sourceUrl(record)}
+            href={anuSourceUrl(record)}
             target="_blank"
             rel="noreferrer"
           >
@@ -107,37 +111,64 @@ export function RecordHeader({
               }
             />
           ) : null}
-          <Button
-            disabled={pending || !canPublish}
-            type="button"
-            title={canPublish ? undefined : record.publishBlockers.join(" ")}
-            onClick={() =>
-              run(() =>
-                publishDraftAction({ itemYearId: record.itemYearId, path }),
-              )
-            }
-          >
-            {pending ? (
-              <LoaderCircle
-                size={16}
-                className="animate-spin"
-                aria-hidden="true"
-              />
-            ) : (
-              <Send size={16} aria-hidden="true" />
-            )}
-            Publish draft
-          </Button>
+          {hasDraft ? (
+            <Button
+              disabled={pending || !canPublish}
+              type="button"
+              onClick={() =>
+                run(() =>
+                  publishDraftAction({ itemYearId: record.itemYearId, path }),
+                )
+              }
+            >
+              {pending ? (
+                <LoaderCircle
+                  size={16}
+                  className="animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <Send size={16} aria-hidden="true" />
+              )}
+              Publish draft
+            </Button>
+          ) : null}
         </div>
-        {!canPublish && record.publishBlockers.length > 0 ? (
-          <p
-            className="max-w-sm text-right text-xs text-muted-foreground"
-            role="note"
-          >
-            {record.publishBlockers.join(" ")}
-          </p>
-        ) : null}
       </div>
     </header>
+  );
+
+  if (blockers.length === 0) return header;
+
+  // Why the draft cannot go live is the most important thing on the page, so it
+  // reads as an alert rather than as the faintest line of text on it.
+  return (
+    <div className="flex flex-col gap-3">
+      {header}
+      <Alert variant="warning">
+        <TriangleAlert className="size-4" aria-hidden="true" />
+        <AlertTitle>
+          {blockers.length === 1
+            ? "The draft cannot be published yet"
+            : `${blockers.length} things hold the draft back`}
+        </AlertTitle>
+        <AlertDescription>
+          {blockers.length === 1 ? (
+            <p>{blockers[0]}</p>
+          ) : (
+            <ul className="list-disc space-y-0.5 pl-4">
+              {blockers.map((blocker) => (
+                <li key={blocker}>{blocker}</li>
+              ))}
+            </ul>
+          )}
+        </AlertDescription>
+        <AlertAction>
+          <Button asChild size="sm" variant="outline">
+            <Link href={`${path}&tab=review`}>Open review</Link>
+          </Button>
+        </AlertAction>
+      </Alert>
+    </div>
   );
 }
