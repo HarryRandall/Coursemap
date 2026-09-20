@@ -282,52 +282,58 @@ export async function loadCatalogueDirectoryPage({
   };
 }
 
-export async function loadCatalogueImportRuns({
-  kind,
-  limit = 25,
-}: {
-  kind: CatalogueKind;
-  limit?: number;
-}): Promise<ImportRunSummary[]> {
-  const supabase = await createClient();
-  const { data: runs, error } = await supabase
-    .from("catalogue_import_runs")
-    .select(
-      "id,run_number,kind,status,requested_model,target_count,completed_count,failed_count,cost_usd,created_at,completed_at,academic_years(year)",
-    )
-    .eq("kind", kind)
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  const runIds = (runs ?? []).map((run) => run.id);
-  const { data: targets, error: targetsError } = runIds.length
-    ? await supabase
-        .from("catalogue_import_targets")
-        .select(
-          "id,run_id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
-        )
-        .in("run_id", runIds)
-        .order("code")
-    : { data: [], error: null };
-  if (targetsError) throw targetsError;
-  const targetsByRun = new Map<string, ImportRunSummary["targets"]>();
-  for (const target of targets ?? []) {
-    const list = targetsByRun.get(target.run_id) ?? [];
-    list.push({
-      id: target.id,
-      code: target.code,
-      title: target.catalogue_directory_entries?.title ?? null,
-      status: target.status,
-      changeKind: target.change_kind,
-      attemptCount: target.attempt_count,
-      errorCode: target.error_code,
-      errorMessage: target.error_message,
-      candidateSnapshotId: target.candidate_snapshot_id,
-      itemYearPublicId: target.catalogue_item_years?.public_id ?? null,
-    });
-    targetsByRun.set(target.run_id, list);
-  }
-  return (runs ?? []).map((run) => ({
+export const IMPORT_RUN_SORTS = [
+  "newest",
+  "oldest",
+  "records",
+  "cost",
+] as const;
+export type ImportRunSort = (typeof IMPORT_RUN_SORTS)[number];
+export const DEFAULT_IMPORT_RUN_SORT: ImportRunSort = "newest";
+
+export const IMPORT_RUN_STATUSES = [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+/** A run as it appears in the list: the counters, without its target rows. */
+export type ImportRunRow = Omit<ImportRunSummary, "targets">;
+
+export type ImportRunsPage = {
+  runs: ImportRunRow[];
+  /** The run whose records are shown, with its targets loaded. */
+  selected: ImportRunSummary | null;
+  page: number;
+  pageSize: number;
+  total: number;
+  sort: ImportRunSort;
+};
+
+const IMPORT_RUN_PAGE_SIZE = 20;
+
+const RUN_COLUMNS =
+  "id,run_number,kind,status,requested_model,target_count,completed_count,failed_count,cost_usd,created_at,completed_at,academic_years(year)";
+
+type RunRow = {
+  id: string;
+  run_number: number;
+  kind: string;
+  status: string;
+  requested_model: string;
+  target_count: number;
+  completed_count: number;
+  failed_count: number;
+  cost_usd: number | string;
+  created_at: string;
+  completed_at: string | null;
+  academic_years: { year: number } | null;
+};
+
+function runRow(run: RunRow): ImportRunRow {
+  return {
     id: run.id,
     runNumber: run.run_number,
     kind: run.kind as CatalogueKind,
@@ -340,8 +346,166 @@ export async function loadCatalogueImportRuns({
     costUsd: Number(run.cost_usd),
     createdAt: run.created_at,
     completedAt: run.completed_at,
-    targets: targetsByRun.get(run.id) ?? [],
+  };
+}
+
+/** The targets of one run, which is the only run whose records are on screen. */
+async function loadRunTargets(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  runId: string,
+): Promise<ImportRunSummary["targets"]> {
+  const { data, error } = await supabase
+    .from("catalogue_import_targets")
+    .select(
+      "id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
+    )
+    .eq("run_id", runId)
+    .order("code");
+  if (error) throw error;
+  return (data ?? []).map((target) => ({
+    id: target.id,
+    code: target.code,
+    title: target.catalogue_directory_entries?.title ?? null,
+    status: target.status,
+    changeKind: target.change_kind,
+    attemptCount: target.attempt_count,
+    errorCode: target.error_code,
+    errorMessage: target.error_message,
+    candidateSnapshotId: target.candidate_snapshot_id,
+    itemYearPublicId: target.catalogue_item_years?.public_id ?? null,
   }));
+}
+
+/**
+ * One page of import runs for a kind, narrowed by a search over the run number
+ * and the codes it imported, and by run status. Only the selected run carries
+ * its targets, because only that run's records are on screen; the list itself
+ * reads its counts from the run row.
+ */
+export async function loadCatalogueImportRuns({
+  kind,
+  query = "",
+  status = "",
+  sort = DEFAULT_IMPORT_RUN_SORT,
+  page = 1,
+  selectedRunId = null,
+}: {
+  kind: CatalogueKind;
+  query?: string;
+  status?: string;
+  sort?: ImportRunSort;
+  page?: number;
+  selectedRunId?: string | null;
+}): Promise<ImportRunsPage> {
+  const supabase = await createClient();
+  const needle = query.trim();
+  const empty: ImportRunsPage = {
+    runs: [],
+    selected: null,
+    page: 1,
+    pageSize: IMPORT_RUN_PAGE_SIZE,
+    total: 0,
+    sort,
+  };
+
+  // A reader looks for a run by its number or by a code it imported, so the
+  // codes are resolved to run ids first and both are matched together.
+  const clauses: string[] = [];
+  if (needle) {
+    const runNumber = Number(needle.replace(/^#/, ""));
+    if (Number.isInteger(runNumber) && runNumber > 0) {
+      clauses.push(`run_number.eq.${runNumber}`);
+    }
+    const { data: matches, error: matchError } = await supabase
+      .from("catalogue_import_targets")
+      .select("run_id")
+      .eq("kind", kind)
+      .ilike("code", `%${needle}%`)
+      .limit(1000);
+    if (matchError) throw matchError;
+    const runIds = [...new Set((matches ?? []).map((match) => match.run_id))];
+    if (runIds.length) clauses.push(`id.in.(${runIds.join(",")})`);
+    if (clauses.length === 0) return empty;
+  }
+
+  let runsQuery = supabase
+    .from("catalogue_import_runs")
+    .select(RUN_COLUMNS, { count: "exact" })
+    .eq("kind", kind);
+  if (status) runsQuery = runsQuery.eq("status", status);
+  if (clauses.length) runsQuery = runsQuery.or(clauses.join(","));
+  runsQuery =
+    sort === "oldest"
+      ? runsQuery.order("created_at", { ascending: true })
+      : sort === "records"
+        ? runsQuery.order("target_count", { ascending: false })
+        : sort === "cost"
+          ? runsQuery.order("cost_usd", { ascending: false })
+          : runsQuery.order("created_at", { ascending: false });
+
+  const { count, error: countError } = await runsQuery.range(0, 0);
+  if (countError) throw countError;
+  const total = count ?? 0;
+  const safePage = Math.max(
+    1,
+    Math.min(page, Math.ceil(total / IMPORT_RUN_PAGE_SIZE) || 1),
+  );
+  const from = (safePage - 1) * IMPORT_RUN_PAGE_SIZE;
+  const { data, error } = await runsQuery.range(
+    from,
+    from + IMPORT_RUN_PAGE_SIZE - 1,
+  );
+  if (error) throw error;
+  const runs = ((data ?? []) as RunRow[]).map(runRow);
+
+  const selectedRow =
+    runs.find((run) => run.id === selectedRunId) ?? runs[0] ?? null;
+  const selected = selectedRow
+    ? {
+        ...selectedRow,
+        targets: await loadRunTargets(supabase, selectedRow.id),
+      }
+    : null;
+
+  return {
+    runs,
+    selected,
+    page: safePage,
+    pageSize: IMPORT_RUN_PAGE_SIZE,
+    total,
+    sort,
+  };
+}
+
+export type ImportRunProgress = {
+  status: string;
+  targetCount: number;
+  completedCount: number;
+  failedCount: number;
+};
+
+/**
+ * The counters of one run and nothing else. An active run is watched through
+ * this rather than by refetching the page, which previously reread every run
+ * and every target every four seconds to learn that one number had moved.
+ */
+export async function loadImportRunProgress(
+  runId: string,
+): Promise<ImportRunProgress | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("catalogue_import_runs")
+    .select("status,target_count,completed_count,failed_count")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    status: data.status,
+    targetCount: data.target_count,
+    completedCount: data.completed_count,
+    failedCount: data.failed_count,
+  };
 }
 
 export async function loadImportTargetDetail(

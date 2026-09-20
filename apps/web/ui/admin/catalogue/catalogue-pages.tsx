@@ -2,18 +2,27 @@ import { Suspense } from "react";
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
+  DEFAULT_IMPORT_RUN_SORT,
+  IMPORT_RUN_SORTS,
   type CatalogueKind,
   type DirectoryFilter,
+  type ImportRunProgress,
+  type ImportRunSort,
+  type ImportTargetDetail,
   adminCataloguePath,
   defaultCatalogueYear,
   loadCatalogueDirectoryPage,
   loadCatalogueImportRuns,
   loadCatalogueYears,
+  loadImportRunProgress,
   loadImportTargetDetail,
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
-import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
+import {
+  CatalogueTableLoading,
+  ImportRunsSkeleton,
+} from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
 import { CatalogueTabs } from "./catalogue-tabs";
 import { ImportRuns } from "./import-runs";
@@ -100,16 +109,35 @@ async function DirectoryContent({
 
 export async function CatalogueImportRunsPage({
   kind,
+  searchParams,
 }: {
   kind: CatalogueKind;
+  searchParams: SearchParams;
 }) {
   if (!(await canManageCourseImports())) return <AccessDeniedError />;
+  const params = await searchParams;
   const labels = CATALOGUE_KIND_LABELS[kind];
-  const runs = await loadCatalogueImportRuns({ kind });
+  const requestedSort = first(params.sort) as ImportRunSort | undefined;
+  const runs = loadCatalogueImportRuns({
+    kind,
+    query: first(params.q) ?? "",
+    status: first(params.status) ?? "",
+    sort:
+      requestedSort && IMPORT_RUN_SORTS.includes(requestedSort)
+        ? requestedSort
+        : DEFAULT_IMPORT_RUN_SORT,
+    page: Number(first(params.page)) || 1,
+    selectedRunId: first(params.run) ?? null,
+  });
   async function loadTarget(targetId: string) {
     "use server";
     if (!(await canManageCourseImports())) return null;
     return loadImportTargetDetail(targetId);
+  }
+  async function readRunProgress(runId: string) {
+    "use server";
+    if (!(await canManageCourseImports())) return null;
+    return loadImportRunProgress(runId);
   }
   return (
     <AppShell
@@ -120,21 +148,36 @@ export async function CatalogueImportRunsPage({
       breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
     >
       <h1 className="sr-only">{labels.singular} import runs</h1>
-      <Suspense
-        fallback={
-          <CatalogueTableLoading
-            noun="import records"
-            layout="import-targets"
-          />
-        }
-      >
-        <ImportRuns
+      <Suspense fallback={<ImportRunsSkeleton />}>
+        <ImportRunsContent
           runs={runs}
-          basePath={adminCataloguePath(kind)}
           kind={kind}
           loadTarget={loadTarget}
+          readRunProgress={readRunProgress}
         />
       </Suspense>
     </AppShell>
+  );
+}
+
+async function ImportRunsContent({
+  runs,
+  kind,
+  loadTarget,
+  readRunProgress,
+}: {
+  runs: ReturnType<typeof loadCatalogueImportRuns>;
+  kind: CatalogueKind;
+  loadTarget: (targetId: string) => Promise<ImportTargetDetail | null>;
+  readRunProgress: (runId: string) => Promise<ImportRunProgress | null>;
+}) {
+  return (
+    <ImportRuns
+      page={await runs}
+      basePath={adminCataloguePath(kind)}
+      kind={kind}
+      loadTarget={loadTarget}
+      readRunProgress={readRunProgress}
+    />
   );
 }

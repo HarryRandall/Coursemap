@@ -184,59 +184,64 @@ export function CatalogueLoading({
   );
 }
 
-/**
- * The import runs page: the toolbar and run table it opens with, then the
- * selected run's card. A plain table skeleton alone sat in front of a card
- * layout and moved everything down as soon as the data arrived.
- */
+/** A whole `loading.tsx` route for the import runs page. */
 export function ImportRunsLoading({ noun }: { noun: string }) {
   return (
     <AppShell loading admin fill>
       <h1 className="sr-only">Loading {noun}</h1>
-      <div
-        aria-busy="true"
-        className="flex min-h-0 w-full flex-1 flex-col gap-4"
-      >
-        <div className="flex items-start gap-2">
-          <Skeleton className="h-10 min-w-0 flex-1" />
-          <Skeleton className="size-10 shrink-0" />
-        </div>
-        <PlainTableShell
-          footer={
-            <div className="flex h-8 items-center justify-between">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-7 w-28" />
-            </div>
-          }
-        >
-          <div className="flex flex-col gap-3 p-4">
-            {Array.from({ length: 6 }, (_, row) => (
-              <div key={row} className="flex items-center gap-4">
-                <Skeleton className="h-3 w-10 shrink-0" />
-                <Skeleton className="h-3 w-12 shrink-0" />
-                <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
-                <Skeleton className="h-3 w-14 shrink-0" />
-                <Skeleton className="h-3 min-w-0 flex-1" />
-                <Skeleton className="h-3 w-16 shrink-0" />
-                <Skeleton className="h-3 w-28 shrink-0" />
-              </div>
-            ))}
-          </div>
-        </PlainTableShell>
-        <Card>
-          <CardHeader className="gap-2">
-            <Skeleton className="h-5 w-56" />
-            <Skeleton className="h-4 w-80 max-w-full" />
-          </CardHeader>
-          <CardContent>
-            <CatalogueTableLoading
-              noun="import records"
-              layout="import-targets"
-              rows={4}
-            />
-          </CardContent>
-        </Card>
-      </div>
+      <ImportRunsSkeleton />
     </AppShell>
+  );
+}
+
+/**
+ * The import runs page: the toolbar and run table it opens with, then the
+ * selected run's card. A plain table skeleton alone sat in front of a card
+ * layout and moved everything down as soon as the data arrived. The route
+ * skeleton and the in-page Suspense boundary share this shape.
+ */
+export function ImportRunsSkeleton() {
+  return (
+    <div aria-busy="true" className="flex min-h-0 w-full flex-1 flex-col gap-4">
+      <div className="flex items-start gap-2">
+        <Skeleton className="h-10 min-w-0 flex-1" />
+        <Skeleton className="size-10 shrink-0" />
+      </div>
+      <PlainTableShell
+        footer={
+          <div className="flex h-8 items-center justify-between">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-3 p-4">
+          {Array.from({ length: 6 }, (_, row) => (
+            <div key={row} className="flex items-center gap-4">
+              <Skeleton className="h-3 w-10 shrink-0" />
+              <Skeleton className="h-3 w-12 shrink-0" />
+              <Skeleton className="h-5 w-20 shrink-0 rounded-full" />
+              <Skeleton className="h-3 w-14 shrink-0" />
+              <Skeleton className="h-3 min-w-0 flex-1" />
+              <Skeleton className="h-3 w-16 shrink-0" />
+              <Skeleton className="h-3 w-28 shrink-0" />
+            </div>
+          ))}
+        </div>
+      </PlainTableShell>
+      <Card>
+        <CardHeader className="gap-2">
+          <Skeleton className="h-5 w-56" />
+          <Skeleton className="h-4 w-80 max-w-full" />
+        </CardHeader>
+        <CardContent>
+          <CatalogueTableLoading
+            noun="import records"
+            layout="import-targets"
+            rows={4}
+          />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

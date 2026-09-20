@@ -24,9 +24,18 @@ import { toast } from "sonner";
 
 import {
   CATALOGUE_KIND_LABELS,
-  type ImportRunSummary,
+  type CatalogueKind,
   type ImportTargetDetail,
 } from "@/lib/coursemap/catalogue-kinds";
+import {
+  DEFAULT_IMPORT_RUN_SORT,
+  IMPORT_RUN_STATUSES,
+  type ImportRunProgress,
+  type ImportRunsPage,
+} from "@/lib/coursemap/admin-catalogue";
+import { FilterBar } from "@/ui/common/filter-bar";
+import { Pagination } from "@/ui/common/pagination";
+import { SortMenu } from "@/ui/common/sort-menu";
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import {
@@ -111,35 +120,61 @@ function formatCost(value: number) {
 
 /** Run history for one kind with per-target stages and artefacts. */
 export function ImportRuns({
-  runs,
+  page,
   basePath,
   kind,
   loadTarget,
+  readRunProgress,
 }: {
-  runs: ImportRunSummary[];
+  page: ImportRunsPage;
   basePath: string;
-  kind: ImportRunSummary["kind"];
+  kind: CatalogueKind;
   loadTarget: (targetId: string) => Promise<ImportTargetDetail | null>;
+  readRunProgress: (runId: string) => Promise<ImportRunProgress | null>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const labels = CATALOGUE_KIND_LABELS[kind];
-  const selectedRunId = searchParams.get("run") ?? runs[0]?.id ?? null;
+  const runs = page.runs;
+  const run = page.selected;
   const selectedTargetId = searchParams.get("target");
-  const run =
-    runs.find((candidate) => candidate.id === selectedRunId) ?? runs[0] ?? null;
   const [detail, setDetail] = useState<ImportTargetDetail | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [progress, setProgress] = useState<{
+    runId: string;
+    value: ImportRunProgress;
+  } | null>(null);
 
-  const active = runs.some(
-    (candidate) =>
-      candidate.status === "queued" || candidate.status === "running",
-  );
+  // Watching one run's counters costs a single row. Refetching the whole page
+  // every four seconds reread every run and every target to learn that one
+  // number had moved, and reset the reader's scroll position each time.
+  const watchedRunId =
+    run && (run.status === "queued" || run.status === "running")
+      ? run.id
+      : null;
   useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => router.refresh(), 4000);
-    return () => clearInterval(timer);
-  }, [active, router]);
+    if (!watchedRunId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const next = await readRunProgress(watchedRunId);
+      if (cancelled || !next) return;
+      setProgress({ runId: watchedRunId, value: next });
+      // The run has settled, so the rows and their targets are worth rereading.
+      if (next.status !== "queued" && next.status !== "running") {
+        router.refresh();
+      }
+    };
+    const timer = setInterval(() => void tick(), 4000);
+    void tick();
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [watchedRunId, readRunProgress, router]);
+
+  /** The watched run's counters, as of the last poll. */
+  const live =
+    progress && run && progress.runId === run.id ? progress.value : null;
 
   const targetKey = selectedTargetId
     ? `${selectedTargetId}:${run?.completedCount ?? 0}:${run?.status ?? ""}`
@@ -196,22 +231,37 @@ export function ImportRuns({
     }
   }
 
-  if (runs.length === 0) {
-    return (
-      <CatalogueEmpty
-        title={`No ${labels.singular.toLowerCase()} imports yet`}
-        description={`Select ${labels.plural.toLowerCase()} in the directory and start an import to see runs here.`}
-        imports
-      >
-        <Button asChild variant="outline">
-          <Link href={basePath}>Open the directory</Link>
-        </Button>
-      </CatalogueEmpty>
-    );
-  }
+  const filtered = Boolean(searchParams.get("q") ?? searchParams.get("status"));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <div className="flex items-start gap-2">
+        <FilterBar
+          searchPlaceholder={`Search runs by ${labels.singular.toLowerCase()} code or model`}
+          filters={[
+            {
+              key: "status",
+              label: "Status",
+              allLabel: "All statuses",
+              options: IMPORT_RUN_STATUSES.map((value) => ({
+                value,
+                label: readable(value),
+              })),
+            },
+          ]}
+        />
+        <SortMenu
+          defaultValue={DEFAULT_IMPORT_RUN_SORT}
+          onChange={(value) => select({ sort: value, page: null })}
+          options={[
+            { value: "newest", label: "Newest first" },
+            { value: "oldest", label: "Oldest first" },
+            { value: "records", label: "Most records" },
+            { value: "cost", label: "Highest cost" },
+          ]}
+          value={page.sort}
+        />
+      </div>
       <div
         className="min-w-0 overflow-x-auto"
         role="region"
@@ -219,7 +269,19 @@ export function ImportRuns({
         data-scroll-kind="table"
         tabIndex={0}
       >
-        <PlainTableShell>
+        <PlainTableShell
+          footer={
+            <Pagination
+              alwaysShowControls
+              itemName="runs"
+              page={page.page}
+              pageSize={page.pageSize}
+              pathname={`${basePath}/imports`}
+              searchParams={Object.fromEntries(searchParams.entries())}
+              total={page.total}
+            />
+          }
+        >
           <PlainTable className="min-w-[760px]">
             <PlainTableCaption className="sr-only">
               Import runs for {labels.plural.toLowerCase()}, newest first
@@ -236,6 +298,31 @@ export function ImportRuns({
               </PlainTableRow>
             </PlainTableHeader>
             <PlainTableBody>
+              {runs.length === 0 ? (
+                <PlainTableRow>
+                  <PlainTableCell colSpan={7}>
+                    <CatalogueEmpty
+                      imports
+                      filtered={filtered}
+                      clearHref={`${basePath}/imports`}
+                      title={
+                        filtered
+                          ? "No runs match those filters"
+                          : `No ${labels.singular.toLowerCase()} imports yet`
+                      }
+                      description={
+                        filtered
+                          ? "Clear the filters to see every run."
+                          : `Select ${labels.plural.toLowerCase()} in the directory and start an import to see runs here.`
+                      }
+                    >
+                      <Button asChild variant="outline">
+                        <Link href={basePath}>Open the directory</Link>
+                      </Button>
+                    </CatalogueEmpty>
+                  </PlainTableCell>
+                </PlainTableRow>
+              ) : null}
               {runs.map((candidate) => {
                 const current = candidate.id === run?.id;
                 return (
@@ -278,7 +365,9 @@ export function ImportRuns({
                       </Badge>
                     </PlainTableCell>
                     <PlainTableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                      {candidate.completedCount}/{candidate.targetCount}
+                      {current && live
+                        ? `${live.completedCount}/${live.targetCount}`
+                        : `${candidate.completedCount}/${candidate.targetCount}`}
                       {candidate.failedCount ? (
                         <span className="text-destructive">
                           {" "}
