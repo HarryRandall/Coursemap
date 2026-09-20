@@ -74,6 +74,8 @@ Branch `fix/catalogue-security-and-imports`, then
   publications merged into one ordered story.
 - The review diff walks into a change and lists the fields that differ, through
   `CatalogueValue`, instead of two blocks of JSON.
+- The artefact viewer is restored, so artefacts are read in place with their
+  attempt picker and highlighting rather than downloaded.
 
 ## Left to do
 
@@ -82,12 +84,11 @@ Branch `fix/catalogue-security-and-imports`, then
 Each was removed for schema reasons, not design reasons. Recover with
 `git show 80b95de^:<path>` and re-point the types at `CatalogueSnapshotWrite`.
 
-- `ui/admin/imports/import-artefact-viewer.tsx` with `artefact-viewport.tsx`,
-  `source-code.tsx`, `import-artefact-data.ts` and `use-import-artefact.ts`.
-  Artefacts are currently raw download links that take the reader out of the
-  application into a browser JSON dump. The viewer was in-page vertical tabs
-  with an attempt picker, highlighting, a loading state and a retry.
-  Its dependencies (`JsonCode`, `OptionPicker`, `Alert`, `Tabs`) all survive.
+Two pieces the artefact viewer depended on are still missing and are worth
+having back on their own account: `database-scroll-preview.tsx`, the viewport's
+custom scrollbar, and `import-persistence-decision.tsx`, which read a change
+set rather than printing it as JSON.
+
 - `lib/coursemap/course-review-sections.ts`, the per-field registry. See item 3.
 
 ### 2. Review is not reviewable
