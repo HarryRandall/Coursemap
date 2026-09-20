@@ -7,7 +7,7 @@ import {
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v4";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v4";
+  "coursemap-academic-structure-prompt.v5";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v2";
@@ -37,6 +37,18 @@ Source rules:
 
 Requirement interpretation:
 - Preserve the full requirements source text and locator.
+- Model every requirement you can. A typed condition is always preferred to free_text when the source states the constraint plainly, even when the wording is long. unmodelledText is for wording you genuinely cannot classify, not for wording that is merely verbose. A requirements tree holding only a unit_total is wrong whenever the page lists further constraints.
+- Map these ANU phrasings to typed conditions. The wording below is explicit, not inferred, so use the typed condition rather than free_text:
+  - "N units from completion of courses from the following list" plus a finite list of course codes -> course_list with those courseCodes and minimumUnits N.
+  - "N units from completion of a course from the following list" plus a finite list -> course_list with those courseCodes and minimumUnits N.
+  - "N units from the completion of the following compulsory courses" -> course_list with those courseCodes and minimumUnits N.
+  - "a minimum of N units ... from <SUBJ> courses" or "from the subject area <SUBJ>" -> subject with subjectCode and minimumUnits N.
+  - "a minimum of N units ... from X000-level courses", including a range such as "3000 and 4000-level" -> level with minimumUnits N, minimumLevel and maximumLevel. Combine with subjectCode when the sentence names a subject.
+  - "a maximum of N units may come from ... X000-level courses" -> level with maximumUnits N and the matching level bounds.
+  - "courses tagged as <TAG>" or "from the <TAG> list" -> tag with that literal tag and its unit bounds.
+  - "N units of electives" or "unrestricted electives" -> unrestricted with minimumUnits N.
+  - "completion of one of the following majors/minors/specialisations" plus literal codes -> structure_list with those structureCodes.
+- Honour an explicit OR between two modelled alternatives, such as a subject condition OR a structure_list of majors, with an any_of group holding both.
 - Represent explicit AND as an all_of group and explicit OR as an any_of group.
 - Use minimum_count only when the source states an exact count such as "one of" or "two of", and set minimumCount to that literal count.
 - A finite linked course list may be a course_list condition. Keep the printed minimum or maximum units when present.
