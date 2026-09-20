@@ -31,9 +31,12 @@ import {
   TableRow,
 } from "@/ui/admin/catalogue-table/catalogue-table";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { CatalogueRowActions } from "@/ui/admin/catalogue-table/catalogue-row-actions";
 import { FilterBar } from "@/ui/common/filter-bar";
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { Pagination } from "@/ui/common/pagination";
 import { YearPicker } from "@/ui/common/year-picker";
+import { anuSourceUrl } from "./anu-source";
 import { readImportStream } from "./import-stream";
 import { WORKFLOW_LABELS, WorkflowBadge } from "./workflow-badge";
 
@@ -376,6 +379,9 @@ export function CatalogueDirectory({
                 <TableHead>Details</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Latest import</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -387,7 +393,7 @@ export function CatalogueDirectory({
                   ? `${basePath}/${record.code}?year=${page.academicYear}`
                   : undefined;
                 return (
-                  <TableRow
+                  <LinkedTableRow
                     key={record.code}
                     data-selected={checked || undefined}
                   >
@@ -439,7 +445,43 @@ export function CatalogueDirectory({
                         "—"
                       )}
                     </TableCell>
-                  </TableRow>
+                    <TableCell className="text-right">
+                      <CatalogueRowActions
+                        code={record.code}
+                        label={record.title ?? record.code}
+                        links={[
+                          ...(href
+                            ? [
+                                {
+                                  label: "Open record",
+                                  href,
+                                  icon: "view" as const,
+                                },
+                              ]
+                            : []),
+                          {
+                            label: "ANU page",
+                            href: anuSourceUrl({
+                              kind: page.kind,
+                              code: record.code,
+                              academicYear: page.academicYear,
+                            }),
+                            icon: "source" as const,
+                          },
+                          {
+                            label: "Find in imports",
+                            href: record.latestTarget
+                              ? `${basePath}/imports?run=${record.latestTarget.runId}&target=${record.latestTarget.id}`
+                              : `${basePath}/imports?q=${encodeURIComponent(record.code)}`,
+                            icon: "history" as const,
+                          },
+                        ]}
+                        onSelectForImport={
+                          busy ? undefined : () => toggle(record.code)
+                        }
+                      />
+                    </TableCell>
+                  </LinkedTableRow>
                 );
               })}
             </TableBody>
