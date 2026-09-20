@@ -30,8 +30,9 @@ import type {
   ReviewEntry,
   ReviewTarget,
 } from "@/lib/coursemap/admin-catalogue-record";
-import { fieldLabel } from "@/lib/coursemap/catalogue-kinds";
+import { humaniseKey, fieldLabel } from "@/lib/coursemap/catalogue-kinds";
 import { badgeVariantForTone } from "@/lib/ui";
+import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { ValueDiff } from "./value-diff";
 
 function formatDateTime(value: string | null) {
@@ -125,12 +126,12 @@ export function ReviewPanel({
                 >
                   Accept all
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  type="button"
-                  onClick={() =>
+                <ConfirmDialog
+                  title={`Reject ${openChanges.length} change${openChanges.length === 1 ? "" : "s"}?`}
+                  description="The imported values are discarded and the record keeps its current content. A later import recomputes the comparison from scratch, so a rejection is not remembered."
+                  confirmLabel="Reject all"
+                  destructive
+                  onConfirm={() =>
                     run(() =>
                       resolveAllChangesAction({
                         targetId: review.id,
@@ -139,9 +140,17 @@ export function ReviewPanel({
                       }),
                     )
                   }
-                >
-                  Reject all
-                </Button>
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={pending}
+                      type="button"
+                    >
+                      Reject all
+                    </Button>
+                  }
+                />
               </>
             ) : null}
             <Button
@@ -239,6 +248,28 @@ type Run = (
   action: () => Promise<{ ok: boolean; error?: string; message?: string }>,
 ) => void;
 
+/**
+ * Flag codes come from the extraction review items, uppercased. They are a
+ * database vocabulary, so they are named for the reader rather than shown raw.
+ */
+const ISSUE_LABELS: Record<string, string> = {
+  CONFLICT: "Model disagreed with the parser",
+  EVIDENCE_MISSING: "No supporting excerpt",
+  INVALID: "Failed the extraction contract",
+};
+
+function issueLabel(code: string | null) {
+  if (!code) return "flag";
+  return ISSUE_LABELS[code] ?? humaniseKey(code);
+}
+
+const ENTRY_STATUS_LABELS: Record<ReviewEntry["status"], string> = {
+  open: "To decide",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  acknowledged: "Acknowledged",
+};
+
 function StatusBadge({ status }: { status: ReviewEntry["status"] }) {
   const tone =
     status === "accepted" || status === "acknowledged"
@@ -246,7 +277,11 @@ function StatusBadge({ status }: { status: ReviewEntry["status"] }) {
       : status === "rejected"
         ? "neutral"
         : "warning";
-  return <Badge variant={badgeVariantForTone[tone]}>{status}</Badge>;
+  return (
+    <Badge variant={badgeVariantForTone[tone]}>
+      {ENTRY_STATUS_LABELS[status] ?? status}
+    </Badge>
+  );
 }
 
 function ChangeRow({
@@ -379,7 +414,7 @@ function FlagRow({
             <span className="font-medium">{fieldLabel(flag.fieldPath)}</span>
             <span className="text-muted-foreground">
               {" "}
-              · {flag.issueCode?.toLowerCase().replaceAll("_", " ")}
+              · {issueLabel(flag.issueCode)}
             </span>
             {flag.isBlocking ? (
               <Badge variant="destructive-light" className="ml-2">
