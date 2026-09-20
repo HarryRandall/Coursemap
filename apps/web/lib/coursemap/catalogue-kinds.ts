@@ -88,6 +88,7 @@ export type ImportRunSummary = {
   targets: Array<{
     id: string;
     code: string;
+    title: string | null;
     status: string;
     changeKind: string | null;
     attemptCount: number;

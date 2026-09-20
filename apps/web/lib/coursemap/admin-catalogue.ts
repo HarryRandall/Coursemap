@@ -304,7 +304,7 @@ export async function loadCatalogueImportRuns({
     ? await supabase
         .from("catalogue_import_targets")
         .select(
-          "id,run_id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id)",
+          "id,run_id,code,status,change_kind,attempt_count,error_code,error_message,candidate_snapshot_id,catalogue_item_years(public_id),catalogue_directory_entries(title)",
         )
         .in("run_id", runIds)
         .order("code")
@@ -316,6 +316,7 @@ export async function loadCatalogueImportRuns({
     list.push({
       id: target.id,
       code: target.code,
+      title: target.catalogue_directory_entries?.title ?? null,
       status: target.status,
       changeKind: target.change_kind,
       attemptCount: target.attempt_count,

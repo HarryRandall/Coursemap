@@ -2,7 +2,7 @@
 
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
-import { History, Trash2 } from "lucide-react";
+import { Download, History, Pencil, Trash2, Undo2, Upload } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
@@ -43,132 +43,161 @@ export function RecordHistory({
       else toast.error(result.error ?? "The action failed.");
     });
   }
+  // Snapshots and publications are one story, so they share a timeline rather
+  // than sitting in two lists the reader has to interleave by timestamp.
+  type HistoryEvent = {
+    id: string;
+    at: string;
+    kind: "snapshot" | "published" | "unpublished";
+    origin?: string;
+    title: string;
+    detail: string | null;
+    snapshot: CatalogueRecord["snapshots"][number] | null;
+  };
+
+  const events: HistoryEvent[] = [
+    ...record.snapshots.map((snapshot) => {
+      const runNumber = snapshot.importTargetId
+        ? targetRun.get(snapshot.importTargetId)
+        : undefined;
+      const detail = [
+        runNumber ? `Run #${runNumber}` : null,
+        snapshot.basedOnSnapshotId
+          ? `based on #${snapshot.basedOnSnapshotId}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        id: `snapshot-${snapshot.id}`,
+        at: snapshot.createdAt,
+        kind: "snapshot" as const,
+        origin: snapshot.origin,
+        title:
+          snapshot.origin === "import"
+            ? `Imported as #${snapshot.id}`
+            : `Edited by hand as #${snapshot.id}`,
+        detail: detail || null,
+        snapshot,
+      };
+    }),
+    ...record.publications.map((publication, index) => ({
+      id: `publication-${publication.publishedAt}-${index}`,
+      at: publication.publishedAt,
+      kind: publication.snapshotId
+        ? ("published" as const)
+        : ("unpublished" as const),
+      title: publication.snapshotId ? "Published" : "Withdrawn from students",
+      detail: publication.snapshotId
+        ? `Snapshot #${publication.snapshotId}`
+        : null,
+      snapshot: null,
+    })),
+  ].sort((left, right) => Date.parse(right.at) - Date.parse(left.at));
+
+  if (events.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nothing has been imported, edited or published for this record yet.
+      </p>
+    );
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-      <section
-        aria-labelledby="snapshots-heading"
-        className="flex flex-col gap-2"
-      >
-        <h2 id="snapshots-heading" className="text-sm font-semibold">
-          Snapshots{" "}
-          <span className="font-normal text-muted-foreground">
-            {record.snapshots.length}
-          </span>
-        </h2>
-        <ol className="divide-y divide-border rounded-lg border border-border">
-          {record.snapshots.map((snapshot) => (
-            <li
-              key={snapshot.id}
-              className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm"
-            >
-              <span className="font-mono text-xs text-muted-foreground">
-                #{snapshot.id}
-              </span>
-              <span>{formatDateTime(snapshot.createdAt)}</span>
-              <Badge variant="outline">{snapshot.origin}</Badge>
-              {snapshot.importTargetId &&
-              targetRun.has(snapshot.importTargetId) ? (
-                <span className="text-xs text-muted-foreground">
-                  run #{targetRun.get(snapshot.importTargetId)}
-                </span>
+    <ol
+      className="relative min-w-0 before:absolute before:inset-y-4 before:left-4 before:border-l before:border-border"
+      aria-label="Record history"
+    >
+      {events.map((event) => {
+        const Icon =
+          event.kind === "published"
+            ? Upload
+            : event.kind === "unpublished"
+              ? Undo2
+              : event.origin === "import"
+                ? Download
+                : Pencil;
+        const snapshot = event.snapshot;
+        return (
+          <li key={event.id} className="relative min-w-0 pb-7 pl-12 last:pb-0">
+            <span className="absolute top-0 left-0 flex size-8 items-center justify-center rounded-full border border-border bg-background">
+              <Icon
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </span>
+            <div className="flex flex-wrap items-start justify-between gap-3 pt-1">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold">{event.title}</h3>
+                  {snapshot?.id === record.publishedSnapshotId ? (
+                    <Badge variant="success-light">Published</Badge>
+                  ) : snapshot?.id === record.draftSnapshotId ? (
+                    <Badge variant="outline">Current draft</Badge>
+                  ) : null}
+                  {snapshot && !snapshot.sealedAt ? (
+                    <Badge variant="info-light">Unsealed</Badge>
+                  ) : null}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {event.detail ? `${event.detail} · ` : null}
+                  <time dateTime={event.at}>{formatDateTime(event.at)}</time>
+                </p>
+              </div>
+              {snapshot ? (
+                <div className="flex gap-2">
+                  {snapshot.id === record.draftSnapshotId ? (
+                    <ConfirmDialog
+                      title="Discard this draft?"
+                      description="The draft pointer is cleared. The snapshot stays in history and can be restored."
+                      confirmLabel="Discard draft"
+                      destructive
+                      onConfirm={() =>
+                        run(() =>
+                          discardDraftAction({
+                            itemYearId: record.itemYearId,
+                            path,
+                          }),
+                        )
+                      }
+                      trigger={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={locked}
+                          type="button"
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                          Discard
+                        </Button>
+                      }
+                    />
+                  ) : snapshot.id !== record.publishedSnapshotId ||
+                    record.draftSnapshotId ? (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={locked}
+                      type="button"
+                      onClick={() =>
+                        run(() =>
+                          restoreSnapshotAction({
+                            itemYearId: record.itemYearId,
+                            snapshotId: snapshot.id,
+                            path,
+                          }),
+                        )
+                      }
+                    >
+                      <History size={14} aria-hidden="true" />
+                      Restore as draft
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
-              {snapshot.basedOnSnapshotId ? (
-                <span className="text-xs text-muted-foreground">
-                  based on #{snapshot.basedOnSnapshotId}
-                </span>
-              ) : null}
-              <span className="ml-auto flex items-center gap-1">
-                {snapshot.id === record.publishedSnapshotId ? (
-                  <Badge variant="success-light">Published</Badge>
-                ) : null}
-                {snapshot.id === record.draftSnapshotId ? (
-                  <Badge variant="warning-light">Draft</Badge>
-                ) : null}
-                {!snapshot.sealedAt ? (
-                  <Badge variant="info-light">Unsealed</Badge>
-                ) : null}
-                {snapshot.id === record.draftSnapshotId ? (
-                  <ConfirmDialog
-                    title="Discard this draft?"
-                    description="The draft pointer is cleared. The snapshot stays in history and can be restored."
-                    confirmLabel="Discard draft"
-                    destructive
-                    onConfirm={() =>
-                      run(() =>
-                        discardDraftAction({
-                          itemYearId: record.itemYearId,
-                          path,
-                        }),
-                      )
-                    }
-                    trigger={
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={locked}
-                        type="button"
-                      >
-                        <Trash2 size={14} aria-hidden="true" />
-                        Discard
-                      </Button>
-                    }
-                  />
-                ) : snapshot.id !== record.publishedSnapshotId ||
-                  record.draftSnapshotId ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={locked}
-                    type="button"
-                    onClick={() =>
-                      run(() =>
-                        restoreSnapshotAction({
-                          itemYearId: record.itemYearId,
-                          snapshotId: snapshot.id,
-                          path,
-                        }),
-                      )
-                    }
-                  >
-                    <History size={14} aria-hidden="true" />
-                    Restore as draft
-                  </Button>
-                ) : null}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
-      <section
-        aria-labelledby="publications-heading"
-        className="flex flex-col gap-2"
-      >
-        <h2 id="publications-heading" className="text-sm font-semibold">
-          Publications{" "}
-          <span className="font-normal text-muted-foreground">
-            {record.publications.length}
-          </span>
-        </h2>
-        {record.publications.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Never published.</p>
-        ) : (
-          <ol className="divide-y divide-border rounded-lg border border-border">
-            {record.publications.map((publication, index) => (
-              <li
-                key={`${publication.publishedAt}-${index}`}
-                className="px-3 py-2 text-sm"
-              >
-                {formatDateTime(publication.publishedAt)}
-                <span className="text-muted-foreground">
-                  {publication.snapshotId
-                    ? ` · snapshot #${publication.snapshotId}`
-                    : " · unpublished"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-    </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }

@@ -4,19 +4,19 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@coursemap/ui/components/alert";
+import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@coursemap/ui/primitives/card";
-import {
-  Check,
-  CircleX,
-  ExternalLink,
-  LoaderCircle,
-  OctagonX,
-} from "lucide-react";
+import { LoaderCircle, OctagonX, TriangleAlert, Workflow } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -30,6 +30,7 @@ import {
 import { badgeVariantForTone, type Tone } from "@/lib/ui";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import {
+  CatalogueIdentity,
   DataTableShell,
   Table,
   TableBody,
@@ -39,6 +40,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/admin/catalogue-table/catalogue-table";
+import { CatalogueRowActions } from "@/ui/admin/catalogue-table/catalogue-row-actions";
+import { LinkedTableRow } from "@/ui/common/linked-table-row";
+import { DataTableShell as PlainTableShell } from "@/ui/common/data-table";
+import {
+  Table as PlainTable,
+  TableBody as PlainTableBody,
+  TableCaption as PlainTableCaption,
+  TableCell as PlainTableCell,
+  TableHead as PlainTableHead,
+  TableHeader as PlainTableHeader,
+  TableRow as PlainTableRow,
+} from "@coursemap/ui/primitives/table";
 import { TargetStatusBadge } from "./workflow-badge";
 
 const RUN_TONE: Record<string, Tone> = {
@@ -49,13 +62,19 @@ const RUN_TONE: Record<string, Tone> = {
   cancelled: "neutral",
 };
 
-const RUN_STATUS_LABELS: Record<string, string> = {
-  queued: "Queued",
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
+function readable(value: string) {
+  const words = value.replaceAll("_", " ").replaceAll("-", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function duration(startedAt: string | null, completedAt: string | null) {
+  if (!startedAt || !completedAt) return "\u2014";
+  const milliseconds =
+    new Date(completedAt).getTime() - new Date(startedAt).getTime();
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return "\u2014";
+  if (milliseconds < 1_000) return `${milliseconds}ms`;
+  return `${(milliseconds / 1_000).toFixed(1)}s`;
+}
 
 const STAGE_TONE: Record<string, Tone> = {
   completed: "success",
@@ -106,11 +125,6 @@ function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function durationMs(start: string, end: string | null) {
-  if (!end) return null;
-  return new Date(end).getTime() - new Date(start).getTime();
 }
 
 /** Run history for one kind with per-target stages and artefacts. */
@@ -216,90 +230,101 @@ export function ImportRuns({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <DataTableShell layout="runs" selectable={false}>
-        <Table>
-          <TableCaption className="sr-only">
-            Import runs for {labels.plural.toLowerCase()}, newest first.
-          </TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Run</TableHead>
-              <TableHead>Year</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Records</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Cost</TableHead>
-              <TableHead>Started</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {runs.map((candidate) => {
-              const current = candidate.id === run?.id;
-              return (
-                <TableRow
-                  key={candidate.id}
-                  aria-current={current ? "true" : undefined}
-                  className="aria-[current=true]:bg-primary/5"
-                >
-                  <TableCell>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        select({ run: candidate.id, target: null })
-                      }
-                      aria-current={current ? "true" : undefined}
-                      className="text-sm font-medium underline-offset-4 hover:underline aria-[current=true]:text-primary"
-                    >
-                      #{candidate.runNumber}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
-                    {candidate.academicYear}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        badgeVariantForTone[
-                          RUN_TONE[candidate.status] ?? "neutral"
-                        ]
-                      }
-                    >
-                      {candidate.status === "running" ? (
-                        <LoaderCircle
-                          size={11}
-                          className="animate-spin"
-                          aria-hidden="true"
-                        />
+      <div
+        className="min-w-0 overflow-x-auto"
+        role="region"
+        aria-label="Import runs"
+        data-scroll-kind="table"
+        tabIndex={0}
+      >
+        <PlainTableShell>
+          <PlainTable className="min-w-[760px]">
+            <PlainTableCaption className="sr-only">
+              Import runs for {labels.plural.toLowerCase()}, newest first
+            </PlainTableCaption>
+            <PlainTableHeader>
+              <PlainTableRow className="hover:bg-transparent">
+                <PlainTableHead className="w-20">Run</PlainTableHead>
+                <PlainTableHead className="w-20">Year</PlainTableHead>
+                <PlainTableHead>Status</PlainTableHead>
+                <PlainTableHead className="text-right">Records</PlainTableHead>
+                <PlainTableHead>Model</PlainTableHead>
+                <PlainTableHead className="text-right">Cost</PlainTableHead>
+                <PlainTableHead>Started</PlainTableHead>
+              </PlainTableRow>
+            </PlainTableHeader>
+            <PlainTableBody>
+              {runs.map((candidate) => {
+                const current = candidate.id === run?.id;
+                return (
+                  <PlainTableRow
+                    key={candidate.id}
+                    aria-current={current ? "true" : undefined}
+                    className="aria-[current=true]:bg-primary/5"
+                  >
+                    <PlainTableCell>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          select({ run: candidate.id, target: null })
+                        }
+                        aria-current={current ? "true" : undefined}
+                        className="text-xs font-medium tabular-nums underline-offset-4 hover:underline aria-[current=true]:text-primary"
+                      >
+                        #{candidate.runNumber}
+                      </button>
+                    </PlainTableCell>
+                    <PlainTableCell className="text-xs tabular-nums">
+                      {candidate.academicYear}
+                    </PlainTableCell>
+                    <PlainTableCell>
+                      <Badge
+                        variant={
+                          badgeVariantForTone[
+                            RUN_TONE[candidate.status] ?? "neutral"
+                          ]
+                        }
+                      >
+                        {candidate.status === "running" ? (
+                          <LoaderCircle
+                            size={11}
+                            className="animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {readable(candidate.status)}
+                      </Badge>
+                    </PlainTableCell>
+                    <PlainTableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                      {candidate.completedCount}/{candidate.targetCount}
+                      {candidate.failedCount ? (
+                        <span className="text-destructive">
+                          {" "}
+                          · {candidate.failedCount} failed
+                        </span>
                       ) : null}
-                      {RUN_STATUS_LABELS[candidate.status] ?? candidate.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
-                    {candidate.completedCount}/{candidate.targetCount}
-                    {candidate.failedCount ? (
-                      <span className="text-destructive">
-                        {" "}
-                        · {candidate.failedCount} failed
-                      </span>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="truncate text-sm text-muted-foreground">
-                    {candidate.requestedModel}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground tabular-nums">
-                    {formatCost(candidate.costUsd)}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    <time dateTime={candidate.createdAt}>
-                      {formatDateTime(candidate.createdAt)}
-                    </time>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </DataTableShell>
+                    </PlainTableCell>
+                    <PlainTableCell className="truncate text-xs text-muted-foreground">
+                      {candidate.requestedModel}
+                    </PlainTableCell>
+                    <PlainTableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                      {formatCost(candidate.costUsd)}
+                    </PlainTableCell>
+                    <PlainTableCell>
+                      <time
+                        className="text-xs text-muted-foreground tabular-nums"
+                        dateTime={candidate.createdAt}
+                      >
+                        {formatDateTime(candidate.createdAt)}
+                      </time>
+                    </PlainTableCell>
+                  </PlainTableRow>
+                );
+              })}
+            </PlainTableBody>
+          </PlainTable>
+        </PlainTableShell>
+      </div>
 
       {run ? (
         <div className="flex min-h-0 flex-col gap-4 overflow-auto">
@@ -333,85 +358,93 @@ export function ImportRuns({
               ) : null}
             </CardHeader>
             <CardContent>
-              <DataTableShell selectable={false} imports>
+              <DataTableShell imports>
                 <Table>
                   <TableCaption className="sr-only">
-                    Records processed by run {run.runNumber}.
+                    Records processed by run {run.runNumber}
                   </TableCaption>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>{labels.singular}</TableHead>
-                      <TableHead>Status</TableHead>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Import</TableHead>
+                      <TableHead>Year</TableHead>
                       <TableHead>Outcome</TableHead>
+                      <TableHead>Change</TableHead>
                       <TableHead>Attempts</TableHead>
-                      <TableHead>Detail</TableHead>
-                      <TableHead>
+                      <TableHead className="w-12">
                         <span className="sr-only">Actions</span>
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {run.targets.map((target) => {
-                      const current = target.id === selectedTargetId;
+                      const reviewHref =
+                        target.status === "ready" && target.itemYearPublicId
+                          ? `${basePath}/${target.code}?year=${run.academicYear}&tab=review`
+                          : undefined;
                       return (
-                        <TableRow
-                          key={target.id}
-                          aria-current={current ? "true" : undefined}
-                          className="aria-[current=true]:bg-primary/5"
-                        >
+                        <LinkedTableRow key={target.id}>
                           <TableCell>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                select({ target: current ? null : target.id })
-                              }
-                              className="font-mono text-sm font-medium underline-offset-4 hover:underline aria-[current=true]:text-primary"
-                              aria-current={current ? "true" : undefined}
-                              aria-expanded={current}
-                            >
-                              {target.code}
-                            </button>
+                            <CatalogueIdentity
+                              code={target.code}
+                              title={target.title ?? target.code}
+                              kind={kind}
+                              href={reviewHref}
+                            />
+                          </TableCell>
+                          <TableCell className="text-xs tabular-nums">
+                            {run.academicYear}
                           </TableCell>
                           <TableCell>
                             <TargetStatusBadge status={target.status} />
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {target.changeKind === "new"
-                              ? "First snapshot"
-                              : target.changeKind === "changed"
-                                ? "Content changed"
-                                : target.changeKind === "unchanged"
-                                  ? "No change"
-                                  : "\u2014"}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground tabular-nums">
-                            {target.attemptCount}
-                          </TableCell>
-                          <TableCell>
-                            {target.errorMessage ? (
-                              <span className="text-xs text-destructive">
-                                {target.errorMessage}
-                              </span>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {target.changeKind ? (
+                              readable(target.changeKind)
                             ) : (
-                              <span className="text-xs text-muted-foreground">
-                                {"\u2014"}
+                              <span className="text-muted-foreground/80">
+                                None
                               </span>
                             )}
                           </TableCell>
-                          <TableCell>
-                            {target.status === "ready" &&
-                            target.itemYearPublicId ? (
-                              <Button asChild size="sm" variant="ghost">
-                                <Link
-                                  href={`${basePath}/${target.code}?year=${run.academicYear}&tab=review`}
-                                >
-                                  Review
-                                  <ExternalLink size={14} aria-hidden="true" />
-                                </Link>
-                              </Button>
-                            ) : null}
+                          <TableCell className="text-xs text-muted-foreground tabular-nums">
+                            {target.attemptCount}
                           </TableCell>
-                        </TableRow>
+                          <TableCell className="text-right">
+                            <CatalogueRowActions
+                              code={target.code}
+                              extraActions={[
+                                {
+                                  label:
+                                    target.id === selectedTargetId
+                                      ? "Hide pipeline"
+                                      : "Show pipeline",
+                                  icon: <Workflow size={15} />,
+                                  onSelect: () =>
+                                    select({
+                                      target:
+                                        target.id === selectedTargetId
+                                          ? null
+                                          : target.id,
+                                    }),
+                                },
+                              ]}
+                              links={[
+                                ...(reviewHref
+                                  ? [
+                                      {
+                                        label: "Review import",
+                                        href: reviewHref,
+                                      },
+                                    ]
+                                  : []),
+                                {
+                                  label: "Find in directory",
+                                  href: `${basePath}?q=${encodeURIComponent(target.code)}&year=${run.academicYear}`,
+                                },
+                              ]}
+                            />
+                          </TableCell>
+                        </LinkedTableRow>
                       );
                     })}
                   </TableBody>
@@ -441,13 +474,6 @@ export function ImportRuns({
       ) : null}
     </div>
   );
-}
-
-/** Milliseconds are unreadable past a second, which most stages are. */
-function formatDuration(milliseconds: number | null) {
-  if (milliseconds === null) return "\u2014";
-  if (milliseconds < 1000) return `${milliseconds} ms`;
-  return `${(milliseconds / 1000).toFixed(1)} s`;
 }
 
 function ArtifactLink({
@@ -488,103 +514,162 @@ function TargetDetail({ detail }: { detail: ImportTargetDetail }) {
     <Card>
       <CardHeader>
         <CardTitle>
-          <h3>
-            {detail.code} · attempt {latestAttempt}
-          </h3>
+          <h3>{detail.extraction?.resolvedModel ?? detail.code}</h3>
         </CardTitle>
         <CardDescription>
-          {detail.extraction
-            ? `${detail.extraction.resolvedModel ?? "model"} · ${detail.extraction.inputTokens} in / ${detail.extraction.outputTokens} out · ${formatCost(detail.extraction.costUsd)} · ${detail.extraction.warningCount} warnings, ${detail.extraction.errorCount} errors`
-            : "No model extraction recorded."}
-          {detail.extraction?.errorSummary
-            ? ` ${detail.extraction.errorSummary}`
-            : ""}
-          {detail.extraction?.finishReason === "length"
-            ? " The model ran out of output tokens; choose a model with a larger output budget for this record."
-            : ""}
+          {`Extraction attempt ${latestAttempt}`}
         </CardDescription>
+        {detail.extraction ? (
+          <CardAction>
+            <Badge
+              variant={
+                badgeVariantForTone[
+                  STAGE_TONE[detail.extraction.validationStatus] ?? "neutral"
+                ]
+              }
+            >
+              {readable(detail.extraction.validationStatus)}
+            </Badge>
+          </CardAction>
+        ) : null}
       </CardHeader>
-      <CardContent>
-        <DataTableShell layout="stages" selectable={false}>
-          <Table>
-            <TableCaption className="sr-only">
-              Pipeline stages for {detail.code}, attempt {latestAttempt}.
-            </TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Step</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Artefacts</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stages.map((stage, index) => {
-                const duration = durationMs(stage.startedAt, stage.completedAt);
-                const artifacts = artifactsByStage.get(stage.id) ?? [];
-                return (
-                  <TableRow key={stage.id}>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {index + 1}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-medium">
-                        {STAGE_LABELS[stage.name] ?? stage.name}
-                      </span>
-                      {stage.errorSummary ? (
-                        <p className="text-xs text-destructive">
-                          {stage.errorCode ? `${stage.errorCode}: ` : ""}
-                          {stage.errorSummary}
-                        </p>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          badgeVariantForTone[
-                            STAGE_TONE[stage.status] ?? "neutral"
-                          ]
-                        }
-                      >
-                        {stage.status === "completed" ? (
-                          <Check size={11} aria-hidden="true" />
-                        ) : stage.status === "failed" ? (
-                          <CircleX size={11} aria-hidden="true" />
+      <CardContent className="flex flex-col gap-4">
+        {detail.extraction ? (
+          <dl className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-3 xl:grid-cols-5">
+            <div>
+              <dt className="text-muted-foreground">Input</dt>
+              <dd className="mt-1 tabular-nums">
+                {detail.extraction.inputTokens.toLocaleString("en-AU")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Output</dt>
+              <dd className="mt-1 tabular-nums">
+                {detail.extraction.outputTokens.toLocaleString("en-AU")}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Cost</dt>
+              <dd className="mt-1 tabular-nums">
+                {formatCost(detail.extraction.costUsd)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Latency</dt>
+              <dd className="mt-1 tabular-nums">
+                {detail.extraction.latencyMs === null
+                  ? "\u2014"
+                  : `${detail.extraction.latencyMs}ms`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Diagnostics</dt>
+              <dd className="mt-1 tabular-nums">
+                {detail.extraction.warningCount} warnings ·{" "}
+                {detail.extraction.errorCount} errors
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No model extraction recorded.
+          </p>
+        )}
+        {detail.extraction?.finishReason === "length" ? (
+          <Alert variant="warning">
+            <TriangleAlert className="size-4" aria-hidden="true" />
+            <AlertTitle>The model ran out of output tokens</AlertTitle>
+            <AlertDescription>
+              The extraction kept only the deterministic data. Choose a model
+              with a larger output budget for this record.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {detail.extraction?.errorSummary ? (
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Validation details</summary>
+            <p className="mt-2">{detail.extraction.errorSummary}</p>
+          </details>
+        ) : null}
+        <div
+          className="min-w-0 overflow-x-auto"
+          role="region"
+          aria-label="Pipeline stages"
+          data-scroll-kind="table"
+          tabIndex={0}
+        >
+          <PlainTableShell>
+            <PlainTable className="min-w-[720px]">
+              <PlainTableCaption className="sr-only">
+                Import pipeline stages
+              </PlainTableCaption>
+              <PlainTableHeader>
+                <PlainTableRow className="hover:bg-transparent">
+                  <PlainTableHead className="w-16">Step</PlainTableHead>
+                  <PlainTableHead>Stage</PlainTableHead>
+                  <PlainTableHead>Status</PlainTableHead>
+                  <PlainTableHead className="text-right">
+                    Duration
+                  </PlainTableHead>
+                  <PlainTableHead>Artefacts</PlainTableHead>
+                  <PlainTableHead>Error</PlainTableHead>
+                </PlainTableRow>
+              </PlainTableHeader>
+              <PlainTableBody>
+                {stages.map((stage, index) => {
+                  const artifacts = artifactsByStage.get(stage.id) ?? [];
+                  return (
+                    <PlainTableRow key={stage.id}>
+                      <PlainTableCell className="text-xs text-muted-foreground tabular-nums">
+                        {index + 1}
+                      </PlainTableCell>
+                      <PlainTableCell className="text-xs font-medium text-foreground/90">
+                        {STAGE_LABELS[stage.name] ?? readable(stage.name)}
+                      </PlainTableCell>
+                      <PlainTableCell>
+                        <Badge
+                          variant={
+                            badgeVariantForTone[
+                              STAGE_TONE[stage.status] ?? "neutral"
+                            ]
+                          }
+                        >
+                          {readable(stage.status)}
+                        </Badge>
+                      </PlainTableCell>
+                      <PlainTableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                        {duration(stage.startedAt, stage.completedAt)}
+                      </PlainTableCell>
+                      <PlainTableCell className="text-xs">
+                        {artifacts.length ? (
+                          <ul className="flex flex-wrap gap-1.5">
+                            {artifacts.map((artifact) => (
+                              <li key={artifact.id}>
+                                <ArtifactLink artifact={artifact} />
+                              </li>
+                            ))}
+                          </ul>
                         ) : (
-                          <LoaderCircle
-                            size={11}
-                            className="animate-spin"
-                            aria-hidden="true"
-                          />
+                          <span className="text-muted-foreground">-</span>
                         )}
-                        {stage.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground tabular-nums">
-                      {formatDuration(duration)}
-                    </TableCell>
-                    <TableCell>
-                      {artifacts.length ? (
-                        <ul className="flex flex-wrap gap-1.5">
-                          {artifacts.map((artifact) => (
-                            <li key={artifact.id}>
-                              <ArtifactLink artifact={artifact} />
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          None
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableShell>
+                      </PlainTableCell>
+                      <PlainTableCell className="max-w-72 text-xs">
+                        {stage.errorSummary ? (
+                          <span className="text-destructive">
+                            {stage.errorCode ? `${stage.errorCode}: ` : ""}
+                            {stage.errorSummary}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </PlainTableCell>
+                    </PlainTableRow>
+                  );
+                })}
+              </PlainTableBody>
+            </PlainTable>
+          </PlainTableShell>
+        </div>
       </CardContent>
     </Card>
   );
