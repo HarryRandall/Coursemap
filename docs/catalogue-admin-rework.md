@@ -76,6 +76,23 @@ Branch `fix/catalogue-security-and-imports`, then
   `CatalogueValue`, instead of two blocks of JSON.
 - The artefact viewer is restored, so artefacts are read in place with their
   attempt picker and highlighting rather than downloaded.
+- The requirement tree renders. `ui/requirements` covers the whole condition
+  vocabulary, `published_structure_detail` gives structures a published read
+  they never had, and one `StructureDetailView` serves both the admin preview
+  and a new student page, so a reviewer judges a record as a student sees it.
+- The directory row is a whole target with an actions menu, the loading
+  skeletons draw the table that follows them, publish blockers are an Alert,
+  record pages have an error boundary, and the review changes are a decision
+  table.
+- The runs page searches, filters, sorts and pages, and watches an active run
+  through four counters rather than refetching every run and target every four
+  seconds.
+- Four pipeline defects are closed: a manual edit no longer clears the
+  publication gate, structure summary fields are stored rather than parsed and
+  discarded, a discarded model extraction raises a blocking flag and an error
+  code instead of landing `ready` in silence, and the structure merge accepts
+  the model field by field as the course merge already did. A stuck target can
+  be recovered without a hand-written statement.
 
 ## Left to do
 
@@ -91,18 +108,13 @@ set rather than printing it as JSON.
 
 - `lib/coursemap/course-review-sections.ts`, the per-field registry. See item 3.
 
-### 2. Review is not reviewable
+### 2. Review granularity
 
-The diff itself is fixed. What remains in `review-panel.tsx`: changes are a
-`<ul>` that should be a decision table, progress is plain text where the
-vendored `Progress` primitive and `ui/common/progress-ring.tsx` exist, and the
-source excerpt has no link back to the ANU page.
-`record-page.tsx` stacks every review for the record at full size forever.
-
-`lib/catalogue-import/changes.ts` still records a whole collection as one row,
-so a reviewer accepts or rejects every field in it together. The diff now shows
-which fields differ, but resolving them one by one needs the change rows to be
-finer.
+The diff and the decision table have landed. What remains is upstream:
+`lib/catalogue-import/changes.ts` records a whole collection as one row, so a
+reviewer accepts or rejects every field in it together. The diff shows which
+fields differ, but resolving them one by one needs the change rows themselves
+to be finer. Deliberately deferred until the interface settled.
 
 ### 3. Editing
 
@@ -116,14 +128,8 @@ until the editor covers `structure_set`, `tagged_units` and `elective_units`.
 
 ### 4. Remaining list and table work
 
-- `catalogue-directory.tsx` should use `LinkedTableRow` so the whole row is a
-  target, and gained no actions column although the grid reserves one.
-- `catalogue-loading.tsx` has no `directory` layout even though `DataTableShell`
-  supports one, so the directory skeleton is a six-column table in front of a
-  five-column one. `app/admin/<kind>/imports/loading.tsx` draws a table skeleton
-  in front of a card layout.
-- `catalogue-pages.tsx` defines a local `DirectorySkeleton` that duplicates
-  `CatalogueLoading`; the reader sees both in sequence.
+Most of this has landed. What is left:
+
 - `import-runs.tsx` has no search, filter, sort or paging and
   `loadCatalogueImportRuns` caps at twenty-five with no offset. It polls with
   `router.refresh()` every four seconds, refetching every run and target;
@@ -165,7 +171,9 @@ until the editor covers `structure_set`, `tagged_units` and `elective_units`.
   `google/gemini-3.1-flash-lite`, and `provider.require_parameters` would turn a
   soft failure into a hard one. Revisit with a model that supports it.
 
-### 6. Tests the plan promised and A5 to A7 never added
+### 6. Tests the plan promised, still missing
+
+This is the largest outstanding item and the one that blocks A8.
 
 No pgTAP covers `catalogue_import_targets`, `catalogue_import_changes`,
 `catalogue_directory_entries`, `catalogue_directory_statuses`,
