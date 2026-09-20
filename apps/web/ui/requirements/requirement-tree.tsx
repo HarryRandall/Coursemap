@@ -1,15 +1,17 @@
 "use client";
-import type { PlanRequirementGroup } from "@/lib/coursemap/plan-catalogue";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import { unitsDescription } from "@/ui/requirements/requirement-presentation";
-import type { TreeContext } from "@/ui/requirements/requirement-presentation";
+import type {
+  RequirementTreeGroup,
+  TreeContext,
+} from "@/ui/requirements/requirement-presentation";
 import { RequirementCondition } from "@/ui/requirements/requirement-condition";
 
 export function RequirementGroupView({
   group,
   context,
 }: {
-  group: PlanRequirementGroup;
+  group: RequirementTreeGroup;
   context: TreeContext;
 }) {
   const alternative =

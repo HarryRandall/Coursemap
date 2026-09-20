@@ -26,6 +26,7 @@ export function RequirementCourseOptions({
       (course) =>
         course.code === code && course.year === context.catalogue.academicYear,
     );
+  const showStatus = context.showPlanProgress !== false;
   const sorted = [...codes].sort(
     (a, b) => rank(a) - rank(b) || a.localeCompare(b),
   );
@@ -35,7 +36,7 @@ export function RequirementCourseOptions({
   return (
     <div className="space-y-4">
       <ul
-        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${hasCourseDetails ? "auto-rows-[14rem]" : "auto-rows-[9rem]"}`}
+        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${hasCourseDetails ? (showStatus ? "auto-rows-[14rem]" : "auto-rows-[11rem]") : "auto-rows-[9rem]"}`}
       >
         {sorted.slice((safePage - 1) * 6, safePage * 6).map((code) => (
           <RequirementCourseRow
@@ -45,6 +46,7 @@ export function RequirementCourseOptions({
             course={courseFor(code)}
             required={required}
             status={context.attemptStatusByCode.get(code) ?? null}
+            showStatus={showStatus}
             onAdd={context.onAddCourse}
           />
         ))}

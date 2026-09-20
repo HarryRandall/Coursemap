@@ -20,6 +20,7 @@ export function RequirementCourseRow({
   year,
   status,
   required = false,
+  showStatus = true,
   onAdd,
 }: {
   code: string;
@@ -27,6 +28,8 @@ export function RequirementCourseRow({
   year: number;
   status: "completed" | "planned" | "enrolled" | null;
   required?: boolean;
+  /** Off where no plan sits behind the view, so every card would read the same. */
+  showStatus?: boolean;
   onAdd?: (course: Course) => void;
 }) {
   const completed = status === "completed";
@@ -80,45 +83,47 @@ export function RequirementCourseRow({
           </button>
         </Hint>
       )}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-        <Badge
-          variant={
-            completed
-              ? "success-light"
-              : planned
-                ? "primary-light"
-                : "secondary"
-          }
-          size="lg"
-        >
-          {completed ? (
-            <Check className="size-3.5" aria-hidden="true" />
-          ) : planned ? (
-            <CalendarDays className="size-3.5" aria-hidden="true" />
-          ) : (
-            <Circle className="size-3" aria-hidden="true" />
-          )}
-          {completed
-            ? "Completed"
-            : status === "enrolled"
-              ? "Enrolled"
-              : planned
-                ? "Planned"
-                : "Not planned"}
-        </Badge>
-        {course && !status && onAdd && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="relative z-10"
-            aria-label={`Add ${code} to plan`}
-            onClick={() => onAdd(course)}
+      {showStatus ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
+          <Badge
+            variant={
+              completed
+                ? "success-light"
+                : planned
+                  ? "primary-light"
+                  : "secondary"
+            }
+            size="lg"
           >
-            <Plus className="size-3.5" aria-hidden="true" />
-            Add to plan
-          </Button>
-        )}
-      </div>
+            {completed ? (
+              <Check className="size-3.5" aria-hidden="true" />
+            ) : planned ? (
+              <CalendarDays className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Circle className="size-3" aria-hidden="true" />
+            )}
+            {completed
+              ? "Completed"
+              : status === "enrolled"
+                ? "Enrolled"
+                : planned
+                  ? "Planned"
+                  : "Not planned"}
+          </Badge>
+          {course && !status && onAdd && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative z-10"
+              aria-label={`Add ${code} to plan`}
+              onClick={() => onAdd(course)}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              Add to plan
+            </Button>
+          )}
+        </div>
+      ) : null}
     </li>
   );
 }
