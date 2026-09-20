@@ -206,10 +206,20 @@ export type AcademicStructureExtractionValidationResult =
     };
 
 const nonEmptyString = z.string().trim().min(1);
-const nullableString = nonEmptyString.nullable();
+const nullableString = nonEmptyString.nullable().default(null);
 const position = z.number().int().positive();
-const nullableUnits = z.number().finite().nonnegative().nullable();
-const nullableRequirementUnits = z.number().finite().positive().nullable();
+const nullableUnits = z
+  .number()
+  .finite()
+  .nonnegative()
+  .nullable()
+  .default(null);
+const nullableRequirementUnits = z
+  .number()
+  .finite()
+  .positive()
+  .nullable()
+  .default(null);
 const structureKindSchema = z.enum(ACADEMIC_STRUCTURE_KINDS);
 
 const summaryFieldSchema = z
@@ -245,7 +255,7 @@ const learningOutcomeSchema = z
 const feeSchema = z
   .object({
     position,
-    feeYear: z.number().int().min(2000).max(2200).nullable(),
+    feeYear: z.number().int().min(2000).max(2200).nullable().default(null),
     audience: z.enum([
       "domestic",
       "international",
@@ -254,7 +264,7 @@ const feeSchema = z
     ]),
     feeType: z.enum(["student_contribution", "tuition", "indicative", "other"]),
     amount: nullableUnits,
-    currency: z.literal("AUD").nullable(),
+    currency: z.literal("AUD").nullable().default(null),
     basis: z.enum(["programme", "unit", "eftsl", "annual", "unknown"]),
     sourceLabel: nullableString,
     sourceText: nonEmptyString,
@@ -298,15 +308,18 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
       ]),
       minimumUnits: nullableRequirementUnits,
       maximumUnits: nullableRequirementUnits,
-      minimumCourses: z.number().int().positive().nullable(),
+      minimumCourses: z.number().int().positive().nullable().default(null),
       courseCodes: z.array(nonEmptyString.regex(COURSE_CODE_PATTERN)),
-      structureKind: structureKindSchema.nullable(),
+      structureKind: structureKindSchema.nullable().default(null),
       structureCodes: z.array(
         nonEmptyString.regex(ACADEMIC_STRUCTURE_CODE_PATTERN),
       ),
-      subjectCode: nonEmptyString.regex(/^[A-Z]{4}$/).nullable(),
-      minimumLevel: z.number().int().min(0).max(9999).nullable(),
-      maximumLevel: z.number().int().min(0).max(9999).nullable(),
+      subjectCode: nonEmptyString
+        .regex(/^[A-Z]{4}$/)
+        .nullable()
+        .default(null),
+      minimumLevel: z.number().int().min(0).max(9999).nullable().default(null),
+      maximumLevel: z.number().int().min(0).max(9999).nullable().default(null),
       tag: nullableString,
       freeText: nullableString,
       sourceText: nonEmptyString,
@@ -532,7 +545,7 @@ const requirementRuleSchema: z.ZodType<AcademicStructureRequirementRule> =
           type: z.literal("group"),
           key: nonEmptyString,
           operator: z.enum(["all_of", "any_of", "minimum_count"]),
-          minimumCount: z.number().int().positive().nullable(),
+          minimumCount: z.number().int().positive().nullable().default(null),
           title: nullableString,
           sourceText: nonEmptyString,
           sourceLocator: nonEmptyString,
@@ -570,7 +583,7 @@ const requirementsSchema = z
   .object({
     sourceText: nullableString,
     sourceLocator: nullableString,
-    rule: requirementRuleSchema.nullable(),
+    rule: requirementRuleSchema.nullable().default(null),
     unmodelledText: z.array(nonEmptyString),
   })
   .strict()
@@ -640,14 +653,14 @@ const academicStructureExtractionSchema: z.ZodType<AcademicStructureExtraction> 
       introduction: nullableString,
       description: nullableString,
       totalUnits: nullableUnits,
-      durationYears: z.number().finite().positive().nullable(),
+      durationYears: z.number().finite().positive().nullable().default(null),
       academicCareer: nullableString,
       college: nullableString,
       deliveryMode: nullableString,
       selectionRank: nullableUnits,
       atar: nullableUnits,
-      canCombine: z.boolean().nullable(),
-      canCombineVertical: z.boolean().nullable(),
+      canCombine: z.boolean().nullable().default(null),
+      canCombineVertical: z.boolean().nullable().default(null),
       studyAs: nullableString,
       contactText: nullableString,
       summaryFields: z.array(summaryFieldSchema),
@@ -657,7 +670,13 @@ const academicStructureExtractionSchema: z.ZodType<AcademicStructureExtraction> 
       relationships: z.array(relationshipSchema),
       requirements: requirementsSchema,
       evidence: z.array(evidenceSchema),
-      overallConfidence: z.number().finite().min(0).max(1).nullable(),
+      overallConfidence: z
+        .number()
+        .finite()
+        .min(0)
+        .max(1)
+        .nullable()
+        .default(null),
       reviewItems: z.array(reviewItemSchema),
     })
     .strict();

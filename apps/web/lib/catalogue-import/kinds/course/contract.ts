@@ -200,9 +200,14 @@ function exactRecord(
 
   const record = value as UnknownRecord;
   const expected = new Set(keys);
+  // An absent key is normalised to null rather than rejected outright, so the
+  // field's own rule decides. Nullable fields then accept the omission and
+  // fields that need a value still fail with their own message. Treating
+  // absence as a whole-document error discarded entire extractions over one
+  // missing nullable key.
   for (const key of keys) {
     if (!Object.hasOwn(record, key)) {
-      issues.push({ path: `${path}.${key}`, message: "is required" });
+      record[key] = null;
     }
   }
   for (const key of Object.keys(record)) {
