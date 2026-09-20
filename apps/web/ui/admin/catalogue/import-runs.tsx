@@ -24,15 +24,13 @@ import { toast } from "sonner";
 
 import {
   CATALOGUE_KIND_LABELS,
-  type CatalogueKind,
-  type ImportTargetDetail,
-} from "@/lib/coursemap/catalogue-kinds";
-import {
   DEFAULT_IMPORT_RUN_SORT,
   IMPORT_RUN_STATUSES,
+  type CatalogueKind,
   type ImportRunProgress,
   type ImportRunsPage,
-} from "@/lib/coursemap/admin-catalogue";
+  type ImportTargetDetail,
+} from "@/lib/coursemap/catalogue-kinds";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { Pagination } from "@/ui/common/pagination";
 import { SortMenu } from "@/ui/common/sort-menu";

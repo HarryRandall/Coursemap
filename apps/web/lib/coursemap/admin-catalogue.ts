@@ -6,9 +6,14 @@ import {
   type CatalogueDirectoryPage,
   type CatalogueDirectoryRecord,
   type CatalogueKind,
+  DEFAULT_IMPORT_RUN_SORT,
   type DirectoryFilter,
   type DirectoryWorkflowStatus,
+  type ImportRunProgress,
+  type ImportRunRow,
+  type ImportRunSort,
   type ImportRunSummary,
+  type ImportRunsPage,
   type ImportTargetDetail,
 } from "./catalogue-kinds";
 
@@ -282,36 +287,6 @@ export async function loadCatalogueDirectoryPage({
   };
 }
 
-export const IMPORT_RUN_SORTS = [
-  "newest",
-  "oldest",
-  "records",
-  "cost",
-] as const;
-export type ImportRunSort = (typeof IMPORT_RUN_SORTS)[number];
-export const DEFAULT_IMPORT_RUN_SORT: ImportRunSort = "newest";
-
-export const IMPORT_RUN_STATUSES = [
-  "queued",
-  "running",
-  "completed",
-  "failed",
-  "cancelled",
-] as const;
-
-/** A run as it appears in the list: the counters, without its target rows. */
-export type ImportRunRow = Omit<ImportRunSummary, "targets">;
-
-export type ImportRunsPage = {
-  runs: ImportRunRow[];
-  /** The run whose records are shown, with its targets loaded. */
-  selected: ImportRunSummary | null;
-  page: number;
-  pageSize: number;
-  total: number;
-  sort: ImportRunSort;
-};
-
 const IMPORT_RUN_PAGE_SIZE = 20;
 
 const RUN_COLUMNS =
@@ -476,13 +451,6 @@ export async function loadCatalogueImportRuns({
     sort,
   };
 }
-
-export type ImportRunProgress = {
-  status: string;
-  targetCount: number;
-  completedCount: number;
-  failedCount: number;
-};
 
 /**
  * The counters of one run and nothing else. An active run is watched through

@@ -225,3 +225,45 @@ export function humaniseKey(key: string) {
     .trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+/**
+ * The import runs list is read on the server and driven from the client, so
+ * its vocabulary lives here rather than beside the loader, which is
+ * server-only and would pull the Supabase client into the browser bundle.
+ */
+export const IMPORT_RUN_SORTS = [
+  "newest",
+  "oldest",
+  "records",
+  "cost",
+] as const;
+export type ImportRunSort = (typeof IMPORT_RUN_SORTS)[number];
+export const DEFAULT_IMPORT_RUN_SORT: ImportRunSort = "newest";
+
+export const IMPORT_RUN_STATUSES = [
+  "queued",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
+
+/** A run as it appears in the list: the counters, without its target rows. */
+export type ImportRunRow = Omit<ImportRunSummary, "targets">;
+
+export type ImportRunsPage = {
+  runs: ImportRunRow[];
+  /** The run whose records are shown, with its targets loaded. */
+  selected: ImportRunSummary | null;
+  page: number;
+  pageSize: number;
+  total: number;
+  sort: ImportRunSort;
+};
+
+export type ImportRunProgress = {
+  status: string;
+  targetCount: number;
+  completedCount: number;
+  failedCount: number;
+};
