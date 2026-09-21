@@ -39,6 +39,15 @@ and version model. These concepts are deliberately separate:
   pointer in the core record model.
 - `catalogue_versions`: immutable meaningful states of a record. Versions may
   identify the earlier version they are based on and are sealed before use.
+- `catalogue_drafts`: at most one private mutable `CatalogueContent` aggregate
+  per annual record. Its revision is the optimistic-concurrency contract for
+  autosave; it is never read by public or student catalogue routes.
+- `catalogue_draft_provenance`: current path-specific provenance for a draft.
+  A manual edit replaces provenance only for its semantic changed paths.
+- `catalogue_change_events` and `catalogue_field_changes`: append-only accepted
+  editing, publication, discard and restore operations with exact old and new
+  values. `editing_session_id` lets the changelog group autosaves later without
+  rewriting raw history.
 - `catalogue_publications`: historical visibility intervals recording the
   version, publisher, publication time, unpublisher and unpublication time.
 - `course_version_details` and `structure_version_details` hold the scalar
@@ -113,9 +122,20 @@ Review reads `catalogue_import_changes`: one `change` row per field or section
 that differs from the baseline (with old and new values and the source
 excerpt) and one `flag` row per parser review item. Administrators accept or
 reject each change and acknowledge flags. Applying review creates and seals a
-meaningful version. Publishing sets the record's `published_version_id` once
-`catalogue_publish_blockers` is empty. Mutable working drafts are not part of
-this foundation.
+meaningful version. The current import and source-review internals remain
+temporary until Branches 04 and 05 replace them; they do not own mutable draft
+state.
+
+Opening Content creates or resumes the record's mutable draft. A new draft is
+initialised from the published version, or from a valid kind-specific empty
+aggregate when the record has never been published. Autosave validates the
+whole aggregate, checks the expected revision, stores semantic changes and
+their audit/provenance rows in one transaction, and rejects stale tabs.
+Publishing materialises that JSON aggregate into a sealed normalised version,
+moves the publication pointer and clears the draft atomically. Unpublishing
+closes the visibility interval without deleting versions. Discarding meaningful
+work first materialises an immutable checkpoint; restoring a version copies its
+content and provenance into a new draft without changing the original.
 
 ## University calendar
 

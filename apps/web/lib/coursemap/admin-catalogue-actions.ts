@@ -10,16 +10,29 @@ import {
   ApplyReviewError,
   applyImportReview,
 } from "@/lib/catalogue-import/apply-review";
-import {
-  ManualSnapshotError,
-  restoreSnapshot,
-  saveManualVersion,
-} from "@/lib/catalogue-import/manual-version";
 import type { CatalogueContent } from "@/lib/catalogue/content";
+import {
+  CatalogueDraftConflictError,
+  CatalogueDraftError,
+  discardCatalogueDraft,
+  publishCatalogueDraft,
+  restoreCatalogueVersion,
+  saveCatalogueDraft,
+  unpublishCatalogueRecord,
+} from "@/lib/catalogue/drafts";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult =
   { ok: true; message?: string } | { ok: false; error: string };
+
+export type DraftActionResult =
+  | { ok: true; message?: string; revision?: number; unchanged?: boolean }
+  | {
+      ok: false;
+      error: string;
+      code?: string;
+      currentRevision?: number;
+    };
 
 function failure(error: unknown, fallback: string): ActionResult {
   return {
@@ -142,111 +155,187 @@ export async function applyReviewAction({
   }
 }
 
+function draftFailure(error: unknown, fallback: string): DraftActionResult {
+  if (error instanceof CatalogueDraftConflictError) {
+    return {
+      ok: false,
+      error: error.message,
+      code: error.code,
+      currentRevision: error.currentRevision,
+    };
+  }
+  if (error instanceof CatalogueDraftError)
+    return { ok: false, error: error.message, code: error.code };
+  return {
+    ok: false,
+    error: error instanceof Error ? error.message : fallback,
+  };
+}
+
 export async function publishDraftAction({
   recordId,
+  expectedRevision,
+  editingSessionId,
   path,
 }: {
   recordId: number;
+  expectedRevision: number;
+  editingSessionId: string;
   path: string;
-}): Promise<ActionResult> {
+}): Promise<DraftActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("publish_catalogue_version", {
-    p_record_id: recordId,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidateRecord(path);
-  return { ok: true, message: "Published. Students now see this version." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    await publishCatalogueDraft({
+      recordId,
+      expectedRevision,
+      editingSessionId,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return { ok: true, message: "Published. Students now see this version." };
+  } catch (error) {
+    return draftFailure(error, "The draft could not be published.");
+  }
 }
 
 export async function unpublishAction({
   recordId,
+  editingSessionId,
   path,
 }: {
   recordId: number;
+  editingSessionId: string;
   path: string;
-}): Promise<ActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("unpublish_catalogue_record", {
-    p_record_id: recordId,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidateRecord(path);
-  return {
-    ok: true,
-    message: "Unpublished. Students no longer see this record for the year.",
-  };
-}
-
-export async function saveManualVersionAction({
-  recordId,
-  baseSnapshotId,
-  write,
-  path,
-}: {
-  recordId: number;
-  baseSnapshotId: number | null;
-  write: CatalogueContent;
-  path: string;
-}): Promise<ActionResult & { snapshotId?: number }> {
+}): Promise<DraftActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
   const viewer = await getAuthViewer();
   if (!viewer) return { ok: false, error: "Authentication is required." };
   try {
-    const result = await saveManualVersion({
+    await unpublishCatalogueRecord({
       recordId,
-      baseSnapshotId,
-      write,
+      editingSessionId,
       userId: viewer.id,
     });
     revalidateRecord(path);
     return {
       ok: true,
-      snapshotId: result.snapshotId,
-      message: result.unchanged
-        ? "Nothing changed."
-        : "Saved as the new draft.",
+      message: "Unpublished. Students no longer see this record for the year.",
     };
   } catch (error) {
-    if (error instanceof ManualSnapshotError)
-      return { ok: false, error: error.message };
-    return failure(error, "The draft could not be saved.");
+    return draftFailure(error, "The record could not be unpublished.");
   }
 }
 
-export async function restoreSnapshotAction({
+export async function saveCatalogueDraftAction({
   recordId,
-  snapshotId,
+  expectedRevision,
+  content,
+  editingSessionId,
   path,
 }: {
   recordId: number;
-  snapshotId: number;
+  expectedRevision: number;
+  content: CatalogueContent;
+  editingSessionId: string;
   path: string;
-}): Promise<ActionResult> {
+}): Promise<DraftActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
   const viewer = await getAuthViewer();
   if (!viewer) return { ok: false, error: "Authentication is required." };
   try {
-    const result = await restoreSnapshot({
+    const result = await saveCatalogueDraft({
       recordId,
-      snapshotId,
+      expectedRevision,
+      content,
+      editingSessionId,
       userId: viewer.id,
     });
     revalidateRecord(path);
     return {
       ok: true,
-      message: result.unchanged
-        ? "That snapshot already matches the draft."
-        : `Snapshot #${snapshotId} is now the draft.`,
+      revision: result.draft.revision,
+      unchanged: result.unchanged,
+      message: result.unchanged ? "Saved." : "Draft saved.",
     };
   } catch (error) {
-    if (error instanceof ManualSnapshotError)
-      return { ok: false, error: error.message };
-    return failure(error, "The snapshot could not be restored.");
+    return draftFailure(error, "The draft could not be saved.");
+  }
+}
+
+export async function discardDraftAction({
+  recordId,
+  expectedRevision,
+  editingSessionId,
+  path,
+}: {
+  recordId: number;
+  expectedRevision: number;
+  editingSessionId: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    const result = await discardCatalogueDraft({
+      recordId,
+      expectedRevision,
+      editingSessionId,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return {
+      ok: true,
+      message: result.meaningful
+        ? "Draft discarded. A restorable checkpoint was kept."
+        : "Draft discarded.",
+    };
+  } catch (error) {
+    return draftFailure(error, "The draft could not be discarded.");
+  }
+}
+
+export async function restoreCatalogueVersionAction({
+  recordId,
+  versionId,
+  expectedRevision,
+  replaceExistingDraft,
+  editingSessionId,
+  path,
+}: {
+  recordId: number;
+  versionId: number;
+  expectedRevision: number | null;
+  replaceExistingDraft: boolean;
+  editingSessionId: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    const result = await restoreCatalogueVersion({
+      recordId,
+      versionId,
+      expectedRevision,
+      replaceExistingDraft,
+      editingSessionId,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return {
+      ok: true,
+      revision: result.revision,
+      message: "Version restored as a draft.",
+    };
+  } catch (error) {
+    return draftFailure(error, "The version could not be restored.");
   }
 }

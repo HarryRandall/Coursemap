@@ -12,8 +12,23 @@ function formatDate(value: string | null) {
   );
 }
 
-export function RecordHeader({ record }: { record: CatalogueRecord }) {
+export function RecordHeader({
+  record,
+  hasDraft,
+  hasUnpublishedChanges,
+}: {
+  record: CatalogueRecord;
+  hasDraft: boolean;
+  hasUnpublishedChanges: boolean;
+}) {
   const labels = CATALOGUE_KIND_LABELS[record.kind];
+  const publicationLabel = record.publishedVersionId
+    ? hasUnpublishedChanges
+      ? "Published · Unpublished changes"
+      : "Published"
+    : hasDraft
+      ? "Not published · Draft"
+      : "Not published";
   return (
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 flex-col gap-2">
@@ -25,7 +40,7 @@ export function RecordHeader({ record }: { record: CatalogueRecord }) {
           <Badge
             variant={record.publishedVersionId ? "success-light" : "outline"}
           >
-            {record.publishedVersionId ? "Published" : "Not published"}
+            {publicationLabel}
           </Badge>
         </div>
         <p className="text-lg text-muted-foreground">{record.title}</p>

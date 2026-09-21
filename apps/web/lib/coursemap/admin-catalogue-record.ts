@@ -72,6 +72,14 @@ export type CatalogueRecord = {
     unpublishedAt: string | null;
     unpublishedBy: string | null;
   }>;
+  changeEvents: Array<{
+    id: number;
+    eventKind: "edit" | "publish" | "unpublish" | "discard" | "restore";
+    draftRevision: number | null;
+    editingSessionId: string | null;
+    versionId: number | null;
+    createdAt: string;
+  }>;
   reviews: ReviewTarget[];
 };
 
@@ -126,6 +134,7 @@ export async function loadCatalogueRecord({
     targetsResult,
     blockersResult,
     listingResult,
+    changeEventsResult,
   ] = await Promise.all([
     supabase
       .from("catalogue_versions")
@@ -154,12 +163,20 @@ export async function loadCatalogueRecord({
       .select("title,is_current,last_seen_at")
       .eq("record_id", itemYear.id)
       .maybeSingle(),
+    supabase
+      .from("catalogue_change_events")
+      .select(
+        "id,event_kind,draft_revision,editing_session_id,version_id,created_at",
+      )
+      .eq("record_id", itemYear.id)
+      .order("created_at", { ascending: false }),
   ]);
   if (versionsResult.error) throw versionsResult.error;
   if (publicationsResult.error) throw publicationsResult.error;
   if (targetsResult.error) throw targetsResult.error;
   if (blockersResult.error) throw blockersResult.error;
   if (listingResult.error) throw listingResult.error;
+  if (changeEventsResult.error) throw changeEventsResult.error;
 
   const appliedVersionIds = new Set(
     (targetsResult.data ?? []).flatMap((target) =>
@@ -170,8 +187,9 @@ export async function loadCatalogueRecord({
     (versionsResult.data ?? []).find(
       (version) =>
         version.sealed_at !== null &&
-        (version.import_target_id === null ||
-          appliedVersionIds.has(version.id)),
+        (version.id === itemYear.published_version_id ||
+          (version.import_target_id !== null &&
+            appliedVersionIds.has(version.id))),
     )?.id ?? null;
   const title = await versionTitle(supabase, kind, currentVersionId);
 
@@ -237,6 +255,15 @@ export async function loadCatalogueRecord({
       publishedBy: publication.published_by,
       unpublishedAt: publication.unpublished_at,
       unpublishedBy: publication.unpublished_by,
+    })),
+    changeEvents: (changeEventsResult.data ?? []).map((event) => ({
+      id: event.id,
+      eventKind:
+        event.event_kind as CatalogueRecord["changeEvents"][number]["eventKind"],
+      draftRevision: event.draft_revision,
+      editingSessionId: event.editing_session_id,
+      versionId: event.version_id,
+      createdAt: event.created_at,
     })),
     reviews: (targetsResult.data ?? []).map((target) => ({
       id: target.id,

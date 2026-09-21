@@ -7,9 +7,18 @@ import {
   CollapsibleTrigger,
 } from "@coursemap/ui/primitives/collapsible";
 import { Input } from "@coursemap/ui/primitives/input";
-import { ChevronDown, LoaderCircle, Save } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  EyeOff,
+  LoaderCircle,
+  RefreshCw,
+  Send,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -21,13 +30,19 @@ import type {
   CatalogueContent,
   RequirementRuleKind,
 } from "@/lib/catalogue/content";
-import { saveManualVersionAction } from "@/lib/coursemap/admin-catalogue-actions";
+import {
+  discardDraftAction,
+  publishDraftAction,
+  saveCatalogueDraftAction,
+  unpublishAction,
+} from "@/lib/coursemap/admin-catalogue-actions";
 import { FIELD_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import {
   createEmptyTree,
   type ReviewedRuleTree,
 } from "@/lib/coursemap/requisite-conditions";
 import { RequisiteRuleTree } from "@/ui/admin/requisites/requisite-rule-tree";
+import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { DetailsEditor, RowsEditor } from "./section-editor";
 import { JsonCode } from "@/ui/common/json-code";
 
@@ -216,28 +231,97 @@ function labelsFor(prefix: string) {
 }
 
 /**
- * Edits every section of a snapshot and saves the result as a new manual
- * draft. Course requisite rules use the tree editor; every other section is
- * a typed form over its rows.
+ * Edits one mutable catalogue draft. Accepted changes autosave with an
+ * expected revision so another tab can never be overwritten silently.
  */
-export function VersionEditor({
+export function CatalogueContentEditor({
   initial,
   recordId,
-  baseSnapshotId,
+  initialRevision,
+  initiallyPublished,
+  initialHasUnpublishedChanges,
   path,
 }: {
   initial: CatalogueContent;
   recordId: number;
-  baseSnapshotId: number | null;
+  initialRevision: number;
+  initiallyPublished: boolean;
+  initialHasUnpublishedChanges: boolean;
   path: string;
 }) {
   const router = useRouter();
   const [write, setWrite] = useState<CatalogueContent>(initial);
-  const [pending, startTransition] = useTransition();
-  const dirty = useMemo(
-    () => JSON.stringify(write) !== JSON.stringify(initial),
-    [write, initial],
+  const [revision, setRevision] = useState(initialRevision);
+  const [savedContent, setSavedContent] = useState(() =>
+    JSON.stringify(initial),
   );
+  const [saveState, setSaveState] = useState<
+    "saved" | "saving" | "error" | "conflict"
+  >("saved");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [failedContent, setFailedContent] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState(initiallyPublished);
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(
+    initialHasUnpublishedChanges,
+  );
+  const [editingSessionId, setEditingSessionId] = useState(() =>
+    crypto.randomUUID(),
+  );
+  const currentContent = JSON.stringify(write);
+  const dirty = currentContent !== savedContent;
+
+  useEffect(() => {
+    const inactivityTimeout = window.setTimeout(
+      () => setEditingSessionId(crypto.randomUUID()),
+      30 * 60 * 1000,
+    );
+    return () => window.clearTimeout(inactivityTimeout);
+  }, [currentContent]);
+
+  useEffect(() => {
+    if (
+      !dirty ||
+      saveState === "saving" ||
+      saveState === "conflict" ||
+      failedContent === currentContent
+    )
+      return;
+    const snapshot = write;
+    const snapshotContent = currentContent;
+    const timeout = window.setTimeout(async () => {
+      setSaveState("saving");
+      setSaveError(null);
+      const result = await saveCatalogueDraftAction({
+        recordId,
+        expectedRevision: revision,
+        content: snapshot,
+        editingSessionId,
+        path,
+      });
+      if (result.ok) {
+        setRevision(result.revision ?? revision);
+        setSavedContent(snapshotContent);
+        setFailedContent(null);
+        setSaveState("saved");
+        if (!result.unchanged) setHasUnpublishedChanges(true);
+        return;
+      }
+      setSaveError(result.error);
+      setFailedContent(snapshotContent);
+      setSaveState(result.code === "STALE_DRAFT" ? "conflict" : "error");
+    }, 1000);
+    return () => window.clearTimeout(timeout);
+  }, [
+    currentContent,
+    dirty,
+    editingSessionId,
+    failedContent,
+    path,
+    recordId,
+    revision,
+    saveState,
+    write,
+  ]);
 
   function updateCourse(
     patch: Partial<NonNullable<CatalogueContent["course"]>>,
@@ -273,22 +357,47 @@ export function VersionEditor({
     }));
   }
 
-  function save() {
-    startTransition(async () => {
-      const result = await saveManualVersionAction({
-        recordId,
-        baseSnapshotId,
-        write,
-        path,
-      });
-      if (result.ok) {
-        toast.success(result.message ?? "Saved.");
-        router.replace(`${path}&tab=preview`);
-        router.refresh();
-      } else {
-        toast.error(result.error);
-      }
+  async function publish() {
+    const result = await publishDraftAction({
+      recordId,
+      expectedRevision: revision,
+      editingSessionId,
+      path,
     });
+    if (!result.ok) throw new Error(result.error);
+    toast.success(result.message);
+    setEditingSessionId(crypto.randomUUID());
+    setIsPublished(true);
+    setHasUnpublishedChanges(false);
+    router.refresh();
+  }
+
+  async function unpublish() {
+    const result = await unpublishAction({
+      recordId,
+      editingSessionId,
+      path,
+    });
+    if (!result.ok) throw new Error(result.error);
+    toast.success(result.message);
+    setEditingSessionId(crypto.randomUUID());
+    setIsPublished(false);
+    router.refresh();
+  }
+
+  async function discard() {
+    const result = await discardDraftAction({
+      recordId,
+      expectedRevision: revision,
+      editingSessionId,
+      path,
+    });
+    if (!result.ok) throw new Error(result.error);
+    toast.success(result.message);
+    setEditingSessionId(crypto.randomUUID());
+    setHasUnpublishedChanges(false);
+    router.push(`${path}/student-view`);
+    router.refresh();
   }
 
   const courseLabels = labelsFor("course.details");
@@ -296,39 +405,108 @@ export function VersionEditor({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-[6.5rem] z-10 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/95 px-4 py-2 backdrop-blur">
-        <p className="text-sm text-muted-foreground">
-          {dirty
-            ? "Unsaved edits. Saving creates a new draft snapshot."
-            : "Editing the current draft or published content."}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            type="button"
-            disabled={!dirty || pending}
-            onClick={() => setWrite(initial)}
-          >
-            Reset
-          </Button>
-          <Button type="button" disabled={!dirty || pending} onClick={save}>
-            {pending ? (
-              <LoaderCircle
-                size={16}
-                className="animate-spin"
-                aria-hidden="true"
-              />
-            ) : (
-              <Save size={16} aria-hidden="true" />
-            )}
-            Save as draft
-          </Button>
+      <div className="sticky top-[6.5rem] z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/95 px-4 py-2 backdrop-blur">
+        <div
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+          role={
+            saveState === "error" || saveState === "conflict"
+              ? "alert"
+              : "status"
+          }
+          aria-live="polite"
+        >
+          {saveState === "saving" ? (
+            <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          ) : saveState === "error" || saveState === "conflict" ? (
+            <TriangleAlert
+              className="size-4 text-destructive"
+              aria-hidden="true"
+            />
+          ) : (
+            <Check className="size-4 text-emerald-600" aria-hidden="true" />
+          )}
+          <span>
+            {saveState === "saving"
+              ? "Saving..."
+              : saveState === "conflict"
+                ? "This draft changed elsewhere"
+                : saveState === "error"
+                  ? `Unable to save${saveError ? `: ${saveError}` : ""}`
+                  : "Saved"}
+          </span>
+          {saveState === "conflict" ? (
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => window.location.reload()}
+            >
+              <RefreshCw aria-hidden="true" /> Reload
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {isPublished ? (
+            <ConfirmDialog
+              title="Unpublish this record?"
+              description="Students will no longer see this record for this year. Versions and draft work will be retained."
+              confirmLabel="Unpublish"
+              destructive
+              onConfirm={unpublish}
+              trigger={
+                <Button variant="outline" size="sm" type="button">
+                  <EyeOff aria-hidden="true" /> Unpublish
+                </Button>
+              }
+            />
+          ) : null}
+          <ConfirmDialog
+            title="Discard this draft?"
+            description={
+              hasUnpublishedChanges
+                ? "Unpublished work will be removed from the editor. A restorable checkpoint will be kept in the changelog."
+                : "This draft has no unpublished changes and will be removed."
+            }
+            confirmLabel="Discard draft"
+            destructive={hasUnpublishedChanges}
+            onConfirm={discard}
+            trigger={
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                disabled={dirty || saveState === "saving"}
+              >
+                <Trash2 aria-hidden="true" /> Discard draft
+              </Button>
+            }
+          />
+          <ConfirmDialog
+            title="Publish these changes?"
+            description="The saved draft will become the student-visible version. The currently published version stays live until publication succeeds."
+            confirmLabel="Publish"
+            onConfirm={publish}
+            trigger={
+              <Button
+                size="sm"
+                type="button"
+                disabled={
+                  !hasUnpublishedChanges ||
+                  dirty ||
+                  saveState === "saving" ||
+                  saveState === "conflict"
+                }
+              >
+                <Send aria-hidden="true" /> Publish
+              </Button>
+            }
+          />
         </div>
       </div>
 
       {write.course ? (
         <>
-          <Section title="Details" defaultOpen>
+          <Section title="Overview" defaultOpen>
             <DetailsEditor
               idPrefix="course-details"
               value={write.course.details as unknown as Row}
@@ -391,7 +569,7 @@ export function VersionEditor({
 
       {write.structure ? (
         <>
-          <Section title="Details" defaultOpen>
+          <Section title="Overview" defaultOpen>
             <DetailsEditor
               idPrefix="structure-details"
               value={write.structure.details as unknown as Row}
@@ -420,21 +598,13 @@ export function VersionEditor({
               />
             </Section>
           ))}
-          <Section
-            title="Requirements"
-            count={write.requirements.conditions.length}
-          >
-            <p className="mb-3 text-sm text-muted-foreground">
-              Structure requirements are shown as recorded. A dedicated editor
-              for unit rules, course lists and structure options is planned;
-              until then edit the imported source or re-import.
-            </p>
-            <JsonCode
-              label="Requirements"
-              value={write.requirements}
-              uncapped
-            />
-          </Section>
+          <RuleSection
+            ruleKey="structure"
+            requirements={write.requirements}
+            onChange={(tree, sourceText) =>
+              updateRule("structure", tree, sourceText)
+            }
+          />
         </>
       ) : null}
     </div>

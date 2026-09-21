@@ -200,6 +200,252 @@ export type CatalogueContent = CatalogueContentBase &
       }
   );
 
+export const CATALOGUE_CONTENT_SCHEMA_VERSION = 1;
+
+const EMPTY_REQUIREMENTS: RequirementWrite = {
+  rules: [],
+  groups: [],
+  conditions: [],
+  options: [],
+  references: [],
+};
+
+/** A valid starting aggregate for a catalogue record with no source version. */
+export function emptyCatalogueContent({
+  kind,
+  code,
+  academicYear,
+  title,
+}: {
+  kind: CatalogueKind;
+  code: string;
+  academicYear: number;
+  title?: string | null;
+}): CatalogueContent {
+  const contentHash = "0".repeat(64);
+  const common = {
+    code,
+    academicYear,
+    contentHash,
+    requirements: structuredClone(EMPTY_REQUIREMENTS),
+    evidence: [],
+    flags: [],
+  };
+  if (kind !== "course") {
+    return {
+      ...common,
+      kind,
+      structure: {
+        details: {
+          name: title?.trim() || code,
+          acronym: null,
+          shortName: null,
+          introduction: null,
+          description: null,
+          units: null,
+          durationYears: null,
+          academicCareer: null,
+          college: null,
+          modeOfDelivery: null,
+          selectionRank: null,
+          atar: null,
+          canCombine: null,
+          canCombineVertical: null,
+          studyAs: null,
+          contactText: null,
+        },
+        summaryFields: [],
+        sections: [],
+        learningOutcomes: [],
+        fees: [],
+        relationships: [],
+      },
+    };
+  }
+  const numericCode = Number(code.match(/[0-9]{4}/)?.[0] ?? 0);
+  return {
+    ...common,
+    kind,
+    course: {
+      details: {
+        title: title?.trim() || code,
+        unitValueKind: "fixed",
+        units: 6,
+        minimumUnits: null,
+        maximumUnits: null,
+        eftsl: null,
+        level: Math.floor(numericCode / 1000) * 1000,
+        subjectCode: code.slice(0, 4),
+        subjectName: null,
+        school: null,
+        college: null,
+        academicCareer: null,
+        convenerText: null,
+        deliverySummary: null,
+        introduction: null,
+        description: null,
+        workloadText: null,
+        workloadHours: null,
+        inherentRequirements: null,
+        prescribedTexts: null,
+        offeringStatus: "unknown",
+        sourceUpdatedAt: null,
+      },
+      unitOptions: [],
+      fees: [],
+      areasOfInterest: [],
+      attributes: [],
+      relatedCourses: [],
+      offering: null,
+      sessions: [],
+      learningOutcomes: [],
+      assessmentItems: [],
+      assessmentOutcomes: [],
+    },
+  };
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasObjectRows(value: Record<string, unknown>, keys: string[]) {
+  return keys.every(
+    (key) =>
+      Array.isArray(value[key]) && value[key].every((row) => isObject(row)),
+  );
+}
+
+function isJsonValue(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(isJsonValue);
+  return isObject(value) && Object.values(value).every(isJsonValue);
+}
+
+function hasString(record: Record<string, unknown>, key: string) {
+  return typeof record[key] === "string" && record[key].trim() !== "";
+}
+
+/**
+ * Validates the complete aggregate at the server boundary. Detailed field
+ * constraints remain enforced by immutable version materialisation.
+ */
+export function validateCatalogueContent(value: unknown): CatalogueContent {
+  if (!isObject(value) || !isCatalogueKind(value.kind))
+    throw new TypeError("The catalogue content kind is not recognised.");
+  if (!isJsonValue(value))
+    throw new TypeError(
+      "The catalogue content must contain valid JSON values.",
+    );
+  if (typeof value.code !== "string" || !value.code.trim())
+    throw new TypeError("The catalogue content code is required.");
+  if (!Number.isInteger(value.academicYear))
+    throw new TypeError("The catalogue content year is required.");
+  if (!isObject(value.requirements))
+    throw new TypeError("The catalogue requirements are required.");
+  if (
+    !hasObjectRows(value.requirements, [
+      "rules",
+      "groups",
+      "conditions",
+      "options",
+      "references",
+    ]) ||
+    !Array.isArray(value.evidence) ||
+    !value.evidence.every((entry) => isObject(entry)) ||
+    !Array.isArray(value.flags) ||
+    !value.flags.every((flag) => isObject(flag))
+  ) {
+    throw new TypeError("The catalogue content aggregate is incomplete.");
+  }
+  const requirements = value.requirements as Record<
+    string,
+    Array<Record<string, unknown>>
+  >;
+  if (
+    !requirements.rules!.every((rule) => hasString(rule, "key")) ||
+    !requirements.groups!.every(
+      (group) => hasString(group, "key") && hasString(group, "ruleKey"),
+    ) ||
+    !requirements.conditions!.every(
+      (condition) =>
+        hasString(condition, "key") &&
+        hasString(condition, "ruleKey") &&
+        hasString(condition, "groupKey") &&
+        hasString(condition, "kind"),
+    ) ||
+    !requirements.options!.every(
+      (option) =>
+        hasString(option, "conditionKey") &&
+        hasString(option, "kind") &&
+        hasString(option, "code"),
+    ) ||
+    !requirements.references!.every(
+      (reference) =>
+        hasString(reference, "ruleKey") && hasString(reference, "code"),
+    ) ||
+    !value.evidence.every(
+      (entry) => hasString(entry, "fieldPath") && hasString(entry, "method"),
+    ) ||
+    !value.flags.every(
+      (flag) =>
+        hasString(flag, "severity") &&
+        hasString(flag, "code") &&
+        hasString(flag, "message"),
+    )
+  ) {
+    throw new TypeError("The catalogue content aggregate is invalid.");
+  }
+  if (value.kind === "course") {
+    if (
+      !isObject(value.course) ||
+      !isObject(value.course.details) ||
+      value.structure !== undefined
+    )
+      throw new TypeError("The course details are required.");
+    if (
+      typeof value.course.details.title !== "string" ||
+      !value.course.details.title.trim() ||
+      !hasObjectRows(value.course, [
+        "unitOptions",
+        "fees",
+        "areasOfInterest",
+        "attributes",
+        "relatedCourses",
+        "sessions",
+        "learningOutcomes",
+        "assessmentItems",
+        "assessmentOutcomes",
+      ])
+    ) {
+      throw new TypeError("The course content aggregate is incomplete.");
+    }
+  } else {
+    if (
+      !isObject(value.structure) ||
+      !isObject(value.structure.details) ||
+      value.course !== undefined
+    )
+      throw new TypeError("The structure details are required.");
+    if (
+      typeof value.structure.details.name !== "string" ||
+      !value.structure.details.name.trim() ||
+      !hasObjectRows(value.structure, [
+        "summaryFields",
+        "sections",
+        "learningOutcomes",
+        "fees",
+        "relationships",
+      ])
+    ) {
+      throw new TypeError("The structure content aggregate is incomplete.");
+    }
+  }
+  return structuredClone(value) as CatalogueContent;
+}
+
 type CourseProjectionCondition =
   CourseSnapshotProjection["ruleConditions"][number];
 

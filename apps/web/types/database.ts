@@ -800,6 +800,64 @@ export type Database = {
           },
         ]
       }
+      catalogue_change_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          draft_revision: number | null
+          editing_session_id: string | null
+          event_kind: string
+          id: number
+          origin: string
+          record_id: number
+          version_id: number | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          draft_revision?: number | null
+          editing_session_id?: string | null
+          event_kind: string
+          id?: never
+          origin: string
+          record_id: number
+          version_id?: number | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          draft_revision?: number | null
+          editing_session_id?: string | null
+          event_kind?: string
+          id?: never
+          origin?: string
+          record_id?: number
+          version_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_change_events_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_change_events_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_change_events_version_fkey"
+            columns: ["version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
       catalogue_codes: {
         Row: {
           code: string
@@ -952,6 +1010,126 @@ export type Database = {
           },
         ]
       }
+      catalogue_draft_provenance: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field_path: string
+          origin: string
+          record_id: number
+          source_evidence_id: number | null
+          source_version_id: number | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field_path: string
+          origin: string
+          record_id: number
+          source_evidence_id?: number | null
+          source_version_id?: number | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field_path?: string
+          origin?: string
+          record_id?: number
+          source_evidence_id?: number | null
+          source_version_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_draft_provenance_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_drafts"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_draft_provenance_source_evidence_fkey"
+            columns: ["source_evidence_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_version_provenance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_draft_provenance_source_version_fkey"
+            columns: ["source_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
+      catalogue_drafts: {
+        Row: {
+          base_version_id: number | null
+          content: Json
+          content_hash: string
+          content_schema_version: number
+          created_at: string
+          record_id: number
+          restored_from_version_id: number | null
+          revision: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          base_version_id?: number | null
+          content: Json
+          content_hash: string
+          content_schema_version?: number
+          created_at?: string
+          record_id: number
+          restored_from_version_id?: number | null
+          revision?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          base_version_id?: number | null
+          content?: Json
+          content_hash?: string
+          content_schema_version?: number
+          created_at?: string
+          record_id?: number
+          restored_from_version_id?: number | null
+          revision?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_drafts_base_version_fkey"
+            columns: ["base_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_drafts_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: true
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_drafts_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: true
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_drafts_restored_version_fkey"
+            columns: ["restored_from_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
       catalogue_extractions: {
         Row: {
           cached_input_tokens: number
@@ -1080,6 +1258,38 @@ export type Database = {
             columns: ["validated_artifact_id"]
             isOneToOne: false
             referencedRelation: "catalogue_import_artifacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogue_field_changes: {
+        Row: {
+          event_id: number
+          field_path: string
+          new_value: Json | null
+          old_value: Json | null
+          position: number
+        }
+        Insert: {
+          event_id: number
+          field_path: string
+          new_value?: Json | null
+          old_value?: Json | null
+          position: number
+        }
+        Update: {
+          event_id?: number
+          field_path?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_field_changes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_change_events"
             referencedColumns: ["id"]
           },
         ]

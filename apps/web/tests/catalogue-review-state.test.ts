@@ -70,6 +70,7 @@ function record(overrides: Partial<CatalogueRecord> = {}): CatalogueRecord {
     publishBlockers: [],
     versions: [],
     publications: [],
+    changeEvents: [],
     reviews: [],
     ...overrides,
   };

@@ -1,6 +1,6 @@
 import { expect, login, test } from "./fixtures";
 
-test("the changes route is a read-only Branch 02 foundation", async ({
+test("the changes route reports local unpublished state without source review", async ({
   page,
   administrator,
 }) => {
@@ -16,7 +16,7 @@ test("the changes route is a read-only Branch 02 foundation", async ({
     "true",
   );
   await expect(
-    page.getByRole("heading", { name: "No changes to review" }),
+    page.getByRole("heading", { name: "No unpublished changes" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /publish/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /apply/i })).toHaveCount(0);

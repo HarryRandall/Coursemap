@@ -1,6 +1,15 @@
 import { notFound } from "next/navigation";
 import { TabsContent } from "@coursemap/ui/primitives/tabs";
-import { canManageCourseImports } from "@/lib/auth/viewer";
+import {
+  canManageCourseImports,
+  canWriteCatalogue,
+  getAuthViewer,
+} from "@/lib/auth/viewer";
+import {
+  createCatalogueDraft,
+  loadCatalogueDraft,
+} from "@/lib/catalogue/drafts";
+import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
 import {
   loadCatalogueRecord,
   loadSnapshotCoursePreview,
@@ -16,6 +25,7 @@ import { AppShell } from "@/ui/shell";
 import { RecordHeader } from "./record-header";
 import { RecordHistory } from "./record-history";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
+import { CatalogueContentEditor } from "./content-editor";
 import { CoursePreview, StructurePreview } from "./version-preview";
 
 function FoundationEmpty({
@@ -46,7 +56,11 @@ export async function CatalogueRecordPage({
   academicYear: number;
   section?: RecordSection;
 }) {
-  if (!(await canManageCourseImports())) return <AccessDeniedError />;
+  const [canManageImports, canWrite] = await Promise.all([
+    canManageCourseImports(),
+    canWriteCatalogue(),
+  ]);
+  if (!canManageImports && !canWrite) return <AccessDeniedError />;
   if (
     !Number.isInteger(academicYear) ||
     academicYear < 2020 ||
@@ -58,20 +72,27 @@ export async function CatalogueRecordPage({
 
   const labels = CATALOGUE_KIND_LABELS[kind];
   const path = adminCatalogueRecordPath(kind, academicYear, record.code);
-  const contentVersionId = record.currentVersionId ?? record.publishedVersionId;
-  const [content, courseContent, studentContent, studentCourse] =
-    await Promise.all([
-      contentVersionId ? loadSnapshotWrite(contentVersionId) : null,
-      contentVersionId && kind === "course"
-        ? loadSnapshotCoursePreview(contentVersionId)
-        : null,
-      record.publishedVersionId
-        ? loadSnapshotWrite(record.publishedVersionId)
-        : null,
-      record.publishedVersionId && kind === "course"
-        ? loadSnapshotCoursePreview(record.publishedVersionId)
-        : null,
-    ]);
+  const viewer = canWrite ? await getAuthViewer() : null;
+  const draft =
+    section === "content" && viewer
+      ? await createCatalogueDraft({
+          recordId: record.recordId,
+          userId: viewer.id,
+        })
+      : await loadCatalogueDraft(record.recordId);
+  const [studentContent, studentCourse] = await Promise.all([
+    record.publishedVersionId
+      ? loadSnapshotWrite(record.publishedVersionId)
+      : null,
+    record.publishedVersionId && kind === "course"
+      ? loadSnapshotCoursePreview(record.publishedVersionId)
+      : null,
+  ]);
+  const hasUnpublishedChanges = Boolean(
+    draft &&
+    (!studentContent ||
+      draft.contentHash !== contentHashForCatalogueContent(studentContent)),
+  );
 
   return (
     <RecordTabs value={section} path={path}>
@@ -85,16 +106,28 @@ export async function CatalogueRecordPage({
         tabs={<RecordTabList />}
       >
         <div className="flex w-full min-w-0 flex-col gap-6">
-          <RecordHeader record={record} />
+          <RecordHeader
+            record={record}
+            hasDraft={draft !== null}
+            hasUnpublishedChanges={hasUnpublishedChanges}
+          />
           <TabsContent value="content" className="mt-0">
-            {courseContent ? (
-              <CoursePreview course={courseContent} />
-            ) : content ? (
-              <StructurePreview write={content} />
+            {draft && canWrite ? (
+              <CatalogueContentEditor
+                key={`${draft.contentHash}:${draft.revision}:${record.publishedVersionId ?? "unpublished"}`}
+                initial={draft.content}
+                recordId={record.recordId}
+                initialRevision={draft.revision}
+                initiallyPublished={record.publishedVersionId !== null}
+                initialHasUnpublishedChanges={hasUnpublishedChanges}
+                path={path}
+              />
+            ) : draft ? (
+              <StructurePreview write={draft.content} />
             ) : (
               <FoundationEmpty
-                title={`${labels.singular} content has not been synced yet`}
-                description={`This ${labels.singular.toLowerCase()} was found in ANU's ${academicYear} catalogue, but its detailed information has not been synced.`}
+                title={`${labels.singular} content is not available`}
+                description={`You need catalogue write permission to author this ${labels.singular.toLowerCase()}.`}
               />
             )}
           </TabsContent>
@@ -113,14 +146,14 @@ export async function CatalogueRecordPage({
           <TabsContent value="changes" className="mt-0">
             <FoundationEmpty
               title={
-                contentVersionId
-                  ? "No changes to review"
-                  : "No ANU changes to review"
+                hasUnpublishedChanges
+                  ? "Unpublished changes"
+                  : "No unpublished changes"
               }
               description={
-                contentVersionId
-                  ? "There are no outstanding source changes for this record."
-                  : `Sync this ${labels.singular.toLowerCase()} from ANU before source changes can be detected.`
+                hasUnpublishedChanges
+                  ? "The Content tab contains saved work that students will not see until it is published."
+                  : "The working draft matches the published content."
               }
             />
           </TabsContent>

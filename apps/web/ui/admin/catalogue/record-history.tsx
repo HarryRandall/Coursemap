@@ -1,5 +1,12 @@
 import { Badge } from "@coursemap/ui/components/badge";
-import { FileClock, Send, Undo2 } from "lucide-react";
+import {
+  FileClock,
+  Pencil,
+  RotateCcw,
+  Send,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
 
 function formatDateTime(value: string) {
@@ -39,6 +46,28 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
           ]
         : []),
     ]),
+    ...record.changeEvents
+      .filter(
+        (event) =>
+          event.eventKind !== "publish" && event.eventKind !== "unpublish",
+      )
+      .map((event) => ({
+        id: `change-${event.id}`,
+        at: event.createdAt,
+        kind: event.eventKind,
+        title:
+          event.eventKind === "edit"
+            ? "Draft updated"
+            : event.eventKind === "discard"
+              ? "Draft discarded"
+              : "Version restored as draft",
+        detail:
+          event.eventKind === "discard" && event.versionId
+            ? `Restorable checkpoint version ${event.versionId}`
+            : event.eventKind === "restore" && event.versionId
+              ? `Restored from version ${event.versionId}`
+              : null,
+      })),
   ].sort((left, right) => Date.parse(right.at) - Date.parse(left.at));
 
   if (events.length === 0)
@@ -59,7 +88,13 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
             ? Send
             : event.kind === "unpublished"
               ? Undo2
-              : FileClock;
+              : event.kind === "edit"
+                ? Pencil
+                : event.kind === "discard"
+                  ? Trash2
+                  : event.kind === "restore"
+                    ? RotateCcw
+                    : FileClock;
         return (
           <li key={event.id} className="flex gap-3 rounded-lg border p-4">
             <Icon
@@ -69,7 +104,7 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-semibold">{event.title}</h2>
-                {event.kind !== "version" ? (
+                {event.kind === "published" || event.kind === "unpublished" ? (
                   <Badge variant="outline">
                     {event.kind === "published" ? "Published" : "Unpublished"}
                   </Badge>

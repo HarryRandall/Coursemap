@@ -10,7 +10,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(8);
+select extensions.plan(11);
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -95,6 +95,21 @@ select extensions.throws_ok(
   '42501',
   null,
   'a student cannot create a snapshot'
+);
+
+select extensions.ok(
+  not has_table_privilege('authenticated', 'public.catalogue_drafts', 'insert, update, delete'),
+  'authenticated clients cannot mutate catalogue drafts directly'
+);
+
+select extensions.ok(
+  not has_table_privilege('authenticated', 'public.catalogue_change_events', 'insert, update, delete'),
+  'authenticated clients cannot forge or change catalogue audit events'
+);
+
+select extensions.ok(
+  not has_table_privilege('authenticated', 'public.catalogue_field_changes', 'insert, update, delete'),
+  'authenticated clients cannot forge or change field audit rows'
 );
 
 -- The administrator ---------------------------------------------------------
