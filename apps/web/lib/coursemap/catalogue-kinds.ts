@@ -1,4 +1,4 @@
-import type { CatalogueKind } from "@/lib/catalogue-import/snapshot-write";
+import type { CatalogueKind } from "@/lib/catalogue/content";
 
 export type { CatalogueKind };
 
@@ -39,7 +39,7 @@ export type CatalogueDirectoryRecord = {
   code: string;
   title: string | null;
   summary: Record<string, unknown>;
-  itemYearPublicId: string | null;
+  recordPublicId: string | null;
   hasDraft: boolean;
   isPublished: boolean;
   workflow: DirectoryWorkflowStatus;
@@ -94,9 +94,9 @@ export type ImportRunSummary = {
     attemptCount: number;
     errorCode: string | null;
     errorMessage: string | null;
-    candidateSnapshotId: number | null;
-    appliedSnapshotId: number | null;
-    itemYearPublicId: string | null;
+    candidateVersionId: number | null;
+    appliedVersionId: number | null;
+    recordPublicId: string | null;
   }>;
 };
 
@@ -268,8 +268,8 @@ export type ImportRecordRow = {
   attemptCount: number;
   errorCode: string | null;
   errorMessage: string | null;
-  appliedSnapshotId: number | null;
-  itemYearPublicId: string | null;
+  appliedVersionId: number | null;
+  recordPublicId: string | null;
   createdAt: string;
   completedAt: string | null;
   runId: string;

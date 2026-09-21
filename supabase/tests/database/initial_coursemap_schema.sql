@@ -11,12 +11,12 @@ select extensions.is(
     where table_schema = 'public'
       and table_name in (
         'academic_years',
-        'catalogue_items',
-        'catalogue_item_years',
-        'catalogue_snapshots',
+        'catalogue_codes',
+        'catalogue_records',
+        'catalogue_versions',
         'catalogue_sources',
         'catalogue_source_pages',
-        'course_snapshot_details'
+        'course_version_details'
       )
   ),
   7::bigint,
@@ -44,12 +44,12 @@ select extensions.is(
     where namespaces.nspname = 'public'
       and relations.relname in (
         'academic_years',
-        'catalogue_items',
-        'catalogue_item_years',
-        'catalogue_snapshots',
+        'catalogue_codes',
+        'catalogue_records',
+        'catalogue_versions',
         'catalogue_sources',
         'catalogue_source_pages',
-        'course_snapshot_details',
+        'course_version_details',
         'course_offerings',
         'offering_sessions',
         'course_learning_outcomes',

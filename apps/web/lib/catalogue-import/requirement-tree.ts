@@ -7,7 +7,7 @@ import type {
   CatalogueKind,
   RequirementRuleKind,
   RequirementWrite,
-} from "./snapshot-write.ts";
+} from "../catalogue/content.ts";
 
 /** Condition kinds the drag-and-drop editor can represent. */
 const EDITABLE_KINDS = new Set([

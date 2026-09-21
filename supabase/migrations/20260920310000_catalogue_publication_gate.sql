@@ -1,32 +1,17 @@
 begin;
 
--- A manual edit must not clear the publication gate.
+-- A manual version must not clear the publication gate.
 --
--- catalogue_publish_blockers() looked for open review entries by joining
--- catalogue_import_changes on the draft snapshot's import_target_id. Only
--- persist-snapshot.ts and apply-review.ts ever set that column, so any draft
--- produced by lib/catalogue-import/manual-snapshot.ts carries null and the
--- join matched nothing. Opening a review with a blocking flag and making one
--- trivial manual edit therefore produced a draft with no target, an empty
--- blocker list and a Publish button that worked. Open changes on fields the
--- edit never touched disappeared from the gate the same way.
+-- catalogue_publish_blockers() must consider both the latest review and the
+-- version selected by that review. Manual versions do not have an import
+-- target, so resolving only through version provenance would let an open
+-- review disappear from the gate.
 --
--- The fix resolves the review through the item year rather than through the
--- draft. Two targets govern a record: the most recent one that produced a
--- review, and whichever target the current draft descends from. The first
--- catches the manual-edit bypass and also the plainer hole where a ready
--- target has never been applied, so its open changes never gated anything.
--- The second preserves the previous behaviour for an applied review whose
--- flags are still open.
---
--- Carrying import_target_id into manual snapshots was the alternative. It was
--- rejected because it does not actually close the hole: an import against a
--- record that already has a draft leaves the draft pointer alone, so the
--- draft descends from the *previous* target, and carrying that one through an
--- edit still misses the review that is open now. It would also put import
--- provenance on a snapshot whose origin is 'manual'.
+-- Two targets can therefore govern a record: the most recent one that
+-- produced a review, and whichever target produced the latest applied
+-- version. This also covers a ready target that has not yet been applied.
 
-create or replace function public.catalogue_publish_blockers(p_item_year_id bigint)
+create or replace function public.catalogue_publish_blockers(p_record_id bigint)
 returns text[]
 language sql
 stable
@@ -34,16 +19,26 @@ security definer
 set search_path = ''
 as $function$
   with item_year as (
-    select * from public.catalogue_item_years where id = p_item_year_id
+    select * from public.catalogue_records where id = p_record_id
   ),
-  draft as (
-    select snapshots.* from public.catalogue_snapshots as snapshots
-    join item_year on item_year.draft_snapshot_id = snapshots.id
+  publishable_version as (
+    select versions.*
+    from public.catalogue_versions as versions
+    join item_year on item_year.id = versions.record_id
+    left join public.catalogue_import_targets as targets
+      on targets.id = versions.import_target_id
+    where versions.sealed_at is not null
+      and (
+        versions.import_target_id is null
+        or targets.applied_version_id = versions.id
+      )
+    order by versions.created_at desc, versions.id desc
+    limit 1
   ),
   latest_review as (
     select targets.id
     from public.catalogue_import_targets as targets
-    join item_year on item_year.id = targets.item_year_id
+    join item_year on item_year.id = targets.record_id
     where targets.status in ('ready', 'unchanged')
     order by targets.created_at desc, targets.id desc
     limit 1
@@ -51,12 +46,14 @@ as $function$
   review as (
     select id from latest_review
     union
-    select import_target_id from draft where import_target_id is not null
+    select import_target_id
+    from publishable_version
+    where import_target_id is not null
   )
   select array_remove(array[
     case when not exists (select 1 from item_year) then 'The record does not exist.' end,
     case when exists (select 1 from item_year where archived_at is not null) then 'The record is archived.' end,
-    case when exists (select 1 from item_year where draft_snapshot_id is null) then 'There is no draft to publish.' end,
+    case when not exists (select 1 from publishable_version) then 'There is no version to publish.' end,
 
     case when exists (
       select 1 from review
@@ -75,11 +72,11 @@ revoke all on function public.catalogue_publish_blockers(bigint) from public, an
 grant execute on function public.catalogue_publish_blockers(bigint) to authenticated;
 
 comment on function public.catalogue_publish_blockers(bigint) is
-  'Reasons the draft of an item year cannot be published, resolved through the item year''s import review rather than through the draft snapshot alone.';
+  'Reasons the latest applied version of a catalogue record cannot be published.';
 
--- The gate reads targets by item year and status; the existing item-year index
--- does not carry status.
+-- The gate reads targets by record and status; the existing record index does
+-- not carry status.
 create index if not exists catalogue_import_targets_item_year_status_idx
-  on public.catalogue_import_targets (item_year_id, status, created_at desc);
+  on public.catalogue_import_targets (record_id, status, created_at desc);
 
 commit;

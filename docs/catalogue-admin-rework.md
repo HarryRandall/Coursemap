@@ -105,7 +105,7 @@ Branch `fix/catalogue-security-and-imports`, then
 ### 1. Restore what was deleted
 
 Each was removed for schema reasons, not design reasons. Recover with
-`git show 80b95de^:<path>` and re-point the types at `CatalogueSnapshotWrite`.
+`git show 80b95de^:<path>` and re-point the types at `CatalogueContent`.
 
 Two pieces the artefact viewer depended on are still missing and are worth
 having back on their own account: `database-scroll-preview.tsx`, the viewport's
@@ -164,7 +164,7 @@ Most of this has landed. What is left:
 - A failed target stays `queued` and the active-target index then blocks every
   retry, with no interface path out. `cancel_catalogue_import` needs an
   administrator claim, so recovery is currently a manual SQL statement.
-- `catalogue_items` cannot be deleted: the immutability trigger fires on delete
+- `catalogue_codes` cannot be deleted: the immutability trigger fires on delete
   although its comment says cascades pass. Combined with placeholder creation
   from any regex-valid code, one hallucinated code is permanent.
 - `requirement_item_references` stays empty for structures.

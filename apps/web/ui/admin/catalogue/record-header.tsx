@@ -46,11 +46,11 @@ export function RecordHeader({
   const labels = CATALOGUE_KIND_LABELS[record.kind];
   const step = recordNextStep(record);
   const workflow =
-    record.publishedSnapshotId && record.draftSnapshotId
+    record.publishedVersionId && record.currentVersionId
       ? "published_with_draft"
-      : record.publishedSnapshotId
+      : record.publishedVersionId
         ? "published"
-        : record.draftSnapshotId
+        : record.currentVersionId
           ? "draft"
           : "not_imported";
 
@@ -93,16 +93,14 @@ export function RecordHeader({
             </Link>
           </div>
         </div>
-        {record.publishedSnapshotId ? (
+        {record.publishedVersionId ? (
           <ConfirmDialog
             title={`Unpublish ${record.code} for ${record.academicYear}?`}
             description="Students will no longer see this record for the year. The content stays in history and can be published again."
             confirmLabel="Unpublish"
             destructive
             onConfirm={() =>
-              run(() =>
-                unpublishAction({ itemYearId: record.itemYearId, path }),
-              )
+              run(() => unpublishAction({ recordId: record.recordId, path }))
             }
             trigger={
               <Button variant="outline" disabled={pending} type="button">
@@ -191,14 +189,12 @@ function NextStep({
           <ConfirmDialog
             confirmLabel="Publish"
             description={
-              record.publishedSnapshotId
+              record.publishedVersionId
                 ? `The draft replaces the ${record.academicYear} record students see for ${record.code}. The version it replaces stays in history.`
                 : `${record.code} becomes visible to students for ${record.academicYear}. It can be unpublished again from this page.`
             }
             onConfirm={() =>
-              run(() =>
-                publishDraftAction({ itemYearId: record.itemYearId, path }),
-              )
+              run(() => publishDraftAction({ recordId: record.recordId, path }))
             }
             title={`Publish ${record.code} for ${record.academicYear}?`}
             trigger={

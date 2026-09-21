@@ -43,19 +43,19 @@ export type OnboardingCatalogue = {
 export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
   const supabase = createPublicClient();
   const { data: structureYears, error: structureYearsError } = await supabase
-    .from("catalogue_item_years")
-    .select("academic_year_id,published_snapshot_id,item_id")
+    .from("catalogue_records")
+    .select("academic_year_id,published_version_id,code_id")
     .neq("kind", "course")
     .is("archived_at", null)
-    .not("published_snapshot_id", "is", null);
+    .not("published_version_id", "is", null);
   if (structureYearsError) throw structureYearsError;
 
   const publishedYears = (structureYears ?? []).filter(
     (
       row,
     ): row is typeof row & {
-      published_snapshot_id: number;
-    } => row.published_snapshot_id !== null,
+      published_version_id: number;
+    } => row.published_version_id !== null,
   );
   if (publishedYears.length === 0) {
     return {
@@ -70,8 +70,8 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
   const academicYearIds = [
     ...new Set(publishedYears.map((row) => row.academic_year_id)),
   ];
-  const structureIds = [...new Set(publishedYears.map((row) => row.item_id))];
-  const snapshotIds = publishedYears.map((row) => row.published_snapshot_id);
+  const structureIds = [...new Set(publishedYears.map((row) => row.code_id))];
+  const snapshotIds = publishedYears.map((row) => row.published_version_id);
   const [
     yearsResult,
     structuresResult,
@@ -86,26 +86,26 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
       .in("id", academicYearIds)
       .order("year", { ascending: false }),
     supabase
-      .from("catalogue_items")
+      .from("catalogue_codes")
       .select("code,id,kind")
       .in("id", structureIds),
     supabase
-      .from("structure_snapshot_details")
-      .select("description,duration_years,snapshot_id,name,units")
-      .in("snapshot_id", snapshotIds),
+      .from("structure_version_details")
+      .select("description,duration_years,version_id,name,units")
+      .in("version_id", snapshotIds),
     supabase
       .from("academic_structure_snapshot_relationships")
-      .select("relationship_kind,snapshot_id,target_code,target_kind")
-      .in("snapshot_id", snapshotIds),
+      .select("relationship_kind,version_id,target_code,target_kind")
+      .in("version_id", snapshotIds),
     supabase
       .from("requirement_conditions")
-      .select("condition_kind,id,snapshot_id,structure_kind")
-      .in("snapshot_id", snapshotIds)
+      .select("condition_kind,id,version_id,structure_kind")
+      .in("version_id", snapshotIds)
       .eq("condition_kind", "structure_set"),
     supabase
       .from("requirement_condition_options")
-      .select("code,condition_id,kind,snapshot_id")
-      .in("snapshot_id", snapshotIds)
+      .select("code,condition_id,kind,version_id")
+      .in("version_id", snapshotIds)
       .neq("kind", "course"),
   ]);
   const error = [
@@ -125,12 +125,12 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     (structuresResult.data ?? []).map((structure) => [structure.id, structure]),
   );
   const publishedYearBySnapshotId = new Map(
-    publishedYears.map((row) => [row.published_snapshot_id, row]),
+    publishedYears.map((row) => [row.published_version_id, row]),
   );
   const programmeSnapshotIds = new Set(
     publishedYears.flatMap((row) => {
-      const identity = structureById.get(row.item_id);
-      return identity?.kind === "programme" ? [row.published_snapshot_id] : [];
+      const identity = structureById.get(row.code_id);
+      return identity?.kind === "programme" ? [row.published_version_id] : [];
     }),
   );
   const structureCodesByProgrammeSnapshot = collectSelectableStructureCodes({
@@ -149,10 +149,10 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     (snapshotsResult.data ?? [])
       .flatMap((snapshot) => {
         const structureYear = publishedYearBySnapshotId.get(
-          snapshot.snapshot_id,
+          snapshot.version_id,
         );
         const identity = structureYear
-          ? structureById.get(structureYear.item_id)
+          ? structureById.get(structureYear.code_id)
           : null;
         const academicYear = structureYear
           ? yearById.get(structureYear.academic_year_id)
@@ -160,7 +160,7 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
         if (!identity || !academicYear || identity.kind !== kind) return [];
         const selectableCodes =
           kind === "programme"
-            ? (structureCodesByProgrammeSnapshot.get(snapshot.snapshot_id) ??
+            ? (structureCodesByProgrammeSnapshot.get(snapshot.version_id) ??
               emptySelectableStructureCodes())
             : emptySelectableStructureCodes();
         return [
@@ -184,7 +184,7 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
 
   const programmeYearIds = new Set(
     publishedYears.flatMap((row) => {
-      const identity = structureById.get(row.item_id);
+      const identity = structureById.get(row.code_id);
       return identity?.kind === "programme" ? [row.academic_year_id] : [];
     }),
   );

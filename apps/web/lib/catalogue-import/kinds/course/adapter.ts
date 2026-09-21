@@ -1,5 +1,5 @@
 import type { CatalogueKindAdapter } from "../../kind-adapter.ts";
-import { courseSnapshotWrite } from "../../snapshot-write.ts";
+import { courseCatalogueContent } from "../../../catalogue/content.ts";
 import {
   COURSE_EXTRACTION_JSON_SCHEMA,
   type CourseExtraction,
@@ -130,7 +130,7 @@ export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
     };
   },
   project(extraction) {
-    return courseSnapshotWrite({
+    return courseCatalogueContent({
       projection: projectCourseSnapshot(extraction),
       evidence: extraction.evidence.map((item) => ({
         fieldPath: item.fieldKey,

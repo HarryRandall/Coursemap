@@ -15,7 +15,7 @@ test("keeps only explicit programme structure relationship semantics", () => {
       relationship("incompatible", "ANTH-MAJ"),
       relationship("other", "ECON-MAJ"),
       relationship("required", "DATA-MIN", "minor"),
-      { ...relationship("required", "CHEM-MAJ"), snapshot_id: 202 },
+      { ...relationship("required", "CHEM-MAJ"), version_id: 202 },
     ],
     requirementConditions: [],
     requirementOptions: [],
@@ -38,7 +38,7 @@ test("includes structure options from programme structure-set requirements", () 
       condition(2, "course_set_units", "major"),
       condition(3, "structure_set", "minor"),
       condition(5, "structure_set", "specialisation"),
-      { ...condition(4, "structure_set", "major"), snapshot_id: 202 },
+      { ...condition(4, "structure_set", "major"), version_id: 202 },
     ],
     requirementOptions: [
       option(1, "MATH-MAJ"),
@@ -46,8 +46,8 @@ test("includes structure options from programme structure-set requirements", () 
       option(2, "STAT-MAJ"),
       option(3, "DATA-MIN", "minor"),
       option(5, "AI-SPEC", "specialisation"),
-      { ...option(1, "PHYS-MAJ"), snapshot_id: 202 },
-      { ...option(4, "CHEM-MAJ"), snapshot_id: 202 },
+      { ...option(1, "PHYS-MAJ"), version_id: 202 },
+      { ...option(4, "CHEM-MAJ"), version_id: 202 },
       { ...option(1, "ECON-MAJ"), kind: "course" },
     ],
   });
@@ -67,10 +67,7 @@ test("onboarding loads explicit relationship and structure-set semantics without
   );
 
   assert.match(source, /collectSelectableStructureCodes/u);
-  assert.match(
-    source,
-    /relationship_kind,snapshot_id,target_code,target_kind/u,
-  );
+  assert.match(source, /relationship_kind,version_id,target_code,target_kind/u);
   assert.match(source, /from\("requirement_conditions"\)/u);
   assert.match(source, /from\("requirement_condition_options"\)/u);
   assert.doesNotMatch(source, /snapshot\.units === null \? 0/u);
@@ -79,7 +76,7 @@ test("onboarding loads explicit relationship and structure-set semantics without
 function relationship(relationshipKind, targetCode, targetKind = "major") {
   return {
     relationship_kind: relationshipKind,
-    snapshot_id: 101,
+    version_id: 101,
     target_code: targetCode,
     target_kind: targetKind,
   };
@@ -89,7 +86,7 @@ function condition(id, conditionKind, structureKind) {
   return {
     condition_kind: conditionKind,
     id,
-    snapshot_id: 101,
+    version_id: 101,
     structure_kind: structureKind,
   };
 }
@@ -99,6 +96,6 @@ function option(conditionId, code, kind = "major") {
     code,
     condition_id: conditionId,
     kind,
-    snapshot_id: 101,
+    version_id: 101,
   };
 }

@@ -17,9 +17,9 @@ alter table public.requirement_conditions
 alter table public.requirement_conditions
   add constraint requirement_conditions_typed_value_check check (
     case condition_kind
-      when 'course' then item_id is not null
-      when 'incompatible' then item_id is not null
-      when 'structure' then item_id is not null or free_text is not null
+      when 'course' then code_id is not null
+      when 'incompatible' then code_id is not null
+      when 'structure' then code_id is not null or free_text is not null
       when 'structure_set' then structure_kind is not null
       when 'course_set_units' then
         minimum_units is not null

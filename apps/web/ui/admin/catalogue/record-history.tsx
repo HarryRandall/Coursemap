@@ -2,16 +2,12 @@
 
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
-import { Download, History, Pencil, Trash2, Undo2, Upload } from "lucide-react";
+import { Download, History, Pencil, Undo2, Upload } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
 
-import {
-  discardDraftAction,
-  restoreSnapshotAction,
-} from "@/lib/coursemap/admin-catalogue-actions";
+import { restoreSnapshotAction } from "@/lib/coursemap/admin-catalogue-actions";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
-import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 
 function formatDateTime(value: string | null) {
   if (!value) return "—";
@@ -52,18 +48,18 @@ export function RecordHistory({
     origin?: string;
     title: string;
     detail: string | null;
-    snapshot: CatalogueRecord["snapshots"][number] | null;
+    snapshot: CatalogueRecord["versions"][number] | null;
   };
 
   const events: HistoryEvent[] = [
-    ...record.snapshots.map((snapshot) => {
+    ...record.versions.map((snapshot) => {
       const runNumber = snapshot.importTargetId
         ? targetRun.get(snapshot.importTargetId)
         : undefined;
       const detail = [
         runNumber ? `Run #${runNumber}` : null,
-        snapshot.basedOnSnapshotId
-          ? `based on #${snapshot.basedOnSnapshotId}`
+        snapshot.basedOnVersionId
+          ? `based on #${snapshot.basedOnVersionId}`
           : null,
       ]
         .filter(Boolean)
@@ -84,15 +80,25 @@ export function RecordHistory({
     ...record.publications.map((publication, index) => ({
       id: `publication-${publication.publishedAt}-${index}`,
       at: publication.publishedAt,
-      kind: publication.snapshotId
-        ? ("published" as const)
-        : ("unpublished" as const),
-      title: publication.snapshotId ? "Published" : "Withdrawn from students",
-      detail: publication.snapshotId
-        ? `Snapshot #${publication.snapshotId}`
-        : null,
+      kind: "published" as const,
+      title: "Published",
+      detail: `Version #${publication.versionId}`,
       snapshot: null,
     })),
+    ...record.publications.flatMap((publication, index) =>
+      publication.unpublishedAt
+        ? [
+            {
+              id: `unpublication-${publication.unpublishedAt}-${index}`,
+              at: publication.unpublishedAt,
+              kind: "unpublished" as const,
+              title: "Withdrawn from students",
+              detail: `Version #${publication.versionId}`,
+              snapshot: null,
+            },
+          ]
+        : [],
+    ),
   ].sort((left, right) => Date.parse(right.at) - Date.parse(left.at));
 
   if (events.length === 0)
@@ -129,9 +135,9 @@ export function RecordHistory({
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold">{event.title}</h3>
-                  {snapshot?.id === record.publishedSnapshotId ? (
+                  {snapshot?.id === record.publishedVersionId ? (
                     <Badge variant="success-light">Published</Badge>
-                  ) : snapshot?.id === record.draftSnapshotId ? (
+                  ) : snapshot?.id === record.currentVersionId ? (
                     <Badge variant="outline">Current draft</Badge>
                   ) : null}
                   {snapshot && !snapshot.sealedAt ? (
@@ -145,34 +151,7 @@ export function RecordHistory({
               </div>
               {snapshot ? (
                 <div className="flex gap-2">
-                  {snapshot.id === record.draftSnapshotId ? (
-                    <ConfirmDialog
-                      title="Discard this draft?"
-                      description="The draft pointer is cleared. The snapshot stays in history and can be restored."
-                      confirmLabel="Discard draft"
-                      destructive
-                      onConfirm={() =>
-                        run(() =>
-                          discardDraftAction({
-                            itemYearId: record.itemYearId,
-                            path,
-                          }),
-                        )
-                      }
-                      trigger={
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={locked}
-                          type="button"
-                        >
-                          <Trash2 size={14} aria-hidden="true" />
-                          Discard
-                        </Button>
-                      }
-                    />
-                  ) : snapshot.id !== record.publishedSnapshotId ||
-                    record.draftSnapshotId ? (
+                  {snapshot.id !== record.currentVersionId ? (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -181,7 +160,7 @@ export function RecordHistory({
                       onClick={() =>
                         run(() =>
                           restoreSnapshotAction({
-                            itemYearId: record.itemYearId,
+                            recordId: record.recordId,
                             snapshotId: snapshot.id,
                             path,
                           }),

@@ -48,6 +48,15 @@ select pg_temp.publish_course(
   'COMP1110', 2030::smallint, 'Structured Programming 2030', 'fixed', 6
 );
 
+select pg_temp.publish_course(
+  'COMP1100', 2026::smallint, 'Programming as Problem Solving', 'fixed', 6
+);
+
+insert into public.academic_periods (
+  calendar_year, code, name, short_name, starts_on, ends_on, sort_order, status
+) values (2026, 'S1', 'Semester 1', 'S1', '2026-02-23', '2026-05-29', 1, 'published')
+on conflict (calendar_year, code) do nothing;
+
 select extensions.ok(
   not has_table_privilege('authenticated', 'public.plan_items', 'insert')
   and not has_table_privilege('authenticated', 'public.plan_items', 'update')
@@ -79,12 +88,15 @@ set local role authenticated;
 select extensions.throws_ok(
   $$
     insert into public.plan_items (
-      plan_id, owner_id, course_id, academic_year_id
+      plan_id, owner_id, catalogue_record_id
     ) values (
       (select id from public.plans where name = 'Planner hardening plan'),
       '94000000-0000-4000-8000-000000000001',
-      (select id from public.catalogue_items where code = 'COMP1100'),
-      (select id from public.academic_years where year = 2026)
+      (select records.id
+       from public.catalogue_records as records
+       join public.catalogue_codes as codes on codes.id = records.code_id
+       join public.academic_years as years on years.id = records.academic_year_id
+       where codes.code = 'COMP1100' and years.year = 2026)
     )
   $$,
   '42501',
@@ -105,8 +117,9 @@ select extensions.ok(
   exists (
     select 1
     from public.plan_items
-    join public.catalogue_items as courses on courses.id = plan_items.course_id
-    join public.academic_years on academic_years.id = plan_items.academic_year_id
+    join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
+    join public.academic_years on academic_years.id = plan_records.academic_year_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'COMP1110'
       and academic_years.year = 2030
@@ -123,7 +136,8 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_items as courses on courses.id = plan_items.course_id
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1110'
       ),
@@ -139,8 +153,9 @@ select extensions.ok(
   exists (
     select 1
     from public.plan_items
-    join public.catalogue_items as courses on courses.id = plan_items.course_id
-    join public.academic_years on academic_years.id = plan_items.academic_year_id
+    join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
+    join public.academic_years on academic_years.id = plan_records.academic_year_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'COMP1110'
       and academic_years.year = 2030
@@ -157,7 +172,8 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_items as courses on courses.id = plan_items.course_id
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1110'
       ),
@@ -177,7 +193,8 @@ select extensions.throws_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_items as courses on courses.id = plan_items.course_id
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1110'
       ),
@@ -194,14 +211,17 @@ select extensions.ok(
   exists (
     select 1
     from public.plan_items
-    join public.catalogue_items as courses on courses.id = plan_items.course_id
+    join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
     where plan_items.owner_id = (select auth.uid())
       and courses.code = 'COMP1110'
   )
   and not exists (
     select 1
     from public.course_attempts
-    join public.catalogue_items as courses on courses.id = course_attempts.course_id
+    join public.catalogue_versions as attempt_versions on attempt_versions.id = course_attempts.catalogue_version_id
+    join public.catalogue_records as attempt_records on attempt_records.id = attempt_versions.record_id
+    join public.catalogue_codes as courses on courses.id = attempt_records.code_id
     where course_attempts.owner_id = (select auth.uid())
       and courses.code = 'COMP1110'
   ),
@@ -244,7 +264,8 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_items as courses on courses.id = plan_items.course_id
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1100'
       ),
@@ -259,8 +280,8 @@ select extensions.ok(
   exists (
     select 1
     from public.course_attempts
-    join public.course_snapshot_details as course_snapshots
-      on course_snapshots.snapshot_id = course_attempts.course_snapshot_id
+    join public.course_version_details as course_snapshots
+      on course_snapshots.version_id = course_attempts.catalogue_version_id
     where course_attempts.owner_id = (select auth.uid())
       and course_snapshots.title = 'Programming as Problem Solving'
       and course_attempts.status = 'completed'
@@ -274,11 +295,11 @@ select extensions.ok(
 select extensions.throws_ok(
   $$
     insert into public.course_attempts (
-      owner_id, course_id, course_snapshot_id, academic_period_id,
+      owner_id, catalogue_version_id, academic_period_id,
       status, mark, units_attempted, units_earned, source
     )
     select
-      owner_id, course_id, course_snapshot_id, academic_period_id,
+      owner_id, catalogue_version_id, academic_period_id,
       status, mark, units_attempted, units_earned, source
     from public.course_attempts
     where owner_id = (select auth.uid())
@@ -294,10 +315,12 @@ reset role;
 create temporary table first_attempt_state as
 select
   course_attempts.id,
-  course_attempts.course_snapshot_id,
+  course_attempts.catalogue_version_id,
   course_attempts.units_attempted
 from public.course_attempts
-join public.catalogue_items as courses on courses.id = course_attempts.course_id
+join public.catalogue_versions as attempt_versions on attempt_versions.id = course_attempts.catalogue_version_id
+    join public.catalogue_records as attempt_records on attempt_records.id = attempt_versions.record_id
+    join public.catalogue_codes as courses on courses.id = attempt_records.code_id
 where course_attempts.owner_id = '94000000-0000-4000-8000-000000000001'
   and courses.code = 'COMP1100';
 
@@ -309,28 +332,28 @@ create temporary table later_snapshot as
 select
   pg_temp.create_course_snapshot(
     'COMP1100', 2026::smallint, 'Programming as Problem Solving, revised', 'fixed', 12
-  ) as snapshot_id,
+  ) as version_id,
   item_years.id as course_year_id,
-  item_years.published_snapshot_id as previous_published_snapshot_id
-from public.catalogue_item_years as item_years
-join public.catalogue_items as items on items.id = item_years.item_id
+  item_years.published_version_id as previous_published_version_id
+from public.catalogue_records as item_years
+join public.catalogue_codes as items on items.id = item_years.code_id
 join public.academic_years on academic_years.id = item_years.academic_year_id
 where items.code = 'COMP1100'
   and academic_years.year = 2026;
 
 grant select on table first_attempt_state, later_snapshot to authenticated;
 
-select pg_temp.publish_snapshot(later_snapshot.snapshot_id) from later_snapshot;
+select pg_temp.publish_snapshot(later_snapshot.version_id) from later_snapshot;
 
 set local role authenticated;
 
 select extensions.ok(
   exists (
     select 1
-    from public.catalogue_item_years as course_years
+    from public.catalogue_records as course_years
     join later_snapshot on later_snapshot.course_year_id = course_years.id
-    where course_years.published_snapshot_id = later_snapshot.snapshot_id
-      and later_snapshot.snapshot_id <> later_snapshot.previous_published_snapshot_id
+    where course_years.published_version_id = later_snapshot.version_id
+      and later_snapshot.version_id <> later_snapshot.previous_published_version_id
   ),
   'a later revised snapshot can be published for the same course year'
 );
@@ -350,7 +373,8 @@ select extensions.lives_ok(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_items as courses on courses.id = plan_items.course_id
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
         where plan_items.owner_id = (select auth.uid())
           and courses.code = 'COMP1100'
       ),
@@ -368,8 +392,8 @@ select extensions.ok(
     join first_attempt_state on first_attempt_state.id = course_attempts.id
     join later_snapshot on true
     where course_attempts.owner_id = (select auth.uid())
-      and course_attempts.course_snapshot_id = first_attempt_state.course_snapshot_id
-      and course_attempts.course_snapshot_id <> later_snapshot.snapshot_id
+      and course_attempts.catalogue_version_id = first_attempt_state.catalogue_version_id
+      and course_attempts.catalogue_version_id <> later_snapshot.version_id
       and course_attempts.units_attempted = first_attempt_state.units_attempted
       and course_attempts.units_attempted = 6
       and course_attempts.status = 'failed'

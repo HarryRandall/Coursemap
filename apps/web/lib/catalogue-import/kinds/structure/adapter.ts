@@ -1,5 +1,5 @@
 import type { CatalogueKindAdapter } from "../../kind-adapter.ts";
-import { structureSnapshotWrite } from "../../snapshot-write.ts";
+import { structureCatalogueContent } from "../../../catalogue/content.ts";
 import {
   ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA,
   type AcademicStructureExtraction,
@@ -200,7 +200,7 @@ export const structureKindAdapter: CatalogueKindAdapter<AcademicStructureExtract
       };
     },
     project(extraction) {
-      return structureSnapshotWrite({
+      return structureCatalogueContent({
         projection: projectAcademicStructureSnapshot(extraction),
         evidence: extraction.evidence.map((item) => ({
           fieldPath: item.fieldKey,

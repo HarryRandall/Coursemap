@@ -21,8 +21,8 @@ import { RecordHeader } from "./record-header";
 import { RecordTabs } from "./record-tabs";
 import { RecordHistory } from "./record-history";
 import { ReviewPanel } from "./review-panel";
-import { SnapshotEditor } from "./snapshot-editor";
-import { CoursePreview, StructurePreview } from "./snapshot-preview";
+import { VersionEditor } from "./version-editor";
+import { CoursePreview, StructurePreview } from "./version-preview";
 import type { SearchParams } from "./catalogue-pages";
 
 function first(value: string | string[] | undefined) {
@@ -56,7 +56,7 @@ export async function CatalogueRecordPage({
     ? (requestedTab as "review" | "preview" | "edit" | "history")
     : "review";
   const currentSnapshotId = record
-    ? (record.draftSnapshotId ?? record.publishedSnapshotId)
+    ? (record.currentVersionId ?? record.publishedVersionId)
     : null;
   const [write, coursePreview] = currentSnapshotId
     ? await Promise.all([
@@ -141,7 +141,7 @@ export async function CatalogueRecordPage({
               )}
             </TabsContent>
             <TabsContent value="preview" className="mt-4">
-              {record.draftSnapshotId ? (
+              {record.currentVersionId ? (
                 <p className="mb-3 text-sm text-muted-foreground">
                   Showing the draft. Students see the published version until
                   the draft is published.
@@ -159,10 +159,10 @@ export async function CatalogueRecordPage({
             </TabsContent>
             <TabsContent value="edit" className="mt-4">
               {write && currentSnapshotId ? (
-                <SnapshotEditor
+                <VersionEditor
                   key={currentSnapshotId}
                   initial={write}
-                  itemYearId={record.itemYearId}
+                  recordId={record.recordId}
                   baseSnapshotId={currentSnapshotId}
                   path={path}
                 />

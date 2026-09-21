@@ -4,10 +4,10 @@ import { expect, login, test } from "./fixtures";
 
 /**
  * The record workspace: preview the published course, edit its title and a
- * learning outcome, save as a draft, publish, then restore the original from
- * history and discard that draft.
+ * learning outcome, save a new version, publish, then restore the original
+ * content through another immutable version.
  */
-test("administrators edit, preview, publish and restore a course snapshot", async ({
+test("administrators edit, preview, publish and restore a course version", async ({
   page,
   administrator,
 }) => {
@@ -15,16 +15,13 @@ test("administrators edit, preview, publish and restore a course snapshot", asyn
     max: 1,
   });
   const [seed] = await sql`
-    select item_years.id as item_year_id, item_years.published_snapshot_id, details.title
-    from public.catalogue_item_years as item_years
-    join public.catalogue_items as items on items.id = item_years.item_id
-    join public.course_snapshot_details as details on details.snapshot_id = item_years.published_snapshot_id
-    where items.code = 'COMP1100' and item_years.draft_snapshot_id is null
+    select item_years.id as record_id, item_years.published_version_id, details.title
+    from public.catalogue_records as item_years
+    join public.catalogue_codes as items on items.id = item_years.code_id
+    join public.course_version_details as details on details.version_id = item_years.published_version_id
+    where items.code = 'COMP1100'
   `;
-  expect(
-    seed,
-    "the local seed publishes COMP1100 without a draft",
-  ).toBeTruthy();
+  expect(seed, "the local seed publishes COMP1100").toBeTruthy();
   try {
     await login(page, administrator);
     await page.goto("/admin/courses/COMP1100?year=2026&tab=preview");
@@ -55,25 +52,35 @@ test("administrators edit, preview, publish and restore a course snapshot", asyn
       page.getByRole("banner").getByRole("heading", { level: 1 }),
     ).toContainText(`${seed.title} (edited)`);
     const [afterEdit] = await sql`
-      select draft_snapshot_id, published_snapshot_id from public.catalogue_item_years where id = ${seed.item_year_id}
+      select item_years.published_version_id,
+        (select versions.id from public.catalogue_versions as versions
+         where versions.record_id = item_years.id
+         order by versions.created_at desc, versions.id desc limit 1) as current_version_id
+      from public.catalogue_records as item_years where item_years.id = ${seed.record_id}
     `;
-    expect(afterEdit.draft_snapshot_id).not.toBeNull();
-    expect(Number(afterEdit.published_snapshot_id)).toBe(
-      Number(seed.published_snapshot_id),
+    expect(afterEdit.current_version_id).not.toBeNull();
+    expect(Number(afterEdit.published_version_id)).toBe(
+      Number(seed.published_version_id),
     );
     const [outcomeCount] = await sql`
-      select count(*)::int as count from public.course_learning_outcomes where snapshot_id = ${afterEdit.draft_snapshot_id}
+      select count(*)::int as count from public.course_learning_outcomes where version_id = ${afterEdit.current_version_id}
     `;
     expect(outcomeCount.count).toBeGreaterThanOrEqual(1);
 
     await page.getByRole("button", { name: "Publish draft" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Publish", exact: true })
+      .click();
     await expect(
       page.getByText("Published. Students now see this version."),
     ).toBeVisible();
 
     await page.getByRole("tab", { name: "History" }).click();
     const originalRow = page.getByRole("listitem").filter({
-      has: page.getByText(`#${seed.published_snapshot_id}`, { exact: true }),
+      has: page.getByRole("heading", {
+        name: `Imported as #${seed.published_version_id}`,
+      }),
     });
     await originalRow.getByRole("button", { name: "Restore as draft" }).click();
     await expect(page.getByText(/is now the draft/)).toBeVisible();
@@ -83,23 +90,11 @@ test("administrators edit, preview, publish and restore a course snapshot", asyn
     await expect(
       page.getByRole("banner").getByRole("heading", { level: 1 }),
     ).not.toContainText("(edited)");
-
-    const draftRow = page
-      .getByRole("listitem")
-      .filter({ has: page.getByText("Draft", { exact: true }) })
-      .first();
-    await draftRow.getByRole("button", { name: "Discard" }).click();
-    await page.getByRole("button", { name: "Discard draft" }).click();
-    await expect(page.getByText("Draft discarded.")).toBeVisible();
-    const [afterDiscard] = await sql`
-      select draft_snapshot_id from public.catalogue_item_years where id = ${seed.item_year_id}
-    `;
-    expect(afterDiscard.draft_snapshot_id).toBeNull();
   } finally {
     await sql`
-      update public.catalogue_item_years
-      set draft_snapshot_id = null, published_snapshot_id = ${seed.published_snapshot_id}
-      where id = ${seed.item_year_id}
+      update public.catalogue_records
+      set published_version_id = ${seed.published_version_id}
+      where id = ${seed.record_id}
     `;
     await sql.end();
   }

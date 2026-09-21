@@ -95,7 +95,7 @@ export async function defaultCatalogueYear(
 ) {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("catalogue_item_years")
+    .from("catalogue_records")
     .select("academic_years(year)")
     .eq("kind", kind)
     .order("academic_year_id", { ascending: false })
@@ -184,7 +184,7 @@ export async function loadCatalogueDirectoryPage({
       readAllRows((from, to) =>
         supabase
           .from("catalogue_directory_entries")
-          .select("code,title,summary,item_id")
+          .select("code,title,summary,code_id")
           .eq("academic_year_id", yearRow.id)
           .eq("kind", kind)
           .eq("is_current", true)
@@ -193,13 +193,11 @@ export async function loadCatalogueDirectoryPage({
       ),
       readAllRows((from, to) =>
         supabase
-          .from("catalogue_item_years")
-          .select(
-            "item_id,public_id,draft_snapshot_id,published_snapshot_id,archived_at",
-          )
+          .from("catalogue_records")
+          .select("code_id,public_id,published_version_id,archived_at")
           .eq("academic_year_id", yearRow.id)
           .eq("kind", kind)
-          .order("item_id")
+          .order("code_id")
           .range(from, to),
       ),
       // Newest first so the first target seen per item is its latest; id breaks
@@ -208,7 +206,7 @@ export async function loadCatalogueDirectoryPage({
         supabase
           .from("catalogue_import_targets")
           .select(
-            "id,run_id,item_id,status,change_kind,error_message,completed_at,created_at",
+            "id,run_id,code_id,status,change_kind,error_message,completed_at,created_at,applied_version_id",
           )
           .eq("academic_year_id", yearRow.id)
           .eq("kind", kind)
@@ -223,28 +221,28 @@ export async function loadCatalogueDirectoryPage({
   if (targetsResult.error) throw targetsResult.error;
 
   const itemYearByItem = new Map(
-    (itemYearsResult.data ?? []).map((row) => [row.item_id, row]),
+    (itemYearsResult.data ?? []).map((row) => [row.code_id, row]),
   );
   const latestTargetByItem = new Map<
     number,
     (typeof targetsResult.data)[number]
   >();
   for (const target of targetsResult.data ?? []) {
-    if (!latestTargetByItem.has(target.item_id)) {
-      latestTargetByItem.set(target.item_id, target);
+    if (!latestTargetByItem.has(target.code_id)) {
+      latestTargetByItem.set(target.code_id, target);
     }
   }
 
   // Items imported directly (without a directory row) still appear so the
   // administrator can see everything the year holds.
   const entryCodes = new Set(entriesResult.data.map((row) => row.code));
-  const entryItemIds = new Set(entriesResult.data.map((row) => row.item_id));
+  const entryItemIds = new Set(entriesResult.data.map((row) => row.code_id));
   const extraItemIds = [...itemYearByItem.keys()].filter(
     (itemId) => !entryItemIds.has(itemId),
   );
   const { data: extraItems } = extraItemIds.length
     ? await supabase
-        .from("catalogue_items")
+        .from("catalogue_codes")
         .select("id,code")
         .in("id", extraItemIds)
     : { data: [] as Array<{ id: number; code: string }> };
@@ -254,7 +252,7 @@ export async function loadCatalogueDirectoryPage({
       code: entry.code,
       title: entry.title,
       summary: (entry.summary ?? {}) as Record<string, unknown>,
-      itemId: entry.item_id,
+      itemId: entry.code_id,
     })),
     ...(extraItems ?? [])
       .filter((item) => !entryCodes.has(item.code))
@@ -269,14 +267,17 @@ export async function loadCatalogueDirectoryPage({
       const itemYear = itemId === null ? undefined : itemYearByItem.get(itemId);
       const latest =
         itemId === null ? undefined : latestTargetByItem.get(itemId);
-      const hasDraft = Boolean(itemYear?.draft_snapshot_id);
+      const hasDraft = Boolean(
+        latest?.applied_version_id &&
+        latest.applied_version_id !== itemYear?.published_version_id,
+      );
       const isPublished =
-        Boolean(itemYear?.published_snapshot_id) && !itemYear?.archived_at;
+        Boolean(itemYear?.published_version_id) && !itemYear?.archived_at;
       return {
         code,
         title,
         summary,
-        itemYearPublicId: itemYear?.public_id ?? null,
+        recordPublicId: itemYear?.public_id ?? null,
         hasDraft,
         isPublished,
         workflow: workflowFor({
@@ -389,10 +390,10 @@ function runRow(run: RunRow): ImportRunRow {
 
 // The year is taken from the target's own column and resolved through the
 // academic year table, rather than reached by a nested embed through the run:
-// PostgREST resolves `catalogue_import_targets -> catalogue_item_years` by two
+// PostgREST resolves `catalogue_import_targets -> catalogue_records` by two
 // foreign keys of the same name, so the embedded shape is not typed.
 const RECORD_COLUMNS =
-  "id,code,academic_year_id,status,change_kind,attempt_count,error_code,error_message,applied_snapshot_id,created_at,completed_at,run_id,directory_entry_id,item_year_id";
+  "id,code,academic_year_id,status,change_kind,attempt_count,error_code,error_message,applied_version_id,created_at,completed_at,run_id,directory_entry_id,record_id";
 
 type RecordRow = {
   id: string;
@@ -403,12 +404,12 @@ type RecordRow = {
   attempt_count: number;
   error_code: string | null;
   error_message: string | null;
-  applied_snapshot_id: number | null;
+  applied_version_id: number | null;
   created_at: string;
   completed_at: string | null;
   run_id: string;
   directory_entry_id: number | null;
-  item_year_id: number;
+  record_id: number;
 };
 
 /**
@@ -542,14 +543,14 @@ export async function loadCatalogueImportRecords({
   // The labels a row needs are resolved by id over the page rather than by
   // embedding them in the select above. One page is twenty-five rows, so this
   // is four small reads, and it keeps the ambiguous embeds out: PostgREST
-  // reaches `catalogue_item_years` from a target through two foreign keys of
+  // reaches `catalogue_records` from a target through two foreign keys of
   // the same name, which it will not resolve and cannot type.
   const distinct = <Value>(values: Value[]) => [...new Set(values)];
   const entryIds = distinct(
     rows.map((row) => row.directory_entry_id).filter((id) => id !== null),
   );
   const yearIds = distinct(rows.map((row) => row.academic_year_id));
-  const itemYearIds = distinct(rows.map((row) => row.item_year_id));
+  const recordIds = distinct(rows.map((row) => row.record_id));
   // The recent runs are already loaded, so only a row from an older run than
   // the list offers costs a read.
   const olderRunIds = distinct(rows.map((row) => row.run_id)).filter(
@@ -566,11 +567,11 @@ export async function loadCatalogueImportRecords({
     yearIds.length
       ? supabase.from("academic_years").select("id,year").in("id", yearIds)
       : null,
-    itemYearIds.length
+    recordIds.length
       ? supabase
-          .from("catalogue_item_years")
+          .from("catalogue_records")
           .select("id,public_id")
-          .in("id", itemYearIds)
+          .in("id", recordIds)
       : null,
     olderRunIds.length
       ? supabase
@@ -614,8 +615,8 @@ export async function loadCatalogueImportRecords({
       attemptCount: row.attempt_count,
       errorCode: row.error_code,
       errorMessage: row.error_message,
-      appliedSnapshotId: row.applied_snapshot_id,
-      itemYearPublicId: publicIdById.get(row.item_year_id) ?? null,
+      appliedVersionId: row.applied_version_id,
+      recordPublicId: publicIdById.get(row.record_id) ?? null,
       createdAt: row.created_at,
       completedAt: row.completed_at,
       runId: row.run_id,
@@ -737,12 +738,18 @@ export async function loadImportTargetDetail(
 
 export async function loadAdminCatalogueSummary(): Promise<AdminCatalogueSummary> {
   const supabase = await createClient();
-  const [{ data: itemYears }, { data: items }] = await Promise.all([
-    supabase
-      .from("catalogue_item_years")
-      .select("kind,draft_snapshot_id,published_snapshot_id,archived_at"),
-    supabase.from("catalogue_items").select("kind"),
-  ]);
+  const [{ data: itemYears }, { data: items }, { data: appliedTargets }] =
+    await Promise.all([
+      supabase
+        .from("catalogue_records")
+        .select("id,kind,published_version_id,archived_at"),
+      supabase.from("catalogue_codes").select("kind"),
+      supabase
+        .from("catalogue_import_targets")
+        .select("record_id,applied_version_id,created_at")
+        .not("applied_version_id", "is", null)
+        .order("created_at", { ascending: false }),
+    ]);
   const summary = Object.fromEntries(
     (Object.keys(CATALOGUE_KIND_LABELS) as CatalogueKind[]).map((kind) => [
       kind,
@@ -751,10 +758,20 @@ export async function loadAdminCatalogueSummary(): Promise<AdminCatalogueSummary
   ) as AdminCatalogueSummary;
   for (const item of items ?? [])
     summary[item.kind as CatalogueKind].identities += 1;
+  const latestAppliedByRecord = new Map<number, number>();
+  for (const target of appliedTargets ?? []) {
+    if (
+      !latestAppliedByRecord.has(target.record_id) &&
+      target.applied_version_id
+    )
+      latestAppliedByRecord.set(target.record_id, target.applied_version_id);
+  }
   for (const year of itemYears ?? []) {
     const bucket = summary[year.kind as CatalogueKind];
-    if (year.published_snapshot_id && !year.archived_at) bucket.published += 1;
-    if (year.draft_snapshot_id) bucket.drafts += 1;
+    if (year.published_version_id && !year.archived_at) bucket.published += 1;
+    const appliedVersionId = latestAppliedByRecord.get(year.id);
+    if (appliedVersionId && appliedVersionId !== year.published_version_id)
+      bucket.drafts += 1;
   }
   return summary;
 }

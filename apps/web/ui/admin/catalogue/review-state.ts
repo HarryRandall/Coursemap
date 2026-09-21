@@ -167,7 +167,7 @@ export function reviewSummary(review: ReviewTarget): ReviewSummary {
   const openBlockingFlags = openFlags.filter((entry) => entry.isBlocking);
   const applied = review.appliedAt !== null;
   const reviewable =
-    review.status === "ready" && !applied && review.baselineSnapshotId !== null;
+    review.status === "ready" && !applied && review.baselineVersionId !== null;
   const actionable =
     reviewable || openChanges.length > 0 || openFlags.length > 0;
 
@@ -220,7 +220,7 @@ function gatingReviews(record: CatalogueRecord) {
     (review) => review.status === "ready" || review.status === "unchanged",
   );
   const draftTargetId =
-    record.snapshots.find((snapshot) => snapshot.id === record.draftSnapshotId)
+    record.versions.find((version) => version.id === record.currentVersionId)
       ?.importTargetId ?? null;
   const draftReview = draftTargetId
     ? record.reviews.find((review) => review.id === draftTargetId)
@@ -265,10 +265,10 @@ export function recordNextStep(record: CatalogueRecord): RecordStep {
     (review) =>
       review.status === "ready" &&
       review.appliedAt === null &&
-      review.baselineSnapshotId !== null,
+      review.baselineVersionId !== null,
   );
-  const hasDraft = record.draftSnapshotId !== null;
-  const published = record.publishedSnapshotId !== null;
+  const hasDraft = record.currentVersionId !== null;
+  const published = record.publishedVersionId !== null;
   // Without a draft there is nothing to publish, which is the ordinary state of
   // a finished record rather than a problem, so it is not reported as one.
   const blockers = hasDraft ? record.publishBlockers : [];

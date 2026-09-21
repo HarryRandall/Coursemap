@@ -1,12 +1,14 @@
-type CourseIdRow = { course_id: number };
+type CatalogueRecordIdRow = { catalogue_record_id: number };
 
-export function collectPlanCatalogueCourseIds(
-  planItems: readonly CourseIdRow[],
-  courseAttempts: readonly CourseIdRow[],
+export function collectPlanCatalogueRecordIds(
+  planItems: readonly CatalogueRecordIdRow[],
+  attemptedVersions: readonly CatalogueRecordIdRow[],
 ) {
   return [
     ...new Set(
-      [...planItems, ...courseAttempts].map((record) => record.course_id),
+      [...planItems, ...attemptedVersions].map(
+        (record) => record.catalogue_record_id,
+      ),
     ),
   ];
 }

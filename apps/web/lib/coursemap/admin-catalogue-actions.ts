@@ -13,9 +13,9 @@ import {
 import {
   ManualSnapshotError,
   restoreSnapshot,
-  saveManualSnapshot,
-} from "@/lib/catalogue-import/manual-snapshot";
-import type { CatalogueSnapshotWrite } from "@/lib/catalogue-import/snapshot-write";
+  saveManualVersion,
+} from "@/lib/catalogue-import/manual-version";
+import type { CatalogueContent } from "@/lib/catalogue/content";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult =
@@ -143,17 +143,17 @@ export async function applyReviewAction({
 }
 
 export async function publishDraftAction({
-  itemYearId,
+  recordId,
   path,
 }: {
-  itemYearId: number;
+  recordId: number;
   path: string;
 }): Promise<ActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("publish_catalogue_snapshot", {
-    p_item_year_id: itemYearId,
+  const { error } = await supabase.rpc("publish_catalogue_version", {
+    p_record_id: recordId,
   });
   if (error) return { ok: false, error: error.message };
   revalidateRecord(path);
@@ -161,17 +161,17 @@ export async function publishDraftAction({
 }
 
 export async function unpublishAction({
-  itemYearId,
+  recordId,
   path,
 }: {
-  itemYearId: number;
+  recordId: number;
   path: string;
 }): Promise<ActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("unpublish_catalogue_item_year", {
-    p_item_year_id: itemYearId,
+  const { error } = await supabase.rpc("unpublish_catalogue_record", {
+    p_record_id: recordId,
   });
   if (error) return { ok: false, error: error.message };
   revalidateRecord(path);
@@ -181,15 +181,15 @@ export async function unpublishAction({
   };
 }
 
-export async function saveManualSnapshotAction({
-  itemYearId,
+export async function saveManualVersionAction({
+  recordId,
   baseSnapshotId,
   write,
   path,
 }: {
-  itemYearId: number;
+  recordId: number;
   baseSnapshotId: number | null;
-  write: CatalogueSnapshotWrite;
+  write: CatalogueContent;
   path: string;
 }): Promise<ActionResult & { snapshotId?: number }> {
   if (!(await canWriteCatalogue()))
@@ -197,8 +197,8 @@ export async function saveManualSnapshotAction({
   const viewer = await getAuthViewer();
   if (!viewer) return { ok: false, error: "Authentication is required." };
   try {
-    const result = await saveManualSnapshot({
-      itemYearId,
+    const result = await saveManualVersion({
+      recordId,
       baseSnapshotId,
       write,
       userId: viewer.id,
@@ -219,11 +219,11 @@ export async function saveManualSnapshotAction({
 }
 
 export async function restoreSnapshotAction({
-  itemYearId,
+  recordId,
   snapshotId,
   path,
 }: {
-  itemYearId: number;
+  recordId: number;
   snapshotId: number;
   path: string;
 }): Promise<ActionResult> {
@@ -233,7 +233,7 @@ export async function restoreSnapshotAction({
   if (!viewer) return { ok: false, error: "Authentication is required." };
   try {
     const result = await restoreSnapshot({
-      itemYearId,
+      recordId,
       snapshotId,
       userId: viewer.id,
     });
@@ -249,25 +249,4 @@ export async function restoreSnapshotAction({
       return { ok: false, error: error.message };
     return failure(error, "The snapshot could not be restored.");
   }
-}
-
-export async function discardDraftAction({
-  itemYearId,
-  path,
-}: {
-  itemYearId: number;
-  path: string;
-}): Promise<ActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("discard_catalogue_draft", {
-    p_item_year_id: itemYearId,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidateRecord(path);
-  return {
-    ok: true,
-    message: "Draft discarded. The snapshot stays in history.",
-  };
 }

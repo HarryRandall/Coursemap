@@ -439,7 +439,7 @@ function RecordRow({
     record.errorMessage ||
     (record.errorCode ? readable(record.errorCode) : null);
   const reviewHref =
-    record.status === "ready" && record.itemYearPublicId
+    record.status === "ready" && record.recordPublicId
       ? `${basePath}/${record.code}?year=${record.academicYear}&tab=review`
       : undefined;
   return (
@@ -459,7 +459,7 @@ function RecordRow({
         <div className="flex min-w-0 flex-col items-start gap-1">
           <TargetStatusBadge
             status={record.status}
-            applied={record.appliedSnapshotId !== null}
+            applied={record.appliedVersionId !== null}
           />
           {/* Why it failed, so a column of "Failed" badges can be told apart
               without opening each pipeline in turn. The message is written for
@@ -512,7 +512,7 @@ function RecordRow({
             ...(reviewHref
               ? [{ label: "Review import", href: reviewHref }]
               : []),
-            ...(record.itemYearPublicId
+            ...(record.recordPublicId
               ? [
                   {
                     label: "Import history",

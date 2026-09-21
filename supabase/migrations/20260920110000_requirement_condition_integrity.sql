@@ -1,8 +1,8 @@
 -- Two integrity gaps in requirement_conditions.
 --
--- 1. item_id referenced catalogue_items (id) alone, the only child table in the
+-- 1. code_id referenced catalogue_codes (id) alone, the only child table in the
 --    model that skipped the composite (id, kind) pattern used everywhere else
---    (catalogue_item_years, catalogue_snapshots, both detail tables,
+--    (catalogue_records, catalogue_versions, both detail tables,
 --    catalogue_directory_entries, catalogue_import_targets and, notably, the
 --    sibling requirement_condition_options). A condition_kind = 'course' row
 --    could therefore point at a programme and silently corrupt the requirement.
@@ -23,9 +23,9 @@ alter table public.requirement_conditions
 
 update public.requirement_conditions as conditions
    set item_kind = items.kind
-  from public.catalogue_items as items
- where items.id = conditions.item_id
-   and conditions.item_id is not null;
+  from public.catalogue_codes as items
+ where items.id = conditions.code_id
+   and conditions.code_id is not null;
 
 alter table public.requirement_conditions
   enable trigger requirement_conditions_guard_sealed;
@@ -35,14 +35,14 @@ alter table public.requirement_conditions
 
 alter table public.requirement_conditions
   add constraint requirement_conditions_item_fkey
-    foreign key (item_id, item_kind) references public.catalogue_items (id, kind);
+    foreign key (code_id, item_kind) references public.catalogue_codes (id, kind);
 
--- item_kind travels with item_id and must suit the condition that carries it.
+-- item_kind travels with code_id and must suit the condition that carries it.
 alter table public.requirement_conditions
   add constraint requirement_conditions_item_kind_check check (
-    (item_id is null and item_kind is null)
+    (code_id is null and item_kind is null)
     or (
-      item_id is not null
+      code_id is not null
       and item_kind is not null
       and case
         when condition_kind in ('course', 'incompatible') then item_kind = 'course'

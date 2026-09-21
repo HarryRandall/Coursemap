@@ -88,46 +88,46 @@ database test. Names are proposals; keep them once the first migration lands.
 Identity and years (landed in A3b)
 
 - `academic_years`: unchanged role, gains `calendar_published_at`.
-- `catalogue_items`: `id`, `public_id`, `kind`
+- `catalogue_codes`: `id`, `public_id`, `kind`
   (`course | programme | major | minor | specialisation`), `code`. Replaces
   `courses` and `academic_structures`. Unique on `(kind, code)`.
-- `catalogue_item_years`: `item_id`, `kind`, `academic_year_id`,
-  `draft_snapshot_id`, `published_snapshot_id`, `archived_at`. Replaces
+- `catalogue_records`: `code_id`, `kind`, `academic_year_id`,
+  `published_version_id`, `archived_at`. Replaces
   `course_years` and `academic_structure_years` and the `lifecycle_status`
   and `confirmation_status` columns. `kind` is denormalised so composite
   foreign keys enforce kind consistency without triggers.
-- `catalogue_snapshots`: `id`, `public_id`, `item_year_id`, `kind`,
-  `academic_year_id`, `origin` (`import | manual`), `based_on_snapshot_id`,
+- `catalogue_versions`: `id`, `public_id`, `record_id`, `kind`,
+  `academic_year_id`, `origin` (`import | manual`), `based_on_version_id`,
   `source_page_id`, `content_hash`, `sealed_at`, `created_by`. Immutable
-  once sealed; setting a draft or published pointer seals. A5 adds
+  once sealed; publication seals the selected version. A5 adds
   `import_target_id` when the targets table exists.
-- `catalogue_publications`: `item_year_id`, `snapshot_id`, `published_by`,
-  `published_at`. Written by trigger on every published pointer change,
-  including unpublishing.
+- `catalogue_publications`: `record_id`, `version_id`, `published_by`,
+  `published_at`, `unpublished_by`, `unpublished_at`. Written by trigger on
+  every published pointer change so historical visibility is reconstructable.
 
 Kind-specific content (one row set per snapshot; landed in A3b)
 
-- Course: `course_snapshot_details` (the scalar fields formerly on
+- Course: `course_version_details` (the scalar fields formerly on
   `course_snapshots`) plus the existing child tables re-pointed at the shared
-  snapshot through `snapshot_id`: `course_offerings`, `offering_sessions`,
+  version through `version_id`: `course_offerings`, `offering_sessions`,
   `course_learning_outcomes`, `course_assessment_items`,
   `course_assessment_outcomes`, `course_fees`, `course_attributes`,
   `course_unit_options`, `course_areas_of_interest`, `course_related_courses`.
   Page provenance on offerings, sessions and rules is optional because manual
   snapshots have no source page.
-- Structure: `structure_snapshot_details` (the scalar fields formerly on
+- Structure: `structure_version_details` (the scalar fields formerly on
   `academic_structure_snapshots`). The `academic_structure_*` child tables keep
   their names for now and are renamed or replaced in A4 (requirements) and A5
   (sections, outcomes, fees, relationships); `summary_fields` and
   `unmodelled_requirements` are decided in A4.
-- Shared: `snapshot_field_evidence` (`snapshot_id`, `academic_year_id`,
+- Shared: `catalogue_version_provenance` (`version_id`, `academic_year_id`,
   `source_page_id`, `field_path`, `method`, `confidence`, `source_locator`,
   `source_excerpt`). Replaces both kind-specific evidence tables.
 - `published_course_summaries`: security-invoker view for the directory.
-- User tables keep their column names (`plan_items.course_id`,
-  `course_attempts.course_id`, `course_attempts.course_snapshot_id`,
-  `plan_structures.structure_year_id`) and now reference the shared tables.
-  Renaming them is deferred to A8 to avoid churn across the planner surface.
+- `plan_items.catalogue_record_id` and
+  `plan_structures.catalogue_record_id` identify annual catalogue records.
+  `course_attempts.catalogue_version_id` preserves the exact historical state
+  without redundant code and year columns.
 
 Requirements (shared by every kind; landed in A4)
 
@@ -191,7 +191,7 @@ Import (shared)
   `model_id`, `status` (`queued | running | completed | failed | cancelled`),
   `requested_by`, counts and token totals. A run has one kind. Concurrency is
   limited per target rather than one global active run.
-- `catalogue_import_targets`: `run_id`, `directory_entry_id`, `item_year_id`,
+- `catalogue_import_targets`: `run_id`, `directory_entry_id`, `record_id`,
   `baseline_snapshot_id` (the draft at start, or the published snapshot when
   there is no draft), `candidate_snapshot_id`, `status`
   (`queued | running | ready | unchanged | failed | cancelled`),
@@ -212,8 +212,8 @@ Retained without structural change
 
 - `plans`, `plan_items`, `plan_structures`, `course_attempts`, `profiles`,
   `approval_requests`, `approval_events`. Foreign keys move from `courses.id`
-  and `academic_structure_years.id` to `catalogue_items.id` and
-  `catalogue_item_years.id`, with a trigger asserting the referenced kind.
+  and `academic_structure_years.id` to `catalogue_codes.id` and
+  `catalogue_records.id`, with a trigger asserting the referenced kind.
 - `private.app_roles`, `app_permissions`, `role_permissions`, `user_roles` and
   the `admin_*` views.
 - `import_models`, `app_settings`.
@@ -244,7 +244,7 @@ Removed
 ### Target lifecycle
 
 1. Directory refresh for a year and kind writes `catalogue_directory_entries`
-   and creates `catalogue_items` and `catalogue_item_years` for new codes.
+   and creates `catalogue_codes` and `catalogue_records` for new codes.
 2. The administrator selects up to ten entries and starts a run. The database
    creates the run and targets, records `baseline_snapshot_id` per target and
    the application enqueues one message per target.
@@ -262,7 +262,7 @@ Removed
    stale baseline. Rejected changes leave the draft untouched.
 6. Manual editing creates a new draft snapshot based on the current draft.
    Edits to a field close any open change on that field for the same target.
-7. **Publish** sets `published_snapshot_id` to the draft when the draft differs
+7. **Publish** sets `published_version_id` to the draft when the draft differs
    from the published snapshot and no blocking flag is open on the draft or on
    the target that produced it. The disabled state states the reason.
 8. History lists runs, targets, changes, snapshots and publications for the
@@ -303,7 +303,7 @@ pointers only. There is no `review_status`, `confirmation_status`,
   requirements.
 - Planning, onboarding and public reads use `published_catalogue_item`,
   `published_requirement_graph` and `published_course_availability` functions
-  that resolve through `catalogue_item_years.published_snapshot_id`.
+  that resolve through `catalogue_records.published_version_id`.
 
 ### Stacked pull requests
 
@@ -317,7 +317,7 @@ step squashes the migration history.
 | A1    | `refactor/catalogue-redesign-01-plan`            | This document. Remove `catalogue-review-design.md` (absorbed here). Index update.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | A2    | `refactor/catalogue-redesign-02-calendar`        | Key `university_calendar_events` to `academic_years` with a composite foreign key on `(academic_year_id, calendar_year)`. Create `catalogue_sources`, `catalogue_source_pages` and `university_calendar_imports`. Update `calendar-importer.mjs`. Drop the five legacy `catalogue_*` tables. Frees the `catalogue_` names for later steps.                                                                                                                                                                                                                                                                                                                                         |
 | A3a   | `refactor/catalogue-redesign-03a-remove-import`  | Deletion only. Remove both import pipelines, the directory refresh, the admin catalogue routes and components, the import and review database tables and functions, their tests and the two guides that describe them. Keep `ui/admin/requisites` (reused by A4 and B5), `import_models`, `app_settings`, the artefact bucket and the calendar. The admin console keeps dashboard, users, roles and indoor maps.                                                                                                                                                                                                                                                                   |
-| A3b   | `refactor/catalogue-redesign-03b-items`          | `catalogue_items`, `catalogue_item_years`, `catalogue_snapshots`, `catalogue_publications`, kind detail tables, `snapshot_field_evidence`, replacing the six core tables. Re-point plans, attempts and the existing rule tables. Rewrite the student-facing functions (published reads, plan and attempt writes). Update `published-courses.ts`, planner catalogue loading and onboarding. Minimal preview seed for the new tables.                                                                                                                                                                                                                                                |
+| A3b   | `refactor/catalogue-redesign-03b-items`          | `catalogue_codes`, `catalogue_records`, `catalogue_versions`, `catalogue_publications`, kind detail tables, `catalogue_version_provenance`, replacing the six core tables. Re-point plans, attempts and the existing rule tables. Rewrite the student-facing functions (published reads, plan and attempt writes). Update `published-courses.ts`, planner catalogue loading and onboarding. Minimal preview seed for the new tables.                                                                                                                                                                                                                                               |
 | A4    | `refactor/catalogue-redesign-04-requirements`    | Landed. The shared `requirement_*` tables replace both rule families; `published_requirement_graph` replaces the course-specific graph; the planner, requirement display and editor use the shared vocabulary. The editor still offers the twelve course-oriented kinds; `structure_set`, `tagged_units` and `elective_units` are read-only until B5 extends it. Unmodelled structure text becomes `other` conditions.                                                                                                                                                                                                                                                             |
 | A5    | `refactor/catalogue-redesign-05-import-pipeline` | Landed. Shared import tables, `start_catalogue_import` and `cancel_catalogue_import`, `lib/catalogue-import/` with course and structure adapters ported from history, one queue consumer, inline processing when the queue is disabled, directory refresh for all five kinds, and admin directory and run pages under `/admin/<kind>` and `/admin/<kind>/imports`. Verified against ANU live: 3012 courses and 393 programmes listed; three courses and one programme imported. Large programmes exhaust `gemini-2.5-flash-lite`'s output budget and fall back to deterministic data; choose a larger-output model for those.                                                      |
 | A6    | `refactor/catalogue-redesign-06-review`          | Landed. `catalogue_import_changes` holds one row per differing field or section (scalars individually; collections and requirement rules as whole sections) and one per parser flag. `resolve_catalogue_import_change`, `catalogue_publish_blockers`, `publish_catalogue_snapshot` and `unpublish_catalogue_item_year` are the gate; publishing clears the draft pointer. Apply builds a merged draft from the baseline plus accepted changes and refuses a stale baseline. The record page at `/admin/<kind>/<code>?year=` shows reviews and history with Publish. Decisions: one kind per run; a blocking flag needs a note to acknowledge; rejected changes are not remembered. |

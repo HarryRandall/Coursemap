@@ -11,34 +11,34 @@ as $$
 declare
   selected_item_id bigint;
   selected_year_id bigint;
-  selected_item_year_id bigint;
+  selected_record_id bigint;
 begin
   insert into public.academic_years (year)
   values (p_year)
   on conflict (year) do nothing;
 
-  insert into public.catalogue_items (kind, code)
+  insert into public.catalogue_codes (kind, code)
   values (p_kind, p_code)
   on conflict (kind, code) do nothing;
 
   select items.id into selected_item_id
-  from public.catalogue_items as items
+  from public.catalogue_codes as items
   where items.kind = p_kind and items.code = p_code;
 
   select years.id into selected_year_id
   from public.academic_years as years
   where years.year = p_year;
 
-  insert into public.catalogue_item_years (item_id, kind, academic_year_id)
+  insert into public.catalogue_records (code_id, kind, academic_year_id)
   values (selected_item_id, p_kind, selected_year_id)
-  on conflict (item_id, academic_year_id) do nothing;
+  on conflict (code_id, academic_year_id) do nothing;
 
-  select item_years.id into selected_item_year_id
-  from public.catalogue_item_years as item_years
-  where item_years.item_id = selected_item_id
+  select item_years.id into selected_record_id
+  from public.catalogue_records as item_years
+  where item_years.code_id = selected_item_id
     and item_years.academic_year_id = selected_year_id;
 
-  return selected_item_year_id;
+  return selected_record_id;
 end;
 $$;
 
@@ -57,25 +57,25 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  selected_item_year_id bigint := pg_temp.catalogue_item_year('course', p_code, p_year);
+  selected_record_id bigint := pg_temp.catalogue_item_year('course', p_code, p_year);
   created_snapshot_id bigint;
 begin
-  insert into public.catalogue_snapshots (
-    item_year_id, kind, academic_year_id, origin, content_hash
+  insert into public.catalogue_versions (
+    record_id, kind, academic_year_id, origin, content_hash
   )
   select
-    selected_item_year_id,
+    selected_record_id,
     'course',
     item_years.academic_year_id,
     'manual',
     md5(p_code || ':' || p_year::text || ':' || clock_timestamp()::text)
       || md5(p_title)
-  from public.catalogue_item_years as item_years
-  where item_years.id = selected_item_year_id
+  from public.catalogue_records as item_years
+  where item_years.id = selected_record_id
   returning id into created_snapshot_id;
 
-  insert into public.course_snapshot_details (
-    snapshot_id, title, unit_value_kind, units, minimum_units, maximum_units,
+  insert into public.course_version_details (
+    version_id, title, unit_value_kind, units, minimum_units, maximum_units,
     level, subject_code, offering_status
   ) values (
     created_snapshot_id, p_title, p_unit_value_kind, p_units, p_minimum_units,
@@ -86,18 +86,18 @@ begin
 end;
 $$;
 
-create function pg_temp.publish_snapshot(p_snapshot_id bigint)
+create function pg_temp.publish_snapshot(p_version_id bigint)
 returns bigint
 language plpgsql
 set search_path = ''
 as $$
 begin
-  update public.catalogue_item_years as item_years
-  set published_snapshot_id = p_snapshot_id
-  from public.catalogue_snapshots as snapshots
-  where snapshots.id = p_snapshot_id
-    and item_years.id = snapshots.item_year_id;
-  return p_snapshot_id;
+  update public.catalogue_records as item_years
+  set published_version_id = p_version_id
+  from public.catalogue_versions as snapshots
+  where snapshots.id = p_version_id
+    and item_years.id = snapshots.record_id;
+  return p_version_id;
 end;
 $$;
 
@@ -136,25 +136,25 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  selected_item_year_id bigint := pg_temp.catalogue_item_year(p_kind, p_code, p_year);
+  selected_record_id bigint := pg_temp.catalogue_item_year(p_kind, p_code, p_year);
   created_snapshot_id bigint;
 begin
-  insert into public.catalogue_snapshots (
-    item_year_id, kind, academic_year_id, origin, content_hash
+  insert into public.catalogue_versions (
+    record_id, kind, academic_year_id, origin, content_hash
   )
   select
-    selected_item_year_id,
+    selected_record_id,
     p_kind,
     item_years.academic_year_id,
     'manual',
     md5(p_code || ':' || p_year::text || ':' || clock_timestamp()::text)
       || md5(p_name)
-  from public.catalogue_item_years as item_years
-  where item_years.id = selected_item_year_id
+  from public.catalogue_records as item_years
+  where item_years.id = selected_record_id
   returning id into created_snapshot_id;
 
-  insert into public.structure_snapshot_details (
-    snapshot_id, kind, name, units, duration_years
+  insert into public.structure_version_details (
+    version_id, kind, name, units, duration_years
   ) values (created_snapshot_id, p_kind, p_name, p_units, p_duration_years);
 
   return created_snapshot_id;

@@ -1,9 +1,9 @@
 begin;
 
 -- Review of import candidates. Each target records the differences between
--- its baseline and candidate snapshots as changes, and the parser's review
--- items as flags. Applying accepted changes produces a new draft; publishing
--- moves the draft pointer once no blocking flag is open.
+-- its baseline and candidate versions as changes, and the parser's review
+-- items as flags. Applying accepted changes identifies the immutable version
+-- that may be published once no blocking flag is open.
 
 create table public.catalogue_import_changes (
   id bigint generated always as identity primary key,
@@ -63,11 +63,11 @@ grant select, insert, update, delete on table public.catalogue_import_changes to
 
 -- Applying a candidate records which snapshot the review produced.
 alter table public.catalogue_import_targets
-  add column applied_snapshot_id bigint,
+  add column applied_version_id bigint,
   add column applied_at timestamptz,
   add constraint catalogue_import_targets_applied_fkey
-    foreign key (applied_snapshot_id, item_year_id)
-    references public.catalogue_snapshots (id, item_year_id);
+    foreign key (applied_version_id, record_id)
+    references public.catalogue_versions (id, record_id);
 
 -- Resolution ---------------------------------------------------------------------------
 
@@ -132,8 +132,8 @@ grant execute on function public.resolve_catalogue_import_change(bigint, text, t
 
 -- Publication gate ---------------------------------------------------------------------
 
--- Reasons the draft of an item year cannot be published, empty when it can.
-create or replace function public.catalogue_publish_blockers(p_item_year_id bigint)
+-- Reasons the latest applied version cannot be published, empty when it can.
+create or replace function public.catalogue_publish_blockers(p_record_id bigint)
 returns text[]
 language sql
 stable
@@ -141,25 +141,37 @@ security definer
 set search_path = ''
 as $function$
   with item_year as (
-    select * from public.catalogue_item_years where id = p_item_year_id
+    select * from public.catalogue_records where id = p_record_id
   ),
-  draft as (
-    select snapshots.* from public.catalogue_snapshots as snapshots
-    join item_year on item_year.draft_snapshot_id = snapshots.id
+  publishable_version as (
+    select versions.*
+    from public.catalogue_versions as versions
+    join item_year on item_year.id = versions.record_id
+    left join public.catalogue_import_targets as targets
+      on targets.id = versions.import_target_id
+    where versions.sealed_at is not null
+      and (
+        versions.import_target_id is null
+        or targets.applied_version_id = versions.id
+      )
+    order by versions.created_at desc, versions.id desc
+    limit 1
   )
   select array_remove(array[
     case when not exists (select 1 from item_year) then 'The record does not exist.' end,
     case when exists (select 1 from item_year where archived_at is not null) then 'The record is archived.' end,
-    case when exists (select 1 from item_year where draft_snapshot_id is null) then 'There is no draft to publish.' end,
+    case when not exists (select 1 from publishable_version) then 'There is no version to publish.' end,
 
     case when exists (
-      select 1 from draft
-      join public.catalogue_import_changes as changes on changes.target_id = draft.import_target_id
+      select 1 from publishable_version
+      join public.catalogue_import_changes as changes
+        on changes.target_id = publishable_version.import_target_id
       where changes.entry_kind = 'flag' and changes.is_blocking and changes.status = 'open'
-    ) then 'A blocking flag on the draft is still open.' end,
+    ) then 'A blocking flag on the version is still open.' end,
     case when exists (
-      select 1 from draft
-      join public.catalogue_import_changes as changes on changes.target_id = draft.import_target_id
+      select 1 from publishable_version
+      join public.catalogue_import_changes as changes
+        on changes.target_id = publishable_version.import_target_id
       where changes.entry_kind = 'change' and changes.status = 'open'
     ) then 'The import review still has open changes.' end
   ], null);
@@ -168,7 +180,7 @@ $function$;
 revoke all on function public.catalogue_publish_blockers(bigint) from public, anon;
 grant execute on function public.catalogue_publish_blockers(bigint) to authenticated;
 
-create or replace function public.publish_catalogue_snapshot(p_item_year_id bigint)
+create or replace function public.publish_catalogue_version(p_record_id bigint)
 returns bigint
 language plpgsql
 security definer
@@ -176,7 +188,7 @@ set search_path = ''
 as $function$
 declare
   blockers text[];
-  draft_id bigint;
+  version_id bigint;
 begin
   if (select auth.uid()) is null then
     raise exception using errcode = '28000', message = 'Authentication is required.';
@@ -185,28 +197,37 @@ begin
     raise exception using errcode = '42501', message = 'Publishing requires the catalogue.write permission.';
   end if;
 
-  perform 1 from public.catalogue_item_years where id = p_item_year_id for update;
-  blockers := public.catalogue_publish_blockers(p_item_year_id);
+  perform 1 from public.catalogue_records where id = p_record_id for update;
+  blockers := public.catalogue_publish_blockers(p_record_id);
   if cardinality(blockers) > 0 then
     raise exception using errcode = '55000', message = array_to_string(blockers, ' ');
   end if;
 
-  -- A draft exists only while it differs from what is published, so
-  -- publishing moves the pointer and clears the draft.
-  update public.catalogue_item_years
-  set published_snapshot_id = draft_snapshot_id,
-      draft_snapshot_id = null
-  where id = p_item_year_id
-  returning published_snapshot_id into draft_id;
-  return draft_id;
+  select versions.id
+  into version_id
+  from public.catalogue_versions as versions
+  left join public.catalogue_import_targets as targets
+    on targets.id = versions.import_target_id
+  where versions.record_id = p_record_id
+    and versions.sealed_at is not null
+    and (
+      versions.import_target_id is null
+      or targets.applied_version_id = versions.id
+    )
+  order by versions.created_at desc, versions.id desc
+  limit 1;
+
+  update public.catalogue_records
+  set published_version_id = version_id
+  where id = p_record_id;
+  return version_id;
 end;
 $function$;
 
-revoke all on function public.publish_catalogue_snapshot(bigint) from public, anon;
-grant execute on function public.publish_catalogue_snapshot(bigint) to authenticated;
+revoke all on function public.publish_catalogue_version(bigint) from public, anon;
+grant execute on function public.publish_catalogue_version(bigint) to authenticated;
 
--- Withdraws the published snapshot; the draft pointer is unchanged.
-create or replace function public.unpublish_catalogue_item_year(p_item_year_id bigint)
+create or replace function public.unpublish_catalogue_record(p_record_id bigint)
 returns void
 language plpgsql
 security definer
@@ -219,16 +240,16 @@ begin
   if not private.has_permission('catalogue.write') then
     raise exception using errcode = '42501', message = 'Publishing requires the catalogue.write permission.';
   end if;
-  update public.catalogue_item_years
-  set published_snapshot_id = null
-  where id = p_item_year_id and published_snapshot_id is not null;
+  update public.catalogue_records
+  set published_version_id = null
+  where id = p_record_id and published_version_id is not null;
   if not found then
     raise exception using errcode = '55000', message = 'Nothing is published for this record.';
   end if;
 end;
 $function$;
 
-revoke all on function public.unpublish_catalogue_item_year(bigint) from public, anon;
-grant execute on function public.unpublish_catalogue_item_year(bigint) to authenticated;
+revoke all on function public.unpublish_catalogue_record(bigint) from public, anon;
+grant execute on function public.unpublish_catalogue_record(bigint) to authenticated;
 
 commit;

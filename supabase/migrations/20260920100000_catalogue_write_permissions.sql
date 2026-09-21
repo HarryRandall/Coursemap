@@ -4,9 +4,9 @@
 -- returned true for anyone holding courses.read_drafts or catalogue.read_drafts,
 -- and the default `user` role granted to every sign-up holds both. Combined with
 -- insert and update grants to `authenticated`, any signed-in account could create
--- catalogue items, seal snapshots and move published_snapshot_id -- publishing
+-- catalogue items, seal snapshots and move published_version_id -- publishing
 -- arbitrary content to the anonymous catalogue and bypassing the publication gate
--- in publish_catalogue_snapshot() entirely.
+-- in publish_catalogue_version() entirely.
 --
 -- Reading drafts and writing content are now separate helpers. No application
 -- code depends on the revoked grants: every mutation runs through a SECURITY
@@ -47,19 +47,19 @@ grant execute on function private.can_write_catalogue() to authenticated;
 grant execute on function private.can_read_catalogue_drafts() to anon, authenticated;
 
 -- Read helpers follow the draft-reading side.
-create or replace function private.can_read_snapshot(p_snapshot_id bigint)
+create or replace function private.can_read_version(p_version_id bigint)
 returns boolean
 language sql
 stable
 security definer
 set search_path = ''
 as $function$
-  select private.is_published_snapshot(p_snapshot_id)
+  select private.is_published_version(p_version_id)
     or private.can_read_catalogue_drafts()
     or exists (
       select 1
       from public.course_attempts as attempts
-      where attempts.course_snapshot_id = p_snapshot_id
+      where attempts.catalogue_version_id = p_version_id
         and attempts.owner_id = (select auth.uid())
     );
 $function$;
@@ -74,51 +74,56 @@ as $function$
   select private.can_read_catalogue_drafts()
     or exists (
       select 1
-      from public.catalogue_item_years as item_years
-      where item_years.item_id = p_item_id
-        and item_years.published_snapshot_id is not null
+      from public.catalogue_records as item_years
+      where item_years.code_id = p_item_id
+        and item_years.published_version_id is not null
         and item_years.archived_at is null
     )
     or exists (
       select 1
       from public.requirement_conditions as conditions
-      where conditions.item_id = p_item_id
-        and private.is_published_snapshot(conditions.snapshot_id)
+      where conditions.code_id = p_item_id
+        and private.is_published_version(conditions.version_id)
     )
     or exists (
       select 1
       from public.requirement_condition_options as options
-      where options.item_id = p_item_id
-        and private.is_published_snapshot(options.snapshot_id)
+      where options.code_id = p_item_id
+        and private.is_published_version(options.version_id)
     )
     or exists (
       select 1
       from public.requirement_item_references as item_references
-      where item_references.item_id = p_item_id
-        and private.is_published_snapshot(item_references.snapshot_id)
+      where item_references.code_id = p_item_id
+        and private.is_published_version(item_references.version_id)
     )
     or exists (
       select 1
       from public.course_related_courses as related
       where related.related_course_id = p_item_id
-        and private.is_published_snapshot(related.snapshot_id)
+        and private.is_published_version(related.version_id)
     )
     or exists (
       select 1
       from public.course_attempts as attempts
-      where attempts.course_id = p_item_id
+      join public.catalogue_versions as versions
+        on versions.id = attempts.catalogue_version_id
+      join public.catalogue_records as records on records.id = versions.record_id
+      where records.code_id = p_item_id
         and attempts.owner_id = (select auth.uid())
     )
     or exists (
       select 1
       from public.plan_items
-      where plan_items.course_id = p_item_id
+      join public.catalogue_records as records
+        on records.id = plan_items.catalogue_record_id
+      where records.code_id = p_item_id
         and plan_items.owner_id = (select auth.uid())
     );
 $function$;
 
 -- The admin preview projection is a read, so it follows the draft-reading side.
-create or replace function public.admin_snapshot_projection(p_snapshot_id bigint)
+create or replace function public.admin_catalogue_version_projection(p_version_id bigint)
 returns jsonb
 language plpgsql
 stable
@@ -131,45 +136,45 @@ begin
   if not private.can_read_catalogue_drafts() then
     raise exception using errcode = '42501', message = 'Catalogue permission is required.';
   end if;
-  select kind into snapshot_kind from public.catalogue_snapshots where id = p_snapshot_id;
+  select kind into snapshot_kind from public.catalogue_versions where id = p_version_id;
   if snapshot_kind is null then
     raise exception using errcode = 'P0002', message = 'The snapshot does not exist.';
   end if;
   if snapshot_kind <> 'course' then
     return null;
   end if;
-  return private.course_snapshot_projection(p_snapshot_id)
-    || jsonb_build_object('snapshotId', p_snapshot_id);
+  return private.course_version_projection(p_version_id)
+    || jsonb_build_object('snapshotId', p_version_id);
 end;
 $function$;
 
 -- Identity and year write policies.
-drop policy catalogue_items_admin_write on public.catalogue_items;
-create policy catalogue_items_admin_write
-on public.catalogue_items
+drop policy catalogue_codes_admin_write on public.catalogue_codes;
+create policy catalogue_codes_admin_write
+on public.catalogue_codes
 for all
 to authenticated
 using ((select private.can_write_catalogue()))
 with check ((select private.can_write_catalogue()));
 
-drop policy catalogue_item_years_admin_write on public.catalogue_item_years;
-create policy catalogue_item_years_admin_write
-on public.catalogue_item_years
+drop policy catalogue_records_admin_write on public.catalogue_records;
+create policy catalogue_records_admin_write
+on public.catalogue_records
 for all
 to authenticated
 using ((select private.can_write_catalogue()))
 with check ((select private.can_write_catalogue()));
 
 -- Read policies that named the old helper directly.
-drop policy catalogue_item_years_read on public.catalogue_item_years;
-create policy catalogue_item_years_read
-on public.catalogue_item_years
+drop policy catalogue_records_read on public.catalogue_records;
+create policy catalogue_records_read
+on public.catalogue_records
 for select
 to anon, authenticated
 using (
-  (published_snapshot_id is not null and archived_at is null)
+  (published_version_id is not null and archived_at is null)
   or (select private.can_read_catalogue_drafts())
-  or (select private.can_read_catalogue_item(item_id))
+  or (select private.can_read_catalogue_item(code_id))
 );
 
 drop policy catalogue_publications_read on public.catalogue_publications;
@@ -178,7 +183,7 @@ on public.catalogue_publications
 for select
 to anon, authenticated
 using (
-  (snapshot_id is not null and (select private.is_published_snapshot(snapshot_id)))
+  (version_id is not null and (select private.is_published_version(version_id)))
   or (select private.can_read_catalogue_drafts())
 );
 
@@ -188,10 +193,10 @@ declare
   child text;
 begin
   foreach child in array array[
-    'catalogue_snapshots',
-    'course_snapshot_details',
-    'structure_snapshot_details',
-    'snapshot_field_evidence',
+    'catalogue_versions',
+    'course_version_details',
+    'structure_version_details',
+    'catalogue_version_provenance',
     'course_offerings',
     'offering_sessions',
     'course_learning_outcomes',
@@ -225,15 +230,15 @@ $$;
 
 -- Nothing in the application writes these tables through PostgREST.
 revoke insert, update on table
-  public.catalogue_items,
-  public.catalogue_item_years
+  public.catalogue_codes,
+  public.catalogue_records
 from authenticated;
 
 revoke insert on table
-  public.catalogue_snapshots,
-  public.course_snapshot_details,
-  public.structure_snapshot_details,
-  public.snapshot_field_evidence,
+  public.catalogue_versions,
+  public.course_version_details,
+  public.structure_version_details,
+  public.catalogue_version_provenance,
   public.requirement_rules,
   public.requirement_groups,
   public.requirement_conditions,

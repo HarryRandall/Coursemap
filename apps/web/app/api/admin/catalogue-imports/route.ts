@@ -5,7 +5,7 @@ import {
   processImportRunInline,
 } from "@/lib/catalogue-import/queue";
 import { adapterForKind } from "@/lib/catalogue-import/process-target";
-import { isCatalogueKind } from "@/lib/catalogue-import/snapshot-write";
+import { isCatalogueKind } from "@/lib/catalogue/content";
 import { loadImportModelSetting } from "@/lib/admin/settings";
 import { createClient } from "@/lib/supabase/server";
 

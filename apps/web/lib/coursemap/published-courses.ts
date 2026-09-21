@@ -45,7 +45,7 @@ type SnapshotListRow = {
   offering_status: string;
   prescribed_texts: string | null;
   school: string | null;
-  snapshot_id: number;
+  version_id: number;
   source_updated_at: string | null;
   subject_code: string | null;
   subject_name: string | null;
@@ -56,7 +56,7 @@ type SnapshotListRow = {
   workload_text: string | null;
 };
 type OfferingRow = {
-  snapshot_id: number;
+  version_id: number;
   delivery_mode: string | null;
   id: number;
   location: string | null;
@@ -68,7 +68,7 @@ type OfferingSessionRow = {
   class_number: string | null;
   class_summary_url: string | null;
   course_offering_id: number;
-  snapshot_id: number | null;
+  version_id: number | null;
   delivery_mode: string | null;
   ends_on: string | null;
   enrol_closes_on: string | null;
@@ -78,7 +78,7 @@ type OfferingSessionRow = {
 };
 type RuleRow = {
   confidence: number;
-  snapshot_id: number | null;
+  version_id: number | null;
   id: number;
   review_state: string;
   rule_kind: string;
@@ -86,15 +86,15 @@ type RuleRow = {
 };
 type RuleReferenceRow = {
   rule_id: number;
-  item_id: number;
+  code_id: number;
 };
 type RuleConditionRow = {
   rule_id: number;
-  item_id: number | null;
+  code_id: number | null;
 };
 
 const SNAPSHOT_LIST_SELECT =
-  "snapshot_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
+  "version_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
 
 export type PublishedCourseFilters = {
   query?: string;
@@ -927,12 +927,12 @@ async function loadAcademicYearOptionsUncached(): Promise<
   return Promise.all(
     ((years ?? []) as AcademicYearRow[]).map(async (year) => {
       const { count, error: countError } = await supabase
-        .from("catalogue_item_years")
+        .from("catalogue_records")
         .select("id", { count: "exact", head: true })
         .eq("academic_year_id", year.id)
         .eq("kind", "course")
         .is("archived_at", null)
-        .not("published_snapshot_id", "is", null);
+        .not("published_version_id", "is", null);
       if (countError) throw countError;
       return { year: year.year, hasPublishedCourses: (count ?? 0) > 0 };
     }),
@@ -968,14 +968,14 @@ async function snapshotIdsForSession(
 ) {
   const { data, error } = await supabase
     .from("offering_sessions")
-    .select("snapshot_id")
+    .select("version_id")
     .eq("academic_year_id", yearId)
     .eq("academic_period_name", session);
   if (error) throw error;
   return [
     ...new Set(
       (data ?? []).flatMap((row) =>
-        row.snapshot_id === null ? [] : [row.snapshot_id],
+        row.version_id === null ? [] : [row.version_id],
       ),
     ),
   ];
@@ -986,17 +986,17 @@ async function loadListRelationships(
   snapshots: SnapshotListRow[],
   year: AcademicYearRow,
 ) {
-  const snapshotIds = snapshots.map((snapshot) => snapshot.snapshot_id);
+  const snapshotIds = snapshots.map((snapshot) => snapshot.version_id);
   if (snapshotIds.length === 0) return [];
   const [offeringsResult, rulesResult] = await Promise.all([
     supabase
       .from("course_offerings")
-      .select("id,snapshot_id,delivery_mode,location")
-      .in("snapshot_id", snapshotIds),
+      .select("id,version_id,delivery_mode,location")
+      .in("version_id", snapshotIds),
     supabase
       .from("requirement_rules")
-      .select("id,snapshot_id,rule_kind,source_text,confidence,review_state")
-      .in("snapshot_id", snapshotIds)
+      .select("id,version_id,rule_kind,source_text,confidence,review_state")
+      .in("version_id", snapshotIds)
       .in("rule_kind", ["prerequisite", "incompatibility"]),
   ]);
   if (offeringsResult.error) throw offeringsResult.error;
@@ -1011,23 +1011,23 @@ async function loadListRelationships(
         ? supabase
             .from("offering_sessions")
             .select(
-              "course_offering_id,snapshot_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
+              "course_offering_id,version_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
             )
             .in("course_offering_id", offeringIds)
         : Promise.resolve({ data: [], error: null }),
       ruleIds.length
         ? supabase
             .from("requirement_item_references")
-            .select("rule_id,item_id")
+            .select("rule_id,code_id")
             .in("rule_id", ruleIds)
         : Promise.resolve({ data: [], error: null }),
       ruleIds.length
         ? supabase
             .from("requirement_conditions")
-            .select("rule_id,item_id")
+            .select("rule_id,code_id")
             .in("rule_id", ruleIds)
             .eq("condition_kind", "course")
-            .not("item_id", "is", null)
+            .not("code_id", "is", null)
         : Promise.resolve({ data: [], error: null }),
     ]);
   if (sessionsResult.error) throw sessionsResult.error;
@@ -1037,28 +1037,28 @@ async function loadListRelationships(
   const conditions = (conditionsResult.data ?? []) as RuleConditionRow[];
   const referencedIds = [
     ...new Set([
-      ...references.map((reference) => reference.item_id),
+      ...references.map((reference) => reference.code_id),
       ...conditions.flatMap((condition) =>
-        condition.item_id === null ? [] : [condition.item_id],
+        condition.code_id === null ? [] : [condition.code_id],
       ),
     ]),
   ];
   const [referencedResult, publishedReferencesResult] = await Promise.all([
     referencedIds.length
       ? supabase
-          .from("catalogue_items")
+          .from("catalogue_codes")
           .select("id,code")
           .in("id", referencedIds)
       : Promise.resolve({ data: [], error: null }),
     referencedIds.length
       ? supabase
-          .from("catalogue_item_years")
-          .select("item_id")
+          .from("catalogue_records")
+          .select("code_id")
           .eq("academic_year_id", year.id)
           .eq("kind", "course")
           .is("archived_at", null)
-          .in("item_id", referencedIds)
-          .not("published_snapshot_id", "is", null)
+          .in("code_id", referencedIds)
+          .not("published_version_id", "is", null)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (referencedResult.error) throw referencedResult.error;
@@ -1071,46 +1071,46 @@ async function loadListRelationships(
     ]),
   );
   const publishedReferenceIds = new Set(
-    (publishedReferencesResult.data ?? []).map((row) => row.item_id),
+    (publishedReferencesResult.data ?? []).map((row) => row.code_id),
   );
   const offeringBySnapshot = new Map(
-    offerings.map((offering) => [offering.snapshot_id, offering]),
+    offerings.map((offering) => [offering.version_id, offering]),
   );
   const sessions = (sessionsResult.data ?? []) as OfferingSessionRow[];
   const sessionsBySnapshot = new Map<number, OfferingSessionRow[]>();
   for (const session of sessions) {
-    if (session.snapshot_id === null) continue;
-    const existing = sessionsBySnapshot.get(session.snapshot_id) ?? [];
+    if (session.version_id === null) continue;
+    const existing = sessionsBySnapshot.get(session.version_id) ?? [];
     existing.push(session);
-    sessionsBySnapshot.set(session.snapshot_id, existing);
+    sessionsBySnapshot.set(session.version_id, existing);
   }
   const rulesBySnapshot = new Map<number, RuleRow[]>();
   for (const rule of rules) {
-    if (rule.snapshot_id === null) continue;
-    const existing = rulesBySnapshot.get(rule.snapshot_id) ?? [];
+    if (rule.version_id === null) continue;
+    const existing = rulesBySnapshot.get(rule.version_id) ?? [];
     existing.push(rule);
-    rulesBySnapshot.set(rule.snapshot_id, existing);
+    rulesBySnapshot.set(rule.version_id, existing);
   }
   const referencedIdsByRule = new Map<number, Set<number>>();
   for (const reference of references) {
     const existing =
       referencedIdsByRule.get(reference.rule_id) ?? new Set<number>();
-    existing.add(reference.item_id);
+    existing.add(reference.code_id);
     referencedIdsByRule.set(reference.rule_id, existing);
   }
   for (const condition of conditions) {
-    if (condition.item_id === null) continue;
+    if (condition.code_id === null) continue;
     const existing =
       referencedIdsByRule.get(condition.rule_id) ?? new Set<number>();
-    existing.add(condition.item_id);
+    existing.add(condition.code_id);
     referencedIdsByRule.set(condition.rule_id, existing);
   }
 
   return snapshots.flatMap((snapshot) => {
     const code = snapshot.code;
-    const snapshotSessions = sessionsBySnapshot.get(snapshot.snapshot_id) ?? [];
-    const offering = offeringBySnapshot.get(snapshot.snapshot_id);
-    const snapshotRules = rulesBySnapshot.get(snapshot.snapshot_id) ?? [];
+    const snapshotSessions = sessionsBySnapshot.get(snapshot.version_id) ?? [];
+    const offering = offeringBySnapshot.get(snapshot.version_id);
+    const snapshotRules = rulesBySnapshot.get(snapshot.version_id) ?? [];
     const prerequisiteRules = snapshotRules.filter(
       (rule) => rule.rule_kind === "prerequisite",
     );
@@ -1163,7 +1163,7 @@ async function loadListRelationships(
         attributes: [],
         availableCourseCodes: availableCodes,
         code,
-        snapshotId: snapshot.snapshot_id,
+        snapshotId: snapshot.version_id,
         college: snapshot.college,
         convener: snapshot.convener_text ?? "Not listed",
         corequisiteText: "",
@@ -1276,7 +1276,7 @@ async function loadPublishedCoursePageUncached({
     snapshotsQuery = snapshotsQuery.eq("level", level * 1000);
   }
   if (sessionSnapshotIds) {
-    snapshotsQuery = snapshotsQuery.in("snapshot_id", sessionSnapshotIds);
+    snapshotsQuery = snapshotsQuery.in("version_id", sessionSnapshotIds);
   }
   if (cleanedQuery) {
     const pattern = `*${cleanedQuery}*`;

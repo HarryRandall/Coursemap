@@ -54,8 +54,7 @@ for (const grade of ["WD", "WL"]) {
       course_attempts: [
         {
           id: "withdrawal",
-          course_id: 1,
-          course_snapshot_id: 10,
+          catalogue_version_id: 10,
           academic_period_id: 1,
           status: "withdrawn",
           grade,
@@ -64,9 +63,10 @@ for (const grade of ["WD", "WL"]) {
           units_earned: 0,
         },
       ],
-      catalogue_items: [{ id: 1, code: "COMP1100" }],
+      catalogue_codes: [{ id: 1, code: "COMP1100" }],
+      catalogue_records: [{ id: 5, code_id: 1, academic_year_id: 1 }],
       academic_periods: [{ id: 1, calendar_year: 2026, code: "S1" }],
-      catalogue_snapshots: [{ id: 10, academic_year_id: 1 }],
+      catalogue_versions: [{ id: 10, record_id: 5 }],
     };
     const state = await loadCoursemapState({ id: "owner", email: null });
     expect(state.attempts).toEqual([

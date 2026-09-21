@@ -11,7 +11,7 @@ export type RequisiteCompletionSnapshot = {
 };
 
 type AttemptRow = {
-  course_id: number;
+  catalogue_version_id: number;
   units_earned: number;
 };
 
@@ -35,18 +35,43 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
     const supabase = await createClient();
     const { data: attempts, error: attemptsError } = await supabase
       .from("course_attempts")
-      .select("course_id,units_earned")
+      .select("catalogue_version_id,units_earned")
       .eq("owner_id", viewer.id)
       .eq("status", "completed");
     if (attemptsError) throw attemptsError;
 
     const attemptRows = (attempts ?? []) as AttemptRow[];
-    const courseIds = [
-      ...new Set(attemptRows.map((attempt) => attempt.course_id)),
-    ];
+    const versionIds = attemptRows.map(
+      (attempt) => attempt.catalogue_version_id,
+    );
+    const { data: versions, error: versionsError } = versionIds.length
+      ? await supabase
+          .from("catalogue_versions")
+          .select("id,record_id")
+          .in("id", versionIds)
+      : { data: [], error: null };
+    if (versionsError) throw versionsError;
+    const recordIds = (versions ?? []).map((version) => version.record_id);
+    const { data: records, error: recordsError } = recordIds.length
+      ? await supabase
+          .from("catalogue_records")
+          .select("id,code_id")
+          .in("id", recordIds)
+      : { data: [], error: null };
+    if (recordsError) throw recordsError;
+    const codeIdByRecordId = new Map(
+      (records ?? []).map((record) => [record.id, record.code_id]),
+    );
+    const codeIdByVersionId = new Map(
+      (versions ?? []).map((version) => [
+        version.id,
+        codeIdByRecordId.get(version.record_id),
+      ]),
+    );
+    const courseIds = [...new Set(codeIdByRecordId.values())];
     const { data: courses, error: coursesError } = courseIds.length
       ? await supabase
-          .from("catalogue_items")
+          .from("catalogue_codes")
           .select("code,id")
           .in("id", courseIds)
       : { data: [], error: null };
@@ -60,7 +85,8 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
     );
     return {
       completedCourses: attemptRows.flatMap((attempt) => {
-        const code = codeByCourseId.get(attempt.course_id);
+        const codeId = codeIdByVersionId.get(attempt.catalogue_version_id);
+        const code = codeId ? codeByCourseId.get(codeId) : undefined;
         return code && attempt.units_earned > 0
           ? [{ code, units: attempt.units_earned }]
           : [];
@@ -98,29 +124,29 @@ async function loadEnrolledProgrammeCodes(
 
   const { data: planStructures, error: planStructuresError } = await supabase
     .from("plan_structures")
-    .select("structure_year_id")
+    .select("catalogue_record_id")
     .eq("plan_id", plan.id)
     .eq("role", "programme");
   if (planStructuresError) return [];
   const structureYearIds = (planStructures ?? []).map(
-    (row) => row.structure_year_id,
+    (row) => row.catalogue_record_id,
   );
   if (structureYearIds.length === 0) return [];
 
   const { data: structureYears, error: structureYearsError } = await supabase
-    .from("catalogue_item_years")
-    .select("item_id")
+    .from("catalogue_records")
+    .select("code_id")
     .in("id", structureYearIds);
   if (structureYearsError) return [];
   const structureIds = [
     ...new Set(
-      (structureYears ?? []).map((structureYear) => structureYear.item_id),
+      (structureYears ?? []).map((structureYear) => structureYear.code_id),
     ),
   ];
   if (structureIds.length === 0) return [];
 
   const { data: structures, error: structuresError } = await supabase
-    .from("catalogue_items")
+    .from("catalogue_codes")
     .select("code")
     .in("id", structureIds);
   if (structuresError) return [];

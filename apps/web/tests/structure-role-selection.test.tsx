@@ -29,11 +29,11 @@ const codeByYear = new Map([
 test("a plan keeps every selected minor and specialisation", () => {
   const codes = planStructureCodes(
     [
-      { role: "programme", structure_year_id: 1 },
-      { role: "major", structure_year_id: 2 },
-      { role: "minor", structure_year_id: 3 },
-      { role: "minor", structure_year_id: 4 },
-      { role: "specialisation", structure_year_id: 5 },
+      { role: "programme", catalogue_record_id: 1 },
+      { role: "major", catalogue_record_id: 2 },
+      { role: "minor", catalogue_record_id: 3 },
+      { role: "minor", catalogue_record_id: 4 },
+      { role: "specialisation", catalogue_record_id: 5 },
     ],
     codeByYear,
     { degreeCode: "FALLBACK" },
@@ -50,8 +50,8 @@ test("a plan keeps every selected minor and specialisation", () => {
 test("a structure with no resolvable code is dropped, not recorded blank", () => {
   const codes = planStructureCodes(
     [
-      { role: "minor", structure_year_id: 3 },
-      { role: "minor", structure_year_id: 6 },
+      { role: "minor", catalogue_record_id: 3 },
+      { role: "minor", catalogue_record_id: 6 },
     ],
     codeByYear,
     { degreeCode: "FALLBACK" },

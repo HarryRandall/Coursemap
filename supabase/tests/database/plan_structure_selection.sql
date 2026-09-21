@@ -88,7 +88,7 @@ from (
 ) as selected(kind, code);
 
 insert into public.academic_structure_snapshot_relationships (
-  snapshot_id,
+  version_id,
   position,
   relationship_kind,
   target_kind,
@@ -104,9 +104,9 @@ select
   selected.target_code,
   'Explicit programme structure option.',
   '#test-structure-option'
-from public.catalogue_snapshots as snapshots
-join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-join public.catalogue_items as items on items.id = item_years.item_id
+from public.catalogue_versions as snapshots
+join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+join public.catalogue_codes as items on items.id = item_years.code_id
 cross join (
   values
     (1, 'major'::text, 'PLAN-LINK-MAJOR'::text),
@@ -117,9 +117,9 @@ cross join (
 where items.code = 'PLAN-LINK-PROG';
 
 select pg_temp.publish_snapshot(snapshots.id)
-from public.catalogue_snapshots as snapshots
-join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-join public.catalogue_items as items on items.id = item_years.item_id
+from public.catalogue_versions as snapshots
+join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+join public.catalogue_codes as items on items.id = item_years.code_id
 where items.code like 'PLAN-LINK-%';
 
 select set_config(
@@ -151,10 +151,10 @@ select extensions.results_eq(
   $$
     select plan_structures.role, structures.code, plan_structures.position
     from public.plan_structures
-    join public.catalogue_item_years as structure_years
-      on structure_years.id = plan_structures.structure_year_id
-    join public.catalogue_items as structures
-      on structures.id = structure_years.item_id
+    join public.catalogue_records as structure_years
+      on structure_years.id = plan_structures.catalogue_record_id
+    join public.catalogue_codes as structures
+      on structures.id = structure_years.code_id
     where plan_structures.owner_id = '97000000-0000-4000-8000-000000000001'
     order by plan_structures.position
   $$,
@@ -190,10 +190,10 @@ select extensions.results_eq(
   $$
     select plan_structures.role, structures.code, plan_structures.position
     from public.plan_structures
-    join public.catalogue_item_years as structure_years
-      on structure_years.id = plan_structures.structure_year_id
-    join public.catalogue_items as structures
-      on structures.id = structure_years.item_id
+    join public.catalogue_records as structure_years
+      on structure_years.id = plan_structures.catalogue_record_id
+    join public.catalogue_codes as structures
+      on structures.id = structure_years.code_id
     where plan_structures.owner_id = '97000000-0000-4000-8000-000000000001'
     order by plan_structures.position
   $$,
@@ -259,23 +259,21 @@ select extensions.throws_ok(
     insert into public.plan_structures (
       plan_id,
       owner_id,
-      academic_year_id,
-      structure_year_id,
+      catalogue_record_id,
       role,
       position
     )
     select
       plans.id,
       plans.owner_id,
-      plans.academic_year_id,
       structure_years.id,
       'specialisation',
       99
     from public.plans
-    join public.catalogue_item_years as structure_years
+    join public.catalogue_records as structure_years
       on structure_years.academic_year_id = plans.academic_year_id
-    join public.catalogue_items as structures
-      on structures.id = structure_years.item_id
+    join public.catalogue_codes as structures
+      on structures.id = structure_years.code_id
     where plans.owner_id = '97000000-0000-4000-8000-000000000001'
       and structures.code = 'PLAN-LINK-MIN-A'
   $$,
@@ -289,23 +287,21 @@ select extensions.throws_ok(
     insert into public.plan_structures (
       plan_id,
       owner_id,
-      academic_year_id,
-      structure_year_id,
+      catalogue_record_id,
       role,
       position
     )
     select
       plans.id,
       plans.owner_id,
-      plans.academic_year_id,
       structure_years.id,
       'major',
       99
     from public.plans
-    join public.catalogue_item_years as structure_years
+    join public.catalogue_records as structure_years
       on structure_years.academic_year_id = plans.academic_year_id
-    join public.catalogue_items as structures
-      on structures.id = structure_years.item_id
+    join public.catalogue_codes as structures
+      on structures.id = structure_years.code_id
     where plans.owner_id = '97000000-0000-4000-8000-000000000001'
       and structures.code = 'PLAN-LINK-MAJOR'
   $$,

@@ -18,10 +18,10 @@ import {
   treeFromRequirementWrite,
 } from "@/lib/catalogue-import/requirement-tree";
 import type {
-  CatalogueSnapshotWrite,
+  CatalogueContent,
   RequirementRuleKind,
-} from "@/lib/catalogue-import/snapshot-write";
-import { saveManualSnapshotAction } from "@/lib/coursemap/admin-catalogue-actions";
+} from "@/lib/catalogue/content";
+import { saveManualVersionAction } from "@/lib/coursemap/admin-catalogue-actions";
 import { FIELD_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import {
   createEmptyTree,
@@ -42,7 +42,7 @@ const COURSE_RULES: RequirementRuleKind[] = [
 ];
 
 const COURSE_COLLECTIONS: Array<{
-  key: keyof NonNullable<CatalogueSnapshotWrite["course"]>;
+  key: keyof NonNullable<CatalogueContent["course"]>;
   template: Row;
 }> = [
   {
@@ -117,7 +117,7 @@ const COURSE_COLLECTIONS: Array<{
 ];
 
 const STRUCTURE_COLLECTIONS: Array<{
-  key: keyof NonNullable<CatalogueSnapshotWrite["structure"]>;
+  key: keyof NonNullable<CatalogueContent["structure"]>;
   template: Row;
 }> = [
   {
@@ -220,19 +220,19 @@ function labelsFor(prefix: string) {
  * draft. Course requisite rules use the tree editor; every other section is
  * a typed form over its rows.
  */
-export function SnapshotEditor({
+export function VersionEditor({
   initial,
-  itemYearId,
+  recordId,
   baseSnapshotId,
   path,
 }: {
-  initial: CatalogueSnapshotWrite;
-  itemYearId: number;
+  initial: CatalogueContent;
+  recordId: number;
   baseSnapshotId: number | null;
   path: string;
 }) {
   const router = useRouter();
-  const [write, setWrite] = useState<CatalogueSnapshotWrite>(initial);
+  const [write, setWrite] = useState<CatalogueContent>(initial);
   const [pending, startTransition] = useTransition();
   const dirty = useMemo(
     () => JSON.stringify(write) !== JSON.stringify(initial),
@@ -240,7 +240,7 @@ export function SnapshotEditor({
   );
 
   function updateCourse(
-    patch: Partial<NonNullable<CatalogueSnapshotWrite["course"]>>,
+    patch: Partial<NonNullable<CatalogueContent["course"]>>,
   ) {
     setWrite((current) =>
       current.course
@@ -249,7 +249,7 @@ export function SnapshotEditor({
     );
   }
   function updateStructure(
-    patch: Partial<NonNullable<CatalogueSnapshotWrite["structure"]>>,
+    patch: Partial<NonNullable<CatalogueContent["structure"]>>,
   ) {
     setWrite((current) =>
       current.structure
@@ -275,8 +275,8 @@ export function SnapshotEditor({
 
   function save() {
     startTransition(async () => {
-      const result = await saveManualSnapshotAction({
-        itemYearId,
+      const result = await saveManualVersionAction({
+        recordId,
         baseSnapshotId,
         write,
         path,
@@ -337,7 +337,7 @@ export function SnapshotEditor({
               onChange={(details) =>
                 updateCourse({
                   details: details as unknown as NonNullable<
-                    CatalogueSnapshotWrite["course"]
+                    CatalogueContent["course"]
                   >["details"],
                 })
               }
@@ -355,7 +355,7 @@ export function SnapshotEditor({
               onChange={(offering) =>
                 updateCourse({
                   offering: offering as NonNullable<
-                    CatalogueSnapshotWrite["course"]
+                    CatalogueContent["course"]
                   >["offering"],
                 })
               }
@@ -399,7 +399,7 @@ export function SnapshotEditor({
               onChange={(details) =>
                 updateStructure({
                   details: details as unknown as NonNullable<
-                    CatalogueSnapshotWrite["structure"]
+                    CatalogueContent["structure"]
                   >["details"],
                 })
               }
@@ -447,7 +447,7 @@ function RuleSection({
   onChange,
 }: {
   ruleKey: RequirementRuleKind;
-  requirements: CatalogueSnapshotWrite["requirements"];
+  requirements: CatalogueContent["requirements"];
   onChange: (tree: ReviewedRuleTree | null, sourceText: string) => void;
 }) {
   const rule = requirements.rules.find(

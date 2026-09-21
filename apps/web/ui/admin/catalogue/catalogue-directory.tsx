@@ -385,7 +385,7 @@ export function CatalogueDirectory({
                 const busy =
                   record.workflow === "queued" || record.workflow === "running";
                 const checked = selected.includes(record.code);
-                const href = record.itemYearPublicId
+                const href = record.recordPublicId
                   ? `${basePath}/${record.code}?year=${page.academicYear}`
                   : undefined;
                 return (

@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(30);
+select extensions.plan(34);
 
 -- Structure -------------------------------------------------------------------------
 
@@ -13,13 +13,13 @@ select extensions.is(
     from information_schema.tables
     where table_schema = 'public'
       and table_name in (
-        'catalogue_items',
-        'catalogue_item_years',
-        'catalogue_snapshots',
+        'catalogue_codes',
+        'catalogue_records',
+        'catalogue_versions',
         'catalogue_publications',
-        'course_snapshot_details',
-        'structure_snapshot_details',
-        'snapshot_field_evidence'
+        'course_version_details',
+        'structure_version_details',
+        'catalogue_version_provenance'
       )
   ),
   7::bigint,
@@ -46,13 +46,13 @@ select extensions.is(
       on namespaces.oid = relations.relnamespace
     where namespaces.nspname = 'public'
       and relations.relname in (
-        'catalogue_items',
-        'catalogue_item_years',
-        'catalogue_snapshots',
+        'catalogue_codes',
+        'catalogue_records',
+        'catalogue_versions',
         'catalogue_publications',
-        'course_snapshot_details',
-        'structure_snapshot_details',
-        'snapshot_field_evidence'
+        'course_version_details',
+        'structure_version_details',
+        'catalogue_version_provenance'
       )
       and relations.relrowsecurity
   ),
@@ -61,17 +61,38 @@ select extensions.is(
 );
 
 select extensions.throws_ok(
-  $$ insert into public.catalogue_items (kind, code) values ('course', 'not-a-code') $$,
+  $$ insert into public.catalogue_codes (kind, code) values ('course', 'not-a-code') $$,
   '23514',
   null,
   'course codes follow the ANU format'
 );
 
 select extensions.throws_ok(
-  $$ insert into public.catalogue_items (kind, code) values ('degree', 'X') $$,
+  $$ insert into public.catalogue_codes (kind, code) values ('degree', 'X') $$,
   '23514',
   null,
   'only the five catalogue kinds are accepted'
+);
+
+insert into public.catalogue_codes (kind, code)
+values
+  ('course', 'KIND1000'),
+  ('programme', 'KIND-PROG'),
+  ('major', 'KIND-MAJ'),
+  ('minor', 'KINDA-MIN'),
+  ('specialisation', 'KIND-SPEC');
+
+select extensions.is(
+  (select count(distinct kind) from public.catalogue_codes where code like 'KIND%'),
+  5::bigint,
+  'all five catalogue kinds share the code model'
+);
+
+select extensions.throws_ok(
+  $$ insert into public.catalogue_codes (kind, code) values ('course', 'KIND1000') $$,
+  '23505',
+  null,
+  'a typed catalogue code is unique'
 );
 
 -- Kind consistency --------------------------------------------------------------------
@@ -80,9 +101,22 @@ select pg_temp.catalogue_item_year('programme', 'FIX-PROG', 2029::smallint);
 
 select extensions.throws_ok(
   $$
-    insert into public.catalogue_item_years (item_id, kind, academic_year_id)
+    insert into public.catalogue_records (code_id, kind, academic_year_id)
+    select records.code_id, records.kind, records.academic_year_id
+    from public.catalogue_records as records
+    join public.catalogue_codes as codes on codes.id = records.code_id
+    where codes.code = 'FIX-PROG'
+  $$,
+  '23505',
+  null,
+  'a catalogue code has only one record in an academic year'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.catalogue_records (code_id, kind, academic_year_id)
     select items.id, 'course', years.id
-    from public.catalogue_items as items
+    from public.catalogue_codes as items
     cross join public.academic_years as years
     where items.code = 'FIX-PROG' and years.year = 2028
   $$,
@@ -95,11 +129,11 @@ select pg_temp.create_structure_snapshot('programme', 'FIX-PROG', 2029::smallint
 
 select extensions.throws_ok(
   $$
-    insert into public.course_snapshot_details (snapshot_id, title, units, level, subject_code)
+    insert into public.course_version_details (version_id, title, units, level, subject_code)
     select snapshots.id, 'Wrong kind', 6, 1000, 'FIXP'
-    from public.catalogue_snapshots as snapshots
-    join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    from public.catalogue_versions as snapshots
+    join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = 'FIX-PROG'
   $$,
   '23503',
@@ -113,10 +147,10 @@ select pg_temp.create_course_snapshot('FIXT1000', 2029::smallint, 'Fixture draft
 
 select extensions.lives_ok(
   $$
-    insert into public.course_fees (snapshot_id, position, fee_year, audience, fee_type, amount, currency, basis, source_label, source_text)
+    insert into public.course_fees (version_id, position, fee_year, audience, fee_type, amount, currency, basis, source_label, source_text)
     select snapshots.id, 1, 2029, 'domestic', 'indicative', 1000, 'AUD', 'course', 'Fee', 'Fee'
-    from public.catalogue_snapshots as snapshots
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+    from public.catalogue_versions as snapshots
+    join public.course_version_details as details on details.version_id = snapshots.id
     where details.title = 'Fixture draft'
   $$,
   'child rows can be assembled while a snapshot is unsealed'
@@ -126,8 +160,8 @@ select extensions.is(
   (
     select count(*)
     from public.catalogue_publications as publications
-    join public.catalogue_item_years as item_years on item_years.id = publications.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    join public.catalogue_records as item_years on item_years.id = publications.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = 'FIXT1000'
   ),
   0::bigint,
@@ -136,16 +170,16 @@ select extensions.is(
 
 select pg_temp.publish_snapshot((
   select snapshots.id
-  from public.catalogue_snapshots as snapshots
-  join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+  from public.catalogue_versions as snapshots
+  join public.course_version_details as details on details.version_id = snapshots.id
   where details.title = 'Fixture draft'
 ));
 
 select extensions.ok(
   (
     select snapshots.sealed_at is not null
-    from public.catalogue_snapshots as snapshots
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+    from public.catalogue_versions as snapshots
+    join public.course_version_details as details on details.version_id = snapshots.id
     where details.title = 'Fixture draft'
   ),
   'setting the published pointer seals the snapshot'
@@ -155,8 +189,8 @@ select extensions.is(
   (
     select count(*)
     from public.catalogue_publications as publications
-    join public.catalogue_snapshots as snapshots on snapshots.id = publications.snapshot_id
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+    join public.catalogue_versions as snapshots on snapshots.id = publications.version_id
+    join public.course_version_details as details on details.version_id = snapshots.id
     where details.title = 'Fixture draft'
   ),
   1::bigint,
@@ -165,10 +199,10 @@ select extensions.is(
 
 select extensions.throws_ok(
   $$
-    insert into public.course_fees (snapshot_id, position, fee_year, audience, fee_type, amount, currency, basis, source_label, source_text)
+    insert into public.course_fees (version_id, position, fee_year, audience, fee_type, amount, currency, basis, source_label, source_text)
     select snapshots.id, 2, 2029, 'domestic', 'indicative', 1000, 'AUD', 'course', 'Fee', 'Fee'
-    from public.catalogue_snapshots as snapshots
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+    from public.catalogue_versions as snapshots
+    join public.course_version_details as details on details.version_id = snapshots.id
     where details.title = 'Fixture draft'
   $$,
   '55000',
@@ -178,7 +212,7 @@ select extensions.throws_ok(
 
 select extensions.throws_ok(
   $$
-    update public.course_snapshot_details set title = 'Edited' where title = 'Fixture draft'
+    update public.course_version_details set title = 'Edited' where title = 'Fixture draft'
   $$,
   '55000',
   null,
@@ -186,14 +220,14 @@ select extensions.throws_ok(
 );
 
 select extensions.throws_ok(
-  $$ update public.catalogue_snapshots set origin = 'import' where kind = 'course' $$,
+  $$ update public.catalogue_versions set origin = 'import' where kind = 'course' $$,
   '55000',
   null,
   'sealed snapshots are immutable'
 );
 
 select extensions.throws_ok(
-  $$ delete from public.catalogue_snapshots where kind = 'course' $$,
+  $$ delete from public.catalogue_versions where kind = 'course' $$,
   '55000',
   null,
   'snapshots cannot be deleted'
@@ -201,69 +235,80 @@ select extensions.throws_ok(
 
 select pg_temp.create_course_snapshot('FIXT1000', 2029::smallint, 'Fixture revision');
 
-update public.catalogue_item_years as item_years
-set draft_snapshot_id = snapshots.id
-from public.catalogue_snapshots as snapshots
-join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
-where details.title = 'Fixture revision'
-  and item_years.id = snapshots.item_year_id;
+select extensions.lives_ok(
+  $$
+    insert into public.catalogue_versions (
+      record_id, kind, academic_year_id, origin, based_on_version_id, content_hash
+    )
+    select revisions.record_id, revisions.kind, revisions.academic_year_id,
+      'manual', originals.id, repeat('a', 64)
+    from public.catalogue_versions as revisions
+    join public.course_version_details as revision_details
+      on revision_details.version_id = revisions.id
+    join public.catalogue_versions as originals
+      on originals.record_id = revisions.record_id
+    join public.course_version_details as original_details
+      on original_details.version_id = originals.id
+    where revision_details.title = 'Fixture revision'
+      and original_details.title = 'Fixture draft'
+  $$,
+  'version lineage can reference an earlier version of the same record'
+);
 
 select extensions.ok(
   (
-    select snapshots.sealed_at is not null
-    from public.catalogue_snapshots as snapshots
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+    select versions.sealed_at is null
+    from public.catalogue_versions as versions
+    join public.course_version_details as details on details.version_id = versions.id
     where details.title = 'Fixture revision'
   ),
-  'setting the draft pointer also seals the snapshot'
+  'a new version remains mutable while it is assembled'
 );
 
 select extensions.is(
   (
     select count(*)
     from public.catalogue_publications as publications
-    join public.catalogue_item_years as item_years on item_years.id = publications.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    join public.catalogue_records as item_years on item_years.id = publications.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = 'FIXT1000'
   ),
   1::bigint,
-  'a draft pointer does not create a publication record'
+  'creating a new version does not publish it'
 );
 
-select extensions.throws_ok(
+select extensions.lives_ok(
   $$
-    update public.catalogue_item_years
-    set published_snapshot_id = draft_snapshot_id
-    where draft_snapshot_id is not null
+    select pg_temp.publish_snapshot((
+      select versions.id
+      from public.catalogue_versions as versions
+      join public.course_version_details as details on details.version_id = versions.id
+      where details.title = 'Fixture revision'
+    ))
   $$,
-  '23514',
-  null,
-  'a snapshot cannot be both the draft and the published version'
+  'publishing a new version seals it without a draft phase'
 );
-
-update public.catalogue_item_years
-set published_snapshot_id = draft_snapshot_id, draft_snapshot_id = null
-where draft_snapshot_id is not null;
 
 select extensions.is(
   (
-    select count(*)
+    select count(*) filter (where unpublished_at is not null) * 10
+      + count(*) filter (where unpublished_at is null)
     from public.catalogue_publications as publications
-    join public.catalogue_item_years as item_years on item_years.id = publications.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    join public.catalogue_records as item_years on item_years.id = publications.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = 'FIXT1000'
   ),
-  2::bigint,
-  'republishing appends to the ledger'
+  11::bigint,
+  'publishing a new version closes the old interval and opens the new one'
 );
 
 select extensions.throws_ok(
   $$
-    update public.catalogue_item_years
-    set published_snapshot_id = (
+    update public.catalogue_records
+    set published_version_id = (
       select snapshots.id
-      from public.catalogue_snapshots as snapshots
-      join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
+      from public.catalogue_versions as snapshots
+      join public.course_version_details as details on details.version_id = snapshots.id
       where details.title = 'Fixture draft'
     )
     where kind = 'programme'
@@ -295,16 +340,19 @@ values (
   'Catalogue test', true, 2029, 'full_time'
 );
 
-insert into public.plan_items (plan_id, owner_id, course_id, academic_year_id)
-select plans.id, plans.owner_id, items.id, plans.academic_year_id
+insert into public.plan_items (plan_id, owner_id, catalogue_record_id)
+select plans.id, plans.owner_id, item_years.id
 from public.plans
-join public.catalogue_items as items on items.code = 'FIXT2000'
+join public.catalogue_codes as items on items.code = 'FIXT2000'
+join public.catalogue_records as item_years
+  on item_years.code_id = items.id
+  and item_years.academic_year_id = plans.academic_year_id
 where plans.owner_id = '97000000-0000-4000-8000-000000000001';
 
 select extensions.throws_ok(
   $$
-    update public.catalogue_item_years set archived_at = now()
-    where item_id = (select id from public.catalogue_items where code = 'FIXT2000')
+    update public.catalogue_records set archived_at = now()
+    where code_id = (select id from public.catalogue_codes where code = 'FIXT2000')
   $$,
   '55000',
   null,
@@ -313,10 +361,13 @@ select extensions.throws_ok(
 
 select extensions.throws_ok(
   $$
-    insert into public.plan_items (plan_id, owner_id, course_id, academic_year_id)
-    select plans.id, plans.owner_id, items.id, plans.academic_year_id
+    insert into public.plan_items (plan_id, owner_id, catalogue_record_id)
+    select plans.id, plans.owner_id, item_years.id
     from public.plans
-    join public.catalogue_items as items on items.code = 'FIX-PROG'
+    join public.catalogue_codes as items on items.code = 'FIX-PROG'
+    join public.catalogue_records as item_years
+      on item_years.code_id = items.id
+      and item_years.academic_year_id = plans.academic_year_id
     where plans.owner_id = '97000000-0000-4000-8000-000000000001'
   $$,
   'P0002',
@@ -326,13 +377,13 @@ select extensions.throws_ok(
 
 delete from public.plan_items where owner_id = '97000000-0000-4000-8000-000000000001';
 
-update public.catalogue_item_years set archived_at = now()
-where item_id = (select id from public.catalogue_items where code = 'FIXT2000');
+update public.catalogue_records set archived_at = now()
+where code_id = (select id from public.catalogue_codes where code = 'FIXT2000');
 
 select extensions.throws_ok(
   $$
-    update public.catalogue_item_years set archived_at = null
-    where item_id = (select id from public.catalogue_items where code = 'FIXT2000')
+    update public.catalogue_records set archived_at = null
+    where code_id = (select id from public.catalogue_codes where code = 'FIXT2000')
   $$,
   '55000',
   null,
@@ -341,10 +392,13 @@ select extensions.throws_ok(
 
 select extensions.throws_ok(
   $$
-    insert into public.plan_items (plan_id, owner_id, course_id, academic_year_id)
-    select plans.id, plans.owner_id, items.id, plans.academic_year_id
+    insert into public.plan_items (plan_id, owner_id, catalogue_record_id)
+    select plans.id, plans.owner_id, item_years.id
     from public.plans
-    join public.catalogue_items as items on items.code = 'FIXT2000'
+    join public.catalogue_codes as items on items.code = 'FIXT2000'
+    join public.catalogue_records as item_years
+      on item_years.code_id = items.id
+      and item_years.academic_year_id = plans.academic_year_id
     where plans.owner_id = '97000000-0000-4000-8000-000000000001'
   $$,
   '55000',
@@ -360,32 +414,33 @@ insert into public.academic_periods (
 
 select extensions.throws_ok(
   $$
-    insert into public.course_attempts (owner_id, course_id, course_snapshot_id, academic_period_id, status, units_attempted)
+    insert into public.course_attempts (owner_id, catalogue_version_id, academic_period_id, status, units_attempted)
     select
       '97000000-0000-4000-8000-000000000001',
-      (select id from public.catalogue_items where code = 'FIXT1000'),
-      (select published_snapshot_id from public.catalogue_item_years where item_id = (select id from public.catalogue_items where code = 'FIXT2000')),
+      (select versions.id
+       from public.catalogue_versions as versions
+       join public.catalogue_records as records on records.id = versions.record_id
+       where records.kind = 'programme' limit 1),
       (select id from public.academic_periods where code = 'FIX-S1'),
       'completed',
       6
   $$,
   '23503',
   null,
-  'an attempt snapshot must belong to the attempted course'
+  'an attempt version must belong to a course record'
 );
 
 select extensions.lives_ok(
   $$
-    insert into public.course_attempts (owner_id, course_id, course_snapshot_id, academic_period_id, status, units_attempted)
+    insert into public.course_attempts (owner_id, catalogue_version_id, academic_period_id, status, units_attempted)
     select
       '97000000-0000-4000-8000-000000000001',
-      (select id from public.catalogue_items where code = 'FIXT1000'),
-      (select published_snapshot_id from public.catalogue_item_years where item_id = (select id from public.catalogue_items where code = 'FIXT1000')),
+      (select published_version_id from public.catalogue_records where code_id = (select id from public.catalogue_codes where code = 'FIXT1000')),
       (select id from public.academic_periods where code = 'FIX-S1'),
       'completed',
       6
   $$,
-  'an attempt records the published snapshot of its course'
+  'an attempt records an exact course version'
 );
 
 -- Access --------------------------------------------------------------------------------
@@ -396,14 +451,14 @@ set local role anon;
 
 select extensions.results_eq(
   $$
-    select code from public.catalogue_items where code like 'FIXT%' order by code
+    select code from public.catalogue_codes where code like 'FIXT%' order by code
   $$,
   $$ values ('FIXT1000'::text) $$,
   'anonymous readers see identities with a published, unarchived year only'
 );
 
 select extensions.is(
-  (select count(*) from public.course_snapshot_details where title in ('Fixture draft', 'Never published')),
+  (select count(*) from public.course_version_details where title in ('Fixture draft', 'Never published')),
   0::bigint,
   'anonymous readers cannot see superseded or unpublished snapshots'
 );

@@ -1,5 +1,5 @@
-import type { CourseSnapshotProjection } from "./kinds/course/project.ts";
-import type { AcademicStructureSnapshotProjection } from "./kinds/structure/project.ts";
+import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
+import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
 
 export type CatalogueKind =
   "course" | "programme" | "major" | "minor" | "specialisation";
@@ -116,7 +116,7 @@ export type RequirementWrite = {
   }>;
 };
 
-export type SnapshotEvidenceWrite = {
+export type CatalogueVersionProvenance = {
   fieldPath: string;
   method: "deterministic" | "model" | "manual";
   confidence: number | null;
@@ -124,7 +124,7 @@ export type SnapshotEvidenceWrite = {
   sourceExcerpt: string | null;
 };
 
-export type SnapshotFlagWrite = {
+export type CatalogueContentFlag = {
   fieldPath: string | null;
   severity: "warning" | "error";
   code: string;
@@ -173,21 +173,32 @@ export type StructureContentWrite = {
 };
 
 /**
- * Everything needed to assemble one catalogue snapshot. Kind-specific content
- * sits under `course` or `structure`; requirements, evidence and flags use the
+ * Everything needed to assemble one catalogue version. Kind-specific content
+ * is discriminated by `kind`; requirements, provenance and flags use the
  * shared shape. `contentHash` identifies the content for change detection.
  */
-export type CatalogueSnapshotWrite = {
-  kind: CatalogueKind;
+type CatalogueContentBase = {
   code: string;
   academicYear: number;
   contentHash: string;
-  course: CourseContentWrite | null;
-  structure: StructureContentWrite | null;
   requirements: RequirementWrite;
-  evidence: SnapshotEvidenceWrite[];
-  flags: SnapshotFlagWrite[];
+  evidence: CatalogueVersionProvenance[];
+  flags: CatalogueContentFlag[];
 };
+
+export type CatalogueContent = CatalogueContentBase &
+  (
+    | {
+        kind: "course";
+        course: CourseContentWrite;
+        structure?: never;
+      }
+    | {
+        kind: Exclude<CatalogueKind, "course">;
+        course?: never;
+        structure: StructureContentWrite;
+      }
+  );
 
 type CourseProjectionCondition =
   CourseSnapshotProjection["ruleConditions"][number];
@@ -198,15 +209,15 @@ function courseConditionKind(
   return kind === "admission" ? "structure" : kind;
 }
 
-export function courseSnapshotWrite({
+export function courseCatalogueContent({
   projection,
   evidence = [],
   flags = [],
 }: {
   projection: CourseSnapshotProjection;
-  evidence?: SnapshotEvidenceWrite[];
-  flags?: SnapshotFlagWrite[];
-}): CatalogueSnapshotWrite {
+  evidence?: CatalogueVersionProvenance[];
+  flags?: CatalogueContentFlag[];
+}): CatalogueContent {
   const ruleOrder: RequirementRuleKind[] = [
     "prerequisite",
     "corequisite",
@@ -232,7 +243,6 @@ export function courseSnapshotWrite({
       assessmentItems: projection.assessmentItems,
       assessmentOutcomes: projection.assessmentOutcomes,
     },
-    structure: null,
     requirements: {
       rules: projection.rules.map((rule) => ({
         key: rule.ruleKind,
@@ -346,15 +356,15 @@ function structureConditionKind(
   }
 }
 
-export function structureSnapshotWrite({
+export function structureCatalogueContent({
   projection,
   evidence = [],
   flags = [],
 }: {
   projection: AcademicStructureSnapshotProjection;
-  evidence?: SnapshotEvidenceWrite[];
-  flags?: SnapshotFlagWrite[];
-}): CatalogueSnapshotWrite {
+  evidence?: CatalogueVersionProvenance[];
+  flags?: CatalogueContentFlag[];
+}): CatalogueContent {
   const hasRequirements = projection.requirementRootKey !== null;
   const rootSourceText =
     projection.requirementGroups.find(
@@ -376,7 +386,6 @@ export function structureSnapshotWrite({
     code: projection.structureCode,
     academicYear: projection.academicYear,
     contentHash: projection.projectionSha256,
-    course: null,
     structure: {
       details: {
         name: projection.snapshot.title,

@@ -179,7 +179,7 @@ export async function recordCourseAttempt(
     if (error) throw error;
     const { data: storedAttempt, error: storedAttemptError } = await supabase
       .from("course_attempts")
-      .select("course_snapshot_id,units_attempted,units_earned")
+      .select("catalogue_version_id,units_attempted,units_earned")
       .eq("id", data)
       .single();
     if (storedAttemptError) throw storedAttemptError;
@@ -188,7 +188,7 @@ export async function recordCourseAttempt(
       ok: true,
       id: data,
       message: "Academic history updated",
-      snapshotId: storedAttempt.course_snapshot_id,
+      snapshotId: storedAttempt.catalogue_version_id,
       unitsAttempted: Number(storedAttempt.units_attempted),
       unitsEarned: Number(storedAttempt.units_earned),
     };

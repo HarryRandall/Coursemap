@@ -2,8 +2,8 @@ begin;
 
 -- One import pipeline for every catalogue kind. A run targets one kind and
 -- one academic year; each target processes one directory entry through the
--- same stages and, when the content differs from the baseline snapshot,
--- produces a candidate snapshot for review.
+-- same stages and, when the content differs from the baseline version,
+-- produces a candidate version for review.
 
 -- Directory ----------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ create table public.catalogue_directory_entries (
   kind text not null,
   code text not null,
   title text,
-  item_id bigint,
+  code_id bigint,
   source_page_id bigint,
   summary jsonb not null default '{}'::jsonb,
   is_current boolean not null default true,
@@ -23,7 +23,7 @@ create table public.catalogue_directory_entries (
   constraint catalogue_directory_entries_academic_year_fkey
     foreign key (academic_year_id) references public.academic_years (id),
   constraint catalogue_directory_entries_item_fkey
-    foreign key (item_id, kind) references public.catalogue_items (id, kind),
+    foreign key (code_id, kind) references public.catalogue_codes (id, kind),
   constraint catalogue_directory_entries_source_page_fkey
     foreign key (source_page_id, academic_year_id)
     references public.catalogue_source_pages (id, academic_year_id),
@@ -105,11 +105,11 @@ create table public.catalogue_import_targets (
   kind text not null,
   code text not null,
   academic_year_id bigint not null,
-  item_id bigint not null,
-  item_year_id bigint not null,
+  code_id bigint not null,
+  record_id bigint not null,
   directory_entry_id bigint,
-  baseline_snapshot_id bigint,
-  candidate_snapshot_id bigint,
+  baseline_version_id bigint,
+  candidate_version_id bigint,
   source_page_id bigint,
   status text not null default 'queued',
   change_kind text,
@@ -124,22 +124,22 @@ create table public.catalogue_import_targets (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   completed_at timestamptz,
-  constraint catalogue_import_targets_run_item_unique unique (run_id, item_id),
+  constraint catalogue_import_targets_run_item_unique unique (run_id, code_id),
   constraint catalogue_import_targets_run_fkey
     foreign key (run_id) references public.catalogue_import_runs (id) on delete cascade,
   constraint catalogue_import_targets_item_fkey
-    foreign key (item_id, kind) references public.catalogue_items (id, kind),
+    foreign key (code_id, kind) references public.catalogue_codes (id, kind),
   constraint catalogue_import_targets_item_year_fkey
-    foreign key (item_year_id, academic_year_id)
-    references public.catalogue_item_years (id, academic_year_id),
+    foreign key (record_id, academic_year_id)
+    references public.catalogue_records (id, academic_year_id),
   constraint catalogue_import_targets_directory_entry_fkey
     foreign key (directory_entry_id) references public.catalogue_directory_entries (id),
   constraint catalogue_import_targets_baseline_fkey
-    foreign key (baseline_snapshot_id, item_year_id)
-    references public.catalogue_snapshots (id, item_year_id),
+    foreign key (baseline_version_id, record_id)
+    references public.catalogue_versions (id, record_id),
   constraint catalogue_import_targets_candidate_fkey
-    foreign key (candidate_snapshot_id, item_year_id)
-    references public.catalogue_snapshots (id, item_year_id),
+    foreign key (candidate_version_id, record_id)
+    references public.catalogue_versions (id, record_id),
   constraint catalogue_import_targets_source_page_fkey
     foreign key (source_page_id, academic_year_id)
     references public.catalogue_source_pages (id, academic_year_id),
@@ -155,27 +155,27 @@ create table public.catalogue_import_targets (
 create index catalogue_import_targets_run_idx
   on public.catalogue_import_targets (run_id, created_at);
 
-create index catalogue_import_targets_item_year_idx
-  on public.catalogue_import_targets (item_year_id, created_at desc);
+create index catalogue_import_targets_record_idx
+  on public.catalogue_import_targets (record_id, created_at desc);
 
 -- An item year has at most one unfinished target across all runs.
-create unique index catalogue_import_targets_active_item_year_idx
-  on public.catalogue_import_targets (item_year_id)
+create unique index catalogue_import_targets_active_record_idx
+  on public.catalogue_import_targets (record_id)
   where status in ('queued', 'running');
 
 create trigger catalogue_import_targets_set_updated_at
 before update on public.catalogue_import_targets
 for each row execute function private.set_updated_at();
 
-alter table public.catalogue_snapshots
+alter table public.catalogue_versions
   add column import_target_id uuid,
-  add constraint catalogue_snapshots_import_target_fkey
+  add constraint catalogue_versions_import_target_fkey
     foreign key (import_target_id) references public.catalogue_import_targets (id)
     on delete set null;
 
--- Removing a run or a user detaches the snapshot's provenance links. Those
--- and the sealing itself are the only changes a sealed snapshot accepts.
-create or replace function private.enforce_catalogue_snapshot_immutability()
+-- Removing a run or a user detaches the version's provenance links. Those
+-- and the sealing itself are the only changes a sealed version accepts.
+create or replace function private.enforce_catalogue_version_immutability()
 returns trigger
 language plpgsql
 set search_path = ''
@@ -197,7 +197,7 @@ begin
     return new;
   end if;
   raise exception
-    'catalogue_snapshots records are immutable; create a new snapshot instead'
+    'Catalogue versions are immutable; create a new version instead.'
     using errcode = '55000';
 end;
 $function$;
@@ -459,7 +459,7 @@ declare
   requested_code text;
   created_targets jsonb := '[]'::jsonb;
   selected_item_id bigint;
-  selected_item_year_id bigint;
+  selected_record_id bigint;
   selected_baseline bigint;
   selected_directory_entry_id bigint;
   created_target_id uuid;
@@ -505,25 +505,40 @@ begin
     select distinct upper(btrim(code)) from unnest(p_codes) as requested(code)
     where nullif(btrim(code), '') is not null
   loop
-    insert into public.catalogue_items (kind, code)
+    insert into public.catalogue_codes (kind, code)
     values (p_kind, requested_code)
     on conflict (kind, code) do nothing;
 
     select id into selected_item_id
-    from public.catalogue_items where kind = p_kind and code = requested_code;
+    from public.catalogue_codes where kind = p_kind and code = requested_code;
 
-    insert into public.catalogue_item_years (item_id, kind, academic_year_id)
+    insert into public.catalogue_records (code_id, kind, academic_year_id)
     values (selected_item_id, p_kind, selected_year_id)
-    on conflict (item_id, academic_year_id) do nothing;
+    on conflict (code_id, academic_year_id) do nothing;
 
-    select id, coalesce(draft_snapshot_id, published_snapshot_id)
-    into selected_item_year_id, selected_baseline
-    from public.catalogue_item_years
-    where item_id = selected_item_id and academic_year_id = selected_year_id;
+    select records.id, latest.id
+    into selected_record_id, selected_baseline
+    from public.catalogue_records as records
+    left join lateral (
+      select versions.id
+      from public.catalogue_versions as versions
+      left join public.catalogue_import_targets as targets
+        on targets.id = versions.import_target_id
+      where versions.record_id = records.id
+        and versions.sealed_at is not null
+        and (
+          versions.import_target_id is null
+          or targets.applied_version_id = versions.id
+        )
+      order by versions.created_at desc, versions.id desc
+      limit 1
+    ) as latest on true
+    where records.code_id = selected_item_id
+      and records.academic_year_id = selected_year_id;
 
     if exists (
-      select 1 from public.catalogue_item_years
-      where id = selected_item_year_id and archived_at is not null
+      select 1 from public.catalogue_records
+      where id = selected_record_id and archived_at is not null
     ) then
       raise exception using
         errcode = '55000',
@@ -532,7 +547,7 @@ begin
 
     if exists (
       select 1 from public.catalogue_import_targets
-      where item_year_id = selected_item_year_id and status in ('queued', 'running')
+      where record_id = selected_record_id and status in ('queued', 'running')
     ) then
       raise exception using
         errcode = '55000',
@@ -544,11 +559,11 @@ begin
     where academic_year_id = selected_year_id and kind = p_kind and code = requested_code;
 
     insert into public.catalogue_import_targets (
-      run_id, kind, code, academic_year_id, item_id, item_year_id,
-      directory_entry_id, baseline_snapshot_id
+      run_id, kind, code, academic_year_id, code_id, record_id,
+      directory_entry_id, baseline_version_id
     ) values (
       created_run_id, p_kind, requested_code, selected_year_id, selected_item_id,
-      selected_item_year_id, selected_directory_entry_id, selected_baseline
+      selected_record_id, selected_directory_entry_id, selected_baseline
     )
     returning id into created_target_id;
 

@@ -35,8 +35,8 @@ import {
   extractWithOpenRouter,
   restoreOpenRouterExtraction,
 } from "./openrouter.ts";
-import { persistSnapshotCandidate } from "./persist-snapshot.ts";
-import type { CatalogueKind } from "./snapshot-write.ts";
+import { persistVersionCandidate } from "./persist-version.ts";
+import type { CatalogueKind } from "../catalogue/content.ts";
 
 const TERMINAL_TARGET_STATUSES = new Set([
   "ready",
@@ -550,7 +550,7 @@ async function processClaimedTarget({
     });
 
     const persisted = await runStage("snapshot_persist", async (stageId) => {
-      const result = await persistSnapshotCandidate(sql, {
+      const result = await persistVersionCandidate(sql, {
         claim,
         sourcePageId,
         write,
@@ -573,7 +573,7 @@ async function processClaimedTarget({
       status: persisted.changeKind === "unchanged" ? "unchanged" : "ready",
       changeKind: persisted.changeKind,
       sourcePageId,
-      candidateSnapshotId: persisted.candidateSnapshotId,
+      candidateVersionId: persisted.candidateVersionId,
       // Discarding the model extraction used to be silent: the target ended
       // `ready` with no error code, and only catalogue_extractions recorded
       // it. The blocking flag the merge emitted holds publication; this says
@@ -607,7 +607,7 @@ async function processClaimedTarget({
       status: "failed",
       changeKind: null,
       sourcePageId,
-      candidateSnapshotId: null,
+      candidateVersionId: null,
       errorCode: code,
       errorMessage: summary,
     });

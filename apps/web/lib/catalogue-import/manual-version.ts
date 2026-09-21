@@ -1,8 +1,11 @@
 import { diffSnapshotWrites } from "./changes.ts";
 import { type ImportSql, withImportDatabaseClient } from "./import-store.ts";
-import { insertSnapshotContent } from "./persist-snapshot.ts";
-import { contentHashForWrite, readSnapshotWrite } from "./snapshot-read.ts";
-import type { CatalogueSnapshotWrite } from "./snapshot-write.ts";
+import { insertVersionContent } from "./persist-version.ts";
+import {
+  contentHashForCatalogueContent,
+  readVersionContent,
+} from "./version-content.ts";
+import type { CatalogueContent } from "../catalogue/content.ts";
 
 export class ManualSnapshotError extends Error {
   readonly code: string;
@@ -15,32 +18,47 @@ export class ManualSnapshotError extends Error {
 }
 
 /**
- * Saves an edited write as a new manual draft based on the snapshot the
+ * Saves edited content as a new manual version based on the version the
  * editor started from. Open review changes on the edited fields close as
  * rejected, since the administrator has decided the value directly.
  */
-export async function saveManualSnapshot({
-  itemYearId,
+export async function saveManualVersion({
+  recordId,
   baseSnapshotId,
   write,
   userId,
   sql,
 }: {
-  itemYearId: number;
+  recordId: number;
   baseSnapshotId: number | null;
-  write: CatalogueSnapshotWrite;
+  write: CatalogueContent;
   userId: string;
   sql?: ImportSql;
 }) {
   const work = async (client: ImportSql) =>
     client.begin(async (tx) => {
       const [itemYear] = await tx`
-        select item_years.id, item_years.kind, item_years.academic_year_id, item_years.draft_snapshot_id,
-          item_years.published_snapshot_id, item_years.archived_at, items.code, academic_years.year
-        from public.catalogue_item_years as item_years
-        join public.catalogue_items as items on items.id = item_years.item_id
+        select item_years.id, item_years.kind, item_years.academic_year_id,
+          item_years.archived_at, items.code, academic_years.year,
+          current_version.id as current_version_id
+        from public.catalogue_records as item_years
+        join public.catalogue_codes as items on items.id = item_years.code_id
         join public.academic_years on academic_years.id = item_years.academic_year_id
-        where item_years.id = ${itemYearId}
+        left join lateral (
+          select versions.id
+          from public.catalogue_versions as versions
+          left join public.catalogue_import_targets as targets
+            on targets.id = versions.import_target_id
+          where versions.record_id = item_years.id
+            and versions.sealed_at is not null
+            and (
+              versions.import_target_id is null
+              or targets.applied_version_id = versions.id
+            )
+          order by versions.created_at desc, versions.id desc
+          limit 1
+        ) as current_version on true
+        where item_years.id = ${recordId}
         for update of item_years
       `;
       if (!itemYear)
@@ -58,11 +76,9 @@ export async function saveManualSnapshot({
         );
       }
       const currentBase =
-        itemYear.draft_snapshot_id === null
-          ? itemYear.published_snapshot_id === null
-            ? null
-            : Number(itemYear.published_snapshot_id)
-          : Number(itemYear.draft_snapshot_id);
+        itemYear.current_version_id === null
+          ? null
+          : Number(itemYear.current_version_id);
       if (currentBase !== baseSnapshotId) {
         throw new ManualSnapshotError(
           "The record changed while you were editing. Reload and apply your changes again.",
@@ -71,10 +87,13 @@ export async function saveManualSnapshot({
       }
 
       const baseWrite = baseSnapshotId
-        ? await readSnapshotWrite(tx, baseSnapshotId)
+        ? await readVersionContent(tx, baseSnapshotId)
         : null;
-      const contentHash = contentHashForWrite(write);
-      if (baseWrite && contentHashForWrite(baseWrite) === contentHash) {
+      const contentHash = contentHashForCatalogueContent(write);
+      if (
+        baseWrite &&
+        contentHashForCatalogueContent(baseWrite) === contentHash
+      ) {
         return {
           snapshotId: baseSnapshotId!,
           unchanged: true,
@@ -86,15 +105,15 @@ export async function saveManualSnapshot({
       );
 
       const [snapshot] = await tx`
-        insert into public.catalogue_snapshots (
-          item_year_id, kind, academic_year_id, origin, based_on_snapshot_id, content_hash, created_by
+        insert into public.catalogue_versions (
+          record_id, kind, academic_year_id, origin, based_on_version_id, content_hash, created_by
         ) values (
-          ${itemYearId}, ${itemYear.kind}, ${itemYear.academic_year_id}, 'manual', ${baseSnapshotId},
+          ${recordId}, ${itemYear.kind}, ${itemYear.academic_year_id}, 'manual', ${baseSnapshotId},
           ${contentHash}, ${userId}::uuid
         ) returning id
       `;
       const snapshotId = Number(snapshot.id);
-      await insertSnapshotContent(tx, {
+      await insertVersionContent(tx, {
         snapshotId,
         kind: write.kind,
         academicYearId: Number(itemYear.academic_year_id),
@@ -108,7 +127,11 @@ export async function saveManualSnapshot({
           })),
         },
       });
-      await tx`update public.catalogue_item_years set draft_snapshot_id = ${snapshotId} where id = ${itemYearId}`;
+      await tx`
+        update public.catalogue_versions
+        set sealed_at = greatest(statement_timestamp(), created_at)
+        where id = ${snapshotId}
+      `;
 
       if (editedPaths.length > 0) {
         await tx`
@@ -117,7 +140,7 @@ export async function saveManualSnapshot({
               resolution_note = 'Superseded by a manual edit.'
           from public.catalogue_import_targets as targets
           where targets.id = changes.target_id
-            and targets.item_year_id = ${itemYearId}
+            and targets.record_id = ${recordId}
             and targets.applied_at is null
             and changes.entry_kind = 'change'
             and changes.status = 'open'
@@ -129,35 +152,49 @@ export async function saveManualSnapshot({
   return sql ? work(sql) : withImportDatabaseClient(work);
 }
 
-/** Makes a historical snapshot the draft again by copying it as a manual snapshot. */
+/** Restores historical content by copying it into a new manual version. */
 export async function restoreSnapshot({
-  itemYearId,
+  recordId,
   snapshotId,
   userId,
   sql,
 }: {
-  itemYearId: number;
+  recordId: number;
   snapshotId: number;
   userId: string;
   sql?: ImportSql;
 }) {
   const work = async (client: ImportSql) => {
-    const write = await readSnapshotWrite(client, snapshotId);
+    const write = await readVersionContent(client, snapshotId);
     if (!write)
       throw new ManualSnapshotError("The snapshot does not exist.", "P0002");
     const [itemYear] = await client`
-      select draft_snapshot_id, published_snapshot_id from public.catalogue_item_years where id = ${itemYearId}
+      select versions.id as current_version_id
+      from public.catalogue_records as records
+      left join lateral (
+        select versions.id
+        from public.catalogue_versions as versions
+        left join public.catalogue_import_targets as targets
+          on targets.id = versions.import_target_id
+        where versions.record_id = records.id
+          and versions.sealed_at is not null
+          and (
+            versions.import_target_id is null
+            or targets.applied_version_id = versions.id
+          )
+        order by versions.created_at desc, versions.id desc
+        limit 1
+      ) as versions on true
+      where records.id = ${recordId}
     `;
     if (!itemYear)
       throw new ManualSnapshotError("The record does not exist.", "P0002");
     const baseSnapshotId =
-      itemYear.draft_snapshot_id === null
-        ? itemYear.published_snapshot_id === null
-          ? null
-          : Number(itemYear.published_snapshot_id)
-        : Number(itemYear.draft_snapshot_id);
-    return saveManualSnapshot({
-      itemYearId,
+      itemYear.current_version_id === null
+        ? null
+        : Number(itemYear.current_version_id);
+    return saveManualVersion({
+      recordId,
       baseSnapshotId,
       write,
       userId,

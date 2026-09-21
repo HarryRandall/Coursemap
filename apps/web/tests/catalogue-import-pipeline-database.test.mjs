@@ -112,22 +112,22 @@ beforeAll(async () => {
  */
 async function removeFixtureData() {
   await sql`delete from public.catalogue_import_runs where requested_by = ${ADMIN_ID}`;
-  await sql`update public.catalogue_directory_entries set item_id = null where code in (${CODE}, 'COMP2401')`;
-  await sql`alter table public.catalogue_snapshots disable trigger catalogue_snapshots_enforce_immutability`;
+  await sql`update public.catalogue_directory_entries set code_id = null where code in (${CODE}, 'COMP2401')`;
+  await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_items where kind = 'course' and code in (${CODE}, 'COMP2401')`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CODE}, 'COMP2401')`;
     await sql`
-      delete from public.catalogue_items
+      delete from public.catalogue_codes
       where kind = 'course'
-        and id not in (select item_id from public.catalogue_item_years)
-        and id not in (select item_id from public.requirement_conditions where item_id is not null)
-        and id not in (select item_id from public.requirement_condition_options where item_id is not null)
-        and id not in (select item_id from public.requirement_item_references)
+        and id not in (select code_id from public.catalogue_records)
+        and id not in (select code_id from public.requirement_conditions where code_id is not null)
+        and id not in (select code_id from public.requirement_condition_options where code_id is not null)
+        and id not in (select code_id from public.requirement_item_references)
         and id not in (select related_course_id from public.course_related_courses)
         and code not in ('MATH1005')
     `;
   } finally {
-    await sql`alter table public.catalogue_snapshots enable trigger catalogue_snapshots_enforce_immutability`;
+    await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
   }
 }
 
@@ -154,7 +154,7 @@ async function startRun(codes) {
   return row.run;
 }
 
-test("a first import becomes the draft and a repeat import is unchanged", async () => {
+test("a first import creates an applied version and a repeat import is unchanged", async () => {
   const run = await startRun([CODE]);
   assert.equal(run.targets.length, 1);
   const targetId = run.targets[0].targetId;
@@ -162,30 +162,30 @@ test("a first import becomes the draft and a repeat import is unchanged", async 
   await processImportTarget({ runId: run.runId, targetId });
 
   const [target] = await sql`
-    select status, change_kind, candidate_snapshot_id, error_message
+    select status, change_kind, candidate_version_id, applied_version_id, error_message
     from public.catalogue_import_targets where id = ${targetId}::uuid
   `;
   assert.equal(target.error_message, null);
   assert.equal(target.status, "ready");
   assert.equal(target.change_kind, "new");
-  assert.ok(target.candidate_snapshot_id);
+  assert.ok(target.candidate_version_id);
+  assert.equal(
+    Number(target.applied_version_id),
+    Number(target.candidate_version_id),
+  );
   assert.equal(openRouterCalls, 1);
 
   const [itemYear] = await sql`
-    select item_years.draft_snapshot_id, item_years.published_snapshot_id
-    from public.catalogue_item_years as item_years
-    join public.catalogue_items as items on items.id = item_years.item_id
+    select item_years.published_version_id
+    from public.catalogue_records as item_years
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = ${CODE}
   `;
-  assert.equal(
-    Number(itemYear.draft_snapshot_id),
-    Number(target.candidate_snapshot_id),
-  );
-  assert.equal(itemYear.published_snapshot_id, null);
+  assert.equal(itemYear.published_version_id, null);
 
   const [details] = await sql`
-    select title, units, subject_code from public.course_snapshot_details
-    where snapshot_id = ${target.candidate_snapshot_id}
+    select title, units, subject_code from public.course_version_details
+    where version_id = ${target.candidate_version_id}
   `;
   assert.equal(details.subject_code, "COMP");
   assert.ok(details.title.length > 0);
@@ -208,7 +208,7 @@ test("a first import becomes the draft and a repeat import is unchanged", async 
 
   const [{ count: rules }] = await sql`
     select count(*)::int as count from public.requirement_rules
-    where snapshot_id = ${target.candidate_snapshot_id}
+    where version_id = ${target.candidate_version_id}
   `;
   assert.ok(rules >= 1, "the fixture page carries requisite rules");
 
@@ -220,19 +220,19 @@ test("a first import becomes the draft and a repeat import is unchanged", async 
   assert.equal(Number(runRow.cost_usd), 0.001);
 
   // A second run over identical content reuses the validated response and
-  // records no new snapshot.
+  // records no new version.
   const secondRun = await startRun([CODE]);
   const { completed } = await processImportRunInline({
     runId: secondRun.runId,
   });
   assert.equal(completed, 1);
   const [second] = await sql`
-    select status, change_kind, candidate_snapshot_id from public.catalogue_import_targets
+    select status, change_kind, candidate_version_id from public.catalogue_import_targets
     where run_id = ${secondRun.runId}::uuid
   `;
   assert.equal(second.status, "unchanged");
   assert.equal(second.change_kind, "unchanged");
-  assert.equal(second.candidate_snapshot_id, null);
+  assert.equal(second.candidate_version_id, null);
   assert.equal(
     openRouterCalls,
     1,
@@ -243,19 +243,19 @@ test("a first import becomes the draft and a repeat import is unchanged", async 
 test("a changed import records open changes, applies accepted ones and publishes", async () => {
   // Alter the published fixture so the next import differs in the title only.
   const [item] = await sql`
-    select item_years.id as item_year_id, item_years.draft_snapshot_id
-    from public.catalogue_item_years as item_years
-    join public.catalogue_items as items on items.id = item_years.item_id
+    select item_years.id as record_id, item_years.published_version_id
+    from public.catalogue_records as item_years
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = ${CODE}
   `;
   await sql.begin(async (tx) => {
     await tx`select set_config('request.jwt.claim.sub', ${ADMIN_ID}, true)`;
-    await tx`select public.publish_catalogue_snapshot(${item.item_year_id})`;
+    await tx`select public.publish_catalogue_version(${item.record_id})`;
   });
   const [{ count: acceptedOnFirst }] = await sql`
     select count(*)::int as count from public.catalogue_import_changes as changes
     join public.catalogue_import_targets as targets on targets.id = changes.target_id
-    where targets.item_year_id = ${item.item_year_id} and changes.entry_kind = 'change' and changes.status = 'accepted'
+    where targets.record_id = ${item.record_id} and changes.entry_kind = 'change' and changes.status = 'accepted'
   `;
   assert.ok(
     acceptedOnFirst > 0,
@@ -290,7 +290,7 @@ test("a changed import records open changes, applies accepted ones and publishes
     const run = await startRun([CODE]);
     await processImportRunInline({ runId: run.runId });
     const [target] = await sql`
-      select id, status, change_kind, candidate_snapshot_id from public.catalogue_import_targets
+      select id, status, change_kind, candidate_version_id from public.catalogue_import_targets
       where run_id = ${run.runId}::uuid
     `;
     assert.equal(target.status, "ready");
@@ -307,11 +307,11 @@ test("a changed import records open changes, applies accepted ones and publishes
 
     // Publishing is blocked while changes are open.
     const [{ blockers }] = await sql`
-      select public.catalogue_publish_blockers(${item.item_year_id}) as blockers
+      select public.catalogue_publish_blockers(${item.record_id}) as blockers
     `;
     assert.ok(
       blockers.some((reason) =>
-        /open changes|no draft|already published/.test(reason),
+        /open changes|no version|already published/.test(reason),
       ),
       blockers.join(" "),
     );
@@ -335,13 +335,13 @@ test("a changed import records open changes, applies accepted ones and publishes
     assert.equal(
       applied.reusedCandidate,
       false,
-      "a partial acceptance builds a merged snapshot",
+      "a partial acceptance builds a merged version",
     );
 
     const [merged] = await sql`
       select details.title, details.introduction
-      from public.course_snapshot_details as details
-      where details.snapshot_id = ${applied.draftSnapshotId}
+      from public.course_version_details as details
+      where details.version_id = ${applied.versionId}
     `;
     assert.equal(merged.title, revisedDeterministic.title);
     assert.equal(
@@ -351,13 +351,9 @@ test("a changed import records open changes, applies accepted ones and publishes
     );
 
     const [pointer] = await sql`
-      select draft_snapshot_id, published_snapshot_id from public.catalogue_item_years where id = ${item.item_year_id}
+      select published_version_id from public.catalogue_records where id = ${item.record_id}
     `;
-    assert.equal(Number(pointer.draft_snapshot_id), applied.draftSnapshotId);
-    assert.notEqual(
-      Number(pointer.published_snapshot_id),
-      applied.draftSnapshotId,
-    );
+    assert.notEqual(Number(pointer.published_version_id), applied.versionId);
 
     await assert.rejects(
       applyImportReview({ targetId: target.id, userId: ADMIN_ID, sql }),
@@ -366,15 +362,12 @@ test("a changed import records open changes, applies accepted ones and publishes
 
     await sql.begin(async (tx) => {
       await tx`select set_config('request.jwt.claim.sub', ${ADMIN_ID}, true)`;
-      await tx`select public.publish_catalogue_snapshot(${item.item_year_id})`;
+      await tx`select public.publish_catalogue_version(${item.record_id})`;
     });
     const [published] = await sql`
-      select published_snapshot_id from public.catalogue_item_years where id = ${item.item_year_id}
+      select published_version_id from public.catalogue_records where id = ${item.record_id}
     `;
-    assert.equal(
-      Number(published.published_snapshot_id),
-      applied.draftSnapshotId,
-    );
+    assert.equal(Number(published.published_version_id), applied.versionId);
   } finally {
     pageRef.current = previousPage;
     modelAnswerRef.current = previousModel;

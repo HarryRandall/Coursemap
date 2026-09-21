@@ -45,8 +45,8 @@ function target(overrides: Partial<ReviewTarget> = {}): ReviewTarget {
     createdAt: "2026-03-01T00:00:00Z",
     completedAt: "2026-03-01T00:01:00Z",
     appliedAt: null,
-    baselineSnapshotId: 10,
-    candidateSnapshotId: 11,
+    baselineVersionId: 10,
+    candidateVersionId: 11,
     entries: [],
     ...overrides,
   };
@@ -57,15 +57,15 @@ function record(overrides: Partial<CatalogueRecord> = {}): CatalogueRecord {
     kind: "course",
     code: "COMP3600",
     academicYear: 2026,
-    itemId: 1,
-    itemYearId: 1,
-    itemYearPublicId: "iy_1",
+    codeId: 1,
+    recordId: 1,
+    recordPublicId: "iy_1",
     title: "Algorithms",
-    draftSnapshotId: null,
-    publishedSnapshotId: null,
+    currentVersionId: null,
+    publishedVersionId: null,
     archivedAt: null,
     publishBlockers: [],
-    snapshots: [],
+    versions: [],
     publications: [],
     reviews: [],
     ...overrides,
@@ -155,7 +155,7 @@ test("the record's next step walks from decisions to published", () => {
 
   const outstanding = recordNextStep(
     record({
-      draftSnapshotId: 5,
+      currentVersionId: 5,
       reviews,
       publishBlockers: ["The import review still has open changes."],
     }),
@@ -166,7 +166,7 @@ test("the record's next step walks from decisions to published", () => {
 
   const decided = recordNextStep(
     record({
-      draftSnapshotId: 5,
+      currentVersionId: 5,
       reviews: [target({ entries: [entry({ status: "accepted" })] })],
     }),
   );
@@ -175,7 +175,7 @@ test("the record's next step walks from decisions to published", () => {
 
   const ready = recordNextStep(
     record({
-      draftSnapshotId: 5,
+      currentVersionId: 5,
       reviews: [
         target({
           appliedAt: "2026-03-02T00:00:00Z",
@@ -187,7 +187,7 @@ test("the record's next step walks from decisions to published", () => {
   expect(ready.headline).toBe("Ready to publish");
   expect(ready.next).toBe("publish");
 
-  const live = recordNextStep(record({ publishedSnapshotId: 5 }));
+  const live = recordNextStep(record({ publishedVersionId: 5 }));
   expect(live.headline).toBe("Published");
   expect(live.next).toBe("none");
 });
@@ -195,7 +195,7 @@ test("the record's next step walks from decisions to published", () => {
 test("a blocking flag holds publication and names itself", () => {
   const step = recordNextStep(
     record({
-      draftSnapshotId: 5,
+      currentVersionId: 5,
       publishBlockers: ["A blocking flag on the import review is still open."],
       reviews: [
         target({
@@ -220,15 +220,15 @@ test("decisions from a superseded import do not hold a record back", () => {
   // behind the draft, so the interface counts the same two and no others.
   const step = recordNextStep(
     record({
-      draftSnapshotId: 5,
-      snapshots: [
+      currentVersionId: 5,
+      versions: [
         {
           id: 5,
           publicId: "sn_5",
           origin: "import",
           createdAt: "2026-03-02T00:00:00Z",
           sealedAt: null,
-          basedOnSnapshotId: null,
+          basedOnVersionId: null,
           importTargetId: "target-1",
           contentHash: "abc",
         },

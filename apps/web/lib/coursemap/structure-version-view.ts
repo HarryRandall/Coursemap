@@ -1,4 +1,4 @@
-import type { CatalogueSnapshotWrite } from "@/lib/catalogue-import/snapshot-write";
+import type { CatalogueContent } from "@/lib/catalogue/content";
 import { requirementTreeFromSource } from "@/lib/coursemap/requirement-write-tree";
 import {
   REQUIREMENT_SOURCE_SECTION_KEYS,
@@ -7,10 +7,10 @@ import {
 
 /** The reader's view of a structure snapshot that has not been published yet. */
 export function structureDetailsFromWrite(
-  write: CatalogueSnapshotWrite,
+  write: CatalogueContent,
 ): StructureDetails | null {
+  if (write.kind === "course") return null;
   const structure = write.structure;
-  if (!structure || write.kind === "course") return null;
   const details = structure.details;
   const requirements = requirementTreeFromSource(
     write.requirements,

@@ -9,7 +9,7 @@ import {
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { collectPlanCatalogueCourseIds } from "@/lib/coursemap/plan-course-ids";
+import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
 
 export type PlanCatalogue = {
   academicYear: number | null;
@@ -104,7 +104,7 @@ type StructureSnapshotRow = {
   college: string | null;
   description: string | null;
   duration_years: number | null;
-  snapshot_id: number;
+  version_id: number;
   name: string;
   units: number | null;
 };
@@ -115,14 +115,16 @@ type RequirementConditionRow =
   Database["public"]["Tables"]["requirement_conditions"]["Row"];
 type RequirementOptionRow =
   Database["public"]["Tables"]["requirement_condition_options"]["Row"];
-type PlanCourseRow = { academic_year_id: number; course_id: number };
-type PlanStructureRow = { structure_year_id: number };
-type AttemptCourseRow = {
-  course_id: number;
-  course_snapshot_id: number;
+type PlanCourseRow = { catalogue_record_id: number };
+type PlanStructureRow = { catalogue_record_id: number };
+type AttemptCourseRow = { catalogue_version_id: number };
+type AttemptVersionRow = {
+  id: number;
+  record_id: number;
 };
-type AttemptSnapshotRow = {
+type CatalogueRecordRow = {
   academic_year_id: number;
+  code_id: number;
   id: number;
 };
 
@@ -286,11 +288,11 @@ async function loadAcademicYearRecord(
   }
 
   const programmeYearsResult = await supabase
-    .from("catalogue_item_years")
+    .from("catalogue_records")
     .select("academic_year_id")
     .eq("kind", "programme")
     .is("archived_at", null)
-    .not("published_snapshot_id", "is", null);
+    .not("published_version_id", "is", null);
   if (programmeYearsResult.error) throw programmeYearsResult.error;
   const academicYearIds = [
     ...new Set(
@@ -343,12 +345,12 @@ export async function loadPublishedPlanCatalogue(
         .order("calendar_year")
         .order("sort_order"),
       supabase
-        .from("catalogue_item_years")
-        .select("id,published_snapshot_id,item_id")
+        .from("catalogue_records")
+        .select("id,published_version_id,code_id")
         .eq("academic_year_id", academicYearRecord.id)
         .neq("kind", "course")
         .is("archived_at", null)
-        .not("published_snapshot_id", "is", null),
+        .not("published_version_id", "is", null),
     ]);
   if (periodsResult.error) throw periodsResult.error;
   if (structureYearsResult.error) throw structureYearsResult.error;
@@ -357,28 +359,28 @@ export async function loadPublishedPlanCatalogue(
     (
       row,
     ): row is typeof row & {
-      published_snapshot_id: number;
-    } => row.published_snapshot_id !== null,
+      published_version_id: number;
+    } => row.published_version_id !== null,
   );
   const structureIds = [
-    ...new Set(structureYears.map((structureYear) => structureYear.item_id)),
+    ...new Set(structureYears.map((structureYear) => structureYear.code_id)),
   ];
   const snapshotIds = structureYears.map(
-    (structureYear) => structureYear.published_snapshot_id,
+    (structureYear) => structureYear.published_version_id,
   );
   const [structureIdentitiesResult, structureSnapshotsResult] =
     await Promise.all([
       structureIds.length
         ? supabase
-            .from("catalogue_items")
+            .from("catalogue_codes")
             .select("code,id,kind")
             .in("id", structureIds)
         : Promise.resolve({ data: [], error: null }),
       snapshotIds.length
         ? supabase
-            .from("structure_snapshot_details")
-            .select("college,description,duration_years,snapshot_id,name,units")
-            .in("snapshot_id", snapshotIds)
+            .from("structure_version_details")
+            .select("college,description,duration_years,version_id,name,units")
+            .in("version_id", snapshotIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
   const structureError = [
@@ -394,7 +396,7 @@ export async function loadPublishedPlanCatalogue(
   );
   const snapshotsById = new Map(
     ((structureSnapshotsResult.data ?? []) as StructureSnapshotRow[]).map(
-      (snapshot) => [snapshot.snapshot_id, snapshot],
+      (snapshot) => [snapshot.version_id, snapshot],
     ),
   );
 
@@ -405,11 +407,11 @@ export async function loadPublishedPlanCatalogue(
     ),
   );
   const requirementsSnapshotIds = structureYears.flatMap((structureYear) => {
-    const kind = identitiesById.get(structureYear.item_id)?.kind;
+    const kind = identitiesById.get(structureYear.code_id)?.kind;
     return selectedStructureYears.has(structureYear.id) &&
       kind !== undefined &&
       isPlanStructureKind(kind)
-      ? [structureYear.published_snapshot_id]
+      ? [structureYear.published_version_id]
       : [];
   });
   const requirementsSnapshotIdSet = new Set(requirementsSnapshotIds);
@@ -418,21 +420,21 @@ export async function loadPublishedPlanCatalogue(
       ? supabase
           .from("requirement_groups")
           .select("*")
-          .in("snapshot_id", requirementsSnapshotIds)
+          .in("version_id", requirementsSnapshotIds)
           .order("position")
       : Promise.resolve({ data: [], error: null }),
     requirementsSnapshotIds.length
       ? supabase
           .from("requirement_conditions")
           .select("*")
-          .in("snapshot_id", requirementsSnapshotIds)
+          .in("version_id", requirementsSnapshotIds)
           .order("position")
       : Promise.resolve({ data: [], error: null }),
     requirementsSnapshotIds.length
       ? supabase
           .from("requirement_condition_options")
           .select("*")
-          .in("snapshot_id", requirementsSnapshotIds)
+          .in("version_id", requirementsSnapshotIds)
           .order("position")
       : Promise.resolve({ data: [], error: null }),
   ]);
@@ -452,13 +454,13 @@ export async function loadPublishedPlanCatalogue(
   for (const option of requirementOptions) {
     if (option.kind !== "course") continue;
     const codes =
-      courseCodesBySnapshotId.get(option.snapshot_id) ?? new Set<string>();
+      courseCodesBySnapshotId.get(option.version_id) ?? new Set<string>();
     codes.add(option.code);
-    courseCodesBySnapshotId.set(option.snapshot_id, codes);
+    courseCodesBySnapshotId.set(option.version_id, codes);
   }
   const degrees = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.item_id);
-    const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
+    const identity = identitiesById.get(structureYear.code_id);
+    const snapshot = snapshotsById.get(structureYear.published_version_id);
     if (!identity || !snapshot || identity.kind !== "programme") return [];
     return [
       {
@@ -475,8 +477,8 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const structures = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.item_id);
-    const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
+    const identity = identitiesById.get(structureYear.code_id);
+    const snapshot = snapshotsById.get(structureYear.published_version_id);
     if (!identity || !snapshot || !isPlanStructureKind(identity.kind))
       return [];
     return [
@@ -488,28 +490,28 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const structureRequirements = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.item_id);
-    const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
+    const identity = identitiesById.get(structureYear.code_id);
+    const snapshot = snapshotsById.get(structureYear.published_version_id);
     if (
       !identity ||
       !snapshot ||
-      !requirementsSnapshotIdSet.has(structureYear.published_snapshot_id) ||
+      !requirementsSnapshotIdSet.has(structureYear.published_version_id) ||
       !isPlanStructureKind(identity.kind)
     ) {
       return [];
     }
-    const snapshotId = structureYear.published_snapshot_id;
+    const snapshotId = structureYear.published_version_id;
     return [
       {
         root: buildAcademicStructureRequirementTree({
           groups: requirementGroups.filter(
-            (group) => group.snapshot_id === snapshotId,
+            (group) => group.version_id === snapshotId,
           ),
           conditions: requirementConditions.filter(
-            (condition) => condition.snapshot_id === snapshotId,
+            (condition) => condition.version_id === snapshotId,
           ),
           options: requirementOptions.filter(
-            (option) => option.snapshot_id === snapshotId,
+            (option) => option.version_id === snapshotId,
           ),
         }),
         snapshotId,
@@ -521,7 +523,7 @@ export async function loadPublishedPlanCatalogue(
         unmodelled: requirementConditions
           .filter(
             (condition) =>
-              condition.snapshot_id === snapshotId &&
+              condition.version_id === snapshotId &&
               condition.condition_kind === "other" &&
               condition.free_text !== null,
           )
@@ -534,8 +536,8 @@ export async function loadPublishedPlanCatalogue(
     ];
   });
   const majors = structureYears.flatMap((structureYear) => {
-    const identity = identitiesById.get(structureYear.item_id);
-    const snapshot = snapshotsById.get(structureYear.published_snapshot_id);
+    const identity = identitiesById.get(structureYear.code_id);
+    const snapshot = snapshotsById.get(structureYear.published_version_id);
     if (!identity || !snapshot || identity.kind !== "major") return [];
     return [
       {
@@ -545,9 +547,8 @@ export async function loadPublishedPlanCatalogue(
         colour: "zinc",
         description: snapshot.description ?? "",
         courseCodes: [
-          ...(courseCodesBySnapshotId.get(
-            structureYear.published_snapshot_id,
-          ) ?? []),
+          ...(courseCodesBySnapshotId.get(structureYear.published_version_id) ??
+            []),
         ].sort(),
       } satisfies Major,
     ];
@@ -612,15 +613,15 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const [itemsResult, attemptsResult, structuresResult] = await Promise.all([
     supabase
       .from("plan_items")
-      .select("course_id,academic_year_id")
+      .select("catalogue_record_id")
       .eq("plan_id", plan.id),
     supabase
       .from("course_attempts")
-      .select("course_id,course_snapshot_id")
+      .select("catalogue_version_id")
       .eq("owner_id", viewer.id),
     supabase
       .from("plan_structures")
-      .select("structure_year_id")
+      .select("catalogue_record_id")
       .eq("plan_id", plan.id),
   ]);
   if (itemsResult.error || attemptsResult.error || structuresResult.error) {
@@ -633,41 +634,50 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
     []) as unknown as AttemptCourseRow[];
   const planStructures = (structuresResult.data ??
     []) as unknown as PlanStructureRow[];
-  const courseIds = collectPlanCatalogueCourseIds(planItems, courseAttempts);
-  const academicYearIds = [
-    ...new Set(planItems.map((item) => item.academic_year_id)),
+  const versionIds = [
+    ...new Set(courseAttempts.map((attempt) => attempt.catalogue_version_id)),
   ];
-  const snapshotIds = [
-    ...new Set(courseAttempts.map((attempt) => attempt.course_snapshot_id)),
-  ];
-  const [coursesResult, snapshotsResult] = await Promise.all([
-    courseIds.length
-      ? supabase.from("catalogue_items").select("id,code").in("id", courseIds)
-      : Promise.resolve({ data: [], error: null }),
-    snapshotIds.length
-      ? supabase
-          .from("catalogue_snapshots")
-          .select("id,academic_year_id")
-          .in("id", snapshotIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (coursesResult.error || snapshotsResult.error) {
+  const versionsResult = versionIds.length
+    ? await supabase
+        .from("catalogue_versions")
+        .select("id,record_id")
+        .in("id", versionIds)
+    : { data: [], error: null };
+  if (versionsResult.error) {
     return loadPublishedPlanCatalogue(year.year);
   }
-  const attemptSnapshots = (snapshotsResult.data ?? []) as AttemptSnapshotRow[];
+  const attemptVersions = (versionsResult.data ?? []) as AttemptVersionRow[];
+  const recordIds = collectPlanCatalogueRecordIds(
+    planItems,
+    attemptVersions.map((version) => ({
+      catalogue_record_id: version.record_id,
+    })),
+  );
+  const recordsResult = recordIds.length
+    ? await supabase
+        .from("catalogue_records")
+        .select("id,code_id,academic_year_id")
+        .in("id", recordIds)
+    : { data: [], error: null };
+  if (recordsResult.error) return loadPublishedPlanCatalogue(year.year);
+  const records = (recordsResult.data ?? []) as CatalogueRecordRow[];
+  const courseIds = [...new Set(records.map((record) => record.code_id))];
   const allAcademicYearIds = [
-    ...new Set([
-      ...academicYearIds,
-      ...attemptSnapshots.map((snapshot) => snapshot.academic_year_id),
-    ]),
+    ...new Set(records.map((record) => record.academic_year_id)),
   ];
+  const coursesResult = courseIds.length
+    ? await supabase
+        .from("catalogue_codes")
+        .select("id,code")
+        .in("id", courseIds)
+    : { data: [], error: null };
   const academicYearsResult = allAcademicYearIds.length
     ? await supabase
         .from("academic_years")
         .select("id,year")
         .in("id", allAcademicYearIds)
     : { data: [], error: null };
-  if (academicYearsResult.error) {
+  if (coursesResult.error || academicYearsResult.error) {
     return loadPublishedPlanCatalogue(year.year);
   }
   const codeByCourseId = new Map(
@@ -679,51 +689,52 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
       academicYear.year,
     ]),
   );
-  const academicYearIdBySnapshotId = new Map(
-    attemptSnapshots.map((snapshot) => [
-      snapshot.id,
-      snapshot.academic_year_id,
-    ]),
+  const recordById = new Map(records.map((record) => [record.id, record]));
+  const recordIdByVersionId = new Map(
+    attemptVersions.map((version) => [version.id, version.record_id]),
   );
   const selections = [
     ...planItems.flatMap((item) => {
-      const code = codeByCourseId.get(item.course_id);
-      const academicYear = yearByAcademicYearId.get(item.academic_year_id);
+      const record = recordById.get(item.catalogue_record_id);
+      const code = record ? codeByCourseId.get(record.code_id) : undefined;
+      const academicYear = record
+        ? yearByAcademicYearId.get(record.academic_year_id)
+        : undefined;
       return code && academicYear ? [{ code, year: academicYear }] : [];
     }),
     ...courseAttempts.flatMap((attempt) => {
-      const code = codeByCourseId.get(attempt.course_id);
-      const academicYear = yearByAcademicYearId.get(
-        academicYearIdBySnapshotId.get(attempt.course_snapshot_id) ?? -1,
+      const record = recordById.get(
+        recordIdByVersionId.get(attempt.catalogue_version_id) ?? -1,
       );
+      const code = record ? codeByCourseId.get(record.code_id) : undefined;
+      const academicYear = record
+        ? yearByAcademicYearId.get(record.academic_year_id)
+        : undefined;
       return code && academicYear ? [{ code, year: academicYear }] : [];
     }),
   ];
   const catalogue = await loadPublishedPlanCatalogue(
     year.year,
     selections,
-    planStructures.map((structure) => structure.structure_year_id),
+    planStructures.map((structure) => structure.catalogue_record_id),
   );
-  const publishedSnapshotIds = new Set(
+  const publishedVersionIds = new Set(
     catalogue.courses.flatMap((course) =>
       course.snapshotId === undefined ? [] : [course.snapshotId],
     ),
   );
-  const historicalSnapshotIds = snapshotIds.filter(
-    (snapshotId) => !publishedSnapshotIds.has(snapshotId),
+  const historicalSnapshotIds = versionIds.filter(
+    (snapshotId) => !publishedVersionIds.has(snapshotId),
   );
   const projectionsResult = historicalSnapshotIds.length
-    ? await supabase.rpc("current_user_course_attempt_snapshot_projections", {
-        p_snapshot_ids: historicalSnapshotIds,
+    ? await supabase.rpc("current_user_course_attempt_version_projections", {
+        p_version_ids: historicalSnapshotIds,
       })
     : { data: [], error: null };
   if (projectionsResult.error) return catalogue;
 
   const snapshotCourses = (projectionsResult.data ?? []).flatMap((row) => {
-    const course = courseFromSnapshotProjection(
-      row.projection,
-      row.snapshot_id,
-    );
+    const course = courseFromSnapshotProjection(row.projection, row.version_id);
     return course ? [planCourseFromDetails(course)] : [];
   });
   return { ...catalogue, snapshotCourses };

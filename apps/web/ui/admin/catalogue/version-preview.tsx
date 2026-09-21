@@ -3,9 +3,9 @@
 import { Tabs } from "@coursemap/ui/primitives/tabs";
 import { useState } from "react";
 
-import type { CatalogueSnapshotWrite } from "@/lib/catalogue-import/snapshot-write";
+import type { CatalogueContent } from "@/lib/catalogue/content";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
-import { structureDetailsFromWrite } from "@/lib/coursemap/structure-snapshot-view";
+import { structureDetailsFromWrite } from "@/lib/coursemap/structure-version-view";
 import {
   CourseDetailTabsList,
   CourseDetailView,
@@ -42,7 +42,7 @@ export function CoursePreview({ course }: { course: CourseDetails }) {
  * published page uses. A reviewer judges the requirement tree as a student
  * will read it rather than as stored JSON.
  */
-export function StructurePreview({ write }: { write: CatalogueSnapshotWrite }) {
+export function StructurePreview({ write }: { write: CatalogueContent }) {
   const [tab, setTab] = useState<StructureTab>("overview");
   const structure = structureDetailsFromWrite(write);
   if (!structure) return null;

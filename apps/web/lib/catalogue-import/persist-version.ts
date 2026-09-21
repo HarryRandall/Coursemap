@@ -5,29 +5,29 @@ import {
   type SnapshotChange,
 } from "./changes.ts";
 import type { ClaimedImportTarget, ImportSql } from "./import-store.ts";
-import { readSnapshotWrite } from "./snapshot-read.ts";
+import { readVersionContent } from "./version-content.ts";
 import type {
   CatalogueKind,
-  CatalogueSnapshotWrite,
+  CatalogueContent,
   RequirementWrite,
-} from "./snapshot-write.ts";
+} from "../catalogue/content.ts";
 
 export type SnapshotChangeKind = "new" | "changed" | "unchanged";
 
 export type PersistedSnapshotCandidate = {
   changeKind: SnapshotChangeKind;
-  candidateSnapshotId: number | null;
-  baselineSnapshotId: number | null;
+  candidateVersionId: number | null;
+  baselineVersionId: number | null;
   becameDraft: boolean;
   changeSet: {
     changeKind: SnapshotChangeKind;
     contentHash: string;
-    baselineSnapshotId: number | null;
+    baselineVersionId: number | null;
     baselineContentHash: string | null;
-    candidateSnapshotId: number | null;
+    candidateVersionId: number | null;
     becameDraft: boolean;
     changes: SnapshotChange[];
-    flags: CatalogueSnapshotWrite["flags"];
+    flags: CatalogueContent["flags"];
   };
 };
 
@@ -43,7 +43,7 @@ function isValidCode(kind: CatalogueKind, code: string) {
 }
 
 /** Every catalogue code the write refers to, so placeholder identities exist. */
-function referencedItems(write: CatalogueSnapshotWrite) {
+function referencedItems(write: CatalogueContent) {
   const items = new Map<string, { kind: CatalogueKind; code: string }>();
   const add = (kind: CatalogueKind | null, code: string | null) => {
     if (!kind || !code) return;
@@ -72,12 +72,12 @@ async function ensureItemIds(
   const ids = new Map<string, number>();
   for (const item of items) {
     await tx`
-      insert into public.catalogue_items (kind, code)
+      insert into public.catalogue_codes (kind, code)
       values (${item.kind}, ${item.code})
       on conflict (kind, code) do nothing
     `;
     const [row] = await tx`
-      select id from public.catalogue_items where kind = ${item.kind} and code = ${item.code}
+      select id from public.catalogue_codes where kind = ${item.kind} and code = ${item.code}
     `;
     ids.set(`${item.kind}:${item.code}`, Number(row.id));
   }
@@ -99,12 +99,12 @@ async function insertCourseContent(
   academicYearId: number,
   sourcePageId: number | null,
   ids: Map<string, number>,
-  content: NonNullable<CatalogueSnapshotWrite["course"]>,
+  content: NonNullable<CatalogueContent["course"]>,
 ) {
   const details = content.details;
   await tx`
-    insert into public.course_snapshot_details (
-      snapshot_id, title, unit_value_kind, units, minimum_units, maximum_units, eftsl,
+    insert into public.course_version_details (
+      version_id, title, unit_value_kind, units, minimum_units, maximum_units, eftsl,
       level, subject_code, subject_name, school, college, academic_career,
       convener_text, delivery_summary, introduction, description, workload_text,
       workload_hours, inherent_requirements, prescribed_texts, offering_status,
@@ -121,14 +121,14 @@ async function insertCourseContent(
   `;
   for (const option of content.unitOptions) {
     await tx`
-      insert into public.course_unit_options (snapshot_id, position, units, label, source_text)
+      insert into public.course_unit_options (version_id, position, units, label, source_text)
       values (${snapshotId}, ${option.position}, ${option.units}, ${option.label}, ${option.sourceText})
     `;
   }
   for (const fee of content.fees) {
     await tx`
       insert into public.course_fees (
-        snapshot_id, position, fee_year, audience, fee_type, amount, currency, basis,
+        version_id, position, fee_year, audience, fee_type, amount, currency, basis,
         student_contribution_band, source_label, source_text
       ) values (
         ${snapshotId}, ${fee.position}, ${fee.feeYear}, ${fee.audience}, ${fee.feeType},
@@ -139,13 +139,13 @@ async function insertCourseContent(
   }
   for (const area of content.areasOfInterest) {
     await tx`
-      insert into public.course_areas_of_interest (snapshot_id, position, name)
+      insert into public.course_areas_of_interest (version_id, position, name)
       values (${snapshotId}, ${area.position}, ${area.name})
     `;
   }
   for (const attribute of content.attributes) {
     await tx`
-      insert into public.course_attributes (snapshot_id, position, attribute_kind, value, source_text)
+      insert into public.course_attributes (version_id, position, attribute_kind, value, source_text)
       values (${snapshotId}, ${attribute.position}, ${attribute.attributeKind}, ${attribute.value}, ${attribute.sourceText})
     `;
   }
@@ -154,7 +154,7 @@ async function insertCourseContent(
     if (relatedId === null) continue;
     await tx`
       insert into public.course_related_courses (
-        snapshot_id, position, relation_kind, related_course_id, source_course_code,
+        version_id, position, relation_kind, related_course_id, source_course_code,
         source_course_title, source_text
       ) values (
         ${snapshotId}, ${related.position}, ${related.relationKind}, ${relatedId},
@@ -163,7 +163,7 @@ async function insertCourseContent(
     `;
   }
   const [offering] = await tx`
-    insert into public.course_offerings (snapshot_id, academic_year_id, source_page_id, delivery_mode, location)
+    insert into public.course_offerings (version_id, academic_year_id, source_page_id, delivery_mode, location)
     values (
       ${snapshotId}, ${academicYearId}, ${sourcePageId},
       ${content.offering?.deliveryMode ?? null}, ${content.offering?.location ?? null}
@@ -173,7 +173,7 @@ async function insertCourseContent(
   for (const session of content.sessions) {
     await tx`
       insert into public.offering_sessions (
-        course_offering_id, snapshot_id, academic_year_id, source_page_id,
+        course_offering_id, version_id, academic_year_id, source_page_id,
         academic_period_id, academic_period_code, academic_period_name, position,
         class_number, starts_on, enrol_closes_on, census_on, ends_on, delivery_mode,
         location, class_summary_url, source_text
@@ -194,7 +194,7 @@ async function insertCourseContent(
   const outcomeIds = new Map<number, number>();
   for (const outcome of content.learningOutcomes) {
     const [row] = await tx`
-      insert into public.course_learning_outcomes (snapshot_id, position, body)
+      insert into public.course_learning_outcomes (version_id, position, body)
       values (${snapshotId}, ${outcome.position}, ${outcome.body})
       returning id
     `;
@@ -204,7 +204,7 @@ async function insertCourseContent(
   for (const item of content.assessmentItems) {
     const [row] = await tx`
       insert into public.course_assessment_items (
-        snapshot_id, position, title, weight, hurdle, due_text, source_text
+        version_id, position, title, weight, hurdle, due_text, source_text
       ) values (
         ${snapshotId}, ${item.position}, ${item.title}, ${item.weight}, ${item.hurdle},
         ${item.dueText}, ${item.sourceText}
@@ -218,7 +218,7 @@ async function insertCourseContent(
     const outcomeId = outcomeIds.get(link.learningOutcomePosition);
     if (!assessmentId || !outcomeId) continue;
     await tx`
-      insert into public.course_assessment_outcomes (snapshot_id, assessment_item_id, learning_outcome_id)
+      insert into public.course_assessment_outcomes (version_id, assessment_item_id, learning_outcome_id)
       values (${snapshotId}, ${assessmentId}, ${outcomeId})
       on conflict do nothing
     `;
@@ -229,12 +229,12 @@ async function insertStructureContent(
   tx: Tx,
   snapshotId: number,
   kind: CatalogueKind,
-  content: NonNullable<CatalogueSnapshotWrite["structure"]>,
+  content: NonNullable<CatalogueContent["structure"]>,
 ) {
   const details = content.details;
   await tx`
-    insert into public.structure_snapshot_details (
-      snapshot_id, kind, name, acronym, short_name, introduction, description, units,
+    insert into public.structure_version_details (
+      version_id, kind, name, acronym, short_name, introduction, description, units,
       duration_years, academic_career, college, mode_of_delivery, selection_rank, atar,
       can_combine, can_combine_vertical, study_as, contact_text
     ) values (
@@ -249,7 +249,7 @@ async function insertStructureContent(
   for (const field of content.summaryFields) {
     await tx`
       insert into public.structure_snapshot_summary_fields (
-        snapshot_id, position, value_position, field_key, label, field_value, source_text
+        version_id, position, value_position, field_key, label, field_value, source_text
       ) values (
         ${snapshotId}, ${field.position}, ${field.valuePosition}, ${field.fieldKey},
         ${field.label}, ${field.fieldValue}, ${field.sourceText}
@@ -259,7 +259,7 @@ async function insertStructureContent(
   for (const section of content.sections) {
     await tx`
       insert into public.academic_structure_snapshot_sections (
-        snapshot_id, section_key, heading, markdown, source_text, source_locator, position
+        version_id, section_key, heading, markdown, source_text, source_locator, position
       ) values (
         ${snapshotId}, ${section.sectionKey}, ${section.heading}, ${section.markdown},
         ${section.sourceText}, ${section.sourceLocator}, ${section.position}
@@ -269,7 +269,7 @@ async function insertStructureContent(
   for (const outcome of content.learningOutcomes) {
     await tx`
       insert into public.academic_structure_learning_outcomes (
-        snapshot_id, position, outcome_text, source_text, source_locator
+        version_id, position, outcome_text, source_text, source_locator
       ) values (
         ${snapshotId}, ${outcome.position}, ${outcome.outcomeText}, ${outcome.sourceText},
         ${outcome.sourceLocator}
@@ -279,7 +279,7 @@ async function insertStructureContent(
   for (const fee of content.fees) {
     await tx`
       insert into public.academic_structure_fees (
-        snapshot_id, position, fee_year, audience, fee_type, amount, currency, basis,
+        version_id, position, fee_year, audience, fee_type, amount, currency, basis,
         source_label, source_text, source_locator
       ) values (
         ${snapshotId}, ${fee.position}, ${fee.feeYear}, ${fee.audience}, ${fee.feeType},
@@ -291,7 +291,7 @@ async function insertStructureContent(
   for (const relationship of content.relationships) {
     await tx`
       insert into public.academic_structure_snapshot_relationships (
-        snapshot_id, position, relationship_kind, target_kind, target_code, target_title,
+        version_id, position, relationship_kind, target_kind, target_code, target_title,
         source_text, source_locator
       ) values (
         ${snapshotId}, ${relationship.position}, ${relationship.relationshipKind},
@@ -314,7 +314,7 @@ async function insertRequirements(
   for (const rule of requirements.rules) {
     const [row] = await tx`
       insert into public.requirement_rules (
-        snapshot_id, academic_year_id, source_page_id, rule_kind, hardness, source_text,
+        version_id, academic_year_id, source_page_id, rule_kind, hardness, source_text,
         source_locator, review_state, confidence, position
       ) values (
         ${snapshotId}, ${academicYearId}, ${sourcePageId}, ${rule.key}, ${rule.hardness},
@@ -343,7 +343,7 @@ async function insertRequirements(
       }
       const [row] = await tx`
         insert into public.requirement_groups (
-          rule_id, snapshot_id, parent_group_id, group_key, label, description, operator,
+          rule_id, version_id, parent_group_id, group_key, label, description, operator,
           minimum_count, minimum_units, maximum_units, source_text, source_locator, position
         ) values (
           ${ruleId}, ${snapshotId},
@@ -368,12 +368,12 @@ async function insertRequirements(
         `Requirement condition ${condition.key} has no group.`,
       );
     }
-    // item_kind travels with item_id so the composite foreign key can hold the
+    // item_kind travels with code_id so the composite foreign key can hold the
     // referenced item to the kind the condition expects.
     const conditionItemId = itemId(ids, condition.itemKind, condition.itemCode);
     const [row] = await tx`
       insert into public.requirement_conditions (
-        rule_id, snapshot_id, group_id, condition_key, position, condition_kind, item_id,
+        rule_id, version_id, group_id, condition_key, position, condition_kind, code_id,
         item_kind, structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
@@ -402,7 +402,7 @@ async function insertRequirements(
     if (!isValidCode(option.kind, code)) continue;
     await tx`
       insert into public.requirement_condition_options (
-        condition_id, snapshot_id, position, kind, code, item_id, title, source_text
+        condition_id, version_id, position, kind, code, code_id, title, source_text
       ) values (
         ${conditionId}, ${snapshotId}, ${option.position}, ${option.kind}, ${code},
         ${itemId(ids, option.kind, code)}, ${option.title}, ${option.sourceText}
@@ -417,18 +417,18 @@ async function insertRequirements(
     if (ruleId === undefined || referencedId === null) continue;
     await tx`
       insert into public.requirement_item_references (
-        rule_id, snapshot_id, item_id, source_text, confidence, review_state
+        rule_id, version_id, code_id, source_text, confidence, review_state
       ) values (
         ${ruleId}, ${snapshotId}, ${referencedId}, ${reference.sourceText},
         ${reference.confidence}, ${reference.reviewState}
       )
-      on conflict (rule_id, item_id) do nothing
+      on conflict (rule_id, code_id) do nothing
     `;
   }
 }
 
 /** Writes every content, requirement and evidence row for a new snapshot. */
-export async function insertSnapshotContent(
+export async function insertVersionContent(
   tx: Tx,
   {
     snapshotId,
@@ -441,7 +441,7 @@ export async function insertSnapshotContent(
     kind: CatalogueKind;
     academicYearId: number;
     sourcePageId: number | null;
-    write: CatalogueSnapshotWrite;
+    write: CatalogueContent;
   },
 ) {
   const ids = await ensureItemIds(tx, referencedItems(write));
@@ -468,8 +468,8 @@ export async function insertSnapshotContent(
   );
   for (const evidence of write.evidence) {
     await tx`
-      insert into public.snapshot_field_evidence (
-        snapshot_id, academic_year_id, source_page_id, field_path, method, confidence,
+      insert into public.catalogue_version_provenance (
+        version_id, academic_year_id, source_page_id, field_path, method, confidence,
         source_locator, source_excerpt
       ) values (
         ${snapshotId}, ${academicYearId}, ${sourcePageId}, ${evidence.fieldPath},
@@ -491,7 +491,7 @@ export async function insertImportChanges(
   }: {
     targetId: string;
     changes: SnapshotChange[];
-    flags: CatalogueSnapshotWrite["flags"];
+    flags: CatalogueContent["flags"];
     acceptAll: boolean;
   },
 ) {
@@ -526,12 +526,12 @@ export async function insertImportChanges(
 }
 
 /**
- * Assembles a candidate snapshot for an import target. Returns `unchanged`
+ * Assembles a candidate version for an import target. Returns `unchanged`
  * without writing when the content hash matches the baseline. A first import
- * for an item year becomes its draft immediately with every change accepted;
+ * for a record becomes its applied version immediately with every change accepted;
  * otherwise the changes stay open for review.
  */
-export async function persistSnapshotCandidate(
+export async function persistVersionCandidate(
   sql: ImportSql,
   {
     claim,
@@ -540,7 +540,7 @@ export async function persistSnapshotCandidate(
   }: {
     claim: ClaimedImportTarget;
     sourcePageId: number | null;
-    write: CatalogueSnapshotWrite;
+    write: CatalogueContent;
   },
 ): Promise<PersistedSnapshotCandidate> {
   if (
@@ -555,23 +555,15 @@ export async function persistSnapshotCandidate(
 
   return sql.begin(async (tx) => {
     const [itemYear] = await tx`
-      select id, draft_snapshot_id, published_snapshot_id
-      from public.catalogue_item_years
-      where id = ${claim.itemYearId}
+      select id
+      from public.catalogue_records
+      where id = ${claim.recordId}
       for update
     `;
     if (!itemYear) throw new Error("The catalogue item year was not resolved.");
-    const draftId =
-      itemYear.draft_snapshot_id === null
-        ? null
-        : Number(itemYear.draft_snapshot_id);
-    const publishedId =
-      itemYear.published_snapshot_id === null
-        ? null
-        : Number(itemYear.published_snapshot_id);
-    const baselineSnapshotId = draftId ?? publishedId;
-    const [baseline] = baselineSnapshotId
-      ? await tx`select content_hash from public.catalogue_snapshots where id = ${baselineSnapshotId}`
+    const baselineVersionId = claim.baselineVersionId;
+    const [baseline] = baselineVersionId
+      ? await tx`select content_hash from public.catalogue_versions where id = ${baselineVersionId}`
       : [];
     const baselineContentHash = baseline ? String(baseline.content_hash) : null;
 
@@ -584,15 +576,15 @@ export async function persistSnapshotCandidate(
       });
       return {
         changeKind: "unchanged" as const,
-        candidateSnapshotId: null,
-        baselineSnapshotId,
+        candidateVersionId: null,
+        baselineVersionId,
         becameDraft: false,
         changeSet: {
           changeKind: "unchanged" as const,
           contentHash: write.contentHash,
-          baselineSnapshotId,
+          baselineVersionId,
           baselineContentHash,
-          candidateSnapshotId: null,
+          candidateVersionId: null,
           becameDraft: false,
           changes: [],
           flags: write.flags,
@@ -600,38 +592,43 @@ export async function persistSnapshotCandidate(
       };
     }
 
-    const baselineWrite = baselineSnapshotId
-      ? await readSnapshotWrite(tx, baselineSnapshotId)
+    const baselineWrite = baselineVersionId
+      ? await readVersionContent(tx, baselineVersionId)
       : null;
     const changes = diffSnapshotWrites(baselineWrite, write);
     if (claim.directoryEntryId !== null) {
       await tx`
         update public.catalogue_directory_entries
-        set item_id = ${claim.itemId}
-        where id = ${claim.directoryEntryId} and item_id is null
+        set code_id = ${claim.itemId}
+        where id = ${claim.directoryEntryId} and code_id is null
       `;
     }
 
     const [snapshot] = await tx`
-      insert into public.catalogue_snapshots (
-        item_year_id, kind, academic_year_id, origin, based_on_snapshot_id, source_page_id,
+      insert into public.catalogue_versions (
+        record_id, kind, academic_year_id, origin, based_on_version_id, source_page_id,
         content_hash, import_target_id
       ) values (
-        ${claim.itemYearId}, ${claim.kind}, ${claim.academicYearId}, 'import',
-        ${baselineSnapshotId}, ${sourcePageId}, ${write.contentHash}, ${claim.targetId}::uuid
+        ${claim.recordId}, ${claim.kind}, ${claim.academicYearId}, 'import',
+        ${baselineVersionId}, ${sourcePageId}, ${write.contentHash}, ${claim.targetId}::uuid
       )
       returning id
     `;
     const snapshotId = Number(snapshot.id);
-    await insertSnapshotContent(tx, {
+    await insertVersionContent(tx, {
       snapshotId,
       kind: claim.kind,
       academicYearId: claim.academicYearId,
       sourcePageId,
       write,
     });
+    await tx`
+      update public.catalogue_versions
+      set sealed_at = greatest(statement_timestamp(), created_at)
+      where id = ${snapshotId}
+    `;
 
-    const becameDraft = baselineSnapshotId === null;
+    const becameDraft = baselineVersionId === null;
     await insertImportChanges(tx, {
       targetId: claim.targetId,
       changes,
@@ -639,34 +636,29 @@ export async function persistSnapshotCandidate(
       acceptAll: becameDraft,
     });
     if (becameDraft) {
-      await tx`
-        update public.catalogue_item_years
-        set draft_snapshot_id = ${snapshotId}
-        where id = ${claim.itemYearId}
-      `;
       // A first import has nothing to compare against, so its changes are
-      // recorded as already accepted and the candidate becomes the draft
+      // recorded as already accepted and the candidate becomes the applied version
       // without anyone pressing Apply. Recording that here keeps the target
-      // honest: it was applied, and leaving applied_snapshot_id null made a
+      // honest: it was applied, and leaving applied_version_id null made a
       // published record still read "Ready for review".
       await tx`
         update public.catalogue_import_targets
-        set applied_snapshot_id = ${snapshotId}, applied_at = now()
+        set applied_version_id = ${snapshotId}, applied_at = now()
         where id = ${claim.targetId}::uuid
       `;
     }
     const changeKind: SnapshotChangeKind = becameDraft ? "new" : "changed";
     return {
       changeKind,
-      candidateSnapshotId: snapshotId,
-      baselineSnapshotId,
+      candidateVersionId: snapshotId,
+      baselineVersionId,
       becameDraft,
       changeSet: {
         changeKind,
         contentHash: write.contentHash,
-        baselineSnapshotId,
+        baselineVersionId,
         baselineContentHash,
-        candidateSnapshotId: snapshotId,
+        candidateVersionId: snapshotId,
         becameDraft,
         changes,
         flags: write.flags,

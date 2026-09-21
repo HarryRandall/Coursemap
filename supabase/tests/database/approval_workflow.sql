@@ -63,15 +63,17 @@ insert into public.plan_items (
   id,
   plan_id,
   owner_id,
-  course_id,
-  academic_year_id
+  catalogue_record_id
 )
 values (
   '32000000-0000-4000-8000-000000000001',
   '31000000-0000-4000-8000-000000000001',
   '30000000-0000-4000-8000-000000000001',
-  (select id from public.catalogue_items where code = 'TEST1000'),
-  (select id from public.academic_years where year = 2029)
+  (select item_years.id
+   from public.catalogue_records as item_years
+   join public.catalogue_codes as items on items.id = item_years.code_id
+   join public.academic_years as years on years.id = item_years.academic_year_id
+   where items.code = 'TEST1000' and years.year = 2029)
 );
 
 select set_config(

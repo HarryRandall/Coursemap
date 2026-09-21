@@ -6,7 +6,7 @@ begin;
 -- statement to escape:
 --
 -- 1. A target whose worker dies mid-flight goes back to 'queued'. The partial
---    unique index catalogue_import_targets_active_item_year_idx then refuses
+--    unique index catalogue_import_targets_active_record_idx then refuses
 --    every further import for that item year, and start_catalogue_import
 --    raises "already has an unfinished import". The only sweep that could
 --    clear it, private.recover_stale_catalogue_import_targets(), waits thirty
@@ -19,7 +19,7 @@ begin;
 --    delete trigger that raises unconditionally on DELETE, although its own
 --    comment says "Cascading deletes from an item year still pass". They did
 --    not. Combined with ensureItemIds() in persist-snapshot.ts creating a
---    placeholder catalogue_items row for any regex-valid code a model emits,
+--    placeholder catalogue_codes row for any regex-valid code a model emits,
 --    one hallucinated code was permanent.
 
 -- 1 and 2: recovery ---------------------------------------------------------------------
@@ -252,12 +252,12 @@ begin
       return old;
     end if;
     if not exists (
-      select 1 from public.catalogue_item_years where id = old.item_year_id
+      select 1 from public.catalogue_records where id = old.record_id
     ) then
       return old;
     end if;
     raise exception
-      'catalogue_snapshots records are immutable; a sealed snapshot cannot be deleted'
+      'catalogue_versions records are immutable; a sealed snapshot cannot be deleted'
       using errcode = '55000';
   end if;
   if old.sealed_at is null
@@ -274,7 +274,7 @@ begin
     return new;
   end if;
   raise exception
-    'catalogue_snapshots records are immutable; create a new snapshot instead'
+    'catalogue_versions records are immutable; create a new snapshot instead'
     using errcode = '55000';
 end;
 $function$;
@@ -308,7 +308,7 @@ begin
   end if;
 
   select id into selected_item_id
-  from public.catalogue_items
+  from public.catalogue_codes
   where kind = p_kind and code = normalised_code;
 
   if selected_item_id is null then
@@ -317,21 +317,34 @@ begin
 
   if exists (
     select 1
-    from public.catalogue_snapshots as snapshots
-    join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-    where item_years.item_id = selected_item_id and snapshots.sealed_at is not null
+    from public.catalogue_versions as snapshots
+    join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+    where item_years.code_id = selected_item_id and snapshots.sealed_at is not null
   ) then
     raise exception using
       errcode = '55000',
       message = 'This record has drafted or published content and cannot be deleted.';
   end if;
 
-  if exists (select 1 from public.requirement_conditions where item_id = selected_item_id)
-    or exists (select 1 from public.requirement_condition_options where item_id = selected_item_id)
-    or exists (select 1 from public.requirement_item_references where item_id = selected_item_id)
+  if exists (select 1 from public.requirement_conditions where code_id = selected_item_id)
+    or exists (select 1 from public.requirement_condition_options where code_id = selected_item_id)
+    or exists (select 1 from public.requirement_item_references where code_id = selected_item_id)
     or exists (select 1 from public.course_related_courses where related_course_id = selected_item_id)
-    or exists (select 1 from public.plan_items where course_id = selected_item_id)
-    or exists (select 1 from public.course_attempts where course_id = selected_item_id)
+    or exists (
+      select 1
+      from public.plan_items
+      join public.catalogue_records as records
+        on records.id = plan_items.catalogue_record_id
+      where records.code_id = selected_item_id
+    )
+    or exists (
+      select 1
+      from public.course_attempts
+      join public.catalogue_versions as versions
+        on versions.id = course_attempts.catalogue_version_id
+      join public.catalogue_records as records on records.id = versions.record_id
+      where records.code_id = selected_item_id
+    )
   then
     raise exception using
       errcode = '55000',
@@ -339,19 +352,19 @@ begin
   end if;
 
   update public.catalogue_directory_entries
-  set item_id = null
-  where item_id = selected_item_id;
+  set code_id = null
+  where code_id = selected_item_id;
 
   with removed as (
     delete from public.catalogue_import_targets as targets
-    using public.catalogue_item_years as item_years
-    where item_years.item_id = selected_item_id
-      and targets.item_year_id = item_years.id
+    using public.catalogue_records as item_years
+    where item_years.code_id = selected_item_id
+      and targets.record_id = item_years.id
     returning targets.run_id
   )
   select array_agg(distinct run_id) into affected_runs from removed;
 
-  delete from public.catalogue_items where id = selected_item_id;
+  delete from public.catalogue_codes where id = selected_item_id;
 
   if affected_runs is not null then
     perform private.refresh_catalogue_import_run(run_id)

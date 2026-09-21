@@ -66,12 +66,12 @@ select extensions.is(
 select extensions.is(
   (
     select count(*)
-    from public.catalogue_item_years
+    from public.catalogue_records
     where academic_year_id = (
       select id from public.academic_years where year = 2026
     )
       and kind = 'course'
-      and published_snapshot_id is not null
+      and published_version_id is not null
   ),
   2::bigint,
   'only the two explicitly imported preview courses have published snapshots'
@@ -80,13 +80,13 @@ select extensions.is(
 select extensions.ok(
   exists (
     select 1
-    from public.catalogue_items
+    from public.catalogue_codes
     where kind = 'course' and code = 'MATH1005'
   )
   and not exists (
     select 1
-    from public.catalogue_item_years
-    join public.catalogue_items as items on items.id = catalogue_item_years.item_id
+    from public.catalogue_records
+    join public.catalogue_codes as items on items.id = catalogue_records.code_id
     where items.code = 'MATH1005'
   ),
   'the prerequisite has an identity without invented imported content'
@@ -127,7 +127,7 @@ set local role anon;
 select extensions.is(
   (
     select count(*)
-    from public.catalogue_items
+    from public.catalogue_codes
     where code in ('COMP1100', 'COMP1110', 'MATH1005')
   ),
   3::bigint,
@@ -140,16 +140,16 @@ select extensions.ok(
   (select count(*) from public.plans) = 0
   and (
     select count(*)
-    from public.catalogue_item_years
-    where kind <> 'course' and published_snapshot_id is not null
+    from public.catalogue_records
+    where kind <> 'course' and published_version_id is not null
   ) = 5,
   'the preview keeps plans empty while publishing every selectable structure fixture'
 );
 
 select extensions.ok(
   not exists (
-    select 1 from public.course_snapshot_details as details
-    join public.course_unit_options as options on options.snapshot_id = details.snapshot_id
+    select 1 from public.course_version_details as details
+    join public.course_unit_options as options on options.version_id = details.version_id
     where details.unit_value_kind = 'fixed'
   ),
   'fixed-unit preview courses have no variable unit options'

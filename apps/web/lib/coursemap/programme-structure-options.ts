@@ -9,7 +9,7 @@ export type SelectableStructureKind =
 
 export type ProgrammeStructureRelationship = {
   relationship_kind: string;
-  snapshot_id: number;
+  version_id: number;
   target_code: string;
   target_kind: string;
 };
@@ -17,7 +17,7 @@ export type ProgrammeStructureRelationship = {
 export type ProgrammeStructureRequirementCondition = {
   condition_kind: string;
   id: number;
-  snapshot_id: number;
+  version_id: number;
   structure_kind: string | null;
 };
 
@@ -25,7 +25,7 @@ export type ProgrammeStructureRequirementOption = {
   code: string;
   condition_id: number;
   kind: string;
-  snapshot_id: number;
+  version_id: number;
 };
 
 export type SelectableStructureCodes = Record<
@@ -87,7 +87,7 @@ export function collectSelectableStructureCodes({
         relationship.relationship_kind === "option")
     ) {
       addCode(
-        relationship.snapshot_id,
+        relationship.version_id,
         relationship.target_kind,
         relationship.target_code,
       );
@@ -102,7 +102,7 @@ export function collectSelectableStructureCodes({
   >();
   for (const condition of requirementConditions) {
     if (
-      programmeSnapshotIds.has(condition.snapshot_id) &&
+      programmeSnapshotIds.has(condition.version_id) &&
       condition.condition_kind === "structure_set" &&
       isSelectableStructureKind(condition.structure_kind)
     ) {
@@ -117,10 +117,10 @@ export function collectSelectableStructureCodes({
     const condition = structureListConditions.get(option.condition_id);
     if (
       condition &&
-      condition.snapshot_id === option.snapshot_id &&
+      condition.version_id === option.version_id &&
       option.kind === condition.structure_kind
     ) {
-      addCode(option.snapshot_id, condition.structure_kind, option.code);
+      addCode(option.version_id, condition.structure_kind, option.code);
     }
   }
 

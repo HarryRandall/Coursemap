@@ -1,6 +1,6 @@
 import { canManageCourseImports } from "@/lib/auth/viewer";
 import { refreshCatalogueDirectory } from "@/lib/catalogue-import/directory";
-import { isCatalogueKind } from "@/lib/catalogue-import/snapshot-write";
+import { isCatalogueKind } from "@/lib/catalogue/content";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

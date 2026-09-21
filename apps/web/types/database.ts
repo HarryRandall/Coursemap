@@ -61,10 +61,10 @@ export type Database = {
           fee_year: number | null
           id: number
           position: number
-          snapshot_id: number
           source_label: string | null
           source_locator: string
           source_text: string
+          version_id: number
         }
         Insert: {
           amount?: number | null
@@ -75,10 +75,10 @@ export type Database = {
           fee_year?: number | null
           id?: never
           position: number
-          snapshot_id: number
           source_label?: string | null
           source_locator: string
           source_text: string
+          version_id: number
         }
         Update: {
           amount?: number | null
@@ -89,25 +89,25 @@ export type Database = {
           fee_year?: number | null
           id?: never
           position?: number
-          snapshot_id?: number
           source_label?: string | null
           source_locator?: string
           source_text?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "academic_structure_fees_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "academic_structure_fees_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -116,40 +116,40 @@ export type Database = {
           id: number
           outcome_text: string
           position: number
-          snapshot_id: number
           source_locator: string
           source_text: string
+          version_id: number
         }
         Insert: {
           id?: never
           outcome_text: string
           position: number
-          snapshot_id: number
           source_locator: string
           source_text: string
+          version_id: number
         }
         Update: {
           id?: never
           outcome_text?: string
           position?: number
-          snapshot_id?: number
           source_locator?: string
           source_text?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "academic_structure_learning_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "academic_structure_learning_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -158,49 +158,49 @@ export type Database = {
           id: number
           position: number
           relationship_kind: string
-          snapshot_id: number
           source_locator: string
           source_text: string
           target_code: string
           target_kind: string
           target_title: string | null
+          version_id: number
         }
         Insert: {
           id?: never
           position: number
           relationship_kind: string
-          snapshot_id: number
           source_locator: string
           source_text: string
           target_code: string
           target_kind: string
           target_title?: string | null
+          version_id: number
         }
         Update: {
           id?: never
           position?: number
           relationship_kind?: string
-          snapshot_id?: number
           source_locator?: string
           source_text?: string
           target_code?: string
           target_kind?: string
           target_title?: string | null
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "academic_structure_snapshot_relationships_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "academic_structure_snapshot_relationships_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -211,9 +211,9 @@ export type Database = {
           markdown: string
           position: number
           section_key: string
-          snapshot_id: number
           source_locator: string
           source_text: string
+          version_id: number
         }
         Insert: {
           heading: string
@@ -221,9 +221,9 @@ export type Database = {
           markdown: string
           position: number
           section_key: string
-          snapshot_id: number
           source_locator: string
           source_text: string
+          version_id: number
         }
         Update: {
           heading?: string
@@ -231,24 +231,24 @@ export type Database = {
           markdown?: string
           position?: number
           section_key?: string
-          snapshot_id?: number
           source_locator?: string
           source_text?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "academic_structure_snapshot_sections_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "academic_structure_snapshot_sections_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -800,14 +800,41 @@ export type Database = {
           },
         ]
       }
+      catalogue_codes: {
+        Row: {
+          code: string
+          created_at: string
+          id: number
+          kind: string
+          public_id: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: never
+          kind: string
+          public_id?: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: never
+          kind?: string
+          public_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catalogue_directory_entries: {
         Row: {
           academic_year_id: number
           code: string
+          code_id: number | null
           first_seen_at: string
           id: number
           is_current: boolean
-          item_id: number | null
           kind: string
           last_seen_at: string
           source_page_id: number | null
@@ -817,10 +844,10 @@ export type Database = {
         Insert: {
           academic_year_id: number
           code: string
+          code_id?: number | null
           first_seen_at?: string
           id?: never
           is_current?: boolean
-          item_id?: number | null
           kind: string
           last_seen_at?: string
           source_page_id?: number | null
@@ -830,10 +857,10 @@ export type Database = {
         Update: {
           academic_year_id?: number
           code?: string
+          code_id?: number | null
           first_seen_at?: string
           id?: never
           is_current?: boolean
-          item_id?: number | null
           kind?: string
           last_seen_at?: string
           source_page_id?: number | null
@@ -850,9 +877,9 @@ export type Database = {
           },
           {
             foreignKeyName: "catalogue_directory_entries_item_fkey"
-            columns: ["item_id", "kind"]
+            columns: ["code_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id", "kind"]
           },
           {
@@ -1288,12 +1315,13 @@ export type Database = {
         Row: {
           academic_year_id: number
           applied_at: string | null
-          applied_snapshot_id: number | null
+          applied_version_id: number | null
           attempt_count: number
-          baseline_snapshot_id: number | null
-          candidate_snapshot_id: number | null
+          baseline_version_id: number | null
+          candidate_version_id: number | null
           change_kind: string | null
           code: string
+          code_id: number
           completed_at: string | null
           created_at: string
           directory_entry_id: number | null
@@ -1301,12 +1329,11 @@ export type Database = {
           error_code: string | null
           error_message: string | null
           id: string
-          item_id: number
-          item_year_id: number
           kind: string
           lease_expires_at: string | null
           lock_version: number
           queue_message_id: string | null
+          record_id: number
           run_id: string
           source_page_id: number | null
           status: string
@@ -1316,12 +1343,13 @@ export type Database = {
         Insert: {
           academic_year_id: number
           applied_at?: string | null
-          applied_snapshot_id?: number | null
+          applied_version_id?: number | null
           attempt_count?: number
-          baseline_snapshot_id?: number | null
-          candidate_snapshot_id?: number | null
+          baseline_version_id?: number | null
+          candidate_version_id?: number | null
           change_kind?: string | null
           code: string
+          code_id: number
           completed_at?: string | null
           created_at?: string
           directory_entry_id?: number | null
@@ -1329,12 +1357,11 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           id?: string
-          item_id: number
-          item_year_id: number
           kind: string
           lease_expires_at?: string | null
           lock_version?: number
           queue_message_id?: string | null
+          record_id: number
           run_id: string
           source_page_id?: number | null
           status?: string
@@ -1344,12 +1371,13 @@ export type Database = {
         Update: {
           academic_year_id?: number
           applied_at?: string | null
-          applied_snapshot_id?: number | null
+          applied_version_id?: number | null
           attempt_count?: number
-          baseline_snapshot_id?: number | null
-          candidate_snapshot_id?: number | null
+          baseline_version_id?: number | null
+          candidate_version_id?: number | null
           change_kind?: string | null
           code?: string
+          code_id?: number
           completed_at?: string | null
           created_at?: string
           directory_entry_id?: number | null
@@ -1357,12 +1385,11 @@ export type Database = {
           error_code?: string | null
           error_message?: string | null
           id?: string
-          item_id?: number
-          item_year_id?: number
           kind?: string
           lease_expires_at?: string | null
           lock_version?: number
           queue_message_id?: string | null
+          record_id?: number
           run_id?: string
           source_page_id?: number | null
           status?: string
@@ -1372,24 +1399,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "catalogue_import_targets_applied_fkey"
-            columns: ["applied_snapshot_id", "item_year_id"]
+            columns: ["applied_version_id", "record_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
           },
           {
             foreignKeyName: "catalogue_import_targets_baseline_fkey"
-            columns: ["baseline_snapshot_id", "item_year_id"]
+            columns: ["baseline_version_id", "record_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
           },
           {
             foreignKeyName: "catalogue_import_targets_candidate_fkey"
-            columns: ["candidate_snapshot_id", "item_year_id"]
+            columns: ["candidate_version_id", "record_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
           },
           {
             foreignKeyName: "catalogue_import_targets_directory_entry_fkey"
@@ -1400,24 +1427,24 @@ export type Database = {
           },
           {
             foreignKeyName: "catalogue_import_targets_item_fkey"
-            columns: ["item_id", "kind"]
+            columns: ["code_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id", "kind"]
           },
           {
             foreignKeyName: "catalogue_import_targets_item_year_fkey"
-            columns: ["item_year_id", "academic_year_id"]
+            columns: ["record_id", "academic_year_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_item_years"
+            referencedRelation: "catalogue_records"
             referencedColumns: ["id", "academic_year_id"]
           },
           {
             foreignKeyName: "catalogue_import_targets_item_year_fkey"
-            columns: ["item_year_id", "academic_year_id"]
+            columns: ["record_id", "academic_year_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_year_id", "academic_year_id"]
+            referencedColumns: ["record_id", "academic_year_id"]
           },
           {
             foreignKeyName: "catalogue_import_targets_run_fkey"
@@ -1435,242 +1462,113 @@ export type Database = {
           },
         ]
       }
-      catalogue_item_years: {
+      catalogue_publications: {
+        Row: {
+          id: number
+          published_at: string
+          published_by: string | null
+          record_id: number
+          unpublished_at: string | null
+          unpublished_by: string | null
+          version_id: number
+        }
+        Insert: {
+          id?: never
+          published_at?: string
+          published_by?: string | null
+          record_id: number
+          unpublished_at?: string | null
+          unpublished_by?: string | null
+          version_id: number
+        }
+        Update: {
+          id?: never
+          published_at?: string
+          published_by?: string | null
+          record_id?: number
+          unpublished_at?: string | null
+          unpublished_by?: string | null
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_publications_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_publications_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_publications_version_record_fkey"
+            columns: ["version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
+      catalogue_records: {
         Row: {
           academic_year_id: number
           archived_at: string | null
+          code_id: number
           created_at: string
-          draft_snapshot_id: number | null
           id: number
-          item_id: number
           kind: string
           public_id: string
-          published_snapshot_id: number | null
+          published_version_id: number | null
           updated_at: string
         }
         Insert: {
           academic_year_id: number
           archived_at?: string | null
+          code_id: number
           created_at?: string
-          draft_snapshot_id?: number | null
           id?: never
-          item_id: number
           kind: string
           public_id?: string
-          published_snapshot_id?: number | null
+          published_version_id?: number | null
           updated_at?: string
         }
         Update: {
           academic_year_id?: number
           archived_at?: string | null
+          code_id?: number
           created_at?: string
-          draft_snapshot_id?: number | null
           id?: never
-          item_id?: number
           kind?: string
           public_id?: string
-          published_snapshot_id?: number | null
+          published_version_id?: number | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_item_years_academic_year_id_fkey"
+            foreignKeyName: "catalogue_records_academic_year_id_fkey"
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_item_years_draft_snapshot_fkey"
-            columns: ["draft_snapshot_id", "id"]
+            foreignKeyName: "catalogue_records_code_kind_fkey"
+            columns: ["code_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_item_years_item_kind_fkey"
-            columns: ["item_id", "kind"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id", "kind"]
           },
           {
-            foreignKeyName: "catalogue_item_years_published_snapshot_fkey"
-            columns: ["published_snapshot_id", "id"]
+            foreignKeyName: "catalogue_records_published_version_fkey"
+            columns: ["published_version_id", "id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
-          },
-        ]
-      }
-      catalogue_items: {
-        Row: {
-          code: string
-          created_at: string
-          id: number
-          kind: string
-          public_id: string
-          updated_at: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          id?: never
-          kind: string
-          public_id?: string
-          updated_at?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          id?: never
-          kind?: string
-          public_id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      catalogue_publications: {
-        Row: {
-          id: number
-          item_year_id: number
-          published_at: string
-          published_by: string | null
-          snapshot_id: number | null
-        }
-        Insert: {
-          id?: never
-          item_year_id: number
-          published_at?: string
-          published_by?: string | null
-          snapshot_id?: number | null
-        }
-        Update: {
-          id?: never
-          item_year_id?: number
-          published_at?: string
-          published_by?: string | null
-          snapshot_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_publications_item_year_id_fkey"
-            columns: ["item_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_item_years"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_publications_item_year_id_fkey"
-            columns: ["item_year_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_publications_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_publications_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
-          },
-        ]
-      }
-      catalogue_snapshots: {
-        Row: {
-          academic_year_id: number
-          based_on_snapshot_id: number | null
-          content_hash: string
-          created_at: string
-          created_by: string | null
-          id: number
-          import_target_id: string | null
-          item_year_id: number
-          kind: string
-          origin: string
-          public_id: string
-          sealed_at: string | null
-          source_page_id: number | null
-        }
-        Insert: {
-          academic_year_id: number
-          based_on_snapshot_id?: number | null
-          content_hash: string
-          created_at?: string
-          created_by?: string | null
-          id?: never
-          import_target_id?: string | null
-          item_year_id: number
-          kind: string
-          origin: string
-          public_id?: string
-          sealed_at?: string | null
-          source_page_id?: number | null
-        }
-        Update: {
-          academic_year_id?: number
-          based_on_snapshot_id?: number | null
-          content_hash?: string
-          created_at?: string
-          created_by?: string | null
-          id?: never
-          import_target_id?: string | null
-          item_year_id?: number
-          kind?: string
-          origin?: string
-          public_id?: string
-          sealed_at?: string | null
-          source_page_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_snapshots_based_on_fkey"
-            columns: ["based_on_snapshot_id", "item_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "item_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_snapshots_import_target_fkey"
-            columns: ["import_target_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_snapshots_item_year_fkey"
-            columns: ["item_year_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_item_years"
-            referencedColumns: ["id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_snapshots_item_year_fkey"
-            columns: ["item_year_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_year_id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_snapshots_item_year_kind_fkey"
-            columns: ["item_year_id", "kind"]
-            isOneToOne: false
-            referencedRelation: "catalogue_item_years"
-            referencedColumns: ["id", "kind"]
-          },
-          {
-            foreignKeyName: "catalogue_snapshots_source_page_fkey"
-            columns: ["source_page_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_source_pages"
-            referencedColumns: ["id", "academic_year_id"]
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
           },
         ]
       }
@@ -1776,42 +1674,187 @@ export type Database = {
         }
         Relationships: []
       }
+      catalogue_version_provenance: {
+        Row: {
+          academic_year_id: number
+          confidence: number | null
+          created_at: string
+          field_path: string
+          id: number
+          method: string
+          source_excerpt: string | null
+          source_locator: string | null
+          source_page_id: number | null
+          version_id: number
+        }
+        Insert: {
+          academic_year_id: number
+          confidence?: number | null
+          created_at?: string
+          field_path: string
+          id?: never
+          method: string
+          source_excerpt?: string | null
+          source_locator?: string | null
+          source_page_id?: number | null
+          version_id: number
+        }
+        Update: {
+          academic_year_id?: number
+          confidence?: number | null
+          created_at?: string
+          field_path?: string
+          id?: never
+          method?: string
+          source_excerpt?: string | null
+          source_locator?: string | null
+          source_page_id?: number | null
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_version_provenance_snapshot_fkey"
+            columns: ["version_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_version_provenance_source_page_fkey"
+            columns: ["source_page_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+        ]
+      }
+      catalogue_versions: {
+        Row: {
+          academic_year_id: number
+          based_on_version_id: number | null
+          content_hash: string
+          created_at: string
+          created_by: string | null
+          id: number
+          import_target_id: string | null
+          kind: string
+          origin: string
+          public_id: string
+          record_id: number
+          sealed_at: string | null
+          source_page_id: number | null
+        }
+        Insert: {
+          academic_year_id: number
+          based_on_version_id?: number | null
+          content_hash: string
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          import_target_id?: string | null
+          kind: string
+          origin: string
+          public_id?: string
+          record_id: number
+          sealed_at?: string | null
+          source_page_id?: number | null
+        }
+        Update: {
+          academic_year_id?: number
+          based_on_version_id?: number | null
+          content_hash?: string
+          created_at?: string
+          created_by?: string | null
+          id?: never
+          import_target_id?: string | null
+          kind?: string
+          origin?: string
+          public_id?: string
+          record_id?: number
+          sealed_at?: string | null
+          source_page_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_versions_based_on_fkey"
+            columns: ["based_on_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_import_target_fkey"
+            columns: ["import_target_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_import_targets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_item_year_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_item_year_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_item_year_kind_fkey"
+            columns: ["record_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "kind"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_source_page_fkey"
+            columns: ["source_page_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+        ]
+      }
       course_areas_of_interest: {
         Row: {
           created_at: string
           id: number
           name: string
           position: number
-          snapshot_id: number
+          version_id: number
         }
         Insert: {
           created_at?: string
           id?: never
           name: string
           position: number
-          snapshot_id: number
+          version_id: number
         }
         Update: {
           created_at?: string
           id?: never
           name?: string
           position?: number
-          snapshot_id?: number
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_areas_of_interest_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_areas_of_interest_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -1823,10 +1866,10 @@ export type Database = {
           id: number
           learning_outcomes: number[] | null
           position: number
-          snapshot_id: number
           source_text: string
           title: string
           updated_at: string
+          version_id: number
           weight: number | null
         }
         Insert: {
@@ -1836,10 +1879,10 @@ export type Database = {
           id?: never
           learning_outcomes?: number[] | null
           position: number
-          snapshot_id: number
           source_text: string
           title: string
           updated_at?: string
+          version_id: number
           weight?: number | null
         }
         Update: {
@@ -1849,26 +1892,26 @@ export type Database = {
           id?: never
           learning_outcomes?: number[] | null
           position?: number
-          snapshot_id?: number
           source_text?: string
           title?: string
           updated_at?: string
+          version_id?: number
           weight?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "course_assessment_items_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_assessment_items_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -1877,56 +1920,55 @@ export type Database = {
           assessment_item_id: number
           created_at: string
           learning_outcome_id: number
-          snapshot_id: number
+          version_id: number
         }
         Insert: {
           assessment_item_id: number
           created_at?: string
           learning_outcome_id: number
-          snapshot_id: number
+          version_id: number
         }
         Update: {
           assessment_item_id?: number
           created_at?: string
           learning_outcome_id?: number
-          snapshot_id?: number
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_assessment_outcomes_assessment_snapshot_fkey"
-            columns: ["assessment_item_id", "snapshot_id"]
+            columns: ["assessment_item_id", "version_id"]
             isOneToOne: false
             referencedRelation: "course_assessment_items"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
           {
             foreignKeyName: "course_assessment_outcomes_learning_outcome_snapshot_fkey"
-            columns: ["learning_outcome_id", "snapshot_id"]
+            columns: ["learning_outcome_id", "version_id"]
             isOneToOne: false
             referencedRelation: "course_learning_outcomes"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
           {
             foreignKeyName: "course_assessment_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_assessment_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
       course_attempts: {
         Row: {
           academic_period_id: number
-          course_id: number
-          course_snapshot_id: number
+          catalogue_version_id: number
           created_at: string
           grade: string | null
           id: string
@@ -1940,8 +1982,7 @@ export type Database = {
         }
         Insert: {
           academic_period_id: number
-          course_id: number
-          course_snapshot_id: number
+          catalogue_version_id: number
           created_at?: string
           grade?: string | null
           id?: string
@@ -1955,8 +1996,7 @@ export type Database = {
         }
         Update: {
           academic_period_id?: number
-          course_id?: number
-          course_snapshot_id?: number
+          catalogue_version_id?: number
           created_at?: string
           grade?: string | null
           id?: string
@@ -1977,32 +2017,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "course_attempts_course_item_fkey"
-            columns: ["course_id"]
+            foreignKeyName: "course_attempts_catalogue_version_fkey"
+            columns: ["catalogue_version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "course_attempts_course_item_fkey"
-            columns: ["course_id"]
+            foreignKeyName: "course_attempts_catalogue_version_fkey"
+            columns: ["catalogue_version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "course_attempts_snapshot_fkey"
-            columns: ["course_snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_attempts_snapshot_fkey"
-            columns: ["course_snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -2012,42 +2038,42 @@ export type Database = {
           created_at: string
           id: number
           position: number
-          snapshot_id: number
           source_text: string
           value: string
+          version_id: number
         }
         Insert: {
           attribute_kind: string
           created_at?: string
           id?: never
           position: number
-          snapshot_id: number
           source_text: string
           value: string
+          version_id: number
         }
         Update: {
           attribute_kind?: string
           created_at?: string
           id?: never
           position?: number
-          snapshot_id?: number
           source_text?: string
           value?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_attributes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_attributes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -2062,10 +2088,10 @@ export type Database = {
           fee_year: number | null
           id: number
           position: number
-          snapshot_id: number
           source_label: string | null
           source_text: string | null
           student_contribution_band: number | null
+          version_id: number
         }
         Insert: {
           amount?: number | null
@@ -2077,10 +2103,10 @@ export type Database = {
           fee_year?: number | null
           id?: never
           position: number
-          snapshot_id: number
           source_label?: string | null
           source_text?: string | null
           student_contribution_band?: number | null
+          version_id: number
         }
         Update: {
           amount?: number | null
@@ -2092,25 +2118,25 @@ export type Database = {
           fee_year?: number | null
           id?: never
           position?: number
-          snapshot_id?: number
           source_label?: string | null
           source_text?: string | null
           student_contribution_band?: number | null
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_fees_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_fees_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -2120,39 +2146,39 @@ export type Database = {
           created_at: string
           id: number
           position: number
-          snapshot_id: number
           updated_at: string
+          version_id: number
         }
         Insert: {
           body: string
           created_at?: string
           id?: never
           position: number
-          snapshot_id: number
           updated_at?: string
+          version_id: number
         }
         Update: {
           body?: string
           created_at?: string
           id?: never
           position?: number
-          snapshot_id?: number
           updated_at?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_learning_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_learning_outcomes_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
@@ -2163,9 +2189,9 @@ export type Database = {
           delivery_mode: string | null
           id: number
           location: string | null
-          snapshot_id: number
           source_page_id: number | null
           updated_at: string
+          version_id: number
         }
         Insert: {
           academic_year_id: number
@@ -2173,9 +2199,9 @@ export type Database = {
           delivery_mode?: string | null
           id?: never
           location?: string | null
-          snapshot_id: number
           source_page_id?: number | null
           updated_at?: string
+          version_id: number
         }
         Update: {
           academic_year_id?: number
@@ -2183,30 +2209,30 @@ export type Database = {
           delivery_mode?: string | null
           id?: never
           location?: string | null
-          snapshot_id?: number
           source_page_id?: number | null
           updated_at?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_offerings_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: true
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_offerings_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: true
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
           {
             foreignKeyName: "course_offerings_snapshot_year_fkey"
-            columns: ["snapshot_id", "academic_year_id"]
+            columns: ["version_id", "academic_year_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "academic_year_id"]
           },
           {
@@ -2225,10 +2251,10 @@ export type Database = {
           position: number
           related_course_id: number
           relation_kind: string
-          snapshot_id: number
           source_course_code: string
           source_course_title: string | null
           source_text: string | null
+          version_id: number
         }
         Insert: {
           created_at?: string
@@ -2236,10 +2262,10 @@ export type Database = {
           position: number
           related_course_id: number
           relation_kind: string
-          snapshot_id: number
           source_course_code: string
           source_course_title?: string | null
           source_text?: string | null
+          version_id: number
         }
         Update: {
           created_at?: string
@@ -2247,17 +2273,17 @@ export type Database = {
           position?: number
           related_course_id?: number
           relation_kind?: string
-          snapshot_id?: number
           source_course_code?: string
           source_course_title?: string | null
           source_text?: string | null
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "course_related_courses_related_item_fkey"
             columns: ["related_course_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id"]
           },
           {
@@ -2265,25 +2291,70 @@ export type Database = {
             columns: ["related_course_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
+            referencedColumns: ["code_id"]
           },
           {
             foreignKeyName: "course_related_courses_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "course_related_courses_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
         ]
       }
-      course_snapshot_details: {
+      course_unit_options: {
+        Row: {
+          created_at: string
+          id: number
+          label: string | null
+          position: number
+          source_text: string
+          units: number
+          version_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          label?: string | null
+          position: number
+          source_text: string
+          units: number
+          version_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          label?: string | null
+          position?: number
+          source_text?: string
+          units?: number
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_unit_options_snapshot_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_unit_options_snapshot_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["version_id"]
+          },
+        ]
+      }
+      course_version_details: {
         Row: {
           academic_career: string | null
           college: string | null
@@ -2300,13 +2371,13 @@ export type Database = {
           offering_status: string
           prescribed_texts: string | null
           school: string | null
-          snapshot_id: number
           source_updated_at: string | null
           subject_code: string
           subject_name: string | null
           title: string
           unit_value_kind: string
           units: number | null
+          version_id: number
           workload_hours: number | null
           workload_text: string | null
         }
@@ -2326,13 +2397,13 @@ export type Database = {
           offering_status?: string
           prescribed_texts?: string | null
           school?: string | null
-          snapshot_id: number
           source_updated_at?: string | null
           subject_code: string
           subject_name?: string | null
           title: string
           unit_value_kind?: string
           units?: number | null
+          version_id: number
           workload_hours?: number | null
           workload_text?: string | null
         }
@@ -2352,68 +2423,23 @@ export type Database = {
           offering_status?: string
           prescribed_texts?: string | null
           school?: string | null
-          snapshot_id?: number
           source_updated_at?: string | null
           subject_code?: string
           subject_name?: string | null
           title?: string
           unit_value_kind?: string
           units?: number | null
+          version_id?: number
           workload_hours?: number | null
           workload_text?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "course_snapshot_details_snapshot_kind_fkey"
-            columns: ["snapshot_id", "kind"]
+            foreignKeyName: "course_version_details_snapshot_kind_fkey"
+            columns: ["version_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "kind"]
-          },
-        ]
-      }
-      course_unit_options: {
-        Row: {
-          created_at: string
-          id: number
-          label: string | null
-          position: number
-          snapshot_id: number
-          source_text: string
-          units: number
-        }
-        Insert: {
-          created_at?: string
-          id?: never
-          label?: string | null
-          position: number
-          snapshot_id: number
-          source_text: string
-          units: number
-        }
-        Update: {
-          created_at?: string
-          id?: never
-          label?: string | null
-          position?: number
-          snapshot_id?: number
-          source_text?: string
-          units?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_unit_options_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_unit_options_snapshot_id_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -2506,11 +2532,11 @@ export type Database = {
           id: number
           location: string | null
           position: number
-          snapshot_id: number
           source_page_id: number | null
           source_text: string
           starts_on: string | null
           updated_at: string
+          version_id: number
         }
         Insert: {
           academic_period_code: string
@@ -2528,11 +2554,11 @@ export type Database = {
           id?: never
           location?: string | null
           position: number
-          snapshot_id: number
           source_page_id?: number | null
           source_text: string
           starts_on?: string | null
           updated_at?: string
+          version_id: number
         }
         Update: {
           academic_period_code?: string
@@ -2550,11 +2576,11 @@ export type Database = {
           id?: never
           location?: string | null
           position?: number
-          snapshot_id?: number
           source_page_id?: number | null
           source_text?: string
           starts_on?: string | null
           updated_at?: string
+          version_id?: number
         }
         Relationships: [
           {
@@ -2566,30 +2592,30 @@ export type Database = {
           },
           {
             foreignKeyName: "offering_sessions_offering_snapshot_fkey"
-            columns: ["course_offering_id", "snapshot_id"]
+            columns: ["course_offering_id", "version_id"]
             isOneToOne: false
             referencedRelation: "course_offerings"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
           {
             foreignKeyName: "offering_sessions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "offering_sessions_snapshot_id_fkey"
-            columns: ["snapshot_id"]
+            columns: ["version_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
+            referencedColumns: ["version_id"]
           },
           {
             foreignKeyName: "offering_sessions_snapshot_year_fkey"
-            columns: ["snapshot_id", "academic_year_id"]
+            columns: ["version_id", "academic_year_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "academic_year_id"]
           },
           {
@@ -2604,8 +2630,7 @@ export type Database = {
       plan_items: {
         Row: {
           academic_period_id: number | null
-          academic_year_id: number
-          course_id: number
+          catalogue_record_id: number
           created_at: string
           id: string
           notes: string | null
@@ -2618,8 +2643,7 @@ export type Database = {
         }
         Insert: {
           academic_period_id?: number | null
-          academic_year_id: number
-          course_id: number
+          catalogue_record_id: number
           created_at?: string
           id?: string
           notes?: string | null
@@ -2632,8 +2656,7 @@ export type Database = {
         }
         Update: {
           academic_period_id?: number | null
-          academic_year_id?: number
-          course_id?: number
+          catalogue_record_id?: number
           created_at?: string
           id?: string
           notes?: string | null
@@ -2653,39 +2676,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "plan_items_academic_year_calendar_year_fkey"
-            columns: ["academic_year_id", "planned_calendar_year"]
+            foreignKeyName: "plan_items_catalogue_record_fkey"
+            columns: ["catalogue_record_id"]
             isOneToOne: false
-            referencedRelation: "academic_years"
-            referencedColumns: ["id", "year"]
-          },
-          {
-            foreignKeyName: "plan_items_academic_year_id_fkey"
-            columns: ["academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "academic_years"
+            referencedRelation: "catalogue_records"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "plan_items_course_item_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "plan_items_course_item_fkey"
-            columns: ["course_id"]
+            foreignKeyName: "plan_items_catalogue_record_fkey"
+            columns: ["catalogue_record_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
-          },
-          {
-            foreignKeyName: "plan_items_course_item_year_fkey"
-            columns: ["course_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_item_years"
-            referencedColumns: ["item_id", "academic_year_id"]
+            referencedColumns: ["record_id"]
           },
           {
             foreignKeyName: "plan_items_plan_owner_fkey"
@@ -2698,59 +2700,49 @@ export type Database = {
       }
       plan_structures: {
         Row: {
-          academic_year_id: number
+          catalogue_record_id: number
           created_at: string
           id: string
           owner_id: string
           plan_id: string
           position: number
           role: string
-          structure_year_id: number
           updated_at: string
         }
         Insert: {
-          academic_year_id: number
+          catalogue_record_id: number
           created_at?: string
           id?: string
           owner_id: string
           plan_id: string
           position?: number
           role: string
-          structure_year_id: number
           updated_at?: string
         }
         Update: {
-          academic_year_id?: number
+          catalogue_record_id?: number
           created_at?: string
           id?: string
           owner_id?: string
           plan_id?: string
           position?: number
           role?: string
-          structure_year_id?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "plan_structures_item_year_fkey"
-            columns: ["structure_year_id", "academic_year_id"]
+            foreignKeyName: "plan_structures_catalogue_record_fkey"
+            columns: ["catalogue_record_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_item_years"
-            referencedColumns: ["id", "academic_year_id"]
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "plan_structures_item_year_fkey"
-            columns: ["structure_year_id", "academic_year_id"]
+            foreignKeyName: "plan_structures_catalogue_record_fkey"
+            columns: ["catalogue_record_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_year_id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "plan_structures_plan_owner_academic_year_fkey"
-            columns: ["plan_id", "owner_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "plans"
-            referencedColumns: ["id", "owner_id", "academic_year_id"]
+            referencedColumns: ["record_id"]
           },
         ]
       }
@@ -2834,56 +2826,57 @@ export type Database = {
       requirement_condition_options: {
         Row: {
           code: string
+          code_id: number | null
           condition_id: number
           id: number
-          item_id: number | null
           kind: string
           position: number
-          snapshot_id: number
           source_text: string | null
           title: string | null
+          version_id: number
         }
         Insert: {
           code: string
+          code_id?: number | null
           condition_id: number
           id?: never
-          item_id?: number | null
           kind: string
           position: number
-          snapshot_id: number
           source_text?: string | null
           title?: string | null
+          version_id: number
         }
         Update: {
           code?: string
+          code_id?: number | null
           condition_id?: number
           id?: never
-          item_id?: number | null
           kind?: string
           position?: number
-          snapshot_id?: number
           source_text?: string | null
           title?: string | null
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "requirement_condition_options_condition_fkey"
-            columns: ["condition_id", "snapshot_id"]
+            columns: ["condition_id", "version_id"]
             isOneToOne: false
             referencedRelation: "requirement_conditions"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
           {
             foreignKeyName: "requirement_condition_options_item_fkey"
-            columns: ["item_id", "kind"]
+            columns: ["code_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id", "kind"]
           },
         ]
       }
       requirement_conditions: {
         Row: {
+          code_id: number | null
           condition_key: string
           condition_kind: string
           confidence: number
@@ -2891,7 +2884,6 @@ export type Database = {
           group_id: number
           hardness: string
           id: number
-          item_id: number | null
           item_kind: string | null
           maximum_level: number | null
           maximum_units: number | null
@@ -2906,14 +2898,15 @@ export type Database = {
           requirement_mode: string | null
           review_state: string
           rule_id: number
-          snapshot_id: number
           source_locator: string | null
           source_text: string | null
           structure_kind: string | null
           subject_code: string | null
           tag: string | null
+          version_id: number
         }
         Insert: {
+          code_id?: number | null
           condition_key: string
           condition_kind: string
           confidence?: number
@@ -2921,7 +2914,6 @@ export type Database = {
           group_id: number
           hardness?: string
           id?: never
-          item_id?: number | null
           item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -2936,14 +2928,15 @@ export type Database = {
           requirement_mode?: string | null
           review_state?: string
           rule_id: number
-          snapshot_id: number
           source_locator?: string | null
           source_text?: string | null
           structure_kind?: string | null
           subject_code?: string | null
           tag?: string | null
+          version_id: number
         }
         Update: {
+          code_id?: number | null
           condition_key?: string
           condition_kind?: string
           confidence?: number
@@ -2951,7 +2944,6 @@ export type Database = {
           group_id?: number
           hardness?: string
           id?: never
-          item_id?: number | null
           item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -2966,12 +2958,12 @@ export type Database = {
           requirement_mode?: string | null
           review_state?: string
           rule_id?: number
-          snapshot_id?: number
           source_locator?: string | null
           source_text?: string | null
           structure_kind?: string | null
           subject_code?: string | null
           tag?: string | null
+          version_id?: number
         }
         Relationships: [
           {
@@ -2983,17 +2975,17 @@ export type Database = {
           },
           {
             foreignKeyName: "requirement_conditions_item_fkey"
-            columns: ["item_id", "item_kind"]
+            columns: ["code_id", "item_kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id", "kind"]
           },
           {
             foreignKeyName: "requirement_conditions_rule_fkey"
-            columns: ["rule_id", "snapshot_id"]
+            columns: ["rule_id", "version_id"]
             isOneToOne: false
             referencedRelation: "requirement_rules"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
         ]
       }
@@ -3010,9 +3002,9 @@ export type Database = {
           parent_group_id: number | null
           position: number
           rule_id: number
-          snapshot_id: number
           source_locator: string | null
           source_text: string | null
+          version_id: number
         }
         Insert: {
           description?: string | null
@@ -3026,9 +3018,9 @@ export type Database = {
           parent_group_id?: number | null
           position?: number
           rule_id: number
-          snapshot_id: number
           source_locator?: string | null
           source_text?: string | null
+          version_id: number
         }
         Update: {
           description?: string | null
@@ -3042,9 +3034,9 @@ export type Database = {
           parent_group_id?: number | null
           position?: number
           rule_id?: number
-          snapshot_id?: number
           source_locator?: string | null
           source_text?: string | null
+          version_id?: number
         }
         Relationships: [
           {
@@ -3056,62 +3048,62 @@ export type Database = {
           },
           {
             foreignKeyName: "requirement_groups_rule_fkey"
-            columns: ["rule_id", "snapshot_id"]
+            columns: ["rule_id", "version_id"]
             isOneToOne: false
             referencedRelation: "requirement_rules"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
         ]
       }
       requirement_item_references: {
         Row: {
+          code_id: number
           confidence: number
           id: number
-          item_id: number
           review_state: string
           rule_id: number
-          snapshot_id: number
           source_text: string
+          version_id: number
         }
         Insert: {
+          code_id: number
           confidence?: number
           id?: never
-          item_id: number
           review_state?: string
           rule_id: number
-          snapshot_id: number
           source_text: string
+          version_id: number
         }
         Update: {
+          code_id?: number
           confidence?: number
           id?: never
-          item_id?: number
           review_state?: string
           rule_id?: number
-          snapshot_id?: number
           source_text?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "requirement_item_references_item_fkey"
-            columns: ["item_id"]
+            columns: ["code_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_items"
+            referencedRelation: "catalogue_codes"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "requirement_item_references_item_fkey"
-            columns: ["item_id"]
+            columns: ["code_id"]
             isOneToOne: false
             referencedRelation: "published_course_summaries"
-            referencedColumns: ["item_id"]
+            referencedColumns: ["code_id"]
           },
           {
             foreignKeyName: "requirement_item_references_rule_fkey"
-            columns: ["rule_id", "snapshot_id"]
+            columns: ["rule_id", "version_id"]
             isOneToOne: false
             referencedRelation: "requirement_rules"
-            referencedColumns: ["id", "snapshot_id"]
+            referencedColumns: ["id", "version_id"]
           },
         ]
       }
@@ -3125,10 +3117,10 @@ export type Database = {
           position: number
           review_state: string
           rule_kind: string
-          snapshot_id: number
           source_locator: string | null
           source_page_id: number | null
           source_text: string
+          version_id: number
         }
         Insert: {
           academic_year_id: number
@@ -3139,10 +3131,10 @@ export type Database = {
           position?: number
           review_state?: string
           rule_kind: string
-          snapshot_id: number
           source_locator?: string | null
           source_page_id?: number | null
           source_text: string
+          version_id: number
         }
         Update: {
           academic_year_id?: number
@@ -3153,17 +3145,17 @@ export type Database = {
           position?: number
           review_state?: string
           rule_kind?: string
-          snapshot_id?: number
           source_locator?: string | null
           source_page_id?: number | null
           source_text?: string
+          version_id?: number
         }
         Relationships: [
           {
             foreignKeyName: "requirement_rules_snapshot_fkey"
-            columns: ["snapshot_id", "academic_year_id"]
+            columns: ["version_id", "academic_year_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "academic_year_id"]
           },
           {
@@ -3175,61 +3167,52 @@ export type Database = {
           },
         ]
       }
-      snapshot_field_evidence: {
+      structure_snapshot_summary_fields: {
         Row: {
-          academic_year_id: number
-          confidence: number | null
-          created_at: string
-          field_path: string
-          id: number
-          method: string
-          snapshot_id: number
-          source_excerpt: string | null
-          source_locator: string | null
-          source_page_id: number | null
+          field_key: string
+          field_value: string
+          label: string
+          position: number
+          source_text: string
+          value_position: number
+          version_id: number
         }
         Insert: {
-          academic_year_id: number
-          confidence?: number | null
-          created_at?: string
-          field_path: string
-          id?: never
-          method: string
-          snapshot_id: number
-          source_excerpt?: string | null
-          source_locator?: string | null
-          source_page_id?: number | null
+          field_key: string
+          field_value: string
+          label: string
+          position: number
+          source_text: string
+          value_position: number
+          version_id: number
         }
         Update: {
-          academic_year_id?: number
-          confidence?: number | null
-          created_at?: string
-          field_path?: string
-          id?: never
-          method?: string
-          snapshot_id?: number
-          source_excerpt?: string | null
-          source_locator?: string | null
-          source_page_id?: number | null
+          field_key?: string
+          field_value?: string
+          label?: string
+          position?: number
+          source_text?: string
+          value_position?: number
+          version_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "snapshot_field_evidence_snapshot_fkey"
-            columns: ["snapshot_id", "academic_year_id"]
+            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id", "academic_year_id"]
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "snapshot_field_evidence_source_page_fkey"
-            columns: ["source_page_id", "academic_year_id"]
+            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
+            columns: ["version_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_source_pages"
-            referencedColumns: ["id", "academic_year_id"]
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["version_id"]
           },
         ]
       }
-      structure_snapshot_details: {
+      structure_version_details: {
         Row: {
           academic_career: string | null
           acronym: string | null
@@ -3246,9 +3229,9 @@ export type Database = {
           name: string
           selection_rank: number | null
           short_name: string | null
-          snapshot_id: number
           study_as: string | null
           units: number | null
+          version_id: number
         }
         Insert: {
           academic_career?: string | null
@@ -3266,9 +3249,9 @@ export type Database = {
           name: string
           selection_rank?: number | null
           short_name?: string | null
-          snapshot_id: number
           study_as?: string | null
           units?: number | null
+          version_id: number
         }
         Update: {
           academic_career?: string | null
@@ -3286,62 +3269,17 @@ export type Database = {
           name?: string
           selection_rank?: number | null
           short_name?: string | null
-          snapshot_id?: number
           study_as?: string | null
           units?: number | null
+          version_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "structure_snapshot_details_snapshot_kind_fkey"
-            columns: ["snapshot_id", "kind"]
+            foreignKeyName: "structure_version_details_snapshot_kind_fkey"
+            columns: ["version_id", "kind"]
             isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
+            referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "kind"]
-          },
-        ]
-      }
-      structure_snapshot_summary_fields: {
-        Row: {
-          field_key: string
-          field_value: string
-          label: string
-          position: number
-          snapshot_id: number
-          source_text: string
-          value_position: number
-        }
-        Insert: {
-          field_key: string
-          field_value: string
-          label: string
-          position: number
-          snapshot_id: number
-          source_text: string
-          value_position: number
-        }
-        Update: {
-          field_key?: string
-          field_value?: string
-          label?: string
-          position?: number
-          snapshot_id?: number
-          source_text?: string
-          value_position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_snapshots"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "structure_snapshot_summary_fields_snapshot_fkey"
-            columns: ["snapshot_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["snapshot_id"]
           },
         ]
       }
@@ -3567,6 +3505,7 @@ export type Database = {
           academic_year: number | null
           academic_year_id: number | null
           code: string | null
+          code_id: number | null
           college: string | null
           convener_text: string | null
           delivery_summary: string | null
@@ -3574,27 +3513,26 @@ export type Database = {
           eftsl: number | null
           inherent_requirements: string | null
           introduction: string | null
-          item_id: number | null
-          item_year_id: number | null
           level: number | null
           maximum_units: number | null
           minimum_units: number | null
           offering_status: string | null
           prescribed_texts: string | null
+          record_id: number | null
           school: string | null
-          snapshot_id: number | null
           source_updated_at: string | null
           subject_code: string | null
           subject_name: string | null
           title: string | null
           unit_value_kind: string | null
           units: number | null
+          version_id: number | null
           workload_hours: number | null
           workload_text: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_item_years_academic_year_id_fkey"
+            foreignKeyName: "catalogue_records_academic_year_id_fkey"
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
@@ -3613,20 +3551,20 @@ export type Database = {
         }
         Returns: string
       }
-      admin_snapshot_projection: {
-        Args: { p_snapshot_id: number }
+      admin_catalogue_version_projection: {
+        Args: { p_version_id: number }
         Returns: Json
       }
       cancel_catalogue_import: { Args: { p_run_id: string }; Returns: number }
       catalogue_publish_blockers: {
-        Args: { p_item_year_id: number }
+        Args: { p_record_id: number }
         Returns: string[]
       }
-      current_user_course_attempt_snapshot_projections: {
-        Args: { p_snapshot_ids: number[] }
+      current_user_course_attempt_version_projections: {
+        Args: { p_version_ids: number[] }
         Returns: {
           projection: Json
-          snapshot_id: number
+          version_id: number
         }[]
       }
       current_user_has_permission: {
@@ -3635,10 +3573,6 @@ export type Database = {
       }
       delete_catalogue_item: {
         Args: { p_code: string; p_kind: string }
-        Returns: undefined
-      }
-      discard_catalogue_draft: {
-        Args: { p_item_year_id: number }
         Returns: undefined
       }
       mark_notifications_read: {
@@ -3654,8 +3588,8 @@ export type Database = {
         }
         Returns: undefined
       }
-      publish_catalogue_snapshot: {
-        Args: { p_item_year_id: number }
+      publish_catalogue_version: {
+        Args: { p_record_id: number }
         Returns: number
       }
       published_course_availability: {
@@ -3667,7 +3601,7 @@ export type Database = {
           course_year_id: number
           is_available: boolean
           offering_status: string
-          published_snapshot_id: number
+          published_version_id: number
         }[]
       }
       published_course_detail: {
@@ -3764,8 +3698,8 @@ export type Database = {
         }
         Returns: Json
       }
-      unpublish_catalogue_item_year: {
-        Args: { p_item_year_id: number }
+      unpublish_catalogue_record: {
+        Args: { p_record_id: number }
         Returns: undefined
       }
     }

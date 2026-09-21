@@ -18,7 +18,7 @@ function group(overrides) {
     parent_group_id: null,
     position: 1,
     rule_id: 5,
-    snapshot_id: 70,
+    version_id: 70,
     source_locator: "#program-requirements",
     source_text: "Complete all of the following requirements.",
     ...overrides,
@@ -34,7 +34,7 @@ function condition(overrides) {
     group_id: 1,
     hardness: "hard",
     id: 10,
-    item_id: null,
+    code_id: null,
     maximum_level: null,
     maximum_units: null,
     minimum_count: null,
@@ -48,7 +48,7 @@ function condition(overrides) {
     requirement_mode: null,
     review_state: "verified",
     rule_id: 5,
-    snapshot_id: 70,
+    version_id: 70,
     source_locator: "#program-requirements",
     source_text: "144 units",
     structure_kind: null,
@@ -99,10 +99,10 @@ test("rebuilds nested requirement groups with ordered alternatives and options",
         code: "COMP1100",
         condition_id: 11,
         id: 20,
-        item_id: null,
+        code_id: null,
         kind: "course",
         position: 1,
-        snapshot_id: 70,
+        version_id: 70,
         source_text: null,
         title: null,
       },
@@ -110,10 +110,10 @@ test("rebuilds nested requirement groups with ordered alternatives and options",
         code: "COMP1130",
         condition_id: 12,
         id: 21,
-        item_id: null,
+        code_id: null,
         kind: "course",
         position: 1,
-        snapshot_id: 70,
+        version_id: 70,
         source_text: null,
         title: null,
       },
@@ -161,7 +161,7 @@ test("selects the latest year through published programme pointers and loads rel
   );
 
   assert.match(source, /\.eq\("kind", "programme"\)/u);
-  assert.match(source, /\.not\("published_snapshot_id", "is", null\)/u);
+  assert.match(source, /\.not\("published_version_id", "is", null\)/u);
   assert.match(source, /\.order\("year", \{ ascending: false \}\)/u);
   assert.match(source, /from\("plan_structures"\)/u);
   assert.match(source, /selectedStructureYears\.has\(structureYear\.id\)/u);

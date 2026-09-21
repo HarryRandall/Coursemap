@@ -3,8 +3,7 @@ import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 
 type PlanItemRow = {
-  academic_year_id: number;
-  course_id: number;
+  catalogue_record_id: number;
   id: string;
   planned_calendar_year: number | null;
   planned_period_code: string | null;
@@ -12,8 +11,7 @@ type PlanItemRow = {
 
 type CourseAttemptRow = {
   academic_period_id: number;
-  course_id: number;
-  course_snapshot_id: number;
+  catalogue_version_id: number;
   id: string;
   mark: number | null;
   grade?: string | null;
@@ -59,7 +57,7 @@ export async function hasPrimaryPlan(viewer: AuthViewer) {
 
 export type PlanStructureSelection = {
   role: string;
-  structure_year_id: number;
+  catalogue_record_id: number;
 };
 
 /**
@@ -75,12 +73,12 @@ export function planStructureCodes(
   const codesFor = (role: string) =>
     structures.flatMap((item) => {
       if (item.role !== role) return [];
-      const code = codeByYear.get(item.structure_year_id);
+      const code = codeByYear.get(item.catalogue_record_id);
       return code ? [code] : [];
     });
   const codeForFirst = (role: string) =>
     codeByYear.get(
-      structures.find((item) => item.role === role)?.structure_year_id ?? -1,
+      structures.find((item) => item.role === role)?.catalogue_record_id ?? -1,
     );
 
   return {
@@ -133,88 +131,83 @@ export async function loadCoursemapState(
           .maybeSingle(),
         supabase
           .from("plan_structures")
-          .select("role,structure_year_id")
+          .select("role,catalogue_record_id")
           .eq("plan_id", plan.id)
           .order("position"),
         supabase
           .from("plan_items")
           .select(
-            "id,course_id,academic_year_id,planned_calendar_year,planned_period_code,sort_order",
+            "id,catalogue_record_id,planned_calendar_year,planned_period_code,sort_order",
           )
           .eq("plan_id", plan.id)
           .order("sort_order"),
         supabase
           .from("course_attempts")
           .select(
-            "id,course_id,course_snapshot_id,academic_period_id,status,mark,grade,units_attempted,units_earned",
+            "id,catalogue_version_id,academic_period_id,status,mark,grade,units_attempted,units_earned",
           )
           .eq("owner_id", viewer.id)
           .order("created_at"),
       ]);
 
     const structures = structuresResult.data ?? [];
-    const structureYearIds = structures.map((item) => item.structure_year_id);
-    const { data: structureYears } = structureYearIds.length
-      ? await supabase
-          .from("catalogue_item_years")
-          .select("id,item_id")
-          .in("id", structureYearIds)
-      : { data: [] };
-    const structureIds = (structureYears ?? []).map((item) => item.item_id);
-    const { data: structureIdentities } = structureIds.length
-      ? await supabase
-          .from("catalogue_items")
-          .select("id,code")
-          .in("id", structureIds)
-      : { data: [] };
-    const structureCodeByYear = new Map(
-      (structureYears ?? []).map((structureYear) => [
-        structureYear.id,
-        (structureIdentities ?? []).find(
-          (identity) => identity.id === structureYear.item_id,
-        )?.code,
-      ]),
-    );
-
     const items = (itemsResult.data ?? []) as unknown as PlanItemRow[];
     const attempts = (attemptsResult.data ??
       []) as unknown as CourseAttemptRow[];
-    const courseIds = [
-      ...new Set([
-        ...items.map((item) => item.course_id),
-        ...attempts.map((attempt) => attempt.course_id),
-      ]),
-    ];
     const periodIds = [
       ...new Set(attempts.map((item) => item.academic_period_id)),
     ];
     const snapshotIds = [
-      ...new Set(attempts.map((item) => item.course_snapshot_id)),
+      ...new Set(attempts.map((item) => item.catalogue_version_id)),
     ];
-    const [{ data: courseIdentities }, { data: periods }, snapshotsResult] =
-      await Promise.all([
-        courseIds.length
-          ? supabase
-              .from("catalogue_items")
-              .select("id,code")
-              .in("id", courseIds)
-          : Promise.resolve({ data: [] }),
-        periodIds.length
-          ? supabase
-              .from("academic_periods")
-              .select("id,calendar_year,code")
-              .in("id", periodIds)
-          : Promise.resolve({ data: [] }),
-        snapshotIds.length
-          ? supabase
-              .from("catalogue_snapshots")
-              .select("id,academic_year_id")
-              .in("id", snapshotIds)
-          : Promise.resolve({ data: [] }),
-      ]);
+    const [{ data: periods }, snapshotsResult] = await Promise.all([
+      periodIds.length
+        ? supabase
+            .from("academic_periods")
+            .select("id,calendar_year,code")
+            .in("id", periodIds)
+        : Promise.resolve({ data: [] }),
+      snapshotIds.length
+        ? supabase
+            .from("catalogue_versions")
+            .select("id,record_id,academic_year_id")
+            .in("id", snapshotIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const recordIds = [
+      ...new Set([
+        ...structures.map((item) => item.catalogue_record_id),
+        ...items.map((item) => item.catalogue_record_id),
+        ...(snapshotsResult.data ?? []).map((version) => version.record_id),
+      ]),
+    ];
+    const { data: records } = recordIds.length
+      ? await supabase
+          .from("catalogue_records")
+          .select("id,code_id,academic_year_id")
+          .in("id", recordIds)
+      : { data: [] };
+    const codeIds = [
+      ...new Set((records ?? []).map((record) => record.code_id)),
+    ];
+    const { data: courseIdentities } = codeIds.length
+      ? await supabase
+          .from("catalogue_codes")
+          .select("id,code")
+          .in("id", codeIds)
+      : { data: [] };
+    const recordById = new Map(
+      (records ?? []).map((record) => [record.id, record]),
+    );
+    const versionRecordId = new Map(
+      (snapshotsResult.data ?? []).map((version) => [
+        version.id,
+        version.record_id,
+      ]),
+    );
     const academicYearIds = [
       ...new Set([
-        ...items.map((item) => item.academic_year_id),
+        ...(records ?? []).map((record) => record.academic_year_id),
         ...(snapshotsResult.data ?? []).map(
           (snapshot) => snapshot.academic_year_id,
         ),
@@ -238,17 +231,26 @@ export async function loadCoursemapState(
     const courseCode = new Map(
       (courseIdentities ?? []).map((course) => [course.id, course.code]),
     );
+    const structureCodeByYear = new Map(
+      (records ?? []).map((record) => [
+        record.id,
+        courseCode.get(record.code_id),
+      ]),
+    );
     const periodById = new Map(
       (periods ?? []).map((period) => [period.id, period]),
     );
 
     const plannedAttempts = items.flatMap((item) => {
-      const code = courseCode.get(item.course_id);
+      const record = recordById.get(item.catalogue_record_id);
+      const code = record ? courseCode.get(record.code_id) : undefined;
       if (!code) return [];
       return [
         {
           id: item.id,
-          academicYear: academicYearById.get(item.academic_year_id),
+          academicYear: record
+            ? academicYearById.get(record.academic_year_id)
+            : undefined,
           courseCode: code,
           termId:
             item.planned_calendar_year && item.planned_period_code
@@ -259,7 +261,9 @@ export async function loadCoursemapState(
       ];
     });
     const recordedAttempts = attempts.flatMap((attempt) => {
-      const code = courseCode.get(attempt.course_id);
+      const recordId = versionRecordId.get(attempt.catalogue_version_id);
+      const record = recordId ? recordById.get(recordId) : undefined;
+      const code = record ? courseCode.get(record.code_id) : undefined;
       const period = periodById.get(attempt.academic_period_id);
       if (
         !code ||
@@ -273,10 +277,10 @@ export async function loadCoursemapState(
         {
           id: attempt.id,
           academicYear: academicYearById.get(
-            snapshotAcademicYearId.get(attempt.course_snapshot_id) ?? -1,
+            snapshotAcademicYearId.get(attempt.catalogue_version_id) ?? -1,
           ),
           courseCode: code,
-          snapshotId: attempt.course_snapshot_id,
+          snapshotId: attempt.catalogue_version_id,
           termId: `${period.calendar_year}-${period.code.toLowerCase()}`,
           status: (attempt.status === "credited"
             ? "completed"

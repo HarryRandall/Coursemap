@@ -8,7 +8,7 @@ import type {
   ImportArtifactLocator,
 } from "./artifact-store.ts";
 import { ANU_PROGRAMS_AND_COURSES_SOURCE } from "./import-source.ts";
-import type { CatalogueKind } from "./snapshot-write.ts";
+import type { CatalogueKind } from "../catalogue/content.ts";
 
 export type ImportStageName =
   | "source_fetch"
@@ -83,9 +83,9 @@ export type ClaimedImportTarget = {
   academicYear: number;
   academicYearId: number;
   itemId: number;
-  itemYearId: number;
+  recordId: number;
   directoryEntryId: number | null;
-  baselineSnapshotId: number | null;
+  baselineVersionId: number | null;
   requestedModel: string;
   parserVersion: string;
   promptVersion: string;
@@ -167,10 +167,10 @@ export async function claimImportTarget(
         targets.code,
         academic_years.year as academic_year,
         targets.academic_year_id,
-        targets.item_id,
-        targets.item_year_id,
+        targets.code_id,
+        targets.record_id,
         targets.directory_entry_id,
-        targets.baseline_snapshot_id,
+        targets.baseline_version_id,
         runs.requested_model,
         runs.parser_version,
         runs.prompt_version,
@@ -188,10 +188,10 @@ export async function claimImportTarget(
       code: String(row.code),
       academicYear: Number(row.academic_year),
       academicYearId: Number(row.academic_year_id),
-      itemId: Number(row.item_id),
-      itemYearId: Number(row.item_year_id),
+      itemId: Number(row.code_id),
+      recordId: Number(row.record_id),
       directoryEntryId: numberOrNull(row.directory_entry_id),
-      baselineSnapshotId: numberOrNull(row.baseline_snapshot_id),
+      baselineVersionId: numberOrNull(row.baseline_version_id),
       requestedModel: String(row.requested_model),
       parserVersion: String(row.parser_version),
       promptVersion: String(row.prompt_version),
@@ -568,7 +568,7 @@ export async function finishImportTarget(
     status,
     changeKind,
     sourcePageId,
-    candidateSnapshotId,
+    candidateVersionId,
     errorCode = null,
     errorMessage = null,
   }: {
@@ -579,7 +579,7 @@ export async function finishImportTarget(
     status: "ready" | "unchanged" | "failed";
     changeKind: "new" | "changed" | "unchanged" | null;
     sourcePageId: number | null;
-    candidateSnapshotId: number | null;
+    candidateVersionId: number | null;
     errorCode?: string | null;
     errorMessage?: string | null;
   },
@@ -590,7 +590,7 @@ export async function finishImportTarget(
       set status = ${status},
           change_kind = ${changeKind},
           source_page_id = ${sourcePageId},
-          candidate_snapshot_id = ${candidateSnapshotId},
+          candidate_version_id = ${candidateVersionId},
           error_code = ${errorCode},
           error_message = ${errorMessage},
           worker_id = null,

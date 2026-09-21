@@ -7,7 +7,7 @@ import {
   withImportDatabaseClient,
 } from "./import-store.ts";
 import type { AcademicStructureKind } from "./kinds/structure/contract.ts";
-import { type CatalogueKind, isCatalogueKind } from "./snapshot-write.ts";
+import { type CatalogueKind, isCatalogueKind } from "../catalogue/content.ts";
 
 export type DirectoryRefreshProgress = {
   phase: "fetching" | "saving" | "done";
@@ -140,11 +140,11 @@ async function saveDirectory(
   // Entries that already have an identity keep it linked.
   await tx`
     update public.catalogue_directory_entries as entries
-    set item_id = items.id
-    from public.catalogue_items as items
+    set code_id = items.id
+    from public.catalogue_codes as items
     where entries.academic_year_id = ${academicYearId}
       and entries.kind = ${kind}
-      and entries.item_id is null
+      and entries.code_id is null
       and items.kind = entries.kind
       and items.code = entries.code
   `;

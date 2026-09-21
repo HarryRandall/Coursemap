@@ -29,51 +29,51 @@ Next.js owns routing, server rendering and mutations. Supabase Auth owns identit
 
 ## Data model
 
-Courses, programmes, majors, minors and specialisations share one identity,
-year and snapshot model. Identity, year-specific pointers and immutable saved
-states are separate:
+Courses, programmes, majors, minors and specialisations share one code, record
+and version model. These concepts are deliberately separate:
 
 - `academic_years`
-- `catalogue_items`: permanent identity with a `kind` and `code`
-- `catalogue_item_years`: one row per item and academic year, carrying the
-  `draft_snapshot_id` and `published_snapshot_id` pointers and `archived_at`.
-  Composite foreign keys keep the kind consistent across item, year and
-  snapshot.
-- `catalogue_snapshots`: immutable versions, sealed when they become a pointer.
-  `catalogue_publications` records every change of the published pointer.
-- `course_snapshot_details` and `structure_snapshot_details` hold the scalar
+- `catalogue_codes`: a stable typed code shared across years
+- `catalogue_records`: that code in one academic year, with the current
+  `published_version_id` pointer and optional `archived_at`. There is no draft
+  pointer in the core record model.
+- `catalogue_versions`: immutable meaningful states of a record. Versions may
+  identify the earlier version they are based on and are sealed before use.
+- `catalogue_publications`: historical visibility intervals recording the
+  version, publisher, publication time, unpublisher and unpublication time.
+- `course_version_details` and `structure_version_details` hold the scalar
   content for their kind. Course child tables (offerings, sessions, outcomes,
   assessments, fees, attributes, unit options, areas of interest, related
   courses and requisite rules) and structure child tables (sections, summary
   fields, outcomes, fees, relationships, requirement groups, conditions,
-  options and unmodelled requirements) reference the shared snapshot through
-  `snapshot_id`. Child rows can be assembled until the snapshot is sealed.
-- `snapshot_field_evidence`: shared field-level source evidence
+  options and unmodelled requirements) reference the shared version through
+  `version_id`. Child rows can be assembled until the version is sealed.
+- `catalogue_version_provenance`: shared field-level source evidence
 - `requirement_rules`, nested `requirement_groups`, typed
   `requirement_conditions`, `requirement_condition_options` for set members
   and `requirement_item_references` for graph edges. One rule per kind per
-  snapshot: course requisites (`prerequisite`, `corequisite`,
+  version: course requisites (`prerequisite`, `corequisite`,
   `incompatibility`, `permission`, `assumed_knowledge`) and structure
   completion requirements (`structure`) share fifteen condition kinds
 - `catalogue_sources` and immutable `catalogue_source_pages`: retrieval
   provenance shared by every kind and the university calendar
 - `published_course_summaries`: a security-invoker view joining published
-  course snapshots to their identity for the directory
+  course versions to their code for the directory
 - `university_calendar_events` keyed by academic year, date and title, and
   `university_calendar_imports` recording each command-line import
 
-Published reads resolve through `catalogue_item_years.published_snapshot_id`
-where `archived_at` is null. Anonymous readers see published snapshots and
+Published reads resolve through `catalogue_records.published_version_id`
+where `archived_at` is null. Anonymous readers see published versions and
 their children, identities with a published year, and identities referenced
-as placeholders by a published rule. Students keep reading the exact snapshot
+as placeholders by a published rule. Students keep reading the exact version
 their recorded attempts point at.
 
 User-owned planning data is also separate:
 
 - `profiles`
-- `plans`, ordered `plan_items` referencing a course item and year, and
-  `plan_structures` referencing a structure item year
-- `course_attempts`, each pinned to the course snapshot that was published
+- `plans`, ordered `plan_items` and `plan_structures` referencing annual
+  `catalogue_records`
+- `course_attempts`, each pinned to the exact `catalogue_version_id` that was published
   when the attempt was recorded
 - approval requests and immutable approval events
 
@@ -92,22 +92,21 @@ processed through the same ten stages with `catalogue_import_stages`,
 `catalogue_import_artifacts` (in the private `course-import-artifacts` bucket)
 and `catalogue_extractions` recording every model call and its cost. Kind
 adapters under `lib/catalogue-import/kinds/` own fetching, Markdown, the
-deterministic parser, the model contract and the projection to the shared
-snapshot write shape; `process-target.ts` owns leases, retries, artefacts and
+deterministic parser, the model contract and the projection to shared
+`CatalogueContent`; `process-target.ts` owns leases, retries, artefacts and
 persistence. A target whose content matches its baseline finishes `unchanged`;
-otherwise it assembles a candidate snapshot and finishes `ready` for review.
-The first snapshot for an item year becomes its draft immediately. Runs
+otherwise it assembles an immutable candidate version and finishes `ready` for
+review. Runs
 dispatch to Vercel Queues when `COURSEMAP_QUEUE_IMPORTS_ENABLED=true` and run
 inline after the request otherwise.
 
 Review reads `catalogue_import_changes`: one `change` row per field or section
 that differs from the baseline (with old and new values and the source
 excerpt) and one `flag` row per parser review item. Administrators accept or
-reject each change and acknowledge flags; **Apply** writes a new draft from
-the baseline plus the accepted changes (or points the draft at the candidate
-when everything is accepted). **Publish** moves `published_snapshot_id` to the
-draft and clears the draft pointer once `catalogue_publish_blockers` is empty:
-no open changes and no open blocking flag on the draft's target.
+reject each change and acknowledge flags. Applying review creates and seals a
+meaningful version. Publishing sets the record's `published_version_id` once
+`catalogue_publish_blockers` is empty. Mutable working drafts are not part of
+this foundation.
 
 ## University calendar
 

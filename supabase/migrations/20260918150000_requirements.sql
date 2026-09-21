@@ -13,7 +13,7 @@ drop function public.published_course_requisite_graph(text, smallint);
 
 create table public.requirement_rules (
   id bigint generated always as identity primary key,
-  snapshot_id bigint not null,
+  version_id bigint not null,
   academic_year_id bigint not null,
   source_page_id bigint,
   rule_kind text not null,
@@ -24,11 +24,11 @@ create table public.requirement_rules (
   confidence numeric(5, 4) not null default 1,
   position integer not null default 0,
   created_at timestamptz not null default now(),
-  constraint requirement_rules_snapshot_kind_unique unique (snapshot_id, rule_kind),
-  constraint requirement_rules_id_snapshot_unique unique (id, snapshot_id),
+  constraint requirement_rules_snapshot_kind_unique unique (version_id, rule_kind),
+  constraint requirement_rules_id_snapshot_unique unique (id, version_id),
   constraint requirement_rules_snapshot_fkey
-    foreign key (snapshot_id, academic_year_id)
-    references public.catalogue_snapshots (id, academic_year_id) on delete cascade,
+    foreign key (version_id, academic_year_id)
+    references public.catalogue_versions (id, academic_year_id) on delete cascade,
   constraint requirement_rules_source_page_fkey
     foreign key (source_page_id, academic_year_id)
     references public.catalogue_source_pages (id, academic_year_id),
@@ -47,14 +47,14 @@ create table public.requirement_rules (
   constraint requirement_rules_position_check check (position >= 0)
 );
 
-create index requirement_rules_snapshot_idx on public.requirement_rules (snapshot_id);
+create index requirement_rules_snapshot_idx on public.requirement_rules (version_id);
 
 -- label carries structure headings such as "Major" or "Electives"; unit bounds
 -- express "24 to 48 units from" on structure groups.
 create table public.requirement_groups (
   id bigint generated always as identity primary key,
   rule_id bigint not null,
-  snapshot_id bigint not null,
+  version_id bigint not null,
   parent_group_id bigint,
   group_key text not null,
   label text,
@@ -66,12 +66,12 @@ create table public.requirement_groups (
   source_text text,
   source_locator text,
   position integer not null default 0,
-  constraint requirement_groups_key_unique unique (snapshot_id, group_key),
+  constraint requirement_groups_key_unique unique (version_id, group_key),
   constraint requirement_groups_id_rule_unique unique (id, rule_id),
-  constraint requirement_groups_id_snapshot_unique unique (id, snapshot_id),
+  constraint requirement_groups_id_snapshot_unique unique (id, version_id),
   constraint requirement_groups_rule_fkey
-    foreign key (rule_id, snapshot_id)
-    references public.requirement_rules (id, snapshot_id) on delete cascade,
+    foreign key (rule_id, version_id)
+    references public.requirement_rules (id, version_id) on delete cascade,
   constraint requirement_groups_parent_fkey
     foreign key (parent_group_id, rule_id)
     references public.requirement_groups (id, rule_id) on delete cascade,
@@ -100,12 +100,12 @@ create index requirement_groups_rule_idx on public.requirement_groups (rule_id, 
 create table public.requirement_conditions (
   id bigint generated always as identity primary key,
   rule_id bigint not null,
-  snapshot_id bigint not null,
+  version_id bigint not null,
   group_id bigint not null,
   condition_key text not null,
   position integer not null default 0,
   condition_kind text not null,
-  item_id bigint,
+  code_id bigint,
   structure_kind text,
   requirement_mode text,
   minimum_mark numeric(5, 2),
@@ -125,17 +125,17 @@ create table public.requirement_conditions (
   source_locator text,
   review_state text not null default 'automatic',
   confidence numeric(5, 4) not null default 1,
-  constraint requirement_conditions_key_unique unique (snapshot_id, condition_key),
+  constraint requirement_conditions_key_unique unique (version_id, condition_key),
   constraint requirement_conditions_group_position_unique unique (group_id, position),
-  constraint requirement_conditions_id_snapshot_unique unique (id, snapshot_id),
+  constraint requirement_conditions_id_snapshot_unique unique (id, version_id),
   constraint requirement_conditions_rule_fkey
-    foreign key (rule_id, snapshot_id)
-    references public.requirement_rules (id, snapshot_id) on delete cascade,
+    foreign key (rule_id, version_id)
+    references public.requirement_rules (id, version_id) on delete cascade,
   constraint requirement_conditions_group_fkey
     foreign key (group_id, rule_id)
     references public.requirement_groups (id, rule_id) on delete cascade,
   constraint requirement_conditions_item_fkey
-    foreign key (item_id) references public.catalogue_items (id),
+    foreign key (code_id) references public.catalogue_codes (id),
   constraint requirement_conditions_kind_check check (
     condition_kind in (
       'course', 'incompatible', 'structure', 'structure_set', 'course_set_units',
@@ -153,9 +153,9 @@ create table public.requirement_conditions (
   ),
   constraint requirement_conditions_typed_value_check check (
     case condition_kind
-      when 'course' then item_id is not null
-      when 'incompatible' then item_id is not null
-      when 'structure' then item_id is not null or free_text is not null
+      when 'course' then code_id is not null
+      when 'incompatible' then code_id is not null
+      when 'structure' then code_id is not null or free_text is not null
       when 'structure_set' then structure_kind is not null
       when 'course_set_units' then minimum_units is not null or minimum_count is not null
       when 'units_total' then minimum_units is not null
@@ -208,28 +208,28 @@ create table public.requirement_conditions (
 );
 
 create index requirement_conditions_rule_idx on public.requirement_conditions (rule_id);
-create index requirement_conditions_item_idx on public.requirement_conditions (item_id)
-  where item_id is not null;
+create index requirement_conditions_item_idx on public.requirement_conditions (code_id)
+  where code_id is not null;
 
--- Members of set-based conditions. item_id is null when the code has no
+-- Members of set-based conditions. code_id is null when the code has no
 -- catalogue identity yet; code is always kept as the source wrote it.
 create table public.requirement_condition_options (
   id bigint generated always as identity primary key,
   condition_id bigint not null,
-  snapshot_id bigint not null,
+  version_id bigint not null,
   position integer not null,
   kind text not null,
   code text not null,
-  item_id bigint,
+  code_id bigint,
   title text,
   source_text text,
   constraint requirement_condition_options_code_unique unique (condition_id, code),
   constraint requirement_condition_options_position_unique unique (condition_id, position),
   constraint requirement_condition_options_condition_fkey
-    foreign key (condition_id, snapshot_id)
-    references public.requirement_conditions (id, snapshot_id) on delete cascade,
+    foreign key (condition_id, version_id)
+    references public.requirement_conditions (id, version_id) on delete cascade,
   constraint requirement_condition_options_item_fkey
-    foreign key (item_id, kind) references public.catalogue_items (id, kind),
+    foreign key (code_id, kind) references public.catalogue_codes (id, kind),
   constraint requirement_condition_options_kind_check check (
     kind in ('course', 'programme', 'major', 'minor', 'specialisation')
   ),
@@ -243,23 +243,23 @@ create table public.requirement_condition_options (
 );
 
 create index requirement_condition_options_item_idx
-  on public.requirement_condition_options (item_id) where item_id is not null;
+  on public.requirement_condition_options (code_id) where code_id is not null;
 
 -- Flattened item references per rule for graph queries and placeholder access.
 create table public.requirement_item_references (
   id bigint generated always as identity primary key,
   rule_id bigint not null,
-  snapshot_id bigint not null,
-  item_id bigint not null,
+  version_id bigint not null,
+  code_id bigint not null,
   source_text text not null,
   confidence numeric(5, 4) not null default 0,
   review_state text not null default 'review',
-  constraint requirement_item_references_unique unique (rule_id, item_id),
+  constraint requirement_item_references_unique unique (rule_id, code_id),
   constraint requirement_item_references_rule_fkey
-    foreign key (rule_id, snapshot_id)
-    references public.requirement_rules (id, snapshot_id) on delete cascade,
+    foreign key (rule_id, version_id)
+    references public.requirement_rules (id, version_id) on delete cascade,
   constraint requirement_item_references_item_fkey
-    foreign key (item_id) references public.catalogue_items (id),
+    foreign key (code_id) references public.catalogue_codes (id),
   constraint requirement_item_references_source_text_check check (btrim(source_text) <> ''),
   constraint requirement_item_references_confidence_check check (confidence between 0 and 1),
   constraint requirement_item_references_review_state_check check (
@@ -268,7 +268,7 @@ create table public.requirement_item_references (
 );
 
 create index requirement_item_references_item_idx
-  on public.requirement_item_references (item_id);
+  on public.requirement_item_references (code_id);
 
 -- Integrity ---------------------------------------------------------------------------
 
@@ -364,9 +364,9 @@ begin
       using errcode = '23503';
   end if;
 
-  if new.item_id is not null and not exists (
-    select 1 from public.catalogue_items
-    where id = new.item_id and kind = new.kind and code = new.code
+  if new.code_id is not null and not exists (
+    select 1 from public.catalogue_codes
+    where id = new.code_id and kind = new.kind and code = new.code
   ) then
     raise exception 'requirement option item does not match its code'
       using errcode = '23503';
@@ -402,7 +402,7 @@ begin
     execute format('alter table public.%I enable row level security', child);
     execute format(
       'create policy %I on public.%I for select to anon, authenticated '
-      'using ((select private.can_read_snapshot(snapshot_id)))',
+      'using ((select private.can_read_version(version_id)))',
       child || '_read', child
     );
     execute format(
@@ -444,45 +444,50 @@ as $function$
   select private.can_manage_catalogue()
     or exists (
       select 1
-      from public.catalogue_item_years as item_years
-      where item_years.item_id = p_item_id
-        and item_years.published_snapshot_id is not null
+      from public.catalogue_records as item_years
+      where item_years.code_id = p_item_id
+        and item_years.published_version_id is not null
         and item_years.archived_at is null
     )
     or exists (
       select 1
       from public.requirement_conditions as conditions
-      where conditions.item_id = p_item_id
-        and private.is_published_snapshot(conditions.snapshot_id)
+      where conditions.code_id = p_item_id
+        and private.is_published_version(conditions.version_id)
     )
     or exists (
       select 1
       from public.requirement_condition_options as options
-      where options.item_id = p_item_id
-        and private.is_published_snapshot(options.snapshot_id)
+      where options.code_id = p_item_id
+        and private.is_published_version(options.version_id)
     )
     or exists (
       select 1
       from public.requirement_item_references as item_references
-      where item_references.item_id = p_item_id
-        and private.is_published_snapshot(item_references.snapshot_id)
+      where item_references.code_id = p_item_id
+        and private.is_published_version(item_references.version_id)
     )
     or exists (
       select 1
       from public.course_related_courses as related
       where related.related_course_id = p_item_id
-        and private.is_published_snapshot(related.snapshot_id)
+        and private.is_published_version(related.version_id)
     )
     or exists (
       select 1
       from public.course_attempts as attempts
-      where attempts.course_id = p_item_id
+      join public.catalogue_versions as versions
+        on versions.id = attempts.catalogue_version_id
+      join public.catalogue_records as records on records.id = versions.record_id
+      where records.code_id = p_item_id
         and attempts.owner_id = (select auth.uid())
     )
     or exists (
       select 1
       from public.plan_items
-      where plan_items.course_id = p_item_id
+      join public.catalogue_records as records
+        on records.id = plan_items.catalogue_record_id
+      where records.code_id = p_item_id
         and plan_items.owner_id = (select auth.uid())
     );
 $function$;
@@ -490,7 +495,7 @@ $function$;
 -- Projections ---------------------------------------------------------------------------
 
 -- The requirement part of a snapshot projection, shared by every kind.
-create or replace function private.requirement_projection(p_snapshot_id bigint)
+create or replace function private.requirement_projection(p_version_id bigint)
 returns jsonb
 language sql
 stable
@@ -510,7 +515,7 @@ as $function$
         when 'incompatibility' then 3 when 'permission' then 4
         when 'assumed_knowledge' then 5 else 6 end)
       from public.requirement_rules as rules
-      where rules.snapshot_id = p_snapshot_id
+      where rules.version_id = p_version_id
     ), '[]'::jsonb),
     'ruleGroups', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -529,7 +534,7 @@ as $function$
       from public.requirement_groups as groups
       join public.requirement_rules as rules on rules.id = groups.rule_id
       left join public.requirement_groups as parents on parents.id = groups.parent_group_id
-      where groups.snapshot_id = p_snapshot_id
+      where groups.version_id = p_version_id
     ), '[]'::jsonb),
     'ruleConditions', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -566,8 +571,8 @@ as $function$
       from public.requirement_conditions as conditions
       join public.requirement_rules as rules on rules.id = conditions.rule_id
       join public.requirement_groups as groups on groups.id = conditions.group_id
-      left join public.catalogue_items as items on items.id = conditions.item_id
-      where conditions.snapshot_id = p_snapshot_id
+      left join public.catalogue_codes as items on items.id = conditions.code_id
+      where conditions.version_id = p_version_id
     ), '[]'::jsonb),
     'ruleConditionCourses', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -580,7 +585,7 @@ as $function$
       ) order by conditions.id, options.position)
       from public.requirement_condition_options as options
       join public.requirement_conditions as conditions on conditions.id = options.condition_id
-      where options.snapshot_id = p_snapshot_id
+      where options.version_id = p_version_id
     ), '[]'::jsonb),
     'ruleCourseReferences', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -592,8 +597,8 @@ as $function$
       ) order by rules.rule_kind, items.code)
       from public.requirement_item_references as item_references
       join public.requirement_rules as rules on rules.id = item_references.rule_id
-      join public.catalogue_items as items on items.id = item_references.item_id
-      where item_references.snapshot_id = p_snapshot_id
+      join public.catalogue_codes as items on items.id = item_references.code_id
+      where item_references.version_id = p_version_id
     ), '[]'::jsonb),
     'prerequisiteCodes', coalesce((
       select jsonb_agg(codes.code order by codes.code)
@@ -601,14 +606,14 @@ as $function$
         select items.code
         from public.requirement_item_references as item_references
         join public.requirement_rules as rules on rules.id = item_references.rule_id
-        join public.catalogue_items as items on items.id = item_references.item_id
-        where rules.snapshot_id = p_snapshot_id and rules.rule_kind = 'prerequisite'
+        join public.catalogue_codes as items on items.id = item_references.code_id
+        where rules.version_id = p_version_id and rules.rule_kind = 'prerequisite'
         union
         select items.code
         from public.requirement_conditions as conditions
         join public.requirement_rules as rules on rules.id = conditions.rule_id
-        join public.catalogue_items as items on items.id = conditions.item_id
-        where rules.snapshot_id = p_snapshot_id
+        join public.catalogue_codes as items on items.id = conditions.code_id
+        where rules.version_id = p_version_id
           and rules.rule_kind = 'prerequisite'
           and conditions.condition_kind = 'course'
         union
@@ -616,7 +621,7 @@ as $function$
         from public.requirement_condition_options as options
         join public.requirement_conditions as conditions on conditions.id = options.condition_id
         join public.requirement_rules as rules on rules.id = conditions.rule_id
-        where rules.snapshot_id = p_snapshot_id
+        where rules.version_id = p_version_id
           and rules.rule_kind = 'prerequisite'
           and options.kind = 'course'
       ) as codes
@@ -626,7 +631,7 @@ $function$;
 
 revoke all on function private.requirement_projection(bigint) from public, anon, authenticated;
 
-create or replace function private.course_snapshot_projection(p_snapshot_id bigint)
+create or replace function private.course_version_projection(p_version_id bigint)
 returns jsonb
 language sql
 stable
@@ -635,7 +640,7 @@ as $function$
   with selected_snapshot as (
     select
       snapshots.id,
-      snapshots.item_year_id,
+      snapshots.record_id,
       snapshots.academic_year_id,
       snapshots.origin,
       snapshots.source_page_id,
@@ -644,12 +649,12 @@ as $function$
       details.*,
       items.code as course_code,
       academic_years.year as academic_year
-    from public.catalogue_snapshots as snapshots
-    join public.course_snapshot_details as details on details.snapshot_id = snapshots.id
-    join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    from public.catalogue_versions as snapshots
+    join public.course_version_details as details on details.version_id = snapshots.id
+    join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     join public.academic_years on academic_years.id = snapshots.academic_year_id
-    where snapshots.id = p_snapshot_id
+    where snapshots.id = p_version_id
   )
   select jsonb_build_object(
     'courseCode', snapshot.course_code,
@@ -684,7 +689,7 @@ as $function$
         'position', options.position, 'units', options.units,
         'label', options.label, 'sourceText', options.source_text
       ) order by options.position)
-      from public.course_unit_options as options where options.snapshot_id = p_snapshot_id
+      from public.course_unit_options as options where options.version_id = p_version_id
     ), '[]'::jsonb),
     'fees', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -693,19 +698,19 @@ as $function$
         'basis', fees.basis, 'studentContributionBand', fees.student_contribution_band,
         'sourceLabel', fees.source_label, 'sourceText', fees.source_text
       ) order by fees.position)
-      from public.course_fees as fees where fees.snapshot_id = p_snapshot_id
+      from public.course_fees as fees where fees.version_id = p_version_id
     ), '[]'::jsonb),
     'areasOfInterest', coalesce((
       select jsonb_agg(jsonb_build_object('position', areas.position, 'name', areas.name)
         order by areas.position)
-      from public.course_areas_of_interest as areas where areas.snapshot_id = p_snapshot_id
+      from public.course_areas_of_interest as areas where areas.version_id = p_version_id
     ), '[]'::jsonb),
     'attributes', coalesce((
       select jsonb_agg(jsonb_build_object(
         'position', attributes.position, 'attributeKind', attributes.attribute_kind,
         'value', attributes.value, 'sourceText', attributes.source_text
       ) order by attributes.position)
-      from public.course_attributes as attributes where attributes.snapshot_id = p_snapshot_id
+      from public.course_attributes as attributes where attributes.version_id = p_version_id
     ), '[]'::jsonb),
     'relatedCourses', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -713,11 +718,11 @@ as $function$
         'sourceCourseCode', related.source_course_code,
         'sourceCourseTitle', related.source_course_title, 'sourceText', related.source_text
       ) order by related.position)
-      from public.course_related_courses as related where related.snapshot_id = p_snapshot_id
+      from public.course_related_courses as related where related.version_id = p_version_id
     ), '[]'::jsonb),
     'courseOffering', (
       select jsonb_build_object('deliveryMode', offerings.delivery_mode, 'location', offerings.location)
-      from public.course_offerings as offerings where offerings.snapshot_id = p_snapshot_id
+      from public.course_offerings as offerings where offerings.version_id = p_version_id
     ),
     'offeringSessions', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -730,19 +735,19 @@ as $function$
         'location', sessions.location, 'classSummaryUrl', sessions.class_summary_url,
         'sourceText', sessions.source_text
       ) order by sessions.position)
-      from public.offering_sessions as sessions where sessions.snapshot_id = p_snapshot_id
+      from public.offering_sessions as sessions where sessions.version_id = p_version_id
     ), '[]'::jsonb),
     'learningOutcomes', coalesce((
       select jsonb_agg(jsonb_build_object('position', outcomes.position, 'body', outcomes.body)
         order by outcomes.position)
-      from public.course_learning_outcomes as outcomes where outcomes.snapshot_id = p_snapshot_id
+      from public.course_learning_outcomes as outcomes where outcomes.version_id = p_version_id
     ), '[]'::jsonb),
     'assessmentItems', coalesce((
       select jsonb_agg(jsonb_build_object(
         'position', items.position, 'title', items.title, 'weight', items.weight,
         'hurdle', items.hurdle, 'dueText', items.due_text, 'sourceText', items.source_text
       ) order by items.position)
-      from public.course_assessment_items as items where items.snapshot_id = p_snapshot_id
+      from public.course_assessment_items as items where items.version_id = p_version_id
     ), '[]'::jsonb),
     'assessmentOutcomes', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -751,13 +756,13 @@ as $function$
       from public.course_assessment_outcomes as links
       join public.course_assessment_items as items on items.id = links.assessment_item_id
       join public.course_learning_outcomes as outcomes on outcomes.id = links.learning_outcome_id
-      where links.snapshot_id = p_snapshot_id
+      where links.version_id = p_version_id
     ), '[]'::jsonb),
     'sourcePageId', snapshot.source_page_id,
     'sourceUpdatedAt', snapshot.source_updated_at,
     'createdAt', snapshot.created_at,
     'sealedAt', snapshot.sealed_at
-  ) || private.requirement_projection(p_snapshot_id)
+  ) || private.requirement_projection(p_version_id)
   from selected_snapshot as snapshot;
 $function$;
 
@@ -778,49 +783,49 @@ set search_path = ''
 as $function$
   with recursive
   published_snapshots as (
-    select item_years.item_id, item_years.published_snapshot_id as snapshot_id
-    from public.catalogue_item_years as item_years
+    select item_years.code_id, item_years.published_version_id as version_id
+    from public.catalogue_records as item_years
     join public.academic_years
       on academic_years.id = item_years.academic_year_id
      and academic_years.year = p_academic_year
     where item_years.kind = 'course'
       and item_years.archived_at is null
-      and item_years.published_snapshot_id is not null
+      and item_years.published_version_id is not null
   ),
   root as (
-    select published_snapshots.item_id
+    select published_snapshots.code_id
     from published_snapshots
-    join public.catalogue_items as items on items.id = published_snapshots.item_id
+    join public.catalogue_codes as items on items.id = published_snapshots.code_id
     where items.code = upper(btrim(p_course_code))
     limit 1
   ),
   edges as (
-    select item_references.item_id as from_item_id, published_snapshots.item_id as to_item_id
+    select item_references.code_id as from_item_id, published_snapshots.code_id as to_item_id
     from public.requirement_item_references as item_references
     join public.requirement_rules as rules on rules.id = item_references.rule_id
-    join published_snapshots on published_snapshots.snapshot_id = rules.snapshot_id
+    join published_snapshots on published_snapshots.version_id = rules.version_id
     where rules.rule_kind = 'prerequisite'
     union
-    select conditions.item_id, published_snapshots.item_id
+    select conditions.code_id, published_snapshots.code_id
     from public.requirement_conditions as conditions
     join public.requirement_rules as rules on rules.id = conditions.rule_id
-    join published_snapshots on published_snapshots.snapshot_id = rules.snapshot_id
+    join published_snapshots on published_snapshots.version_id = rules.version_id
     where rules.rule_kind = 'prerequisite'
       and conditions.condition_kind = 'course'
-      and conditions.item_id is not null
+      and conditions.code_id is not null
     union
-    select options.item_id, published_snapshots.item_id
+    select options.code_id, published_snapshots.code_id
     from public.requirement_condition_options as options
     join public.requirement_conditions as conditions on conditions.id = options.condition_id
     join public.requirement_rules as rules on rules.id = conditions.rule_id
-    join published_snapshots on published_snapshots.snapshot_id = rules.snapshot_id
+    join published_snapshots on published_snapshots.version_id = rules.version_id
     where rules.rule_kind = 'prerequisite'
       and options.kind = 'course'
-      and options.item_id is not null
+      and options.code_id is not null
   ),
   upstream as (
     select edges.from_item_id, edges.to_item_id from edges
-    join root on root.item_id = edges.to_item_id
+    join root on root.code_id = edges.to_item_id
     union
     select edges.from_item_id, edges.to_item_id from edges
     join upstream on upstream.from_item_id = edges.to_item_id
@@ -829,20 +834,20 @@ as $function$
     select upstream.from_item_id, upstream.to_item_id from upstream
     union
     select edges.from_item_id, edges.to_item_id from edges
-    join root on root.item_id = edges.from_item_id
+    join root on root.code_id = edges.from_item_id
   )
   select
     source_items.code as from_code,
     target_items.code as to_code,
-    source_availability.item_id is not null as from_is_available,
-    target_availability.item_id is not null as to_is_available
+    source_availability.code_id is not null as from_is_available,
+    target_availability.code_id is not null as to_is_available
   from graph_edges
-  join public.catalogue_items as source_items on source_items.id = graph_edges.from_item_id
-  join public.catalogue_items as target_items on target_items.id = graph_edges.to_item_id
+  join public.catalogue_codes as source_items on source_items.id = graph_edges.from_item_id
+  join public.catalogue_codes as target_items on target_items.id = graph_edges.to_item_id
   left join published_snapshots as source_availability
-    on source_availability.item_id = graph_edges.from_item_id
+    on source_availability.code_id = graph_edges.from_item_id
   left join published_snapshots as target_availability
-    on target_availability.item_id = graph_edges.to_item_id
+    on target_availability.code_id = graph_edges.to_item_id
   order by source_items.code, target_items.code;
 $function$;
 
@@ -861,25 +866,25 @@ set search_path = ''
 as $function$
   with selected as (
     select
-      item_years.published_snapshot_id as snapshot_id,
+      item_years.published_version_id as version_id,
       items.code as course_code,
       academic_years.year as academic_year
-    from public.catalogue_items as items
-    join public.catalogue_item_years as item_years
-      on item_years.item_id = items.id
+    from public.catalogue_codes as items
+    join public.catalogue_records as item_years
+      on item_years.code_id = items.id
      and item_years.archived_at is null
     join public.academic_years
       on academic_years.id = item_years.academic_year_id
      and academic_years.year = p_academic_year
     where items.kind = 'course'
       and items.code = upper(btrim(p_course_code))
-      and item_years.published_snapshot_id is not null
+      and item_years.published_version_id is not null
     limit 1
   )
-  select private.course_snapshot_projection(selected.snapshot_id)
+  select private.course_version_projection(selected.version_id)
     || jsonb_build_object(
       'code', selected.course_code,
-      'snapshotId', selected.snapshot_id,
+      'snapshotId', selected.version_id,
       'prerequisiteEdges', coalesce((
         select jsonb_agg(jsonb_build_object(
           'from', graph.from_code, 'to', graph.to_code,
@@ -905,7 +910,7 @@ as $function$
   select exists (
     select 1
     from public.academic_structure_snapshot_relationships as relationships
-    where relationships.snapshot_id = p_programme_snapshot_id
+    where relationships.version_id = p_programme_snapshot_id
       and relationships.relationship_kind in ('required', 'option')
       and relationships.target_kind = p_structure_kind
       and relationships.target_code = p_structure_code
@@ -913,15 +918,15 @@ as $function$
     select 1
     from public.requirement_condition_options as options
     join public.requirement_conditions as conditions on conditions.id = options.condition_id
-    where options.snapshot_id = p_programme_snapshot_id
+    where options.version_id = p_programme_snapshot_id
       and conditions.condition_kind = 'structure_set'
       and options.kind = p_structure_kind
       and options.code = p_structure_code
   ) or exists (
     select 1
     from public.requirement_conditions as conditions
-    join public.catalogue_items as items on items.id = conditions.item_id
-    where conditions.snapshot_id = p_programme_snapshot_id
+    join public.catalogue_codes as items on items.id = conditions.code_id
+    where conditions.version_id = p_programme_snapshot_id
       and conditions.condition_kind = 'structure'
       and items.kind = p_structure_kind
       and items.code = p_structure_code
@@ -957,7 +962,7 @@ declare
   selected_programme_units numeric;
   selected_programme_duration_years numeric;
   selected_structure record;
-  selected_structure_year_id bigint;
+  selected_structure_record_id bigint;
   inserted_structure_count integer;
   expected_structure_count integer;
 begin
@@ -1017,7 +1022,7 @@ begin
 
   select
     item_years.id,
-    item_years.published_snapshot_id,
+    item_years.published_version_id,
     details.units,
     details.duration_years
   into
@@ -1025,15 +1030,15 @@ begin
     selected_programme_snapshot_id,
     selected_programme_units,
     selected_programme_duration_years
-  from public.catalogue_item_years as item_years
-  join public.catalogue_items as items on items.id = item_years.item_id
-  join public.structure_snapshot_details as details
-    on details.snapshot_id = item_years.published_snapshot_id
+  from public.catalogue_records as item_years
+  join public.catalogue_codes as items on items.id = item_years.code_id
+  join public.structure_version_details as details
+    on details.version_id = item_years.published_version_id
   where items.code = upper(btrim(p_programme_code))
     and items.kind = 'programme'
     and item_years.academic_year_id = selected_academic_year_id
     and item_years.archived_at is null
-    and item_years.published_snapshot_id is not null
+    and item_years.published_version_id is not null
   limit 1;
   if selected_programme_year_id is null then
     raise exception using
@@ -1066,20 +1071,20 @@ begin
     from unnest(p_specialisation_codes) with ordinality as requested(code, position)
     order by position
   loop
-    selected_structure_year_id := null;
+    selected_structure_record_id := null;
 
     select item_years.id
-    into selected_structure_year_id
-    from public.catalogue_item_years as item_years
-    join public.catalogue_items as items on items.id = item_years.item_id
+    into selected_structure_record_id
+    from public.catalogue_records as item_years
+    join public.catalogue_codes as items on items.id = item_years.code_id
     where items.code = selected_structure.code
       and items.kind = selected_structure.role
       and item_years.academic_year_id = selected_academic_year_id
       and item_years.archived_at is null
-      and item_years.published_snapshot_id is not null
+      and item_years.published_version_id is not null
     limit 1;
 
-    if selected_structure_year_id is null then
+    if selected_structure_record_id is null then
       raise exception using
         errcode = 'P0002',
         message = format(
@@ -1150,18 +1155,17 @@ begin
   returning id into selected_plan_id;
 
   insert into public.plan_structures (
-    plan_id, owner_id, academic_year_id, structure_year_id, role, position
+    plan_id, owner_id, catalogue_record_id, role, position
   ) values (
-    selected_plan_id, user_id, selected_academic_year_id, selected_programme_year_id, 'programme', 0
+    selected_plan_id, user_id, selected_programme_year_id, 'programme', 0
   );
 
   insert into public.plan_structures (
-    plan_id, owner_id, academic_year_id, structure_year_id, role, position
+    plan_id, owner_id, catalogue_record_id, role, position
   )
   select
     selected_plan_id,
     user_id,
-    selected_academic_year_id,
     item_years.id,
     requested.role,
     requested.position
@@ -1183,14 +1187,14 @@ begin
         + cardinality(p_minor_codes)
     from unnest(p_specialisation_codes) with ordinality as specialisations(code, position)
   ) as requested
-  join public.catalogue_items as items
+  join public.catalogue_codes as items
     on items.code = requested.code
    and items.kind = requested.role
-  join public.catalogue_item_years as item_years
-    on item_years.item_id = items.id
+  join public.catalogue_records as item_years
+    on item_years.code_id = items.id
    and item_years.academic_year_id = selected_academic_year_id
    and item_years.archived_at is null
-   and item_years.published_snapshot_id is not null
+   and item_years.published_version_id is not null
   order by requested.position;
 
   get diagnostics inserted_structure_count = row_count;

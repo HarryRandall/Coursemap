@@ -1,5 +1,11 @@
 begin;
+\ir ../helpers/catalogue-fixtures.inc
 select extensions.plan(10);
+select pg_temp.publish_course('COMP1100', 2026::smallint, 'Programming as Problem Solving', 'fixed', 6);
+insert into public.academic_periods (
+  calendar_year, code, name, short_name, starts_on, ends_on, sort_order, status
+) values (2026, 'S1', 'Semester 1', 'S1', '2026-02-23', '2026-05-29', 1, 'published')
+on conflict (calendar_year, code) do nothing;
 select extensions.ok(not has_function_privilege('anon','public.save_current_user_academic_result(uuid,text,numeric,text,numeric)','execute'),'anonymous users cannot edit results');
 insert into auth.users (instance_id,id,aud,role,email,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values ('00000000-0000-0000-0000-000000000000','96000000-0000-4000-8000-000000000001','authenticated','authenticated','academic-edit@example.test','{}','{}',now(),now());
 insert into public.plans(owner_id,academic_year_id,name,is_primary,commencement_year,study_load) values ('96000000-0000-4000-8000-000000000001',(select id from public.academic_years where year=2026),'Academic test',true,2026,'full_time');

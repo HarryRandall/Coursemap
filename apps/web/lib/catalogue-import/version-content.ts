@@ -3,12 +3,14 @@ import { stableFingerprint } from "./canonical.ts";
 import type { ImportSql, ImportTransactionSql } from "./import-store.ts";
 import type {
   CatalogueKind,
-  CatalogueSnapshotWrite,
+  CatalogueContent,
+  CourseContentWrite,
   RequirementConditionKind,
   RequirementRuleKind,
   RequirementWrite,
   ReviewState,
-} from "./snapshot-write.ts";
+  StructureContentWrite,
+} from "../catalogue/content.ts";
 
 type Sql = ImportSql | ImportTransactionSql | postgres.Sql;
 
@@ -33,7 +35,7 @@ async function readRequirements(
 ): Promise<RequirementWrite> {
   const rules = await sql`
     select id, rule_kind, hardness, source_text, source_locator, review_state, confidence, position
-    from public.requirement_rules where snapshot_id = ${snapshotId} order by position, rule_kind
+    from public.requirement_rules where version_id = ${snapshotId} order by position, rule_kind
   `;
   const ruleKeyById = new Map(
     rules.map((rule) => [
@@ -44,7 +46,7 @@ async function readRequirements(
   const groups = await sql`
     select id, rule_id, parent_group_id, group_key, label, description, operator, minimum_count,
       minimum_units, maximum_units, source_text, source_locator, position
-    from public.requirement_groups where snapshot_id = ${snapshotId} order by rule_id, position, id
+    from public.requirement_groups where version_id = ${snapshotId} order by rule_id, position, id
   `;
   const groupKeyById = new Map(
     groups.map((group) => [Number(group.id), String(group.group_key)]),
@@ -52,8 +54,8 @@ async function readRequirements(
   const conditions = await sql`
     select conditions.*, items.code as item_code, items.kind as item_kind
     from public.requirement_conditions as conditions
-    left join public.catalogue_items as items on items.id = conditions.item_id
-    where conditions.snapshot_id = ${snapshotId}
+    left join public.catalogue_codes as items on items.id = conditions.code_id
+    where conditions.version_id = ${snapshotId}
     order by conditions.rule_id, conditions.position, conditions.id
   `;
   const conditionKeyById = new Map(
@@ -64,15 +66,15 @@ async function readRequirements(
   );
   const options = await sql`
     select condition_id, position, kind, code, title, source_text
-    from public.requirement_condition_options where snapshot_id = ${snapshotId}
+    from public.requirement_condition_options where version_id = ${snapshotId}
     order by condition_id, position
   `;
   const references = await sql`
     select item_references.rule_id, items.code, item_references.source_text,
       item_references.confidence, item_references.review_state
     from public.requirement_item_references as item_references
-    join public.catalogue_items as items on items.id = item_references.item_id
-    where item_references.snapshot_id = ${snapshotId}
+    join public.catalogue_codes as items on items.id = item_references.code_id
+    where item_references.version_id = ${snapshotId}
     order by item_references.rule_id, items.code
   `;
   return {
@@ -153,9 +155,9 @@ async function readRequirements(
 async function readCourseContent(
   sql: Sql,
   snapshotId: number,
-): Promise<CatalogueSnapshotWrite["course"]> {
+): Promise<CourseContentWrite | null> {
   const [details] = await sql`
-    select * from public.course_snapshot_details where snapshot_id = ${snapshotId}
+    select * from public.course_version_details where version_id = ${snapshotId}
   `;
   if (!details) return null;
   const [
@@ -170,16 +172,16 @@ async function readCourseContent(
     assessments,
     links,
   ] = await Promise.all([
-    sql`select position, units, label, source_text from public.course_unit_options where snapshot_id = ${snapshotId} order by position`,
-    sql`select * from public.course_fees where snapshot_id = ${snapshotId} order by position`,
-    sql`select position, name from public.course_areas_of_interest where snapshot_id = ${snapshotId} order by position`,
-    sql`select position, attribute_kind, value, source_text from public.course_attributes where snapshot_id = ${snapshotId} order by position`,
-    sql`select position, relation_kind, source_course_code, source_course_title, source_text from public.course_related_courses where snapshot_id = ${snapshotId} order by position`,
-    sql`select delivery_mode, location from public.course_offerings where snapshot_id = ${snapshotId} limit 1`,
-    sql`select sessions.*, academic_years.year as calendar_year from public.offering_sessions as sessions join public.academic_years on academic_years.id = sessions.academic_year_id where sessions.snapshot_id = ${snapshotId} order by sessions.position`,
-    sql`select id, position, body from public.course_learning_outcomes where snapshot_id = ${snapshotId} order by position`,
-    sql`select id, position, title, weight, hurdle, due_text, source_text from public.course_assessment_items where snapshot_id = ${snapshotId} order by position`,
-    sql`select assessment_item_id, learning_outcome_id from public.course_assessment_outcomes where snapshot_id = ${snapshotId}`,
+    sql`select position, units, label, source_text from public.course_unit_options where version_id = ${snapshotId} order by position`,
+    sql`select * from public.course_fees where version_id = ${snapshotId} order by position`,
+    sql`select position, name from public.course_areas_of_interest where version_id = ${snapshotId} order by position`,
+    sql`select position, attribute_kind, value, source_text from public.course_attributes where version_id = ${snapshotId} order by position`,
+    sql`select position, relation_kind, source_course_code, source_course_title, source_text from public.course_related_courses where version_id = ${snapshotId} order by position`,
+    sql`select delivery_mode, location from public.course_offerings where version_id = ${snapshotId} limit 1`,
+    sql`select sessions.*, academic_years.year as calendar_year from public.offering_sessions as sessions join public.academic_years on academic_years.id = sessions.academic_year_id where sessions.version_id = ${snapshotId} order by sessions.position`,
+    sql`select id, position, body from public.course_learning_outcomes where version_id = ${snapshotId} order by position`,
+    sql`select id, position, title, weight, hurdle, due_text, source_text from public.course_assessment_items where version_id = ${snapshotId} order by position`,
+    sql`select assessment_item_id, learning_outcome_id from public.course_assessment_outcomes where version_id = ${snapshotId}`,
   ]);
   const outcomePosition = new Map(
     outcomes.map((row) => [Number(row.id), Number(row.position)]),
@@ -302,18 +304,18 @@ async function readCourseContent(
 async function readStructureContent(
   sql: Sql,
   snapshotId: number,
-): Promise<CatalogueSnapshotWrite["structure"]> {
+): Promise<StructureContentWrite | null> {
   const [details] = await sql`
-    select * from public.structure_snapshot_details where snapshot_id = ${snapshotId}
+    select * from public.structure_version_details where version_id = ${snapshotId}
   `;
   if (!details) return null;
   const [summaryFields, sections, outcomes, fees, relationships] =
     await Promise.all([
-      sql`select position, value_position, field_key, label, field_value, source_text from public.structure_snapshot_summary_fields where snapshot_id = ${snapshotId} order by position, value_position`,
-      sql`select section_key, heading, markdown, source_text, source_locator, position from public.academic_structure_snapshot_sections where snapshot_id = ${snapshotId} order by position`,
-      sql`select position, outcome_text, source_text, source_locator from public.academic_structure_learning_outcomes where snapshot_id = ${snapshotId} order by position`,
-      sql`select * from public.academic_structure_fees where snapshot_id = ${snapshotId} order by position`,
-      sql`select * from public.academic_structure_snapshot_relationships where snapshot_id = ${snapshotId} order by position`,
+      sql`select position, value_position, field_key, label, field_value, source_text from public.structure_snapshot_summary_fields where version_id = ${snapshotId} order by position, value_position`,
+      sql`select section_key, heading, markdown, source_text, source_locator, position from public.academic_structure_snapshot_sections where version_id = ${snapshotId} order by position`,
+      sql`select position, outcome_text, source_text, source_locator from public.academic_structure_learning_outcomes where version_id = ${snapshotId} order by position`,
+      sql`select * from public.academic_structure_fees where version_id = ${snapshotId} order by position`,
+      sql`select * from public.academic_structure_snapshot_relationships where version_id = ${snapshotId} order by position`,
     ]);
   return {
     details: {
@@ -371,7 +373,7 @@ async function readStructureContent(
       sourceLabel: str(row.source_label),
       sourceText: String(row.source_text),
       sourceLocator: String(row.source_locator),
-    })) as NonNullable<CatalogueSnapshotWrite["structure"]>["fees"],
+    })) as NonNullable<CatalogueContent["structure"]>["fees"],
     relationships: relationships.map((row) => ({
       position: Number(row.position),
       relationshipKind: row.relationship_kind,
@@ -380,7 +382,7 @@ async function readStructureContent(
       targetTitle: str(row.target_title),
       sourceText: String(row.source_text),
       sourceLocator: String(row.source_locator),
-    })) as NonNullable<CatalogueSnapshotWrite["structure"]>["relationships"],
+    })) as NonNullable<CatalogueContent["structure"]>["relationships"],
   };
 }
 
@@ -389,50 +391,48 @@ async function readStructureContent(
  * against a candidate or edited and saved as a new snapshot. Evidence is not
  * carried across; a derived snapshot records its own.
  */
-export async function readSnapshotWrite(
+export async function readVersionContent(
   sql: Sql,
   snapshotId: number,
-): Promise<CatalogueSnapshotWrite | null> {
+): Promise<CatalogueContent | null> {
   const [snapshot] = await sql`
     select snapshots.kind, snapshots.content_hash, items.code, academic_years.year
-    from public.catalogue_snapshots as snapshots
-    join public.catalogue_item_years as item_years on item_years.id = snapshots.item_year_id
-    join public.catalogue_items as items on items.id = item_years.item_id
+    from public.catalogue_versions as snapshots
+    join public.catalogue_records as item_years on item_years.id = snapshots.record_id
+    join public.catalogue_codes as items on items.id = item_years.code_id
     join public.academic_years on academic_years.id = snapshots.academic_year_id
     where snapshots.id = ${snapshotId}
   `;
   if (!snapshot) return null;
   const kind = snapshot.kind as CatalogueKind;
-  const [course, structure, requirements] = await Promise.all([
-    kind === "course"
-      ? readCourseContent(sql, snapshotId)
-      : Promise.resolve(null),
-    kind === "course"
-      ? Promise.resolve(null)
-      : readStructureContent(sql, snapshotId),
-    readRequirements(sql, snapshotId),
-  ]);
-  return {
-    kind,
+  const requirements = await readRequirements(sql, snapshotId);
+  const common = {
     code: String(snapshot.code),
     academicYear: Number(snapshot.year),
     contentHash: String(snapshot.content_hash),
-    course,
-    structure,
     requirements,
     evidence: [],
     flags: [],
   };
+  if (kind === "course") {
+    const course = await readCourseContent(sql, snapshotId);
+    return course ? { ...common, kind, course } : null;
+  }
+  const structure = await readStructureContent(sql, snapshotId);
+  return structure ? { ...common, kind, structure } : null;
 }
 
 /** Content hash over everything that reaches the database, ignoring provenance. */
-export function contentHashForWrite(write: CatalogueSnapshotWrite) {
-  return stableFingerprint({
+export function contentHashForCatalogueContent(write: CatalogueContent) {
+  const common = {
     kind: write.kind,
     code: write.code,
     academicYear: write.academicYear,
-    course: write.course,
-    structure: write.structure,
     requirements: write.requirements,
-  });
+  };
+  return stableFingerprint(
+    write.kind === "course"
+      ? { ...common, course: write.course }
+      : { ...common, structure: write.structure },
+  );
 }

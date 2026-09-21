@@ -1,8 +1,5 @@
 import type { ClaimedImportTarget } from "./import-store.ts";
-import type {
-  CatalogueKind,
-  CatalogueSnapshotWrite,
-} from "./snapshot-write.ts";
+import type { CatalogueKind, CatalogueContent } from "../catalogue/content.ts";
 
 export type FetchedSourcePage = {
   sourceUrl: string;
@@ -86,5 +83,5 @@ export type CatalogueKindAdapter<Extraction = unknown> = {
     /** The provider's stop reason; `length` means the response was truncated. */
     finishReason: string | null;
   }): MergeOutcome<Extraction>;
-  project(extraction: Extraction): CatalogueSnapshotWrite;
+  project(extraction: Extraction): CatalogueContent;
 };

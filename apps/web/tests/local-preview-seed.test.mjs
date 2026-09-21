@@ -39,7 +39,7 @@ test("the local preview publishes every selectable academic structure kind", asy
   assert.match(previewSeed, /LOCALA-MIN/u);
   assert.match(previewSeed, /LOCALB-MIN/u);
   assert.match(previewSeed, /LOCAL-SPEC/u);
-  assert.match(previewSeed, /set published_snapshot_id = snapshots\.id/u);
+  assert.match(previewSeed, /set published_version_id = snapshots\.id/u);
 });
 
 test("passes the local server key to durable import workers", async () => {

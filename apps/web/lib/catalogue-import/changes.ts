@@ -1,11 +1,11 @@
 import { stableStringify } from "./canonical.ts";
 import { fieldLabel } from "../coursemap/catalogue-kinds.ts";
 import type {
-  CatalogueSnapshotWrite,
+  CatalogueContent,
+  CatalogueContentFlag,
   RequirementRuleKind,
   RequirementWrite,
-  SnapshotFlagWrite,
-} from "./snapshot-write.ts";
+} from "../catalogue/content.ts";
 
 export type SnapshotChange = {
   fieldPath: string;
@@ -85,8 +85,8 @@ export function requirementRuleSlice(
  * decision replaces the section rather than merging arrays item by item.
  */
 export function diffSnapshotWrites(
-  baseline: CatalogueSnapshotWrite | null,
-  candidate: CatalogueSnapshotWrite,
+  baseline: CatalogueContent | null,
+  candidate: CatalogueContent,
 ): SnapshotChange[] {
   const changes: SnapshotChange[] = [];
   const evidenceFor = (fieldPath: string) => {
@@ -156,7 +156,7 @@ export function diffSnapshotWrites(
 }
 
 /** Errors block publication; warnings inform. */
-export function isBlockingFlag(flag: SnapshotFlagWrite) {
+export function isBlockingFlag(flag: CatalogueContentFlag) {
   return flag.severity === "error";
 }
 
@@ -168,11 +168,11 @@ type Section = Record<string, unknown>;
  * replace the whole rule slice.
  */
 export function applyAcceptedChanges(
-  baseline: CatalogueSnapshotWrite,
-  candidate: CatalogueSnapshotWrite,
+  baseline: CatalogueContent,
+  candidate: CatalogueContent,
   acceptedPaths: ReadonlySet<string>,
-): CatalogueSnapshotWrite {
-  const result: CatalogueSnapshotWrite = structuredClone(baseline);
+): CatalogueContent {
+  const result: CatalogueContent = structuredClone(baseline);
   result.evidence = candidate.evidence;
   result.flags = candidate.flags;
   const replacedRules = new Set<RequirementRuleKind>();

@@ -179,7 +179,7 @@ export function ReviewPanel({
               run={run}
               summary={summary}
             />
-            {review.baselineSnapshotId === null && review.status === "ready" ? (
+            {review.baselineVersionId === null && review.status === "ready" ? (
               <p className="text-sm text-muted-foreground">
                 There was nothing to compare against, so every field was
                 accepted and this import is the draft.

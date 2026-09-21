@@ -73,14 +73,14 @@ select extensions.ok(
 );
 
 select extensions.throws_ok(
-  $$ insert into public.catalogue_items (kind, code) values ('course', 'PWND1234') $$,
+  $$ insert into public.catalogue_codes (kind, code) values ('course', 'PWND1234') $$,
   '42501',
   null,
   'a student cannot create a catalogue item'
 );
 
 select extensions.throws_ok(
-  $$ update public.catalogue_item_years set published_snapshot_id = null $$,
+  $$ update public.catalogue_records set published_version_id = null $$,
   '42501',
   null,
   'a student cannot unpublish a catalogue record'
@@ -88,9 +88,9 @@ select extensions.throws_ok(
 
 select extensions.throws_ok(
   $$
-    insert into public.catalogue_snapshots (item_year_id, kind, academic_year_id, origin)
+    insert into public.catalogue_versions (record_id, kind, academic_year_id, origin)
     select item_years.id, item_years.kind, item_years.academic_year_id, 'manual'
-    from public.catalogue_item_years as item_years limit 1
+    from public.catalogue_records as item_years limit 1
   $$,
   '42501',
   null,
