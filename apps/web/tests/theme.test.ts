@@ -7,7 +7,7 @@ test("public and signed-out pages stay light without changing authenticated work
     expect(forceLightTheme(path, true)).toBe(true);
     expect(forceLightTheme(path, false)).toBe(true);
   }
-  expect(forceLightTheme("/courses/COMP1100", false)).toBe(true);
+  expect(forceLightTheme("/courses/2026/comp1100", false)).toBe(true);
   expect(forceLightTheme("/admin", true)).toBe(false);
   expect(forceLightTheme("/dashboard", true)).toBe(false);
 });

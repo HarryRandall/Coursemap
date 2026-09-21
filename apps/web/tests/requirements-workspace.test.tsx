@@ -293,7 +293,7 @@ test("a course opens the semester chooser and is saved in the selected year", as
   await user.click(screen.getByRole("button", { name: /View courses/ }));
   expect(screen.getByRole("link", { name: /COMP1100/ })).toHaveAttribute(
     "href",
-    "/courses/COMP1100?year=2026",
+    "/courses/2026/comp1100",
   );
   await user.click(
     screen.getByRole("button", { name: "Add COMP1100 to plan" }),

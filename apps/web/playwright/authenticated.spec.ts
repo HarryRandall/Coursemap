@@ -90,7 +90,7 @@ test("course selection persists in an independent student plan", async ({
   await expect(dialog).not.toBeVisible();
   await page.reload();
   await expect(page.getByRole("main")).toContainText("COMP1100");
-  await page.goto("/courses/COMP1110?year=2026");
+  await page.goto("/courses/2026/comp1110");
   await page.getByRole("tab", { name: "Requisites", exact: true }).click();
   await expect(
     page.getByRole("tabpanel", { name: "Requisites" }),

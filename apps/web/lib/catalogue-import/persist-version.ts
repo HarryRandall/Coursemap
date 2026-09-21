@@ -598,7 +598,7 @@ export async function persistVersionCandidate(
     const changes = diffSnapshotWrites(baselineWrite, write);
     if (claim.directoryEntryId !== null) {
       await tx`
-        update public.catalogue_directory_entries
+        update public.catalogue_listings
         set code_id = ${claim.itemId}
         where id = ${claim.directoryEntryId} and code_id is null
       `;

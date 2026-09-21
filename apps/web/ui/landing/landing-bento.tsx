@@ -155,7 +155,7 @@ const cards = [
     icon: GitBranch,
     iconClasses: "bg-brand-600 text-white",
     title: "Follow prerequisite chains",
-    href: "/courses/COMP2100",
+    href: "/courses/2026/comp2100",
     description:
       "See what each course needs and what it unlocks, in a graph and in plain words.",
     surface: "bg-brand-100/70 ring-brand-200/60",

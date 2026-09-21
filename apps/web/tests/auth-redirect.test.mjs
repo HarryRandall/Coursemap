@@ -6,7 +6,7 @@ const { safeInternalRedirect } = await import("../lib/auth/redirect.ts");
 test("keeps valid internal authentication destinations", () => {
   const cases = [
     "/plan",
-    "/courses/COMP2100",
+    "/courses/2026/comp2100",
     "/courses?query=software%20design",
     "/requirements#major",
   ];

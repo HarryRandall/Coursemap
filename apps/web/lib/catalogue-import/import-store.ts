@@ -100,7 +100,7 @@ function numberOrNull(value: unknown) {
   return value === null || value === undefined ? null : Number(value);
 }
 
-async function ensureAnuSourceId(sql: AnyImportSql) {
+export async function ensureAnuSourceId(sql: AnyImportSql) {
   const [existing] = await sql`
     select id from public.catalogue_sources
     where kind = ${ANU_PROGRAMS_AND_COURSES_SOURCE.kind}
@@ -326,6 +326,7 @@ export async function recordSourcePage(
     sourceLastModified,
     fetchedAt,
     byteSize,
+    mediaType,
     storageBucket,
     storagePath,
   }: {
@@ -340,6 +341,7 @@ export async function recordSourcePage(
     sourceLastModified: string | null;
     fetchedAt: string;
     byteSize: number | null;
+    mediaType?: string;
     storageBucket: string | null;
     storagePath: string | null;
   },
@@ -350,7 +352,7 @@ export async function recordSourcePage(
       content_sha256, http_status, http_etag, source_last_modified, fetched_at,
       byte_size, storage_bucket, storage_path
     ) values (
-      ${sourceId}, ${academicYearId}, ${kind}, ${externalKey}, ${canonicalUrl}, 'text/html',
+      ${sourceId}, ${academicYearId}, ${kind}, ${externalKey}, ${canonicalUrl}, ${mediaType ?? "text/html"},
       ${contentSha256}, ${httpStatus}, ${httpEtag}, ${sourceLastModified}, ${fetchedAt},
       ${byteSize}, ${storageBucket}, ${storagePath}
     )

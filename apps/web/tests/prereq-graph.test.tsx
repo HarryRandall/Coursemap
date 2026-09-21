@@ -62,7 +62,7 @@ test("every condition of the rule is drawn, including the unit requirements", ()
   expect(screen.getByText("6 units of MATH courses")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /COMP1600/u })).toHaveAttribute(
     "href",
-    "/courses/COMP1600?year=2026",
+    "/courses/2026/comp1600",
   );
 });
 
@@ -199,7 +199,7 @@ test("unlocked courses appear when the reverse lookup found some", () => {
   });
   expect(screen.getByRole("link", { name: /COMP4600/u })).toHaveAttribute(
     "href",
-    "/courses/COMP4600?year=2026",
+    "/courses/2026/comp4600",
   );
 });
 

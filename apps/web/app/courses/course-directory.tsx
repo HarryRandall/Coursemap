@@ -59,7 +59,7 @@ export function CourseDirectory({
           filtered={filtered}
           title={`No published courses for ${academicYear}`}
           description="Published courses will appear here when the catalogue is ready."
-          clearHref={`/courses?year=${academicYear}`}
+          clearHref={`/courses/${academicYear}`}
         />
       ) : (
         <Table>
@@ -78,7 +78,7 @@ export function CourseDirectory({
           </TableHeader>
           <TableBody>
             {courses.map((course) => {
-              const href = `/courses/${course.code}?year=${academicYear}`;
+              const href = `/courses/${academicYear}/${course.code.toLowerCase()}`;
               return (
                 <LinkedTableRow key={course.code} className="group">
                   <TableCell>
@@ -100,7 +100,7 @@ export function CourseDirectory({
                           course.availableCourseCodes.includes(prerequisite) ? (
                             <Link
                               key={prerequisite}
-                              href={`/courses/${prerequisite}?year=${academicYear}`}
+                              href={`/courses/${academicYear}/${prerequisite.toLowerCase()}`}
                               aria-label={`View prerequisite ${prerequisite}`}
                               className={cn(
                                 chipClasses,

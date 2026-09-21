@@ -85,8 +85,17 @@ compatibility schema. No legacy course or academic-structure lineage is
 retained. The generic `catalogue_years`, `catalogue_source_documents`,
 `catalogue_import_runs` and `catalogue_import_items` tables have been removed.
 
+Discovery records each ANU listing attempt in `catalogue_discovery_checks`,
+including its completeness and immutable source pages through
+`catalogue_discovery_check_source_pages`.
+`catalogue_listings` holds the lightweight ANU listing metadata for a real
+annual `catalogue_record`; discovery creates the code and record immediately,
+before detailed content is synced. An incomplete discovery updates records it
+observed but cannot mark unseen listings as no longer current.
+
 Imports run through one pipeline in `apps/web/lib/catalogue-import/` for every
-kind. `catalogue_directory_entries` mirrors the ANU listing per kind and year;
+kind. A temporary read-only `catalogue_directory_entries` view keeps the
+pre-redesign import procedure working until Branch 04 replaces that pipeline;
 `catalogue_import_runs` hold up to ten `catalogue_import_targets`, each
 processed through the same ten stages with `catalogue_import_stages`,
 `catalogue_import_artifacts` (in the private `course-import-artifacts` bucket)

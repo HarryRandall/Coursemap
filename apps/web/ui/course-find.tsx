@@ -12,7 +12,6 @@ import {
   BookOpen,
   CalendarDays,
   GraduationCap,
-  Import,
   ListChecks,
   LoaderCircle,
   Map,
@@ -92,12 +91,6 @@ const adminDefaultOptions: DefaultOption[] = [
     href: "/admin/courses",
     icon: BookOpen,
     label: "Course Catalogue",
-    scope: "Academic data",
-  },
-  {
-    href: "/admin/courses/imports",
-    icon: Import,
-    label: "Course Imports",
     scope: "Academic data",
   },
   {
@@ -378,7 +371,9 @@ export function CourseFind({
                       key={course.code}
                       value={course.code}
                       onSelect={() =>
-                        navigate(`/courses/${course.code}?year=${course.year}`)
+                        navigate(
+                          `/courses/${course.year}/${course.code.toLowerCase()}`,
+                        )
                       }
                       className="group flex h-11 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-foreground/80 outline-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
                     >

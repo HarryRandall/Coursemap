@@ -193,7 +193,9 @@ export function CourseDrawer({
             size="default"
             className="mt-3 !h-auto w-full justify-between px-3 py-2.5 text-left"
           >
-            <ReuiLink href={`/courses/${course.code}?year=${course.year}`}>
+            <ReuiLink
+              href={`/courses/${course.year}/${course.code.toLowerCase()}`}
+            >
               <span className="min-w-0 whitespace-normal">
                 <span className="block text-xs font-semibold text-foreground/90">
                   More course information

@@ -54,7 +54,7 @@ export function RequirementCourseRow({
       </p>
       {course ? (
         <Link
-          href={`/courses/${code}?year=${course?.year ?? year}`}
+          href={`/courses/${course?.year ?? year}/${code.toLowerCase()}`}
           className="min-w-0 flex-1 outline-none after:absolute after:inset-0 after:rounded-xl"
         >
           <span className="flex items-center justify-between gap-3 font-mono text-base font-semibold">

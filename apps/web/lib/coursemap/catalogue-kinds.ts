@@ -25,6 +25,26 @@ export function adminCataloguePath(kind: CatalogueKind) {
   return `/admin/${CATALOGUE_KIND_LABELS[kind].segment}`;
 }
 
+export function adminCatalogueYearPath(kind: CatalogueKind, year: number) {
+  return `${adminCataloguePath(kind)}/${year}`;
+}
+
+export function adminCatalogueRecordPath(
+  kind: CatalogueKind,
+  year: number,
+  code: string,
+) {
+  return `${adminCatalogueYearPath(kind, year)}/${encodeURIComponent(code.toLowerCase())}`;
+}
+
+export function publicCatalogueRecordPath(
+  kind: CatalogueKind,
+  year: number,
+  code: string,
+) {
+  return `/${CATALOGUE_KIND_LABELS[kind].segment}/${year}/${encodeURIComponent(code.toLowerCase())}`;
+}
+
 export type DirectoryWorkflowStatus =
   | "not_imported"
   | "queued"
@@ -42,6 +62,8 @@ export type CatalogueDirectoryRecord = {
   recordPublicId: string | null;
   hasDraft: boolean;
   isPublished: boolean;
+  isListedByAnu: boolean | null;
+  lastSeenAt: string | null;
   workflow: DirectoryWorkflowStatus;
   latestTarget: {
     id: string;

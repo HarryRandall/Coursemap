@@ -1,12 +1,18 @@
+import { redirect } from "next/navigation";
 import {
-  CatalogueDirectoryPage,
-  type SearchParams,
-} from "@/ui/admin/catalogue/catalogue-pages";
+  defaultCatalogueYear,
+  loadCatalogueYears,
+} from "@/lib/coursemap/admin-catalogue";
+import { adminCatalogueYearPath } from "@/lib/coursemap/catalogue-kinds";
 
 export const dynamic = "force-dynamic";
 
-export default function Page({ searchParams }: { searchParams: SearchParams }) {
-  return (
-    <CatalogueDirectoryPage kind="specialisation" searchParams={searchParams} />
+export default async function Page() {
+  const years = await loadCatalogueYears();
+  redirect(
+    adminCatalogueYearPath(
+      "specialisation",
+      await defaultCatalogueYear("specialisation", years),
+    ),
   );
 }

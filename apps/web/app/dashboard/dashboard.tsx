@@ -316,7 +316,7 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
             courseLinks={Object.fromEntries(
               catalogue.courses.map((course) => [
                 course.code,
-                `/courses/${course.code}?year=${course.year}`,
+                `/courses/${course.year}/${course.code.toLowerCase()}`,
               ]),
             )}
           />

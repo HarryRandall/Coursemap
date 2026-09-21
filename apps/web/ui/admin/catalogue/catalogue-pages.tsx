@@ -10,10 +10,8 @@ import {
   type ImportRunProgress,
   type ImportTargetDetail,
   adminCataloguePath,
-  defaultCatalogueYear,
   loadCatalogueDirectoryPage,
   loadCatalogueImportRecords,
-  loadCatalogueYears,
   loadImportRunProgress,
   loadImportTargetDetail,
 } from "@/lib/coursemap/admin-catalogue";
@@ -24,7 +22,6 @@ import {
   ImportRecordsSkeleton,
 } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
-import { CatalogueTabs } from "./catalogue-tabs";
 import { ImportRecords } from "./import-runs";
 
 export type SearchParams = Promise<
@@ -35,34 +32,18 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function tabsFor(kind: CatalogueKind) {
-  const base = adminCataloguePath(kind);
-  return (
-    <CatalogueTabs
-      label={`${CATALOGUE_KIND_LABELS[kind].singular} sections`}
-      tabs={[
-        { href: base, icon: "directory", label: "Directory" },
-        { href: `${base}/imports`, icon: "imports", label: "Imports" },
-      ]}
-    />
-  );
-}
-
 /** The directory page for one kind; each route file calls this with its kind. */
 export async function CatalogueDirectoryPage({
   kind,
+  academicYear,
   searchParams,
 }: {
   kind: CatalogueKind;
+  academicYear: number;
   searchParams: SearchParams;
 }) {
   if (!(await canManageCourseImports())) return <AccessDeniedError />;
   const params = await searchParams;
-  const years = await loadCatalogueYears();
-  const requestedYear = Number(first(params.year));
-  const academicYear = years.includes(requestedYear)
-    ? requestedYear
-    : await defaultCatalogueYear(kind, years);
   const labels = CATALOGUE_KIND_LABELS[kind];
   const page = loadCatalogueDirectoryPage({
     kind,
@@ -72,19 +53,14 @@ export async function CatalogueDirectoryPage({
     page: Number(first(params.page)) || 1,
   });
   return (
-    <AppShell
-      admin
-      fill
-      tabs={tabsFor(kind)}
-      currentBreadcrumbLabel={labels.plural}
-    >
+    <AppShell admin fill currentBreadcrumbLabel={labels.plural}>
       <h1 className="sr-only">{labels.plural}</h1>
       <Suspense
         fallback={
           <CatalogueTableLoading noun={labels.plural} layout="directory" />
         }
       >
-        <DirectoryContent page={page} kind={kind} />
+        <DirectoryContent page={page} />
       </Suspense>
     </AppShell>
   );
@@ -92,19 +68,11 @@ export async function CatalogueDirectoryPage({
 
 async function DirectoryContent({
   page,
-  kind,
 }: {
   page: ReturnType<typeof loadCatalogueDirectoryPage>;
-  kind: CatalogueKind;
 }) {
   const resolved = await page;
-  return (
-    <CatalogueDirectory
-      page={resolved}
-      basePath={adminCataloguePath(kind)}
-      importsEnabled
-    />
-  );
+  return <CatalogueDirectory page={resolved} />;
 }
 
 export async function CatalogueImportsPage({
@@ -143,7 +111,6 @@ export async function CatalogueImportsPage({
     <AppShell
       admin
       fill
-      tabs={tabsFor(kind)}
       currentBreadcrumbLabel="Imports"
       breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
     >

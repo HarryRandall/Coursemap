@@ -15,7 +15,7 @@ test("keeps anonymous public routes available when the database is unavailable",
     [
       "/",
       "/courses",
-      "/courses/COMP2100",
+      "/courses/2026/comp2100",
       "/key-dates",
       "/login",
       "/signup",

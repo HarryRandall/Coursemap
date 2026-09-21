@@ -440,7 +440,7 @@ function RecordRow({
     (record.errorCode ? readable(record.errorCode) : null);
   const reviewHref =
     record.status === "ready" && record.recordPublicId
-      ? `${basePath}/${record.code}?year=${record.academicYear}&tab=review`
+      ? `${basePath}/${record.academicYear}/${record.code.toLowerCase()}/changes`
       : undefined;
   return (
     <LinkedTableRow>
@@ -516,14 +516,14 @@ function RecordRow({
               ? [
                   {
                     label: "Import history",
-                    href: `${basePath}/${record.code}?year=${record.academicYear}&tab=history`,
+                    href: `${basePath}/${record.academicYear}/${record.code.toLowerCase()}/changelog`,
                     icon: "history" as const,
                   },
                 ]
               : []),
             {
               label: "Find in directory",
-              href: `${basePath}?q=${encodeURIComponent(record.code)}&year=${record.academicYear}`,
+              href: `${basePath}/${record.academicYear}?q=${encodeURIComponent(record.code)}`,
             },
           ]}
         />

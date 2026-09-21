@@ -1,32 +1,24 @@
 import { expect, login, test } from "./fixtures";
 
-/**
- * The admin catalogue directory and import runs for one kind. The ANU listing
- * refresh is stubbed at the route so the test needs no network.
- */
-test("administrators browse the programme directory and import runs", async ({
+test("administrators browse year-first catalogue records", async ({
   page,
   administrator,
 }) => {
   await login(page, administrator);
 
   await page.goto("/admin/programmes");
+  await expect(page).toHaveURL(/\/admin\/programmes\/2026/);
   await expect(
     page.getByRole("heading", { name: "Programmes", level: 1, exact: true }),
   ).toBeAttached();
-  await expect(page.getByRole("tab", { name: "Directory" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  // The local seed publishes one programme, so the directory lists it even
-  // before the ANU listing has been fetched.
+
   const programmeRow = page.getByRole("row", { name: /LOCAL-PROGRAMME/ });
   await expect(programmeRow).toBeVisible();
   await expect(
     programmeRow.getByText("Published", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Imports" })).toHaveCount(0);
 
-  // The ANU listing is stubbed so the refresh completes without network.
   await page.route("**/api/admin/catalogue-directory", async (route) => {
     await route.fulfill({
       status: 200,
@@ -38,30 +30,14 @@ test("administrators browse the programme directory and import runs", async ({
       ].join("\n\n"),
     });
   });
-  await page.getByRole("button", { name: "Refresh listing" }).click();
-  await expect(
-    page.getByText(/Directory refreshed: 1 programmes/),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Refresh ANU listing" }).click();
+  await expect(page.getByText("ANU listing refreshed.")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Imports" }).click();
-  await expect(page).toHaveURL(/\/admin\/programmes\/imports/);
-  await expect(
-    page.getByRole("heading", {
-      name: "Programme imports",
-      level: 1,
-      exact: true,
-    }),
-  ).toBeAttached();
-  // The page is one table of imported records, so its search box is there
-  // whether or not anything has been imported yet.
-  await expect(
-    page.getByPlaceholder("Search imported programmes by code or title"),
-  ).toBeVisible();
-
-  await page.goto("/admin/courses?status=published");
-  await expect(page.getByRole("row", { name: /COMP1110/ })).toBeVisible();
-  await page.getByRole("checkbox", { name: "Select COMP1110" }).check();
-  await expect(page.getByRole("status")).toContainText("1 of 10 selected");
-  await page.getByRole("button", { name: "Clear selection" }).click();
-  await expect(page.getByRole("status")).toHaveCount(0);
+  await page.goto("/admin/courses/2026?q=COMP1110");
+  const courseRow = page.getByRole("row", { name: /COMP1110/ });
+  await expect(courseRow).toBeVisible();
+  await expect(courseRow.getByText("Published", { exact: true })).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
+  await courseRow.click();
+  await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1110$/);
 });

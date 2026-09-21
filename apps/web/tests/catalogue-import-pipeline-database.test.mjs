@@ -7,6 +7,7 @@ import { adapterForKind } from "../lib/catalogue-import/process-target.ts";
 import { processImportRunInline } from "../lib/catalogue-import/queue.ts";
 import { applyImportReview } from "../lib/catalogue-import/apply-review.ts";
 import { extractDeterministicCourse } from "../lib/catalogue-import/kinds/course/deterministic.ts";
+import { reconcileCatalogueListings } from "../lib/catalogue-import/directory.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
@@ -112,7 +113,7 @@ beforeAll(async () => {
  */
 async function removeFixtureData() {
   await sql`delete from public.catalogue_import_runs where requested_by = ${ADMIN_ID}`;
-  await sql`update public.catalogue_directory_entries set code_id = null where code in (${CODE}, 'COMP2401')`;
+  await sql`delete from public.catalogue_listings where code in (${CODE}, 'COMP2401')`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CODE}, 'COMP2401')`;
@@ -138,6 +139,87 @@ afterAll(async () => {
     await sql`delete from auth.users where id = ${ADMIN_ID}`;
     await sql.end({ timeout: 5 });
   }
+});
+
+test("catalogue discovery creates records and only complete listings mark disappearances", async () => {
+  const [year] =
+    await sql`select id from public.academic_years where year = ${YEAR}`;
+  const entries = [
+    { code: CODE, title: "Relational Databases", summary: {} },
+    { code: "COMP2401", title: "Computer Systems", summary: {} },
+  ];
+
+  const first = await sql.begin((tx) =>
+    reconcileCatalogueListings(tx, {
+      academicYearId: Number(year.id),
+      kind: "course",
+      entries,
+      isComplete: true,
+    }),
+  );
+  assert.equal(first.added, 2);
+
+  const repeated = await sql.begin((tx) =>
+    reconcileCatalogueListings(tx, {
+      academicYearId: Number(year.id),
+      kind: "course",
+      entries,
+      isComplete: true,
+    }),
+  );
+  assert.equal(repeated.added, 0);
+  assert.equal(repeated.updated, 2);
+
+  await sql.begin((tx) =>
+    reconcileCatalogueListings(tx, {
+      academicYearId: Number(year.id),
+      kind: "course",
+      entries: entries.slice(0, 1),
+      isComplete: false,
+    }),
+  );
+  let [missing] = await sql`
+    select listings.is_current, listings.record_id, records.archived_at,
+      records.published_version_id
+    from public.catalogue_listings as listings
+    join public.catalogue_records as records on records.id = listings.record_id
+    where listings.code = 'COMP2401' and listings.academic_year_id = ${year.id}
+  `;
+  assert.equal(missing.is_current, true);
+
+  await sql.begin((tx) =>
+    reconcileCatalogueListings(tx, {
+      academicYearId: Number(year.id),
+      kind: "course",
+      entries: entries.slice(0, 1),
+      isComplete: true,
+    }),
+  );
+  [missing] = await sql`
+    select listings.is_current, listings.record_id, records.archived_at,
+      records.published_version_id
+    from public.catalogue_listings as listings
+    join public.catalogue_records as records on records.id = listings.record_id
+    where listings.code = 'COMP2401' and listings.academic_year_id = ${year.id}
+  `;
+  assert.equal(missing.is_current, false);
+  assert.ok(missing.record_id);
+  assert.equal(missing.archived_at, null);
+  assert.equal(missing.published_version_id, null);
+
+  await sql.begin((tx) =>
+    reconcileCatalogueListings(tx, {
+      academicYearId: Number(year.id),
+      kind: "course",
+      entries,
+      isComplete: true,
+    }),
+  );
+  [missing] = await sql`
+    select is_current from public.catalogue_listings
+    where code = 'COMP2401' and academic_year_id = ${year.id}
+  `;
+  assert.equal(missing.is_current, true);
 });
 
 async function startRun(codes) {

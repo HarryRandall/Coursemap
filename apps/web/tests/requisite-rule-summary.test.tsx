@@ -60,7 +60,7 @@ test("reads the whole tree, including the kinds the narrow summary drops", () =>
   expect(screen.getByText("or")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "COMP1600" })).toHaveAttribute(
     "href",
-    "/courses/COMP1600?year=2026",
+    "/courses/2026/comp1600",
   );
 });
 

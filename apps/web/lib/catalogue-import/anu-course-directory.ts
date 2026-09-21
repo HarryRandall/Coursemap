@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   ANU_PROGRAMS_AND_COURSES_SOURCE,
   type ImportDiagnostic,
@@ -31,6 +32,19 @@ export type AnuCourseDirectory = {
   courseCodes: string[];
   entries: AnuCourseDirectoryEntry[];
   diagnostics: ImportDiagnostic[];
+  sourcePage: AnuCourseDirectorySourcePage;
+};
+
+export type AnuCourseDirectorySourcePage = {
+  externalKey: string;
+  sourceUrl: string;
+  mediaType: string;
+  contentSha256: string;
+  byteSize: number;
+  httpStatus: number;
+  httpEtag: string | null;
+  sourceLastModified: string | null;
+  fetchedAt: string;
 };
 
 export type FetchAnuCourseDirectoryOptions = FetchSourceOptions & {
@@ -282,7 +296,8 @@ export async function fetchAnuCourseDirectory(
     throw new AnuCourseDirectoryHttpError(response.status, response.statusText);
   }
   const body = await response.text();
-  if (Buffer.byteLength(body, "utf8") > MAX_DIRECTORY_BYTES) {
+  const byteSize = Buffer.byteLength(body, "utf8");
+  if (byteSize > MAX_DIRECTORY_BYTES) {
     throw new Error(
       `The course directory response exceeded ${MAX_DIRECTORY_BYTES} bytes.`,
     );
@@ -294,10 +309,22 @@ export async function fetchAnuCourseDirectory(
     throw new Error("The course directory response was not valid JSON.");
   }
 
+  const fetchedAt = now().toISOString();
   return {
     academicYear,
     sourceUrl,
-    fetchedAt: now().toISOString(),
+    fetchedAt,
+    sourcePage: {
+      externalKey: `courses:${academicYear}`,
+      sourceUrl,
+      mediaType: response.headers.get("content-type") ?? "application/json",
+      contentSha256: createHash("sha256").update(body, "utf8").digest("hex"),
+      byteSize,
+      httpStatus: response.status,
+      httpEtag: response.headers.get("etag"),
+      sourceLastModified: response.headers.get("last-modified"),
+      fetchedAt,
+    },
     ...parseAnuCourseDirectory(payload, academicYear),
   };
 }

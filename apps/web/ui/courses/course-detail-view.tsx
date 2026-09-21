@@ -340,7 +340,7 @@ export function CourseDetailView({
                   {course.relatedCourses.map((related) => (
                     <Link
                       key={`${related.kind}:${related.code}`}
-                      href={`/courses/${related.code}?year=${course.year}`}
+                      href={`/courses/${course.year}/${related.code.toLowerCase()}`}
                       className="group relative rounded-lg border border-border p-3 pr-10 transition-colors hover:border-primary/25 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-ring"
                     >
                       <ArrowUpRight

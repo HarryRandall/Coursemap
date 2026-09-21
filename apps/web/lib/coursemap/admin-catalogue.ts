@@ -68,7 +68,7 @@ export async function loadCatalogueYears() {
       .select("id,year")
       .gte("year", 2020)
       .lte("year", 2030),
-    supabase.from("catalogue_directory_statuses").select("academic_year_id"),
+    supabase.from("catalogue_discovery_statuses").select("academic_year_id"),
   ]);
   if (yearsResult.error) throw yearsResult.error;
   if (statusesResult.error) throw statusesResult.error;
@@ -175,7 +175,7 @@ export async function loadCatalogueDirectoryPage({
   const [statusResult, entriesResult, itemYearsResult, targetsResult] =
     await Promise.all([
       supabase
-        .from("catalogue_directory_statuses")
+        .from("catalogue_discovery_statuses")
         .select("status,refreshed_at,message,entry_count")
         .eq("academic_year_id", yearRow.id)
         .eq("kind", kind)
@@ -183,11 +183,10 @@ export async function loadCatalogueDirectoryPage({
       // Codes are unique within a kind and year, so code alone orders the pages.
       readAllRows((from, to) =>
         supabase
-          .from("catalogue_directory_entries")
-          .select("code,title,summary,code_id")
+          .from("catalogue_listings")
+          .select("code,title,summary,code_id,is_current,last_seen_at")
           .eq("academic_year_id", yearRow.id)
           .eq("kind", kind)
-          .eq("is_current", true)
           .order("code")
           .range(from, to),
       ),
@@ -253,6 +252,8 @@ export async function loadCatalogueDirectoryPage({
       title: entry.title,
       summary: (entry.summary ?? {}) as Record<string, unknown>,
       itemId: entry.code_id,
+      isListedByAnu: entry.is_current,
+      lastSeenAt: entry.last_seen_at,
     })),
     ...(extraItems ?? [])
       .filter((item) => !entryCodes.has(item.code))
@@ -261,9 +262,11 @@ export async function loadCatalogueDirectoryPage({
         title: null,
         summary: {},
         itemId: item.id,
+        isListedByAnu: null,
+        lastSeenAt: null,
       })),
   ]
-    .map(({ code, title, summary, itemId }) => {
+    .map(({ code, title, summary, itemId, isListedByAnu, lastSeenAt }) => {
       const itemYear = itemId === null ? undefined : itemYearByItem.get(itemId);
       const latest =
         itemId === null ? undefined : latestTargetByItem.get(itemId);
@@ -280,6 +283,8 @@ export async function loadCatalogueDirectoryPage({
         recordPublicId: itemYear?.public_id ?? null,
         hasDraft,
         isPublished,
+        isListedByAnu,
+        lastSeenAt,
         workflow: workflowFor({
           hasDraft,
           isPublished,
@@ -500,7 +505,7 @@ export async function loadCatalogueImportRecords({
     // The title lives on the directory entry, which PostgREST cannot reach
     // from inside an `or`, so matching titles are resolved to entry ids first.
     const { data: titleMatches, error: titleError } = await supabase
-      .from("catalogue_directory_entries")
+      .from("catalogue_listings")
       .select("id")
       .eq("kind", kind)
       .ilike("title", `%${needle}%`)
@@ -560,7 +565,7 @@ export async function loadCatalogueImportRecords({
   const [entries, years, itemYears, olderRuns] = await Promise.all([
     entryIds.length
       ? supabase
-          .from("catalogue_directory_entries")
+          .from("catalogue_listings")
           .select("id,title")
           .in("id", entryIds)
       : null,

@@ -827,63 +827,89 @@ export type Database = {
         }
         Relationships: []
       }
-      catalogue_directory_entries: {
+      catalogue_discovery_check_source_pages: {
         Row: {
-          academic_year_id: number
-          code: string
-          code_id: number | null
-          first_seen_at: string
-          id: number
-          is_current: boolean
-          kind: string
-          last_seen_at: string
-          source_page_id: number | null
-          summary: Json
-          title: string | null
+          discovery_check_id: number
+          source_page_id: number
         }
         Insert: {
-          academic_year_id: number
-          code: string
-          code_id?: number | null
-          first_seen_at?: string
-          id?: never
-          is_current?: boolean
-          kind: string
-          last_seen_at?: string
-          source_page_id?: number | null
-          summary?: Json
-          title?: string | null
+          discovery_check_id: number
+          source_page_id: number
         }
         Update: {
-          academic_year_id?: number
-          code?: string
-          code_id?: number | null
-          first_seen_at?: string
-          id?: never
-          is_current?: boolean
-          kind?: string
-          last_seen_at?: string
-          source_page_id?: number | null
-          summary?: Json
-          title?: string | null
+          discovery_check_id?: number
+          source_page_id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_directory_entries_academic_year_fkey"
+            foreignKeyName: "catalogue_discovery_check_source_pages_discovery_check_id_fkey"
+            columns: ["discovery_check_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_discovery_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_discovery_check_source_pages_source_page_id_fkey"
+            columns: ["source_page_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogue_discovery_checks: {
+        Row: {
+          academic_year_id: number
+          completed_at: string | null
+          discovered_count: number
+          error_code: string | null
+          error_message: string | null
+          id: number
+          is_complete: boolean
+          kind: string
+          source: string
+          source_page_id: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          academic_year_id: number
+          completed_at?: string | null
+          discovered_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          id?: never
+          is_complete?: boolean
+          kind: string
+          source?: string
+          source_page_id?: number | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          academic_year_id?: number
+          completed_at?: string | null
+          discovered_count?: number
+          error_code?: string | null
+          error_message?: string | null
+          id?: never
+          is_complete?: boolean
+          kind?: string
+          source?: string
+          source_page_id?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_discovery_checks_academic_year_id_fkey"
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_directory_entries_item_fkey"
-            columns: ["code_id", "kind"]
-            isOneToOne: false
-            referencedRelation: "catalogue_codes"
-            referencedColumns: ["id", "kind"]
-          },
-          {
-            foreignKeyName: "catalogue_directory_entries_source_page_fkey"
+            foreignKeyName: "catalogue_discovery_checks_source_page_fkey"
             columns: ["source_page_id", "academic_year_id"]
             isOneToOne: false
             referencedRelation: "catalogue_source_pages"
@@ -891,7 +917,7 @@ export type Database = {
           },
         ]
       }
-      catalogue_directory_statuses: {
+      catalogue_discovery_statuses: {
         Row: {
           academic_year_id: number
           entry_count: number
@@ -918,7 +944,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_directory_statuses_academic_year_fkey"
+            foreignKeyName: "catalogue_discovery_statuses_academic_year_fkey"
             columns: ["academic_year_id"]
             isOneToOne: false
             referencedRelation: "academic_years"
@@ -1426,6 +1452,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "catalogue_import_targets_directory_entry_fkey"
+            columns: ["directory_entry_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_listings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "catalogue_import_targets_item_fkey"
             columns: ["code_id", "kind"]
             isOneToOne: false
@@ -1455,6 +1488,87 @@ export type Database = {
           },
           {
             foreignKeyName: "catalogue_import_targets_source_page_fkey"
+            columns: ["source_page_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+        ]
+      }
+      catalogue_listings: {
+        Row: {
+          academic_year_id: number
+          code: string
+          code_id: number
+          first_seen_at: string
+          id: number
+          is_current: boolean
+          kind: string
+          last_seen_at: string
+          record_id: number
+          source_page_id: number | null
+          summary: Json
+          title: string | null
+        }
+        Insert: {
+          academic_year_id: number
+          code: string
+          code_id: number
+          first_seen_at?: string
+          id?: never
+          is_current?: boolean
+          kind: string
+          last_seen_at?: string
+          record_id: number
+          source_page_id?: number | null
+          summary?: Json
+          title?: string | null
+        }
+        Update: {
+          academic_year_id?: number
+          code?: string
+          code_id?: number
+          first_seen_at?: string
+          id?: never
+          is_current?: boolean
+          kind?: string
+          last_seen_at?: string
+          record_id?: number
+          source_page_id?: number | null
+          summary?: Json
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_listings_academic_year_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_code_fkey"
+            columns: ["code_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "catalogue_codes"
+            referencedColumns: ["id", "kind"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_record_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_record_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_source_page_fkey"
             columns: ["source_page_id", "academic_year_id"]
             isOneToOne: false
             referencedRelation: "catalogue_source_pages"
@@ -3498,6 +3612,87 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      catalogue_directory_entries: {
+        Row: {
+          academic_year_id: number | null
+          code: string | null
+          code_id: number | null
+          first_seen_at: string | null
+          id: number | null
+          is_current: boolean | null
+          kind: string | null
+          last_seen_at: string | null
+          record_id: number | null
+          source_page_id: number | null
+          summary: Json | null
+          title: string | null
+        }
+        Insert: {
+          academic_year_id?: number | null
+          code?: string | null
+          code_id?: number | null
+          first_seen_at?: string | null
+          id?: number | null
+          is_current?: boolean | null
+          kind?: string | null
+          last_seen_at?: string | null
+          record_id?: number | null
+          source_page_id?: number | null
+          summary?: Json | null
+          title?: string | null
+        }
+        Update: {
+          academic_year_id?: number | null
+          code?: string | null
+          code_id?: number | null
+          first_seen_at?: string | null
+          id?: number | null
+          is_current?: boolean | null
+          kind?: string | null
+          last_seen_at?: string | null
+          record_id?: number | null
+          source_page_id?: number | null
+          summary?: Json | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_listings_academic_year_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_code_fkey"
+            columns: ["code_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "catalogue_codes"
+            referencedColumns: ["id", "kind"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_record_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_record_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_listings_source_page_fkey"
+            columns: ["source_page_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_pages"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+        ]
       }
       published_course_summaries: {
         Row: {

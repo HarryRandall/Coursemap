@@ -20,7 +20,7 @@ export function CourseReferenceText({
       return (
         <Link
           key={index}
-          href={`/courses/${part}?year=${academicYear}`}
+          href={`/courses/${academicYear}/${part.toLowerCase()}`}
           prefetch={false}
           className="rounded font-mono font-semibold text-primary underline decoration-primary/40 underline-offset-2 hover:text-primary"
         >

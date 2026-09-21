@@ -28,7 +28,11 @@ import {
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
-import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
+import {
+  CATALOGUE_KIND_LABELS,
+  publicCatalogueRecordPath,
+} from "@/lib/coursemap/catalogue-kinds";
+import { isCatalogueKind } from "@/lib/catalogue/content";
 import type {
   StructureDetails,
   StructureFee,
@@ -120,7 +124,15 @@ function StructureOptionLinks({
       {options.map((option) => (
         <li key={option.targetCode}>
           <Link
-            href={`/structures/${encodeURIComponent(option.targetCode)}?year=${year}`}
+            href={
+              isCatalogueKind(option.targetKind)
+                ? publicCatalogueRecordPath(
+                    option.targetKind,
+                    year,
+                    option.targetCode,
+                  )
+                : "/courses"
+            }
             className="inline-flex items-baseline gap-2 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
           >
             <span className="font-medium text-foreground">
@@ -375,9 +387,13 @@ export function StructureDetailView({
                         <Link
                           className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
                           href={
-                            relationship.targetKind === "course"
-                              ? `/courses/${encodeURIComponent(relationship.targetCode)}?year=${structure.year}`
-                              : `/structures/${encodeURIComponent(relationship.targetCode)}?year=${structure.year}`
+                            isCatalogueKind(relationship.targetKind)
+                              ? publicCatalogueRecordPath(
+                                  relationship.targetKind,
+                                  structure.year,
+                                  relationship.targetCode,
+                                )
+                              : "/courses"
                           }
                         >
                           <span className="min-w-0">

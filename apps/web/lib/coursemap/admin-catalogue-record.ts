@@ -60,6 +60,9 @@ export type CatalogueRecord = {
   currentVersionId: number | null;
   publishedVersionId: number | null;
   archivedAt: string | null;
+  isListedByAnu: boolean | null;
+  listingTitle: string | null;
+  lastSeenAt: string | null;
   publishBlockers: string[];
   versions: CatalogueVersion[];
   publications: Array<{
@@ -117,35 +120,46 @@ export async function loadCatalogueRecord({
   if (error) throw error;
   if (!itemYear) return null;
 
-  const [versionsResult, publicationsResult, targetsResult, blockersResult] =
-    await Promise.all([
-      supabase
-        .from("catalogue_versions")
-        .select(
-          "id,public_id,origin,created_at,sealed_at,based_on_version_id,import_target_id,content_hash",
-        )
-        .eq("record_id", itemYear.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("catalogue_publications")
-        .select(
-          "version_id,published_at,published_by,unpublished_at,unpublished_by",
-        )
-        .eq("record_id", itemYear.id)
-        .order("published_at", { ascending: false }),
-      supabase
-        .from("catalogue_import_targets")
-        .select(
-          "id,run_id,status,change_kind,created_at,completed_at,applied_at,applied_version_id,baseline_version_id,candidate_version_id,catalogue_import_runs!inner(run_number)",
-        )
-        .eq("record_id", itemYear.id)
-        .order("created_at", { ascending: false }),
-      supabase.rpc("catalogue_publish_blockers", { p_record_id: itemYear.id }),
-    ]);
+  const [
+    versionsResult,
+    publicationsResult,
+    targetsResult,
+    blockersResult,
+    listingResult,
+  ] = await Promise.all([
+    supabase
+      .from("catalogue_versions")
+      .select(
+        "id,public_id,origin,created_at,sealed_at,based_on_version_id,import_target_id,content_hash",
+      )
+      .eq("record_id", itemYear.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("catalogue_publications")
+      .select(
+        "version_id,published_at,published_by,unpublished_at,unpublished_by",
+      )
+      .eq("record_id", itemYear.id)
+      .order("published_at", { ascending: false }),
+    supabase
+      .from("catalogue_import_targets")
+      .select(
+        "id,run_id,status,change_kind,created_at,completed_at,applied_at,applied_version_id,baseline_version_id,candidate_version_id,catalogue_import_runs!inner(run_number)",
+      )
+      .eq("record_id", itemYear.id)
+      .order("created_at", { ascending: false }),
+    supabase.rpc("catalogue_publish_blockers", { p_record_id: itemYear.id }),
+    supabase
+      .from("catalogue_listings")
+      .select("title,is_current,last_seen_at")
+      .eq("record_id", itemYear.id)
+      .maybeSingle(),
+  ]);
   if (versionsResult.error) throw versionsResult.error;
   if (publicationsResult.error) throw publicationsResult.error;
   if (targetsResult.error) throw targetsResult.error;
   if (blockersResult.error) throw blockersResult.error;
+  if (listingResult.error) throw listingResult.error;
 
   const appliedVersionIds = new Set(
     (targetsResult.data ?? []).flatMap((target) =>
@@ -199,10 +213,13 @@ export async function loadCatalogueRecord({
     codeId: itemYear.code_id,
     recordId: itemYear.id,
     recordPublicId: itemYear.public_id,
-    title: title ?? itemYear.catalogue_codes.code,
+    title: title ?? listingResult.data?.title ?? itemYear.catalogue_codes.code,
     currentVersionId,
     publishedVersionId: itemYear.published_version_id,
     archivedAt: itemYear.archived_at,
+    isListedByAnu: listingResult.data?.is_current ?? null,
+    listingTitle: listingResult.data?.title ?? null,
+    lastSeenAt: listingResult.data?.last_seen_at ?? null,
     publishBlockers: (blockersResult.data as string[] | null) ?? [],
     versions: (versionsResult.data ?? []).map((version) => ({
       id: version.id,

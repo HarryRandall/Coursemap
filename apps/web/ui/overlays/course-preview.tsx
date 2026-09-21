@@ -122,7 +122,9 @@ export function CoursePreview({
               size="sm"
               className="min-h-11 sm:min-h-8"
             >
-              <ReuiLink href={`/courses/${course.code}?year=${course.year}`}>
+              <ReuiLink
+                href={`/courses/${course.year}/${course.code.toLowerCase()}`}
+              >
                 View course <ExternalLink size={14} aria-hidden="true" />
               </ReuiLink>
             </Button>

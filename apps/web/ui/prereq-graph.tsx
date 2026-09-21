@@ -489,7 +489,7 @@ function GraphNode({
 
   return (
     <Link
-      href={`/courses/${node.code}?year=${academicYear}`}
+      href={`/courses/${academicYear}/${node.code.toLowerCase()}`}
       prefetch={false}
       style={style}
       className={cn(

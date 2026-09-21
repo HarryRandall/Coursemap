@@ -158,7 +158,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     page,
   }) => {
     await page.emulateMedia({ colorScheme });
-    await page.goto("/courses/COMP1100?year=2026");
+    await page.goto("/courses/2026/comp1100");
     const overview = page.getByRole("tab", { name: "Overview", exact: true });
     const offerings = page.getByRole("tab", { name: "Offerings", exact: true });
     await offerings.click();

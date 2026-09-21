@@ -22,7 +22,7 @@ export function CourseRowActions({
         links={[
           {
             label: "View course",
-            href: `/courses/${course.code}?year=${course.year}`,
+            href: `/courses/${course.year}/${course.code.toLowerCase()}`,
           },
           { label: "Open ANU source", href: course.sourceUrl, icon: "source" },
         ]}
