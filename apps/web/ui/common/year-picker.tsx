@@ -1,13 +1,22 @@
 "use client";
 
-import { OptionPicker } from "@/ui/common/option-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@coursemap/ui/primitives/select";
 
 export type YearSelection = number | "all";
 
 /**
- * One academic year. The values are four digits, so the picker is compact:
- * a full-width menu of generously spaced rows read as a heavy component for
- * a single number. Newest first, because that is the year being worked on.
+ * One academic year. This is a native-feeling select rather than the option
+ * picker: the values are a handful of four-digit years, and a searchable
+ * popover list drawn below the trigger read as a heavy component for choosing
+ * a single number. The select opens with the current year aligned over the
+ * trigger, so a change is one short movement. Newest first, because that is
+ * the year being worked on.
  */
 export function YearPicker({
   allLabel = "All",
@@ -29,22 +38,22 @@ export function YearPicker({
 }) {
   const ordered = [...new Set(years)].sort((left, right) => right - left);
   return (
-    <OptionPicker
-      aria-label={ariaLabel}
-      className="tabular-nums"
-      compact
+    <Select
       disabled={disabled}
-      searchable={false}
-      size="sm"
       value={String(value)}
-      items={[
-        ...ordered.map((year) => ({
-          value: String(year),
-          label: String(year),
-        })),
-        ...(allowAll ? [{ value: "all", label: allLabel }] : []),
-      ]}
       onValueChange={(next) => onChange(next === "all" ? "all" : Number(next))}
-    />
+    >
+      <SelectTrigger aria-label={ariaLabel} size="sm" className="tabular-nums">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {ordered.map((year) => (
+          <SelectItem key={year} value={String(year)} className="tabular-nums">
+            {year}
+          </SelectItem>
+        ))}
+        {allowAll ? <SelectItem value="all">{allLabel}</SelectItem> : null}
+      </SelectContent>
+    </Select>
   );
 }

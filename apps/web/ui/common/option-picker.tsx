@@ -21,7 +21,6 @@ export function OptionPicker({
   searchable = "auto",
   placeholder = "Select...",
   className,
-  compact = false,
   disabled,
   ...triggerProps
 }: Omit<ComponentProps<typeof Button>, "value" | "onChange" | "children"> & {
@@ -33,12 +32,6 @@ export function OptionPicker({
   /** Auto enables search for more than eight options. Years pass false. */
   searchable?: boolean | "auto";
   placeholder?: string;
-  /**
-   * The values are single tokens, such as a year, so the menu is sized to
-   * them. The default width suits labels that need the room; over four
-   * characters it reads as a heavy component for a very small choice.
-   */
-  compact?: boolean;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -68,10 +61,7 @@ export function OptionPicker({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className={cn(
-          "max-w-(--radix-popover-content-available-width) min-w-(--radix-popover-trigger-width) p-1.5",
-          compact ? "w-auto" : "w-56",
-        )}
+        className="w-56 max-w-(--radix-popover-content-available-width) min-w-(--radix-popover-trigger-width) p-1.5"
       >
         <OptionMenu
           items={items}
