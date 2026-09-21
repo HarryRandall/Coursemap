@@ -1,4 +1,5 @@
 import "server-only";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import {
   type AdminCatalogueSummary,
@@ -50,16 +51,38 @@ function emptyCounts(): Record<DirectoryWorkflowStatus, number> {
   };
 }
 
+/**
+ * The years an administrator can choose. Every seeded academic year from 2020
+ * to 2030 used to be offered, so the picker listed eleven years of which only
+ * one held any catalogue, tall enough to cover the page tabs when it opened.
+ * It now offers the years whose listing has been fetched, plus this year and
+ * next so the coming handbook can always be imported before it has any rows.
+ * The fetched years come from the directory statuses, one row per year and
+ * kind, rather than from the entries themselves, which run to thousands.
+ */
 export async function loadCatalogueYears() {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("academic_years")
-    .select("year")
-    .gte("year", 2020)
-    .lte("year", 2030)
-    .order("year", { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map((row) => row.year);
+  const [yearsResult, statusesResult] = await Promise.all([
+    supabase
+      .from("academic_years")
+      .select("id,year")
+      .gte("year", 2020)
+      .lte("year", 2030),
+    supabase.from("catalogue_directory_statuses").select("academic_year_id"),
+  ]);
+  if (yearsResult.error) throw yearsResult.error;
+  if (statusesResult.error) throw statusesResult.error;
+  const current = new Date().getFullYear();
+  const fetched = new Set(
+    (statusesResult.data ?? []).map((row) => row.academic_year_id),
+  );
+  return (yearsResult.data ?? [])
+    .filter(
+      (row) =>
+        fetched.has(row.id) || row.year === current || row.year === current + 1,
+    )
+    .map((row) => row.year)
+    .sort((left, right) => right - left);
 }
 
 /**
@@ -83,6 +106,32 @@ export async function defaultCatalogueYear(
   const current = new Date().getFullYear();
   if (years.includes(current)) return current;
   return years[0] ?? current;
+}
+
+const ROW_PAGE_SIZE = 1000;
+
+/**
+ * PostgREST answers every request with at most 1,000 rows, whatever the query
+ * asks for, and does so without saying anything. The directory reads a whole
+ * year's listing to filter it in memory, so one request stopped at the
+ * thousandth code: everything after EMET1001, about two thirds of the course
+ * catalogue, could not be found, filtered or imported from the directory, and
+ * the footer reported a total of exactly 1,000. This reads every page. Each
+ * caller must order by a unique key so a row cannot move between pages.
+ */
+async function readAllRows<Row>(
+  readPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: Row[] | null; error: PostgrestError | null }>,
+): Promise<{ data: Row[]; error: PostgrestError | null }> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += ROW_PAGE_SIZE) {
+    const { data, error } = await readPage(from, from + ROW_PAGE_SIZE - 1);
+    if (error) return { data: rows, error };
+    rows.push(...(data ?? []));
+    if ((data?.length ?? 0) < ROW_PAGE_SIZE) return { data: rows, error: null };
+  }
 }
 
 /**
@@ -131,28 +180,42 @@ export async function loadCatalogueDirectoryPage({
         .eq("academic_year_id", yearRow.id)
         .eq("kind", kind)
         .maybeSingle(),
-      supabase
-        .from("catalogue_directory_entries")
-        .select("code,title,summary,item_id")
-        .eq("academic_year_id", yearRow.id)
-        .eq("kind", kind)
-        .eq("is_current", true)
-        .order("code"),
-      supabase
-        .from("catalogue_item_years")
-        .select(
-          "item_id,public_id,draft_snapshot_id,published_snapshot_id,archived_at",
-        )
-        .eq("academic_year_id", yearRow.id)
-        .eq("kind", kind),
-      supabase
-        .from("catalogue_import_targets")
-        .select(
-          "id,run_id,item_id,status,change_kind,error_message,completed_at,created_at",
-        )
-        .eq("academic_year_id", yearRow.id)
-        .eq("kind", kind)
-        .order("created_at", { ascending: false }),
+      // Codes are unique within a kind and year, so code alone orders the pages.
+      readAllRows((from, to) =>
+        supabase
+          .from("catalogue_directory_entries")
+          .select("code,title,summary,item_id")
+          .eq("academic_year_id", yearRow.id)
+          .eq("kind", kind)
+          .eq("is_current", true)
+          .order("code")
+          .range(from, to),
+      ),
+      readAllRows((from, to) =>
+        supabase
+          .from("catalogue_item_years")
+          .select(
+            "item_id,public_id,draft_snapshot_id,published_snapshot_id,archived_at",
+          )
+          .eq("academic_year_id", yearRow.id)
+          .eq("kind", kind)
+          .order("item_id")
+          .range(from, to),
+      ),
+      // Newest first so the first target seen per item is its latest; id breaks
+      // ties between targets created in the same instant.
+      readAllRows((from, to) =>
+        supabase
+          .from("catalogue_import_targets")
+          .select(
+            "id,run_id,item_id,status,change_kind,error_message,completed_at,created_at",
+          )
+          .eq("academic_year_id", yearRow.id)
+          .eq("kind", kind)
+          .order("created_at", { ascending: false })
+          .order("id")
+          .range(from, to),
+      ),
     ]);
   if (statusResult.error) throw statusResult.error;
   if (entriesResult.error) throw entriesResult.error;
@@ -174,10 +237,10 @@ export async function loadCatalogueDirectoryPage({
 
   // Items imported directly (without a directory row) still appear so the
   // administrator can see everything the year holds.
-  const entryCodes = new Set((entriesResult.data ?? []).map((row) => row.code));
+  const entryCodes = new Set(entriesResult.data.map((row) => row.code));
+  const entryItemIds = new Set(entriesResult.data.map((row) => row.item_id));
   const extraItemIds = [...itemYearByItem.keys()].filter(
-    (itemId) =>
-      !(entriesResult.data ?? []).some((entry) => entry.item_id === itemId),
+    (itemId) => !entryItemIds.has(itemId),
   );
   const { data: extraItems } = extraItemIds.length
     ? await supabase
