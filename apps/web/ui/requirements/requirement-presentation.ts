@@ -128,6 +128,86 @@ export function conditionHeading(condition: RequirementTreeCondition) {
   }
 }
 
+function unitQuantity(minimum: number | null, maximum: number | null) {
+  const figure = (units: number) =>
+    units.toLocaleString("en-AU", { maximumFractionDigits: 2 });
+  if (minimum !== null && maximum !== null) {
+    return minimum === maximum
+      ? formatUnits(minimum)
+      : `${figure(minimum)} to ${formatUnits(maximum)}`;
+  }
+  if (minimum !== null) return formatUnits(minimum);
+  if (maximum !== null) return `at most ${formatUnits(maximum)}`;
+  return null;
+}
+
+function levelPhrase(minimumLevel: number | null, maximumLevel: number | null) {
+  if (minimumLevel !== null && maximumLevel !== null) {
+    return minimumLevel === maximumLevel
+      ? `at ${minimumLevel} level`
+      : `at ${minimumLevel} to ${maximumLevel} level`;
+  }
+  if (minimumLevel !== null) return `at ${minimumLevel} level or above`;
+  if (maximumLevel !== null) return `at up to ${maximumLevel} level`;
+  return null;
+}
+
+function sentence(text: string) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * The whole requirement as one line that leads with how much is needed, for
+ * places with room for a single line: a graph node, a checklist row.
+ *
+ * conditionHeading names the category ("COMP courses") and
+ * conditionInterpretation carries the detail ("COMP coded courses · At least
+ * 24 units"), which suits a card with a progress bar beside it. Set one above
+ * the other in a small node, the category repeated itself and the figure a
+ * student needs sat in the smallest, faintest text. Kinds whose
+ * interpretation already reads as a sentence keep it.
+ */
+export function conditionSummary(condition: RequirementTreeCondition) {
+  const quantity = unitQuantity(condition.minimumUnits, condition.maximumUnits);
+  const levels = levelPhrase(condition.minimumLevel, condition.maximumLevel);
+  const scoped = (subject: string) =>
+    [quantity ? `${quantity} of` : null, subject, levels]
+      .filter(Boolean)
+      .join(" ");
+
+  switch (condition.conditionKind) {
+    case "units_total":
+      return quantity ? sentence(`${quantity} in total`) : "Total units";
+    case "subject_units":
+      return sentence(
+        scoped(
+          condition.subjectCode
+            ? `${condition.subjectCode} courses`
+            : "courses in the subject area",
+        ),
+      );
+    case "level_units":
+      return sentence(scoped("courses"));
+    case "tagged_units":
+      return sentence(
+        scoped(
+          condition.tag ? `courses tagged ${condition.tag}` : "tagged courses",
+        ),
+      );
+    case "elective_units":
+      return sentence(scoped("elective courses"));
+    case "course_set_units":
+      if (condition.minimumCourses) {
+        return `Complete ${condition.minimumCourses} of the listed courses`;
+      }
+      return quantity
+        ? sentence(`${quantity} from the listed courses`)
+        : "Complete from the listed courses";
+    default:
+      return conditionInterpretation(condition) || conditionHeading(condition);
+  }
+}
+
 export function conditionInterpretation(condition: RequirementTreeCondition) {
   const parts: string[] = [];
   const code = conditionItemCode(condition);

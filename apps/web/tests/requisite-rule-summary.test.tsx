@@ -48,10 +48,16 @@ test("reads the whole tree, including the kinds the narrow summary drops", () =>
       },
     ],
   });
-  expect(screen.getByText("Complete all of the following")).toBeInTheDocument();
-  expect(screen.getByText("Complete one of the following")).toBeInTheDocument();
-  expect(screen.getByText("Year standing")).toBeInTheDocument();
+  // Each group says what the reader needs, not a pair of near-identical
+  // "Complete ... of the following" headings.
+  expect(screen.getByText("You need all of these")).toBeInTheDocument();
+  expect(screen.getByText("You need one of these")).toBeInTheDocument();
+  // A unit rule leads with the figure rather than burying it under a category.
+  expect(screen.getByText("24 units of COMP courses")).toBeInTheDocument();
   expect(screen.getByText("At least year 3 standing")).toBeInTheDocument();
+  // An alternative separates its options with "or", so it cannot read as a
+  // list of things to complete.
+  expect(screen.getByText("or")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "COMP1600" })).toHaveAttribute(
     "href",
     "/courses/COMP1600?year=2026",
@@ -69,14 +75,13 @@ test("an at_least group says how many of its options must be met", () => {
       { ...base, kind: "subject_units", subject: "STAT", units: 6 },
     ],
   });
-  expect(
-    screen.getByText("Complete at least 2 of the following"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("You need at least 2 of these")).toBeInTheDocument();
 });
 
 test("an incompatibility is flagged rather than read as something to complete", () => {
   renderSummary({ ...base, kind: "incompatible", code: "COMP6466" });
-  expect(screen.getByText("Cannot be counted together")).toBeInTheDocument();
+  // The code is a link, so the sentence is split across elements.
+  expect(screen.getByText(/Cannot be counted with/)).toBeInTheDocument();
   expect(
     screen.getByLabelText("Incompatible", { selector: "svg" }),
   ).toBeInTheDocument();

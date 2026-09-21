@@ -57,21 +57,22 @@ function renderGraph(props: Partial<Parameters<typeof PrereqGraph>[0]> = {}) {
 
 test("every condition of the rule is drawn, including the unit requirements", () => {
   renderGraph();
-  expect(screen.getByText("COMP courses")).toBeInTheDocument();
-  expect(screen.getByText("COMP coded courses · At least 24 units"));
-  expect(screen.getByText("MATH courses")).toBeInTheDocument();
-  expect(screen.getByText("MATH coded courses · At least 6 units"));
+  // Each unit rule is one line that leads with the figure a student needs.
+  expect(screen.getByText("24 units of COMP courses")).toBeInTheDocument();
+  expect(screen.getByText("6 units of MATH courses")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /COMP1600/u })).toHaveAttribute(
     "href",
     "/courses/COMP1600?year=2026",
   );
 });
 
-test("alternatives are marked as a choice rather than listed as separate rules", () => {
+test("alternatives are marked as a choice and the rule's AND is explicit", () => {
   renderGraph();
   expect(screen.getByText("Choose one")).toBeInTheDocument();
-  // The 24 units of COMP sit outside the choice, so it must not swallow them.
-  expect(screen.queryByText("All of these")).not.toBeInTheDocument();
+  // The 24 units of COMP sit beside the choice, not inside it. The root AND
+  // used to be left for the reader to infer, and several arrows converging on
+  // the course read as several ways in, so a named junction now holds both.
+  expect(screen.getByText("All of these")).toBeInTheDocument();
 });
 
 test("a nested all_of inside a choice keeps its own group node", () => {
@@ -222,7 +223,12 @@ test("without a reviewed rule the graph says where its codes came from", () => {
 
 test("a course with no rule and no references still explains the gap", () => {
   renderGraph({ expression: null, hasPrerequisiteWording: false });
-  expect(screen.getByText("No prerequisite listed")).toBeInTheDocument();
+  // Nothing either side, so a sentence rather than three unconnected boxes.
+  expect(
+    screen.getByText(
+      "COMP3600 has no prerequisites, and no published course lists it as one.",
+    ),
+  ).toBeInTheDocument();
 });
 
 test("nodes in a column are stacked without overlapping", () => {

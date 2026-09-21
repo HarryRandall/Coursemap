@@ -9,7 +9,7 @@ import {
   GaugeCircle,
   LockKeyhole,
 } from "lucide-react";
-import { Fragment, useMemo } from "react";
+import { Fragment, useId, useMemo } from "react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Hint } from "@/ui/common/hint";
 import { cn } from "@/lib/cn";
@@ -22,17 +22,21 @@ import {
   requisiteConditionNode,
   type RequisiteGraphNode,
 } from "@/lib/coursemap/requisite-tree";
-import {
-  conditionHeading,
-  conditionInterpretation,
-} from "@/ui/requirements/requirement-presentation";
+import { conditionSummary } from "@/ui/requirements/requirement-presentation";
 
-const COLUMN_WIDTH = 184;
-const COLUMN_GAP = 52;
+const COLUMN_WIDTH = 168;
+/**
+ * A junction is a short pill ("Choose one", "All of these"), so a column that
+ * holds nothing else is narrower. At a uniform width the junction that makes
+ * the AND explicit added a full column and pushed the graph past its card.
+ */
+const JUNCTION_WIDTH = 116;
+const COLUMN_GAP = 36;
 const ROW_GAP = 14;
 const CHOICE_HEIGHT = 34;
 const REQUIREMENT_HEIGHT = 68;
 const EMPTY_HEIGHT = 46;
+const ARROW_INSET = 3;
 
 type CourseStatus = "completed" | "enrolled" | "planned";
 
@@ -127,6 +131,7 @@ export function PrereqGraph({
   statusByCode: ReadonlyMap<string, CourseStatus>;
   unlocksAreKnown: boolean;
 }) {
+  const markerId = useId();
   const graph = useMemo(
     () =>
       buildRequisiteGraph({
@@ -137,6 +142,22 @@ export function PrereqGraph({
       }),
     [availableCourseCodes, code, expression, prerequisiteEdges],
   );
+
+  // With nothing on either side there is no chain to draw. Three empty boxes
+  // with no edges between them read as a diagram that failed to render, and
+  // drawing arrows to placeholders would invent relationships, so say it.
+  if (graph.nodes.every((node) => node.kind === "current")) {
+    return (
+      <p
+        className="px-5 pb-5 text-center text-sm text-muted-foreground"
+        data-testid="prereq-graph"
+      >
+        {unlocksAreKnown
+          ? `${code} has no prerequisites, and no published course lists it as one.`
+          : `${code} has no prerequisites. Which courses it leads to is not known until it is published.`}
+      </p>
+    );
+  }
 
   const columnCount = graph.maximumDepth + 2;
   const currentColumn = graph.maximumDepth;
@@ -197,17 +218,32 @@ export function PrereqGraph({
   }
 
   const geometry = new Map(placed.map((entry) => [entry.id, entry]));
-  const width = columnCount * COLUMN_WIDTH + (columnCount - 1) * COLUMN_GAP;
-  const leftOf = (column: number) => column * (COLUMN_WIDTH + COLUMN_GAP);
+  const columnWidths = Array.from({ length: columnCount }, (_, column) => {
+    const entries = byColumn.get(column) ?? [];
+    return entries.length > 0 &&
+      entries.every((entry) => entry.node?.kind === "choice")
+      ? JUNCTION_WIDTH
+      : COLUMN_WIDTH;
+  });
+  const leftOf = (column: number) =>
+    columnWidths
+      .slice(0, column)
+      .reduce((total, columnWidth) => total + columnWidth + COLUMN_GAP, 0);
+  const widthOf = (column: number) => columnWidths[column] ?? COLUMN_WIDTH;
+  const width = leftOf(columnCount - 1) + widthOf(columnCount - 1);
 
   return (
     <div className="overflow-x-auto px-5 pb-5" data-testid="prereq-graph">
-      <div style={{ width }}>
+      {/* Centred when it fits; mx-auto has no effect once the diagram is wider
+          than the card, so a wide graph still scrolls from its left edge. */}
+      <div className="mx-auto" style={{ width }}>
         <div
           className="grid pb-2 text-center text-[10px] font-bold tracking-wider text-muted-foreground/80 uppercase"
           style={{
             columnGap: COLUMN_GAP,
-            gridTemplateColumns: `repeat(${columnCount}, ${COLUMN_WIDTH}px)`,
+            gridTemplateColumns: columnWidths
+              .map((columnWidth) => `${columnWidth}px`)
+              .join(" "),
           }}
         >
           <p style={{ gridColumn: `span ${currentColumn}` }}>Requires</p>
@@ -220,15 +256,43 @@ export function PrereqGraph({
             width={width}
             height={height}
             viewBox={`0 0 ${width} ${height}`}
-            className="absolute top-0 left-0"
+            className="absolute top-0 left-0 overflow-visible"
             aria-hidden="true"
           >
+            {/* Without heads the edges gave no direction, so a reader could not
+                tell what led to what. One marker per state, because a marker
+                cannot inherit its path's colour everywhere. */}
+            <defs>
+              {(["idle", "met"] as const).map((state) => (
+                <marker
+                  key={state}
+                  id={`${markerId}-${state}`}
+                  viewBox="0 0 10 10"
+                  refX="9"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path
+                    d="M 0 0 L 10 5 L 0 10 z"
+                    className={
+                      state === "met"
+                        ? "fill-success"
+                        : "fill-muted-foreground/60"
+                    }
+                  />
+                </marker>
+              ))}
+            </defs>
             {graph.edges.map((edge) => {
               const from = geometry.get(edge.from);
               const to = geometry.get(edge.to);
               if (!from || !to) return null;
-              const x1 = leftOf(from.column) + COLUMN_WIDTH;
-              const x2 = leftOf(to.column);
+              const x1 = leftOf(from.column) + widthOf(from.column);
+              // Stop short of the node so the head sits in the gap rather than
+              // on the node's border.
+              const x2 = leftOf(to.column) - ARROW_INSET;
               const y1 = from.top + from.height / 2;
               const y2 = to.top + to.height / 2;
               const mid = (x1 + x2) / 2;
@@ -240,9 +304,12 @@ export function PrereqGraph({
                   key={`${edge.from}:${edge.to}`}
                   d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
                   fill="none"
-                  strokeDasharray={edge.alternative ? "4 4" : undefined}
-                  className={met ? "stroke-success" : "stroke-border"}
-                  strokeWidth={1.5}
+                  strokeDasharray={edge.alternative ? "5 4" : undefined}
+                  className={
+                    met ? "stroke-success" : "stroke-muted-foreground/50"
+                  }
+                  strokeWidth={1.75}
+                  markerEnd={`url(#${markerId}-${met ? "met" : "idle"})`}
                 />
               );
             })}
@@ -253,7 +320,7 @@ export function PrereqGraph({
               height: entry.height,
               left: leftOf(entry.column),
               top: entry.top,
-              width: COLUMN_WIDTH,
+              width: widthOf(entry.column),
             };
             if (!entry.node) {
               const unlocks = entry.id === "empty-unlocks";
@@ -346,7 +413,7 @@ function GraphNode({
 
   if (node.kind === "requirement") {
     const condition = requisiteConditionNode(node.condition);
-    const detail = conditionInterpretation(condition);
+    const summary = conditionSummary(condition) || node.condition.sourceText;
     return (
       <div
         style={style}
@@ -355,13 +422,11 @@ function GraphNode({
         <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
           <GaugeCircle className="size-4" aria-hidden="true" />
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-xs font-semibold">
-            {conditionHeading(condition)}
-          </span>
-          <span className="mt-0.5 line-clamp-2 block text-[11px] leading-tight text-muted-foreground">
-            {detail || node.condition.sourceText}
-          </span>
+        {/* One line that leads with the figure: a category heading over a
+            detail line repeated itself and left "24 units" in the faintest
+            text on the node. */}
+        <span className="line-clamp-3 min-w-0 text-xs leading-snug font-medium">
+          {summary}
         </span>
       </div>
     );

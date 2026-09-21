@@ -178,17 +178,25 @@ function hasRequirementContent(expression: CourseRuleExpression): boolean {
 }
 
 /**
- * `all_of` keeps direct edges, so it earns a node only inside an alternative,
- * where flattening would make "one of X, or both Y and Z" read as three equal
- * choices. A group with a single child is noise either way.
+ * An `all_of` earns a node inside an alternative, where flattening would make
+ * "one of X, or both Y and Z" read as three equal choices, and at the root.
+ *
+ * The root used to be flattened too, on the reasoning that every edge into the
+ * course already means "and". Readers do not see it that way: several arrows
+ * converging on one course read as several ways in, and once one of those
+ * arrows leaves a "Choose one" node the rest are read as further choices. For
+ * COMP3600 that turned "24 units of COMP, and one of MATH or COMP1600" into
+ * three alternatives. An explicit node says the requirements are all needed.
+ * A group with a single child is noise either way.
  */
 function groupNeedsNode(
   expression: Extract<CourseRuleExpression, { kind: "group" }>,
   childCount: number,
   insideAlternative: boolean,
+  isRoot: boolean,
 ) {
   if (childCount < 2) return false;
-  if (expression.operator === "all_of") return insideAlternative;
+  if (expression.operator === "all_of") return insideAlternative || isRoot;
   return true;
 }
 
@@ -246,7 +254,14 @@ export function buildRequisiteGraph({
       if (!hasRequirementContent(child)) return;
       if (child.kind === "group") {
         const children = child.conditions.filter(hasRequirementContent);
-        if (!groupNeedsNode(child, children.length, alternative)) {
+        if (
+          !groupNeedsNode(
+            child,
+            children.length,
+            alternative,
+            parentId === currentId,
+          )
+        ) {
           // Flattened, so each child inherits the meaning of the edge above it.
           for (const grandchild of children) {
             attach(grandchild, parentId, depth, alternative);
