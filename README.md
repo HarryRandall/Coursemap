@@ -123,7 +123,6 @@ the [verification matrix](CONTRIBUTING.md#verification).
 
 [Contributing](CONTRIBUTING.md) ·
 [Architecture](docs/architecture.md) ·
-[Redesign plan](docs/redesign-plan.md) ·
 [Documentation index](docs/README.md) ·
 [Code conventions](docs/conventions.md) ·
 [Database setup](supabase/README.md) ·

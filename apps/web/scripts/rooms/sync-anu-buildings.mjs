@@ -10,9 +10,6 @@ const rawSnapshotPath = resolve(
   "scripts/fixtures/anu-acton-buildings-overpass.json",
 );
 const demoDataPath = resolve(projectRoot, "scripts/fixtures/campus-map.json");
-const initialMigrationFilename =
-  "20260828170200_import_anu_acton_buildings.sql";
-
 const campusSourceIdentifier = "way/279984863";
 const overpassUrl = "https://overpass-api.de/api/interpreter";
 const sourceLicense = "OpenStreetMap contributors, ODbL 1.0";
@@ -861,7 +858,17 @@ async function readExistingFile(path) {
   }
 }
 
-async function generate(migrationFilename = initialMigrationFilename) {
+/**
+ * The first import of these buildings was squashed into the schema baseline,
+ * so there is no longer a file for this script to regenerate in place. A run
+ * names the forward migration it is writing, which is the only safe way to
+ * change data the hosted project already holds.
+ */
+async function generate(migrationFilename) {
+  assert(
+    migrationFilename,
+    "Name the forward migration to write, for example 20261001090000_import_anu_acton_buildings.sql.",
+  );
   const [raw, baseDemo] = await Promise.all([
     readFile(rawSnapshotPath, "utf8").then(JSON.parse),
     readFile(demoDataPath, "utf8").then(JSON.parse),

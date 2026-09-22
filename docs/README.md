@@ -11,9 +11,8 @@
 
 ## Proposals
 
-- [Catalogue admin rework](catalogue-admin-rework.md): the component reuse list and the interface, pipeline and test work left after A7.
-- [Catalogue completion plan](catalogue-completion-plan.md): the three-way source review, changelog, student view, operations and automation branches that finish the catalogue rework, and how to work them in parallel.
-- [Redesign plan](redesign-plan.md): decisions, target model and stacked pull request sequence for the catalogue schema and import redesign, prerequisites, student interface and campus map.
+- [Catalogue automation](catalogue-automation.md): scheduled discovery and syncing, what a scheduled run may and may not do, and the journeys that prove it.
+- [Redesign plan](redesign-plan.md): the prerequisite modelling, student interface and campus map projects still to come.
 
 Keep current operating instructions in the guides and label proposals explicitly.
 When work lands, move lasting decisions into the relevant guide and remove the

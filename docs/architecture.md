@@ -27,6 +27,37 @@ Next.js owns routing, server rendering and mutations. Supabase Auth owns identit
 - Supabase clients are request-scoped. Server and browser clients live behind separate modules.
 - Generated database types are committed and used at every query boundary.
 
+## Vocabulary
+
+The repository uses these terms for these concepts and no synonyms. They are
+what the interface says, what the schema is named after and what a commit
+message should use.
+
+| Concept                           | Term                                           |
+| --------------------------------- | ---------------------------------------------- |
+| Identity across years             | Catalogue code                                 |
+| One code in one year              | Catalogue record                               |
+| The one mutable working aggregate | Draft                                          |
+| An immutable content snapshot     | Version                                        |
+| A version made public             | Publication                                    |
+| What ANU lists for a year         | Listing, produced by discovery                 |
+| One ANU check for one record      | Sync                                           |
+| One ANU change awaiting decision  | Sync change                                    |
+| What ANU returned                 | Source document, projected to a source version |
+| Where a draft field came from     | Provenance                                     |
+| What happened locally             | Change event and field change                  |
+
+`itemYear`, `snapshot`, `target`, `importRun`, `candidate`, `appliedSnapshot`
+and `section review` named these concepts before the redesign and must not
+come back.
+
+Administrators and students see: Course, 2027, Draft, Published, Unpublished
+changes, Sync from ANU, Changes, Changelog, Student view, and No longer listed
+by ANU. They never see catalogue record, catalogue code, sync target, source
+version, provenance, revision 14 or materialisation. The developer operations
+screens under `/admin/operations` are the one exception, and are permissioned
+separately.
+
 ## Data model
 
 Courses, programmes, majors, minors and specialisations share one code, record
@@ -184,6 +215,11 @@ official calendar; importing calendar events does not itself reconcile them.
 ## Delivery
 
 Changes move through focused branches and pull requests. GitHub Actions checks formatting, linting, types, tests and the production build. Vercel creates preview deployments and promotes `main` after checks. Supabase schema changes remain forward-only migrations in the same pull request as their application code.
+
+`supabase/migrations/` is an eight-part baseline that states the schema as it
+is rather than the ninety-five migrations that reached it. The hosted project
+is recreated from it. Add changes after it; see the
+[database setup](../supabase/README.md) for what a rebuild has to carry.
 
 ## Local configuration
 
