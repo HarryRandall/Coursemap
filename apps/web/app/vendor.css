@@ -4,10 +4,21 @@
    after the stylesheets they override. */
 
 /* Sonner keeps neutral surfaces with status borders and an inset close button.
-   Only a toast that has a close button gives up the room for one; a loading
-   toast never gets one, so its content keeps the full width. */
-.toaster [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
-  padding-right: 48px;
+   The close button sits over the first line only, so the title gives up the
+   room for it rather than the whole toast; that leaves descriptions and
+   progress bars the full width. */
+.toaster
+  [data-sonner-toast][data-styled="true"]:has([data-close-button])
+  [data-title] {
+  padding-right: 32px;
+}
+
+/* An action sits on the same corner as the close button, so it steps aside by
+   the same amount the title does. */
+.toaster
+  [data-sonner-toast][data-styled="true"]:has([data-close-button])
+  [data-button] {
+  margin-right: 24px;
 }
 
 .toaster [data-sonner-toast][data-type="success"] {

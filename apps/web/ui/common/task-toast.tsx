@@ -1,15 +1,16 @@
 "use client";
 
 import { Progress } from "@coursemap/ui/primitives/progress";
+import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export type TaskStep = {
-  /** Where the work has actually reached, 0-100. The bar never shows less. */
+  /** Where the work has actually reached, 0-100. The bar catches up to it. */
   percent: number;
   /**
-   * Where this phase ends, which is where the next one starts. The bar drifts
-   * towards it for as long as the phase lasts, so the movement is continuous
-   * without ever claiming progress the work has not reported.
+   * Where this phase ends, which is where the next one begins. Once the bar
+   * has caught up it drifts towards this for as long as the phase lasts, so
+   * the movement is continuous without ever claiming unreported progress.
    */
   ceiling: number;
   detail: string;
@@ -26,25 +27,50 @@ export type TaskHandle = {
   done: (outcome: TaskOutcome) => void;
   note: (outcome: TaskOutcome) => void;
   fail: (outcome: TaskOutcome) => void;
+  /** Let go of work that outlives whatever was watching it. */
+  abandon: (outcome: TaskOutcome) => void;
 };
 
 const SETTLED_DURATION = 6000;
 
-/** How often the bar is nudged towards the end of its phase. */
+/** How often the bar is redrawn while work runs. */
 const TICK_MS = 90;
 
 /**
- * The share of the remaining distance each tick closes. The bar therefore
- * approaches the end of a phase without arriving, easing off as it goes, and
- * picks up again the moment the next phase raises the ceiling.
+ * The share of the distance each tick closes while the bar is behind what the
+ * work has reported. Brisk enough to feel answered, slow enough to read as
+ * movement rather than a jump.
  */
-const EASE = 0.06;
+const CATCH_UP = 0.18;
 
 /**
- * How long the running toast is held before it may settle. Phases that the
- * server answers instantly would otherwise flash past unread.
+ * The least the bar moves per tick while catching up. Easing alone only ever
+ * approaches what was reported, which would strand the bar just short of it
+ * and never hand over to the drift.
+ */
+const MIN_CATCH = 0.35;
+
+/**
+ * The share closed each tick while the bar is merely waiting out a phase. It
+ * approaches the end of the phase without arriving, easing off as it goes.
+ */
+const DRIFT = 0.008;
+
+/** Below this the bar has settled into its phase and repainting only churns. */
+const STILL = 0.05;
+
+/**
+ * How long the running toast is held before it may settle. Phases the server
+ * answers instantly would otherwise flash past unread.
  */
 const MIN_VISIBLE_MS = 800;
+
+/**
+ * How long a task may go without a step before it is assumed to have lost
+ * whatever was driving it. Both catalogue endpoints cap out at a minute, so
+ * anything past this is a driver that stopped reporting, not slow work.
+ */
+const STALL_MS = 150_000;
 
 /**
  * The toast body while work runs. It stays the two lines every other toast
@@ -52,7 +78,13 @@ const MIN_VISIBLE_MS = 800;
  * that started the work keeps its own label rather than reflowing the toolbar
  * on every event.
  */
-function TaskProgress({ percent, detail }: Omit<TaskStep, "ceiling">) {
+function TaskProgress({
+  percent,
+  detail,
+}: {
+  percent: number;
+  detail: string;
+}) {
   return (
     <div className="mt-1 flex w-full flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
@@ -72,9 +104,9 @@ function TaskProgress({ percent, detail }: Omit<TaskStep, "ceiling">) {
  * the same work again replaces its toast instead of stacking another one.
  *
  * Phases arrive whenever the work reports them, which for a cached or empty
- * step is no time at all. The bar therefore tracks the phase as a destination
- * and eases towards it, so the reported progress stays honest while the
- * movement stays readable.
+ * step is no time at all. The bar therefore catches up to what was reported
+ * and then drifts through the rest of the phase, so the reported progress
+ * stays honest while the movement stays readable.
  */
 export function startTask({
   id,
@@ -89,16 +121,26 @@ export function startTask({
 }): TaskHandle {
   const openedAt = Date.now();
   let shown = 0;
+  let floor = 0;
   let limit = ceiling;
   let text = detail;
+  let steppedAt = Date.now();
   let timer: number | undefined;
   let settled = false;
+  let dismissed = false;
 
   function paint() {
-    toast.loading(title, {
+    // Not toast.loading: sonner withholds the close button from a loading
+    // toast, and work that carries on server-side has to be dismissable.
+    toast(title, {
       id,
+      icon: <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />,
       description: <TaskProgress percent={shown} detail={text} />,
       duration: Number.POSITIVE_INFINITY,
+      onDismiss: () => {
+        dismissed = true;
+        stopGlide();
+      },
     });
   }
 
@@ -109,17 +151,31 @@ export function startTask({
   }
 
   function glide() {
-    const next = shown + (limit - shown) * EASE;
-    // Below a tenth of a percent the bar has settled into its phase and is
-    // waiting, so repainting it would only churn.
-    if (next - shown < 0.05) return;
+    if (Date.now() - steppedAt > STALL_MS) {
+      abandon({
+        title,
+        detail: "This is taking longer than expected. Reload to check on it.",
+      });
+      return;
+    }
+    if (shown < floor) {
+      shown = Math.min(
+        floor,
+        shown + Math.max(MIN_CATCH, (floor - shown) * CATCH_UP),
+      );
+      paint();
+      return;
+    }
+    const next = shown + (limit - shown) * DRIFT;
+    if (next - shown < STILL) return;
     shown = next;
     paint();
   }
 
   function step({ percent, ceiling: end, detail: line }: TaskStep) {
-    if (settled) return;
-    shown = Math.max(shown, percent);
+    if (settled || dismissed) return;
+    steppedAt = Date.now();
+    floor = Math.max(floor, percent);
     limit = Math.max(limit, end);
     text = line;
     // The wording is what the reader is waiting on, so it lands at once while
@@ -132,10 +188,17 @@ export function startTask({
     if (settled) return;
     settled = true;
     stopGlide();
+    // A toast dismissed by hand has been read and put away; only a failure is
+    // worth bringing back unasked.
+    if (dismissed && kind !== "fail") return;
     const show = () => {
       const { title: heading, detail: line, retry } = outcome;
       const options = {
         id,
+        // Sonner merges into the toast already on screen, so the spinner this
+        // task was painted with has to be cleared or it keeps turning under
+        // the outcome. Undefined hands the icon back to the toast's own type.
+        icon: undefined,
         // A toast is its title and one line under it. A message too long for
         // that line is kept whole in the tooltip rather than growing the toast.
         description: line ? (
@@ -155,6 +218,10 @@ export function startTask({
     else window.setTimeout(show, MIN_VISIBLE_MS - held);
   }
 
+  function abandon(outcome: TaskOutcome) {
+    settle("note", outcome);
+  }
+
   paint();
   timer = window.setInterval(glide, TICK_MS);
 
@@ -163,5 +230,6 @@ export function startTask({
     done: (outcome) => settle("done", outcome),
     note: (outcome) => settle("note", outcome),
     fail: (outcome) => settle("fail", outcome),
+    abandon,
   };
 }
