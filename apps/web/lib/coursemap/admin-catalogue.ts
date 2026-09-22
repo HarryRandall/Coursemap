@@ -133,31 +133,46 @@ export async function loadCatalogueDirectoryPage({
   if (listings.error) throw listings.error;
   if (records.error) throw records.error;
 
-  const recordIds = records.data.map((record) => record.id);
-  const [drafts, syncs, openChanges] = recordIds.length
-    ? await Promise.all([
-        supabase
-          .from("catalogue_drafts")
-          .select("record_id")
-          .in("record_id", recordIds),
-        supabase
-          .from("catalogue_syncs")
-          .select("id,record_id,status,error_message,completed_at,created_at")
-          .in("record_id", recordIds)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("catalogue_sync_changes")
-          .select("record_id,classification")
-          .in("record_id", recordIds)
-          .in("classification", ["source_change", "conflict"])
-          .is("decision", null)
-          .is("superseded_at", null),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
+  // These select by the record's year and kind rather than by a list of record
+  // identifiers. A year holds thousands of records, and naming each one puts
+  // the whole list in the query string, which the database gateway rejects as
+  // a URI too long once a directory has been discovered in full.
+  const [drafts, syncs, openChanges] = await Promise.all([
+    readAllRows((from, to) =>
+      supabase
+        .from("catalogue_drafts")
+        .select("record_id,catalogue_records!inner(academic_year_id,kind)")
+        .eq("catalogue_records.academic_year_id", year.id)
+        .eq("catalogue_records.kind", kind)
+        .order("record_id")
+        .range(from, to),
+    ),
+    readAllRows((from, to) =>
+      supabase
+        .from("catalogue_syncs")
+        .select(
+          "id,record_id,status,error_message,completed_at,created_at,catalogue_records!inner(academic_year_id,kind)",
+        )
+        .eq("catalogue_records.academic_year_id", year.id)
+        .eq("catalogue_records.kind", kind)
+        .order("created_at", { ascending: false })
+        .range(from, to),
+    ),
+    readAllRows((from, to) =>
+      supabase
+        .from("catalogue_sync_changes")
+        .select(
+          "record_id,classification,catalogue_records!inner(academic_year_id,kind)",
+        )
+        .eq("catalogue_records.academic_year_id", year.id)
+        .eq("catalogue_records.kind", kind)
+        .in("classification", ["source_change", "conflict"])
+        .is("decision", null)
+        .is("superseded_at", null)
+        .order("record_id")
+        .range(from, to),
+    ),
+  ]);
   if (drafts.error) throw drafts.error;
   if (syncs.error) throw syncs.error;
   if (openChanges.error) throw openChanges.error;
