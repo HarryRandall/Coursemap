@@ -5,9 +5,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
+
 import { emptyCatalogueContent } from "@/lib/catalogue/content";
+import { CatalogueEditorProvider } from "@/ui/admin/catalogue/catalogue-editor-context";
+import { CatalogueEditorToolbar } from "@/ui/admin/catalogue/catalogue-editor-toolbar";
 import { CatalogueContentEditor } from "@/ui/admin/catalogue/content-editor";
 
 const actions = vi.hoisted(() => ({
@@ -41,16 +46,22 @@ function initialContent() {
   });
 }
 
-function renderEditor() {
+function renderEditor({ hasDraft = true } = {}) {
   return render(
-    <CatalogueContentEditor
-      initial={initialContent()}
-      recordId={42}
-      initialRevision={0}
-      initiallyPublished
-      initialHasUnpublishedChanges={false}
-      path="/admin/courses/2026/comp1000"
-    />,
+    <TooltipProvider delayDuration={0}>
+      <CatalogueEditorProvider
+        initial={initialContent()}
+        recordId={42}
+        initialRevision={0}
+        initiallyPublished
+        initialHasDraft={hasDraft}
+        initialHasUnpublishedChanges={hasDraft}
+        path="/admin/courses/2026/comp1000"
+      >
+        <CatalogueEditorToolbar />
+        <CatalogueContentEditor />
+      </CatalogueEditorProvider>
+    </TooltipProvider>,
   );
 }
 
@@ -133,4 +144,73 @@ test("a failed autosave preserves the edited value and reports the error", async
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to save"),
   );
   expect(screen.getByLabelText("Description")).toHaveValue("Keep this text");
+});
+
+test("draft actions appear only once an edit has been saved", async () => {
+  actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  renderEditor({ hasDraft: false });
+  await user.click(screen.getByRole("button", { name: "Edit" }));
+
+  expect(
+    screen.queryByRole("button", { name: "Discard draft" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Publish" }),
+  ).not.toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "Worth keeping" },
+  });
+  await act(async () => vi.advanceTimersByTime(1_000));
+
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Discard draft" }),
+    ).toBeInTheDocument(),
+  );
+  expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled();
+});
+
+test("discarding a draft leaves the record with nothing to discard", async () => {
+  actions.discard.mockResolvedValue({ ok: true, message: "Draft discarded." });
+  renderEditor();
+
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(screen.getByRole("button", { name: "Discard draft" }));
+  const confirm = await screen.findByRole("button", {
+    name: "Discard draft",
+    // The trigger is behind the open dialog, so only the confirmation
+    // inside it is still reachable.
+    hidden: false,
+  });
+  await user.click(confirm);
+  await waitFor(() => expect(actions.discard).toHaveBeenCalled());
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("button", { name: "Discard draft" }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
+test("a record without a draft is read until editing is asked for", async () => {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  renderEditor({ hasDraft: false });
+
+  expect(screen.getByRole("status")).toHaveTextContent("Published");
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Students see this version.",
+  );
+  expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+  // The values are still there to read, just not to change.
+  expect(screen.getByText("Test course")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Edit" }));
+  expect(screen.getByLabelText("Title")).toHaveValue("Test course");
+
+  // Nothing was saved, so leaving edit mode is all that backing out means.
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByLabelText("Description")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  expect(actions.save).not.toHaveBeenCalled();
 });

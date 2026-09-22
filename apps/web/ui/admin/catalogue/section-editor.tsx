@@ -38,6 +38,22 @@ function parseScalar(previous: Scalar, raw: string): Scalar {
   return raw;
 }
 
+/**
+ * A value nobody is being invited to change: the label and what it says. Used
+ * for fields the record owns rather than the author, and for every field while
+ * a record is being read rather than edited.
+ */
+function ReadOnlyField({ label, value }: { label: string; value: Scalar }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-medium">{label}</span>
+      <span className="text-sm text-muted-foreground">
+        {value === null || value === "" ? "\u2014" : String(value)}
+      </span>
+    </div>
+  );
+}
+
 /** One typed input for a scalar value, with null rendered as empty. */
 export function ScalarField({
   id,
@@ -45,13 +61,16 @@ export function ScalarField({
   value,
   onChange,
   long = false,
+  readOnly = false,
 }: {
   id: string;
   label: string;
   value: Scalar;
   onChange: (value: Scalar) => void;
   long?: boolean;
+  readOnly?: boolean;
 }) {
+  if (readOnly) return <ReadOnlyField label={label} value={value} />;
   if (
     typeof value === "boolean" ||
     (value === null && /^(can|is|has|hurdle)/.test(label))
@@ -111,29 +130,20 @@ export function DetailsEditor({
   onChange,
   labels = {},
   readOnlyKeys = [],
+  readOnly = false,
 }: {
   idPrefix: string;
   value: Row;
   onChange: (value: Row) => void;
   labels?: Record<string, string>;
   readOnlyKeys?: string[];
+  /** Reads the whole form rather than offering it for editing. */
+  readOnly?: boolean;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       {Object.entries(value).map(([key, fieldValue]) => {
         const long = LONG_TEXT_KEYS.has(key);
-        if (readOnlyKeys.includes(key)) {
-          return (
-            <div key={key} className="flex flex-col gap-1">
-              <span className="text-xs font-medium">
-                {labels[key] ?? humanise(key)}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {fieldValue === null ? "—" : String(fieldValue)}
-              </span>
-            </div>
-          );
-        }
         return (
           <div key={key} className={long ? "md:col-span-2" : undefined}>
             <ScalarField
@@ -141,6 +151,7 @@ export function DetailsEditor({
               label={labels[key] ?? humanise(key)}
               value={fieldValue}
               long={long}
+              readOnly={readOnly || readOnlyKeys.includes(key)}
               onChange={(next) => onChange({ ...value, [key]: next })}
             />
           </div>
@@ -161,6 +172,7 @@ export function RowsEditor({
   template,
   hiddenKeys = ["position"],
   emptyLabel,
+  readOnly = false,
 }: {
   idPrefix: string;
   rows: Row[];
@@ -168,6 +180,8 @@ export function RowsEditor({
   template: Row;
   hiddenKeys?: string[];
   emptyLabel: string;
+  /** Lists the rows as they stand, without add, remove or entry. */
+  readOnly?: boolean;
 }) {
   const shape = rows[0] ?? template;
   const keys = Object.keys(shape).filter((key) => !hiddenKeys.includes(key));
@@ -185,21 +199,23 @@ export function RowsEditor({
               <span className="text-xs font-medium text-muted-foreground">
                 Item {index + 1}
               </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                type="button"
-                aria-label={`Remove item ${index + 1}`}
-                onClick={() =>
-                  onChange(
-                    renumber(
-                      rows.filter((_, candidate) => candidate !== index),
-                    ),
-                  )
-                }
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  aria-label={`Remove item ${index + 1}`}
+                  onClick={() =>
+                    onChange(
+                      renumber(
+                        rows.filter((_, candidate) => candidate !== index),
+                      ),
+                    )
+                  }
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                </Button>
+              )}
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               {keys.map((key) => {
@@ -211,6 +227,7 @@ export function RowsEditor({
                       label={humanise(key)}
                       value={row[key] ?? null}
                       long={long}
+                      readOnly={readOnly}
                       onChange={(next) =>
                         onChange(
                           rows.map((candidate, at) =>
@@ -228,34 +245,36 @@ export function RowsEditor({
           </li>
         ))}
       </ol>
-      <Button
-        size="sm"
-        variant="outline"
-        type="button"
-        className="self-start"
-        onClick={() =>
-          onChange(
-            renumber([
-              ...rows,
-              Object.fromEntries(
-                Object.entries(shape).map(([key, sample]) => [
-                  key,
-                  key === "position"
-                    ? rows.length + 1
-                    : typeof sample === "number"
-                      ? null
-                      : typeof sample === "boolean"
+      {readOnly ? null : (
+        <Button
+          size="sm"
+          variant="outline"
+          type="button"
+          className="self-start"
+          onClick={() =>
+            onChange(
+              renumber([
+                ...rows,
+                Object.fromEntries(
+                  Object.entries(shape).map(([key, sample]) => [
+                    key,
+                    key === "position"
+                      ? rows.length + 1
+                      : typeof sample === "number"
                         ? null
-                        : "",
-                ]),
-              ) as Row,
-            ]),
-          )
-        }
-      >
-        <Plus size={14} aria-hidden="true" />
-        Add item
-      </Button>
+                        : typeof sample === "boolean"
+                          ? null
+                          : "",
+                  ]),
+                ) as Row,
+              ]),
+            )
+          }
+        >
+          <Plus size={14} aria-hidden="true" />
+          Add item
+        </Button>
+      )}
     </div>
   );
 }

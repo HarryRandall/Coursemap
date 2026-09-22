@@ -3,12 +3,8 @@ import { TabsContent } from "@coursemap/ui/primitives/tabs";
 import {
   canManageCatalogueOperations,
   canWriteCatalogue,
-  getAuthViewer,
 } from "@/lib/auth/viewer";
-import {
-  createCatalogueDraft,
-  loadCatalogueDraft,
-} from "@/lib/catalogue/drafts";
+import { loadCatalogueEditorState } from "@/lib/catalogue/drafts";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
 import { loadSourceReview } from "@/lib/catalogue/source-review-store";
@@ -32,6 +28,8 @@ import { ChangelogTimeline } from "./changelog/changelog-timeline";
 import { RecordHeader } from "./record-header";
 import { StudentViewPanel } from "./student-view-panel";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
+import { CatalogueEditorProvider } from "./catalogue-editor-context";
+import { CatalogueEditorToolbar } from "./catalogue-editor-toolbar";
 import { CatalogueContentEditor } from "./content-editor";
 
 function FoundationEmpty({
@@ -81,14 +79,10 @@ export async function CatalogueRecordPage({
 
   const labels = CATALOGUE_KIND_LABELS[kind];
   const path = adminCatalogueRecordPath(kind, academicYear, record.code);
-  const viewer = canWrite ? await getAuthViewer() : null;
-  const draft =
-    section === "content" && viewer
-      ? await createCatalogueDraft({
-          recordId: record.recordId,
-          userId: viewer.id,
-        })
-      : await loadCatalogueDraft(record.recordId);
+  // Opening a record must never be what makes it a draft, so the editor is
+  // given the content it would start from - the publication, or an empty
+  // record - and the draft row is created by the first change worth keeping.
+  const { draft, hasDraft } = await loadCatalogueEditorState(record.recordId);
   const [studentContent, studentCourse] = await Promise.all([
     record.publishedVersionId
       ? loadVersionWrite(record.publishedVersionId)
@@ -98,25 +92,19 @@ export async function CatalogueRecordPage({
       : null,
   ]);
   const hasUnpublishedChanges = Boolean(
-    draft &&
+    hasDraft &&
     (!studentContent ||
       draft.contentHash !== contentHashForCatalogueContent(studentContent)),
   );
-  const draftPreview = draft
-    ? {
-        course:
-          kind === "course" ? courseDetailsFromWrite(draft.content) : null,
-        content: kind === "course" ? null : draft.content,
-      }
-    : null;
+  const draftPreview = {
+    course: kind === "course" ? courseDetailsFromWrite(draft.content) : null,
+    content: kind === "course" ? null : draft.content,
+  };
   const publishedPreview = studentContent
     ? { course: studentCourse, content: studentCourse ? null : studentContent }
     : null;
-  const review = await loadSourceReview(
-    record.recordId,
-    draft?.content ?? null,
-  );
-  const unpublished = draft
+  const review = await loadSourceReview(record.recordId, draft.content);
+  const unpublished = hasDraft
     ? diffSnapshotWrites(studentContent, draft.content)
     : [];
   const changelog = await loadCatalogueChangelog({
@@ -142,60 +130,71 @@ export async function CatalogueRecordPage({
         }}
         tabs={<RecordTabList changeCount={openChanges} />}
       >
-        <div className="flex w-full min-w-0 flex-col gap-6">
-          <RecordHeader
-            record={record}
-            hasDraft={draft !== null}
-            hasUnpublishedChanges={hasUnpublishedChanges}
-            canSync={canManageImports}
-            openChangeCount={openChanges}
-            conflictCount={review?.conflicts.length ?? 0}
-          />
-          <TabsContent value="content" className="mt-0">
-            {draft && canWrite ? (
-              <CatalogueContentEditor
-                key={`${draft.contentHash}:${draft.revision}:${record.publishedVersionId ?? "unpublished"}`}
-                initial={draft.content}
-                recordId={record.recordId}
-                initialRevision={draft.revision}
-                initiallyPublished={record.publishedVersionId !== null}
-                initialHasUnpublishedChanges={hasUnpublishedChanges}
+        <CatalogueEditorProvider
+          key={`${draft.contentHash}:${draft.revision}:${record.publishedVersionId ?? "unpublished"}`}
+          initial={draft.content}
+          recordId={record.recordId}
+          initialRevision={draft.revision}
+          initiallyPublished={record.publishedVersionId !== null}
+          initialHasDraft={hasDraft}
+          initialHasUnpublishedChanges={hasUnpublishedChanges}
+          path={path}
+        >
+          <div className="flex w-full min-w-0 flex-col gap-6">
+            {/*
+              The toolbar reports the record's state, so it leads the page
+              rather than the fields. It appears only where it can act: the
+              other tabs read the record and do not change it.
+            */}
+            {canWrite && section === "content" ? (
+              <CatalogueEditorToolbar />
+            ) : null}
+            <RecordHeader
+              record={record}
+              hasDraft={hasDraft}
+              hasUnpublishedChanges={hasUnpublishedChanges}
+              canSync={canManageImports}
+              openChangeCount={openChanges}
+              conflictCount={review?.conflicts.length ?? 0}
+            />
+            <TabsContent value="content" className="mt-0">
+              {canWrite ? (
+                <CatalogueContentEditor />
+              ) : (
+                <FoundationEmpty
+                  title={`${labels.singular} content is read-only`}
+                  description={`You need catalogue write permission to author this ${labels.singular.toLowerCase()}. Student view shows what it currently says.`}
+                />
+              )}
+            </TabsContent>
+            <TabsContent value="student-view" className="mt-0">
+              <StudentViewPanel
+                draft={draftPreview}
+                kindLabel={labels.singular.toLowerCase()}
+                published={publishedPreview}
+              />
+            </TabsContent>
+            <TabsContent value="changes" className="mt-0">
+              <CatalogueChangesPanel
+                canWrite={canWrite}
+                hasEverSynced={record.syncs.length > 0}
+                isPublished={record.publishedVersionId !== null}
+                kindLabel={labels.singular.toLowerCase()}
                 path={path}
+                recordId={record.recordId}
+                review={review}
+                unpublished={unpublished}
               />
-            ) : (
-              <FoundationEmpty
-                title={`${labels.singular} content is read-only`}
-                description={`You need catalogue write permission to author this ${labels.singular.toLowerCase()}. Student view shows what it currently says.`}
+            </TabsContent>
+            <TabsContent value="changelog" className="mt-0">
+              <ChangelogTimeline
+                changelog={changelog}
+                path={path}
+                versionOrdinals={versionOrdinals}
               />
-            )}
-          </TabsContent>
-          <TabsContent value="student-view" className="mt-0">
-            <StudentViewPanel
-              draft={draftPreview}
-              kindLabel={labels.singular.toLowerCase()}
-              published={publishedPreview}
-            />
-          </TabsContent>
-          <TabsContent value="changes" className="mt-0">
-            <CatalogueChangesPanel
-              canWrite={canWrite}
-              hasEverSynced={record.syncs.length > 0}
-              isPublished={record.publishedVersionId !== null}
-              kindLabel={labels.singular.toLowerCase()}
-              path={path}
-              recordId={record.recordId}
-              review={review}
-              unpublished={unpublished}
-            />
-          </TabsContent>
-          <TabsContent value="changelog" className="mt-0">
-            <ChangelogTimeline
-              changelog={changelog}
-              path={path}
-              versionOrdinals={versionOrdinals}
-            />
-          </TabsContent>
-        </div>
+            </TabsContent>
+          </div>
+        </CatalogueEditorProvider>
       </AppShell>
     </RecordTabs>
   );

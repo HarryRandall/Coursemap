@@ -53,43 +53,34 @@ export function RecordHeader({
             {publicationLabel}
           </Badge>
         </div>
-        <p className="text-lg text-muted-foreground">{record.title}</p>
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          {record.isListedByAnu === false ? (
-            <span
-              className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400"
-              role="status"
-            >
-              <TriangleAlert size={15} aria-hidden="true" />
-              No longer listed by ANU
-              {record.lastSeenAt
-                ? `. Last seen in the ANU catalogue on ${formatDate(record.lastSeenAt)}.`
-                : "."}
-            </span>
-          ) : record.isListedByAnu ? (
-            <span className="text-muted-foreground">Listed by ANU</span>
-          ) : (
-            <span className="text-muted-foreground">
-              No ANU listing information
-            </span>
-          )}
+        {/*
+          Being listed by ANU is the resting state of every record here, so
+          saying so on each one said nothing. Only the delisting is worth a
+          line, and the source link belongs beside the title it is a link to.
+        */}
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="text-lg text-muted-foreground">{record.title}</p>
           <Link
-            className="inline-flex items-center gap-1 underline-offset-4 hover:underline"
+            className="inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline"
             href={anuSourceUrl(record)}
             target="_blank"
             rel="noreferrer"
           >
             View on ANU <ExternalLink size={12} aria-hidden="true" />
           </Link>
-          {canSync && record.syncs[0] ? (
-            <Link
-              className="text-muted-foreground underline-offset-4 hover:underline"
-              href={`/admin/operations/catalogue/syncs/${record.syncs[0].id}`}
-            >
-              Sync diagnostics
-            </Link>
-          ) : null}
         </div>
+        {record.isListedByAnu === false ? (
+          <span
+            className="inline-flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400"
+            role="status"
+          >
+            <TriangleAlert size={15} aria-hidden="true" />
+            No longer listed by ANU
+            {record.lastSeenAt
+              ? `. Last seen in the ANU catalogue on ${formatDate(record.lastSeenAt)}.`
+              : "."}
+          </span>
+        ) : null}
         {openChangeCount > 0 ? (
           <Link
             className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-400"
@@ -102,6 +93,17 @@ export function RecordHeader({
         ) : record.syncs[0]?.status === "unchanged" ? (
           <p className="text-sm text-muted-foreground">
             Checked ANU. No changes found.
+            {canSync ? (
+              <>
+                {" "}
+                <Link
+                  className="underline-offset-4 hover:underline"
+                  href={`/admin/operations/catalogue/syncs/${record.syncs[0].id}`}
+                >
+                  Sync diagnostics
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : record.syncs[0]?.status === "failed" ? (
           <p className="text-sm text-destructive" role="alert">
@@ -124,6 +126,7 @@ export function RecordHeader({
       {canSync ? (
         <CatalogueSyncButton
           recordId={record.recordId}
+          code={record.code}
           kind={record.kind}
           latestSync={record.syncs[0] ?? null}
         />
