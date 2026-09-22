@@ -54,11 +54,13 @@ export function DirectoryRowActions({
   const publishedRecord = { kind, academicYear, code: record.code };
   // A row acts on the draft the list last read. Publishing or discarding a
   // revision that has since moved on is refused by the action rather than
-  // overwriting whoever is editing it in another tab.
-  const draftActionable =
+  // overwriting whoever is editing it in another tab. An opened draft can
+  // always be discarded; only one holding a change can be published.
+  const discardable =
     record.hasDraft &&
     record.recordId !== null &&
     record.draftRevision !== null;
+  const publishable = discardable && record.hasChanges;
   const unpublishable = record.isPublished && record.recordId !== null;
 
   async function startSync() {
@@ -187,22 +189,28 @@ export function DirectoryRowActions({
         extraActions={[
           {
             label: busy
-              ? "Syncing from ANU..."
+              ? "Syncing..."
               : record.sourceState === "sync_failed"
-                ? "Retry ANU sync"
-                : "Sync from ANU",
+                ? "Retry sync"
+                : record.sourceState === "never_synced"
+                  ? "Sync"
+                  : "Resync",
             icon: <RefreshCw className={busy ? "animate-spin" : undefined} />,
             onSelect: () => {
               if (!busy) void startSync();
             },
           },
-          ...(draftActionable
+          ...(publishable
             ? [
                 {
                   label: "Publish draft",
                   icon: <Send />,
                   onSelect: () => setConfirming("publish"),
                 },
+              ]
+            : []),
+          ...(discardable
+            ? [
                 {
                   label: "Discard draft",
                   icon: <Trash2 />,

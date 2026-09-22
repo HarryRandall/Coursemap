@@ -236,18 +236,25 @@ export async function loadCatalogueDraft(recordId: number) {
 }
 
 /**
- * What the content editor opens on, and whether any of it is unsaved work.
- * A record without a draft row still has content to edit - its publication,
- * or an empty aggregate - so reading a record is no longer the thing that
- * turns it into a draft. The draft row appears on the first real change, and
- * a draft edited back to what it started as stops counting as one.
+ * What the content editor opens on, and what state that content is in.
+ *
+ * A record without a draft row still has content to edit - its publication, or
+ * an empty aggregate - so reading a record is not what turns it into a draft.
+ * Asking to edit it is, and that is a deliberate act with a row behind it, so
+ * the record is still a draft when its editor comes back to it later.
+ *
+ * Whether the draft says anything new is a separate question from whether one
+ * is open, because an untouched draft can be discarded but not published.
  */
 export async function loadCatalogueEditorState(
   recordId: number,
   sql?: SyncSql,
 ): Promise<{
   draft: CatalogueDraft;
+  /** Whether a draft row exists: the record is open for editing. */
   hasDraft: boolean;
+  /** Whether that draft differs from what it was opened on. */
+  hasChanges: boolean;
 }> {
   const work = async (client: SyncSql) => {
     const [record] = await client`
@@ -268,10 +275,58 @@ export async function loadCatalogueEditorState(
     const [row] = await client`
       select * from public.catalogue_drafts where record_id = ${recordId}
     `;
-    if (!row) return { draft: unsavedDraft(recordId, base), hasDraft: false };
+    if (!row)
+      return {
+        draft: unsavedDraft(recordId, base),
+        hasDraft: false,
+        hasChanges: false,
+      };
     const draft = draftFromRow(row);
-    return { draft, hasDraft: draft.contentHash !== base.contentHash };
+    return {
+      draft,
+      hasDraft: true,
+      hasChanges: draft.contentHash !== base.contentHash,
+    };
   };
+  return sql ? work(sql) : withSyncDatabaseClient(work);
+}
+
+/**
+ * Opens a draft on a record without changing a word of it.
+ *
+ * The editor asks for this when it is opened, so that backing out of it is
+ * always the same act - discarding a draft - and so that a record someone has
+ * started work on still reads as theirs after they have navigated away.
+ */
+export async function beginCatalogueDraft({
+  recordId,
+  userId,
+  editingSessionId,
+  sql,
+}: {
+  recordId: number;
+  userId: string;
+  editingSessionId: string;
+  sql?: SyncSql;
+}) {
+  assertEditingSession(editingSessionId);
+  const work = (client: SyncSql) =>
+    client.begin(async (tx) => {
+      const record = await catalogueRecordForUpdate(tx, recordId);
+      if (record.archived_at)
+        throw new CatalogueDraftError(
+          "The catalogue record is archived.",
+          "ARCHIVED",
+        );
+      const [row] = await tx`
+        select * from public.catalogue_drafts where record_id = ${recordId}
+        for update
+      `;
+      const draft = row
+        ? draftFromRow(row)
+        : await createDraftInTransaction(tx, record, userId);
+      return { draft };
+    });
   return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 

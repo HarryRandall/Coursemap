@@ -14,6 +14,7 @@ import { toast } from "sonner";
 
 import type { CatalogueContent } from "@/lib/catalogue/content";
 import {
+  beginCatalogueDraftAction,
   discardDraftAction,
   publishDraftAction,
   saveCatalogueDraftAction,
@@ -96,6 +97,7 @@ export function CatalogueEditorProvider({
   // A record that already carries a draft is already being worked on, so it
   // opens ready to edit. Everything else opens as a reading of the record.
   const [editing, setEditing] = useState(initialHasDraft);
+  const [opening, setOpening] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(
     initialHasUnpublishedChanges,
   );
@@ -216,13 +218,38 @@ export function CatalogueEditorProvider({
     router.refresh();
   }
 
+  /**
+   * The fields are offered straight away and the draft row is opened behind
+   * them, so asking to edit never waits on a round trip. Should opening fail,
+   * the editor stays open over a record with no draft row, which is the state
+   * it was in before the draft was asked for.
+   */
+  async function openDraft() {
+    if (editing || opening) return;
+    setEditing(true);
+    setOpening(true);
+    const result = await beginCatalogueDraftAction({
+      recordId,
+      editingSessionId,
+      path,
+    });
+    setOpening(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setRevision(result.revision ?? revision);
+    setHasDraft(true);
+    router.refresh();
+  }
+
   return (
     <CatalogueEditorContext.Provider
       value={{
         write,
         setWrite,
         editing,
-        beginEditing: () => setEditing(true),
+        beginEditing: () => void openDraft(),
         // Leaving edit mode is only offered while nothing has been saved, so
         // restoring what the record opened with can lose no stored work.
         cancelEditing: () => {

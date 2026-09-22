@@ -7,7 +7,9 @@ import type {
   CatalogueDirectoryPage,
   CatalogueDirectoryRecord,
   CatalogueKind,
+  CatalogueRecordState,
 } from "./catalogue-kinds";
+import { catalogueRecordState } from "./catalogue-kinds";
 
 export * from "./catalogue-kinds";
 
@@ -79,11 +81,14 @@ export async function loadCatalogueDirectoryPage({
   kind,
   academicYear,
   query = "",
+  state = null,
   page = 1,
 }: {
   kind: CatalogueKind;
   academicYear: number;
   query?: string;
+  /** Narrows to the state the row's badge reports. Null leaves every row in. */
+  state?: CatalogueRecordState | null;
   page?: number;
 }): Promise<CatalogueDirectoryPage> {
   const supabase = await createClient();
@@ -259,7 +264,7 @@ export async function loadCatalogueDirectoryPage({
     const sync = record ? latestSync.get(record.id) : undefined;
     const draftRow = record ? draftRows.get(record.id) : undefined;
     // What the draft would have started as. An unpublished record starts
-    // empty, so a draft holding nothing is not a draft anyone has to act on.
+    // empty, so a draft holding nothing has been opened but says nothing new.
     const baseHash = !draftRow
       ? null
       : record?.published_version_id
@@ -272,8 +277,8 @@ export async function loadCatalogueDirectoryPage({
               title: listing.title,
             }),
           );
-    const hasDraft =
-      draftRow !== undefined && draftRow.content_hash !== baseHash;
+    const hasDraft = draftRow !== undefined;
+    const hasChanges = hasDraft && draftRow.content_hash !== baseHash;
     const isPublished = Boolean(
       record?.published_version_id && !record.archived_at,
     );
@@ -295,7 +300,8 @@ export async function loadCatalogueDirectoryPage({
       summary: (listing.summary ?? {}) as Record<string, unknown>,
       recordId: record?.id ?? null,
       hasDraft,
-      draftRevision: hasDraft ? (draftRow?.revision ?? null) : null,
+      hasChanges,
+      draftRevision: draftRow?.revision ?? null,
       isPublished,
       isListedByAnu: listing.is_current,
       lastSeenAt: listing.last_seen_at,
@@ -320,6 +326,9 @@ export async function loadCatalogueDirectoryPage({
         row.code.includes(needle) ||
         (row.title ?? "").toUpperCase().includes(needle),
     )
+    // The whole year is already in memory, so narrowing by state costs a pass
+    // rather than a query, and it agrees with the badge by construction.
+    .filter((row) => !state || catalogueRecordState(row) === state)
     .sort((left, right) => left.code.localeCompare(right.code));
   const safePage = Math.max(
     1,

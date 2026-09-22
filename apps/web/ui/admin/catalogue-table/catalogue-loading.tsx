@@ -128,9 +128,11 @@ export function CatalogueTableLoading({
           </div>
         </div>
       ) : null}
+      {/* Search and the filter button beside it. Every table this stands in
+          for offers both, so the row is held open at its full width. */}
       <div className="flex items-start gap-2">
         <Skeleton className="h-10 min-w-0 flex-1" />
-        {imports ? <Skeleton className="size-10 shrink-0" /> : null}
+        <Skeleton className="size-10 shrink-0" />
       </div>
       <DataTableShell
         imports={imports}

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
+  beginCatalogueDraft,
   CatalogueDraftConflictError,
   loadCatalogueEditorState,
   discardCatalogueDraft,
@@ -429,6 +430,7 @@ test("reading a record, or saving it unchanged, never makes it a draft", async (
   await sql`delete from public.catalogue_drafts where record_id = ${recordId}`;
   const opened = await loadCatalogueEditorState(recordId, sql);
   assert.equal(opened.hasDraft, false);
+  assert.equal(opened.hasChanges, false);
   assert.equal(opened.draft.revision, 0);
   assert.equal(await draftRowCount(), 0);
 
@@ -455,10 +457,12 @@ test("reading a record, or saving it unchanged, never makes it a draft", async (
   });
   assert.equal(saved.draft.revision, 1);
   assert.equal(await draftRowCount(), 1);
-  assert.equal((await loadCatalogueEditorState(recordId, sql)).hasDraft, true);
+  const editedState = await loadCatalogueEditorState(recordId, sql);
+  assert.equal(editedState.hasDraft, true);
+  assert.equal(editedState.hasChanges, true);
 
-  // Undoing the edit by hand is as good as discarding it: the row survives to
-  // carry the audit trail, but the record is no longer waiting on anybody.
+  // Undoing the edit by hand leaves the draft open - it is still the record
+  // someone is working on - but it no longer says anything to publish.
   const reverted = await saveCatalogueDraft({
     recordId,
     expectedRevision: 1,
@@ -468,7 +472,9 @@ test("reading a record, or saving it unchanged, never makes it a draft", async (
     sql,
   });
   assert.equal(reverted.draft.contentHash, opened.draft.contentHash);
-  assert.equal((await loadCatalogueEditorState(recordId, sql)).hasDraft, false);
+  const revertedState = await loadCatalogueEditorState(recordId, sql);
+  assert.equal(revertedState.hasDraft, true);
+  assert.equal(revertedState.hasChanges, false);
 
   const discarded = await discardCatalogueDraft({
     recordId,
@@ -478,5 +484,49 @@ test("reading a record, or saving it unchanged, never makes it a draft", async (
     sql,
   });
   assert.equal(discarded.meaningful, false);
+  assert.equal(await draftRowCount(), 0);
+});
+
+test("asking to edit a record opens a draft on it, unchanged", async () => {
+  await sql`delete from public.catalogue_drafts where record_id = ${recordId}`;
+  const base = await loadCatalogueEditorState(recordId, sql);
+
+  const { draft } = await beginCatalogueDraft({
+    recordId,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(draft.revision, 0);
+  assert.equal(draft.contentHash, base.draft.contentHash);
+  assert.equal(await draftRowCount(), 1);
+
+  // The record is now a draft, and stays one for whoever opens it next, but
+  // there is nothing in it that the publication does not already say.
+  const opened = await loadCatalogueEditorState(recordId, sql);
+  assert.equal(opened.hasDraft, true);
+  assert.equal(opened.hasChanges, false);
+
+  // Asking twice is asking once: the draft already open is handed back.
+  const again = await beginCatalogueDraft({
+    recordId,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(again.draft.revision, 0);
+  assert.equal(await draftRowCount(), 1);
+
+  // Backing out of an untouched draft keeps no checkpoint: there was nothing
+  // in it to come back to.
+  const discarded = await discardCatalogueDraft({
+    recordId,
+    expectedRevision: again.draft.revision,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(discarded.meaningful, false);
+  assert.equal(discarded.checkpointVersionId, null);
   assert.equal(await draftRowCount(), 0);
 });

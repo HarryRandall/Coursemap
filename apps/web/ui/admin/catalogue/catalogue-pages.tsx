@@ -1,7 +1,9 @@
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
+  CATALOGUE_STATE_LABELS,
   type CatalogueKind,
+  type CatalogueRecordState,
   loadCatalogueDirectoryPage,
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
@@ -14,6 +16,13 @@ export type SearchParams = Promise<
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+/** An unknown state in the query string narrows to nothing, so it is dropped. */
+function recordState(value: string | undefined) {
+  return value && value in CATALOGUE_STATE_LABELS
+    ? (value as CatalogueRecordState)
+    : null;
 }
 
 /** The directory page for one kind; each route file calls this with its kind. */
@@ -33,6 +42,7 @@ export async function CatalogueDirectoryPage({
     kind,
     academicYear,
     query: first(params.q) ?? "",
+    state: recordState(first(params.state)),
     page: Number(first(params.page)) || 1,
   });
   return (

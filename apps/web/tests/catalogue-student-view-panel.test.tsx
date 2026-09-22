@@ -57,7 +57,7 @@ test("the published version is one keyboard-reachable control away", () => {
   );
 });
 
-test("an unpublished record shows its draft and says students see nothing", () => {
+test("an unpublished record shows its draft without a dead control", () => {
   render(
     <StudentViewPanel
       draft={source("Draft wording")}
@@ -69,11 +69,6 @@ test("an unpublished record shows its draft and says students see nothing", () =
     "Draft wording",
   );
   expect(screen.queryByRole("tab")).toBeNull();
-  expect(
-    screen.getByText(
-      "This course hasn't been published yet. Students see nothing until you publish.",
-    ),
-  ).toBeTruthy();
 });
 
 test("a record with no draft shows the publication without a dead control", () => {

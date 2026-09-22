@@ -48,19 +48,7 @@ export function StudentViewPanel({
     );
   }
 
-  if (!draft || !published) {
-    const only = draft ?? published!;
-    return (
-      <div className="flex flex-col gap-4">
-        {draft ? (
-          <p className="text-sm text-muted-foreground">
-            {`This ${kindLabel} hasn't been published yet. Students see nothing until you publish.`}
-          </p>
-        ) : null}
-        <Preview source={only} />
-      </div>
-    );
-  }
+  if (!draft || !published) return <Preview source={draft ?? published!} />;
 
   return (
     <Tabs

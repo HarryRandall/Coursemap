@@ -71,8 +71,10 @@ export type CatalogueDirectoryRecord = {
   summary: Record<string, unknown>;
   /** Null until ANU discovery has created the record a sync would run on. */
   recordId: number | null;
-  /** True only when unpublished edits exist, not merely a draft row. */
+  /** True once the record has been opened for editing. */
   hasDraft: boolean;
+  /** True only when that draft says something the publication does not. */
+  hasChanges: boolean;
   /** The revision a row action has to submit to act on that draft. */
   draftRevision: number | null;
   isPublished: boolean;
@@ -93,6 +95,53 @@ export type CatalogueDirectoryRecord = {
     completedAt: string | null;
   } | null;
 };
+
+/**
+ * The one state a directory row is in. The badge that prints it and the filter
+ * that narrows to it both read this, so what an operator can select is exactly
+ * what they can see, and reordering the cascade moves the two together.
+ *
+ * Order is precedence, most urgent first: a broken sync before a delisting, a
+ * delisting before waiting changes, and only then how far the record has been
+ * taken.
+ */
+export type CatalogueRecordState =
+  | "sync_failed"
+  | "delisted"
+  | "syncing"
+  | "changes_available"
+  | "draft"
+  | "published"
+  | "unpublished";
+
+export const CATALOGUE_STATE_LABELS: Record<CatalogueRecordState, string> = {
+  sync_failed: "Sync failed",
+  delisted: "No longer listed",
+  syncing: "Syncing",
+  changes_available: "ANU changes",
+  draft: "Draft",
+  published: "Published",
+  unpublished: "Not published",
+};
+
+export const CATALOGUE_STATES = Object.keys(
+  CATALOGUE_STATE_LABELS,
+) as CatalogueRecordState[];
+
+export function catalogueRecordState(
+  record: CatalogueDirectoryRecord,
+): CatalogueRecordState {
+  if (record.sourceState === "sync_failed") return "sync_failed";
+  if (record.isListedByAnu === false) return "delisted";
+  if (record.sourceState === "syncing") return "syncing";
+  if (record.sourceState === "changes_available" && record.openChangeCount > 0)
+    return "changes_available";
+  // Unpublished work outranks publication: a published record with a draft is
+  // the one a person still has to come back to.
+  if (record.hasDraft) return "draft";
+  if (record.isPublished) return "published";
+  return "unpublished";
+}
 
 export type CatalogueTableLayout =
   | "public-courses"

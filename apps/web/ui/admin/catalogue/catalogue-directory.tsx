@@ -7,6 +7,8 @@ import { useState, useTransition } from "react";
 import { catalogueSummaryMeta } from "@/lib/coursemap/catalogue-summary";
 import {
   CATALOGUE_KIND_LABELS,
+  CATALOGUE_STATES,
+  CATALOGUE_STATE_LABELS,
   type CatalogueDirectoryPage,
   adminCatalogueRecordPath,
   adminCatalogueYearPath,
@@ -85,6 +87,15 @@ function refreshSummary(result: RefreshResult) {
   return `${entries} · ${changes.length ? changes.join(", ") : "no changes"}`;
 }
 
+/**
+ * The states a row can be in, in the order the badge ranks them, so the menu
+ * reads down from the rows that need a person to the ones that do not.
+ */
+const STATE_OPTIONS = CATALOGUE_STATES.map((state) => ({
+  value: state,
+  label: CATALOGUE_STATE_LABELS[state],
+}));
+
 export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -92,7 +103,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   const labels = CATALOGUE_KIND_LABELS[page.kind];
   const [refreshing, setRefreshing] = useState(false);
   const [, startTransition] = useTransition();
-  const filtered = Boolean(searchParams.get("q"));
+  const filtered = Boolean(searchParams.get("q") || searchParams.get("state"));
 
   function changeYear(year: number | "all") {
     if (year === "all") return;
@@ -190,6 +201,14 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       </div>
       <FilterBar
         searchPlaceholder={`Search ${labels.plural.toLowerCase()} by code or title`}
+        filters={[
+          {
+            key: "state",
+            label: "State",
+            allLabel: "All states",
+            options: STATE_OPTIONS,
+          },
+        ]}
       />
       {page.records.length === 0 ? (
         <CatalogueEmpty

@@ -19,7 +19,7 @@ const SYNC_PROGRESS: Record<
   { percent: number; ceiling: number; detail: string }
 > = {
   queued: { percent: 12, ceiling: 45, detail: "Waiting for a worker." },
-  running: { percent: 50, ceiling: 92, detail: "Reading the ANU page." },
+  running: { percent: 50, ceiling: 88, detail: "Reading the ANU page." },
 };
 
 const SYNC_OUTCOMES = {
@@ -42,11 +42,14 @@ export function CatalogueSyncButton({
   code,
   kind,
   latestSync,
+  hasSynced,
 }: {
   recordId: number;
   code: string;
   kind: CatalogueKind;
   latestSync: CatalogueSync | null;
+  /** Whether ANU has ever been read for this record, which names the action. */
+  hasSynced: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -108,6 +111,18 @@ export function CatalogueSyncButton({
     startSyncRef.current = startSync;
   }, [startSync]);
 
+  // The sync runs on the server and this button is the only thing watching it.
+  // Leaving the page stops the poll, so the toast is handed back rather than
+  // left spinning at whatever percentage it had reached.
+  useEffect(
+    () => () =>
+      task.current?.abandon({
+        title: "The ANU sync is still running",
+        detail: "Open the record again to see how it finished.",
+      }),
+    [],
+  );
+
   // Only a sync started from this button owns a toast; a scheduled one running
   // in the background should not interrupt whoever opened the page.
   useEffect(() => {
@@ -155,7 +170,9 @@ export function CatalogueSyncButton({
       )}
       {latestSync?.status === "failed" && !isActive
         ? "Retry sync"
-        : "Sync from ANU"}
+        : hasSynced
+          ? "Resync"
+          : "Sync"}
     </Button>
   );
 }

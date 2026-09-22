@@ -80,10 +80,12 @@ export async function CatalogueRecordPage({
 
   const labels = CATALOGUE_KIND_LABELS[kind];
   const path = adminCatalogueRecordPath(kind, academicYear, record.code);
-  // Opening a record must never be what makes it a draft, so the editor is
+  // Reading a record must never be what makes it a draft, so the editor is
   // given the content it would start from - the publication, or an empty
-  // record - and the draft row is created by the first change worth keeping.
-  const { draft, hasDraft } = await loadCatalogueEditorState(record.recordId);
+  // record - and the draft row is created by asking to edit it.
+  const { draft, hasDraft, hasChanges } = await loadCatalogueEditorState(
+    record.recordId,
+  );
   const [studentContent, studentCourse] = await Promise.all([
     record.publishedVersionId
       ? loadVersionWrite(record.publishedVersionId)
@@ -93,7 +95,7 @@ export async function CatalogueRecordPage({
       : null,
   ]);
   const hasUnpublishedChanges = Boolean(
-    hasDraft &&
+    hasChanges &&
     (!studentContent ||
       draft.contentHash !== contentHashForCatalogueContent(studentContent)),
   );
@@ -105,7 +107,7 @@ export async function CatalogueRecordPage({
     ? { course: studentCourse, content: studentCourse ? null : studentContent }
     : null;
   const review = await loadSourceReview(record.recordId, draft.content);
-  const unpublished = hasDraft
+  const unpublished = hasChanges
     ? diffSnapshotWrites(studentContent, draft.content)
     : [];
   const changelog = await loadCatalogueChangelog({

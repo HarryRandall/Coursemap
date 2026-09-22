@@ -129,6 +129,7 @@ export function RecordHeader({
           code={record.code}
           kind={record.kind}
           latestSync={record.syncs[0] ?? null}
+          hasSynced={record.sourceCheckedAt !== null}
         />
       ) : null}
     </header>

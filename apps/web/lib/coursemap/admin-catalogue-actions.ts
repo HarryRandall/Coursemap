@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { canWriteCatalogue, getAuthViewer } from "@/lib/auth/viewer";
 import type { CatalogueContent } from "@/lib/catalogue/content";
 import {
+  beginCatalogueDraft,
   CatalogueDraftConflictError,
   CatalogueDraftError,
   discardCatalogueDraft,
@@ -123,6 +124,36 @@ export async function unpublishAction({
     };
   } catch (error) {
     return draftFailure(error, "The record could not be unpublished.");
+  }
+}
+
+/**
+ * Opening the editor is what makes a record a draft, so that is an act the
+ * server hears about rather than a state the browser holds on its own.
+ */
+export async function beginCatalogueDraftAction({
+  recordId,
+  editingSessionId,
+  path,
+}: {
+  recordId: number;
+  editingSessionId: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    const { draft } = await beginCatalogueDraft({
+      recordId,
+      editingSessionId,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return { ok: true, revision: draft.revision };
+  } catch (error) {
+    return draftFailure(error, "The draft could not be opened.");
   }
 }
 

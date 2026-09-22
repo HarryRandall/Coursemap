@@ -57,7 +57,8 @@ function reviewEmptyState({
 
 /**
  * The Changes tab: what ANU wants to change, what conflicts with local work,
- * what was deliberately kept different, and what students cannot see yet.
+ * what was deliberately kept different, and what the draft holds over the
+ * published version.
  * Every section disappears when it is empty rather than standing as a box
  * announcing that nothing is in it.
  */
@@ -92,7 +93,7 @@ export function CatalogueChangesPanel({
     unpublishedCount,
     kindLabel,
   });
-  const showUnpublished = unpublished.length > 0 || !isPublished;
+  const showUnpublished = unpublishedCount > 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -172,7 +173,7 @@ export function CatalogueChangesPanel({
       ) : null}
       {showUnpublished ? (
         <Section title="Unpublished changes" count={unpublishedCount}>
-          <UnpublishedChanges changes={unpublished} isPublished={isPublished} />
+          <UnpublishedChanges changes={unpublished} />
         </Section>
       ) : null}
     </div>
