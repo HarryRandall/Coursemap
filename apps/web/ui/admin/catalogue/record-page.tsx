@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { TabsContent } from "@coursemap/ui/primitives/tabs";
 import {
-  canManageCourseImports,
+  canManageCatalogueSources,
   canWriteCatalogue,
   getAuthViewer,
 } from "@/lib/auth/viewer";
@@ -12,8 +12,8 @@ import {
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
 import {
   loadCatalogueRecord,
-  loadSnapshotCoursePreview,
-  loadSnapshotWrite,
+  loadVersionCoursePreview,
+  loadVersionWrite,
 } from "@/lib/coursemap/admin-catalogue-record";
 import {
   CATALOGUE_KIND_LABELS,
@@ -57,7 +57,7 @@ export async function CatalogueRecordPage({
   section?: RecordSection;
 }) {
   const [canManageImports, canWrite] = await Promise.all([
-    canManageCourseImports(),
+    canManageCatalogueSources(),
     canWriteCatalogue(),
   ]);
   if (!canManageImports && !canWrite) return <AccessDeniedError />;
@@ -82,10 +82,10 @@ export async function CatalogueRecordPage({
       : await loadCatalogueDraft(record.recordId);
   const [studentContent, studentCourse] = await Promise.all([
     record.publishedVersionId
-      ? loadSnapshotWrite(record.publishedVersionId)
+      ? loadVersionWrite(record.publishedVersionId)
       : null,
     record.publishedVersionId && kind === "course"
-      ? loadSnapshotCoursePreview(record.publishedVersionId)
+      ? loadVersionCoursePreview(record.publishedVersionId)
       : null,
   ]);
   const hasUnpublishedChanges = Boolean(
@@ -110,6 +110,7 @@ export async function CatalogueRecordPage({
             record={record}
             hasDraft={draft !== null}
             hasUnpublishedChanges={hasUnpublishedChanges}
+            canSync={canManageImports}
           />
           <TabsContent value="content" className="mt-0">
             {draft && canWrite ? (
@@ -144,18 +145,27 @@ export async function CatalogueRecordPage({
             )}
           </TabsContent>
           <TabsContent value="changes" className="mt-0">
-            <FoundationEmpty
-              title={
-                hasUnpublishedChanges
-                  ? "Unpublished changes"
-                  : "No unpublished changes"
-              }
-              description={
-                hasUnpublishedChanges
-                  ? "The Content tab contains saved work that students will not see until it is published."
-                  : "The working draft matches the published content."
-              }
-            />
+            {record.syncs[0]?.status === "review_required" ? (
+              <FoundationEmpty
+                title="ANU changes detected"
+                description="The latest ANU information differs from this record. Detailed change review is not available yet."
+              />
+            ) : (
+              <FoundationEmpty
+                title={
+                  hasUnpublishedChanges
+                    ? "Unpublished changes"
+                    : "No changes to review"
+                }
+                description={
+                  hasUnpublishedChanges
+                    ? "The Content tab contains saved work that students will not see until it is published."
+                    : record.syncs[0]?.status === "unchanged"
+                      ? "Checked ANU. No changes found."
+                      : "There are no ANU source changes waiting for review."
+                }
+              />
+            )}
           </TabsContent>
           <TabsContent value="changelog" className="mt-0">
             <RecordHistory record={record} />

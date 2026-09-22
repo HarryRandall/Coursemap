@@ -1,6 +1,6 @@
 "use server";
 
-import { canManageCourseImports } from "@/lib/auth/viewer";
+import { canManageCatalogueSources } from "@/lib/auth/viewer";
 import { loadImportModelSetting } from "@/lib/admin/settings";
 import type { ImportModel } from "@/lib/admin/import-model";
 
@@ -9,7 +9,7 @@ export async function loadAssistantModels(): Promise<{
   defaultModel: string;
   error: string | null;
 }> {
-  if (!(await canManageCourseImports())) {
+  if (!(await canManageCatalogueSources())) {
     return {
       models: [],
       defaultModel: "",

@@ -37,6 +37,24 @@ function formatDate(value: string | null) {
   );
 }
 
+const SOURCE_STATE_LABELS = {
+  never_synced: "Never synced",
+  syncing: "Syncing",
+  up_to_date: "Up to date",
+  changes_available: "Changes available",
+  sync_failed: "Sync failed",
+} as const;
+
+function sourceStateVariant(
+  state: keyof typeof SOURCE_STATE_LABELS,
+): "outline" | "success-light" | "warning-light" | "destructive-light" {
+  if (state === "up_to_date") return "success-light";
+  if (state === "changes_available" || state === "syncing")
+    return "warning-light";
+  if (state === "sync_failed") return "destructive-light";
+  return "outline";
+}
+
 export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -156,7 +174,8 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
               <TableRow>
                 <TableHead>{labels.singular}</TableHead>
                 <TableHead>Publication</TableHead>
-                <TableHead>ANU</TableHead>
+                <TableHead>ANU listing</TableHead>
+                <TableHead>ANU source</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -201,6 +220,16 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
                           Never synced
                         </span>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={sourceStateVariant(record.sourceState)}>
+                        {SOURCE_STATE_LABELS[record.sourceState]}
+                      </Badge>
+                      {record.latestSync?.completedAt ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {formatDate(record.latestSync.completedAt)}
+                        </span>
+                      ) : null}
                     </TableCell>
                   </LinkedTableRow>
                 );

@@ -1,28 +1,14 @@
 import { Suspense } from "react";
-import { canManageCourseImports } from "@/lib/auth/viewer";
+import { canManageCatalogueSources } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
-  DEFAULT_IMPORT_RECORD_SORT,
-  IMPORT_RECORD_SORTS,
   type CatalogueKind,
-  type DirectoryFilter,
-  type ImportRecordSort,
-  type ImportRunProgress,
-  type ImportTargetDetail,
-  adminCataloguePath,
   loadCatalogueDirectoryPage,
-  loadCatalogueImportRecords,
-  loadImportRunProgress,
-  loadImportTargetDetail,
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
-import {
-  CatalogueTableLoading,
-  ImportRecordsSkeleton,
-} from "@/ui/admin/catalogue-table/catalogue-loading";
+import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
-import { ImportRecords } from "./import-runs";
 
 export type SearchParams = Promise<
   Record<string, string | string[] | undefined>
@@ -42,14 +28,13 @@ export async function CatalogueDirectoryPage({
   academicYear: number;
   searchParams: SearchParams;
 }) {
-  if (!(await canManageCourseImports())) return <AccessDeniedError />;
+  if (!(await canManageCatalogueSources())) return <AccessDeniedError />;
   const params = await searchParams;
   const labels = CATALOGUE_KIND_LABELS[kind];
   const page = loadCatalogueDirectoryPage({
     kind,
     academicYear,
     query: first(params.q) ?? "",
-    filter: (first(params.status) as DirectoryFilter | undefined) ?? "all",
     page: Number(first(params.page)) || 1,
   });
   return (
@@ -73,78 +58,4 @@ async function DirectoryContent({
 }) {
   const resolved = await page;
   return <CatalogueDirectory page={resolved} />;
-}
-
-export async function CatalogueImportsPage({
-  kind,
-  searchParams,
-}: {
-  kind: CatalogueKind;
-  searchParams: SearchParams;
-}) {
-  if (!(await canManageCourseImports())) return <AccessDeniedError />;
-  const params = await searchParams;
-  const labels = CATALOGUE_KIND_LABELS[kind];
-  const requestedSort = first(params.sort) as ImportRecordSort | undefined;
-  const records = loadCatalogueImportRecords({
-    kind,
-    query: first(params.q) ?? "",
-    status: first(params.status) ?? "",
-    runId: first(params.run) ?? null,
-    sort:
-      requestedSort && IMPORT_RECORD_SORTS.includes(requestedSort)
-        ? requestedSort
-        : DEFAULT_IMPORT_RECORD_SORT,
-    page: Number(first(params.page)) || 1,
-  });
-  async function loadTarget(targetId: string) {
-    "use server";
-    if (!(await canManageCourseImports())) return null;
-    return loadImportTargetDetail(targetId);
-  }
-  async function readRunProgress(runId: string) {
-    "use server";
-    if (!(await canManageCourseImports())) return null;
-    return loadImportRunProgress(runId);
-  }
-  return (
-    <AppShell
-      admin
-      fill
-      currentBreadcrumbLabel="Imports"
-      breadcrumbSegmentLabels={{ [labels.segment]: labels.plural }}
-    >
-      <h1 className="sr-only">{labels.singular} imports</h1>
-      <Suspense fallback={<ImportRecordsSkeleton />}>
-        <ImportRecordsContent
-          records={records}
-          kind={kind}
-          loadTarget={loadTarget}
-          readRunProgress={readRunProgress}
-        />
-      </Suspense>
-    </AppShell>
-  );
-}
-
-async function ImportRecordsContent({
-  records,
-  kind,
-  loadTarget,
-  readRunProgress,
-}: {
-  records: ReturnType<typeof loadCatalogueImportRecords>;
-  kind: CatalogueKind;
-  loadTarget: (targetId: string) => Promise<ImportTargetDetail | null>;
-  readRunProgress: (runId: string) => Promise<ImportRunProgress | null>;
-}) {
-  return (
-    <ImportRecords
-      page={await records}
-      basePath={adminCataloguePath(kind)}
-      kind={kind}
-      loadTarget={loadTarget}
-      readRunProgress={readRunProgress}
-    />
-  );
 }

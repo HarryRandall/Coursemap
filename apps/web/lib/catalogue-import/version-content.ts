@@ -1,6 +1,9 @@
 import type postgres from "postgres";
 import { stableFingerprint } from "./canonical.ts";
-import type { ImportSql, ImportTransactionSql } from "./import-store.ts";
+import type {
+  SyncSql,
+  SyncTransactionSql,
+} from "../catalogue-sync/sync-store.ts";
 import type {
   CatalogueKind,
   CatalogueContent,
@@ -12,7 +15,7 @@ import type {
   StructureContentWrite,
 } from "../catalogue/content.ts";
 
-type Sql = ImportSql | ImportTransactionSql | postgres.Sql;
+type Sql = SyncSql | SyncTransactionSql | postgres.Sql;
 
 function num(value: unknown) {
   return value === null || value === undefined ? null : Number(value);

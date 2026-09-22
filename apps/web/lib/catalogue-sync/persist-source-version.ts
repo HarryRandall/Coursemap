@@ -1,34 +1,20 @@
 import type postgres from "postgres";
-import {
-  diffSnapshotWrites,
-  isBlockingFlag,
-  type SnapshotChange,
-} from "./changes.ts";
-import type { ClaimedImportTarget, ImportSql } from "./import-store.ts";
-import { readVersionContent } from "./version-content.ts";
+import type { ClaimedCatalogueSync, SyncSql } from "./sync-store.ts";
 import type {
   CatalogueKind,
   CatalogueContent,
   RequirementWrite,
 } from "../catalogue/content.ts";
+import {
+  CATALOGUE_CONTENT_SCHEMA_VERSION,
+  emptyCatalogueContent,
+} from "../catalogue/content.ts";
+import { contentHashForCatalogueContent } from "../catalogue-import/version-content.ts";
 
-export type SnapshotChangeKind = "new" | "changed" | "unchanged";
-
-export type PersistedSnapshotCandidate = {
-  changeKind: SnapshotChangeKind;
-  candidateVersionId: number | null;
-  baselineVersionId: number | null;
-  becameDraft: boolean;
-  changeSet: {
-    changeKind: SnapshotChangeKind;
-    contentHash: string;
-    baselineVersionId: number | null;
-    baselineContentHash: string | null;
-    candidateVersionId: number | null;
-    becameDraft: boolean;
-    changes: SnapshotChange[];
-    flags: CatalogueContent["flags"];
-  };
+export type PersistedSourceVersion = {
+  status: "unchanged" | "review_required" | "applied";
+  sourceVersionId: number;
+  populatedDraft: boolean;
 };
 
 type Tx = postgres.TransactionSql;
@@ -480,189 +466,156 @@ export async function insertVersionContent(
   }
 }
 
-/** Records the review entries for a target: one row per change and per flag. */
-export async function insertImportChanges(
-  tx: Tx,
-  {
-    targetId,
-    changes,
-    flags,
-    acceptAll,
-  }: {
-    targetId: string;
-    changes: SnapshotChange[];
-    flags: CatalogueContent["flags"];
-    acceptAll: boolean;
-  },
-) {
-  await tx`delete from public.catalogue_import_changes where target_id = ${targetId}::uuid`;
-  let position = 0;
-  for (const change of changes) {
-    await tx`
-      insert into public.catalogue_import_changes (
-        target_id, entry_kind, field_path, old_value, new_value, summary, source_locator,
-        source_excerpt, status, resolved_at, position
-      ) values (
-        ${targetId}::uuid, 'change', ${change.fieldPath},
-        ${tx.json(change.oldValue as never)}, ${tx.json(change.newValue as never)},
-        ${change.summary}, ${change.sourceLocator}, ${change.sourceExcerpt},
-        ${acceptAll ? "accepted" : "open"}, ${acceptAll ? tx`now()` : null}, ${position}
-      )
-    `;
-    position += 1;
-  }
-  for (const flag of flags) {
-    await tx`
-      insert into public.catalogue_import_changes (
-        target_id, entry_kind, field_path, severity, is_blocking, issue_code, summary,
-        source_excerpt, position
-      ) values (
-        ${targetId}::uuid, 'flag', ${flag.fieldPath ?? "snapshot"}, ${flag.severity},
-        ${isBlockingFlag(flag)}, ${flag.code}, ${flag.message}, ${flag.sourceExcerpt}, ${position}
-      )
-    `;
-    position += 1;
-  }
-}
-
-/**
- * Assembles a candidate version for an import target. Returns `unchanged`
- * without writing when the content hash matches the baseline. A first import
- * for a record becomes its applied version immediately with every change accepted;
- * otherwise the changes stay open for review.
- */
-export async function persistVersionCandidate(
-  sql: ImportSql,
+/** Persists one semantic ANU observation without changing local content. */
+export async function persistSourceVersion(
+  sql: SyncSql,
   {
     claim,
-    sourcePageId,
+    sourceDocumentId,
     write,
   }: {
-    claim: ClaimedImportTarget;
-    sourcePageId: number | null;
+    claim: ClaimedCatalogueSync;
+    sourceDocumentId: number;
     write: CatalogueContent;
   },
-): Promise<PersistedSnapshotCandidate> {
+): Promise<PersistedSourceVersion> {
   if (
     write.kind !== claim.kind ||
     write.code !== claim.code ||
     write.academicYear !== claim.academicYear
   ) {
     throw new TypeError(
-      "The snapshot content does not match its import target.",
+      "The source content does not match its catalogue sync.",
     );
   }
 
   return sql.begin(async (tx) => {
-    const [itemYear] = await tx`
-      select id
-      from public.catalogue_records
-      where id = ${claim.recordId}
-      for update
+    const [record] = await tx`
+      select records.id, records.published_version_id, records.latest_source_version_id,
+        codes.code, years.year, listings.title as listing_title
+      from public.catalogue_records as records
+      join public.catalogue_codes as codes on codes.id = records.code_id
+      join public.academic_years as years on years.id = records.academic_year_id
+      left join public.catalogue_listings as listings on listings.code_id = records.code_id
+        and listings.academic_year_id = records.academic_year_id
+        and listings.kind = records.kind
+      where records.id = ${claim.recordId}
+      for update of records
     `;
-    if (!itemYear) throw new Error("The catalogue item year was not resolved.");
-    const baselineVersionId = claim.baselineVersionId;
-    const [baseline] = baselineVersionId
-      ? await tx`select content_hash from public.catalogue_versions where id = ${baselineVersionId}`
-      : [];
-    const baselineContentHash = baseline ? String(baseline.content_hash) : null;
-
-    if (baselineContentHash === write.contentHash) {
-      await insertImportChanges(tx, {
-        targetId: claim.targetId,
-        changes: [],
-        flags: write.flags,
-        acceptAll: true,
-      });
+    if (!record) throw new Error("The catalogue record was not resolved.");
+    const [existing] = await tx`
+      select versions.id
+      from public.catalogue_versions as versions
+      where versions.sync_id = ${claim.syncId}::uuid
+      limit 1
+    `;
+    if (existing) {
+      const sourceVersionId = Number(existing.id);
+      const [draftFromSource] = await tx`
+        select 1 from public.catalogue_drafts
+        where record_id = ${claim.recordId} and base_version_id = ${sourceVersionId}
+      `;
       return {
-        changeKind: "unchanged" as const,
-        candidateVersionId: null,
-        baselineVersionId,
-        becameDraft: false,
-        changeSet: {
-          changeKind: "unchanged" as const,
-          contentHash: write.contentHash,
-          baselineVersionId,
-          baselineContentHash,
-          candidateVersionId: null,
-          becameDraft: false,
-          changes: [],
-          flags: write.flags,
-        },
+        status: draftFromSource ? "applied" : "review_required",
+        sourceVersionId,
+        populatedDraft: Boolean(draftFromSource),
+      };
+    }
+    const previousSourceVersionId =
+      record.latest_source_version_id === null
+        ? null
+        : Number(record.latest_source_version_id);
+    const [previous] = previousSourceVersionId
+      ? await tx`select content_hash from public.catalogue_versions where id = ${previousSourceVersionId}`
+      : [];
+    if (previous && String(previous.content_hash) === write.contentHash) {
+      await tx`update public.catalogue_records set source_checked_at = now()
+        where id = ${claim.recordId}`;
+      await tx`insert into public.catalogue_change_events (
+        record_id, event_kind, origin, actor_id, version_id
+      ) values (${claim.recordId}, 'source_checked', 'source', null, ${previousSourceVersionId})`;
+      return {
+        status: "unchanged",
+        sourceVersionId: previousSourceVersionId!,
+        populatedDraft: false,
       };
     }
 
-    const baselineWrite = baselineVersionId
-      ? await readVersionContent(tx, baselineVersionId)
-      : null;
-    const changes = diffSnapshotWrites(baselineWrite, write);
-    if (claim.directoryEntryId !== null) {
-      await tx`
-        update public.catalogue_listings
-        set code_id = ${claim.itemId}
-        where id = ${claim.directoryEntryId} and code_id is null
-      `;
-    }
-
-    const [snapshot] = await tx`
+    const [version] = await tx`
       insert into public.catalogue_versions (
-        record_id, kind, academic_year_id, origin, based_on_version_id, source_page_id,
-        content_hash, import_target_id
+        record_id, kind, academic_year_id, origin, based_on_version_id,
+        source_document_id, content_hash, sync_id
       ) values (
-        ${claim.recordId}, ${claim.kind}, ${claim.academicYearId}, 'import',
-        ${baselineVersionId}, ${sourcePageId}, ${write.contentHash}, ${claim.targetId}::uuid
+        ${claim.recordId}, ${claim.kind}, ${claim.academicYearId}, 'source',
+        ${previousSourceVersionId}, ${sourceDocumentId}, ${write.contentHash}, ${claim.syncId}::uuid
       )
       returning id
     `;
-    const snapshotId = Number(snapshot.id);
+    const sourceVersionId = Number(version.id);
     await insertVersionContent(tx, {
-      snapshotId,
+      snapshotId: sourceVersionId,
       kind: claim.kind,
       academicYearId: claim.academicYearId,
-      sourcePageId,
+      sourcePageId: null,
       write,
     });
+    await tx`update public.catalogue_version_provenance
+      set source_document_id = ${sourceDocumentId}
+      where version_id = ${sourceVersionId}`;
     await tx`
       update public.catalogue_versions
       set sealed_at = greatest(statement_timestamp(), created_at)
-      where id = ${snapshotId}
+      where id = ${sourceVersionId}
     `;
+    await tx`update public.catalogue_records set
+      latest_source_version_id = ${sourceVersionId}, source_checked_at = now()
+      where id = ${claim.recordId}`;
 
-    const becameDraft = baselineVersionId === null;
-    await insertImportChanges(tx, {
-      targetId: claim.targetId,
-      changes,
-      flags: write.flags,
-      acceptAll: becameDraft,
+    const [draft] = await tx`select content_hash from public.catalogue_drafts
+      where record_id = ${claim.recordId} for update`;
+    const empty = emptyCatalogueContent({
+      kind: claim.kind,
+      code: claim.code,
+      academicYear: claim.academicYear,
+      title:
+        record.listing_title === null ? null : String(record.listing_title),
     });
-    if (becameDraft) {
-      // A first import has nothing to compare against, so its changes are
-      // recorded as already accepted and the candidate becomes the applied version
-      // without anyone pressing Apply. Recording that here keeps the target
-      // honest: it was applied, and leaving applied_version_id null made a
-      // published record still read "Ready for review".
-      await tx`
-        update public.catalogue_import_targets
-        set applied_version_id = ${snapshotId}, applied_at = now()
-        where id = ${claim.targetId}::uuid
-      `;
+    const hasMeaningfulLocalContent =
+      record.published_version_id !== null ||
+      (draft &&
+        String(draft.content_hash) !== contentHashForCatalogueContent(empty));
+    const populateDraft =
+      previousSourceVersionId === null && !hasMeaningfulLocalContent;
+    if (populateDraft) {
+      await tx`insert into public.catalogue_drafts (
+        record_id, base_version_id, content, content_hash, content_schema_version,
+        revision, updated_by
+      ) values (${claim.recordId}, ${sourceVersionId}, ${tx.json(write as never)},
+        ${write.contentHash}, ${CATALOGUE_CONTENT_SCHEMA_VERSION}, 0, null)
+      on conflict (record_id) do update set base_version_id = excluded.base_version_id,
+        content = excluded.content, content_hash = excluded.content_hash,
+        content_schema_version = excluded.content_schema_version,
+        revision = public.catalogue_drafts.revision + 1, updated_by = null,
+        updated_at = now()`;
+      await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
+      await tx`insert into public.catalogue_draft_provenance (
+        record_id, field_path, origin, source_version_id, source_evidence_id
+      ) select ${claim.recordId}, field_path, method, ${sourceVersionId}, id
+        from public.catalogue_version_provenance where version_id = ${sourceVersionId}`;
+      await tx`insert into public.catalogue_change_events (
+        record_id, draft_revision, event_kind, origin, version_id
+      ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}
+        from public.catalogue_drafts where record_id = ${claim.recordId}`;
+      return { status: "applied", sourceVersionId, populatedDraft: true };
     }
-    const changeKind: SnapshotChangeKind = becameDraft ? "new" : "changed";
+
+    await tx`insert into public.catalogue_change_events (
+      record_id, event_kind, origin, version_id
+    ) values (${claim.recordId}, 'source_changed', 'source', ${sourceVersionId})`;
     return {
-      changeKind,
-      candidateVersionId: snapshotId,
-      baselineVersionId,
-      becameDraft,
-      changeSet: {
-        changeKind,
-        contentHash: write.contentHash,
-        baselineVersionId,
-        baselineContentHash,
-        candidateVersionId: snapshotId,
-        becameDraft,
-        changes,
-        flags: write.flags,
-      },
+      status: "review_required",
+      sourceVersionId,
+      populatedDraft: false,
     };
   });
 }

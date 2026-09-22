@@ -1,4 +1,4 @@
-import type { ClaimedImportTarget } from "./import-store.ts";
+import type { ClaimedCatalogueSync } from "./sync-store.ts";
 import type { CatalogueKind, CatalogueContent } from "../catalogue/content.ts";
 
 export type FetchedSourcePage = {
@@ -29,8 +29,7 @@ export type MergeOutcome<Extraction> = {
   report: unknown;
   /**
    * Set when the model output was discarded. The processor records it on the
-   * target so a snapshot built from deterministic parsing alone says so,
-   * rather than finishing `ready` with no error at all.
+   * sync so a source version built from deterministic parsing alone says so.
    */
   errorCode?: string | null;
   /** The reason, for `catalogue_extractions.error_summary`. */
@@ -38,12 +37,12 @@ export type MergeOutcome<Extraction> = {
 };
 
 /**
- * Everything kind-specific about an import: where the page lives, how it
+ * Everything kind-specific about a sync: where the page lives, how it
  * becomes Markdown and model input, the deterministic parser, the model
- * contract and how a merged extraction becomes snapshot rows. The processor
+ * contract and how a merged extraction becomes version rows. The processor
  * owns stages, artefacts, leases and persistence.
  */
-export type CatalogueKindAdapter<Extraction = unknown> = {
+export type CatalogueSyncAdapter<Extraction = unknown> = {
   kinds: readonly CatalogueKind[];
   parserVersion: string;
   promptVersion: string;
@@ -54,27 +53,27 @@ export type CatalogueKindAdapter<Extraction = unknown> = {
   requestTimeoutMs: number;
   extractionJsonSchema: Record<string, unknown>;
   fetchSource(
-    claim: ClaimedImportTarget,
+    claim: ClaimedCatalogueSync,
     options: { signal?: AbortSignal },
   ): Promise<FetchedSourcePage>;
   /** Normalised Markdown for the audit trail and the trimmed model input. */
   prepareInput(
-    claim: ClaimedImportTarget,
+    claim: ClaimedCatalogueSync,
     page: FetchedSourcePage,
   ): { markdown: string; modelInput: string };
   buildSystemPrompt(): string;
-  buildUserPrompt(claim: ClaimedImportTarget, modelInput: string): string;
+  buildUserPrompt(claim: ClaimedCatalogueSync, modelInput: string): string;
   extractDeterministic(
-    claim: ClaimedImportTarget,
+    claim: ClaimedCatalogueSync,
     page: FetchedSourcePage,
   ): Extraction;
   /** Strict validation of raw model output against the extraction contract. */
   validateModelOutput(
-    claim: ClaimedImportTarget,
+    claim: ClaimedCatalogueSync,
     value: unknown,
   ): ValidationOutcome;
   merge(input: {
-    claim: ClaimedImportTarget;
+    claim: ClaimedCatalogueSync;
     deterministic: Extraction;
     model: unknown;
     modelValid: boolean;

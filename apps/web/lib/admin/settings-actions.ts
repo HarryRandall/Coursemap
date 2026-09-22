@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canManageCourseImports } from "@/lib/auth/viewer";
+import { canManageCatalogueSources } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { IMPORT_MODEL_SETTING_KEY } from "@/lib/admin/settings";
 import { fetchCatalogueModel } from "@/lib/admin/model-catalogue";
@@ -20,7 +20,7 @@ function refreshImportPages() {
 export async function setImportModel(
   model: string,
 ): Promise<ImportModelActionResult> {
-  if (!(await canManageCourseImports()))
+  if (!(await canManageCatalogueSources()))
     return {
       ok: false,
       model,
@@ -61,7 +61,7 @@ export async function saveImportModel(
   model: string,
   refreshOnly = false,
 ): Promise<ImportModelActionResult> {
-  if (!(await canManageCourseImports()))
+  if (!(await canManageCatalogueSources()))
     return {
       ok: false,
       model,
@@ -103,7 +103,7 @@ export async function saveImportModel(
 export async function removeImportModel(
   model: string,
 ): Promise<ImportModelActionResult> {
-  if (!(await canManageCourseImports()))
+  if (!(await canManageCatalogueSources()))
     return {
       ok: false,
       model,
@@ -139,7 +139,7 @@ export async function setImportModelVisibility(
   model: string,
   visible: boolean,
 ): Promise<ImportModelActionResult> {
-  if (!(await canManageCourseImports()))
+  if (!(await canManageCatalogueSources()))
     return {
       ok: false,
       model,

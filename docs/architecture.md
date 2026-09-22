@@ -6,7 +6,7 @@ Coursemap has three product areas:
 
 1. Public catalogue discovery and prerequisite exploration.
 2. Authenticated student profiles, attempts and degree plans.
-3. Authorised catalogue import, review and administration.
+3. Authorised catalogue synchronisation, editing and administration.
 
 Next.js owns routing, server rendering and mutations. Supabase Auth owns identity. Supabase Postgres is the durable source of truth. Vercel builds and serves the application.
 
@@ -64,8 +64,15 @@ and version model. These concepts are deliberately separate:
   version: course requisites (`prerequisite`, `corequisite`,
   `incompatibility`, `permission`, `assumed_knowledge`) and structure
   completion requirements (`structure`) share fifteen condition kinds
-- `catalogue_sources` and immutable `catalogue_source_pages`: retrieval
-  provenance shared by every kind and the university calendar
+- `catalogue_sources` and immutable `catalogue_source_pages`: discovery and
+  university-calendar retrieval provenance
+- `catalogue_source_documents`: immutable detailed ANU material for one annual
+  record, addressed by content hash
+- `catalogue_syncs`: one independently queued source check for one record, with
+  its trigger, model and parser contracts, lease, attempts and terminal result
+- `catalogue_sync_stages`, `catalogue_sync_artifacts` and
+  `catalogue_extractions`: technical execution evidence and validated reusable
+  model responses
 - `published_course_summaries`: a security-invoker view joining published
   course versions to their code for the directory
 - `university_calendar_events` keyed by academic year, date and title, and
@@ -91,8 +98,9 @@ snapshot, plan, attempt and academic-structure row, then removes the old
 `course_versions`, `academic_structure_versions`, `requirement_groups`,
 `requirement_conditions`, `academic_structure_relationships` and directory
 compatibility schema. No legacy course or academic-structure lineage is
-retained. The generic `catalogue_years`, `catalogue_source_documents`,
-`catalogue_import_runs` and `catalogue_import_items` tables have been removed.
+retained. The generic `catalogue_years`, batch run and per-item tables have
+been removed. The current `catalogue_source_documents` table belongs only to
+record-level synchronisation.
 
 Discovery records each ANU listing attempt in `catalogue_discovery_checks`,
 including its completeness and immutable source pages through
@@ -102,29 +110,22 @@ annual `catalogue_record`; discovery creates the code and record immediately,
 before detailed content is synced. An incomplete discovery updates records it
 observed but cannot mark unseen listings as no longer current.
 
-Imports run through one pipeline in `apps/web/lib/catalogue-import/` for every
-kind. A temporary read-only `catalogue_directory_entries` view keeps the
-pre-redesign import procedure working until Branch 04 replaces that pipeline;
-`catalogue_import_runs` hold up to ten `catalogue_import_targets`, each
-processed through the same ten stages with `catalogue_import_stages`,
-`catalogue_import_artifacts` (in the private `course-import-artifacts` bucket)
-and `catalogue_extractions` recording every model call and its cost. Kind
-adapters under `lib/catalogue-import/kinds/` own fetching, Markdown, the
-deterministic parser, the model contract and the projection to shared
-`CatalogueContent`; `process-target.ts` owns leases, retries, artefacts and
-persistence. A target whose content matches its baseline finishes `unchanged`;
-otherwise it assembles an immutable candidate version and finishes `ready` for
-review. Runs
-dispatch to Vercel Queues when `COURSEMAP_QUEUE_IMPORTS_ENABLED=true` and run
-inline after the request otherwise.
+Detailed ANU checks run through `apps/web/lib/catalogue-sync/`. A sync owns one
+record and one queue message. The worker claims it with a versioned lease,
+captures immutable source material and artefacts, runs deterministic and model
+extraction through the kind adapters, validates the projection and persists an
+immutable source version. Queue retries reuse safe completed evidence and
+cannot finish after losing a lease. Expired work is recovered up to five
+attempts. Hosted syncs use the `catalogue-sync-v1` Vercel Queue topic; local
+development processes the same sync inline after responding.
 
-Review reads `catalogue_import_changes`: one `change` row per field or section
-that differs from the baseline (with old and new values and the source
-excerpt) and one `flag` row per parser review item. Administrators accept or
-reject each change and acknowledge flags. Applying review creates and seals a
-meaningful version. The current import and source-review internals remain
-temporary until Branches 04 and 05 replace them; they do not own mutable draft
-state.
+The record keeps `latest_source_version_id` and `source_checked_at` separately
+from its draft and `published_version_id`. An unchanged check advances only the
+check time. The first source version populates an empty draft, but never
+publishes. Later source changes, or a first sync where local work already
+exists, leave local content untouched and finish `review_required`. Branch 04
+shows that state on the record; the full source comparison and merge workflow
+belongs to Branch 05.
 
 Opening Content creates or resumes the record's mutable draft. A new draft is
 initialised from the published version, or from a valid kind-specific empty
@@ -165,7 +166,7 @@ official calendar; importing calendar events does not itself reconcile them.
 ## Access model
 
 - Published catalogue rows may be readable publicly.
-- Draft catalogue and import operations require database-backed application roles.
+- Draft catalogue and source-sync operations require database-backed application roles.
 - A user can access only their own profile, plans, items and attempts.
 - Every exposed table has RLS and explicit Data API grants.
 - Privileged functions have a deliberate `search_path`, minimal execution grants and database tests.

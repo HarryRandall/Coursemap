@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-export const IMPORT_ARTIFACT_BUCKET = "course-import-artifacts";
-export const MAX_IMPORT_ARTIFACT_BYTES = 5 * 1024 * 1024;
+export const SYNC_ARTIFACT_BUCKET = "course-import-artifacts";
+export const MAX_SYNC_ARTIFACT_BYTES = 5 * 1024 * 1024;
 
-export type ImportArtifactKind =
+export type SyncArtifactKind =
   | "raw_html"
   | "normalised_markdown"
   | "model_input"
@@ -13,8 +13,7 @@ export type ImportArtifactKind =
   | "model_response"
   | "validated_json"
   | "validation_report"
-  | "database_projection"
-  | "change_set";
+  | "content_projection";
 
 const ALLOWED_MEDIA_TYPES = new Set([
   "application/json",
@@ -30,22 +29,22 @@ const EXTENSION_BY_MEDIA_TYPE: Record<string, string> = {
   "text/plain": "txt",
 };
 
-export type StoredImportArtifact = {
-  bucket: typeof IMPORT_ARTIFACT_BUCKET;
+export type StoredSyncArtifact = {
+  bucket: typeof SYNC_ARTIFACT_BUCKET;
   path: string;
   mediaType: string;
   byteSize: number;
   contentSha256: string;
 };
 
-export type ImportArtifactLocator = StoredImportArtifact;
+export type SyncArtifactLocator = StoredSyncArtifact;
 
-export class ImportArtifactConfigurationError extends Error {
+export class SyncArtifactConfigurationError extends Error {
   constructor() {
     super(
-      "Configure NEXT_PUBLIC_SUPABASE_URL and the server-only SUPABASE_SECRET_KEY before running durable imports.",
+      "Configure NEXT_PUBLIC_SUPABASE_URL and the server-only SUPABASE_SECRET_KEY before running durable catalogue syncs.",
     );
-    this.name = "ImportArtifactConfigurationError";
+    this.name = "SyncArtifactConfigurationError";
   }
 }
 
@@ -75,7 +74,7 @@ function isDuplicateStorageError(error: unknown) {
 function configuredStorageClient(env: NodeJS.ProcessEnv = process.env) {
   const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const secretKey = env.SUPABASE_SECRET_KEY?.trim();
-  if (!url || !secretKey) throw new ImportArtifactConfigurationError();
+  if (!url || !secretKey) throw new SyncArtifactConfigurationError();
   return createClient(url, secretKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -85,10 +84,9 @@ function configuredStorageClient(env: NodeJS.ProcessEnv = process.env) {
  * Stores an immutable content-addressed artefact. A duplicate upload is safe on
  * worker redelivery because the hash is part of the object path.
  */
-export async function storeImportArtifact({
+export async function storeSyncArtifact({
   academicYear,
-  runId,
-  targetId,
+  syncId,
   stage,
   kind,
   mediaType,
@@ -96,14 +94,13 @@ export async function storeImportArtifact({
   client = configuredStorageClient(),
 }: {
   academicYear: number;
-  runId: string;
-  targetId: string;
+  syncId: string;
   stage: string;
-  kind: ImportArtifactKind;
+  kind: SyncArtifactKind;
   mediaType: string;
   body: string | Uint8Array;
   client?: SupabaseClient;
-}): Promise<StoredImportArtifact> {
+}): Promise<StoredSyncArtifact> {
   if (
     !Number.isInteger(academicYear) ||
     academicYear < 2000 ||
@@ -115,27 +112,28 @@ export async function storeImportArtifact({
   }
   if (!ALLOWED_MEDIA_TYPES.has(mediaType)) {
     throw new TypeError(
-      `Unsupported course import artefact media type: ${mediaType}`,
+      `Unsupported catalogue sync artefact media type: ${mediaType}`,
     );
   }
 
   const bytes = typeof body === "string" ? Buffer.from(body, "utf8") : body;
-  if (bytes.byteLength > MAX_IMPORT_ARTIFACT_BYTES) {
-    throw new RangeError("The course import artefact exceeds the 5 MiB limit.");
+  if (bytes.byteLength > MAX_SYNC_ARTIFACT_BYTES) {
+    throw new RangeError(
+      "The catalogue sync artefact exceeds the 5 MiB limit.",
+    );
   }
 
   const contentSha256 = sha256(bytes);
   const extension = EXTENSION_BY_MEDIA_TYPE[mediaType]!;
   const path = [
     String(academicYear),
-    safePathPart(runId, "runId"),
-    safePathPart(targetId, "targetId"),
+    safePathPart(syncId, "syncId"),
     safePathPart(stage, "stage"),
     `${safePathPart(kind, "kind")}-${contentSha256}.${extension}`,
   ].join("/");
 
   const { error } = await client.storage
-    .from(IMPORT_ARTIFACT_BUCKET)
+    .from(SYNC_ARTIFACT_BUCKET)
     .upload(path, bytes, {
       cacheControl: "31536000",
       contentType: mediaType,
@@ -144,7 +142,7 @@ export async function storeImportArtifact({
   if (error && !isDuplicateStorageError(error)) throw error;
 
   return {
-    bucket: IMPORT_ARTIFACT_BUCKET,
+    bucket: SYNC_ARTIFACT_BUCKET,
     path,
     mediaType,
     byteSize: bytes.byteLength,
@@ -156,21 +154,21 @@ export async function storeImportArtifact({
  * Reads an immutable private artefact and verifies it against the database
  * metadata before a retried worker trusts the contents.
  */
-export async function readImportArtifact({
+export async function readSyncArtifact({
   artifact,
   client = configuredStorageClient(),
 }: {
-  artifact: ImportArtifactLocator;
+  artifact: SyncArtifactLocator;
   client?: SupabaseClient;
 }) {
-  if (artifact.bucket !== IMPORT_ARTIFACT_BUCKET) {
+  if (artifact.bucket !== SYNC_ARTIFACT_BUCKET) {
     throw new TypeError(
-      "The course import artefact uses an unexpected bucket.",
+      "The catalogue sync artefact uses an unexpected bucket.",
     );
   }
   if (!ALLOWED_MEDIA_TYPES.has(artifact.mediaType)) {
     throw new TypeError(
-      `Unsupported course import artefact media type: ${artifact.mediaType}`,
+      `Unsupported catalogue sync artefact media type: ${artifact.mediaType}`,
     );
   }
 
@@ -178,14 +176,14 @@ export async function readImportArtifact({
     .from(artifact.bucket)
     .download(artifact.path);
   if (error) throw error;
-  if (!data) throw new Error("The course import artefact was not downloaded.");
+  if (!data) throw new Error("The catalogue sync artefact was not downloaded.");
 
   const bytes = new Uint8Array(await data.arrayBuffer());
   if (
     bytes.byteLength !== artifact.byteSize ||
     sha256(bytes) !== artifact.contentSha256
   ) {
-    throw new Error("The course import artefact failed its integrity check.");
+    throw new Error("The catalogue sync artefact failed its integrity check.");
   }
   return Buffer.from(bytes).toString("utf8");
 }

@@ -2,7 +2,7 @@ import { UsersRound } from "lucide-react";
 import { ImportModelCard } from "@/ui/admin/imports/import-model-card";
 import { loadImportModelSetting } from "@/lib/admin/settings";
 import { loadAdminUserSummary } from "@/lib/admin/users";
-import { canManageCourseImports } from "@/lib/auth/viewer";
+import { canManageCatalogueSources } from "@/lib/auth/viewer";
 import { AppShell } from "@/ui/shell";
 import { StatTile } from "@/ui/common/stat-tile";
 
@@ -12,7 +12,7 @@ export default async function AdminOverviewPage() {
   const [users, importModel, canManageImports] = await Promise.all([
     loadAdminUserSummary(),
     loadImportModelSetting(),
-    canManageCourseImports(),
+    canManageCatalogueSources(),
   ]);
 
   return (

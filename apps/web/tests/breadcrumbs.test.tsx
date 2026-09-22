@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { Breadcrumbs } from "@/ui/shell/breadcrumbs";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/courses/imports/42",
+  usePathname: () => "/admin/courses/2026/infs1001",
 }));
 
 afterEach(() => {
@@ -62,7 +62,7 @@ test("caps long trails at three positions even when there is room", () => {
     within(trail).queryByRole("link", { name: "Courses" }),
   ).not.toBeInTheDocument();
   expect(
-    within(trail).queryByRole("link", { name: "Imports" }),
+    within(trail).queryByRole("link", { name: "2026" }),
   ).not.toBeInTheDocument();
 
   resize(220);
@@ -75,7 +75,7 @@ test("caps long trails at three positions even when there is room", () => {
     "truncate",
   );
   expect(
-    within(trail).queryByRole("link", { name: "Imports" }),
+    within(trail).queryByRole("link", { name: "2026" }),
   ).not.toBeInTheDocument();
   fireEvent.keyDown(
     within(trail).getByRole("button", { name: "Show hidden breadcrumbs" }),
@@ -85,9 +85,9 @@ test("caps long trails at three positions even when there is room", () => {
     "href",
     "/admin/courses",
   );
-  expect(screen.getByRole("menuitem", { name: "Imports" })).toHaveAttribute(
+  expect(screen.getByRole("menuitem", { name: "2026" })).toHaveAttribute(
     "href",
-    "/admin/courses/imports",
+    "/admin/courses/2026",
   );
   fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -115,7 +115,7 @@ test("keeps the base and current section when a page has a trailing tab", () => 
   expect(
     within(trail).getByRole("button", { name: "Show hidden breadcrumbs" }),
   ).toBeVisible();
-  expect(trail).not.toHaveTextContent("42");
+  expect(trail).not.toHaveTextContent("infs1001");
 });
 
 test("reveals the hidden links on mouse hover", () => {
@@ -128,13 +128,13 @@ test("reveals the hidden links on mouse hover", () => {
   Object.defineProperty(event, "pointerType", { value: "mouse" });
   fireEvent(trigger, event);
   expect(screen.getByRole("menuitem", { name: "Courses" })).toBeVisible();
-  expect(screen.getByRole("menuitem", { name: "Imports" })).toBeVisible();
+  expect(screen.getByRole("menuitem", { name: "2026" })).toBeVisible();
 });
 
 test("shows three short breadcrumbs until width requires collapsing the middle", () => {
   const resize = measureAt(600);
   render(
-    <Breadcrumbs currentLabel="INFS1001" segmentLabels={{ imports: null }} />,
+    <Breadcrumbs currentLabel="INFS1001" segmentLabels={{ "2026": null }} />,
   );
   const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(trail).getByRole("link", { name: "Courses" })).toBeVisible();

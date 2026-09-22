@@ -73,8 +73,8 @@ export async function canManageCatalogueImports() {
   return currentUserHasPermission("imports.manage");
 }
 
-/** Course-only name for the shared import-worker permission. */
-export async function canManageCourseImports() {
+/** Check the shared permission for catalogue sources and extraction models. */
+export async function canManageCatalogueSources() {
   return currentUserHasPermission("imports.manage");
 }
 

@@ -171,7 +171,7 @@ export async function createLocalDatabaseClient(options = {}) {
   const connectionString = await discoverLocalDatabaseUrl(options);
 
   const sql = postgres(connectionString, {
-    application_name: "coursemap_import_runner",
+    application_name: "coursemap_catalogue_worker",
     connect_timeout: 5,
     idle_timeout: 5,
     max: 1,
@@ -194,7 +194,7 @@ export function assertHostedSupabaseDatabaseUrl(connectionString) {
   const databaseUrl = parseDatabaseUrl(connectionString);
   if (!isHostedSupabaseDatabaseHost(databaseUrl.hostname)) {
     throw new Error(
-      "The hosted import runner only accepts a Supabase database connection URL.",
+      "The hosted catalogue worker only accepts a Supabase database connection URL.",
     );
   }
   return databaseUrl;
@@ -202,13 +202,13 @@ export function assertHostedSupabaseDatabaseUrl(connectionString) {
 
 /**
  * Create an explicitly configured hosted database client for an authenticated
- * import runner. This is intentionally separate from the local-only client so
- * routine CLI imports cannot accidentally target production.
+ * catalogue sync. This is intentionally separate from the local-only client so
+ * routine catalogue scripts cannot accidentally target production.
  */
-export function createHostedImportDatabaseClient(connectionString) {
+export function createHostedSyncDatabaseClient(connectionString) {
   const databaseUrl = assertHostedSupabaseDatabaseUrl(connectionString);
   const sql = postgres(databaseUrl.toString(), {
-    application_name: "coursemap_import_runner",
+    application_name: "coursemap_catalogue_sync",
     connect_timeout: 10,
     idle_timeout: 5,
     max: 1,
@@ -222,7 +222,7 @@ export function createHostedImportDatabaseClient(connectionString) {
 export function assertVerifiedImportDatabaseClient(sql) {
   if (!verifiedImportClients.has(sql)) {
     throw new Error(
-      "Imports require a client created by createLocalDatabaseClient() or createHostedImportDatabaseClient().",
+      "Catalogue writes require a verified local or hosted database client.",
     );
   }
 }

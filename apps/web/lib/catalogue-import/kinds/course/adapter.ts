@@ -1,4 +1,4 @@
-import type { CatalogueKindAdapter } from "../../kind-adapter.ts";
+import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { courseCatalogueContent } from "../../../catalogue/content.ts";
 import {
   COURSE_EXTRACTION_JSON_SCHEMA,
@@ -25,7 +25,7 @@ import {
 } from "./prompt.ts";
 import { fetchAnuCoursePage } from "./source.ts";
 
-export const courseKindAdapter: CatalogueKindAdapter<CourseExtraction> = {
+export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
   kinds: ["course"],
   parserVersion: COURSE_IMPORT_PARSER_VERSION,
   promptVersion: COURSE_IMPORT_PROMPT_VERSION,

@@ -69,7 +69,7 @@ function isOpaqueId(segment: string) {
 
 /**
  * Only course codes are shouted. Upper-casing every unmapped segment turned
- * ordinary path parts into headlines -- /admin/courses/imports read as
+ * ordinary path parts into headlines, so /admin/courses/2026 reads as
  * "IMPORTS".
  */
 function fallbackLabel(segment: string) {

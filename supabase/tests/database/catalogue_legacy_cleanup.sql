@@ -29,18 +29,16 @@ select extensions.hasnt_table(
   'the legacy catalogue year registry is absent'
 );
 
-select extensions.hasnt_table(
+select extensions.has_table(
   'public',
   'catalogue_source_documents',
-  'the legacy catalogue source document table is absent'
+  'record syncs use the new immutable source document table'
 );
 
--- The shared pipeline reuses the catalogue_import_runs name; the legacy
--- table is recognisable by its per-item child, which stays gone.
 select extensions.hasnt_table(
   'public',
-  'catalogue_import_items',
-  'the legacy generic import item table is absent'
+  'catalogue_import_runs',
+  'the retired batch run table is absent'
 );
 
 select extensions.hasnt_table(

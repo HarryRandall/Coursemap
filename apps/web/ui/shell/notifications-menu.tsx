@@ -9,7 +9,6 @@ import {
   CalendarDays,
   CheckCheck,
   Inbox,
-  PackageCheck,
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -41,7 +40,6 @@ import { cn } from "@/lib/cn";
  * itself, rather than dropping out of the inbox.
  */
 const kindIcons: Record<string, LucideIcon> = {
-  import_run: PackageCheck,
   key_date: CalendarDays,
   plan_risk: TriangleAlert,
   published_change: BookOpen,
@@ -325,7 +323,7 @@ export function NotificationsMenu() {
               </EmptyMedia>
               <EmptyTitle>You are all caught up</EmptyTitle>
               <EmptyDescription>
-                Finished imports and changes to your plan arrive here.
+                Catalogue updates and changes to your plan arrive here.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

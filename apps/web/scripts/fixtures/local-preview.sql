@@ -284,14 +284,12 @@ cross join (values
 where sources.kind = 'local_mock'
 on conflict (source_id, academic_year_id, kind, external_key, content_sha256) do nothing;
 
--- One snapshot per item year. Course snapshots carry their source page; the
--- structure fixtures are manual.
+-- One manual version per annual record for the local preview.
 insert into public.catalogue_versions (
   record_id,
   kind,
   academic_year_id,
   origin,
-  source_page_id,
   content_hash,
   created_by
 )
@@ -299,16 +297,12 @@ select
   item_years.id,
   item_years.kind,
   item_years.academic_year_id,
-  case when item_years.kind = 'course' then 'import' else 'manual' end,
-  pages.id,
+  'manual',
   md5(items.code || ':2026:local-preview') || md5('published:' || items.code),
   '90000000-0000-4000-8000-000000000001'::uuid
 from public.catalogue_records as item_years
 join public.catalogue_codes as items on items.id = item_years.code_id
-left join public.catalogue_source_pages as pages
-  on pages.academic_year_id = item_years.academic_year_id
- and pages.kind = 'course'
- and pages.external_key = items.code;
+;
 
 insert into public.structure_version_details (
   version_id,
@@ -562,7 +556,7 @@ insert into public.course_offerings (
 select
   snapshots.id,
   snapshots.academic_year_id,
-  snapshots.source_page_id,
+  null,
   'In person',
   'Acton'
 from public.catalogue_versions as snapshots
@@ -591,7 +585,7 @@ select
   offerings.id,
   snapshots.id,
   snapshots.academic_year_id,
-  snapshots.source_page_id,
+  null,
   periods.id,
   'S1',
   'Semester 1',
@@ -666,7 +660,7 @@ insert into public.catalogue_version_provenance (
 select
   snapshots.id,
   snapshots.academic_year_id,
-  snapshots.source_page_id,
+  null,
   'title',
   'deterministic',
   0.99,
@@ -682,7 +676,7 @@ insert into public.requirement_rules (
 select
   snapshots.id,
   snapshots.academic_year_id,
-  snapshots.source_page_id,
+  null,
   'prerequisite',
   'hard',
   'You must have completed MATH1005.',

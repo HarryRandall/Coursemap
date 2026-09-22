@@ -1,41 +1,30 @@
 import "server-only";
-import { withImportDatabaseClient } from "@/lib/catalogue-import/import-store";
 import { readVersionContent } from "@/lib/catalogue-import/version-content";
+import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import type { CatalogueContent } from "@/lib/catalogue/content";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 import type { CatalogueKind } from "./catalogue-kinds";
 import { courseFromSnapshotProjection } from "./published-courses";
 
-export type ReviewEntry = {
-  id: number;
-  entryKind: "change" | "flag";
-  fieldPath: string;
-  oldValue: unknown;
-  newValue: unknown;
-  severity: "warning" | "error" | null;
-  isBlocking: boolean;
-  issueCode: string | null;
-  summary: string | null;
-  sourceLocator: string | null;
-  sourceExcerpt: string | null;
-  status: "open" | "accepted" | "rejected" | "acknowledged";
-  resolutionNote: string | null;
-  resolvedAt: string | null;
-};
-
-export type ReviewTarget = {
+export type CatalogueSync = {
   id: string;
-  runId: string;
-  runNumber: number;
-  status: string;
-  changeKind: string | null;
-  createdAt: string;
+  status:
+    | "queued"
+    | "running"
+    | "unchanged"
+    | "review_required"
+    | "applied"
+    | "failed"
+    | "cancelled";
+  trigger: "manual" | "scheduled";
+  requestedAt: string;
+  checkedAt: string | null;
   completedAt: string | null;
-  appliedAt: string | null;
-  baselineVersionId: number | null;
-  candidateVersionId: number | null;
-  entries: ReviewEntry[];
+  previousSourceVersionId: number | null;
+  sourceVersionId: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
 };
 
 export type CatalogueVersion = {
@@ -45,7 +34,7 @@ export type CatalogueVersion = {
   createdAt: string;
   sealedAt: string | null;
   basedOnVersionId: number | null;
-  importTargetId: string | null;
+  syncId: string | null;
   contentHash: string;
 };
 
@@ -59,6 +48,8 @@ export type CatalogueRecord = {
   title: string;
   currentVersionId: number | null;
   publishedVersionId: number | null;
+  latestSourceVersionId: number | null;
+  sourceCheckedAt: string | null;
   archivedAt: string | null;
   isListedByAnu: boolean | null;
   listingTitle: string | null;
@@ -74,13 +65,22 @@ export type CatalogueRecord = {
   }>;
   changeEvents: Array<{
     id: number;
-    eventKind: "edit" | "publish" | "unpublish" | "discard" | "restore";
+    eventKind:
+      | "edit"
+      | "publish"
+      | "unpublish"
+      | "discard"
+      | "restore"
+      | "source_draft_created"
+      | "source_checked"
+      | "source_changed"
+      | "sync_failed";
     draftRevision: number | null;
     editingSessionId: string | null;
     versionId: number | null;
     createdAt: string;
   }>;
-  reviews: ReviewTarget[];
+  syncs: CatalogueSync[];
 };
 
 async function versionTitle(
@@ -105,7 +105,7 @@ async function versionTitle(
   return data?.name ?? null;
 }
 
-/** Everything the record page needs: pointers, history and every import review. */
+/** Everything the record page needs: local content and independent ANU sync state. */
 export async function loadCatalogueRecord({
   kind,
   code,
@@ -119,7 +119,7 @@ export async function loadCatalogueRecord({
   const { data: itemYear, error } = await supabase
     .from("catalogue_records")
     .select(
-      "id,public_id,code_id,published_version_id,archived_at,catalogue_codes!inner(code,kind),academic_years!inner(year)",
+      "id,public_id,code_id,published_version_id,latest_source_version_id,source_checked_at,archived_at,catalogue_codes!inner(code,kind),academic_years!inner(year)",
     )
     .eq("kind", kind)
     .eq("catalogue_codes.code", code.toUpperCase())
@@ -131,7 +131,7 @@ export async function loadCatalogueRecord({
   const [
     versionsResult,
     publicationsResult,
-    targetsResult,
+    syncsResult,
     blockersResult,
     listingResult,
     changeEventsResult,
@@ -139,7 +139,7 @@ export async function loadCatalogueRecord({
     supabase
       .from("catalogue_versions")
       .select(
-        "id,public_id,origin,created_at,sealed_at,based_on_version_id,import_target_id,content_hash",
+        "id,public_id,origin,created_at,sealed_at,based_on_version_id,sync_id,content_hash",
       )
       .eq("record_id", itemYear.id)
       .order("created_at", { ascending: false }),
@@ -151,9 +151,9 @@ export async function loadCatalogueRecord({
       .eq("record_id", itemYear.id)
       .order("published_at", { ascending: false }),
     supabase
-      .from("catalogue_import_targets")
+      .from("catalogue_syncs")
       .select(
-        "id,run_id,status,change_kind,created_at,completed_at,applied_at,applied_version_id,baseline_version_id,candidate_version_id,catalogue_import_runs!inner(run_number)",
+        "id,status,trigger,requested_at,checked_at,completed_at,previous_source_version_id,source_version_id,error_code,error_message",
       )
       .eq("record_id", itemYear.id)
       .order("created_at", { ascending: false }),
@@ -173,56 +173,13 @@ export async function loadCatalogueRecord({
   ]);
   if (versionsResult.error) throw versionsResult.error;
   if (publicationsResult.error) throw publicationsResult.error;
-  if (targetsResult.error) throw targetsResult.error;
+  if (syncsResult.error) throw syncsResult.error;
   if (blockersResult.error) throw blockersResult.error;
   if (listingResult.error) throw listingResult.error;
   if (changeEventsResult.error) throw changeEventsResult.error;
 
-  const appliedVersionIds = new Set(
-    (targetsResult.data ?? []).flatMap((target) =>
-      target.applied_version_id === null ? [] : [target.applied_version_id],
-    ),
-  );
-  const currentVersionId =
-    (versionsResult.data ?? []).find(
-      (version) =>
-        version.sealed_at !== null &&
-        (version.id === itemYear.published_version_id ||
-          (version.import_target_id !== null &&
-            appliedVersionIds.has(version.id))),
-    )?.id ?? null;
+  const currentVersionId = itemYear.published_version_id;
   const title = await versionTitle(supabase, kind, currentVersionId);
-
-  const targetIds = (targetsResult.data ?? []).map((target) => target.id);
-  const { data: entries, error: entriesError } = targetIds.length
-    ? await supabase
-        .from("catalogue_import_changes")
-        .select("*")
-        .in("target_id", targetIds)
-        .order("position")
-    : { data: [], error: null };
-  if (entriesError) throw entriesError;
-  const entriesByTarget = new Map<string, ReviewEntry[]>();
-  for (const entry of entries ?? []) {
-    const list = entriesByTarget.get(entry.target_id) ?? [];
-    list.push({
-      id: entry.id,
-      entryKind: entry.entry_kind as ReviewEntry["entryKind"],
-      fieldPath: entry.field_path,
-      oldValue: entry.old_value,
-      newValue: entry.new_value,
-      severity: entry.severity as ReviewEntry["severity"],
-      isBlocking: entry.is_blocking,
-      issueCode: entry.issue_code,
-      summary: entry.summary,
-      sourceLocator: entry.source_locator,
-      sourceExcerpt: entry.source_excerpt,
-      status: entry.status as ReviewEntry["status"],
-      resolutionNote: entry.resolution_note,
-      resolvedAt: entry.resolved_at,
-    });
-    entriesByTarget.set(entry.target_id, list);
-  }
 
   return {
     kind,
@@ -234,6 +191,8 @@ export async function loadCatalogueRecord({
     title: title ?? listingResult.data?.title ?? itemYear.catalogue_codes.code,
     currentVersionId,
     publishedVersionId: itemYear.published_version_id,
+    latestSourceVersionId: itemYear.latest_source_version_id,
+    sourceCheckedAt: itemYear.source_checked_at,
     archivedAt: itemYear.archived_at,
     isListedByAnu: listingResult.data?.is_current ?? null,
     listingTitle: listingResult.data?.title ?? null,
@@ -246,7 +205,7 @@ export async function loadCatalogueRecord({
       createdAt: version.created_at,
       sealedAt: version.sealed_at,
       basedOnVersionId: version.based_on_version_id,
-      importTargetId: version.import_target_id,
+      syncId: version.sync_id,
       contentHash: version.content_hash,
     })),
     publications: (publicationsResult.data ?? []).map((publication) => ({
@@ -265,39 +224,38 @@ export async function loadCatalogueRecord({
       versionId: event.version_id,
       createdAt: event.created_at,
     })),
-    reviews: (targetsResult.data ?? []).map((target) => ({
-      id: target.id,
-      runId: target.run_id,
-      runNumber: target.catalogue_import_runs.run_number,
-      status: target.status,
-      changeKind: target.change_kind,
-      createdAt: target.created_at,
-      completedAt: target.completed_at,
-      appliedAt: target.applied_at,
-      baselineVersionId: target.baseline_version_id,
-      candidateVersionId: target.candidate_version_id,
-      entries: entriesByTarget.get(target.id) ?? [],
+    syncs: (syncsResult.data ?? []).map((sync) => ({
+      id: sync.id,
+      status: sync.status as CatalogueSync["status"],
+      trigger: sync.trigger as CatalogueSync["trigger"],
+      requestedAt: sync.requested_at,
+      checkedAt: sync.checked_at,
+      completedAt: sync.completed_at,
+      previousSourceVersionId: sync.previous_source_version_id,
+      sourceVersionId: sync.source_version_id,
+      errorCode: sync.error_code,
+      errorMessage: sync.error_message,
     })),
   };
 }
 
-/** The editable content of a snapshot, read through the import connection. */
-export async function loadSnapshotWrite(
-  snapshotId: number,
+/** The editable content of an immutable catalogue version. */
+export async function loadVersionWrite(
+  versionId: number,
 ): Promise<CatalogueContent | null> {
-  return withImportDatabaseClient((sql) => readVersionContent(sql, snapshotId));
+  return withSyncDatabaseClient((sql) => readVersionContent(sql, versionId));
 }
 
-/** The student-facing course details for a snapshot, or null for structures. */
-export async function loadSnapshotCoursePreview(snapshotId: number) {
+/** The student-facing course details for a version, or null for structures. */
+export async function loadVersionCoursePreview(versionId: number) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc(
     "admin_catalogue_version_projection",
     {
-      p_version_id: snapshotId,
+      p_version_id: versionId,
     },
   );
   if (error) throw error;
   if (data === null) return null;
-  return courseFromSnapshotProjection(data as Json, snapshotId);
+  return courseFromSnapshotProjection(data as Json, versionId);
 }

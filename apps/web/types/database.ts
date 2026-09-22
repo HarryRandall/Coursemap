@@ -1157,7 +1157,7 @@ export type Database = {
           schema_valid: boolean | null
           schema_version: string
           started_at: string
-          target_id: string
+          sync_id: string
           validated_artifact_id: string | null
           validation_status: string
           warning_count: number
@@ -1188,7 +1188,7 @@ export type Database = {
           schema_valid?: boolean | null
           schema_version: string
           started_at?: string
-          target_id: string
+          sync_id: string
           validated_artifact_id?: string | null
           validation_status?: string
           warning_count?: number
@@ -1219,45 +1219,45 @@ export type Database = {
           schema_valid?: boolean | null
           schema_version?: string
           started_at?: string
-          target_id?: string
+          sync_id?: string
           validated_artifact_id?: string | null
           validation_status?: string
           warning_count?: number
         }
         Relationships: [
           {
-            foreignKeyName: "catalogue_extractions_request_artifact_fkey"
+            foreignKeyName: "catalogue_extractions_request_artifact_id_fkey"
             columns: ["request_artifact_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_import_artifacts"
+            referencedRelation: "catalogue_sync_artifacts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_extractions_response_artifact_fkey"
+            foreignKeyName: "catalogue_extractions_response_artifact_id_fkey"
             columns: ["response_artifact_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_import_artifacts"
+            referencedRelation: "catalogue_sync_artifacts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_extractions_reused_fkey"
+            foreignKeyName: "catalogue_extractions_reused_from_extraction_id_fkey"
             columns: ["reused_from_extraction_id"]
             isOneToOne: false
             referencedRelation: "catalogue_extractions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_extractions_target_fkey"
-            columns: ["target_id"]
+            foreignKeyName: "catalogue_extractions_sync_id_fkey"
+            columns: ["sync_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
+            referencedRelation: "catalogue_syncs"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "catalogue_extractions_validated_artifact_fkey"
+            foreignKeyName: "catalogue_extractions_validated_artifact_id_fkey"
             columns: ["validated_artifact_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_import_artifacts"
+            referencedRelation: "catalogue_sync_artifacts"
             referencedColumns: ["id"]
           },
         ]
@@ -1291,417 +1291,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_change_events"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      catalogue_import_artifacts: {
-        Row: {
-          attempt_number: number
-          byte_size: number
-          content_sha256: string
-          created_at: string
-          id: string
-          kind: string
-          media_type: string
-          stage_id: string
-          storage_bucket: string
-          storage_path: string
-          target_id: string
-        }
-        Insert: {
-          attempt_number: number
-          byte_size: number
-          content_sha256: string
-          created_at?: string
-          id?: string
-          kind: string
-          media_type: string
-          stage_id: string
-          storage_bucket: string
-          storage_path: string
-          target_id: string
-        }
-        Update: {
-          attempt_number?: number
-          byte_size?: number
-          content_sha256?: string
-          created_at?: string
-          id?: string
-          kind?: string
-          media_type?: string
-          stage_id?: string
-          storage_bucket?: string
-          storage_path?: string
-          target_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_artifacts_stage_fkey"
-            columns: ["stage_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_stages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_artifacts_target_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      catalogue_import_changes: {
-        Row: {
-          created_at: string
-          entry_kind: string
-          field_path: string
-          id: number
-          is_blocking: boolean
-          issue_code: string | null
-          new_value: Json | null
-          old_value: Json | null
-          position: number
-          resolution_note: string | null
-          resolved_at: string | null
-          resolved_by: string | null
-          severity: string | null
-          source_excerpt: string | null
-          source_locator: string | null
-          status: string
-          summary: string | null
-          target_id: string
-        }
-        Insert: {
-          created_at?: string
-          entry_kind: string
-          field_path: string
-          id?: never
-          is_blocking?: boolean
-          issue_code?: string | null
-          new_value?: Json | null
-          old_value?: Json | null
-          position?: number
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          severity?: string | null
-          source_excerpt?: string | null
-          source_locator?: string | null
-          status?: string
-          summary?: string | null
-          target_id: string
-        }
-        Update: {
-          created_at?: string
-          entry_kind?: string
-          field_path?: string
-          id?: never
-          is_blocking?: boolean
-          issue_code?: string | null
-          new_value?: Json | null
-          old_value?: Json | null
-          position?: number
-          resolution_note?: string | null
-          resolved_at?: string | null
-          resolved_by?: string | null
-          severity?: string | null
-          source_excerpt?: string | null
-          source_locator?: string | null
-          status?: string
-          summary?: string | null
-          target_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_changes_target_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      catalogue_import_runs: {
-        Row: {
-          academic_year_id: number
-          completed_at: string | null
-          completed_count: number
-          cost_usd: number
-          created_at: string
-          failed_count: number
-          id: string
-          input_tokens: number
-          kind: string
-          output_tokens: number
-          parser_version: string
-          prompt_version: string
-          requested_by: string | null
-          requested_model: string
-          run_number: number
-          schema_version: string
-          started_at: string | null
-          status: string
-          target_count: number
-        }
-        Insert: {
-          academic_year_id: number
-          completed_at?: string | null
-          completed_count?: number
-          cost_usd?: number
-          created_at?: string
-          failed_count?: number
-          id?: string
-          input_tokens?: number
-          kind: string
-          output_tokens?: number
-          parser_version: string
-          prompt_version: string
-          requested_by?: string | null
-          requested_model: string
-          run_number?: never
-          schema_version: string
-          started_at?: string | null
-          status?: string
-          target_count?: number
-        }
-        Update: {
-          academic_year_id?: number
-          completed_at?: string | null
-          completed_count?: number
-          cost_usd?: number
-          created_at?: string
-          failed_count?: number
-          id?: string
-          input_tokens?: number
-          kind?: string
-          output_tokens?: number
-          parser_version?: string
-          prompt_version?: string
-          requested_by?: string | null
-          requested_model?: string
-          run_number?: never
-          schema_version?: string
-          started_at?: string | null
-          status?: string
-          target_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_runs_academic_year_fkey"
-            columns: ["academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "academic_years"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_runs_model_fkey"
-            columns: ["requested_model"]
-            isOneToOne: false
-            referencedRelation: "import_models"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      catalogue_import_stages: {
-        Row: {
-          attempt_number: number
-          completed_at: string | null
-          error_code: string | null
-          error_summary: string | null
-          id: string
-          stage_name: string
-          started_at: string
-          status: string
-          target_id: string
-        }
-        Insert: {
-          attempt_number: number
-          completed_at?: string | null
-          error_code?: string | null
-          error_summary?: string | null
-          id?: string
-          stage_name: string
-          started_at?: string
-          status?: string
-          target_id: string
-        }
-        Update: {
-          attempt_number?: number
-          completed_at?: string | null
-          error_code?: string | null
-          error_summary?: string | null
-          id?: string
-          stage_name?: string
-          started_at?: string
-          status?: string
-          target_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_stages_target_fkey"
-            columns: ["target_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      catalogue_import_targets: {
-        Row: {
-          academic_year_id: number
-          applied_at: string | null
-          applied_version_id: number | null
-          attempt_count: number
-          baseline_version_id: number | null
-          candidate_version_id: number | null
-          change_kind: string | null
-          code: string
-          code_id: number
-          completed_at: string | null
-          created_at: string
-          directory_entry_id: number | null
-          dispatched_at: string | null
-          error_code: string | null
-          error_message: string | null
-          id: string
-          kind: string
-          lease_expires_at: string | null
-          lock_version: number
-          queue_message_id: string | null
-          record_id: number
-          run_id: string
-          source_page_id: number | null
-          status: string
-          updated_at: string
-          worker_id: string | null
-        }
-        Insert: {
-          academic_year_id: number
-          applied_at?: string | null
-          applied_version_id?: number | null
-          attempt_count?: number
-          baseline_version_id?: number | null
-          candidate_version_id?: number | null
-          change_kind?: string | null
-          code: string
-          code_id: number
-          completed_at?: string | null
-          created_at?: string
-          directory_entry_id?: number | null
-          dispatched_at?: string | null
-          error_code?: string | null
-          error_message?: string | null
-          id?: string
-          kind: string
-          lease_expires_at?: string | null
-          lock_version?: number
-          queue_message_id?: string | null
-          record_id: number
-          run_id: string
-          source_page_id?: number | null
-          status?: string
-          updated_at?: string
-          worker_id?: string | null
-        }
-        Update: {
-          academic_year_id?: number
-          applied_at?: string | null
-          applied_version_id?: number | null
-          attempt_count?: number
-          baseline_version_id?: number | null
-          candidate_version_id?: number | null
-          change_kind?: string | null
-          code?: string
-          code_id?: number
-          completed_at?: string | null
-          created_at?: string
-          directory_entry_id?: number | null
-          dispatched_at?: string | null
-          error_code?: string | null
-          error_message?: string | null
-          id?: string
-          kind?: string
-          lease_expires_at?: string | null
-          lock_version?: number
-          queue_message_id?: string | null
-          record_id?: number
-          run_id?: string
-          source_page_id?: number | null
-          status?: string
-          updated_at?: string
-          worker_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "catalogue_import_targets_applied_fkey"
-            columns: ["applied_version_id", "record_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_versions"
-            referencedColumns: ["id", "record_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_baseline_fkey"
-            columns: ["baseline_version_id", "record_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_versions"
-            referencedColumns: ["id", "record_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_candidate_fkey"
-            columns: ["candidate_version_id", "record_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_versions"
-            referencedColumns: ["id", "record_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_directory_entry_fkey"
-            columns: ["directory_entry_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_directory_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_directory_entry_fkey"
-            columns: ["directory_entry_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_listings"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_item_fkey"
-            columns: ["code_id", "kind"]
-            isOneToOne: false
-            referencedRelation: "catalogue_codes"
-            referencedColumns: ["id", "kind"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_item_year_fkey"
-            columns: ["record_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_records"
-            referencedColumns: ["id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_item_year_fkey"
-            columns: ["record_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "published_course_summaries"
-            referencedColumns: ["record_id", "academic_year_id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_run_fkey"
-            columns: ["run_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_runs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "catalogue_import_targets_source_page_fkey"
-            columns: ["source_page_id", "academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_source_pages"
-            referencedColumns: ["id", "academic_year_id"]
           },
         ]
       }
@@ -1846,8 +1435,10 @@ export type Database = {
           created_at: string
           id: number
           kind: string
+          latest_source_version_id: number | null
           public_id: string
           published_version_id: number | null
+          source_checked_at: string | null
           updated_at: string
         }
         Insert: {
@@ -1857,8 +1448,10 @@ export type Database = {
           created_at?: string
           id?: never
           kind: string
+          latest_source_version_id?: number | null
           public_id?: string
           published_version_id?: number | null
+          source_checked_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -1868,8 +1461,10 @@ export type Database = {
           created_at?: string
           id?: never
           kind?: string
+          latest_source_version_id?: number | null
           public_id?: string
           published_version_id?: number | null
+          source_checked_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1888,11 +1483,131 @@ export type Database = {
             referencedColumns: ["id", "kind"]
           },
           {
+            foreignKeyName: "catalogue_records_latest_source_version_fkey"
+            columns: ["latest_source_version_id", "id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
             foreignKeyName: "catalogue_records_published_version_fkey"
             columns: ["published_version_id", "id"]
             isOneToOne: false
             referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
+      catalogue_source_documents: {
+        Row: {
+          academic_year_id: number
+          byte_size: number | null
+          canonical_url: string
+          content_sha256: string
+          created_at: string
+          external_key: string
+          fetched_at: string
+          http_etag: string | null
+          http_status: number | null
+          id: number
+          kind: string
+          media_type: string
+          public_id: string
+          record_id: number
+          source_id: number
+          source_last_modified: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          academic_year_id: number
+          byte_size?: number | null
+          canonical_url: string
+          content_sha256: string
+          created_at?: string
+          external_key: string
+          fetched_at: string
+          http_etag?: string | null
+          http_status?: number | null
+          id?: never
+          kind: string
+          media_type?: string
+          public_id?: string
+          record_id: number
+          source_id: number
+          source_last_modified?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          academic_year_id?: number
+          byte_size?: number | null
+          canonical_url?: string
+          content_sha256?: string
+          created_at?: string
+          external_key?: string
+          fetched_at?: string
+          http_etag?: string | null
+          http_status?: number | null
+          id?: never
+          kind?: string
+          media_type?: string
+          public_id?: string
+          record_id?: number
+          source_id?: number
+          source_last_modified?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_source_documents_academic_year_id_fkey"
+            columns: ["academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_record_kind_fkey"
+            columns: ["record_id", "kind"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "kind"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_record_year_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_record_year_fkey"
+            columns: ["record_id", "academic_year_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_source_documents_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_sources"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1998,6 +1713,240 @@ export type Database = {
         }
         Relationships: []
       }
+      catalogue_sync_artifacts: {
+        Row: {
+          attempt_number: number
+          byte_size: number
+          content_sha256: string
+          created_at: string
+          id: string
+          kind: string
+          media_type: string
+          stage_id: string
+          storage_bucket: string
+          storage_path: string
+          sync_id: string
+        }
+        Insert: {
+          attempt_number: number
+          byte_size: number
+          content_sha256: string
+          created_at?: string
+          id?: string
+          kind: string
+          media_type: string
+          stage_id: string
+          storage_bucket: string
+          storage_path: string
+          sync_id: string
+        }
+        Update: {
+          attempt_number?: number
+          byte_size?: number
+          content_sha256?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          media_type?: string
+          stage_id?: string
+          storage_bucket?: string
+          storage_path?: string
+          sync_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_sync_artifacts_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_sync_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_sync_artifacts_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogue_sync_stages: {
+        Row: {
+          attempt_number: number
+          completed_at: string | null
+          error_code: string | null
+          error_summary: string | null
+          id: string
+          stage_name: string
+          started_at: string
+          status: string
+          sync_id: string
+        }
+        Insert: {
+          attempt_number: number
+          completed_at?: string | null
+          error_code?: string | null
+          error_summary?: string | null
+          id?: string
+          stage_name: string
+          started_at?: string
+          status?: string
+          sync_id: string
+        }
+        Update: {
+          attempt_number?: number
+          completed_at?: string | null
+          error_code?: string | null
+          error_summary?: string | null
+          id?: string
+          stage_name?: string
+          started_at?: string
+          status?: string
+          sync_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_sync_stages_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogue_syncs: {
+        Row: {
+          attempt_count: number
+          checked_at: string | null
+          completed_at: string | null
+          created_at: string
+          dispatched_at: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          lease_expires_at: string | null
+          lock_version: number
+          parser_version: string
+          previous_source_version_id: number | null
+          prompt_version: string
+          public_id: string
+          queue_message_id: string | null
+          record_id: number
+          requested_at: string
+          requested_by: string | null
+          requested_model: string
+          schema_version: string
+          source_document_id: number | null
+          source_version_id: number | null
+          started_at: string | null
+          status: string
+          trigger: string
+          updated_at: string
+          worker_id: string | null
+        }
+        Insert: {
+          attempt_count?: number
+          checked_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          dispatched_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          lease_expires_at?: string | null
+          lock_version?: number
+          parser_version: string
+          previous_source_version_id?: number | null
+          prompt_version: string
+          public_id?: string
+          queue_message_id?: string | null
+          record_id: number
+          requested_at?: string
+          requested_by?: string | null
+          requested_model: string
+          schema_version: string
+          source_document_id?: number | null
+          source_version_id?: number | null
+          started_at?: string | null
+          status?: string
+          trigger: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Update: {
+          attempt_count?: number
+          checked_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          dispatched_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          lease_expires_at?: string | null
+          lock_version?: number
+          parser_version?: string
+          previous_source_version_id?: number | null
+          prompt_version?: string
+          public_id?: string
+          queue_message_id?: string | null
+          record_id?: number
+          requested_at?: string
+          requested_by?: string | null
+          requested_model?: string
+          schema_version?: string
+          source_document_id?: number | null
+          source_version_id?: number | null
+          started_at?: string | null
+          status?: string
+          trigger?: string
+          updated_at?: string
+          worker_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_syncs_previous_source_version_fkey"
+            columns: ["previous_source_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_syncs_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_syncs_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_syncs_requested_model_fkey"
+            columns: ["requested_model"]
+            isOneToOne: false
+            referencedRelation: "import_models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_syncs_source_document_fkey"
+            columns: ["source_document_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_documents"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_syncs_source_version_fkey"
+            columns: ["source_version_id", "record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id", "record_id"]
+          },
+        ]
+      }
       catalogue_version_provenance: {
         Row: {
           academic_year_id: number
@@ -2006,6 +1955,7 @@ export type Database = {
           field_path: string
           id: number
           method: string
+          source_document_id: number | null
           source_excerpt: string | null
           source_locator: string | null
           source_page_id: number | null
@@ -2018,6 +1968,7 @@ export type Database = {
           field_path: string
           id?: never
           method: string
+          source_document_id?: number | null
           source_excerpt?: string | null
           source_locator?: string | null
           source_page_id?: number | null
@@ -2030,6 +1981,7 @@ export type Database = {
           field_path?: string
           id?: never
           method?: string
+          source_document_id?: number | null
           source_excerpt?: string | null
           source_locator?: string | null
           source_page_id?: number | null
@@ -2042,6 +1994,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "academic_year_id"]
+          },
+          {
+            foreignKeyName: "catalogue_version_provenance_source_document_id_fkey"
+            columns: ["source_document_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_source_documents"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "catalogue_version_provenance_source_page_fkey"
@@ -2060,13 +2019,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: number
-          import_target_id: string | null
           kind: string
           origin: string
           public_id: string
           record_id: number
           sealed_at: string | null
-          source_page_id: number | null
+          source_document_id: number | null
+          sync_id: string | null
         }
         Insert: {
           academic_year_id: number
@@ -2075,13 +2034,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: never
-          import_target_id?: string | null
           kind: string
           origin: string
           public_id?: string
           record_id: number
           sealed_at?: string | null
-          source_page_id?: number | null
+          source_document_id?: number | null
+          sync_id?: string | null
         }
         Update: {
           academic_year_id?: number
@@ -2090,13 +2049,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: never
-          import_target_id?: string | null
           kind?: string
           origin?: string
           public_id?: string
           record_id?: number
           sealed_at?: string | null
-          source_page_id?: number | null
+          source_document_id?: number | null
+          sync_id?: string | null
         }
         Relationships: [
           {
@@ -2105,13 +2064,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "catalogue_versions"
             referencedColumns: ["id", "record_id"]
-          },
-          {
-            foreignKeyName: "catalogue_versions_import_target_fkey"
-            columns: ["import_target_id"]
-            isOneToOne: false
-            referencedRelation: "catalogue_import_targets"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "catalogue_versions_item_year_fkey"
@@ -2135,11 +2087,18 @@ export type Database = {
             referencedColumns: ["id", "kind"]
           },
           {
-            foreignKeyName: "catalogue_versions_source_page_fkey"
-            columns: ["source_page_id", "academic_year_id"]
+            foreignKeyName: "catalogue_versions_source_document_fkey"
+            columns: ["source_document_id", "record_id"]
             isOneToOne: false
-            referencedRelation: "catalogue_source_pages"
-            referencedColumns: ["id", "academic_year_id"]
+            referencedRelation: "catalogue_source_documents"
+            referencedColumns: ["id", "record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_versions_sync_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3960,7 +3919,7 @@ export type Database = {
         Args: { p_version_id: number }
         Returns: Json
       }
-      cancel_catalogue_import: { Args: { p_run_id: string }; Returns: number }
+      cancel_catalogue_sync: { Args: { p_sync_id: string }; Returns: boolean }
       catalogue_publish_blockers: {
         Args: { p_record_id: number }
         Returns: string[]
@@ -3976,10 +3935,6 @@ export type Database = {
         Args: { required_permission: string }
         Returns: boolean
       }
-      delete_catalogue_item: {
-        Args: { p_code: string; p_kind: string }
-        Returns: undefined
-      }
       mark_notifications_read: {
         Args: { p_notification_ids?: string[] }
         Returns: number
@@ -3992,10 +3947,6 @@ export type Database = {
           p_planned_period_code?: string
         }
         Returns: undefined
-      }
-      publish_catalogue_version: {
-        Args: { p_record_id: number }
-        Returns: number
       }
       published_course_availability: {
         Args: { p_academic_year: number; p_course_code: string }
@@ -4042,18 +3993,9 @@ export type Database = {
         }
         Returns: string
       }
-      recover_catalogue_import_targets: { Args: never; Returns: number }
-      release_catalogue_import_target: {
-        Args: { p_target_id: string }
-        Returns: undefined
-      }
       remove_current_user_plan_item: {
         Args: { p_plan_item_id: string }
         Returns: boolean
-      }
-      resolve_catalogue_import_change: {
-        Args: { p_change_id: number; p_note?: string; p_status: string }
-        Returns: undefined
       }
       save_current_user_academic_result: {
         Args: {
@@ -4091,17 +4033,16 @@ export type Database = {
         Args: { p_role_key: string; p_user_id: string }
         Returns: string
       }
-      start_catalogue_import: {
+      start_catalogue_sync: {
         Args: {
-          p_academic_year: number
-          p_codes: string[]
-          p_kind: string
           p_parser_version: string
           p_prompt_version: string
+          p_record_id: number
           p_requested_model: string
           p_schema_version: string
+          p_trigger: string
         }
-        Returns: Json
+        Returns: string
       }
       unpublish_catalogue_record: {
         Args: { p_record_id: number }

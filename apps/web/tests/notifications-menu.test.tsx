@@ -12,10 +12,10 @@ vi.mock("@/lib/coursemap/notifications", () => inbox);
 function notification(overrides: Record<string, unknown> = {}) {
   return {
     id: "run-1",
-    kind: "import_run",
-    title: "Import run #7 completed",
-    body: "3 records ready to review.",
-    href: "/admin/courses/imports?run=7",
+    kind: "published_change",
+    title: "ANU changes are ready to review",
+    body: "COMP1000 has a newer ANU source version.",
+    href: "/admin/courses/2026/comp1000?tab=changes",
     readAt: null,
     createdAt: new Date().toISOString(),
     ...overrides,
@@ -69,7 +69,7 @@ test("the bell counts unread rows and opening does not mark them read", async ()
   await user.click(bell);
 
   expect(
-    await screen.findByText("Import run #7 completed"),
+    await screen.findByText("ANU changes are ready to review"),
   ).toBeInTheDocument();
   expect(
     screen.getByText("COMP2400 lost its Semester 2 offering"),
@@ -90,7 +90,9 @@ test("opening a notification marks that row read and clears the count", async ()
     await screen.findByRole("button", { name: "Notifications, 1 unread" }),
   );
   await user.click(
-    await screen.findByRole("link", { name: /Import run #7 completed/ }),
+    await screen.findByRole("link", {
+      name: /ANU changes are ready to review/,
+    }),
   );
 
   expect(inbox.markNotificationsRead).toHaveBeenCalledWith(["run-1"]);

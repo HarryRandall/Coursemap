@@ -1,94 +1,99 @@
 import { randomUUID } from "node:crypto";
 import {
-  ImportArtifactConfigurationError,
-  type ImportArtifactKind,
-  readImportArtifact,
-  storeImportArtifact,
+  SyncArtifactConfigurationError,
+  type SyncArtifactKind,
+  readSyncArtifact,
+  storeSyncArtifact,
 } from "./artifact-store.ts";
-import { stableFingerprint, stableStringify } from "./canonical.ts";
 import {
-  type ClaimedImportTarget,
-  type ImportSql,
-  type ImportStageName,
+  stableFingerprint,
+  stableStringify,
+} from "../catalogue-import/canonical.ts";
+import {
+  type ClaimedCatalogueSync,
+  type SyncSql,
+  type SyncStageName,
   attachExtractionResponse,
-  claimImportTarget,
+  claimCatalogueSync,
   completeExtraction,
-  failImportStage,
+  failSyncStage,
   findReusableExtraction,
-  finishImportStage,
-  finishImportTarget,
-  getImportTargetStatus,
-  recordImportArtifact,
-  recordSourcePage,
-  releaseImportTargetForRetry,
+  finishCatalogueSync,
+  finishSyncStage,
+  getCatalogueSyncStatus,
+  recordSourceDocument,
+  recordSyncArtifact,
+  releaseCatalogueSyncForRetry,
   reserveExtraction,
-  startImportStage,
-  withImportDatabaseClient,
-} from "./import-store.ts";
-import type { CatalogueKindAdapter } from "./kind-adapter.ts";
-import { courseKindAdapter } from "./kinds/course/adapter.ts";
-import { structureKindAdapter } from "./kinds/structure/adapter.ts";
+  startSyncStage,
+  withSyncDatabaseClient,
+} from "./sync-store.ts";
+import type { CatalogueSyncAdapter } from "./kind-adapter.ts";
+import { courseKindAdapter } from "../catalogue-import/kinds/course/adapter.ts";
+import { structureKindAdapter } from "../catalogue-import/kinds/structure/adapter.ts";
 import {
   OpenRouterConfigurationError,
   OpenRouterRequestError,
   buildOpenRouterRequestBody,
   extractWithOpenRouter,
   restoreOpenRouterExtraction,
-} from "./openrouter.ts";
-import { persistVersionCandidate } from "./persist-version.ts";
+} from "../catalogue-import/openrouter.ts";
+import { persistSourceVersion } from "./persist-source-version.ts";
 import type { CatalogueKind } from "../catalogue/content.ts";
 
-const TERMINAL_TARGET_STATUSES = new Set([
-  "ready",
+const TERMINAL_SYNC_STATUSES = new Set([
+  "applied",
+  "review_required",
   "unchanged",
   "failed",
   "cancelled",
 ]);
 
-export const CATALOGUE_KIND_ADAPTERS: readonly CatalogueKindAdapter[] = [
-  courseKindAdapter as CatalogueKindAdapter,
-  structureKindAdapter as CatalogueKindAdapter,
+export const CATALOGUE_SYNC_ADAPTERS: readonly CatalogueSyncAdapter[] = [
+  courseKindAdapter as CatalogueSyncAdapter,
+  structureKindAdapter as CatalogueSyncAdapter,
 ];
 
-export function adapterForKind(kind: CatalogueKind): CatalogueKindAdapter {
-  const adapter = CATALOGUE_KIND_ADAPTERS.find((candidate) =>
+export function syncAdapterForKind(kind: CatalogueKind): CatalogueSyncAdapter {
+  const adapter = CATALOGUE_SYNC_ADAPTERS.find((candidate) =>
     candidate.kinds.includes(kind),
   );
-  if (!adapter) throw new TypeError(`No import adapter handles ${kind}.`);
+  if (!adapter)
+    throw new TypeError(`No catalogue sync adapter handles ${kind}.`);
   return adapter;
 }
 
-export class ImportPaidOutcomeUncertainError extends Error {
+export class SyncPaidOutcomeUncertainError extends Error {
   constructor(cause: unknown) {
     super(
       "An OpenRouter request may have reached the provider, but its response was not durably recorded. Coursemap will not issue an automatic second paid call.",
       { cause },
     );
-    this.name = "ImportPaidOutcomeUncertainError";
+    this.name = "SyncPaidOutcomeUncertainError";
   }
 }
 
-export class ImportVersionMismatchError extends TypeError {
-  readonly code = "IMPORT_VERSION_UNSUPPORTED";
+export class SyncVersionMismatchError extends TypeError {
+  readonly code = "SYNC_VERSION_UNSUPPORTED";
 
   constructor() {
     super(
-      "The queued import was created for a different pipeline version. Start a new import with the deployed worker.",
+      "The queued sync was created for a different pipeline version. Start a new sync with the deployed worker.",
     );
-    this.name = "ImportVersionMismatchError";
+    this.name = "SyncVersionMismatchError";
   }
 }
 
 function assertCurrentVersions(
-  adapter: CatalogueKindAdapter,
-  claim: ClaimedImportTarget,
+  adapter: CatalogueSyncAdapter,
+  claim: ClaimedCatalogueSync,
 ) {
   if (
     claim.parserVersion !== adapter.parserVersion ||
     claim.promptVersion !== adapter.promptVersion ||
     claim.schemaVersion !== adapter.schemaVersion
   ) {
-    throw new ImportVersionMismatchError();
+    throw new SyncVersionMismatchError();
   }
 }
 
@@ -100,8 +105,7 @@ export function safeErrorSummary(error: unknown) {
       ? ` Cause: ${error.cause.message}`
       : "";
   const source =
-    (error instanceof Error ? error.message : "Catalogue import failed.") +
-    cause;
+    (error instanceof Error ? error.message : "Catalogue sync failed.") + cause;
   return source
     .replace(/postgres(?:ql)?:\/\/[^\s]+/gi, "[database URL redacted]")
     .replace(/Bearer\s+[^\s]+/gi, "Bearer [redacted]")
@@ -109,8 +113,8 @@ export function safeErrorSummary(error: unknown) {
     .slice(0, 1_500);
 }
 
-export function importErrorCode(error: unknown) {
-  if (error instanceof ImportPaidOutcomeUncertainError)
+export function syncErrorCode(error: unknown) {
+  if (error instanceof SyncPaidOutcomeUncertainError)
     return "OPENROUTER_OUTCOME_UNCERTAIN";
   if (error instanceof OpenRouterConfigurationError)
     return "OPENROUTER_NOT_CONFIGURED";
@@ -125,10 +129,10 @@ export function importErrorCode(error: unknown) {
   ) {
     return error.code.trim().slice(0, 120);
   }
-  return error instanceof TypeError ? "INVALID_PIPELINE_DATA" : "IMPORT_FAILED";
+  return error instanceof TypeError ? "INVALID_PIPELINE_DATA" : "SYNC_FAILED";
 }
 
-export function isRetryableImportError(error: unknown) {
+export function isRetryableSyncError(error: unknown) {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -137,7 +141,7 @@ export function isRetryableImportError(error: unknown) {
   ) {
     return error.retryable;
   }
-  // A definitive HTTP failure is safe to report, but retrying the same target
+  // A definitive HTTP failure is safe to report, but retrying the same sync
   // would be misread as an uncertain paid outcome by the reservation check.
   if (error instanceof OpenRouterRequestError) return false;
   // Constraint and data errors from Postgres repeat identically on retry.
@@ -152,8 +156,8 @@ export function isRetryableImportError(error: unknown) {
   }
   if (
     error instanceof OpenRouterConfigurationError ||
-    error instanceof ImportPaidOutcomeUncertainError ||
-    error instanceof ImportArtifactConfigurationError ||
+    error instanceof SyncPaidOutcomeUncertainError ||
+    error instanceof SyncArtifactConfigurationError ||
     error instanceof TypeError
   ) {
     return false;
@@ -161,36 +165,34 @@ export function isRetryableImportError(error: unknown) {
   return true;
 }
 
-export type ProcessImportTargetInput = {
-  runId: string;
-  targetId: string;
+export type ProcessCatalogueSyncInput = {
+  syncId: string;
   deliveryCount?: number;
   maxDeliveries?: number;
   signal?: AbortSignal;
 };
 
 /**
- * Processes one target end to end under a worker lease. Retryable failures
- * return the target to the queue until the final delivery; everything else
- * records a failed target so the queue can acknowledge the message.
+ * Processes one sync end to end under a worker lease. Retryable failures
+ * return it to the queue until the final delivery; everything else records a
+ * failed sync so the queue can acknowledge the message.
  */
-export async function processImportTarget({
-  runId,
-  targetId,
+export async function processCatalogueSync({
+  syncId,
   deliveryCount = 1,
   maxDeliveries = 5,
   signal,
-}: ProcessImportTargetInput): Promise<void> {
-  await withImportDatabaseClient(async (sql) => {
+}: ProcessCatalogueSyncInput): Promise<void> {
+  await withSyncDatabaseClient(async (sql) => {
     signal?.throwIfAborted();
     const workerId = randomUUID();
-    const claim = await claimImportTarget(sql, { runId, targetId, workerId });
+    const claim = await claimCatalogueSync(sql, { syncId, workerId });
     if (claim === null) {
-      const status = await getImportTargetStatus(sql, { runId, targetId });
-      if (status && TERMINAL_TARGET_STATUSES.has(status.status)) return;
-      throw new Error("The import target could not be claimed.");
+      const status = await getCatalogueSyncStatus(sql, syncId);
+      if (status && TERMINAL_SYNC_STATUSES.has(status)) return;
+      throw new Error("The catalogue sync could not be claimed.");
     }
-    await processClaimedTarget({
+    await processClaimedSync({
       sql,
       claim,
       workerId,
@@ -200,41 +202,41 @@ export async function processImportTarget({
   });
 }
 
-async function processClaimedTarget({
+async function processClaimedSync({
   sql,
   claim,
   workerId,
   finalDelivery,
   signal,
 }: {
-  sql: ImportSql;
-  claim: ClaimedImportTarget;
+  sql: SyncSql;
+  claim: ClaimedCatalogueSync;
   workerId: string;
   finalDelivery: boolean;
   signal?: AbortSignal;
 }) {
-  const adapter = adapterForKind(claim.kind);
-  let sourcePageId: number | null = null;
+  const adapter = syncAdapterForKind(claim.kind);
+  let sourceDocumentId: number | null = null;
 
   const runStage = async <T>(
-    stageName: ImportStageName,
+    stageName: SyncStageName,
     work: (stageId: string) => Promise<T>,
   ) => {
     signal?.throwIfAborted();
-    const stageId = await startImportStage(sql, {
-      targetId: claim.targetId,
+    const stageId = await startSyncStage(sql, {
+      syncId: claim.syncId,
       stageName,
       attemptNumber: claim.attemptCount,
     });
     try {
       const value = await work(stageId);
       signal?.throwIfAborted();
-      await finishImportStage(sql, { stageId });
+      await finishSyncStage(sql, stageId);
       return value;
     } catch (error) {
-      await failImportStage(sql, {
+      await failSyncStage(sql, {
         stageId,
-        errorCode: importErrorCode(error),
+        errorCode: syncErrorCode(error),
         errorSummary: safeErrorSummary(error),
       });
       throw error;
@@ -249,23 +251,22 @@ async function processClaimedTarget({
     body,
   }: {
     stageId: string;
-    stageName: ImportStageName;
-    kind: ImportArtifactKind;
+    stageName: SyncStageName;
+    kind: SyncArtifactKind;
     mediaType: string;
     body: string;
   }) => {
     signal?.throwIfAborted();
-    const stored = await storeImportArtifact({
+    const stored = await storeSyncArtifact({
       academicYear: claim.academicYear,
-      runId: claim.runId,
-      targetId: claim.targetId,
+      syncId: claim.syncId,
       stage: stageName,
       kind,
       mediaType,
       body,
     });
-    return recordImportArtifact(sql, {
-      targetId: claim.targetId,
+    return recordSyncArtifact(sql, {
+      syncId: claim.syncId,
       stageId,
       kind,
       attemptNumber: claim.attemptCount,
@@ -292,8 +293,9 @@ async function processClaimedTarget({
         mediaType: "text/html",
         body: page.html,
       });
-      sourcePageId = await recordSourcePage(sql, {
+      sourceDocumentId = await recordSourceDocument(sql, {
         sourceId: claim.sourceId,
+        recordId: claim.recordId,
         academicYearId: claim.academicYearId,
         kind: claim.kind,
         externalKey: claim.code,
@@ -378,7 +380,7 @@ async function processClaimedTarget({
         body: stableStringify(requestBody),
       });
       const reservation = await reserveExtraction(sql, {
-        targetId: claim.targetId,
+        syncId: claim.syncId,
         extractionNumber: claim.attemptCount,
         requestedModel: claim.requestedModel,
         fingerprint,
@@ -386,7 +388,7 @@ async function processClaimedTarget({
         schemaVersion: claim.schemaVersion,
         requestArtifactId: requestArtifact.id,
       });
-      const reusable = await findReusableExtraction(sql, { fingerprint });
+      const reusable = await findReusableExtraction(sql, fingerprint);
 
       let result;
       let responseArtifactId: string;
@@ -395,7 +397,7 @@ async function processClaimedTarget({
       if (reusable) {
         // Identical input already produced a validated response; reuse it
         // instead of paying for another call.
-        const body = await readImportArtifact({
+        const body = await readSyncArtifact({
           artifact: reusable.responseArtifact,
         });
         result = restoreOpenRouterExtraction(
@@ -414,14 +416,14 @@ async function processClaimedTarget({
           reusable.id === reservation.id ? null : reusable.id;
       } else if (!reservation.created) {
         if (!reservation.responseArtifactId) {
-          throw new ImportPaidOutcomeUncertainError(null);
+          throw new SyncPaidOutcomeUncertainError(null);
         }
         responseArtifactId = reservation.responseArtifactId;
         const [artifact] = await sql`
           select media_type, content_sha256, byte_size, storage_bucket, storage_path
-          from public.catalogue_import_artifacts where id = ${responseArtifactId}::uuid
+          from public.catalogue_sync_artifacts where id = ${responseArtifactId}::uuid
         `;
-        const body = await readImportArtifact({
+        const body = await readSyncArtifact({
           artifact: {
             bucket: artifact.storage_bucket,
             path: String(artifact.storage_path),
@@ -461,7 +463,7 @@ async function processClaimedTarget({
           ) {
             throw error;
           }
-          throw new ImportPaidOutcomeUncertainError(error);
+          throw new SyncPaidOutcomeUncertainError(error);
         }
       }
 
@@ -537,61 +539,49 @@ async function processClaimedTarget({
       return outcome;
     });
 
-    const write = await runStage("database_project", async (stageId) => {
+    const write = await runStage("content_project", async (stageId) => {
       const result = adapter.project(merged.extraction);
       await persistArtifact({
         stageId,
-        stageName: "database_project",
-        kind: "database_projection",
+        stageName: "content_project",
+        kind: "content_projection",
         mediaType: "application/json",
         body: stableStringify(result),
       });
       return result;
     });
 
-    const persisted = await runStage("snapshot_persist", async (stageId) => {
-      const result = await persistVersionCandidate(sql, {
+    const persisted = await runStage("source_version_persist", async () => {
+      if (sourceDocumentId === null) {
+        throw new Error("The ANU source document was not preserved.");
+      }
+      return persistSourceVersion(sql, {
         claim,
-        sourcePageId,
+        sourceDocumentId,
         write,
       });
-      await persistArtifact({
-        stageId,
-        stageName: "snapshot_persist",
-        kind: "change_set",
-        mediaType: "application/json",
-        body: stableStringify(result.changeSet),
-      });
-      return result;
     });
 
-    await finishImportTarget(sql, {
-      runId: claim.runId,
-      targetId: claim.targetId,
+    await finishCatalogueSync(sql, {
+      syncId: claim.syncId,
       workerId,
       expectedLockVersion: claim.lockVersion,
-      status: persisted.changeKind === "unchanged" ? "unchanged" : "ready",
-      changeKind: persisted.changeKind,
-      sourcePageId,
-      candidateVersionId: persisted.candidateVersionId,
-      // Discarding the model extraction used to be silent: the target ended
-      // `ready` with no error code, and only catalogue_extractions recorded
-      // it. The blocking flag the merge emitted holds publication; this says
-      // why on the target itself.
+      status: persisted.status,
+      sourceDocumentId,
+      sourceVersionId: persisted.sourceVersionId,
       errorCode: merged.errorCode ?? null,
       errorMessage: merged.errorSummary ?? null,
     });
   } catch (error) {
-    const code = importErrorCode(error);
+    const code = syncErrorCode(error);
     const summary = safeErrorSummary(error);
     if (
-      isRetryableImportError(error) &&
+      isRetryableSyncError(error) &&
       !finalDelivery &&
       claim.attemptCount < 5
     ) {
-      await releaseImportTargetForRetry(sql, {
-        runId: claim.runId,
-        targetId: claim.targetId,
+      await releaseCatalogueSyncForRetry(sql, {
+        syncId: claim.syncId,
         workerId,
         expectedLockVersion: claim.lockVersion,
         errorCode: code,
@@ -599,15 +589,13 @@ async function processClaimedTarget({
       });
       throw error;
     }
-    await finishImportTarget(sql, {
-      runId: claim.runId,
-      targetId: claim.targetId,
+    await finishCatalogueSync(sql, {
+      syncId: claim.syncId,
       workerId,
       expectedLockVersion: claim.lockVersion,
       status: "failed",
-      changeKind: null,
-      sourcePageId,
-      candidateVersionId: null,
+      sourceDocumentId,
+      sourceVersionId: null,
       errorCode: code,
       errorMessage: summary,
     });

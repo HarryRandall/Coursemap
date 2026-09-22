@@ -1,4 +1,4 @@
-import type { CatalogueKindAdapter } from "../../kind-adapter.ts";
+import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { structureCatalogueContent } from "../../../catalogue/content.ts";
 import {
   ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA,
@@ -34,7 +34,7 @@ function structureKind(kind: string): AcademicStructureKind {
   return kind as AcademicStructureKind;
 }
 
-export const structureKindAdapter: CatalogueKindAdapter<AcademicStructureExtraction> =
+export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtraction> =
   {
     kinds: ["programme", "major", "minor", "specialisation"],
     parserVersion: ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,

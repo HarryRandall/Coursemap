@@ -16,7 +16,7 @@ test("the changes route reports local unpublished state without source review", 
     "true",
   );
   await expect(
-    page.getByRole("heading", { name: "No unpublished changes" }),
+    page.getByRole("heading", { name: "No changes to review" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /publish/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /apply/i })).toHaveCount(0);

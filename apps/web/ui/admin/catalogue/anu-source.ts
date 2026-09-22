@@ -3,7 +3,7 @@ import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
 const PROGRAMS_AND_COURSES = "https://programsandcourses.anu.edu.au";
 
 /**
- * The ANU Programs and Courses page a record was imported from. The site names
+ * The ANU Programs and Courses page used to sync a record. The site names
  * its own segments, so "programme" and "specialisation" cannot be used
  * verbatim. Kept here because the directory, the record header and the review
  * all need to point a reader back at the source they are judging.

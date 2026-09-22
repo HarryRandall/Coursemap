@@ -79,7 +79,7 @@ upstream manual or adding a comment that only repeats the option's name.
 ## Errors and interface copy
 
 Write complete, specific error messages with a final full stop, for example:
-`The course import target was not claimed.` Describe the failed operation and
+`The catalogue sync could not be claimed.` Describe the failed operation and
 preserve useful error context without exposing credentials or private records.
 Use existing error types and handling patterns. Interface copy follows
 [UI conventions](../apps/web/ui/AGENTS.md).

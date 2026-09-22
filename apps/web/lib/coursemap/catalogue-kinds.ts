@@ -45,16 +45,6 @@ export function publicCatalogueRecordPath(
   return `/${CATALOGUE_KIND_LABELS[kind].segment}/${year}/${encodeURIComponent(code.toLowerCase())}`;
 }
 
-export type DirectoryWorkflowStatus =
-  | "not_imported"
-  | "queued"
-  | "running"
-  | "ready"
-  | "draft"
-  | "published"
-  | "published_with_draft"
-  | "failed";
-
 export type CatalogueDirectoryRecord = {
   code: string;
   title: string | null;
@@ -64,12 +54,15 @@ export type CatalogueDirectoryRecord = {
   isPublished: boolean;
   isListedByAnu: boolean | null;
   lastSeenAt: string | null;
-  workflow: DirectoryWorkflowStatus;
-  latestTarget: {
+  sourceState:
+    | "never_synced"
+    | "syncing"
+    | "up_to_date"
+    | "changes_available"
+    | "sync_failed";
+  latestSync: {
     id: string;
-    runId: string;
     status: string;
-    changeKind: string | null;
     errorMessage: string | null;
     completedAt: string | null;
   } | null;
@@ -89,77 +82,6 @@ export type CatalogueDirectoryPage = {
   total: number;
   page: number;
   pageSize: number;
-  workflowCounts: Record<DirectoryWorkflowStatus, number>;
-};
-
-export type DirectoryFilter = "all" | DirectoryWorkflowStatus;
-
-export type ImportRunSummary = {
-  id: string;
-  runNumber: number;
-  kind: CatalogueKind;
-  academicYear: number;
-  status: string;
-  requestedModel: string;
-  targetCount: number;
-  completedCount: number;
-  failedCount: number;
-  costUsd: number;
-  createdAt: string;
-  completedAt: string | null;
-  targets: Array<{
-    id: string;
-    code: string;
-    title: string | null;
-    status: string;
-    changeKind: string | null;
-    attemptCount: number;
-    errorCode: string | null;
-    errorMessage: string | null;
-    candidateVersionId: number | null;
-    appliedVersionId: number | null;
-    recordPublicId: string | null;
-  }>;
-};
-
-export type ImportTargetDetail = {
-  id: string;
-  code: string;
-  kind: CatalogueKind;
-  status: string;
-  attemptCount: number;
-  errorCode: string | null;
-  errorMessage: string | null;
-  stages: Array<{
-    id: string;
-    name: string;
-    attemptNumber: number;
-    status: string;
-    startedAt: string;
-    completedAt: string | null;
-    errorCode: string | null;
-    errorSummary: string | null;
-  }>;
-  artifacts: Array<{
-    id: string;
-    stageId: string;
-    kind: string;
-    attemptNumber: number;
-    mediaType: string;
-    byteSize: number;
-  }>;
-  extraction: {
-    resolvedModel: string | null;
-    finishReason: string | null;
-    validationStatus: string;
-    inputTokens: number;
-    outputTokens: number;
-    costUsd: number;
-    latencyMs: number | null;
-    warningCount: number;
-    errorCount: number;
-    errorSummary: string | null;
-  } | null;
 };
 
 export type AdminCatalogueSummary = Record<
@@ -167,7 +89,7 @@ export type AdminCatalogueSummary = Record<
   { published: number; drafts: number; identities: number }
 >;
 
-/** Reviewer-facing names for the field paths recorded by the import diff. */
+/** Administrator-facing names for stored catalogue content paths. */
 export const FIELD_LABELS: Record<string, string> = {
   "course.details.title": "Title",
   "course.details.unitValueKind": "Unit value kind",
@@ -248,71 +170,3 @@ export function humaniseKey(key: string) {
     .trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
-
-/**
- * The imports list is read on the server and driven from the client, so its
- * vocabulary lives here rather than beside the loader, which is server-only
- * and would pull the Supabase client into the browser bundle.
- */
-export const IMPORT_RECORD_SORTS = [
-  "newest",
-  "oldest",
-  "code-asc",
-  "code-desc",
-] as const;
-export type ImportRecordSort = (typeof IMPORT_RECORD_SORTS)[number];
-export const DEFAULT_IMPORT_RECORD_SORT: ImportRecordSort = "newest";
-
-/** `catalogue_import_targets.status`, as the check constraint defines it. */
-export const IMPORT_RECORD_STATUSES = [
-  "queued",
-  "running",
-  "ready",
-  "unchanged",
-  "failed",
-  "cancelled",
-] as const;
-
-/** A run as it appears beside the records it produced: counters, no targets. */
-export type ImportRunRow = Omit<ImportRunSummary, "targets">;
-
-/**
- * One imported record. The run that produced it is carried on the row, because
- * the list is a flat history of records rather than a list of batches.
- */
-export type ImportRecordRow = {
-  id: string;
-  code: string;
-  title: string | null;
-  academicYear: number;
-  status: string;
-  changeKind: string | null;
-  attemptCount: number;
-  errorCode: string | null;
-  errorMessage: string | null;
-  appliedVersionId: number | null;
-  recordPublicId: string | null;
-  createdAt: string;
-  completedAt: string | null;
-  runId: string;
-  runNumber: number;
-};
-
-export type ImportRecordsPage = {
-  records: ImportRecordRow[];
-  page: number;
-  pageSize: number;
-  total: number;
-  sort: ImportRecordSort;
-  /** Recent runs, offered as the run filter's options. */
-  runs: ImportRunRow[];
-  /** The run the list is narrowed to, when the reader has chosen one. */
-  run: ImportRunRow | null;
-};
-
-export type ImportRunProgress = {
-  status: string;
-  targetCount: number;
-  completedCount: number;
-  failedCount: number;
-};

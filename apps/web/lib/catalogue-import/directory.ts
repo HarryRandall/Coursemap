@@ -3,11 +3,10 @@ import { fetchAnuCourseDirectory } from "./anu-course-directory.ts";
 import type { ImportDiagnostic } from "./import-source.ts";
 import {
   ensureAnuSourceId,
-  recordSourcePage,
-  type ImportSql,
-  type ImportTransactionSql,
-  withImportDatabaseClient,
-} from "./import-store.ts";
+  type SyncSql,
+  type SyncTransactionSql,
+  withSyncDatabaseClient,
+} from "../catalogue-sync/sync-store.ts";
 import type { AcademicStructureKind } from "./kinds/structure/contract.ts";
 import { type CatalogueKind, isCatalogueKind } from "../catalogue/content.ts";
 
@@ -36,6 +35,38 @@ export class DirectoryRefreshError extends Error {
     this.name = "DirectoryRefreshError";
     this.code = code;
   }
+}
+
+async function recordDiscoverySourcePage(
+  sql: SyncSql,
+  input: {
+    sourceId: number;
+    academicYearId: number;
+    externalKey: string;
+    canonicalUrl: string;
+    mediaType: string;
+    contentSha256: string;
+    httpStatus: number | null;
+    httpEtag: string | null;
+    sourceLastModified: string | null;
+    fetchedAt: string;
+    byteSize: number;
+  },
+) {
+  const [row] = await sql`
+    insert into public.catalogue_source_pages (
+      source_id, academic_year_id, kind, external_key, canonical_url, media_type,
+      content_sha256, http_status, http_etag, source_last_modified, fetched_at,
+      byte_size, storage_bucket, storage_path
+    ) values (${input.sourceId}, ${input.academicYearId}, 'directory',
+      ${input.externalKey}, ${input.canonicalUrl}, ${input.mediaType},
+      ${input.contentSha256}, ${input.httpStatus}, ${input.httpEtag},
+      ${input.sourceLastModified}, ${input.fetchedAt}, ${input.byteSize}, null, null)
+    on conflict (source_id, academic_year_id, kind, external_key, content_sha256)
+      do update set fetched_at = excluded.fetched_at
+    returning id
+  `;
+  return Number(row.id);
 }
 
 type DirectoryEntryInput = {
@@ -112,7 +143,7 @@ async function fetchDirectoryEntries(
 }
 
 export async function reconcileCatalogueListings(
-  tx: ImportTransactionSql,
+  tx: SyncTransactionSql,
   {
     academicYearId,
     kind,
@@ -192,7 +223,7 @@ export async function reconcileCatalogueListings(
 }
 
 async function setDirectoryStatus(
-  sql: ImportSql | ImportTransactionSql,
+  sql: SyncSql | SyncTransactionSql,
   {
     academicYearId,
     kind,
@@ -253,7 +284,7 @@ export async function refreshCatalogueDirectory({
       "INVALID_YEAR",
     );
   }
-  return withImportDatabaseClient(async (sql) => {
+  return withSyncDatabaseClient(async (sql) => {
     const [year] = await sql`
       select id from public.academic_years where year = ${academicYear}
     `;
@@ -285,10 +316,9 @@ export async function refreshCatalogueDirectory({
       const sourceId = await ensureAnuSourceId(sql);
       const sourcePageIds = new Map<string, number>();
       for (const page of fetched.sourcePages) {
-        const sourcePageId = await recordSourcePage(sql, {
+        const sourcePageId = await recordDiscoverySourcePage(sql, {
           sourceId,
           academicYearId,
-          kind: "directory",
           externalKey: page.externalKey,
           canonicalUrl: page.sourceUrl,
           mediaType: page.mediaType,
@@ -298,8 +328,6 @@ export async function refreshCatalogueDirectory({
           sourceLastModified: page.sourceLastModified,
           fetchedAt: page.fetchedAt,
           byteSize: page.byteSize,
-          storageBucket: null,
-          storagePath: null,
         });
         sourcePageIds.set(page.externalKey, sourcePageId);
         await sql`

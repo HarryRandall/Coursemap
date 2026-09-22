@@ -1,12 +1,12 @@
 import "server-only";
 
 import type {
-  ImportSql,
-  ImportTransactionSql,
-} from "@/lib/catalogue-import/import-store";
-import { withImportDatabaseClient } from "@/lib/catalogue-import/import-store";
+  SyncSql,
+  SyncTransactionSql,
+} from "@/lib/catalogue-sync/sync-store";
+import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
-import { insertVersionContent } from "@/lib/catalogue-import/persist-version";
+import { insertVersionContent } from "@/lib/catalogue-sync/persist-source-version";
 import {
   contentHashForCatalogueContent,
   readVersionContent,
@@ -19,7 +19,7 @@ import {
   type CatalogueKind,
 } from "@/lib/catalogue/content";
 
-type Sql = ImportSql | ImportTransactionSql;
+type Sql = SyncSql | SyncTransactionSql;
 
 export type CatalogueDraft = {
   recordId: number;
@@ -196,9 +196,9 @@ export async function createCatalogueDraft({
 }: {
   recordId: number;
   userId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       if (record.archived_at)
@@ -213,11 +213,11 @@ export async function createCatalogueDraft({
         ? draftFromRow(existing)
         : createDraftInTransaction(tx, record, userId);
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 export async function loadCatalogueDraft(recordId: number) {
-  return withImportDatabaseClient(async (sql) => {
+  return withSyncDatabaseClient(async (sql) => {
     const [row] = await sql`
       select * from public.catalogue_drafts where record_id = ${recordId}
     `;
@@ -239,11 +239,11 @@ export async function saveCatalogueDraft({
   content: unknown;
   userId: string;
   editingSessionId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
   assertEditingSession(editingSessionId);
   const content = validateCatalogueContent(submitted);
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       if (record.archived_at)
@@ -314,11 +314,11 @@ export async function saveCatalogueDraft({
         changedPaths: changes.map((change) => change.fieldPath),
       };
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 async function materialiseDraftVersion(
-  tx: ImportTransactionSql,
+  tx: SyncTransactionSql,
   {
     record,
     draft,
@@ -373,7 +373,8 @@ async function materialiseDraftVersion(
   });
   await tx`
     update public.catalogue_version_provenance as published
-    set source_page_id = source.source_page_id
+    set source_page_id = source.source_page_id,
+        source_document_id = source.source_document_id
     from public.catalogue_draft_provenance as draft
     join public.catalogue_version_provenance as source
       on source.id = draft.source_evidence_id
@@ -400,10 +401,10 @@ export async function publishCatalogueDraft({
   expectedRevision: number;
   userId: string;
   editingSessionId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
   assertEditingSession(editingSessionId);
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       if (record.archived_at)
@@ -457,7 +458,7 @@ export async function publishCatalogueDraft({
       await tx`delete from public.catalogue_drafts where record_id = ${recordId}`;
       return { versionId };
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 export async function unpublishCatalogueRecord({
@@ -469,10 +470,10 @@ export async function unpublishCatalogueRecord({
   recordId: number;
   userId: string;
   editingSessionId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
   assertEditingSession(editingSessionId);
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       if (record.published_version_id === null)
@@ -497,7 +498,7 @@ export async function unpublishCatalogueRecord({
       `;
       return { versionId };
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 async function draftIsMeaningful(
@@ -529,10 +530,10 @@ export async function discardCatalogueDraft({
   expectedRevision: number;
   userId: string;
   editingSessionId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
   assertEditingSession(editingSessionId);
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       const [row] = await tx`
@@ -567,7 +568,7 @@ export async function discardCatalogueDraft({
       await tx`delete from public.catalogue_drafts where record_id = ${recordId}`;
       return { checkpointVersionId, meaningful };
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 export async function restoreCatalogueVersion({
@@ -585,10 +586,10 @@ export async function restoreCatalogueVersion({
   replaceExistingDraft: boolean;
   userId: string;
   editingSessionId: string;
-  sql?: ImportSql;
+  sql?: SyncSql;
 }) {
   assertEditingSession(editingSessionId);
-  const work = (client: ImportSql) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await recordForUpdate(tx, recordId);
       const content = await readVersionContent(tx, versionId);
@@ -647,5 +648,5 @@ export async function restoreCatalogueVersion({
       `;
       return { revision, content: restored };
     });
-  return sql ? work(sql) : withImportDatabaseClient(work);
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }

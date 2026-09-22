@@ -2,7 +2,7 @@
 
 import {
   canManageCatalogueImports,
-  canManageCourseImports,
+  canManageCatalogueSources,
   canWriteCourses,
 } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +45,7 @@ export async function searchRequisiteCourses(
 ): Promise<RequisiteCourseSearchResult[]> {
   const term = query.trim().toUpperCase();
   if (term.length < 2) return [];
-  if (!(await canWriteCourses()) && !(await canManageCourseImports())) {
+  if (!(await canWriteCourses()) && !(await canManageCatalogueSources())) {
     return [];
   }
 

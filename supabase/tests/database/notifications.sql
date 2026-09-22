@@ -11,7 +11,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(22);
+select extensions.plan(18);
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -105,10 +105,10 @@ do $$
 begin
   perform private.record_notification(
     '12000000-0000-4000-8000-000000000001',
-    'import_run',
-    'Import run #1 completed',
-    'Three records ready to review.',
-    '/admin/courses/imports?run=1',
+    'published_change',
+    'ANU changes are ready to review',
+    'COMP1000 has a newer ANU source version.',
+    '/admin/courses/2026/comp1000?tab=changes',
     'inbox-test:one'
   );
   perform private.record_notification(
@@ -120,10 +120,10 @@ begin
   );
   perform private.record_notification(
     '12000000-0000-4000-8000-000000000002',
-    'import_run',
-    'Import run #2 failed',
-    'All two records failed.',
-    '/admin/majors/imports?run=2',
+    'published_change',
+    'Published catalogue changed',
+    'A published record has changed.',
+    '/admin/majors/2026/test-major',
     'inbox-test:three'
   );
 end;
@@ -134,10 +134,10 @@ $$;
 select extensions.ok(
   private.record_notification(
     '12000000-0000-4000-8000-000000000001',
-    'import_run',
-    'Import run #1 completed',
-    'Three records ready to review.',
-    '/admin/courses/imports?run=1',
+    'published_change',
+    'ANU changes are ready to review',
+    'COMP1000 has a newer ANU source version.',
+    '/admin/courses/2026/comp1000?tab=changes',
     'inbox-test:one'
   ) is null,
   'a producer repeating the same dedupe key records nothing the second time'
@@ -157,8 +157,8 @@ select extensions.is(
 select extensions.ok(
   private.record_notification(
     '12000000-0000-4000-8000-000000000002',
-    'import_run',
-    'Import run #1 completed',
+    'published_change',
+    'ANU changes are ready to review',
     null, null,
     'inbox-test:one'
   ) is not null,
@@ -169,7 +169,7 @@ select extensions.throws_ok(
   $$
     insert into public.notifications (user_id, kind, title, dedupe_key)
     values (
-      '12000000-0000-4000-8000-000000000001', 'import_run', 'Forged', 'inbox-test:one'
+      '12000000-0000-4000-8000-000000000001', 'published_change', 'Forged', 'inbox-test:one'
     )
   $$,
   '23505',
@@ -185,98 +185,6 @@ select extensions.ok(
   'a notification without a dedupe key is always recorded'
 );
 
-
--- The import run producer ------------------------------------------------------
---
--- Every path that ends a run writes the run row, so the producer hangs off that
--- write rather than off any one caller. The run rows below are written directly
--- because what is under test is the transition, not the worker.
-
-insert into public.catalogue_import_runs (
-  id, academic_year_id, kind, status, requested_model,
-  parser_version, prompt_version, schema_version, requested_by,
-  target_count, completed_count, failed_count
-)
-values
-  (
-    '12000000-0000-4000-8000-00000000aaaa',
-    (select id from public.academic_years order by year desc limit 1),
-    'course', 'running',
-    (select id from public.import_models order by id limit 1),
-    'test', 'test', 'test',
-    '12000000-0000-4000-8000-000000000003',
-    3, 3, 0
-  ),
-  (
-    '12000000-0000-4000-8000-00000000bbbb',
-    (select id from public.academic_years order by year desc limit 1),
-    'major', 'running',
-    (select id from public.import_models order by id limit 1),
-    'test', 'test', 'test',
-    null,
-    1, 0, 1
-  );
-
-update public.catalogue_import_runs
-set status = 'completed'
-where id = '12000000-0000-4000-8000-00000000aaaa';
-
-select extensions.is(
-  (
-    select body
-    from public.notifications
-    where user_id = '12000000-0000-4000-8000-000000000003'
-  ),
-  '3 records ready to review.',
-  'a finished run tells the administrator who asked for it what it produced'
-);
-
-select extensions.is(
-  (
-    select href
-    from public.notifications
-    where user_id = '12000000-0000-4000-8000-000000000003'
-  ),
-  format(
-    '/admin/courses/imports?run=%s',
-    '12000000-0000-4000-8000-00000000aaaa'
-  ),
-  'the notification opens the run it is about'
-);
-
--- A recovered target can move a run out of a terminal status and back again.
-update public.catalogue_import_runs
-set status = 'running'
-where id = '12000000-0000-4000-8000-00000000aaaa';
-
-update public.catalogue_import_runs
-set status = 'failed'
-where id = '12000000-0000-4000-8000-00000000aaaa';
-
-select extensions.is(
-  (
-    select count(*)::int
-    from public.notifications
-    where user_id = '12000000-0000-4000-8000-000000000003'
-  ),
-  1,
-  'a run that finishes more than once is reported once'
-);
-
-update public.catalogue_import_runs
-set status = 'failed'
-where id = '12000000-0000-4000-8000-00000000bbbb';
-
-select extensions.is(
-  (
-    select count(*)::int
-    from public.notifications
-    where kind = 'import_run'
-      and href like '/admin/majors/imports?run=12000000-0000-4000-8000-00000000bbbb'
-  ),
-  0,
-  'a run whose requester is gone notifies nobody'
-);
 
 -- The second inbox's real notification ids, captured while they are still
 -- visible. Passing null to mark_notifications_read() means "all of mine", so
@@ -319,7 +227,7 @@ select extensions.is(
 select extensions.throws_ok(
   $$
     insert into public.notifications (user_id, kind, title)
-    values ('12000000-0000-4000-8000-000000000002', 'import_run', 'Forged')
+    values ('12000000-0000-4000-8000-000000000002', 'published_change', 'Forged')
   $$,
   '42501',
   null,
@@ -329,7 +237,7 @@ select extensions.throws_ok(
 select extensions.throws_ok(
   $$
     insert into public.notifications (user_id, kind, title)
-    values ('12000000-0000-4000-8000-000000000001', 'import_run', 'Self-made')
+    values ('12000000-0000-4000-8000-000000000001', 'published_change', 'Self-made')
   $$,
   '42501',
   null,

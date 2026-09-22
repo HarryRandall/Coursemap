@@ -2,8 +2,12 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { ExternalLink, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
-import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
+import {
+  CATALOGUE_KIND_LABELS,
+  adminCatalogueRecordPath,
+} from "@/lib/coursemap/catalogue-kinds";
 import { anuSourceUrl } from "./anu-source";
+import { CatalogueSyncButton } from "./sync-button";
 
 function formatDate(value: string | null) {
   if (!value) return null;
@@ -16,10 +20,12 @@ export function RecordHeader({
   record,
   hasDraft,
   hasUnpublishedChanges,
+  canSync,
 }: {
   record: CatalogueRecord;
   hasDraft: boolean;
   hasUnpublishedChanges: boolean;
+  canSync: boolean;
 }) {
   const labels = CATALOGUE_KIND_LABELS[record.kind];
   const publicationLabel = record.publishedVersionId
@@ -72,8 +78,31 @@ export function RecordHeader({
             View on ANU <ExternalLink size={12} aria-hidden="true" />
           </Link>
         </div>
+        {record.syncs[0]?.status === "unchanged" ? (
+          <p className="text-sm text-muted-foreground">
+            Checked ANU. No changes found.
+          </p>
+        ) : record.syncs[0]?.status === "review_required" ? (
+          <Link
+            className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-400"
+            href={`${adminCatalogueRecordPath(record.kind, record.academicYear, record.code)}/changes`}
+          >
+            ANU changes are ready to review.
+          </Link>
+        ) : record.syncs[0]?.status === "failed" ? (
+          <p className="text-sm text-destructive" role="alert">
+            {record.syncs[0].errorMessage ?? "The latest ANU sync failed."}
+          </p>
+        ) : null}
         <span className="sr-only">{labels.singular} record</span>
       </div>
+      {canSync ? (
+        <CatalogueSyncButton
+          recordId={record.recordId}
+          kind={record.kind}
+          latestSync={record.syncs[0] ?? null}
+        />
+      ) : null}
     </header>
   );
 }

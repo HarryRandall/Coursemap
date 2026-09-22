@@ -24,7 +24,7 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
       kind: "version" as const,
       title: `Version ${version.id} created`,
       detail:
-        version.origin === "import" ? "Synced from ANU" : "Created manually",
+        version.origin === "source" ? "Synced from ANU" : "Created manually",
     })),
     ...record.publications.flatMap((publication, index) => [
       {
@@ -60,7 +60,15 @@ export function RecordHistory({ record }: { record: CatalogueRecord }) {
             ? "Draft updated"
             : event.eventKind === "discard"
               ? "Draft discarded"
-              : "Version restored as draft",
+              : event.eventKind === "restore"
+                ? "Version restored as draft"
+                : event.eventKind === "source_draft_created"
+                  ? "ANU source populated the draft"
+                  : event.eventKind === "source_checked"
+                    ? "ANU source checked"
+                    : event.eventKind === "source_changed"
+                      ? "ANU source changes detected"
+                      : "ANU sync failed",
         detail:
           event.eventKind === "discard" && event.versionId
             ? `Restorable checkpoint version ${event.versionId}`
