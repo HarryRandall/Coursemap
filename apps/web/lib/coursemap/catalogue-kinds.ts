@@ -60,6 +60,8 @@ export type CatalogueDirectoryRecord = {
     | "up_to_date"
     | "changes_available"
     | "sync_failed";
+  openChangeCount: number;
+  conflictCount: number;
   latestSync: {
     id: string;
     status: string;
@@ -139,6 +141,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "structure.details.canCombineVertical": "Can combine (vertical)",
   "structure.details.studyAs": "Study as",
   "structure.details.contactText": "Contact",
+  "structure.summaryFields": "Summary",
   "structure.sections": "Sections",
   "structure.learningOutcomes": "Learning outcomes",
   "structure.fees": "Fees",

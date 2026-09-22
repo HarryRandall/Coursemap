@@ -1770,6 +1770,88 @@ export type Database = {
           },
         ]
       }
+      catalogue_sync_changes: {
+        Row: {
+          base_source_value: Json | null
+          classification: string
+          created_at: string
+          decision: string | null
+          field_path: string
+          id: number
+          incoming_source_value: Json | null
+          local_value: Json | null
+          local_value_hash: string
+          position: number
+          record_id: number
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          review_unit_kind: string
+          superseded_at: string | null
+          sync_id: string
+        }
+        Insert: {
+          base_source_value?: Json | null
+          classification: string
+          created_at?: string
+          decision?: string | null
+          field_path: string
+          id?: never
+          incoming_source_value?: Json | null
+          local_value?: Json | null
+          local_value_hash: string
+          position: number
+          record_id: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_unit_kind: string
+          superseded_at?: string | null
+          sync_id: string
+        }
+        Update: {
+          base_source_value?: Json | null
+          classification?: string
+          created_at?: string
+          decision?: string | null
+          field_path?: string
+          id?: never
+          incoming_source_value?: Json | null
+          local_value?: Json | null
+          local_value_hash?: string
+          position?: number
+          record_id?: number
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          review_unit_kind?: string
+          superseded_at?: string | null
+          sync_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_sync_changes_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_sync_changes_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_sync_changes_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogue_sync_stages: {
         Row: {
           attempt_number: number

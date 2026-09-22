@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import {
   CATALOGUE_KIND_LABELS,
   type CatalogueDirectoryPage,
+  type CatalogueDirectoryRecord,
   adminCatalogueRecordPath,
   adminCatalogueYearPath,
 } from "@/lib/coursemap/catalogue-kinds";
@@ -44,6 +45,15 @@ const SOURCE_STATE_LABELS = {
   changes_available: "Changes available",
   sync_failed: "Sync failed",
 } as const;
+
+/** Names the work waiting on a record rather than the pipeline state. */
+function sourceStateLabel(record: CatalogueDirectoryRecord) {
+  if (record.sourceState !== "changes_available")
+    return SOURCE_STATE_LABELS[record.sourceState];
+  const changes = `${record.openChangeCount} ANU change${record.openChangeCount === 1 ? "" : "s"}`;
+  if (record.conflictCount === 0) return changes;
+  return `${changes}, ${record.conflictCount} conflict${record.conflictCount === 1 ? "" : "s"}`;
+}
 
 function sourceStateVariant(
   state: keyof typeof SOURCE_STATE_LABELS,
@@ -223,7 +233,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
                     </TableCell>
                     <TableCell>
                       <Badge variant={sourceStateVariant(record.sourceState)}>
-                        {SOURCE_STATE_LABELS[record.sourceState]}
+                        {sourceStateLabel(record)}
                       </Badge>
                       {record.latestSync?.completedAt ? (
                         <span className="ml-2 text-xs text-muted-foreground">

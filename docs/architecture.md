@@ -70,6 +70,11 @@ and version model. These concepts are deliberately separate:
   record, addressed by content hash
 - `catalogue_syncs`: one independently queued source check for one record, with
   its trigger, model and parser contracts, lease, attempts and terminal result
+- `catalogue_sync_changes`: ANU changes waiting for a decision, as a three-way
+  comparison of the previous ANU value, the local value and the new ANU value
+  over one review unit. Distinct from `catalogue_field_changes`, which audits
+  what happened locally. A record has one current review; a later sync
+  supersedes the earlier rows rather than deleting their decisions
 - `catalogue_sync_stages`, `catalogue_sync_artifacts` and
   `catalogue_extractions`: technical execution evidence and validated reusable
   model responses

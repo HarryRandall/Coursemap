@@ -166,8 +166,14 @@ Changelog. Index `(record_id, classification)` where `decision is null and
 superseded_at is null`, which is the query the Changes tab and the directory
 status both run.
 
-Read access follows the draft policies. Only `catalogue.write` may resolve a
-row, through a security-definer function, never a direct table write.
+Read access follows the draft policies. No end-user role holds insert, update
+or delete on the table: resolution runs through the catalogue draft service
+under the same `catalogue.write` gate as every other draft mutation, exactly as
+autosave and publication already do.
+
+Converged units are classified but not stored. Nobody has to answer a change
+the record already carries, and the comparison can always be recomputed from
+the versions.
 
 ## Review granularity
 
@@ -250,7 +256,13 @@ select or label.
 
 `lib/catalogue-import/changes.ts` gives up its private unit list to
 `review-units.ts` and imports it back. `persist-source-version.ts` calls the
-generator inside the same transaction that creates the source version.
+generator inside the same transaction that creates the source version, which is
+why generation and reading live apart from resolution: the sync worker runs
+outside Next.js and must not import the `server-only` draft service.
+
+The source version behind a review row is resolved through
+`catalogue_versions.sync_id` rather than `catalogue_syncs.source_version_id`, so
+a decision does not depend on the worker having finished its bookkeeping.
 
 ## Tests
 

@@ -83,7 +83,8 @@ function assertEditingSession(editingSessionId: string) {
   }
 }
 
-async function recordForUpdate(sql: Sql, recordId: number) {
+/** Locks one catalogue record so a draft mutation sees a stable lifecycle. */
+export async function catalogueRecordForUpdate(sql: Sql, recordId: number) {
   const [record] = await sql`
     select records.id, records.kind, records.academic_year_id,
       records.published_version_id, records.archived_at, codes.code,
@@ -141,7 +142,8 @@ async function copyVersionProvenance(
   `;
 }
 
-async function createDraftInTransaction(
+/** Creates the draft a record should start from: its publication, or an empty aggregate. */
+export async function createDraftInTransaction(
   tx: Sql,
   record: Record<string, unknown>,
   userId: string,
@@ -200,7 +202,7 @@ export async function createCatalogueDraft({
 }) {
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
@@ -245,7 +247,7 @@ export async function saveCatalogueDraft({
   const content = validateCatalogueContent(submitted);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
@@ -406,7 +408,7 @@ export async function publishCatalogueDraft({
   assertEditingSession(editingSessionId);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "Archived records cannot be published.",
@@ -475,7 +477,7 @@ export async function unpublishCatalogueRecord({
   assertEditingSession(editingSessionId);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       if (record.published_version_id === null)
         throw new CatalogueDraftError(
           "The record is not published.",
@@ -535,7 +537,7 @@ export async function discardCatalogueDraft({
   assertEditingSession(editingSessionId);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       const [row] = await tx`
         select * from public.catalogue_drafts where record_id = ${recordId} for update
       `;
@@ -591,7 +593,7 @@ export async function restoreCatalogueVersion({
   assertEditingSession(editingSessionId);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
-      const record = await recordForUpdate(tx, recordId);
+      const record = await catalogueRecordForUpdate(tx, recordId);
       const content = await readVersionContent(tx, versionId);
       if (!content)
         throw new CatalogueDraftError(

@@ -9,7 +9,9 @@ import {
   createCatalogueDraft,
   loadCatalogueDraft,
 } from "@/lib/catalogue/drafts";
+import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
+import { loadSourceReview } from "@/lib/catalogue/source-review-store";
 import {
   loadCatalogueRecord,
   loadVersionCoursePreview,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/coursemap/catalogue-kinds";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
+import { CatalogueChangesPanel } from "./changes/changes-panel";
 import { RecordHeader } from "./record-header";
 import { RecordHistory } from "./record-history";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
@@ -93,6 +96,15 @@ export async function CatalogueRecordPage({
     (!studentContent ||
       draft.contentHash !== contentHashForCatalogueContent(studentContent)),
   );
+  const review = await loadSourceReview(
+    record.recordId,
+    draft?.content ?? null,
+  );
+  const unpublished = draft
+    ? diffSnapshotWrites(studentContent, draft.content)
+    : [];
+  const openChanges =
+    (review?.conflicts.length ?? 0) + (review?.incoming.length ?? 0);
 
   return (
     <RecordTabs value={section} path={path}>
@@ -103,7 +115,7 @@ export async function CatalogueRecordPage({
           [labels.segment]: labels.plural,
           [String(academicYear)]: String(academicYear),
         }}
-        tabs={<RecordTabList />}
+        tabs={<RecordTabList changeCount={openChanges} />}
       >
         <div className="flex w-full min-w-0 flex-col gap-6">
           <RecordHeader
@@ -111,6 +123,8 @@ export async function CatalogueRecordPage({
             hasDraft={draft !== null}
             hasUnpublishedChanges={hasUnpublishedChanges}
             canSync={canManageImports}
+            openChangeCount={openChanges}
+            conflictCount={review?.conflicts.length ?? 0}
           />
           <TabsContent value="content" className="mt-0">
             {draft && canWrite ? (
@@ -145,27 +159,16 @@ export async function CatalogueRecordPage({
             )}
           </TabsContent>
           <TabsContent value="changes" className="mt-0">
-            {record.syncs[0]?.status === "review_required" ? (
-              <FoundationEmpty
-                title="ANU changes detected"
-                description="The latest ANU information differs from this record. Detailed change review is not available yet."
-              />
-            ) : (
-              <FoundationEmpty
-                title={
-                  hasUnpublishedChanges
-                    ? "Unpublished changes"
-                    : "No changes to review"
-                }
-                description={
-                  hasUnpublishedChanges
-                    ? "The Content tab contains saved work that students will not see until it is published."
-                    : record.syncs[0]?.status === "unchanged"
-                      ? "Checked ANU. No changes found."
-                      : "There are no ANU source changes waiting for review."
-                }
-              />
-            )}
+            <CatalogueChangesPanel
+              canWrite={canWrite}
+              hasEverSynced={record.syncs.length > 0}
+              isPublished={record.publishedVersionId !== null}
+              kindLabel={labels.singular.toLowerCase()}
+              path={path}
+              recordId={record.recordId}
+              review={review}
+              unpublished={unpublished}
+            />
           </TabsContent>
           <TabsContent value="changelog" className="mt-0">
             <RecordHistory record={record} />

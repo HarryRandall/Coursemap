@@ -12,6 +12,8 @@ import {
   saveCatalogueDraft,
   unpublishCatalogueRecord,
 } from "@/lib/catalogue/drafts";
+import { resolveSourceChange } from "@/lib/catalogue/source-review-decisions";
+import type { SourceReviewDecision } from "@/lib/catalogue/source-review-store";
 
 export type ActionResult =
   { ok: true; message?: string } | { ok: false; error: string };
@@ -217,5 +219,41 @@ export async function restoreCatalogueVersionAction({
     };
   } catch (error) {
     return draftFailure(error, "The version could not be restored.");
+  }
+}
+
+export async function resolveSourceChangeAction({
+  recordId,
+  changeId,
+  decision,
+  path,
+}: {
+  recordId: number;
+  changeId: number;
+  decision: SourceReviewDecision;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    const resolved = await resolveSourceChange({
+      recordId,
+      changeId,
+      decision,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return {
+      ok: true,
+      revision: resolved.revision,
+      message:
+        decision === "use_source"
+          ? `${resolved.label} now matches ANU.`
+          : `${resolved.label} keeps its current value.`,
+    };
+  } catch (error) {
+    return draftFailure(error, "The ANU change could not be resolved.");
   }
 }

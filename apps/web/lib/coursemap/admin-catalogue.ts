@@ -134,7 +134,7 @@ export async function loadCatalogueDirectoryPage({
   if (records.error) throw records.error;
 
   const recordIds = records.data.map((record) => record.id);
-  const [drafts, syncs] = recordIds.length
+  const [drafts, syncs, openChanges] = recordIds.length
     ? await Promise.all([
         supabase
           .from("catalogue_drafts")
@@ -145,13 +145,35 @@ export async function loadCatalogueDirectoryPage({
           .select("id,record_id,status,error_message,completed_at,created_at")
           .in("record_id", recordIds)
           .order("created_at", { ascending: false }),
+        supabase
+          .from("catalogue_sync_changes")
+          .select("record_id,classification")
+          .in("record_id", recordIds)
+          .in("classification", ["source_change", "conflict"])
+          .is("decision", null)
+          .is("superseded_at", null),
       ])
     : [
+        { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
       ];
   if (drafts.error) throw drafts.error;
   if (syncs.error) throw syncs.error;
+  if (openChanges.error) throw openChanges.error;
+  const openChangeCounts = new Map<
+    number,
+    { open: number; conflicts: number }
+  >();
+  for (const change of openChanges.data ?? []) {
+    const counts = openChangeCounts.get(change.record_id) ?? {
+      open: 0,
+      conflicts: 0,
+    };
+    counts.open += 1;
+    if (change.classification === "conflict") counts.conflicts += 1;
+    openChangeCounts.set(change.record_id, counts);
+  }
   const recordByCodeId = new Map(
     records.data.map((record) => [record.code_id, record]),
   );
@@ -196,14 +218,17 @@ export async function loadCatalogueDirectoryPage({
     const isPublished = Boolean(
       record?.published_version_id && !record.archived_at,
     );
+    const counts = record
+      ? (openChangeCounts.get(record.id) ?? { open: 0, conflicts: 0 })
+      : { open: 0, conflicts: 0 };
     const sourceState: CatalogueDirectoryRecord["sourceState"] = !sync
       ? "never_synced"
       : sync.status === "queued" || sync.status === "running"
         ? "syncing"
-        : sync.status === "review_required"
-          ? "changes_available"
-          : sync.status === "failed"
-            ? "sync_failed"
+        : sync.status === "failed"
+          ? "sync_failed"
+          : counts.open > 0
+            ? "changes_available"
             : "up_to_date";
     return {
       code: listing.code,
@@ -215,6 +240,8 @@ export async function loadCatalogueDirectoryPage({
       isListedByAnu: listing.is_current,
       lastSeenAt: listing.last_seen_at,
       sourceState,
+      openChangeCount: counts.open,
+      conflictCount: counts.conflicts,
       latestSync: sync
         ? {
             id: sync.id,

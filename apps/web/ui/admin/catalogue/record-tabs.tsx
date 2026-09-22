@@ -31,14 +31,14 @@ export function RecordTabs({
   );
 }
 
-export function RecordTabList() {
+export function RecordTabList({ changeCount = 0 }: { changeCount?: number }) {
   return (
     <SectionTabs
       label="Record sections"
       tabs={[
         { value: "content", label: "Content" },
         { value: "student-view", label: "Student view" },
-        { value: "changes", label: "Changes" },
+        { value: "changes", label: "Changes", count: changeCount },
         { value: "changelog", label: "Changelog" },
       ]}
     />

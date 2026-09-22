@@ -21,11 +21,15 @@ export function RecordHeader({
   hasDraft,
   hasUnpublishedChanges,
   canSync,
+  openChangeCount,
+  conflictCount,
 }: {
   record: CatalogueRecord;
   hasDraft: boolean;
   hasUnpublishedChanges: boolean;
   canSync: boolean;
+  openChangeCount: number;
+  conflictCount: number;
 }) {
   const labels = CATALOGUE_KIND_LABELS[record.kind];
   const publicationLabel = record.publishedVersionId
@@ -78,17 +82,19 @@ export function RecordHeader({
             View on ANU <ExternalLink size={12} aria-hidden="true" />
           </Link>
         </div>
-        {record.syncs[0]?.status === "unchanged" ? (
-          <p className="text-sm text-muted-foreground">
-            Checked ANU. No changes found.
-          </p>
-        ) : record.syncs[0]?.status === "review_required" ? (
+        {openChangeCount > 0 ? (
           <Link
             className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-400"
             href={`${adminCatalogueRecordPath(record.kind, record.academicYear, record.code)}/changes`}
           >
-            ANU changes are ready to review.
+            {conflictCount > 0
+              ? `${openChangeCount} ANU ${openChangeCount === 1 ? "change" : "changes"} to review, including ${conflictCount} ${conflictCount === 1 ? "conflict" : "conflicts"}.`
+              : `${openChangeCount} ANU ${openChangeCount === 1 ? "change" : "changes"} to review.`}
           </Link>
+        ) : record.syncs[0]?.status === "unchanged" ? (
+          <p className="text-sm text-muted-foreground">
+            Checked ANU. No changes found.
+          </p>
         ) : record.syncs[0]?.status === "failed" ? (
           <p className="text-sm text-destructive" role="alert">
             {record.syncs[0].errorMessage ?? "The latest ANU sync failed."}

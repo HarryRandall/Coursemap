@@ -1,12 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Badge } from "@coursemap/ui/components/badge";
 import { TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 
 export type SectionTab = {
   value: string;
   label: string;
   icon?: ReactNode;
+  /** Shown beside the label when the section holds outstanding work. */
+  count?: number;
   disabled?: boolean;
 };
 
@@ -37,6 +40,11 @@ export function SectionTabs({
           >
             {tab.icon}
             {tab.label}
+            {tab.count ? (
+              <Badge size="sm" variant="warning-light">
+                {tab.count}
+              </Badge>
+            ) : null}
           </TabsTrigger>
         ))}
       </TabsList>

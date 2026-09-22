@@ -1,10 +1,12 @@
 import { stableStringify } from "./canonical.ts";
 import { fieldLabel } from "../coursemap/catalogue-kinds.ts";
+import {
+  catalogueReviewUnitMap,
+  catalogueReviewUnits,
+} from "../catalogue/review-units.ts";
 import type {
   CatalogueContent,
   CatalogueContentFlag,
-  RequirementRuleKind,
-  RequirementWrite,
 } from "../catalogue/content.ts";
 
 export type SnapshotChange = {
@@ -16,28 +18,7 @@ export type SnapshotChange = {
   sourceExcerpt: string | null;
 };
 
-const COURSE_COLLECTIONS = [
-  "unitOptions",
-  "fees",
-  "areasOfInterest",
-  "attributes",
-  "relatedCourses",
-  "offering",
-  "sessions",
-  "learningOutcomes",
-  "assessmentItems",
-  "assessmentOutcomes",
-] as const;
-
-const STRUCTURE_COLLECTIONS = [
-  "summaryFields",
-  "sections",
-  "learningOutcomes",
-  "fees",
-  "relationships",
-] as const;
-
-function same(left: unknown, right: unknown) {
+export function sameReviewValue(left: unknown, right: unknown) {
   return stableStringify(left ?? null) === stableStringify(right ?? null);
 }
 
@@ -50,45 +31,25 @@ function describe(value: unknown) {
   return text.length > 60 ? `${text.slice(0, 57)}…` : text;
 }
 
-/** The subset of requirements belonging to one rule, for per-rule comparison. */
-export function requirementRuleSlice(
-  requirements: RequirementWrite,
-  ruleKey: RequirementRuleKind,
+/** One readable line for an audit row or a review heading. */
+export function changeSummary(
+  fieldPath: string,
+  oldValue: unknown,
+  newValue: unknown,
 ) {
-  const rule = requirements.rules.find(
-    (candidate) => candidate.key === ruleKey,
-  );
-  if (!rule) return null;
-  const conditionKeys = new Set(
-    requirements.conditions
-      .filter((condition) => condition.ruleKey === ruleKey)
-      .map((condition) => condition.key),
-  );
-  return {
-    rule,
-    groups: requirements.groups.filter((group) => group.ruleKey === ruleKey),
-    conditions: requirements.conditions.filter(
-      (condition) => condition.ruleKey === ruleKey,
-    ),
-    options: requirements.options.filter((option) =>
-      conditionKeys.has(option.conditionKey),
-    ),
-    references: requirements.references.filter(
-      (reference) => reference.ruleKey === ruleKey,
-    ),
-  };
+  return `${fieldLabel(fieldPath)}: ${describe(oldValue)} → ${describe(newValue)}`;
 }
 
 /**
- * Field-level differences between two snapshot writes. Scalars diff one by
- * one; collections and requirement rules diff as whole sections so a review
- * decision replaces the section rather than merging arrays item by item.
+ * Field-level differences between two catalogue writes, over the review units
+ * in `lib/catalogue/review-units.ts`: scalars one by one, collections and
+ * requirement rules whole.
  */
 export function diffSnapshotWrites(
   baseline: CatalogueContent | null,
   candidate: CatalogueContent,
 ): SnapshotChange[] {
-  const changes: SnapshotChange[] = [];
+  const before = catalogueReviewUnitMap(baseline);
   const evidenceFor = (fieldPath: string) => {
     const leaf = fieldPath.split(".").pop() ?? fieldPath;
     return candidate.evidence.find(
@@ -98,59 +59,37 @@ export function diffSnapshotWrites(
         item.fieldPath.endsWith(`.${leaf}`),
     );
   };
-  const push = (fieldPath: string, oldValue: unknown, newValue: unknown) => {
-    if (same(oldValue, newValue)) return;
-    const evidence = evidenceFor(fieldPath);
+  const changes: SnapshotChange[] = [];
+  const units = [
+    ...catalogueReviewUnits(candidate),
+    // A rule the candidate dropped still has to be reported as a removal.
+    ...[...before.values()].filter(
+      (unit) =>
+        unit.unitKind === "requirement_rule" &&
+        !candidate.requirements.rules.some(
+          (rule) => `requirements.${rule.key}` === unit.fieldPath,
+        ),
+    ),
+  ];
+  for (const unit of units) {
+    const oldValue = before.get(unit.fieldPath)?.value ?? null;
+    const newValue =
+      unit.unitKind === "requirement_rule" &&
+      !candidate.requirements.rules.some(
+        (rule) => `requirements.${rule.key}` === unit.fieldPath,
+      )
+        ? null
+        : unit.value;
+    if (sameReviewValue(oldValue, newValue)) continue;
+    const evidence = evidenceFor(unit.fieldPath);
     changes.push({
-      fieldPath,
+      fieldPath: unit.fieldPath,
       oldValue: oldValue ?? null,
       newValue: newValue ?? null,
-      summary: `${fieldLabel(fieldPath)}: ${describe(oldValue)} → ${describe(newValue)}`,
+      summary: changeSummary(unit.fieldPath, oldValue, newValue),
       sourceLocator: evidence?.sourceLocator ?? null,
       sourceExcerpt: evidence?.sourceExcerpt ?? null,
     });
-  };
-
-  if (candidate.course) {
-    const before = baseline?.course ?? null;
-    for (const key of Object.keys(candidate.course.details) as Array<
-      keyof typeof candidate.course.details
-    >) {
-      push(
-        `course.details.${key}`,
-        before?.details[key],
-        candidate.course.details[key],
-      );
-    }
-    for (const key of COURSE_COLLECTIONS) {
-      push(`course.${key}`, before?.[key], candidate.course[key]);
-    }
-  }
-  if (candidate.structure) {
-    const before = baseline?.structure ?? null;
-    for (const key of Object.keys(candidate.structure.details) as Array<
-      keyof typeof candidate.structure.details
-    >) {
-      push(
-        `structure.details.${key}`,
-        before?.details[key],
-        candidate.structure.details[key],
-      );
-    }
-    for (const key of STRUCTURE_COLLECTIONS) {
-      push(`structure.${key}`, before?.[key], candidate.structure[key]);
-    }
-  }
-  const ruleKeys = new Set<RequirementRuleKind>([
-    ...(baseline?.requirements.rules.map((rule) => rule.key) ?? []),
-    ...candidate.requirements.rules.map((rule) => rule.key),
-  ]);
-  for (const ruleKey of ruleKeys) {
-    push(
-      `requirements.${ruleKey}`,
-      baseline ? requirementRuleSlice(baseline.requirements, ruleKey) : null,
-      requirementRuleSlice(candidate.requirements, ruleKey),
-    );
   }
   return changes;
 }
@@ -158,77 +97,4 @@ export function diffSnapshotWrites(
 /** Errors block publication; warnings inform. */
 export function isBlockingFlag(flag: CatalogueContentFlag) {
   return flag.severity === "error";
-}
-
-type Section = Record<string, unknown>;
-
-/**
- * Builds the write to save when applying a review: the baseline with every
- * accepted change's new value set at its field path. Requirement rule paths
- * replace the whole rule slice.
- */
-export function applyAcceptedChanges(
-  baseline: CatalogueContent,
-  candidate: CatalogueContent,
-  acceptedPaths: ReadonlySet<string>,
-): CatalogueContent {
-  const result: CatalogueContent = structuredClone(baseline);
-  result.evidence = candidate.evidence;
-  result.flags = candidate.flags;
-  const replacedRules = new Set<RequirementRuleKind>();
-
-  for (const path of acceptedPaths) {
-    const [root, ...rest] = path.split(".");
-    if (root === "requirements" && rest.length === 1) {
-      replacedRules.add(rest[0] as RequirementRuleKind);
-      continue;
-    }
-    if ((root === "course" || root === "structure") && candidate[root]) {
-      if (!result[root]) {
-        result[root] = structuredClone(candidate[root]) as never;
-        continue;
-      }
-      const target = result[root] as unknown as Section;
-      const source = candidate[root] as unknown as Section;
-      if (rest[0] === "details" && rest.length === 2) {
-        (target.details as Section)[rest[1]!] = structuredClone(
-          (source.details as Section)[rest[1]!],
-        );
-      } else if (rest.length === 1) {
-        target[rest[0]!] = structuredClone(source[rest[0]!]);
-      }
-    }
-  }
-
-  if (replacedRules.size > 0) {
-    const keep = (ruleKey: RequirementRuleKind) => !replacedRules.has(ruleKey);
-    const baseConditions = result.requirements.conditions.filter((condition) =>
-      keep(condition.ruleKey),
-    );
-    const baseConditionKeys = new Set(
-      baseConditions.map((condition) => condition.key),
-    );
-    const merged: RequirementWrite = {
-      rules: result.requirements.rules.filter((rule) => keep(rule.key)),
-      groups: result.requirements.groups.filter((group) => keep(group.ruleKey)),
-      conditions: baseConditions,
-      options: result.requirements.options.filter((option) =>
-        baseConditionKeys.has(option.conditionKey),
-      ),
-      references: result.requirements.references.filter((reference) =>
-        keep(reference.ruleKey),
-      ),
-    };
-    for (const ruleKey of replacedRules) {
-      const slice = requirementRuleSlice(candidate.requirements, ruleKey);
-      if (!slice) continue;
-      merged.rules.push(slice.rule);
-      merged.groups.push(...slice.groups);
-      merged.conditions.push(...slice.conditions);
-      merged.options.push(...slice.options);
-      merged.references.push(...slice.references);
-    }
-    result.requirements = structuredClone(merged);
-  }
-  return result;
 }

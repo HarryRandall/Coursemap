@@ -8,8 +8,13 @@ import type {
 import {
   CATALOGUE_CONTENT_SCHEMA_VERSION,
   emptyCatalogueContent,
+  validateCatalogueContent,
 } from "../catalogue/content.ts";
-import { contentHashForCatalogueContent } from "../catalogue-import/version-content.ts";
+import {
+  contentHashForCatalogueContent,
+  readVersionContent,
+} from "../catalogue-import/version-content.ts";
+import { generateSourceReview } from "../catalogue/source-review-store.ts";
 
 export type PersistedSourceVersion = {
   status: "unchanged" | "review_required" | "applied";
@@ -571,7 +576,8 @@ export async function persistSourceVersion(
       latest_source_version_id = ${sourceVersionId}, source_checked_at = now()
       where id = ${claim.recordId}`;
 
-    const [draft] = await tx`select content_hash from public.catalogue_drafts
+    const [draft] =
+      await tx`select content, content_hash from public.catalogue_drafts
       where record_id = ${claim.recordId} for update`;
     const empty = emptyCatalogueContent({
       kind: claim.kind,
@@ -612,6 +618,25 @@ export async function persistSourceVersion(
     await tx`insert into public.catalogue_change_events (
       record_id, event_kind, origin, version_id
     ) values (${claim.recordId}, 'source_changed', 'source', ${sourceVersionId})`;
+
+    // The local side of the comparison is whatever an administrator would see
+    // if they opened the record now: the draft, or the publication a draft
+    // would be created from.
+    const baseSource = previousSourceVersionId
+      ? await readVersionContent(tx, previousSourceVersionId)
+      : null;
+    const local = draft
+      ? validateCatalogueContent(draft.content)
+      : record.published_version_id !== null
+        ? await readVersionContent(tx, Number(record.published_version_id))
+        : null;
+    await generateSourceReview(tx, {
+      syncId: claim.syncId,
+      recordId: claim.recordId,
+      baseSource,
+      local,
+      incomingSource: write,
+    });
     return {
       status: "review_required",
       sourceVersionId,
