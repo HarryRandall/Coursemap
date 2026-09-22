@@ -11,12 +11,6 @@ import {
 } from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@coursemap/ui/primitives/card";
-import {
   Table,
   TableBody,
   TableCaption,
@@ -30,6 +24,11 @@ import { badgeVariantForTone } from "@/lib/ui";
 import type { SyncDetail } from "@/lib/coursemap/admin-operations";
 import { DataTableShell } from "@/ui/common/data-table";
 import { ArtefactViewer } from "./artefact-viewer";
+import {
+  Facts,
+  Measure,
+  OperationsSection as Section,
+} from "./operations-layout";
 import {
   formatBytes,
   formatCost,
@@ -51,57 +50,6 @@ const STAGE_LABELS: Record<string, string> = {
   content_project: "Content projection",
   source_version_persist: "Source version",
 };
-
-function Facts({
-  items,
-}: {
-  items: Array<{ label: string; value: string | null }>;
-}) {
-  return (
-    <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((item) => (
-        <div key={item.label}>
-          <dt className="text-xs tracking-wide text-muted-foreground uppercase">
-            {item.label}
-          </dt>
-          <dd className="mt-0.5 text-sm break-words">{item.value ?? "—"}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-semibold tracking-wide uppercase">
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-/**
- * Diagnostics are read, not scanned: long fact grids and highlighted source
- * become unreadable when a wide screen stretches them edge to edge. Tables and
- * artefacts scroll inside this measure rather than widening past it.
- */
-function Measure({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex w-full max-w-6xl min-w-0 flex-col gap-4">
-      {children}
-    </div>
-  );
-}
 
 /** Everything one sync recorded, for a developer diagnosing or retrying it. */
 export function SyncDetailView({ sync }: { sync: SyncDetail }) {

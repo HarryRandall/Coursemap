@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
@@ -9,6 +10,10 @@ import type {
 } from "@/lib/coursemap/admin-operations";
 import { DiscoveryList } from "@/ui/admin/operations/discovery-list";
 import { SyncDetailView } from "@/ui/admin/operations/sync-detail";
+import {
+  SyncDetailTabList,
+  SyncDetailTabs,
+} from "@/ui/admin/operations/sync-detail-tabs";
 import { SyncList } from "@/ui/admin/operations/sync-list";
 
 let searchParams = new URLSearchParams();
@@ -155,6 +160,23 @@ function syncDetail(overrides: Partial<SyncDetail> = {}): SyncDetail {
   };
 }
 
+/** The detail view reads one tab at a time, so its tab bar comes with it. */
+function renderSyncDetail(sync: SyncDetail) {
+  return render(
+    <SyncDetailTabs>
+      <SyncDetailTabList
+        stageCount={sync.stages.length}
+        extractionCount={sync.extractions.length}
+        artefactCount={sync.artefacts.length}
+        failedStageCount={
+          sync.stages.filter((stage) => stage.status === "failed").length
+        }
+      />
+      <SyncDetailView sync={sync} />
+    </SyncDetailTabs>,
+  );
+}
+
 function renderSyncList(page: SyncOperationsPage) {
   // FilterBar carries hints through the shared tooltip provider.
   return render(
@@ -183,22 +205,30 @@ test("an empty list says what fills it rather than showing an empty table", () =
   expect(screen.queryByRole("table")).toBeNull();
 });
 
-test("the sync detail shows the failure, the lease and the attempt that failed", () => {
-  render(<SyncDetailView sync={syncDetail()} />);
+test("the sync detail shows the failure, the lease and the attempt that failed", async () => {
+  const user = userEvent.setup();
+  renderSyncDetail(syncDetail());
+  // The failure and the lease are true of the sync, so they lead every tab.
   expect(screen.getByText("OPENROUTER_HTTP_500")).toBeTruthy();
-  // The alert and the stage that failed both name it.
-  expect(screen.getAllByText("OpenRouter returned 500.").length).toBe(2);
+  expect(screen.getByText("OpenRouter returned 500.")).toBeTruthy();
   expect(screen.getByText("99999999-9999-4999-8999-999999999999")).toBeTruthy();
+
+  await user.click(screen.getByRole("tab", { name: /Stages/ }));
   const stages = screen.getByText("Model extraction").closest("tr");
   expect(within(stages!).getByText("failed")).toBeTruthy();
   expect(within(stages!).getByText("3")).toBeTruthy();
+  expect(within(stages!).getByText("OpenRouter returned 500.")).toBeTruthy();
+
+  await user.click(screen.getByRole("tab", { name: /Extractions/ }));
   expect(screen.getByText("openai/gpt-5-2026")).toBeTruthy();
   expect(screen.getByText("2 errors")).toBeTruthy();
+
+  await user.click(screen.getByRole("tab", { name: /Artefacts/ }));
   expect(screen.getByTestId("artefacts").textContent).toBe("1");
 });
 
 test("the sync detail links back to the record it checked", () => {
-  render(<SyncDetailView sync={syncDetail()} />);
+  renderSyncDetail(syncDetail());
   expect(
     screen.getByRole("link", { name: /Open the record/ }).getAttribute("href"),
   ).toBe("/admin/courses/2027/comp2700");
