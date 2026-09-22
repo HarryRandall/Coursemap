@@ -63,23 +63,6 @@ export type CatalogueRecord = {
     unpublishedAt: string | null;
     unpublishedBy: string | null;
   }>;
-  changeEvents: Array<{
-    id: number;
-    eventKind:
-      | "edit"
-      | "publish"
-      | "unpublish"
-      | "discard"
-      | "restore"
-      | "source_draft_created"
-      | "source_checked"
-      | "source_changed"
-      | "sync_failed";
-    draftRevision: number | null;
-    editingSessionId: string | null;
-    versionId: number | null;
-    createdAt: string;
-  }>;
   syncs: CatalogueSync[];
 };
 
@@ -134,7 +117,6 @@ export async function loadCatalogueRecord({
     syncsResult,
     blockersResult,
     listingResult,
-    changeEventsResult,
   ] = await Promise.all([
     supabase
       .from("catalogue_versions")
@@ -163,20 +145,12 @@ export async function loadCatalogueRecord({
       .select("title,is_current,last_seen_at")
       .eq("record_id", itemYear.id)
       .maybeSingle(),
-    supabase
-      .from("catalogue_change_events")
-      .select(
-        "id,event_kind,draft_revision,editing_session_id,version_id,created_at",
-      )
-      .eq("record_id", itemYear.id)
-      .order("created_at", { ascending: false }),
   ]);
   if (versionsResult.error) throw versionsResult.error;
   if (publicationsResult.error) throw publicationsResult.error;
   if (syncsResult.error) throw syncsResult.error;
   if (blockersResult.error) throw blockersResult.error;
   if (listingResult.error) throw listingResult.error;
-  if (changeEventsResult.error) throw changeEventsResult.error;
 
   const currentVersionId = itemYear.published_version_id;
   const title = await versionTitle(supabase, kind, currentVersionId);
@@ -214,15 +188,6 @@ export async function loadCatalogueRecord({
       publishedBy: publication.published_by,
       unpublishedAt: publication.unpublished_at,
       unpublishedBy: publication.unpublished_by,
-    })),
-    changeEvents: (changeEventsResult.data ?? []).map((event) => ({
-      id: event.id,
-      eventKind:
-        event.event_kind as CatalogueRecord["changeEvents"][number]["eventKind"],
-      draftRevision: event.draft_revision,
-      editingSessionId: event.editing_session_id,
-      versionId: event.version_id,
-      createdAt: event.created_at,
     })),
     syncs: (syncsResult.data ?? []).map((sync) => ({
       id: sync.id,

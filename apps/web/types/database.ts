@@ -810,6 +810,7 @@ export type Database = {
           id: number
           origin: string
           record_id: number
+          sync_change_id: number | null
           version_id: number | null
         }
         Insert: {
@@ -821,6 +822,7 @@ export type Database = {
           id?: never
           origin: string
           record_id: number
+          sync_change_id?: number | null
           version_id?: number | null
         }
         Update: {
@@ -832,6 +834,7 @@ export type Database = {
           id?: never
           origin?: string
           record_id?: number
+          sync_change_id?: number | null
           version_id?: number | null
         }
         Relationships: [
@@ -848,6 +851,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "published_course_summaries"
             referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_change_events_sync_change_id_fkey"
+            columns: ["sync_change_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_sync_changes"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "catalogue_change_events_version_fkey"

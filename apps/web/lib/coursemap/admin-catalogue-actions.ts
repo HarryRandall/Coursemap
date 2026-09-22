@@ -215,7 +215,9 @@ export async function restoreCatalogueVersionAction({
     return {
       ok: true,
       revision: result.revision,
-      message: "Version restored as a draft.",
+      message: result.replacedVersionId
+        ? "Version restored as a draft. Your previous draft is in the Changelog."
+        : "Version restored as a draft.",
     };
   } catch (error) {
     return draftFailure(error, "The version could not be restored.");

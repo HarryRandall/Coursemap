@@ -160,10 +160,11 @@ export async function resolveSourceChange({
           `;
           const [event] = await tx`
             insert into public.catalogue_change_events (
-              record_id, draft_revision, event_kind, origin, actor_id, version_id
+              record_id, draft_revision, event_kind, origin, actor_id, version_id,
+              sync_change_id
             ) values (
               ${recordId}, ${revision}, 'source_accepted', 'source',
-              ${userId}::uuid, ${sourceVersionId}
+              ${userId}::uuid, ${sourceVersionId}, ${changeId}
             ) returning id
           `;
           for (const [position, change] of fieldChanges.entries()) {
@@ -186,10 +187,11 @@ export async function resolveSourceChange({
       } else {
         await tx`
           insert into public.catalogue_change_events (
-            record_id, draft_revision, event_kind, origin, actor_id, version_id
+            record_id, draft_revision, event_kind, origin, actor_id, version_id,
+            sync_change_id
           ) values (
             ${recordId}, ${revision}, 'source_kept', 'source', ${userId}::uuid,
-            ${sourceVersionId}
+            ${sourceVersionId}, ${changeId}
           )
         `;
       }

@@ -225,11 +225,17 @@ test("keeping a local value survives an unchanged source and reopens when ANU mo
   );
   assert.equal(Number(afterKeep.revision), 1);
   const [keptEvent] = await sql`
-    select event_kind, origin, actor_id from public.catalogue_change_events
+    select event_kind, origin, actor_id, sync_change_id
+    from public.catalogue_change_events
     where record_id = ${recordId} and event_kind = 'source_kept'
   `;
   assert.equal(keptEvent.origin, "source");
   assert.equal(keptEvent.actor_id, ADMIN_ID);
+  assert.equal(
+    Number(keptEvent.sync_change_id),
+    opened.conflicts[0].id,
+    "the changelog can name the field that was kept",
+  );
 
   // ANU repeats the same wording. The baseline advanced, so this is an
   // override rather than a question the administrator already answered.
@@ -355,11 +361,12 @@ test("using ANU writes one path, keeps unrelated edits and moves only its proven
   );
 
   const [acceptedEvent] = await sql`
-    select events.id, events.event_kind, events.draft_revision
+    select events.id, events.event_kind, events.draft_revision, events.sync_change_id
     from public.catalogue_change_events as events
     where events.record_id = ${recordId} and events.event_kind = 'source_accepted'
   `;
   assert.equal(Number(acceptedEvent.draft_revision), 3);
+  assert.equal(Number(acceptedEvent.sync_change_id), unaffected.incoming[0].id);
   const fieldChanges = await sql`
     select field_path, new_value from public.catalogue_field_changes
     where event_id = ${acceptedEvent.id}

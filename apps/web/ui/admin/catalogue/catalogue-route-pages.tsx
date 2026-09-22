@@ -2,8 +2,13 @@ import { notFound, redirect } from "next/navigation";
 import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
 import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { CatalogueDirectoryPage, type SearchParams } from "./catalogue-pages";
+import { CatalogueVersionPage } from "./changelog/version-page";
 import { CatalogueRecordPage } from "./record-page";
 import type { RecordSection } from "./record-tabs";
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 const RECORD_SECTIONS = new Set<RecordSection>([
   "content",
@@ -42,11 +47,13 @@ export async function CatalogueRecordRoute({
   year,
   code,
   section,
+  searchParams,
 }: {
   kind: CatalogueKind;
   year: string;
   code: string;
   section?: string[];
+  searchParams: SearchParams;
 }) {
   const academicYear = Number(year);
   if (
@@ -60,15 +67,30 @@ export async function CatalogueRecordRoute({
     redirect(
       section?.length ? `${canonicalPath}/${section.join("/")}` : canonicalPath,
     );
-  if ((section?.length ?? 0) > 1) notFound();
   const requested = section?.[0] ?? "content";
   if (!RECORD_SECTIONS.has(requested as RecordSection)) notFound();
+  const params = await searchParams;
+  if (requested === "changelog" && section?.length === 2) {
+    const ordinal = Number(section[1]);
+    if (!Number.isInteger(ordinal) || ordinal < 1) notFound();
+    return (
+      <CatalogueVersionPage
+        kind={kind}
+        academicYear={academicYear}
+        code={code}
+        versionOrdinal={ordinal}
+        compare={first(params.compare) ?? null}
+      />
+    );
+  }
+  if ((section?.length ?? 0) > 1) notFound();
   return (
     <CatalogueRecordPage
       kind={kind}
       academicYear={academicYear}
       code={code}
       section={requested as RecordSection}
+      changelogEvents={Number(first(params.events)) || undefined}
     />
   );
 }

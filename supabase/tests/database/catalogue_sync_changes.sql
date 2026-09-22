@@ -6,7 +6,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(9);
+select extensions.plan(11);
 
 select extensions.has_table('public', 'catalogue_sync_changes', 'ANU review rows are stored');
 
@@ -99,11 +99,37 @@ select extensions.throws_ok(
 
 select extensions.lives_ok(
   $$
-    insert into public.catalogue_change_events (record_id, event_kind, origin)
-    select record_id, 'source_accepted', 'source' from public.catalogue_syncs
-    where id = '33000000-0000-4000-8000-000000000001'
+    insert into public.catalogue_change_events (
+      record_id, event_kind, origin, sync_change_id
+    )
+    select changes.record_id, 'source_accepted', 'source', changes.id
+    from public.catalogue_sync_changes as changes
+    where changes.sync_id = '33000000-0000-4000-8000-000000000001'
   $$,
-  'accepting an ANU value is an auditable event kind'
+  'accepting an ANU value is an auditable event that names the row it answered'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.catalogue_change_events (
+      record_id, event_kind, origin, sync_change_id
+    )
+    select changes.record_id, 'edit', 'manual', changes.id
+    from public.catalogue_sync_changes as changes
+    where changes.sync_id = '33000000-0000-4000-8000-000000000001'
+  $$,
+  '23514',
+  null,
+  'only a source decision may name a review row'
+);
+
+select extensions.is(
+  (
+    select count(*)::int from public.catalogue_change_events
+    where event_kind = 'source_accepted' and sync_change_id is not null
+  ),
+  1,
+  'the changelog can join a decision to the field it decided'
 );
 
 select * from extensions.finish();

@@ -290,6 +290,12 @@ Turn `catalogue_change_events`, `catalogue_field_changes`, `catalogue_versions`,
 `catalogue_publications`, `catalogue_syncs` and `catalogue_sync_changes` into
 one human timeline. An administrator never learns which table produced a row.
 
+Two schema notes from what landed: `catalogue_change_events.sync_change_id`
+names the review row a source decision answered, because keeping a value
+changes no content and so leaves no field change row to carry that meaning; and
+`restoreCatalogueVersion` now materialises the draft it replaces as a version
+first, which is what makes the replacement warning honest.
+
 ## Grouping
 
 Branch 03 records `editing_session_id`. Use it. Five autosaves become one

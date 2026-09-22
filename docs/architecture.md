@@ -46,8 +46,9 @@ and version model. These concepts are deliberately separate:
   A manual edit replaces provenance only for its semantic changed paths.
 - `catalogue_change_events` and `catalogue_field_changes`: append-only accepted
   editing, publication, discard and restore operations with exact old and new
-  values. `editing_session_id` lets the changelog group autosaves later without
-  rewriting raw history.
+  values. `editing_session_id` groups autosaves in the changelog without
+  rewriting raw history, and `sync_change_id` names the ANU review row a source
+  decision answered
 - `catalogue_publications`: historical visibility intervals recording the
   version, publisher, publication time, unpublisher and unpublication time.
 - `course_version_details` and `structure_version_details` hold the scalar

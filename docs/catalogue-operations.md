@@ -81,9 +81,29 @@ using the student-facing view. **Publish draft** materialises and seals a new
 manual version, advances the publication pointer and clears the draft.
 **Unpublish** closes the visibility interval without deleting history.
 
-The **Changelog** tab lists immutable versions and publication events.
-**Restore as draft** copies historical content into a new draft. **Discard**
-clears the draft without deleting versions.
+## Read the changelog
+
+The **Changelog** tab is one timeline of everything that happened to the
+record, newest first and grouped by day. It speaks in editing, review and
+publication terms; technical execution detail belongs to operations, not here.
+
+Autosaves are grouped by editing session, so one sitting reads as "Harry edited
+Description, 5 autosaves over 4 minutes" with the value it started from and the
+value it ended on. A field typed and taken back within a session is not a
+change. Repeated quiet ANU checks collapse into one line. The grouping is
+presentation only: every raw event keeps its own row, and expanding an entry
+shows the fields it covers.
+
+Versions are numbered within their record and open as a page, not a database
+row. A version page renders the student view of that content and offers
+**Compare** against the current draft, the published version or the preceding
+version, and **Restore as draft**.
+
+**Restore as draft** copies historical content into the working draft. It is
+not called a revert because the version itself never changes. If a draft would
+be replaced, the draft is kept as a version of its own first and offered back
+from the changelog, so nothing is lost. **Discard** works the same way: it
+clears the draft and keeps a restorable checkpoint.
 
 ## Reliability and evidence
 

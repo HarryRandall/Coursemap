@@ -605,6 +605,7 @@ export async function restoreCatalogueVersion({
         select * from public.catalogue_drafts where record_id = ${recordId} for update
       `;
       const existing = existingRow ? draftFromRow(existingRow) : null;
+      let replacedVersionId: number | null = null;
       if (existing) {
         if (!replaceExistingDraft)
           throw new CatalogueDraftError(
@@ -613,6 +614,24 @@ export async function restoreCatalogueVersion({
           );
         if (expectedRevision === null || existing.revision !== expectedRevision)
           throw new CatalogueDraftConflictError(existing.revision);
+        // Restoring must not destroy work. The draft it replaces becomes a
+        // version of its own, so the changelog can offer it back.
+        if (await draftIsMeaningful(tx, record, existing)) {
+          replacedVersionId = await materialiseDraftVersion(tx, {
+            record,
+            draft: existing,
+            userId,
+          });
+          await tx`
+            insert into public.catalogue_change_events (
+              record_id, draft_revision, event_kind, origin, actor_id,
+              editing_session_id, version_id
+            ) values (
+              ${recordId}, ${existing.revision}, 'discard', 'manual',
+              ${userId}::uuid, ${editingSessionId}::uuid, ${replacedVersionId}
+            )
+          `;
+        }
       }
       const revision = existing ? existing.revision + 1 : 0;
       const contentHash = contentHashForCatalogueContent(content);
@@ -648,7 +667,7 @@ export async function restoreCatalogueVersion({
           ${editingSessionId}::uuid, ${versionId}
         )
       `;
-      return { revision, content: restored };
+      return { revision, content: restored, replacedVersionId };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
 }

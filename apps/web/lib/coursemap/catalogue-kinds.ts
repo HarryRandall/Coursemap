@@ -37,6 +37,16 @@ export function adminCatalogueRecordPath(
   return `${adminCatalogueYearPath(kind, year)}/${encodeURIComponent(code.toLowerCase())}`;
 }
 
+/** One immutable version, numbered within its record rather than by row id. */
+export function adminCatalogueVersionPath(
+  kind: CatalogueKind,
+  year: number,
+  code: string,
+  versionOrdinal: number,
+) {
+  return `${adminCatalogueRecordPath(kind, year, code)}/changelog/${versionOrdinal}`;
+}
+
 export function publicCatalogueRecordPath(
   kind: CatalogueKind,
   year: number,

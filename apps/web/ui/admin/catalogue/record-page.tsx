@@ -12,6 +12,8 @@ import {
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
 import { loadSourceReview } from "@/lib/catalogue/source-review-store";
+import { CHANGELOG_PAGE_SIZE } from "@/lib/catalogue/changelog";
+import { loadCatalogueChangelog } from "@/lib/coursemap/admin-catalogue-changelog";
 import {
   loadCatalogueRecord,
   loadVersionCoursePreview,
@@ -25,8 +27,8 @@ import {
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
 import { CatalogueChangesPanel } from "./changes/changes-panel";
+import { ChangelogTimeline } from "./changelog/changelog-timeline";
 import { RecordHeader } from "./record-header";
-import { RecordHistory } from "./record-history";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
 import { CatalogueContentEditor } from "./content-editor";
 import { CoursePreview, StructurePreview } from "./version-preview";
@@ -53,11 +55,14 @@ export async function CatalogueRecordPage({
   code,
   academicYear,
   section = "content",
+  changelogEvents = CHANGELOG_PAGE_SIZE,
 }: {
   kind: CatalogueKind;
   code: string;
   academicYear: number;
   section?: RecordSection;
+  /** How many raw audit events the changelog reads before paging. */
+  changelogEvents?: number;
 }) {
   const [canManageImports, canWrite] = await Promise.all([
     canManageCatalogueSources(),
@@ -103,6 +108,15 @@ export async function CatalogueRecordPage({
   const unpublished = draft
     ? diffSnapshotWrites(studentContent, draft.content)
     : [];
+  const changelog = await loadCatalogueChangelog({
+    recordId: record.recordId,
+    limit: Math.min(Math.max(changelogEvents, CHANGELOG_PAGE_SIZE), 400),
+  });
+  const versionOrdinals = new Map(
+    [...record.versions]
+      .sort((left, right) => left.id - right.id)
+      .map((version, index) => [version.id, index + 1]),
+  );
   const openChanges =
     (review?.conflicts.length ?? 0) + (review?.incoming.length ?? 0);
 
@@ -171,7 +185,11 @@ export async function CatalogueRecordPage({
             />
           </TabsContent>
           <TabsContent value="changelog" className="mt-0">
-            <RecordHistory record={record} />
+            <ChangelogTimeline
+              changelog={changelog}
+              path={path}
+              versionOrdinals={versionOrdinals}
+            />
           </TabsContent>
         </div>
       </AppShell>
