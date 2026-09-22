@@ -7,6 +7,11 @@
 -- guards itself with it, which is why the shared triggers and the permission
 -- lookups are in part 1 rather than beside the tables that use them.
 
+-- Declared rather than assumed. A Supabase project ships pgcrypto, and nothing
+-- here needs it now that gen_random_uuid is core, but the schema has always
+-- named its own dependency and a stock image is not a guarantee.
+create extension if not exists pgcrypto with schema extensions;
+
 -- Supabase hands anon and authenticated everything on each new object in
 -- public. Narrow that before the first table exists, so a table added later
 -- without a considered grant is unreachable rather than open.

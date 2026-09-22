@@ -16,6 +16,10 @@ test("catalogue content autosaves and remains separate from student view", async
     "true",
   );
   await expect(page.getByRole("button", { name: /save/i })).toHaveCount(0);
+  // A record opens as what it says rather than as a form, so the editor and
+  // the draft behind it both start with Edit.
+  await expect(page.getByRole("status")).toContainText("Published");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("Saved");
 
   const description = page.getByLabel("Description");
@@ -43,14 +47,13 @@ test("catalogue content autosaves and remains separate from student view", async
   });
   await expect(discardDialog).toBeVisible();
   await discardDialog.getByRole("button", { name: "Discard draft" }).click();
-  await expect(page).toHaveURL(
-    /\/admin\/courses\/2026\/comp1100\/student-view$/,
-  );
-
-  await expect(page.getByRole("tab", { name: "Student view" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  // Discarding leaves the editor rather than the record: the reader is put
+  // back on the content they were editing, as the published version again.
+  await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100$/);
+  await expect(page.getByRole("status")).toContainText("Published");
+  await expect(
+    page.getByRole("button", { name: "Edit", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("tab", { name: "Changelog" }).click();
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100\/changelog$/);
