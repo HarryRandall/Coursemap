@@ -1,3 +1,7 @@
+import {
+  PUBLISHED_STRUCTURE_DETAIL_TAG,
+  publishedStructureTag,
+} from "./published-cache";
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public-server";
@@ -215,36 +219,8 @@ export async function loadPublishedStructure(
     {
       revalidate: 300,
       tags: [
-        "published-structure-detail",
-        `published-structure:${academicYear}:${normalisedCode}`,
-      ],
-    },
-  )();
-}
-
-/** Published years for a structure code, newest first. */
-export async function loadPublishedStructureYears(
-  code: string,
-): Promise<number[]> {
-  const normalisedCode = code.trim().toUpperCase();
-  if (!STRUCTURE_CODE_PATTERN.test(normalisedCode)) return [];
-  return unstable_cache(
-    async () => {
-      const client = createPublicClient() as unknown as LooseRpcClient;
-      const { data, error } = await client.rpc("published_structure_years", {
-        p_structure_code: normalisedCode,
-      });
-      if (error) throw new Error(error.message);
-      return readRecords(data ?? []).map((row) =>
-        readNumber(row.academic_year),
-      );
-    },
-    ["published-structure-years", normalisedCode],
-    {
-      revalidate: 300,
-      tags: [
-        "published-structure-years",
-        `published-structure:${normalisedCode}`,
+        PUBLISHED_STRUCTURE_DETAIL_TAG,
+        publishedStructureTag(academicYear, normalisedCode),
       ],
     },
   )();

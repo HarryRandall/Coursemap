@@ -1,3 +1,10 @@
+import {
+  PUBLISHED_COURSE_DETAIL_TAG,
+  PUBLISHED_COURSE_PAGE_TAG,
+  PUBLISHED_COURSE_YEARS_TAG,
+  publishedCourseTag,
+  publishedCourseYearTag,
+} from "./published-cache";
 import "server-only";
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -892,6 +899,20 @@ function detailAsCourseDetails(
   };
 }
 
+/**
+ * The reader's view of course content with no version behind it, such as a
+ * mutable draft. Identical to a published read apart from saying so, which is
+ * what lets one preview component answer "what will students see".
+ */
+export function courseFromDraftProjection(
+  projection: Json,
+): CourseDetails | null {
+  const details = detailAsCourseDetails(projection);
+  return details === null
+    ? null
+    : { ...details, publicationStatus: "draft" as const };
+}
+
 export function courseFromSnapshotProjection(
   projection: Json,
   snapshotId: number,
@@ -945,7 +966,7 @@ export async function loadAcademicYearOptions(): Promise<AcademicYearOption[]> {
     ["published-academic-year-options"],
     {
       revalidate: 300,
-      tags: ["published-course-years"],
+      tags: [PUBLISHED_COURSE_YEARS_TAG],
     },
   )();
 }
@@ -1334,7 +1355,10 @@ export async function loadPublishedCoursePage(args: {
     ],
     {
       revalidate: 300,
-      tags: ["published-course-page", `published-courses:${args.academicYear}`],
+      tags: [
+        PUBLISHED_COURSE_PAGE_TAG,
+        publishedCourseYearTag(args.academicYear),
+      ],
     },
   )();
 }
@@ -1500,9 +1524,9 @@ export async function loadPublishedCourse(
     {
       revalidate: 300,
       tags: [
-        "published-course-detail",
-        `published-course:${academicYear}:${normalisedCode}`,
-        `published-courses:${academicYear}`,
+        PUBLISHED_COURSE_DETAIL_TAG,
+        publishedCourseTag(academicYear, normalisedCode),
+        publishedCourseYearTag(academicYear),
       ],
     },
   )();

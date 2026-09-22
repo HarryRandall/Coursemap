@@ -80,7 +80,10 @@ and version model. These concepts are deliberately separate:
   `catalogue_extractions`: technical execution evidence and validated reusable
   model responses
 - `published_course_summaries`: a security-invoker view joining published
-  course versions to their code for the directory
+  course versions to their code for the directory. The public reads
+  (`published_course_detail`, `published_structure_detail` and this view)
+  resolve `published_version_id` and nothing else, and their Next.js cache tags
+  are built in `lib/coursemap/published-cache.ts` so publication can drop them
 - `university_calendar_events` keyed by academic year, date and title, and
   `university_calendar_imports` recording each command-line import
 

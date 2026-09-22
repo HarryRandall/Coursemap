@@ -13,7 +13,15 @@ import {
   unpublishCatalogueRecord,
 } from "@/lib/catalogue/drafts";
 import { resolveSourceChange } from "@/lib/catalogue/source-review-decisions";
+import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
+import { revalidatePublishedRecord } from "@/lib/coursemap/published-cache";
 import type { SourceReviewDecision } from "@/lib/catalogue/source-review-store";
+
+type PublishedRecord = {
+  kind: CatalogueKind;
+  academicYear: number;
+  code: string;
+};
 
 export type ActionResult =
   { ok: true; message?: string } | { ok: false; error: string };
@@ -59,11 +67,13 @@ export async function publishDraftAction({
   expectedRevision,
   editingSessionId,
   path,
+  record,
 }: {
   recordId: number;
   expectedRevision: number;
   editingSessionId: string;
   path: string;
+  record: PublishedRecord;
 }): Promise<DraftActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
@@ -77,6 +87,7 @@ export async function publishDraftAction({
       userId: viewer.id,
     });
     revalidateRecord(path);
+    revalidatePublishedRecord(record);
     return { ok: true, message: "Published. Students now see this version." };
   } catch (error) {
     return draftFailure(error, "The draft could not be published.");
@@ -87,10 +98,12 @@ export async function unpublishAction({
   recordId,
   editingSessionId,
   path,
+  record,
 }: {
   recordId: number;
   editingSessionId: string;
   path: string;
+  record: PublishedRecord;
 }): Promise<DraftActionResult> {
   if (!(await canWriteCatalogue()))
     return { ok: false, error: "Catalogue write permission is required." };
@@ -103,6 +116,7 @@ export async function unpublishAction({
       userId: viewer.id,
     });
     revalidateRecord(path);
+    revalidatePublishedRecord(record);
     return {
       ok: true,
       message: "Unpublished. Students no longer see this record for the year.",

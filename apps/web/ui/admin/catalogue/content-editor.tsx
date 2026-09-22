@@ -269,6 +269,13 @@ export function CatalogueContentEditor({
   );
   const currentContent = JSON.stringify(write);
   const dirty = currentContent !== savedContent;
+  // Publication is the only action here that changes a public page, so it is
+  // also the only one that has to drop the cached public reads.
+  const publishedRecord = {
+    kind: initial.kind,
+    academicYear: initial.academicYear,
+    code: initial.code,
+  };
 
   useEffect(() => {
     const inactivityTimeout = window.setTimeout(
@@ -363,6 +370,7 @@ export function CatalogueContentEditor({
       expectedRevision: revision,
       editingSessionId,
       path,
+      record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
     toast.success(result.message);
@@ -377,6 +385,7 @@ export function CatalogueContentEditor({
       recordId,
       editingSessionId,
       path,
+      record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
     toast.success(result.message);

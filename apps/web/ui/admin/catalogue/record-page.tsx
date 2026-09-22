@@ -19,6 +19,7 @@ import {
   loadVersionCoursePreview,
   loadVersionWrite,
 } from "@/lib/coursemap/admin-catalogue-record";
+import { courseDetailsFromWrite } from "@/lib/coursemap/course-version-view";
 import {
   CATALOGUE_KIND_LABELS,
   type CatalogueKind,
@@ -29,9 +30,9 @@ import { AppShell } from "@/ui/shell";
 import { CatalogueChangesPanel } from "./changes/changes-panel";
 import { ChangelogTimeline } from "./changelog/changelog-timeline";
 import { RecordHeader } from "./record-header";
+import { StudentViewPanel } from "./student-view-panel";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
 import { CatalogueContentEditor } from "./content-editor";
-import { CoursePreview, StructurePreview } from "./version-preview";
 
 function FoundationEmpty({
   title,
@@ -101,6 +102,16 @@ export async function CatalogueRecordPage({
     (!studentContent ||
       draft.contentHash !== contentHashForCatalogueContent(studentContent)),
   );
+  const draftPreview = draft
+    ? {
+        course:
+          kind === "course" ? courseDetailsFromWrite(draft.content) : null,
+        content: kind === "course" ? null : draft.content,
+      }
+    : null;
+  const publishedPreview = studentContent
+    ? { course: studentCourse, content: studentCourse ? null : studentContent }
+    : null;
   const review = await loadSourceReview(
     record.recordId,
     draft?.content ?? null,
@@ -151,26 +162,19 @@ export async function CatalogueRecordPage({
                 initialHasUnpublishedChanges={hasUnpublishedChanges}
                 path={path}
               />
-            ) : draft ? (
-              <StructurePreview write={draft.content} />
             ) : (
               <FoundationEmpty
-                title={`${labels.singular} content is not available`}
-                description={`You need catalogue write permission to author this ${labels.singular.toLowerCase()}.`}
+                title={`${labels.singular} content is read-only`}
+                description={`You need catalogue write permission to author this ${labels.singular.toLowerCase()}. Student view shows what it currently says.`}
               />
             )}
           </TabsContent>
           <TabsContent value="student-view" className="mt-0">
-            {studentCourse ? (
-              <CoursePreview course={studentCourse} />
-            ) : studentContent ? (
-              <StructurePreview write={studentContent} />
-            ) : (
-              <FoundationEmpty
-                title={`This ${labels.singular.toLowerCase()} hasn't been published yet`}
-                description="Student view will show the published version when one is available."
-              />
-            )}
+            <StudentViewPanel
+              draft={draftPreview}
+              kindLabel={labels.singular.toLowerCase()}
+              published={publishedPreview}
+            />
           </TabsContent>
           <TabsContent value="changes" className="mt-0">
             <CatalogueChangesPanel

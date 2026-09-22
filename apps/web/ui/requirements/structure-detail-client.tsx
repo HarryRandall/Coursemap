@@ -55,7 +55,6 @@ export function StructureDetailClient({
     >
       <AppShell
         tabs={<StructureDetailTabsList />}
-        breadcrumbSegmentLabels={{ structures: null }}
         currentBreadcrumbLabel={structure.name}
       >
         <StructureDetailView

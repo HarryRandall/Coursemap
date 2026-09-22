@@ -4,6 +4,11 @@ How administrators check ANU source material and publish Coursemap catalogue
 records. The same workflow applies to courses, programmes, majors, minors and
 specialisations.
 
+Public pages are year-first: `/courses/2027/comp2700`, `/programmes/2027/...`
+and the same for majors, minors and specialisations. They resolve published
+immutable versions only. No public read reaches a draft, a newer unpublished
+version or an ANU source version.
+
 ## Concepts
 
 - **Record**: one code in one academic year, for example COMP1100 in 2026.
@@ -76,10 +81,18 @@ revision so a stale browser tab cannot overwrite newer work. Manual edits
 preserve source provenance for untouched paths and replace it for changed
 paths.
 
-**Preview** renders the draft, or the published version when there is no draft,
-using the student-facing view. **Publish draft** materialises and seals a new
-manual version, advances the publication pointer and clears the draft.
-**Unpublish** closes the visibility interval without deleting history.
+**Student view** answers what students will read. It shows the draft first,
+because the question being asked is what publishing would do, and offers
+**Published** beside it when a publication exists. With no draft it shows the
+publication; with no publication it shows the draft and says students see
+nothing yet. Both sides render through the same components and the same content
+projection as the public page, so a preview cannot quietly drift from what a
+student gets.
+
+**Publish draft** materialises and seals a new manual version, advances the
+publication pointer and clears the draft. **Unpublish** closes the visibility
+interval without deleting history. Both drop the cached public reads for that
+record, so the public page never serves the previous version after the change.
 
 ## Read the changelog
 

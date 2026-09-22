@@ -3,14 +3,15 @@ import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 import { TabsLoading } from "@/ui/common/tabs-loading";
 import { AppShell } from "@/ui/shell";
 
-export default function StructureLoading() {
+/** The shape a catalogue record page settles into, for every public kind. */
+export function PublicRecordLoading({ label }: { label: string }) {
   return (
     <AppShell
       loading
       tabs={<TabsLoading widths={["w-16", "w-24", "w-20"]} className="gap-4" />}
     >
       <div aria-busy="true" className="space-y-4">
-        <span className="sr-only">Loading programme</span>
+        <span className="sr-only">{`Loading ${label}`}</span>
         <div className="space-y-3 pb-5">
           <Skeleton className="h-8 w-80 max-w-full" />
           <Skeleton className="h-5 w-64 max-w-full" />

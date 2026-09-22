@@ -17,6 +17,8 @@ import {
 import { Badge } from "@coursemap/ui/components/badge";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import { requirementCourseHeading } from "@/lib/coursemap/requirement-display";
+import { isCatalogueKind } from "@/lib/catalogue/content";
+import { publicCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import {
   conditionHeading,
   conditionInterpretation,
@@ -75,8 +77,10 @@ function StatedCondition({
 /** Academic structures a rule offers, for readers with no chooser of their own. */
 function StructureOptions({
   condition,
+  academicYear,
 }: {
   condition: RequirementTreeCondition;
+  academicYear: number | null;
 }) {
   const options = condition.options.filter(
     (option) => option.kind !== "course",
@@ -90,25 +94,46 @@ function StructureOptions({
         {conditionInterpretation(condition)}
       </p>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-        {options.map((option) => (
-          <li key={`${option.kind}-${option.code}`}>
-            <Link
-              href={`/structures/${encodeURIComponent(option.code)}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
-            >
-              <span className="min-w-0">
-                <span className="font-mono text-sm font-semibold">
-                  {option.code}
-                </span>
-                {option.title ? (
-                  <span className="ml-2 text-muted-foreground">
-                    {option.title}
-                  </span>
-                ) : null}
+        {options.map((option) => {
+          const name = (
+            <span className="min-w-0">
+              <span className="font-mono text-sm font-semibold">
+                {option.code}
               </span>
-            </Link>
-          </li>
-        ))}
+              {option.title ? (
+                <span className="ml-2 text-muted-foreground">
+                  {option.title}
+                </span>
+              ) : null}
+            </span>
+          );
+          // Every catalogue page is addressed by year. Without one there is no
+          // page to send the reader to, so the option reads as plain text.
+          const href =
+            academicYear !== null && isCatalogueKind(option.kind)
+              ? publicCatalogueRecordPath(
+                  option.kind,
+                  academicYear,
+                  option.code,
+                )
+              : null;
+          return (
+            <li key={`${option.kind}-${option.code}`}>
+              {href ? (
+                <Link
+                  href={href}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
+                >
+                  {name}
+                </Link>
+              ) : (
+                <span className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
+                  {name}
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -133,7 +158,10 @@ export function RequirementCondition({
   if (condition.conditionKind === "structure_set") {
     if (!context.showStructureOptions) return null;
     return condition.options.some((option) => option.kind !== "course") ? (
-      <StructureOptions condition={condition} />
+      <StructureOptions
+        academicYear={context.catalogue.academicYear}
+        condition={condition}
+      />
     ) : (
       <StatedCondition condition={condition} />
     );

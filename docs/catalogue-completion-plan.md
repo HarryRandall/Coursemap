@@ -39,7 +39,7 @@ Neither needs a second implementation.
 | ----- | ---------------------------------------- | ---- | ------ | ---------- |
 | 05    | `feat/catalogue-source-review`           | 04   | Claude | landed     |
 | 06    | `feat/catalogue-changelog`               | 05   | Claude | landed     |
-| 07    | `feat/catalogue-student-view`            | 06   | Claude | 06         |
+| 07    | `feat/catalogue-student-view`            | 06   | Claude | landed     |
 | 08    | `feat/catalogue-sync-operations`         | 07   | Claude | 07         |
 | 09    | `feat/catalogue-automation-and-baseline` | 08   | agent  | 08         |
 
@@ -355,6 +355,14 @@ admin preview exact and finalise the public surface.
   would produce.
 - Courses and structures share the shell and lifecycle but not the layout.
   Give each kind the sections its content actually has.
+
+Three things this branch found rather than planned: publication never dropped
+the public cache tags, so a published change could take five minutes to reach
+students; requirement structure options still linked to `/structures/[code]`;
+and the year-first public routes had no loading or error boundary, which the
+deleted route did have. A draft course reaches the reader by being projected
+into the shape `private.course_version_projection` returns, so it goes through
+the published mapping rather than a second one.
 
 Tests: draft preview renders the mutable draft, published preview renders the
 published version exactly, the public page equals the published preview,

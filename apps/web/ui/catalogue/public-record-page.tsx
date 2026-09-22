@@ -1,5 +1,3 @@
-import { Button } from "@coursemap/ui/primitives/button";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { CatalogueKind } from "@/lib/catalogue/content";
 import { requirementCourseCodes } from "@/lib/coursemap/requirement-display";
@@ -9,40 +7,11 @@ import {
   loadPublishedCoursesByCodes,
 } from "@/lib/coursemap/published-courses";
 import { loadPublishedStructure } from "@/lib/coursemap/published-structures";
-import {
-  CATALOGUE_KIND_LABELS,
-  publicCatalogueRecordPath,
-} from "@/lib/coursemap/catalogue-kinds";
+import { publicCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { loadCurrentUserRequisiteCompletion } from "@/lib/coursemap/requisite-progress";
-import { CourseDetailClient } from "@/app/courses/[code]/course-detail-client";
-import { StructureDetailClient } from "@/app/structures/[code]/structure-detail-client";
-import { ErrorState } from "@/ui/common/error-state";
-import { AppShell } from "@/ui/shell";
-
-function PublicCatalogueError({
-  kind,
-  retryHref,
-}: {
-  kind: CatalogueKind;
-  retryHref: string;
-}) {
-  const label = CATALOGUE_KIND_LABELS[kind].singular.toLowerCase();
-  return (
-    <AppShell>
-      <ErrorState
-        title={`${CATALOGUE_KIND_LABELS[kind].singular} temporarily unavailable`}
-        description={`This ${label} could not be loaded. Please try again shortly.`}
-      >
-        <Button asChild>
-          <Link href={retryHref}>Try again</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/courses">Browse courses</Link>
-        </Button>
-      </ErrorState>
-    </AppShell>
-  );
-}
+import { CourseDetailClient } from "@/ui/courses/course-detail-client";
+import { StructureDetailClient } from "@/ui/requirements/structure-detail-client";
+import { PublicRecordError } from "./public-record-error";
 
 export async function PublicCatalogueRecordPage({
   kind,
@@ -72,7 +41,7 @@ export async function PublicCatalogueRecordPage({
         loadCurrentUserRequisiteCompletion(),
       ]);
     } catch {
-      return <PublicCatalogueError kind={kind} retryHref={retryHref} />;
+      return <PublicRecordError kind={kind} retryHref={retryHref} />;
     }
     if (!course) notFound();
     return (
@@ -86,7 +55,7 @@ export async function PublicCatalogueRecordPage({
   try {
     structure = await loadPublishedStructure(code, academicYear);
   } catch {
-    return <PublicCatalogueError kind={kind} retryHref={retryHref} />;
+    return <PublicRecordError kind={kind} retryHref={retryHref} />;
   }
   if (!structure || structure.kind !== kind) notFound();
   let details;
@@ -96,7 +65,7 @@ export async function PublicCatalogueRecordPage({
       academicYear,
     );
   } catch {
-    return <PublicCatalogueError kind={kind} retryHref={retryHref} />;
+    return <PublicRecordError kind={kind} retryHref={retryHref} />;
   }
   return (
     <StructureDetailClient
