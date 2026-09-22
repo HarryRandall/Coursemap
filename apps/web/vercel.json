@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm build:prod",
   "functions": {
     "app/api/queues/catalogue-sync/route.ts": {
       "maxDuration": 300,
