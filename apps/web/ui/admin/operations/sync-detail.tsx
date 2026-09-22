@@ -11,6 +11,12 @@ import {
 } from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@coursemap/ui/primitives/card";
+import {
   Table,
   TableBody,
   TableCaption,
@@ -19,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@coursemap/ui/primitives/table";
+import { TabsContent } from "@coursemap/ui/primitives/tabs";
 import { badgeVariantForTone } from "@/lib/ui";
 import type { SyncDetail } from "@/lib/coursemap/admin-operations";
 import { DataTableShell } from "@/ui/common/data-table";
@@ -72,10 +79,27 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold tracking-wide uppercase">{title}</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm font-semibold tracking-wide uppercase">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Diagnostics are read, not scanned: long fact grids and highlighted source
+ * become unreadable when a wide screen stretches them edge to edge. Tables and
+ * artefacts scroll inside this measure rather than widening past it.
+ */
+function Measure({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex w-full max-w-6xl min-w-0 flex-col gap-4">
       {children}
-    </section>
+    </div>
   );
 }
 
@@ -126,212 +150,242 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
         </Alert>
       ) : null}
 
-      <Section title="Execution">
-        <Facts
-          items={[
-            { label: "Attempts", value: String(sync.attemptCount) },
-            { label: "Started", value: formatTimestamp(sync.startedAt) },
-            { label: "Completed", value: formatTimestamp(sync.completedAt) },
-            {
-              label: "Duration",
-              value: formatDuration(
-                sync.startedAt && sync.completedAt
-                  ? Date.parse(sync.completedAt) - Date.parse(sync.startedAt)
-                  : null,
-              ),
-            },
-            { label: "Worker", value: sync.workerId },
-            {
-              label: "Lease expires",
-              value: formatTimestamp(sync.leaseExpiresAt),
-            },
-            { label: "Queue message", value: sync.queueMessageId },
-            { label: "Dispatched", value: formatTimestamp(sync.dispatchedAt) },
-            { label: "Changes found", value: String(sync.changeCount) },
-          ]}
-        />
-      </Section>
+      <TabsContent value="overview" className="mt-0">
+        <Measure>
+          <Section title="Execution">
+            <Facts
+              items={[
+                { label: "Attempts", value: String(sync.attemptCount) },
+                { label: "Started", value: formatTimestamp(sync.startedAt) },
+                {
+                  label: "Completed",
+                  value: formatTimestamp(sync.completedAt),
+                },
+                {
+                  label: "Duration",
+                  value: formatDuration(
+                    sync.startedAt && sync.completedAt
+                      ? Date.parse(sync.completedAt) -
+                          Date.parse(sync.startedAt)
+                      : null,
+                  ),
+                },
+                { label: "Worker", value: sync.workerId },
+                {
+                  label: "Lease expires",
+                  value: formatTimestamp(sync.leaseExpiresAt),
+                },
+                { label: "Queue message", value: sync.queueMessageId },
+                {
+                  label: "Dispatched",
+                  value: formatTimestamp(sync.dispatchedAt),
+                },
+                { label: "Changes found", value: String(sync.changeCount) },
+              ]}
+            />
+          </Section>
 
-      <Section title="Contracts">
-        <Facts
-          items={[
-            { label: "Requested model", value: sync.requestedModel },
-            { label: "Parser", value: sync.parserVersion },
-            { label: "Prompt", value: sync.promptVersion },
-            { label: "Schema", value: sync.schemaVersion },
-          ]}
-        />
-      </Section>
+          <Section title="Contracts">
+            <Facts
+              items={[
+                { label: "Requested model", value: sync.requestedModel },
+                { label: "Parser", value: sync.parserVersion },
+                { label: "Prompt", value: sync.promptVersion },
+                { label: "Schema", value: sync.schemaVersion },
+              ]}
+            />
+          </Section>
 
-      {sync.sourceDocument ? (
-        <Section title="Source document">
-          <Facts
-            items={[
-              { label: "URL", value: sync.sourceDocument.canonicalUrl },
-              {
-                label: "HTTP status",
-                value:
-                  sync.sourceDocument.httpStatus === null
-                    ? null
-                    : String(sync.sourceDocument.httpStatus),
-              },
-              {
-                label: "Fetched",
-                value: formatTimestamp(sync.sourceDocument.fetchedAt),
-              },
-              {
-                label: "Size",
-                value: formatBytes(sync.sourceDocument.byteSize),
-              },
-              { label: "Media type", value: sync.sourceDocument.mediaType },
-              {
-                label: "Content hash",
-                value: sync.sourceDocument.contentSha256.slice(0, 16),
-              },
-            ]}
-          />
-        </Section>
-      ) : null}
+          {sync.sourceDocument ? (
+            <Section title="Source document">
+              <Facts
+                items={[
+                  { label: "URL", value: sync.sourceDocument.canonicalUrl },
+                  {
+                    label: "HTTP status",
+                    value:
+                      sync.sourceDocument.httpStatus === null
+                        ? null
+                        : String(sync.sourceDocument.httpStatus),
+                  },
+                  {
+                    label: "Fetched",
+                    value: formatTimestamp(sync.sourceDocument.fetchedAt),
+                  },
+                  {
+                    label: "Size",
+                    value: formatBytes(sync.sourceDocument.byteSize),
+                  },
+                  { label: "Media type", value: sync.sourceDocument.mediaType },
+                  {
+                    label: "Content hash",
+                    value: sync.sourceDocument.contentSha256.slice(0, 16),
+                  },
+                ]}
+              />
+            </Section>
+          ) : null}
+        </Measure>
+      </TabsContent>
 
-      <Section title="Stages">
-        {sync.stages.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            This sync recorded no stages.
-          </p>
-        ) : (
-          <DataTableShell>
-            <Table className="min-w-[44rem]">
-              <TableCaption className="sr-only">Sync stages</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Attempt</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Error</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sync.stages.map((stage) => (
-                  <TableRow key={stage.id}>
-                    <TableCell>
-                      {STAGE_LABELS[stage.stageName] ?? stage.stageName}
-                    </TableCell>
-                    <TableCell>{stage.attemptNumber}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          stage.status === "failed"
-                            ? "destructive-light"
-                            : stage.status === "completed"
-                              ? "success-light"
-                              : "info-light"
-                        }
-                      >
-                        {stage.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatTimestamp(stage.startedAt)}</TableCell>
-                    <TableCell>{formatDuration(stage.durationMs)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {stage.errorSummary ?? stage.errorCode ?? "—"}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </DataTableShell>
-        )}
-      </Section>
+      <TabsContent value="stages" className="mt-0">
+        <Measure>
+          <Section title="Stages">
+            {sync.stages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                This sync recorded no stages.
+              </p>
+            ) : (
+              <DataTableShell>
+                <Table className="min-w-[44rem]">
+                  <TableCaption className="sr-only">Sync stages</TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Stage</TableHead>
+                      <TableHead>Attempt</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Error</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sync.stages.map((stage) => (
+                      <TableRow key={stage.id}>
+                        <TableCell>
+                          {STAGE_LABELS[stage.stageName] ?? stage.stageName}
+                        </TableCell>
+                        <TableCell>{stage.attemptNumber}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              stage.status === "failed"
+                                ? "destructive-light"
+                                : stage.status === "completed"
+                                  ? "success-light"
+                                  : "info-light"
+                            }
+                          >
+                            {stage.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {formatTimestamp(stage.startedAt)}
+                        </TableCell>
+                        <TableCell>
+                          {formatDuration(stage.durationMs)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {stage.errorSummary ?? stage.errorCode ?? "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </DataTableShell>
+            )}
+          </Section>
+        </Measure>
+      </TabsContent>
 
-      {sync.extractions.length > 0 ? (
-        <Section title="Extractions">
-          <DataTableShell>
-            <Table className="min-w-[52rem]">
-              <TableCaption className="sr-only">Model extractions</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>#</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Validation</TableHead>
-                  <TableHead>Tokens in</TableHead>
-                  <TableHead>Tokens out</TableHead>
-                  <TableHead>Latency</TableHead>
-                  <TableHead>Cost</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sync.extractions.map((extraction) => (
-                  <TableRow key={extraction.id}>
-                    <TableCell>{extraction.extractionNumber}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {extraction.resolvedModel ?? extraction.requestedModel}
-                      {extraction.reusedFromExtractionId ? (
-                        <span className="ml-2 text-muted-foreground">
-                          reused
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          extraction.validationStatus === "valid"
-                            ? "success-light"
-                            : extraction.validationStatus === "invalid"
-                              ? "destructive-light"
-                              : "outline"
-                        }
-                      >
-                        {extraction.validationStatus}
-                      </Badge>
-                      {extraction.errorCount > 0 ? (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {extraction.errorCount} errors
-                        </span>
-                      ) : extraction.warningCount > 0 ? (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {extraction.warningCount} warnings
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {extraction.inputTokens}
-                      {extraction.cachedInputTokens > 0
-                        ? ` (${extraction.cachedInputTokens} cached)`
-                        : ""}
-                    </TableCell>
-                    <TableCell>
-                      {extraction.outputTokens}
-                      {extraction.reasoningTokens > 0
-                        ? ` (${extraction.reasoningTokens} reasoning)`
-                        : ""}
-                    </TableCell>
-                    <TableCell>
-                      {formatDuration(extraction.latencyMs)}
-                    </TableCell>
-                    <TableCell>{formatCost(extraction.costUsd)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </DataTableShell>
-        </Section>
-      ) : null}
+      <TabsContent value="extractions" className="mt-0">
+        <Measure>
+          {sync.extractions.length > 0 ? (
+            <Section title="Extractions">
+              <DataTableShell>
+                <Table className="min-w-[52rem]">
+                  <TableCaption className="sr-only">
+                    Model extractions
+                  </TableCaption>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>#</TableHead>
+                      <TableHead>Model</TableHead>
+                      <TableHead>Validation</TableHead>
+                      <TableHead>Tokens in</TableHead>
+                      <TableHead>Tokens out</TableHead>
+                      <TableHead>Latency</TableHead>
+                      <TableHead>Cost</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sync.extractions.map((extraction) => (
+                      <TableRow key={extraction.id}>
+                        <TableCell>{extraction.extractionNumber}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {extraction.resolvedModel ??
+                            extraction.requestedModel}
+                          {extraction.reusedFromExtractionId ? (
+                            <span className="ml-2 text-muted-foreground">
+                              reused
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              extraction.validationStatus === "valid"
+                                ? "success-light"
+                                : extraction.validationStatus === "invalid"
+                                  ? "destructive-light"
+                                  : "outline"
+                            }
+                          >
+                            {extraction.validationStatus}
+                          </Badge>
+                          {extraction.errorCount > 0 ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {extraction.errorCount} errors
+                            </span>
+                          ) : extraction.warningCount > 0 ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {extraction.warningCount} warnings
+                            </span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          {extraction.inputTokens}
+                          {extraction.cachedInputTokens > 0
+                            ? ` (${extraction.cachedInputTokens} cached)`
+                            : ""}
+                        </TableCell>
+                        <TableCell>
+                          {extraction.outputTokens}
+                          {extraction.reasoningTokens > 0
+                            ? ` (${extraction.reasoningTokens} reasoning)`
+                            : ""}
+                        </TableCell>
+                        <TableCell>
+                          {formatDuration(extraction.latencyMs)}
+                        </TableCell>
+                        <TableCell>{formatCost(extraction.costUsd)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </DataTableShell>
+            </Section>
+          ) : null}
+        </Measure>
+      </TabsContent>
 
-      <Section title="Artefacts">
-        <div className="flex min-h-[28rem] flex-col">
-          <ArtefactViewer
-            artifacts={sync.artefacts.map((artefact) => ({
-              id: artefact.id,
-              kind: artefact.kind,
-              attemptNumber: artefact.attemptNumber,
-              mediaType: artefact.mediaType,
-            }))}
-            endpoint="/api/admin/catalogue-syncs/artifacts"
-          />
-        </div>
-      </Section>
+      <TabsContent value="artefacts" className="mt-0">
+        <Measure>
+          <Section title="Artefacts">
+            <div className="flex min-h-[28rem] flex-col">
+              <ArtefactViewer
+                artifacts={sync.artefacts.map((artefact) => ({
+                  id: artefact.id,
+                  kind: artefact.kind,
+                  attemptNumber: artefact.attemptNumber,
+                  mediaType: artefact.mediaType,
+                }))}
+                endpoint="/api/admin/catalogue-syncs/artifacts"
+              />
+            </div>
+          </Section>
+        </Measure>
+      </TabsContent>
     </div>
   );
 }

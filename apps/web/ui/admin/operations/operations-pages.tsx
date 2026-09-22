@@ -18,6 +18,7 @@ import {
   type OperationsSection,
 } from "./operations-tabs";
 import { SyncDetailView } from "./sync-detail";
+import { SyncDetailTabList, SyncDetailTabs } from "./sync-detail-tabs";
 import { SyncList } from "./sync-list";
 
 function first(value: string | string[] | undefined) {
@@ -102,13 +103,25 @@ export async function CatalogueSyncDetailPage({ syncId }: { syncId: string }) {
   const sync = await loadSyncDetail(syncId);
   if (!sync) notFound();
   return (
-    <AppShell
-      admin
-      breadcrumbSegmentLabels={{ operations: null, syncs: "Syncs" }}
-      currentBreadcrumbLabel={sync.code}
-    >
-      <SyncDetailView sync={sync} />
-    </AppShell>
+    <SyncDetailTabs>
+      <AppShell
+        admin
+        breadcrumbSegmentLabels={{ operations: null, syncs: "Syncs" }}
+        currentBreadcrumbLabel={sync.code}
+        tabs={
+          <SyncDetailTabList
+            stageCount={sync.stages.length}
+            extractionCount={sync.extractions.length}
+            artefactCount={sync.artefacts.length}
+            failedStageCount={
+              sync.stages.filter((stage) => stage.status === "failed").length
+            }
+          />
+        }
+      >
+        <SyncDetailView sync={sync} />
+      </AppShell>
+    </SyncDetailTabs>
   );
 }
 
