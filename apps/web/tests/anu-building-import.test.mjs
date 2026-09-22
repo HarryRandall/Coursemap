@@ -16,7 +16,7 @@ import {
   toDemoData,
 } from "../scripts/rooms/sync-anu-buildings.mjs";
 
-const [raw, demo, migration] = await Promise.all([
+const [raw, demo, baseline] = await Promise.all([
   readFile(
     new URL(
       "../scripts/fixtures/anu-acton-buildings-overpass.json",
@@ -29,13 +29,18 @@ const [raw, demo, migration] = await Promise.all([
     "utf8",
   ).then(JSON.parse),
   readFile(
-    new URL(
-      "../../../supabase/migrations/20260828170200_import_anu_acton_buildings.sql",
-      import.meta.url,
-    ),
+    new URL("../../../supabase/migrations/006_campus.sql", import.meta.url),
     "utf8",
   ),
 ]);
+
+/**
+ * What a fresh run of the importer would write. The committed campus data was
+ * squashed into the baseline, so the generated SQL is no longer a file to
+ * compare against byte for byte; it is still the thing every assertion about
+ * the importer's output is really about.
+ */
+const generated = migrationSql(buildSnapshot(raw, demo));
 
 test("builds a complete deterministic ANU Acton building snapshot", () => {
   const snapshot = buildSnapshot(raw, demo);
@@ -61,7 +66,18 @@ test("builds a complete deterministic ANU Acton building snapshot", () => {
   );
   assert.deepEqual(demo.snapshot, snapshot.metadata);
   assert.deepEqual(toDemoData(demo, snapshot), demo);
-  assert.equal(migrationSql(snapshot), migration);
+  // The baseline carries the result of this import rather than the import
+  // itself, so it is checked for the buildings rather than for the statements.
+  assert.equal(
+    (baseline.match(/INSERT INTO public\.campus_map_places /g) ?? []).length,
+    snapshot.buildings.length,
+  );
+  for (const building of snapshot.buildings) {
+    assert.ok(
+      baseline.includes(`'${building.sourceIdentifier}'`),
+      `${building.sourceIdentifier} is missing from the campus baseline.`,
+    );
+  }
 });
 
 test("requires future snapshots to use a new forward migration", () => {
@@ -74,7 +90,7 @@ test("requires future snapshots to use a new forward migration", () => {
     /timestamped ANU building import migration filename/,
   );
   assert.match(
-    migration,
+    generated,
     /when places\.data_status = 'verified' then places\.latitude/,
   );
 });
@@ -107,17 +123,17 @@ test("excludes false OpenStreetMap building tags", () => {
 
 test("scopes exclusions and preserves verified map data", () => {
   assert.match(
-    migration,
+    generated,
     /where features\.campus_id = '00000000-0000-4000-8000-000000000001'/,
   );
   assert.match(
-    migration,
+    generated,
     /and features\.layer_id = '10000000-0000-4000-8000-000000000001'/,
   );
-  assert.match(migration, /and places\.map_display_kind = 'building'/);
-  assert.match(migration, /and places\.data_status <> 'verified'/);
-  assert.match(migration, /where remaining_features\.place_id = places\.id/);
-  assert.match(migration, /where protected_places\.data_status = 'verified'/);
+  assert.match(generated, /and places\.map_display_kind = 'building'/);
+  assert.match(generated, /and places\.data_status <> 'verified'/);
+  assert.match(generated, /where remaining_features\.place_id = places\.id/);
+  assert.match(generated, /where protected_places\.data_status = 'verified'/);
 });
 
 test("derives safe building heights without allowing inverted bases", () => {

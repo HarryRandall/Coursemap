@@ -16,7 +16,7 @@ export type RequisiteCourseSearchResult = {
 
 // The details tables join through a composite key, so PostgREST types them as
 // arrays even though each version has at most one details row.
-type ItemYearEmbed = {
+type RecordEmbed = {
   academic_years: { year: number } | null;
   published: {
     course_version_details: { title: string }[];
@@ -24,12 +24,12 @@ type ItemYearEmbed = {
   } | null;
 };
 
-const ITEM_SEARCH_SELECT =
+const CODE_SEARCH_SELECT =
   "code,kind,catalogue_records(academic_years(year),published:catalogue_versions!catalogue_records_published_version_fkey(course_version_details(title),structure_version_details(name)))";
 
-function yearsNewestFirst(itemYears: ItemYearEmbed[]) {
-  return itemYears
-    .map((itemYear) => itemYear.academic_years?.year)
+function yearsNewestFirst(records: RecordEmbed[]) {
+  return records
+    .map((record) => record.academic_years?.year)
     .filter((year): year is number => typeof year === "number")
     .sort((left, right) => right - left);
 }
@@ -52,7 +52,7 @@ export async function searchRequisiteCourses(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("catalogue_codes")
-      .select(ITEM_SEARCH_SELECT)
+      .select(CODE_SEARCH_SELECT)
       .eq("kind", "course")
       .ilike("code", `%${term}%`)
       .order("code")
@@ -65,8 +65,8 @@ export async function searchRequisiteCourses(
       title:
         item.catalogue_records
           .map(
-            (itemYear) =>
-              itemYear.published?.course_version_details[0]?.title ?? null,
+            (record) =>
+              record.published?.course_version_details[0]?.title ?? null,
           )
           .find((value) => value !== null) ?? null,
       years: yearsNewestFirst(item.catalogue_records),
@@ -94,7 +94,7 @@ export async function searchRequisiteProgrammes(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("catalogue_codes")
-      .select(ITEM_SEARCH_SELECT)
+      .select(CODE_SEARCH_SELECT)
       .neq("kind", "course")
       .ilike("code", `%${term}%`)
       .order("code")
@@ -107,8 +107,8 @@ export async function searchRequisiteProgrammes(
       title:
         item.catalogue_records
           .map(
-            (itemYear) =>
-              itemYear.published?.structure_version_details[0]?.name ?? null,
+            (record) =>
+              record.published?.structure_version_details[0]?.name ?? null,
           )
           .find((value) => value !== null) ?? null,
       years: yearsNewestFirst(item.catalogue_records),

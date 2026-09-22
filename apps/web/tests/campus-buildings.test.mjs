@@ -1019,10 +1019,7 @@ test("keeps draft indoor previews permission-scoped in the public room finder", 
       "utf8",
     ),
     readFile(
-      new URL(
-        "../../../supabase/migrations/20260828183000_add_indoor_map_editor.sql",
-        import.meta.url,
-      ),
+      new URL("../../../supabase/migrations/006_campus.sql", import.meta.url),
       "utf8",
     ),
   ]);
@@ -1039,7 +1036,7 @@ test("keeps draft indoor previews permission-scoped in the public room finder", 
   assert.match(loader, /query\.eq\("status", "published"\)/);
   assert.match(
     migration,
-    /campus_indoor_maps_read_authenticated[\s\S]*private\.has_permission\('rooms\.manage'\)/,
+    /campus_indoor_maps_read_authenticated[\s\S]*private\.has_permission\('rooms\.manage'(?:::text)?\)/,
   );
 });
 

@@ -99,7 +99,7 @@ export async function loadCatalogueRecord({
   academicYear: number;
 }): Promise<CatalogueRecord | null> {
   const supabase = await createClient();
-  const { data: itemYear, error } = await supabase
+  const { data: record, error } = await supabase
     .from("catalogue_records")
     .select(
       "id,public_id,code_id,published_version_id,latest_source_version_id,source_checked_at,archived_at,catalogue_codes!inner(code,kind),academic_years!inner(year)",
@@ -109,7 +109,7 @@ export async function loadCatalogueRecord({
     .eq("academic_years.year", academicYear)
     .maybeSingle();
   if (error) throw error;
-  if (!itemYear) return null;
+  if (!record) return null;
 
   const [
     versionsResult,
@@ -123,27 +123,27 @@ export async function loadCatalogueRecord({
       .select(
         "id,public_id,origin,created_at,sealed_at,based_on_version_id,sync_id,content_hash",
       )
-      .eq("record_id", itemYear.id)
+      .eq("record_id", record.id)
       .order("created_at", { ascending: false }),
     supabase
       .from("catalogue_publications")
       .select(
         "version_id,published_at,published_by,unpublished_at,unpublished_by",
       )
-      .eq("record_id", itemYear.id)
+      .eq("record_id", record.id)
       .order("published_at", { ascending: false }),
     supabase
       .from("catalogue_syncs")
       .select(
         "id,status,trigger,requested_at,checked_at,completed_at,previous_source_version_id,source_version_id,error_code,error_message",
       )
-      .eq("record_id", itemYear.id)
+      .eq("record_id", record.id)
       .order("created_at", { ascending: false }),
-    supabase.rpc("catalogue_publish_blockers", { p_record_id: itemYear.id }),
+    supabase.rpc("catalogue_publish_blockers", { p_record_id: record.id }),
     supabase
       .from("catalogue_listings")
       .select("title,is_current,last_seen_at")
-      .eq("record_id", itemYear.id)
+      .eq("record_id", record.id)
       .maybeSingle(),
   ]);
   if (versionsResult.error) throw versionsResult.error;
@@ -152,22 +152,22 @@ export async function loadCatalogueRecord({
   if (blockersResult.error) throw blockersResult.error;
   if (listingResult.error) throw listingResult.error;
 
-  const currentVersionId = itemYear.published_version_id;
+  const currentVersionId = record.published_version_id;
   const title = await versionTitle(supabase, kind, currentVersionId);
 
   return {
     kind,
-    code: itemYear.catalogue_codes.code,
+    code: record.catalogue_codes.code,
     academicYear,
-    codeId: itemYear.code_id,
-    recordId: itemYear.id,
-    recordPublicId: itemYear.public_id,
-    title: title ?? listingResult.data?.title ?? itemYear.catalogue_codes.code,
+    codeId: record.code_id,
+    recordId: record.id,
+    recordPublicId: record.public_id,
+    title: title ?? listingResult.data?.title ?? record.catalogue_codes.code,
     currentVersionId,
-    publishedVersionId: itemYear.published_version_id,
-    latestSourceVersionId: itemYear.latest_source_version_id,
-    sourceCheckedAt: itemYear.source_checked_at,
-    archivedAt: itemYear.archived_at,
+    publishedVersionId: record.published_version_id,
+    latestSourceVersionId: record.latest_source_version_id,
+    sourceCheckedAt: record.source_checked_at,
+    archivedAt: record.archived_at,
     isListedByAnu: listingResult.data?.is_current ?? null,
     listingTitle: listingResult.data?.title ?? null,
     lastSeenAt: listingResult.data?.last_seen_at ?? null,
