@@ -199,7 +199,10 @@
   --tooltip-foreground: oklch(1 0 0);
   --tooltip-border: oklch(1 0 0 / 18%);
   --card-foreground: oklch(0.985 0 0);
-  --popover: var(--background);
+  /* Menus and popovers lift off the page rather than sharing its ground. In
+     dark the border and shadow that carry elevation in light are both nearly
+     invisible, so the surface itself has to be the lighter one. */
+  --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.606 0.25 292.717);
   --primary-foreground: oklch(0.985 0 0);

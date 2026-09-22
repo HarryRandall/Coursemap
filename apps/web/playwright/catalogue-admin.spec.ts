@@ -31,7 +31,9 @@ test("administrators browse year-first catalogue records", async ({
     });
   });
   await page.getByRole("button", { name: "Refresh ANU listing" }).click();
-  await expect(page.getByText("ANU listing refreshed.")).toBeVisible();
+  // The refresh reports itself in a progress toast, which settles on what the
+  // listing actually returned rather than on a flat acknowledgement.
+  await expect(page.getByText("2026 programmes refreshed")).toBeVisible();
 
   await page.goto("/admin/courses/2026?q=COMP1110");
   const courseRow = page.getByRole("row", { name: /COMP1110/ });

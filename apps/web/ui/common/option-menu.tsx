@@ -77,9 +77,12 @@ export function OptionMenu<T extends string>({
                   aria-pressed={selected}
                   className={cn(
                     "flex h-9 w-full shrink-0 cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    // These tones are mixed from the foreground rather than
+                    // taken from --accent, which is mixed against the page and
+                    // so disappears on the lighter popover surface.
                     selected
-                      ? "bg-primary/10 font-medium text-primary"
-                      : "text-foreground/80 hover:bg-accent hover:text-foreground",
+                      ? "bg-primary/15 font-medium text-primary"
+                      : "text-foreground/80 hover:bg-foreground/8 hover:text-foreground",
                   )}
                   key={item.value}
                   onClick={() => onSelect(item.value)}

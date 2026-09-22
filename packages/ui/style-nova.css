@@ -694,6 +694,12 @@
     @apply rounded-2xl;
   }
 
+  /* The icon belongs to the title, so it holds the first line however many
+     lines the description below it runs to. */
+  .cn-toast [data-icon] {
+    @apply mt-0.5 self-start;
+  }
+
   /* MARK: Table */
   .cn-table-container {
     @apply relative w-full overflow-x-auto;

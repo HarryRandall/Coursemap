@@ -176,14 +176,13 @@ a.title:focus-visible {
   min-width: 700px;
   grid-template-columns: minmax(260px, 1fr) 150px 120px 120px 60px;
 }
-/* Catalogue directory: select, identity, details, workflow status, latest
-   import, actions. The actions column matches the width the sibling layouts
-   reserve, so the menu button lands in the same place on every admin table. */
+/* Catalogue directory: identity, state, latest sync, actions. The identity
+   takes every spare pixel because the title and its facts are what is read;
+   the actions column matches the width the sibling layouts reserve, so the
+   menu button lands in the same place on every admin table. */
 .shell[data-layout="directory"] tr {
-  min-width: 880px;
-  grid-template-columns:
-    48px minmax(280px, 1.4fr) minmax(160px, 1fr)
-    170px 170px 60px;
+  min-width: 620px;
+  grid-template-columns: minmax(280px, 1fr) 210px 110px 60px;
 }
 
 /* Operations syncs: record, year, status, trigger, started, duration, model,

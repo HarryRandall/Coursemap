@@ -12,6 +12,7 @@ export function CatalogueEmpty({
   error = false,
   clearHref,
   onSync,
+  syncing = false,
   children,
 }: {
   title: string;
@@ -20,6 +21,7 @@ export function CatalogueEmpty({
   error?: boolean;
   clearHref?: string;
   onSync?: () => void;
+  syncing?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -36,7 +38,13 @@ export function CatalogueEmpty({
           <ReuiLink href={clearHref}>Clear filters</ReuiLink>
         </Button>
       ) : onSync ? (
-        <Button onClick={onSync} variant="outline" type="button">
+        <Button
+          onClick={onSync}
+          variant="outline"
+          type="button"
+          disabled={syncing}
+          aria-busy={syncing}
+        >
           Run sync now
         </Button>
       ) : (

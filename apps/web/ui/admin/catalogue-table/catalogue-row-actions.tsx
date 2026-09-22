@@ -5,7 +5,7 @@ import {
   PopoverTrigger,
 } from "@coursemap/ui/primitives/popover";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   Copy,
@@ -43,7 +43,27 @@ export function CatalogueRowActions({
 }) {
   const targetLabel = label ?? code ?? "row";
   const [open, setOpen] = useState(false);
+  const content = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // The menu is anchored to a row inside a table that scrolls on its own. It
+  // keeps tracking that row, so a scroll carries it out of the table and over
+  // the toolbar above while the row itself is clipped away. The menu belongs
+  // to a row that is no longer where it was, so it closes rather than chases.
+  // Scrolling within the menu's own list is not that, and is left alone.
+  useEffect(() => {
+    if (!open) return;
+    function closeOnScrollAway(event: Event) {
+      const target = event.target;
+      if (target instanceof Node && content.current?.contains(target)) return;
+      setOpen(false);
+    }
+    // Scroll does not bubble, so the capture phase is the only way to hear a
+    // scroll from a container this component does not own.
+    document.addEventListener("scroll", closeOnScrollAway, true);
+    return () =>
+      document.removeEventListener("scroll", closeOnScrollAway, true);
+  }, [open]);
   const items = links.map((link, index) => ({
     value: String(index),
     label: link.label,
@@ -74,6 +94,10 @@ export function CatalogueRowActions({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          // The trigger sits on a row that highlights on hover, so it needs a
+          // ground of its own to separate from, and a held state while its
+          // menu is open to show which row the menu belongs to.
+          className="text-muted-foreground hover:bg-foreground/10 hover:text-foreground data-[state=open]:bg-foreground/10 data-[state=open]:text-foreground"
           disabled={disabled}
           aria-label={`Actions for ${targetLabel}`}
           size="icon-sm"
@@ -86,6 +110,7 @@ export function CatalogueRowActions({
         aria-label={`Actions for ${targetLabel}`}
         align="end"
         className={styles.actions}
+        ref={content}
       >
         <OptionMenu
           items={items}

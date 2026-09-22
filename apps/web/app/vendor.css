@@ -3,8 +3,10 @@
    own, so each rule notes what it is correcting. Imported by globals.css
    after the stylesheets they override. */
 
-/* Sonner keeps neutral surfaces with status borders and an inset close button. */
-.toaster [data-sonner-toast][data-styled="true"] {
+/* Sonner keeps neutral surfaces with status borders and an inset close button.
+   Only a toast that has a close button gives up the room for one; a loading
+   toast never gets one, so its content keeps the full width. */
+.toaster [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
   padding-right: 48px;
 }
 

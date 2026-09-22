@@ -70,12 +70,15 @@ export function CatalogueIdentity({
   title,
   kind = "course",
   href,
+  meta = [],
   unavailable = false,
 }: {
   code: string;
   title: string;
   kind?: string;
   href?: string;
+  /** Facts that belong beside the code rather than in a column of their own. */
+  meta?: string[];
   unavailable?: boolean;
 }) {
   const subjectIcons = {
@@ -113,8 +116,9 @@ export function CatalogueIdentity({
           <span className={styles.title}>{title}</span>
         )}
         <span className={styles.code}>
-          {code}
-          {unavailable ? " · No longer listed" : ""}
+          {[code, ...meta, ...(unavailable ? ["No longer listed"] : [])].join(
+            " · ",
+          )}
         </span>
       </div>
     </div>
