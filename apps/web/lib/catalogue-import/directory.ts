@@ -53,7 +53,11 @@ async function recordDiscoverySourcePage(
     byteSize: number;
   },
 ) {
-  const [row] = await sql`
+  // A source page is the record of one exact set of bytes, and the table
+  // rejects every update. Refetching a listing ANU has not changed therefore
+  // reuses the page already recorded rather than restamping it; when the
+  // refresh happened is on the discovery check that asked for it.
+  const [inserted] = await sql`
     insert into public.catalogue_source_pages (
       source_id, academic_year_id, kind, external_key, canonical_url, media_type,
       content_sha256, http_status, http_etag, source_last_modified, fetched_at,
@@ -63,10 +67,25 @@ async function recordDiscoverySourcePage(
       ${input.contentSha256}, ${input.httpStatus}, ${input.httpEtag},
       ${input.sourceLastModified}, ${input.fetchedAt}, ${input.byteSize}, null, null)
     on conflict (source_id, academic_year_id, kind, external_key, content_sha256)
-      do update set fetched_at = excluded.fetched_at
+      do nothing
     returning id
   `;
-  return Number(row.id);
+  if (inserted) return Number(inserted.id);
+  const [existing] = await sql`
+    select id from public.catalogue_source_pages
+    where source_id = ${input.sourceId}
+      and academic_year_id = ${input.academicYearId}
+      and kind = 'directory'
+      and external_key = ${input.externalKey}
+      and content_sha256 = ${input.contentSha256}
+  `;
+  if (!existing) {
+    throw new DirectoryRefreshError(
+      "The source page could not be recorded.",
+      "SOURCE_PAGE_NOT_RECORDED",
+    );
+  }
+  return Number(existing.id);
 }
 
 type DirectoryEntryInput = {
