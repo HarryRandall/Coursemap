@@ -1,27 +1,6 @@
 import styles from "./catalogue-illustration.module.css";
 
-export function CatalogueIllustration({ variant }: { variant: number }) {
-  if (variant >= 3)
-    return (
-      <div
-        aria-hidden="true"
-        className={`${styles.cssArt} ${[styles.orbit, styles.stack, styles.quietGrid, styles.typeOnly][variant - 3]}`}
-      >
-        {variant === 6 ? (
-          <span>
-            0<span className={styles.typeDot}>.</span>
-          </span>
-        ) : (
-          Array.from({ length: variant === 5 ? 9 : 3 }, (_, index) => (
-            <span key={index}>
-              <i />
-              <b />
-              <em />
-            </span>
-          ))
-        )}
-      </div>
-    );
+export function CatalogueIllustration() {
   return (
     <svg
       className={styles.illustration}

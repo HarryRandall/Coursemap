@@ -186,6 +186,24 @@ a.title:focus-visible {
     170px 170px 60px;
 }
 
+/* Operations syncs: record, year, status, trigger, started, duration, model,
+   cost. Wider than the catalogue layouts because every column here is a fact
+   rather than a label. */
+.shell[data-layout="operations-syncs"] tr {
+  min-width: 1020px;
+  grid-template-columns:
+    minmax(220px, 1.2fr) 72px 150px 100px 170px
+    92px minmax(150px, 1fr) 96px;
+}
+/* Operations discovery: kind, year, status, completeness, discovered,
+   started, duration. */
+.shell[data-layout="operations-discovery"] tr {
+  min-width: 880px;
+  grid-template-columns:
+    minmax(180px, 1fr) 72px 130px 110px 110px 170px
+    92px;
+}
+
 @media (pointer: coarse) {
   .actions button {
     min-height: 44px;

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import {
@@ -6,6 +7,7 @@ import {
   loadSyncDetail,
   loadSyncOperationsPage,
 } from "@/lib/coursemap/admin-operations";
+import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
 import { AppShell } from "@/ui/shell";
 import { DiscoveryDetailView } from "./discovery-detail";
@@ -37,29 +39,61 @@ export async function CatalogueOperationsPage({
   if (!(await canManageCatalogueOperations())) return <AccessDeniedError />;
   const page =
     section === "syncs"
-      ? await loadSyncOperationsPage({
+      ? loadSyncOperationsPage({
           query: first(searchParams.q) ?? "",
           status: first(searchParams.status) ?? "all",
           page: Number(first(searchParams.page)) || 1,
         })
       : null;
-  const checks = section === "discovery" ? await loadDiscoveryChecks() : [];
+  const checks = section === "discovery" ? loadDiscoveryChecks() : null;
 
   return (
     <OperationsTabs value={section}>
       <AppShell
         admin
+        fill
         breadcrumbSegmentLabels={{ operations: "Operations" }}
         currentBreadcrumbLabel="Catalogue"
         tabs={<OperationsTabList />}
       >
-        <div className="flex w-full min-w-0 flex-col gap-4">
-          <h1 className="sr-only">Catalogue operations</h1>
-          {page ? <SyncList page={page} /> : <DiscoveryList checks={checks} />}
-        </div>
+        <h1 className="sr-only">Catalogue operations</h1>
+        <Suspense
+          fallback={
+            <CatalogueTableLoading
+              layout={
+                section === "syncs"
+                  ? "operations-syncs"
+                  : "operations-discovery"
+              }
+              noun={section === "syncs" ? "Record" : "Listing"}
+            />
+          }
+        >
+          {page ? (
+            <SyncsContent page={page} />
+          ) : (
+            <DiscoveryContent checks={checks!} />
+          )}
+        </Suspense>
       </AppShell>
     </OperationsTabs>
   );
+}
+
+async function SyncsContent({
+  page,
+}: {
+  page: ReturnType<typeof loadSyncOperationsPage>;
+}) {
+  return <SyncList page={await page} />;
+}
+
+async function DiscoveryContent({
+  checks,
+}: {
+  checks: ReturnType<typeof loadDiscoveryChecks>;
+}) {
+  return <DiscoveryList checks={await checks} />;
 }
 
 export async function CatalogueSyncDetailPage({ syncId }: { syncId: string }) {

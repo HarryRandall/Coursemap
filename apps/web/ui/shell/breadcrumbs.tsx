@@ -91,10 +91,15 @@ function buildCrumbs(
   const crumbs: Crumb[] = [];
   let href = "";
 
-  segments.forEach((segment, index) => {
-    href += `/${segment}`;
-    if (segmentLabels[segment] === null) return;
-    const isLast = index === segments.length - 1;
+  const visibleSegments = segments
+    .map((segment, index) => {
+      href += `/${segment}`;
+      return { segment, index, href };
+    })
+    .filter(({ segment }) => segmentLabels[segment] !== null);
+
+  visibleSegments.forEach(({ segment, index, href }, visibleIndex) => {
+    const isLast = visibleIndex === visibleSegments.length - 1;
     const opaque = segmentLabels[segment] === undefined && isOpaqueId(segment);
     if (opaque) {
       // Hold the position so `currentLabel` still lands on this crumb once the

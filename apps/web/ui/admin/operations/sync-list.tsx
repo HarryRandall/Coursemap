@@ -1,6 +1,11 @@
-import Link from "next/link";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
+  ADMIN_CATALOGUE_OPERATIONS_PATH,
+  adminCatalogueSyncPath,
+} from "@/lib/coursemap/catalogue-kinds";
+import {
+  CatalogueIdentity,
+  DataTableShell,
   Table,
   TableBody,
   TableCaption,
@@ -8,10 +13,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@coursemap/ui/primitives/table";
+} from "@/ui/admin/catalogue-table/catalogue-table";
 import { badgeVariantForTone } from "@/lib/ui";
 import type { SyncOperationsPage } from "@/lib/coursemap/admin-operations";
-import { DataTableEmpty, DataTableShell } from "@/ui/common/data-table";
+import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { Pagination } from "@/ui/common/pagination";
@@ -22,7 +27,6 @@ import {
   syncStatusLabel,
   syncStatusTone,
 } from "./operations-format";
-import { CATALOGUE_OPERATIONS_PATH } from "./operations-tabs";
 
 const STATUS_OPTIONS = [
   "queued",
@@ -43,18 +47,22 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
         filters={[{ key: "status", label: "Status", options: STATUS_OPTIONS }]}
       />
       {page.rows.length === 0 ? (
-        <DataTableEmpty
-          title="No syncs match"
-          description="Syncs appear here as records are checked against ANU."
+        <CatalogueEmpty
+          title="No syncs yet"
+          description="A sync appears here as soon as a record is checked against ANU."
+          filtered={Boolean(page.query) || page.status !== "all"}
+          clearHref={ADMIN_CATALOGUE_OPERATIONS_PATH}
         />
       ) : (
         <DataTableShell
+          layout="operations-syncs"
+          selectable={false}
           footer={
             <Pagination
               itemName="syncs"
               page={page.page}
               pageSize={page.pageSize}
-              pathname={CATALOGUE_OPERATIONS_PATH}
+              pathname={ADMIN_CATALOGUE_OPERATIONS_PATH}
               searchParams={{
                 ...(page.query ? { q: page.query } : {}),
                 ...(page.status !== "all" ? { status: page.status } : {}),
@@ -63,7 +71,7 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
             />
           }
         >
-          <Table className="min-w-[60rem]">
+          <Table>
             <TableCaption className="sr-only">Catalogue syncs</TableCaption>
             <TableHeader>
               <TableRow>
@@ -81,15 +89,12 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
               {page.rows.map((row) => (
                 <LinkedTableRow key={row.id}>
                   <TableCell>
-                    <Link
-                      className="font-mono font-semibold"
-                      href={`${CATALOGUE_OPERATIONS_PATH}/syncs/${row.id}`}
-                    >
-                      {row.code}
-                    </Link>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {row.kind}
-                    </span>
+                    <CatalogueIdentity
+                      code={row.kind}
+                      href={adminCatalogueSyncPath(row.id)}
+                      kind={row.kind}
+                      title={row.code}
+                    />
                   </TableCell>
                   <TableCell>{row.academicYear}</TableCell>
                   <TableCell>

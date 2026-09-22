@@ -3,11 +3,10 @@
 import { Tabs } from "@coursemap/ui/primitives/tabs";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { ADMIN_CATALOGUE_OPERATIONS_PATH } from "@/lib/coursemap/catalogue-kinds";
 import { SectionTabs } from "@/ui/common/section-tabs";
 
 export type OperationsSection = "syncs" | "discovery";
-
-export const CATALOGUE_OPERATIONS_PATH = "/admin/operations/catalogue";
 
 export function OperationsTabs({
   value,
@@ -23,8 +22,8 @@ export function OperationsTabs({
       onValueChange={(next) =>
         router.push(
           next === "syncs"
-            ? CATALOGUE_OPERATIONS_PATH
-            : `${CATALOGUE_OPERATIONS_PATH}/${next}`,
+            ? ADMIN_CATALOGUE_OPERATIONS_PATH
+            : `${ADMIN_CATALOGUE_OPERATIONS_PATH}/${next}`,
         )
       }
       value={value}

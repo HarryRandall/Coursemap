@@ -47,6 +47,16 @@ export function adminCatalogueVersionPath(
   return `${adminCatalogueRecordPath(kind, year, code)}/changelog/${versionOrdinal}`;
 }
 
+export const ADMIN_CATALOGUE_OPERATIONS_PATH = "/admin/operations/catalogue";
+
+export function adminCatalogueSyncPath(syncId: string) {
+  return `${ADMIN_CATALOGUE_OPERATIONS_PATH}/syncs/${syncId}`;
+}
+
+export function adminCatalogueDiscoveryPath(checkId: number) {
+  return `${ADMIN_CATALOGUE_OPERATIONS_PATH}/discovery/${checkId}`;
+}
+
 export function publicCatalogueRecordPath(
   kind: CatalogueKind,
   year: number,
@@ -79,6 +89,13 @@ export type CatalogueDirectoryRecord = {
     completedAt: string | null;
   } | null;
 };
+
+export type CatalogueTableLayout =
+  | "public-courses"
+  | "users"
+  | "directory"
+  | "operations-syncs"
+  | "operations-discovery";
 
 export type CatalogueDirectoryPage = {
   kind: CatalogueKind;

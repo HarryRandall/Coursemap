@@ -149,3 +149,16 @@ test("shows three short breadcrumbs until width requires collapsing the middle",
   resize(600);
   expect(within(trail).getByRole("link", { name: "Courses" })).toBeVisible();
 });
+
+test("does not repeat a catalogue section on its year directory", () => {
+  measureAt(600);
+  render(<Breadcrumbs segmentLabels={{ "2026": null, infs1001: null }} />);
+  const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+  expect(within(trail).getAllByRole("listitem")).toHaveLength(2);
+  expect(within(trail).getByRole("link", { name: "Admin" })).toBeVisible();
+  expect(within(trail).getByRole("link", { name: "Courses" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(trail).not.toHaveTextContent("2026");
+});

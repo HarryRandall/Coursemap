@@ -1,3 +1,7 @@
+import {
+  ADMIN_CATALOGUE_OPERATIONS_PATH,
+  adminCatalogueRecordPath,
+} from "@/lib/coursemap/catalogue-kinds";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
@@ -17,7 +21,6 @@ import {
 } from "@coursemap/ui/primitives/table";
 import { badgeVariantForTone } from "@/lib/ui";
 import type { SyncDetail } from "@/lib/coursemap/admin-operations";
-import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { DataTableShell } from "@/ui/common/data-table";
 import { ArtefactViewer } from "./artefact-viewer";
 import {
@@ -28,7 +31,6 @@ import {
   syncStatusLabel,
   syncStatusTone,
 } from "./operations-format";
-import { CATALOGUE_OPERATIONS_PATH } from "./operations-tabs";
 
 const STAGE_LABELS: Record<string, string> = {
   source_fetch: "Source fetch",
@@ -88,7 +90,7 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
     <div className="flex w-full min-w-0 flex-col gap-6">
       <Link
         className="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground underline-offset-4 hover:underline"
-        href={CATALOGUE_OPERATIONS_PATH}
+        href={ADMIN_CATALOGUE_OPERATIONS_PATH}
       >
         <ArrowLeft aria-hidden="true" size={14} />
         Back to syncs

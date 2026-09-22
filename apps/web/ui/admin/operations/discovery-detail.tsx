@@ -1,3 +1,4 @@
+import { ADMIN_CATALOGUE_OPERATIONS_PATH } from "@/lib/coursemap/catalogue-kinds";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import {
@@ -8,7 +9,6 @@ import {
 import { Badge } from "@coursemap/ui/components/badge";
 import type { DiscoveryCheckDetail } from "@/lib/coursemap/admin-operations";
 import { formatDuration, formatTimestamp } from "./operations-format";
-import { CATALOGUE_OPERATIONS_PATH } from "./operations-tabs";
 
 /**
  * One listing check. Only a complete check can retire a record, so its
@@ -23,7 +23,7 @@ export function DiscoveryDetailView({
     <div className="flex w-full min-w-0 flex-col gap-6">
       <Link
         className="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground underline-offset-4 hover:underline"
-        href={`${CATALOGUE_OPERATIONS_PATH}/discovery`}
+        href={`${ADMIN_CATALOGUE_OPERATIONS_PATH}/discovery`}
       >
         <ArrowLeft aria-hidden="true" size={14} />
         Back to discovery

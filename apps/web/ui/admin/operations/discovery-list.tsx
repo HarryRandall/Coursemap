@@ -1,6 +1,11 @@
-import Link from "next/link";
+import {
+  CATALOGUE_KIND_LABELS,
+  adminCatalogueDiscoveryPath,
+} from "@/lib/coursemap/catalogue-kinds";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
+  CatalogueIdentity,
+  DataTableShell,
   Table,
   TableBody,
   TableCaption,
@@ -8,12 +13,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@coursemap/ui/primitives/table";
+} from "@/ui/admin/catalogue-table/catalogue-table";
 import type { DiscoveryCheckRow } from "@/lib/coursemap/admin-operations";
-import { DataTableEmpty, DataTableShell } from "@/ui/common/data-table";
+import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { formatDuration, formatTimestamp } from "./operations-format";
-import { CATALOGUE_OPERATIONS_PATH } from "./operations-tabs";
 
 /**
  * ANU listing checks. An incomplete check is why a record can be missing from
@@ -22,19 +26,19 @@ import { CATALOGUE_OPERATIONS_PATH } from "./operations-tabs";
 export function DiscoveryList({ checks }: { checks: DiscoveryCheckRow[] }) {
   if (checks.length === 0) {
     return (
-      <DataTableEmpty
+      <CatalogueEmpty
         title="No listing checks yet"
         description="Refreshing an ANU listing records what it read and what it found."
       />
     );
   }
   return (
-    <DataTableShell>
-      <Table className="min-w-[52rem]">
+    <DataTableShell layout="operations-discovery" selectable={false}>
+      <Table>
         <TableCaption className="sr-only">ANU listing checks</TableCaption>
         <TableHeader>
           <TableRow>
-            <TableHead>Kind</TableHead>
+            <TableHead>Listing</TableHead>
             <TableHead>Year</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Complete</TableHead>
@@ -47,12 +51,12 @@ export function DiscoveryList({ checks }: { checks: DiscoveryCheckRow[] }) {
           {checks.map((check) => (
             <LinkedTableRow key={check.id}>
               <TableCell>
-                <Link
-                  className="font-medium"
-                  href={`${CATALOGUE_OPERATIONS_PATH}/discovery/${check.id}`}
-                >
-                  {check.kind}
-                </Link>
+                <CatalogueIdentity
+                  code={`${check.discoveredCount} discovered`}
+                  href={adminCatalogueDiscoveryPath(check.id)}
+                  kind={check.kind}
+                  title={CATALOGUE_KIND_LABELS[check.kind].plural}
+                />
               </TableCell>
               <TableCell>{check.academicYear}</TableCell>
               <TableCell>

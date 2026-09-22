@@ -41,6 +41,15 @@ function pageWindow(page: number, pageCount: number): Array<number | "gap"> {
   );
 }
 
+/**
+ * Callers name their rows in the plural, which is what a count almost always
+ * needs. One row is the exception, and "1 courses" is worth the two lines.
+ */
+function countedName(itemName: string, total: number) {
+  if (total !== 1 || !itemName.endsWith("s")) return itemName;
+  return itemName.slice(0, -1);
+}
+
 const stepClasses =
   "grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
@@ -107,7 +116,7 @@ export function Pagination({
           <>
             {total.toLocaleString("en-AU")}{" "}
             <span className="font-normal text-muted-foreground">
-              {itemName}
+              {countedName(itemName, total)}
             </span>
           </>
         ) : (

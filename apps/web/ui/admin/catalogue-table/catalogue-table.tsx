@@ -14,6 +14,7 @@ import {
   Globe,
   Scale,
 } from "lucide-react";
+import type { CatalogueTableLayout } from "@/lib/coursemap/catalogue-kinds";
 import styles from "./catalogue-table.module.css";
 
 export {
@@ -38,7 +39,7 @@ export function DataTableShell({
   footer?: ReactNode;
   selectable?: boolean;
   imports?: boolean;
-  layout?: "public-courses" | "users" | "directory";
+  layout?: CatalogueTableLayout;
 }) {
   return (
     <div

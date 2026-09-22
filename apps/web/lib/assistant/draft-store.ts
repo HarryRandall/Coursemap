@@ -7,29 +7,31 @@ export function createAssistantDraftStore(key: string) {
   let snapshot = empty;
   let loaded = false;
   const listeners = new Set<() => void>();
-  function getSnapshot() {
-    if (!loaded && typeof window !== "undefined") {
-      try {
-        snapshot = readAssistantHistory(localStorage.getItem(key));
-      } catch {
-        snapshot = empty;
-      }
-      loaded = true;
+  function loadStoredSnapshot() {
+    if (loaded) return;
+    try {
+      snapshot = readAssistantHistory(localStorage.getItem(key));
+    } catch {
+      snapshot = empty;
     }
-    return snapshot;
+    loaded = true;
   }
   function notify() {
     listeners.forEach((listener) => listener());
   }
   return {
-    getSnapshot,
+    // Keep the first browser snapshot equal to the server snapshot. Storage is
+    // read when React subscribes after hydration, then React's subscription
+    // check applies the restored drafts without changing the server markup.
+    getSnapshot: () => snapshot,
     getServerSnapshot: () => empty,
     subscribe(listener: () => void) {
       listeners.add(listener);
+      loadStoredSnapshot();
       function onStorage(event: StorageEvent) {
         if (event.key === key || event.key === null) {
           loaded = false;
-          getSnapshot();
+          loadStoredSnapshot();
           notify();
         }
       }
@@ -40,7 +42,8 @@ export function createAssistantDraftStore(key: string) {
       };
     },
     update(change: (previous: AssistantDraft[]) => AssistantDraft[]) {
-      snapshot = change(getSnapshot());
+      loadStoredSnapshot();
+      snapshot = change(snapshot);
       try {
         localStorage.setItem(key, JSON.stringify(snapshot));
       } catch {

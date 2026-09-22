@@ -9,7 +9,6 @@ export function CatalogueEmpty({
   title,
   description,
   filtered = false,
-  imports = false,
   error = false,
   clearHref,
   onSync,
@@ -18,7 +17,6 @@ export function CatalogueEmpty({
   title: string;
   description: string;
   filtered?: boolean;
-  imports?: boolean;
   error?: boolean;
   clearHref?: string;
   onSync?: () => void;
@@ -26,11 +24,7 @@ export function CatalogueEmpty({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded-xl border-2 border-dotted border-border bg-card px-5 py-8 text-center">
-      {error ? (
-        <ErrorIllustration kind="server" />
-      ) : (
-        <CatalogueIllustration variant={filtered ? 5 : imports ? 2 : 6} />
-      )}
+      {error ? <ErrorIllustration kind="server" /> : <CatalogueIllustration />}
       <h2 className="text-lg font-semibold">
         {filtered ? "No matches this time." : title}
       </h2>

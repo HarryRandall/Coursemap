@@ -173,7 +173,7 @@ test("the sync list carries the technical columns an operator needs", () => {
 
 test("an empty list says what fills it rather than showing an empty table", () => {
   renderSyncList(syncPage({ rows: [], total: 0 }));
-  expect(screen.getByText("No syncs match")).toBeTruthy();
+  expect(screen.getByText("No syncs yet")).toBeTruthy();
   expect(screen.queryByRole("table")).toBeNull();
 });
 
@@ -217,6 +217,7 @@ test("an incomplete listing check says so, because it cannot retire anything", (
   render(<DiscoveryList checks={checks} />);
   expect(screen.getByText("Partial")).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "course" }).getAttribute("href"),
+    screen.getByRole("link", { name: "Courses" }).getAttribute("href"),
   ).toBe("/admin/operations/catalogue/discovery/7");
+  expect(screen.getByText("120 discovered")).toBeTruthy();
 });

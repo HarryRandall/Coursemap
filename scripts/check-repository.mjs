@@ -3,6 +3,68 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const SOURCE_EXTENSIONS = [".ts", ".tsx", ".mjs"];
+
+function resolveImport(file, specifier, root) {
+  const base = specifier.startsWith("@/")
+    ? resolve(root, "apps/web", specifier.slice(2))
+    : specifier.startsWith(".")
+      ? resolve(root, dirname(file), specifier)
+      : null;
+  if (!base) return null;
+  for (const candidate of [
+    base,
+    ...SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`),
+    ...SOURCE_EXTENSIONS.map((extension) => resolve(base, `index${extension}`)),
+  ]) {
+    if (existsSync(candidate) && !candidate.endsWith("/")) {
+      try {
+        if (readFileSync(candidate, "utf8") !== undefined) return candidate;
+      } catch {
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
+function isClientModule(source) {
+  return /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(
+    source,
+  );
+}
+
+/**
+ * A server component that imports a plain value from a "use client" module
+ * receives a client reference rather than the value. A string constant used in
+ * an href becomes the proxy's error text, and nothing fails until someone
+ * reads the link. Components are the legitimate case, so only names that are
+ * not components are reported.
+ */
+function clientValueImports({ file, source, root }) {
+  if (isClientModule(source)) return [];
+  const errors = [];
+  for (const match of source.matchAll(
+    /import\s+(type\s+)?\{([^}]*)\}\s*from\s*["']([^"']+)["']/g,
+  )) {
+    if (match[1]) continue;
+    const target = resolveImport(file, match[3], root);
+    if (!target || !isClientModule(readFileSync(target, "utf8"))) continue;
+    for (const binding of match[2].split(",")) {
+      const name = binding
+        .trim()
+        .split(/\s+as\s+/)[0]
+        ?.trim();
+      if (!name || name.startsWith("type ")) continue;
+      if (/^[A-Z][A-Za-z0-9]*$/.test(name)) continue;
+      errors.push(
+        `${file}: ${name} is a value from the client module ${match[3]}; a server component receives a client reference, not the value.`,
+      );
+    }
+  }
+  return errors;
+}
+
 /** Checks authored files only; generated assets and vendored UI keep their own conventions. */
 export function checkRepository({ root, files }) {
   const errors = [];
@@ -16,6 +78,16 @@ export function checkRepository({ root, files }) {
       !/^[a-z0-9]+(?:[-.][a-z0-9]+)*\.(?:ts|tsx|mjs)$/.test(basename(file))
     ) {
       errors.push(`${file}: use a kebab-case source filename.`);
+    }
+
+    if (/^apps\/web\/(?:app|ui)\//.test(file) && /\.(?:ts|tsx)$/.test(file)) {
+      errors.push(
+        ...clientValueImports({
+          file,
+          source: readFileSync(path, "utf8"),
+          root,
+        }),
+      );
     }
 
     if (file.endsWith("package.json")) {

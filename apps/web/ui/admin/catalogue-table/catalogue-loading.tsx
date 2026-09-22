@@ -18,7 +18,12 @@ import {
  * replaces it and the whole list reflows on arrival.
  */
 export type CatalogueLoadingLayout =
-  "public-courses" | "users" | "directory" | "import-records";
+  | "public-courses"
+  | "users"
+  | "directory"
+  | "import-records"
+  | "operations-syncs"
+  | "operations-discovery";
 
 /**
  * A skeleton cell per real cell. The kind decides the shape, so a placeholder
@@ -46,6 +51,27 @@ function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
       { label: "Joined", kind: "text" },
       { label: "Updated", kind: "text" },
       { label: "Actions", kind: "actions" },
+    ];
+  if (layout === "operations-syncs")
+    return [
+      { label: "Record", kind: "identity" },
+      { label: "Year", kind: "text" },
+      { label: "Status", kind: "text" },
+      { label: "Trigger", kind: "text" },
+      { label: "Started", kind: "text" },
+      { label: "Duration", kind: "text" },
+      { label: "Model", kind: "text" },
+      { label: "Cost", kind: "text" },
+    ];
+  if (layout === "operations-discovery")
+    return [
+      { label: "Listing", kind: "identity" },
+      { label: "Year", kind: "text" },
+      { label: "Status", kind: "text" },
+      { label: "Complete", kind: "text" },
+      { label: "Discovered", kind: "text" },
+      { label: "Started", kind: "text" },
+      { label: "Duration", kind: "text" },
     ];
   if (layout === "import-records")
     return [
@@ -174,12 +200,24 @@ export function CatalogueTableLoading({
 export function CatalogueLoading({
   noun,
   layout,
+  hideAcademicYear = false,
 }: {
   noun: string;
   layout: CatalogueLoadingLayout;
+  hideAcademicYear?: boolean;
 }) {
+  const breadcrumbSegmentLabels = hideAcademicYear
+    ? Object.fromEntries(
+        Array.from({ length: 11 }, (_, index) => [String(2020 + index), null]),
+      )
+    : undefined;
   return (
-    <AppShell loading admin={layout !== "public-courses"} fill>
+    <AppShell
+      loading
+      admin={layout !== "public-courses"}
+      fill
+      breadcrumbSegmentLabels={breadcrumbSegmentLabels}
+    >
       <h1 className="sr-only">Loading {noun}</h1>
       <CatalogueTableLoading noun={noun} layout={layout} />
     </AppShell>

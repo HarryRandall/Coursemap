@@ -8,6 +8,7 @@ import { ASSISTANT_PREVIEW_RESPONSE } from "@/lib/assistant/history";
 import { SidebarProvider, SidebarMenu } from "@coursemap/ui/primitives/sidebar";
 import { AssistantRecentChat } from "@/ui/assistant/assistant-recent-chat";
 import { assistantTitle, readAssistantHistory } from "@/lib/assistant/history";
+import { createAssistantDraftStore } from "@/lib/assistant/draft-store";
 import {
   AssistantProvider,
   useAssistant,
@@ -49,6 +50,29 @@ vi.mock("@/lib/assistant/model-actions", () => ({
 vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 
 vi.mock("@coursemap/ui/hooks/use-mobile", () => ({ useIsMobile: () => false }));
+
+test("restores browser drafts only after the hydration snapshot", () => {
+  localStorage.setItem(
+    "coursemap:compass:drafts:test",
+    JSON.stringify([
+      {
+        id: "saved",
+        draft: "Continue planning",
+        model: "",
+        updatedAt: "2026-09-22T00:00:00.000Z",
+        messages: [],
+      },
+    ]),
+  );
+  const store = createAssistantDraftStore("coursemap:compass:drafts:test");
+  expect(store.getServerSnapshot()).toEqual([]);
+  expect(store.getSnapshot()).toEqual([]);
+  const unsubscribe = store.subscribe(() => {});
+  expect(store.getSnapshot()).toEqual([
+    expect.objectContaining({ id: "saved", draft: "Continue planning" }),
+  ]);
+  unsubscribe();
+});
 
 test("keeps a draft when closed and reopened, and clears it for a new chat", () => {
   const close = vi.fn();

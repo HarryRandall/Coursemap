@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
@@ -7,7 +6,6 @@ import {
 } from "@/lib/coursemap/admin-catalogue";
 import { AppShell } from "@/ui/shell";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
-import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { CatalogueDirectory } from "./catalogue-directory";
 
 export type SearchParams = Promise<
@@ -31,31 +29,20 @@ export async function CatalogueDirectoryPage({
   if (!(await canManageCatalogueOperations())) return <AccessDeniedError />;
   const params = await searchParams;
   const labels = CATALOGUE_KIND_LABELS[kind];
-  const page = loadCatalogueDirectoryPage({
+  const page = await loadCatalogueDirectoryPage({
     kind,
     academicYear,
     query: first(params.q) ?? "",
     page: Number(first(params.page)) || 1,
   });
   return (
-    <AppShell admin fill currentBreadcrumbLabel={labels.plural}>
+    <AppShell
+      admin
+      fill
+      breadcrumbSegmentLabels={{ [String(academicYear)]: null }}
+    >
       <h1 className="sr-only">{labels.plural}</h1>
-      <Suspense
-        fallback={
-          <CatalogueTableLoading noun={labels.plural} layout="directory" />
-        }
-      >
-        <DirectoryContent page={page} />
-      </Suspense>
+      <CatalogueDirectory page={page} />
     </AppShell>
   );
-}
-
-async function DirectoryContent({
-  page,
-}: {
-  page: ReturnType<typeof loadCatalogueDirectoryPage>;
-}) {
-  const resolved = await page;
-  return <CatalogueDirectory page={resolved} />;
 }
