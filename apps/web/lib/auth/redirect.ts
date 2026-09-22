@@ -3,6 +3,8 @@ const AUTH_HANDLER_PATHS = [
   "/auth/callback",
   "/auth/confirm",
   "/auth/logout",
+  "/auth/password",
+  "/auth/sign-in",
 ] as const;
 
 function fullyDecodePath(pathname: string) {

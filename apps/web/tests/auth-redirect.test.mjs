@@ -39,6 +39,8 @@ test("rejects external, decoded and handler redirect destinations", () => {
     "/auth/callback%3Fcode=secret",
     "/auth/callback%23fragment",
     "/auth/logout",
+    "/auth/password",
+    "/auth/sign-in",
   ];
 
   unsafe.forEach((candidate) => {

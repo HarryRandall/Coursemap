@@ -13,14 +13,16 @@ import { createClient } from "@/lib/supabase/browser";
 export function SignInForm({
   next,
   configured,
+  initialError = null,
 }: {
   next: string;
   configured: boolean;
+  initialError?: string | null;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -56,7 +58,12 @@ export function SignInForm({
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form
+      action="/auth/password"
+      method="post"
+      onSubmit={submit}
+      className="space-y-4"
+    >
       <input type="hidden" name="next" value={next} />
       <Field>
         <label className="flex flex-col gap-2">

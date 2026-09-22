@@ -21,6 +21,10 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const next = safeInternalRedirect(first(params.next));
+  const initialError =
+    first(params.error) === "invalid-login"
+      ? "Email or password is incorrect."
+      : null;
 
   const configured = Boolean(getSupabaseConfig());
   const signUpHref = `/signup?next=${encodeURIComponent(next)}`;
@@ -56,7 +60,11 @@ export default async function LoginPage({
         <span className="h-px flex-1 bg-zinc-200" />
       </div>
 
-      <SignInForm next={next} configured={configured} />
+      <SignInForm
+        next={next}
+        configured={configured}
+        initialError={initialError}
+      />
 
       <p className="mt-6 text-center text-sm text-zinc-500">
         New to Coursemap?{" "}
