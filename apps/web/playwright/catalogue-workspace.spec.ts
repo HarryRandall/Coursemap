@@ -55,9 +55,19 @@ test("catalogue content autosaves and remains separate from student view", async
   await page.getByRole("tab", { name: "Changelog" }).click();
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100\/changelog$/);
   await expect(page.getByRole("list", { name: "Changelog" })).toBeVisible();
-  await expect(page.getByText(/Version \d+ created/).first()).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Draft discarded" }).first(),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: /restore/i })).toHaveCount(0);
+  // The discarded draft was kept as a version, which the entry offers to open.
+  const checkpoint = page
+    .getByRole("link", { name: /View version \d+/ })
+    .first();
+  await expect(checkpoint).toBeVisible();
+  await checkpoint.click();
+  await expect(page).toHaveURL(
+    /\/admin\/courses\/2026\/comp1100\/changelog\/\d+$/,
+  );
+  await expect(
+    page.getByRole("button", { name: "Restore as draft" }),
+  ).toBeVisible();
 });
