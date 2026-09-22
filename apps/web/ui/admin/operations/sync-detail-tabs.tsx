@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs } from "@coursemap/ui/primitives/tabs";
+import { FileCode2, Info, ListChecks, Sparkles } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { SectionTabs } from "@/ui/common/section-tabs";
 
@@ -45,21 +46,26 @@ export function SyncDetailTabList({
     <SectionTabs
       label="Sync diagnostics"
       tabs={[
-        { value: "overview", label: "Overview" },
+        // These sections are places to look inside one sync rather than routes,
+        // so their icons are named here and not in the shared route map.
+        { value: "overview", label: "Overview", icon: Info },
         {
           value: "stages",
           label: "Stages",
+          icon: ListChecks,
           count: failedStageCount,
           disabled: stageCount === 0,
         },
         {
           value: "extractions",
           label: "Extractions",
+          icon: Sparkles,
           disabled: extractionCount === 0,
         },
         {
           value: "artefacts",
           label: "Artefacts",
+          icon: FileCode2,
           disabled: artefactCount === 0,
         },
       ]}

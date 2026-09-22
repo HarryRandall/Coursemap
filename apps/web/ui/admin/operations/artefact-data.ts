@@ -6,6 +6,26 @@ export type SyncArtefactSummary = {
   mediaType: string;
 };
 
+/**
+ * What each artefact actually is. The names are the pipeline's own vocabulary,
+ * which means nothing to a reader who has not written the pipeline, so every
+ * tab carries the one sentence that places it in the run.
+ */
+export const syncArtefactDescriptions: Record<string, string> = {
+  raw_html: "The ANU page exactly as it was fetched, before anything read it.",
+  normalised_markdown:
+    "That page reduced to the plain text the extraction works from.",
+  model_input: "The markdown and instructions assembled for the model to read.",
+  deterministic_output:
+    "What rules alone could read off the page, without asking the model.",
+  model_request: "The request sent to the model, with the settings it ran on.",
+  model_response: "What the model returned, before anything checked it.",
+  validated_json: "The model's answer once it passed the schema.",
+  validation_report: "Every schema and domain check, and which ones failed.",
+  content_projection:
+    "The validated answer mapped onto this record's own fields.",
+};
+
 export const syncArtefactLabels: Record<string, string> = {
   raw_html: "Raw HTML",
   normalised_markdown: "Markdown",

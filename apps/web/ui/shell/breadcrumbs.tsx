@@ -13,7 +13,7 @@ import {
   BreadcrumbSeparator,
 } from "@coursemap/ui/primitives/breadcrumb";
 import { BreadcrumbOverflow } from "@/ui/shell/breadcrumb-overflow";
-import { routeIcons } from "@/ui/shell/route-icons";
+import { routeIcons, type RouteIconKey } from "@/ui/shell/route-icons";
 
 type Crumb = { label: string; href?: string; icon?: LucideIcon };
 
@@ -146,6 +146,7 @@ export function Breadcrumbs({
   currentLabel,
   segmentLabels,
   trailingLabel,
+  trailingIcon,
 }: {
   currentLabel?: string;
   /** Relabels a route segment, or hides it when the value is null. */
@@ -155,6 +156,12 @@ export function Breadcrumbs({
    * segment, so it is appended rather than read from the URL.
    */
   trailingLabel?: string;
+  /**
+   * The appended section's icon, named by route key rather than passed as a
+   * component so a server page can ask for it. Give it the key its tab uses,
+   * and the breadcrumb and the tab bar say the same thing.
+   */
+  trailingIcon?: RouteIconKey;
 }) {
   const pathname = usePathname();
   const { crumbs } = buildCrumbs(pathname, segmentLabels);
@@ -170,7 +177,10 @@ export function Breadcrumbs({
             ? { ...crumb, href: pathname }
             : crumb,
         ),
-        { label: trailingLabel },
+        {
+          label: trailingLabel,
+          icon: trailingIcon && routeIcons[trailingIcon],
+        },
       ]
     : named;
 

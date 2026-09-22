@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { ADMIN_CATALOGUE_OPERATIONS_PATH } from "@/lib/coursemap/catalogue-kinds";
 import { SectionTabs } from "@/ui/common/section-tabs";
+import { routeIcons } from "@/ui/shell/route-icons";
 
 export type OperationsSection = "syncs" | "discovery";
 
@@ -38,8 +39,8 @@ export function OperationsTabList() {
     <SectionTabs
       label="Catalogue activity"
       tabs={[
-        { value: "syncs", label: "Syncs" },
-        { value: "discovery", label: "Discovery" },
+        { value: "syncs", label: "Syncs", icon: routeIcons.syncs },
+        { value: "discovery", label: "Discovery", icon: routeIcons.discovery },
       ]}
     />
   );

@@ -56,6 +56,7 @@ export async function CatalogueOperationsPage({
         breadcrumbSegmentLabels={{ operations: null }}
         currentBreadcrumbLabel={section === "syncs" ? "Catalogue" : undefined}
         breadcrumbTrailingLabel={section === "syncs" ? "Syncs" : undefined}
+        breadcrumbTrailingIcon={section === "syncs" ? "syncs" : undefined}
         tabs={<OperationsTabList />}
       >
         <h1 className="sr-only">Catalogue activity</h1>

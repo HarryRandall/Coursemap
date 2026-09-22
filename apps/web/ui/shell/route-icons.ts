@@ -3,16 +3,21 @@ import {
   BookOpen,
   CalendarDays,
   CalendarRange,
+  Eye,
+  FileText,
   GitCompareArrows,
   GraduationCap,
+  History,
   Import,
   KeyRound,
   LayoutDashboard,
+  Library,
   LifeBuoy,
   ListChecks,
   Map,
   MapPin,
   MapPinned,
+  Radar,
   RefreshCw,
   Route,
   Shield,
@@ -51,8 +56,18 @@ export const routeIcons = {
   roles: KeyRound,
   imports: Import,
   sync: RefreshCw,
-  changes: GitCompareArrows,
   timetable: CalendarDays,
+  // Catalogue activity, and the two questions it is asked.
+  catalogue: Library,
+  syncs: RefreshCw,
+  discovery: Radar,
+  // The sections of one catalogue record. "content" is the record path itself
+  // rather than a segment of its own, and is named here so its tab and every
+  // link to it wear the same icon as its siblings.
+  content: FileText,
+  "student-view": Eye,
+  changes: GitCompareArrows,
+  changelog: History,
 } satisfies Record<string, LucideIcon>;
 
 export type RouteIconKey = keyof typeof routeIcons;

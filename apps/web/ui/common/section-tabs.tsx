@@ -1,13 +1,19 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 
 export type SectionTab = {
   value: string;
   label: string;
-  icon?: ReactNode;
+  /**
+   * The section's icon, sized here so a bar of tabs stays even. Take it from
+   * `routeIcons` wherever the section is also a place in the product, so the
+   * tab, the breadcrumb and the sidebar all name it the same way.
+   */
+  icon?: LucideIcon;
   /** Shown beside the label when the section holds outstanding work. */
   count?: number;
   disabled?: boolean;
@@ -34,11 +40,14 @@ export function SectionTabs({
       <TabsList aria-label={label} variant="line">
         {tabs.map((tab) => (
           <TabsTrigger
+            className="gap-2"
             key={tab.value}
             value={tab.value}
             disabled={tab.disabled}
           >
-            {tab.icon}
+            {tab.icon ? (
+              <tab.icon aria-hidden="true" className="size-4" />
+            ) : null}
             {tab.label}
             {tab.count ? (
               <Badge size="sm" variant="warning-light">

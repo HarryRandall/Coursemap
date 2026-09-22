@@ -13,6 +13,7 @@ import {
 } from "@coursemap/ui/primitives/sidebar";
 import { cn } from "@/lib/cn";
 import { AppSidebar } from "@/ui/shell/app-sidebar";
+import type { RouteIconKey } from "@/ui/shell/route-icons";
 import { useSidebarDefaultOpen } from "@/ui/shell/sidebar-preference";
 import { NotificationsMenu } from "@/ui/shell/notifications-menu";
 import { Topbar } from "@/ui/shell/topbar";
@@ -28,6 +29,8 @@ export type AppShellProps = {
   breadcrumbSegmentLabels?: Record<string, string | null>;
   /** Appends the open section, such as the active tab, to the breadcrumb. */
   breadcrumbTrailingLabel?: string;
+  /** The appended section's icon, named by the route key its tab uses. */
+  breadcrumbTrailingIcon?: RouteIconKey;
   loading?: boolean;
   admin?: boolean;
   /** Makes the main region a flex column so one child can claim the rest of the viewport. */
@@ -45,6 +48,7 @@ export function AppShell({
   currentBreadcrumbLabel,
   breadcrumbSegmentLabels,
   breadcrumbTrailingLabel,
+  breadcrumbTrailingIcon,
   loading = false,
   admin = false,
   fill = false,
@@ -135,6 +139,7 @@ export function AppShell({
           breadcrumbSegmentLabels={breadcrumbSegmentLabels}
           currentBreadcrumbLabel={currentBreadcrumbLabel}
           breadcrumbTrailingLabel={breadcrumbTrailingLabel}
+          breadcrumbTrailingIcon={breadcrumbTrailingIcon}
         />
         {tabs && (
           <div

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { LoaderCircle } from "lucide-react";
+import { CircleQuestionMark, LoaderCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
@@ -10,11 +10,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
+import { Hint } from "@/ui/common/hint";
 import { OptionPicker } from "@/ui/common/option-picker";
 import { JsonCode } from "@/ui/common/json-code";
 import { ArtefactViewport } from "./artefact-viewport";
 import {
   groupSyncArtefactSummarys,
+  syncArtefactDescriptions,
   syncArtefactLabels,
   parseSyncArtefactSummary,
   type SyncArtefactSummary,
@@ -87,16 +89,40 @@ export function ArtefactViewer({
           aria-label="Sync artefacts"
           className={`${navigationStyles.list} hidden h-auto w-full items-stretch gap-1 bg-transparent p-0 md:flex`}
         >
-          {grouped.map((entry) => (
-            <TabsTrigger
-              key={entry.kind}
-              value={entry.kind}
-              className="min-h-9 w-full shrink-0 justify-start rounded-md px-3 text-left text-sm"
-            >
-              {syncArtefactLabels[entry.kind] ??
-                entry.kind.replaceAll("_", " ")}
-            </TabsTrigger>
-          ))}
+          {grouped.map((entry) => {
+            const description = syncArtefactDescriptions[entry.kind];
+            const trigger = (
+              <TabsTrigger
+                key={entry.kind}
+                value={entry.kind}
+                className="min-h-9 w-full shrink-0 justify-between gap-2 rounded-md px-3 text-left text-sm"
+              >
+                {syncArtefactLabels[entry.kind] ??
+                  entry.kind.replaceAll("_", " ")}
+                {description ? (
+                  <CircleQuestionMark
+                    aria-hidden="true"
+                    size={14}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                ) : null}
+              </TabsTrigger>
+            );
+            // The tab itself carries the explanation, so the mark beside the
+            // name stays a mark rather than a second control to reach.
+            return description ? (
+              <Hint
+                align="start"
+                key={entry.kind}
+                label={description}
+                side="right"
+              >
+                {trigger}
+              </Hint>
+            ) : (
+              trigger
+            );
+          })}
         </TabsList>
       </div>
       <TabsContent

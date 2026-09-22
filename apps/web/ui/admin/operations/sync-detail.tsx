@@ -320,7 +320,12 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
       <TabsContent value="artefacts" className="mt-0">
         <Measure>
           <Section title="Artefacts">
-            <div className="flex min-h-[28rem] flex-col">
+            {/*
+              An artefact is a whole fetched page or model transcript, so it is
+              given a window to scroll inside rather than being allowed to set
+              the length of the page it sits on.
+            */}
+            <div className="flex min-h-[28rem] flex-col md:h-[clamp(28rem,70vh,52rem)]">
               <ArtefactViewer
                 artifacts={sync.artefacts.map((artefact) => ({
                   id: artefact.id,

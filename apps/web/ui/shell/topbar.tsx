@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Separator } from "@coursemap/ui/primitives/separator";
 import { SidebarTrigger } from "@coursemap/ui/primitives/sidebar";
 import { cn } from "@/lib/cn";
+import type { RouteIconKey } from "@/ui/shell/route-icons";
 import { useLoadingProgress } from "./use-loading-progress";
 import { Breadcrumbs } from "@/ui/shell/breadcrumbs";
 
@@ -14,6 +15,7 @@ export function Topbar({
   currentBreadcrumbLabel,
   breadcrumbSegmentLabels,
   breadcrumbTrailingLabel,
+  breadcrumbTrailingIcon,
 }: {
   loading?: boolean;
   title?: ReactNode;
@@ -21,6 +23,7 @@ export function Topbar({
   currentBreadcrumbLabel?: string;
   breadcrumbSegmentLabels?: Record<string, string | null>;
   breadcrumbTrailingLabel?: string;
+  breadcrumbTrailingIcon?: RouteIconKey;
 }) {
   const header = useLoadingProgress(loading);
   return (
@@ -43,6 +46,7 @@ export function Topbar({
             currentLabel={currentBreadcrumbLabel}
             segmentLabels={breadcrumbSegmentLabels}
             trailingLabel={breadcrumbTrailingLabel}
+            trailingIcon={breadcrumbTrailingIcon}
           />
         )}
       </div>
