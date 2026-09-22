@@ -131,7 +131,10 @@ export function ImportModelCard({
                     "h-14 gap-3 py-2.5",
                     entry.id === model
                       ? "bg-primary/10 text-primary data-highlighted:bg-primary/10 data-highlighted:text-primary"
-                      : "data-highlighted:bg-accent data-highlighted:text-foreground",
+                      : // --accent is mixed against the page, so on the lighter
+                        // popover surface it disappears in dark. Mix from the
+                        // foreground, which reads on either ground.
+                        "data-highlighted:bg-foreground/8 data-highlighted:text-foreground",
                   )}
                   aria-label={`${entry.name}, ${entry.provider}${entry.id === model ? ", selected" : ""}`}
                 >

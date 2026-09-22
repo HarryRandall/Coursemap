@@ -154,7 +154,7 @@ function NotificationRow({
     </>
   );
   const className =
-    "flex w-full items-start gap-2.5 rounded-md px-2 py-2.5 text-left text-sm transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring";
+    "flex w-full items-start gap-2.5 rounded-md px-2 py-2.5 text-left text-sm transition-colors outline-none hover:bg-foreground/8 focus-visible:ring-2 focus-visible:ring-ring";
 
   // A notification with somewhere to go is a link, so it opens in a new tab and
   // shows its destination like any other. One without is still readable, and

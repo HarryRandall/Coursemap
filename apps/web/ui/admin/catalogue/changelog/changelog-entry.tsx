@@ -137,7 +137,7 @@ export function ChangelogEntry({
               <>
                 {" \u00b7 "}
                 <Link
-                  className="underline-offset-4 hover:underline"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
                   href={syncsHref}
                 >
                   Sync diagnostics

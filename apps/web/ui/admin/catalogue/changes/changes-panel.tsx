@@ -109,7 +109,7 @@ export function CatalogueChangesPanel({
               }).format(new Date(latestSync.completedAt))}. `
             : "A check against ANU is under way. "}
           <Link
-            className="underline-offset-4 hover:underline"
+            className="font-medium text-foreground underline-offset-4 hover:underline"
             href={`/admin/operations/catalogue/syncs/${latestSync.id}`}
           >
             Sync diagnostics

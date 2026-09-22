@@ -97,7 +97,7 @@ export function RecordHeader({
               <>
                 {" "}
                 <Link
-                  className="underline-offset-4 hover:underline"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
                   href={`/admin/operations/catalogue/syncs/${record.syncs[0].id}`}
                 >
                   Sync diagnostics
