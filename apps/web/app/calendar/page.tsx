@@ -31,7 +31,7 @@ export default async function CalendarPage() {
     catalogue = await loadCurrentUserPlanCatalogue();
   } catch {
     return (
-      <PlanningCatalogueError pageTitle="Plan calendar" retryHref="/calendar" />
+      <PlanningCatalogueError pageTitle="Calendar" retryHref="/calendar" />
     );
   }
   const keyDates = await loadAllPublishedKeyDates();

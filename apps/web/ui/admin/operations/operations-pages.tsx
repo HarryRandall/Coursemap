@@ -52,11 +52,12 @@ export async function CatalogueOperationsPage({
       <AppShell
         admin
         fill
-        breadcrumbSegmentLabels={{ operations: "Operations" }}
-        currentBreadcrumbLabel="Catalogue"
+        breadcrumbSegmentLabels={{ operations: null }}
+        currentBreadcrumbLabel={section === "syncs" ? "Catalogue" : undefined}
+        breadcrumbTrailingLabel={section === "syncs" ? "Syncs" : undefined}
         tabs={<OperationsTabList />}
       >
-        <h1 className="sr-only">Catalogue operations</h1>
+        <h1 className="sr-only">Catalogue activity</h1>
         <Suspense
           fallback={
             <CatalogueTableLoading
@@ -103,7 +104,7 @@ export async function CatalogueSyncDetailPage({ syncId }: { syncId: string }) {
   return (
     <AppShell
       admin
-      breadcrumbSegmentLabels={{ operations: "Operations", syncs: "Syncs" }}
+      breadcrumbSegmentLabels={{ operations: null, syncs: "Syncs" }}
       currentBreadcrumbLabel={sync.code}
     >
       <SyncDetailView sync={sync} />
@@ -123,7 +124,7 @@ export async function CatalogueDiscoveryDetailPage({
     <AppShell
       admin
       breadcrumbSegmentLabels={{
-        operations: "Operations",
+        operations: null,
         discovery: "Discovery",
       }}
       currentBreadcrumbLabel={`${check.kind} ${check.academicYear}`}

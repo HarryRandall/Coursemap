@@ -36,7 +36,7 @@ export function OperationsTabs({
 export function OperationsTabList() {
   return (
     <SectionTabs
-      label="Catalogue operations"
+      label="Catalogue activity"
       tabs={[
         { value: "syncs", label: "Syncs" },
         { value: "discovery", label: "Discovery" },

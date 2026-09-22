@@ -2,11 +2,14 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Breadcrumbs } from "@/ui/shell/breadcrumbs";
 
+let pathname = "/admin/courses/2026/infs1001";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/courses/2026/infs1001",
+  usePathname: () => pathname,
 }));
 
 afterEach(() => {
+  pathname = "/admin/courses/2026/infs1001";
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -161,4 +164,36 @@ test("does not repeat a catalogue section on its year directory", () => {
     "page",
   );
   expect(trail).not.toHaveTextContent("2026");
+});
+
+test.each([
+  {
+    route: "/admin/operations/catalogue",
+    currentLabel: "Catalogue",
+    trailingLabel: "Syncs",
+  },
+  {
+    route: "/admin/operations/catalogue/discovery",
+    currentLabel: undefined,
+    trailingLabel: undefined,
+  },
+])("shows the active catalogue operations section on $route", (props) => {
+  pathname = props.route;
+  measureAt(600);
+  render(
+    <Breadcrumbs
+      currentLabel={props.currentLabel}
+      segmentLabels={{ operations: null }}
+      trailingLabel={props.trailingLabel}
+    />,
+  );
+
+  const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
+  expect(within(trail).getByRole("link", { name: "Admin" })).toBeVisible();
+  expect(within(trail).getByRole("link", { name: "Catalogue" })).toBeVisible();
+  expect(
+    within(trail).getByRole("link", {
+      name: props.trailingLabel ?? "Discovery",
+    }),
+  ).toHaveAttribute("aria-current", "page");
 });

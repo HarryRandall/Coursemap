@@ -26,6 +26,7 @@ import { routeIcons } from "@/ui/shell/route-icons";
 
 type NavItem = {
   href: string;
+  activePath?: string;
   label: string;
   icon: LucideIcon;
   badge?: string;
@@ -79,63 +80,77 @@ const studentNav: NavSection[] = [
 ];
 
 /** Grouped around the operator's jobs: catalogue, campus data and access control. */
-const adminNav: NavSection[] = [
-  {
-    label: null,
-    items: [
-      {
-        href: "/admin/dashboard",
-        label: "Dashboard",
-        icon: routeIcons["admin-dashboard"],
-      },
-    ],
-  },
-  {
-    label: "Catalogue",
-    items: [
-      { href: "/admin/courses", label: "Courses", icon: routeIcons.courses },
-      {
-        href: "/admin/programmes",
-        label: "Programmes",
-        icon: routeIcons.programmes,
-      },
-      { href: "/admin/majors", label: "Majors", icon: routeIcons.majors },
-      { href: "/admin/minors", label: "Minors", icon: routeIcons.minors },
-      {
-        href: "/admin/specialisations",
-        label: "Specialisations",
-        icon: routeIcons.specialisations,
-      },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      {
-        href: "/admin/operations/catalogue",
-        label: "Catalogue",
-        icon: routeIcons.sync,
-      },
-    ],
-  },
-  {
-    label: "Campus",
-    items: [
-      {
-        href: "/admin/rooms",
-        label: "Indoor maps",
-        icon: routeIcons["admin-rooms"],
-      },
-    ],
-  },
-  {
-    label: "Access",
-    items: [
-      { href: "/admin/users", label: "Users", icon: routeIcons.users },
-      { href: "/admin/roles", label: "Roles", icon: routeIcons.roles },
-    ],
-  },
-];
+function adminNavigation(catalogueYear: number): NavSection[] {
+  const catalogueItem = (
+    segment: string,
+    label: string,
+    icon: LucideIcon,
+  ): NavItem => ({
+    href: `/admin/${segment}/${catalogueYear}`,
+    activePath: `/admin/${segment}`,
+    label,
+    icon,
+  });
+
+  return [
+    {
+      label: null,
+      items: [
+        {
+          href: "/admin/dashboard",
+          label: "Dashboard",
+          icon: routeIcons["admin-dashboard"],
+        },
+      ],
+    },
+    {
+      label: "Catalogue",
+      items: [
+        catalogueItem("courses", "Courses", routeIcons.courses),
+        catalogueItem("programmes", "Programmes", routeIcons.programmes),
+        catalogueItem("majors", "Majors", routeIcons.majors),
+        catalogueItem("minors", "Minors", routeIcons.minors),
+        catalogueItem(
+          "specialisations",
+          "Specialisations",
+          routeIcons.specialisations,
+        ),
+        {
+          href: "/admin/operations/catalogue",
+          label: "Activity",
+          icon: routeIcons.sync,
+        },
+      ],
+    },
+    {
+      label: "Campus",
+      items: [
+        {
+          href: "/admin/rooms",
+          label: "Indoor maps",
+          icon: routeIcons["admin-rooms"],
+        },
+      ],
+    },
+    {
+      label: "Access",
+      items: [
+        { href: "/admin/users", label: "Users", icon: routeIcons.users },
+        { href: "/admin/roles", label: "Roles", icon: routeIcons.roles },
+      ],
+    },
+  ];
+}
+
+export function adminCatalogueNavigationYear(
+  pathname: string,
+  profileCatalogueYear: number,
+) {
+  const match = pathname.match(
+    /^\/admin\/(?:courses|programmes|majors|minors|specialisations)\/(\d{4})(?:\/|$)/,
+  );
+  return match ? Number(match[1]) : profileCatalogueYear;
+}
 
 /** Shown to students who hold an admin role. */
 const adminEntryNav: NavSection[] = [
@@ -173,10 +188,11 @@ function NavMenuItem({
   onNavigate: () => void;
 }) {
   const pathname = usePathname();
+  const activePath = item.activePath ?? item.href;
   const isActive =
     item.href === "/admin/dashboard"
       ? pathname === item.href || pathname === "/admin"
-      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+      : pathname === activePath || pathname.startsWith(`${activePath}/`);
   const Icon = item.icon;
 
   return (
@@ -233,7 +249,12 @@ function NavSections({
 }
 
 export function AppSidebar({ admin }: { admin: boolean }) {
-  const { canAccessAdmin } = useCoursemap();
+  const { canAccessAdmin, state } = useCoursemap();
+  const pathname = usePathname();
+  const catalogueYear = adminCatalogueNavigationYear(
+    pathname,
+    state.profile.catalogueYear,
+  );
   const { isMobile, setOpenMobile } = useSidebar();
   const closeMobileNav = () => {
     if (isMobile) setOpenMobile(false);
@@ -260,7 +281,7 @@ export function AppSidebar({ admin }: { admin: boolean }) {
       <SidebarContent>
         <nav aria-label={admin ? "Admin navigation" : "Student navigation"}>
           <NavSections
-            sections={admin ? adminNav : studentNav}
+            sections={admin ? adminNavigation(catalogueYear) : studentNav}
             onNavigate={closeMobileNav}
           />
         </nav>

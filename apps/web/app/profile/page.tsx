@@ -9,12 +9,7 @@ export default async function ProfilePage() {
   try {
     catalogue = await loadOnboardingCatalogue();
   } catch {
-    return (
-      <PlanningCatalogueError
-        pageTitle="Profile and study details"
-        retryHref="/profile"
-      />
-    );
+    return <PlanningCatalogueError pageTitle="Profile" retryHref="/profile" />;
   }
   return <ProfileEditor catalogue={catalogue} />;
 }

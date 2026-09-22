@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
 import type {
@@ -11,10 +11,12 @@ import { DiscoveryList } from "@/ui/admin/operations/discovery-list";
 import { SyncDetailView } from "@/ui/admin/operations/sync-detail";
 import { SyncList } from "@/ui/admin/operations/sync-list";
 
+let searchParams = new URLSearchParams();
+
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/operations/catalogue",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => searchParams,
 }));
 
 vi.mock("@/ui/admin/operations/artefact-viewer", () => ({
@@ -22,6 +24,10 @@ vi.mock("@/ui/admin/operations/artefact-viewer", () => ({
     <div data-testid="artefacts">{artifacts.length}</div>
   ),
 }));
+
+afterEach(() => {
+  searchParams = new URLSearchParams();
+});
 
 function syncPage(
   overrides: Partial<SyncOperationsPage> = {},
@@ -214,10 +220,59 @@ test("an incomplete listing check says so, because it cannot retire anything", (
       errorMessage: null,
     },
   ];
-  render(<DiscoveryList checks={checks} />);
+  render(
+    <TooltipProvider>
+      <DiscoveryList checks={checks} />
+    </TooltipProvider>,
+  );
+  expect(
+    screen.getByPlaceholderText("Search listing checks"),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Filter" })).toBeInTheDocument();
   expect(screen.getByText("Partial")).toBeTruthy();
   expect(
     screen.getByRole("link", { name: "Courses" }).getAttribute("href"),
   ).toBe("/admin/operations/catalogue/discovery/7");
   expect(screen.getByText("120 discovered")).toBeTruthy();
+});
+
+test("discovery search narrows the loaded listing checks", () => {
+  searchParams = new URLSearchParams("q=programmes");
+  const checks: DiscoveryCheckRow[] = [
+    {
+      id: 7,
+      kind: "course",
+      academicYear: 2027,
+      status: "completed",
+      isComplete: true,
+      discoveredCount: 120,
+      startedAt: "2026-09-21T10:00:00.000Z",
+      completedAt: "2026-09-21T10:00:20.000Z",
+      durationMs: 20_000,
+      errorCode: null,
+      errorMessage: null,
+    },
+    {
+      id: 8,
+      kind: "programme",
+      academicYear: 2027,
+      status: "failed",
+      isComplete: false,
+      discoveredCount: 0,
+      startedAt: "2026-09-21T11:00:00.000Z",
+      completedAt: "2026-09-21T11:00:02.000Z",
+      durationMs: 2_000,
+      errorCode: "FETCH_FAILED",
+      errorMessage: "The listing could not be fetched.",
+    },
+  ];
+
+  render(
+    <TooltipProvider>
+      <DiscoveryList checks={checks} />
+    </TooltipProvider>,
+  );
+
+  expect(screen.getByRole("link", { name: "Programmes" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Courses" })).toBeNull();
 });

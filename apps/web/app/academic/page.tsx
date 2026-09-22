@@ -11,7 +11,7 @@ export default async function AcademicPage() {
   } catch {
     return (
       <PlanningCatalogueError
-        pageTitle="Academic overview"
+        pageTitle="Academic history"
         retryHref="/academic"
       />
     );
