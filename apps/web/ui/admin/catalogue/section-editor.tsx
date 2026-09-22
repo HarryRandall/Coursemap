@@ -45,9 +45,9 @@ function parseScalar(previous: Scalar, raw: string): Scalar {
  */
 function ReadOnlyField({ label, value }: { label: string; value: Scalar }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium">{label}</span>
-      <span className="text-sm text-muted-foreground">
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-sm break-words whitespace-pre-line">
         {value === null || value === "" ? "\u2014" : String(value)}
       </span>
     </div>
@@ -140,9 +140,20 @@ export function DetailsEditor({
   /** Reads the whole form rather than offering it for editing. */
   readOnly?: boolean;
 }) {
+  // Reading a record should show what it says, not the shape of the form it
+  // was entered through. A page of labels above em dashes told a reader
+  // nothing, so a read of the record carries only the fields that were
+  // filled in.
+  const entries = Object.entries(value).filter(
+    ([, fieldValue]) => !readOnly || (fieldValue !== null && fieldValue !== ""),
+  );
+  if (readOnly && entries.length === 0)
+    return (
+      <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
+    );
   return (
-    <div className="grid gap-3 md:grid-cols-2">
-      {Object.entries(value).map(([key, fieldValue]) => {
+    <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+      {entries.map(([key, fieldValue]) => {
         const long = LONG_TEXT_KEYS.has(key);
         return (
           <div key={key} className={long ? "md:col-span-2" : undefined}>

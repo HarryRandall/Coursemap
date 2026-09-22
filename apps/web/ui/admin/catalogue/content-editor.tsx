@@ -279,41 +279,50 @@ export function CatalogueContentEditor() {
               }
             />
           </Section>
-          <Section title="Offering">
-            <DetailsEditor
-              idPrefix="course-offering"
-              value={
-                (write.course.offering ?? {
-                  deliveryMode: null,
-                  location: null,
-                }) as Row
-              }
-              readOnly={!editing}
-              onChange={(offering) =>
-                updateCourse({
-                  offering: offering as NonNullable<
-                    CatalogueContent["course"]
-                  >["offering"],
-                })
-              }
-            />
-          </Section>
-          {COURSE_COLLECTIONS.map(({ key, template }) => (
-            <Section
-              key={key}
-              title={FIELD_LABELS[`course.${key}`] ?? key}
-              count={(write.course![key] as Row[]).length}
-            >
-              <RowsEditor
-                idPrefix={`course-${key}`}
-                rows={write.course![key] as unknown as Row[]}
-                template={template}
-                emptyLabel={`No ${(FIELD_LABELS[`course.${key}`] ?? key).toLowerCase()} recorded.`}
+          {!editing &&
+          !Object.values(write.course.offering ?? {}).some(
+            (value) => value !== null && value !== "",
+          ) ? null : (
+            <Section title="Offering">
+              <DetailsEditor
+                idPrefix="course-offering"
+                value={
+                  (write.course.offering ?? {
+                    deliveryMode: null,
+                    location: null,
+                  }) as Row
+                }
                 readOnly={!editing}
-                onChange={(rows) => updateCourse({ [key]: rows } as never)}
+                onChange={(offering) =>
+                  updateCourse({
+                    offering: offering as NonNullable<
+                      CatalogueContent["course"]
+                    >["offering"],
+                  })
+                }
               />
             </Section>
-          ))}
+          )}
+          {COURSE_COLLECTIONS.map(({ key, template }) =>
+            // A collection nobody filled in is part of the form, not part of
+            // the record, so reading one leaves it out entirely.
+            !editing && (write.course![key] as Row[]).length === 0 ? null : (
+              <Section
+                key={key}
+                title={FIELD_LABELS[`course.${key}`] ?? key}
+                count={(write.course![key] as Row[]).length}
+              >
+                <RowsEditor
+                  idPrefix={`course-${key}`}
+                  rows={write.course![key] as unknown as Row[]}
+                  template={template}
+                  emptyLabel={`No ${(FIELD_LABELS[`course.${key}`] ?? key).toLowerCase()} recorded.`}
+                  readOnly={!editing}
+                  onChange={(rows) => updateCourse({ [key]: rows } as never)}
+                />
+              </Section>
+            ),
+          )}
           {COURSE_RULES.map((ruleKey) => (
             <RuleSection
               key={ruleKey}
@@ -345,22 +354,24 @@ export function CatalogueContentEditor() {
               }
             />
           </Section>
-          {STRUCTURE_COLLECTIONS.map(({ key, template }) => (
-            <Section
-              key={key}
-              title={FIELD_LABELS[`structure.${key}`] ?? key}
-              count={(write.structure![key] as Row[]).length}
-            >
-              <RowsEditor
-                idPrefix={`structure-${key}`}
-                rows={write.structure![key] as unknown as Row[]}
-                template={template}
-                emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
-                readOnly={!editing}
-                onChange={(rows) => updateStructure({ [key]: rows } as never)}
-              />
-            </Section>
-          ))}
+          {STRUCTURE_COLLECTIONS.map(({ key, template }) =>
+            !editing && (write.structure![key] as Row[]).length === 0 ? null : (
+              <Section
+                key={key}
+                title={FIELD_LABELS[`structure.${key}`] ?? key}
+                count={(write.structure![key] as Row[]).length}
+              >
+                <RowsEditor
+                  idPrefix={`structure-${key}`}
+                  rows={write.structure![key] as unknown as Row[]}
+                  template={template}
+                  emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
+                  readOnly={!editing}
+                  onChange={(rows) => updateStructure({ [key]: rows } as never)}
+                />
+              </Section>
+            ),
+          )}
           <RuleSection
             ruleKey="structure"
             readOnly={!editing}
@@ -398,6 +409,7 @@ function RuleSection({
   const conditionCount = requirements.conditions.filter(
     (condition) => condition.ruleKey === ruleKey,
   ).length;
+  if (readOnly && !rule && conditionCount === 0 && !sourceText) return null;
   return (
     <Section
       title={FIELD_LABELS[`requirements.${ruleKey}`] ?? ruleKey}
