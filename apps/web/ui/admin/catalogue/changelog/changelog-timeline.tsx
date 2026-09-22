@@ -27,11 +27,14 @@ function dayLabel(value: string, today: Date) {
 export function ChangelogTimeline({
   changelog,
   path,
+  syncsHref = null,
   versionOrdinals,
   today = new Date(),
 }: {
   changelog: CatalogueChangelog;
   path: string;
+  /** Null for a reader without the permission to see catalogue operations. */
+  syncsHref?: string | null;
   versionOrdinals: ReadonlyMap<number, number>;
   today?: Date;
 }) {
@@ -71,6 +74,7 @@ export function ChangelogTimeline({
               <ChangelogEntry
                 entry={entry}
                 key={entry.id}
+                syncsHref={syncsHref}
                 versionHref={
                   entry.versionId && versionOrdinals.has(entry.versionId)
                     ? `${path}/changelog/${versionOrdinals.get(entry.versionId)}`

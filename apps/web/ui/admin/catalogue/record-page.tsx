@@ -17,6 +17,7 @@ import {
 } from "@/lib/coursemap/admin-catalogue-record";
 import { courseDetailsFromWrite } from "@/lib/coursemap/course-version-view";
 import {
+  ADMIN_CATALOGUE_OPERATIONS_PATH,
   CATALOGUE_KIND_LABELS,
   type CatalogueKind,
   adminCatalogueRecordPath,
@@ -180,6 +181,14 @@ export async function CatalogueRecordPage({
                 hasEverSynced={record.syncs.length > 0}
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
+                latestSync={
+                  canManageImports && record.syncs[0]
+                    ? {
+                        id: record.syncs[0].id,
+                        completedAt: record.syncs[0].completedAt,
+                      }
+                    : null
+                }
                 path={path}
                 recordId={record.recordId}
                 review={review}
@@ -190,6 +199,11 @@ export async function CatalogueRecordPage({
               <ChangelogTimeline
                 changelog={changelog}
                 path={path}
+                syncsHref={
+                  canManageImports
+                    ? `${ADMIN_CATALOGUE_OPERATIONS_PATH}?q=${encodeURIComponent(record.code)}`
+                    : null
+                }
                 versionOrdinals={versionOrdinals}
               />
             </TabsContent>

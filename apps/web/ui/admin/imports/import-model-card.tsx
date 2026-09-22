@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Cpu, Plus, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
+import { Card } from "@coursemap/ui/primitives/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,20 +61,30 @@ export function ImportModelCard({
     });
   }
   return (
-    <section
+    // A card, like the tiles it sits beside: the overview is one grid of
+    // cards, and this was the only thing on it drawn as loose page furniture.
+    <Card
       aria-label="Import settings"
-      className="flex min-w-0 flex-col items-start gap-3 py-1 sm:col-span-2"
+      className="h-full min-w-0 items-start gap-3 px-3.5 py-3 sm:col-span-2"
+      role="region"
     >
-      <div className="space-y-1">
-        <h2 className="flex shrink-0 items-center gap-2 text-sm font-medium">
-          <Cpu aria-hidden="true" className="size-4 text-muted-foreground" />
-          Default import model
-        </h2>
-        {updatedAt ? (
-          <p className="text-xs text-muted-foreground">
-            Updated {dateFormatter.format(new Date(updatedAt))}
-          </p>
-        ) : null}
+      <div className="flex w-full items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-[11px] font-medium text-muted-foreground">
+            Default import model
+          </h2>
+          {updatedAt ? (
+            <p className="text-xs text-muted-foreground">
+              Updated {dateFormatter.format(new Date(updatedAt))}
+            </p>
+          ) : null}
+        </div>
+        <span
+          aria-hidden="true"
+          className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary"
+        >
+          <Cpu className="size-4" />
+        </span>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -178,6 +189,6 @@ export function ImportModelCard({
           selected={model}
         />
       ) : null}
-    </section>
+    </Card>
   );
 }

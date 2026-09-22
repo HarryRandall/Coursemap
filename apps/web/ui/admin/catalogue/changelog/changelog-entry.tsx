@@ -102,15 +102,19 @@ function entryDetail(entry: ChangelogEntryView) {
 export function ChangelogEntry({
   entry,
   versionHref,
+  syncsHref,
 }: {
   entry: ChangelogEntryView;
   versionHref: string | null;
+  /** Where the syncs behind a source entry can be read, for those allowed to. */
+  syncsHref: string | null;
 }) {
   const detail = entryDetail(entry);
+  const fromSource = entry.origin === "source";
   const actor =
     entry.kind === "edit"
       ? null
-      : (entry.actorName ?? (entry.origin === "source" ? "ANU sync" : null));
+      : (entry.actorName ?? (fromSource ? "ANU sync" : null));
   return (
     <li className="flex gap-3 rounded-xl border border-border bg-card p-4">
       <EntryIcon kind={entry.kind} />
@@ -122,7 +126,25 @@ export function ChangelogEntry({
           </time>
         </div>
         {actor ? (
-          <p className="text-xs text-muted-foreground">{actor}</p>
+          <p className="text-xs text-muted-foreground">
+            {actor}
+            {/*
+              An entry ANU produced is only half the story: what it did and
+              why it did it are in the sync that ran, so the entry says where
+              that is rather than leaving it to be hunted for.
+            */}
+            {fromSource && syncsHref ? (
+              <>
+                {" \u00b7 "}
+                <Link
+                  className="underline-offset-4 hover:underline"
+                  href={syncsHref}
+                >
+                  Sync diagnostics
+                </Link>
+              </>
+            ) : null}
+          </p>
         ) : null}
         {detail ? (
           <p className="text-sm text-muted-foreground">{detail}</p>

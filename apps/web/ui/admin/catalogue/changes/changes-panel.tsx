@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
@@ -68,6 +70,7 @@ export function CatalogueChangesPanel({
   hasEverSynced,
   isPublished,
   kindLabel,
+  latestSync = null,
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -77,6 +80,8 @@ export function CatalogueChangesPanel({
   hasEverSynced: boolean;
   isPublished: boolean;
   kindLabel: string;
+  /** The check these changes came out of, for readers allowed to open it. */
+  latestSync?: { id: string; completedAt: string | null } | null;
 }) {
   const conflicts = review?.conflicts ?? [];
   const incoming = review?.incoming ?? [];
@@ -91,6 +96,26 @@ export function CatalogueChangesPanel({
 
   return (
     <div className="flex flex-col gap-8">
+      {/*
+        Everything on this tab is the output of a sync, so the sync that
+        produced it is named here rather than left to be found in Activity.
+      */}
+      {latestSync ? (
+        <p className="text-sm text-muted-foreground">
+          {latestSync.completedAt
+            ? `Last checked against ANU on ${new Intl.DateTimeFormat("en-AU", {
+                dateStyle: "long",
+                timeStyle: "short",
+              }).format(new Date(latestSync.completedAt))}. `
+            : "A check against ANU is under way. "}
+          <Link
+            className="underline-offset-4 hover:underline"
+            href={`/admin/operations/catalogue/syncs/${latestSync.id}`}
+          >
+            Sync diagnostics
+          </Link>
+        </p>
+      ) : null}
       {conflicts.length === 0 && incoming.length === 0 ? (
         <CatalogueEmpty title={empty.title} description={empty.description} />
       ) : null}
