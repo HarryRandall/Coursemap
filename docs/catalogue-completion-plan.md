@@ -35,23 +35,24 @@ Neither needs a second implementation.
 
 ## Sequence and ownership
 
-| Order | Branch                                   | Base | Owner  | Depends on              |
-| ----- | ---------------------------------------- | ---- | ------ | ----------------------- |
-| 05    | `feat/catalogue-source-review`           | 04   | Claude | 04                      |
-| 06    | `feat/catalogue-changelog`               | 05   | Claude | 05 decision events      |
-| 07    | `feat/catalogue-student-view`            | 04   | agent  | none beyond 04          |
-| 08    | `feat/catalogue-sync-operations`         | 04   | agent  | none beyond 04          |
-| 09    | `feat/catalogue-automation-and-baseline` | 08   | agent  | all of the above merged |
+| Order | Branch                                   | Base | Owner  | Depends on |
+| ----- | ---------------------------------------- | ---- | ------ | ---------- |
+| 05    | `feat/catalogue-source-review`           | 04   | Claude | landed     |
+| 06    | `feat/catalogue-changelog`               | 05   | Claude | landed     |
+| 07    | `feat/catalogue-student-view`            | 06   | Claude | 06         |
+| 08    | `feat/catalogue-sync-operations`         | 07   | Claude | 07         |
+| 09    | `feat/catalogue-automation-and-baseline` | 08   | agent  | 08         |
 
-Branches 07 and 08 touch almost nothing that 05 and 06 touch, so they run in
-parallel from 04. Branch 09 is the finalisation phase and starts only when
-05 to 08 are merged into the stack. Split it into `09A feat/catalogue-automation`
-and `09B refactor/catalogue-schema-baseline` if it grows past a reviewable size.
+The stack is strictly sequential: every branch sits on the one before it and
+its pull request targets that branch until it merges. Branch 09 is the
+finalisation phase. Split it into `09A feat/catalogue-automation` and
+`09B refactor/catalogue-schema-baseline` if it grows past a reviewable size.
 
-### Working in parallel
+### Working the stack
 
 - Branch from the base named above, never from `main`. Rebase forward when a
-  base branch changes. Use a separate worktree per concurrent branch.
+  base branch changes. Work in a separate worktree when another branch in the
+  stack is still open.
 - Reserved migration timestamp prefixes, so two branches never collide on file
   order: 05 uses `20260923*`, 06 uses `20260924*`, 07 uses `20260925*`,
   08 uses `20260926*`, 09 uses `20260927*` and the baseline rewrite.
