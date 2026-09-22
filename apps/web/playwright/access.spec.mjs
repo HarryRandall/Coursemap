@@ -71,6 +71,9 @@ test("redirects protected routes to the canonical login page", async ({
     "/admin/users",
     "/admin/roles",
     "/admin/users/70000000-0000-4000-8000-000000000001",
+    "/admin/operations/catalogue",
+    "/admin/operations/catalogue/discovery",
+    "/admin/operations/catalogue/syncs/11111111-1111-4111-8111-111111111111",
   ]) {
     const response = await request(api, path, { redirect: "manual" });
 
@@ -138,6 +141,7 @@ test("removed reference routes stay unavailable without a session", async ({
     "/admin/design-system/components",
     "/admin/design-system-preview/tokens/foundations",
     "/api/design-system/review",
+    "/structures/bcomp",
   ]) {
     assert.equal(
       (await request(api, path, { redirect: "manual" })).status,

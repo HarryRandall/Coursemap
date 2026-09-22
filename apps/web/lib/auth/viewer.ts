@@ -69,12 +69,12 @@ async function currentUserHasPermission(requiredPermission: string) {
 }
 
 /** Check the permission required to run programme and calendar imports. */
-export async function canManageCatalogueImports() {
-  return currentUserHasPermission("imports.manage");
-}
-
-/** Check the shared permission for catalogue sources and extraction models. */
-export async function canManageCatalogueSources() {
+/**
+ * The permission for ANU operations: running syncs and discovery, choosing an
+ * extraction model, and reading the technical record of either. Separate from
+ * catalogue.write, which authors and publishes content.
+ */
+export async function canManageCatalogueOperations() {
   return currentUserHasPermission("imports.manage");
 }
 

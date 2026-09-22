@@ -1,5 +1,5 @@
 import "server-only";
-import { canManageCatalogueSources, getAuthViewer } from "@/lib/auth/viewer";
+import { canManageCatalogueOperations, getAuthViewer } from "@/lib/auth/viewer";
 import { loadImportModelSetting } from "@/lib/admin/settings";
 import { createClient } from "@/lib/supabase/server";
 import { dispatchCatalogueSync } from "./sync-queue";
@@ -24,7 +24,7 @@ export async function startCatalogueSync({
   requestedBy?: string;
   kind: CatalogueKind;
 }) {
-  if (!(await canManageCatalogueSources())) {
+  if (!(await canManageCatalogueOperations())) {
     throw new CatalogueSyncStartError("Catalogue sync permission is required.");
   }
   const viewer = await getAuthViewer();

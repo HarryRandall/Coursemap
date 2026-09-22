@@ -109,6 +109,16 @@ const adminNav: NavSection[] = [
     ],
   },
   {
+    label: "Operations",
+    items: [
+      {
+        href: "/admin/operations/catalogue",
+        label: "Catalogue",
+        icon: routeIcons.sync,
+      },
+    ],
+  },
+  {
     label: "Campus",
     items: [
       {

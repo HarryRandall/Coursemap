@@ -78,7 +78,8 @@ and version model. These concepts are deliberately separate:
   supersedes the earlier rows rather than deleting their decisions
 - `catalogue_sync_stages`, `catalogue_sync_artifacts` and
   `catalogue_extractions`: technical execution evidence and validated reusable
-  model responses
+  model responses, read only under `imports.manage` and surfaced only under
+  `/admin/operations/catalogue`
 - `published_course_summaries`: a security-invoker view joining published
   course versions to their code for the directory. The public reads
   (`published_course_detail`, `published_structure_detail` and this view)

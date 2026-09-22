@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { canManageCatalogueSources } from "@/lib/auth/viewer";
+import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
 import { startCatalogueSync } from "@/lib/catalogue-sync/sync-service";
@@ -16,7 +16,7 @@ function json(data: unknown, status = 200) {
 
 /** Creates one record sync. Inline processing continues after the response. */
 export async function POST(request: Request) {
-  if (!(await canManageCatalogueSources())) {
+  if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }
   let payload: StartRequest;
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
 /** Stops an unfinished record sync. */
 export async function DELETE(request: Request) {
-  if (!(await canManageCatalogueSources())) {
+  if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }
   let payload: { syncId?: unknown };

@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { canManageCatalogueSources } from "@/lib/auth/viewer";
+import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import {
   CATALOGUE_KIND_LABELS,
   type CatalogueKind,
@@ -28,7 +28,7 @@ export async function CatalogueDirectoryPage({
   academicYear: number;
   searchParams: SearchParams;
 }) {
-  if (!(await canManageCatalogueSources())) return <AccessDeniedError />;
+  if (!(await canManageCatalogueOperations())) return <AccessDeniedError />;
   const params = await searchParams;
   const labels = CATALOGUE_KIND_LABELS[kind];
   const page = loadCatalogueDirectoryPage({

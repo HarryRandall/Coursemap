@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { TabsContent } from "@coursemap/ui/primitives/tabs";
 import {
-  canManageCatalogueSources,
+  canManageCatalogueOperations,
   canWriteCatalogue,
   getAuthViewer,
 } from "@/lib/auth/viewer";
@@ -66,7 +66,7 @@ export async function CatalogueRecordPage({
   changelogEvents?: number;
 }) {
   const [canManageImports, canWrite] = await Promise.all([
-    canManageCatalogueSources(),
+    canManageCatalogueOperations(),
     canWriteCatalogue(),
   ]);
   if (!canManageImports && !canWrite) return <AccessDeniedError />;

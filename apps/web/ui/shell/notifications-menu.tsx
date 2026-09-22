@@ -9,6 +9,7 @@ import {
   CalendarDays,
   CheckCheck,
   Inbox,
+  RefreshCw,
   TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const kindIcons: Record<string, LucideIcon> = {
   key_date: CalendarDays,
   plan_risk: TriangleAlert,
   published_change: BookOpen,
+  catalogue_sync: RefreshCw,
 };
 
 const relative = new Intl.RelativeTimeFormat("en-AU", { numeric: "auto" });

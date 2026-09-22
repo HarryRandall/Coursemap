@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
-  canManageCatalogueSources,
+  canManageCatalogueOperations,
   canWriteCatalogue,
 } from "@/lib/auth/viewer";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
@@ -50,7 +50,7 @@ export async function CatalogueVersionPage({
   compare: string | null;
 }) {
   const [canManageImports, canWrite] = await Promise.all([
-    canManageCatalogueSources(),
+    canManageCatalogueOperations(),
     canWriteCatalogue(),
   ]);
   if (!canManageImports && !canWrite) return <AccessDeniedError />;

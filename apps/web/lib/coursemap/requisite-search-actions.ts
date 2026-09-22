@@ -1,8 +1,7 @@
 "use server";
 
 import {
-  canManageCatalogueImports,
-  canManageCatalogueSources,
+  canManageCatalogueOperations,
   canWriteCourses,
 } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -45,7 +44,7 @@ export async function searchRequisiteCourses(
 ): Promise<RequisiteCourseSearchResult[]> {
   const term = query.trim().toUpperCase();
   if (term.length < 2) return [];
-  if (!(await canWriteCourses()) && !(await canManageCatalogueSources())) {
+  if (!(await canWriteCourses()) && !(await canManageCatalogueOperations())) {
     return [];
   }
 
@@ -89,7 +88,7 @@ export async function searchRequisiteProgrammes(
 ): Promise<RequisiteProgrammeSearchResult[]> {
   const term = query.trim().toUpperCase();
   if (term.length < 2) return [];
-  if (!(await canManageCatalogueImports())) return [];
+  if (!(await canManageCatalogueOperations())) return [];
 
   try {
     const supabase = await createClient();

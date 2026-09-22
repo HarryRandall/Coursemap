@@ -81,6 +81,14 @@ export function RecordHeader({
           >
             View on ANU <ExternalLink size={12} aria-hidden="true" />
           </Link>
+          {canSync && record.syncs[0] ? (
+            <Link
+              className="text-muted-foreground underline-offset-4 hover:underline"
+              href={`/admin/operations/catalogue/syncs/${record.syncs[0].id}`}
+            >
+              Sync diagnostics
+            </Link>
+          ) : null}
         </div>
         {openChangeCount > 0 ? (
           <Link
@@ -98,6 +106,17 @@ export function RecordHeader({
         ) : record.syncs[0]?.status === "failed" ? (
           <p className="text-sm text-destructive" role="alert">
             {record.syncs[0].errorMessage ?? "The latest ANU sync failed."}
+            {canSync ? (
+              <>
+                {" "}
+                <Link
+                  className="font-medium underline-offset-4 hover:underline"
+                  href={`/admin/operations/catalogue/syncs/${record.syncs[0].id}`}
+                >
+                  Technical details
+                </Link>
+              </>
+            ) : null}
           </p>
         ) : null}
         <span className="sr-only">{labels.singular} record</span>

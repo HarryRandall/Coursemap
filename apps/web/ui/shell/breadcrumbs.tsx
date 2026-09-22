@@ -38,6 +38,9 @@ const labels: Record<string, string> = {
   users: "Users",
   roles: "Roles",
   imports: "Imports",
+  operations: "Operations",
+  syncs: "Syncs",
+  discovery: "Discovery",
   sync: "Sync",
   changes: "Changes",
 };

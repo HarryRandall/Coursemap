@@ -40,7 +40,7 @@ Neither needs a second implementation.
 | 05    | `feat/catalogue-source-review`           | 04   | Claude | landed     |
 | 06    | `feat/catalogue-changelog`               | 05   | Claude | landed     |
 | 07    | `feat/catalogue-student-view`            | 06   | Claude | landed     |
-| 08    | `feat/catalogue-sync-operations`         | 07   | Claude | 07         |
+| 08    | `feat/catalogue-sync-operations`         | 07   | Claude | landed     |
 | 09    | `feat/catalogue-automation-and-baseline` | 08   | agent  | 08         |
 
 The stack is strictly sequential: every branch sits on the one before it and
@@ -401,6 +401,13 @@ think in pipeline concepts.
 - Operations needs stronger permissions than ordinary catalogue editing. Raw
   prompts, full source responses, costs and worker leases are not for every
   administrator. Use the existing permission infrastructure.
+
+What landed: `imports.manage` is the operations permission and
+`catalogue.write` authors content, so no new permission was invented; the two
+aliases for the first one became `canManageCatalogueOperations`. The artefact
+viewer, its viewport, the source-code view and the artefact route are recovered
+from before branch 04 rather than rewritten. Sync notifications are produced by
+a trigger on the sync row, like every other notification producer.
 
 Tests: operations permissions, the list, the detail, stage ordering, artefact
 access, extraction metadata, retry detail, discovery detail, the record to sync

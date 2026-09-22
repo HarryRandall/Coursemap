@@ -118,6 +118,29 @@ be replaced, the draft is kept as a version of its own first and offered back
 from the changelog, so nothing is lost. **Discard** works the same way: it
 clears the draft and keeps a restorable checkpoint.
 
+## Operations and diagnostics
+
+`/admin/operations/catalogue` is the developer surface, behind the
+`imports.manage` permission rather than the permission to author content. It
+holds the technical statuses, attempts, leases, model responses and costs that
+the record pages deliberately do not show.
+
+- **Syncs** lists every ANU check with its record, status, trigger, duration,
+  model and cost, searchable by code and filterable by status. One sync opens
+  to its stages and attempts, its lease and queue detail, its source document,
+  its extractions with tokens and cost, and every stored artefact from raw HTML
+  through to the projected content.
+- **Discovery** lists ANU listing checks with what each read and concluded. A
+  check that is not complete cannot retire a record, which is the answer to why
+  something does or does not say "No longer listed by ANU".
+
+A record page links out to its diagnostics and, on a failure, to the technical
+detail behind it. Diagnostics never become a record tab.
+
+Notifications name records: "COMP2700 sync failed", or "COMP2700 has 3 ANU
+changes to review", addressed to whoever asked for the sync. A sync that found
+nothing, and a review with nothing to decide, say nothing at all.
+
 ## Reliability and evidence
 
 Each sync records immutable fetched source material, stage artefacts, parser and

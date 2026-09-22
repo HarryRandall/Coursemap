@@ -1,0 +1,48 @@
+.source {
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre;
+  color: var(--foreground);
+  background: var(--background);
+  tab-size: 2;
+}
+.source:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.source :global(.hljs-comment),
+.source :global(.hljs-quote) {
+  color: var(--muted-foreground);
+}
+.source :global(.hljs-name),
+.source :global(.hljs-keyword),
+.source :global(.hljs-selector-tag),
+.source :global(.hljs-section) {
+  color: var(--primary);
+}
+.source :global(.hljs-string),
+.source :global(.hljs-link),
+.source :global(.hljs-selector-class) {
+  color: light-dark(#047857, #6ee7b7);
+}
+.source :global(.hljs-attr),
+.source :global(.hljs-attribute),
+.source :global(.hljs-title),
+.source :global(.hljs-number),
+.source :global(.hljs-literal) {
+  color: light-dark(#1d4ed8, #93c5fd);
+}
+.source :global(.hljs-meta),
+.source :global(.hljs-bullet),
+.source :global(.hljs-code) {
+  color: light-dark(#a16207, #fcd34d);
+}
+.source :global(.hljs-strong),
+.source :global(.hljs-section) {
+  font-weight: 600;
+}
+.source :global(.hljs-emphasis) {
+  font-style: italic;
+}
