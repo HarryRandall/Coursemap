@@ -59,12 +59,16 @@ pnpm install
 cp apps/web/.env.example apps/web/.env.local
 pnpm db:start      # local Supabase stack
 pnpm db:reset      # migrations plus demonstration fixtures
-pnpm dev:local     # http://127.0.0.1:3000
+pnpm dev           # http://127.0.0.1:3000
+# Or build and run the production server against the same local stack:
+pnpm build
+pnpm start
 ```
 
 Sign up at `/signup` and the local stack issues a session straight away. To run
 against a hosted Supabase project instead, configure its URL, publishable key
-and your application origin in `apps/web/.env.local`, then use `pnpm dev`.
+and your application origin in `apps/web/.env.local`, then use the explicit
+`pnpm dev:prod`, `pnpm build:prod` and `pnpm start:prod` commands.
 The [environment template](apps/web/.env.example) explains the required settings,
 optional import credentials and map-service defaults.
 
@@ -94,16 +98,22 @@ Level Security, and the service-role key never reaches the browser.
 
 ## Commands
 
-| Command          | What it does                                   |
-| ---------------- | ---------------------------------------------- |
-| `pnpm dev:local` | Development server against local Supabase      |
-| `pnpm check`     | Formatting, lint and strict types              |
-| `pnpm test`      | Unit and component tests                       |
-| `pnpm test:e2e`  | Authenticated browser journeys                 |
-| `pnpm db:reset`  | Rebuild the local database and reseed fixtures |
-| `pnpm db:test`   | pgTAP database tests                           |
-| `pnpm db:types`  | Regenerate committed database types            |
-| `pnpm verify`    | Local application delivery checks              |
+| Command              | What it does                                           |
+| -------------------- | ------------------------------------------------------ |
+| `pnpm dev`           | Development server against local Supabase              |
+| `pnpm dev:prod`      | Development server using configured hosted credentials |
+| `pnpm build`         | Production build against local Supabase                |
+| `pnpm start`         | Built production server against local Supabase         |
+| `pnpm preview:local` | Build and start against local Supabase in one step     |
+| `pnpm build:prod`    | Production build using configured hosted credentials   |
+| `pnpm start:prod`    | Built server using configured hosted credentials       |
+| `pnpm check`         | Formatting, lint and strict types                      |
+| `pnpm test`          | Unit and component tests                               |
+| `pnpm test:e2e`      | Authenticated browser journeys                         |
+| `pnpm db:reset`      | Rebuild the local database and reseed fixtures         |
+| `pnpm db:test`       | pgTAP database tests                                   |
+| `pnpm db:types`      | Regenerate committed database types                    |
+| `pnpm verify`        | Local application delivery checks                      |
 
 Run `pnpm verify` before opening a pull request. CI additionally runs database
 checks, authenticated browser journeys and a production dependency audit. See

@@ -189,10 +189,9 @@ Publish.
 
 ## Working locally
 
-- Use `pnpm dev:local`. `apps/web/.env.local` points at the hosted project,
-  which still carries the pre-redesign schema, so `pnpm dev` fails with
-  `PGRST205` against tables this branch removed. None of the fixes above are
-  live there; they travel with the cutover after A8.
+- Use `pnpm dev`, `pnpm build` and `pnpm start` for the local stack. The
+  explicit `:prod` variants are the only commands that read hosted credentials
+  from `apps/web/.env.local`.
 - `pnpm db:reset` drops the storage buckets and does not recreate them, so
   imports then fail with an opaque gateway error. Recreate
   `course-import-artifacts` from `supabase/config.toml`.

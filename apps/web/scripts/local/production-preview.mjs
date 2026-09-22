@@ -1,39 +1,45 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { appRoot, nextCliPath } from "../paths.mjs";
 import { createLocalApplicationEnvironment } from "./supabase-environment.mjs";
 
-export function startLocalDevelopmentPreview({
+export function startLocalProductionPreview({
   environment = createLocalApplicationEnvironment(),
-  spawnCommand = spawn,
+  runBuild = spawnSync,
+  spawnServer = spawn,
 } = {}) {
-  return spawnCommand(
+  const build = runBuild("pnpm", ["run", "build"], {
+    cwd: appRoot,
+    env: environment,
+    stdio: "inherit",
+  });
+  if (build.status !== 0) {
+    return { child: null, exitCode: build.status ?? 1 };
+  }
+
+  const child = spawnServer(
     process.execPath,
-    [
-      nextCliPath,
-      "dev",
-      "--webpack",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      "3000",
-    ],
+    [nextCliPath, "start", "--hostname", "127.0.0.1", "--port", "3000"],
     {
       cwd: appRoot,
       env: environment,
       stdio: "inherit",
     },
   );
+  return { child, exitCode: null };
 }
 
 function run() {
-  let child;
+  let result;
   try {
-    child = startLocalDevelopmentPreview();
+    result = startLocalProductionPreview();
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);
   }
+
+  if (!result.child) process.exit(result.exitCode ?? 1);
+  const child = result.child;
 
   for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => child.kill(signal));

@@ -1,4 +1,4 @@
-import { repositoryRoot } from "../scripts/paths.mjs";
+import { nextCliPath, repositoryRoot } from "../scripts/paths.mjs";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -9,11 +9,14 @@ import {
   resetLocalPreview,
 } from "../scripts/local/reset-preview.mjs";
 import { seedLocalPreview } from "../scripts/local/seed-preview.mjs";
-
-const devPreviewSource = new URL(
-  "../scripts/local/dev-preview.mjs",
-  import.meta.url,
-);
+import { buildLocalProduction } from "../scripts/local/build-preview.mjs";
+import { startLocalDevelopmentPreview } from "../scripts/local/dev-preview.mjs";
+import { startLocalProductionPreview } from "../scripts/local/production-preview.mjs";
+import { startBuiltLocalProduction } from "../scripts/local/start-preview.mjs";
+import {
+  createLocalApplicationEnvironment,
+  parseSupabaseEnvironment,
+} from "../scripts/local/supabase-environment.mjs";
 
 test("keeps predictable preview credentials out of Supabase's default seed", async () => {
   const defaultSeed = await readFile(
@@ -42,12 +45,146 @@ test("the local preview publishes every selectable academic structure kind", asy
   assert.match(previewSeed, /set published_version_id = snapshots\.id/u);
 });
 
-test("passes the local server key to durable import workers", async () => {
-  const source = await readFile(devPreviewSource, "utf8");
+test("passes the local server key to durable import workers", () => {
+  const supabaseEnvironment = parseSupabaseEnvironment(
+    [
+      'API_URL="http://127.0.0.1:54321"',
+      'DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"',
+      'ANON_KEY="public-key"',
+      'SERVICE_ROLE_KEY="server-key"',
+    ].join("\n"),
+  );
+  const environment = createLocalApplicationEnvironment({
+    baseEnvironment: { KEEP_ME: "yes" },
+    supabaseEnvironment,
+  });
 
-  assert.match(source, /values\.get\("SECRET_KEY"\)/u);
-  assert.match(source, /values\.get\("SERVICE_ROLE_KEY"\)/u);
-  assert.match(source, /SUPABASE_SECRET_KEY: secretKey/u);
+  assert.equal(environment.KEEP_ME, "yes");
+  assert.equal(
+    environment.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseEnvironment.apiUrl,
+  );
+  assert.equal(environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, "public-key");
+  assert.equal(environment.SUPABASE_SECRET_KEY, "server-key");
+  assert.equal(
+    environment.COURSEMAP_DATABASE_URL,
+    supabaseEnvironment.databaseUrl,
+  );
+});
+
+test("builds and starts the production preview with the same local environment", () => {
+  const calls = [];
+  const child = new EventEmitter();
+  const environment = { LOCAL_PREVIEW: "true" };
+
+  const result = startLocalProductionPreview({
+    environment,
+    runBuild(executable, args, options) {
+      calls.push({ executable, args, options });
+      return { status: 0 };
+    },
+    spawnServer(executable, args, options) {
+      calls.push({ executable, args, options });
+      return child;
+    },
+  });
+
+  assert.equal(result.child, child);
+  assert.equal(result.exitCode, null);
+  assert.deepEqual(calls, [
+    {
+      executable: "pnpm",
+      args: ["run", "build"],
+      options: {
+        cwd: new URL("../", import.meta.url).pathname,
+        env: environment,
+        stdio: "inherit",
+      },
+    },
+    {
+      executable: process.execPath,
+      args: [nextCliPath, "start", "--hostname", "127.0.0.1", "--port", "3000"],
+      options: {
+        cwd: new URL("../", import.meta.url).pathname,
+        env: environment,
+        stdio: "inherit",
+      },
+    },
+  ]);
+});
+
+test("the standalone build and start commands also inject the local environment", () => {
+  const calls = [];
+  const environment = { LOCAL_PREVIEW: "true" };
+  const child = new EventEmitter();
+
+  const buildStatus = buildLocalProduction({
+    environment,
+    runCommand(executable, args, options) {
+      calls.push({ executable, args, options });
+      return { status: 0 };
+    },
+  });
+  const server = startBuiltLocalProduction({
+    environment,
+    spawnCommand(executable, args, options) {
+      calls.push({ executable, args, options });
+      return child;
+    },
+  });
+
+  assert.equal(buildStatus, 0);
+  assert.equal(server, child);
+  assert.deepEqual(
+    calls.map(({ args, options }) => ({ args, environment: options.env })),
+    [
+      { args: ["run", "build:next"], environment },
+      {
+        args: [
+          nextCliPath,
+          "start",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          "3000",
+        ],
+        environment,
+      },
+    ],
+  );
+});
+
+test("development starts Next directly so stopping it cannot orphan a server", () => {
+  let command;
+  const child = new EventEmitter();
+  const environment = { LOCAL_PREVIEW: "true" };
+
+  const server = startLocalDevelopmentPreview({
+    environment,
+    spawnCommand(executable, args, options) {
+      command = { executable, args, options };
+      return child;
+    },
+  });
+
+  assert.equal(server, child);
+  assert.deepEqual(command, {
+    executable: process.execPath,
+    args: [
+      nextCliPath,
+      "dev",
+      "--webpack",
+      "--hostname",
+      "127.0.0.1",
+      "--port",
+      "3000",
+    ],
+    options: {
+      cwd: new URL("../", import.meta.url).pathname,
+      env: environment,
+      stdio: "inherit",
+    },
+  });
 });
 
 test("runs the preview fixture through the verified local database client", async () => {

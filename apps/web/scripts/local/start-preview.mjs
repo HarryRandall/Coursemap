@@ -3,21 +3,13 @@ import { pathToFileURL } from "node:url";
 import { appRoot, nextCliPath } from "../paths.mjs";
 import { createLocalApplicationEnvironment } from "./supabase-environment.mjs";
 
-export function startLocalDevelopmentPreview({
+export function startBuiltLocalProduction({
   environment = createLocalApplicationEnvironment(),
   spawnCommand = spawn,
 } = {}) {
   return spawnCommand(
     process.execPath,
-    [
-      nextCliPath,
-      "dev",
-      "--webpack",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      "3000",
-    ],
+    [nextCliPath, "start", "--hostname", "127.0.0.1", "--port", "3000"],
     {
       cwd: appRoot,
       env: environment,
@@ -29,7 +21,7 @@ export function startLocalDevelopmentPreview({
 function run() {
   let child;
   try {
-    child = startLocalDevelopmentPreview();
+    child = startBuiltLocalProduction();
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exit(1);
