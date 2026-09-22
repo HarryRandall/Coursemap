@@ -142,18 +142,22 @@ async function copyVersionProvenance(
   `;
 }
 
-/** Creates the draft a record should start from: its publication, or an empty aggregate. */
-export async function createDraftInTransaction(
-  tx: Sql,
+/**
+ * The aggregate an editor starts from: the current publication, or an empty
+ * record when nothing has been published. Reading it writes nothing, so a
+ * record can be opened and edited without a draft row coming into existence
+ * before there is anything to keep.
+ */
+export async function catalogueDraftBase(
+  sql: Sql,
   record: Record<string, unknown>,
-  userId: string,
 ) {
   const publishedVersionId =
     record.published_version_id === null
       ? null
       : Number(record.published_version_id);
   const initial = publishedVersionId
-    ? await readVersionContent(tx, publishedVersionId)
+    ? await readVersionContent(sql, publishedVersionId)
     : emptyCatalogueContent({
         kind: record.kind as CatalogueKind,
         code: String(record.code),
@@ -167,7 +171,39 @@ export async function createDraftInTransaction(
       "INVALID_BASE",
     );
   const contentHash = contentHashForCatalogueContent(initial);
-  const content = { ...initial, contentHash } satisfies CatalogueContent;
+  return {
+    publishedVersionId,
+    contentHash,
+    content: { ...initial, contentHash } satisfies CatalogueContent,
+  };
+}
+
+/** The draft-shaped view of a record whose draft row does not exist yet. */
+function unsavedDraft(
+  recordId: number,
+  base: Awaited<ReturnType<typeof catalogueDraftBase>>,
+): CatalogueDraft {
+  return {
+    recordId,
+    baseVersionId: base.publishedVersionId,
+    restoredFromVersionId: null,
+    content: base.content,
+    contentHash: base.contentHash,
+    revision: 0,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Creates the draft a record should start from: its publication, or an empty aggregate. */
+export async function createDraftInTransaction(
+  tx: Sql,
+  record: Record<string, unknown>,
+  userId: string,
+) {
+  const { publishedVersionId, contentHash, content } = await catalogueDraftBase(
+    tx,
+    record,
+  );
   const [row] = await tx`
     insert into public.catalogue_drafts (
       record_id, base_version_id, content, content_hash,
@@ -190,34 +226,6 @@ export async function createDraftInTransaction(
   return draftFromRow(row);
 }
 
-/** Returns the existing draft or creates the correct published/manual base. */
-export async function createCatalogueDraft({
-  recordId,
-  userId,
-  sql,
-}: {
-  recordId: number;
-  userId: string;
-  sql?: SyncSql;
-}) {
-  const work = (client: SyncSql) =>
-    client.begin(async (tx) => {
-      const record = await catalogueRecordForUpdate(tx, recordId);
-      if (record.archived_at)
-        throw new CatalogueDraftError(
-          "The catalogue record is archived.",
-          "ARCHIVED",
-        );
-      const [existing] = await tx`
-        select * from public.catalogue_drafts where record_id = ${recordId}
-      `;
-      return existing
-        ? draftFromRow(existing)
-        : createDraftInTransaction(tx, record, userId);
-    });
-  return sql ? work(sql) : withSyncDatabaseClient(work);
-}
-
 export async function loadCatalogueDraft(recordId: number) {
   return withSyncDatabaseClient(async (sql) => {
     const [row] = await sql`
@@ -225,6 +233,46 @@ export async function loadCatalogueDraft(recordId: number) {
     `;
     return row ? draftFromRow(row) : null;
   });
+}
+
+/**
+ * What the content editor opens on, and whether any of it is unsaved work.
+ * A record without a draft row still has content to edit - its publication,
+ * or an empty aggregate - so reading a record is no longer the thing that
+ * turns it into a draft. The draft row appears on the first real change, and
+ * a draft edited back to what it started as stops counting as one.
+ */
+export async function loadCatalogueEditorState(
+  recordId: number,
+  sql?: SyncSql,
+): Promise<{
+  draft: CatalogueDraft;
+  hasDraft: boolean;
+}> {
+  const work = async (client: SyncSql) => {
+    const [record] = await client`
+      select records.id, records.kind, records.published_version_id,
+        codes.code, academic_years.year, listings.title as listing_title
+      from public.catalogue_records as records
+      join public.catalogue_codes as codes on codes.id = records.code_id
+      join public.academic_years on academic_years.id = records.academic_year_id
+      left join public.catalogue_listings as listings on listings.record_id = records.id
+      where records.id = ${recordId}
+    `;
+    if (!record)
+      throw new CatalogueDraftError(
+        "The catalogue record does not exist.",
+        "NOT_FOUND",
+      );
+    const base = await catalogueDraftBase(client, record);
+    const [row] = await client`
+      select * from public.catalogue_drafts where record_id = ${recordId}
+    `;
+    if (!row) return { draft: unsavedDraft(recordId, base), hasDraft: false };
+    const draft = draftFromRow(row);
+    return { draft, hasDraft: draft.contentHash !== base.contentHash };
+  };
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }
 
 /** Saves one semantically changed aggregate and its audit rows atomically. */
@@ -259,14 +307,24 @@ export async function saveCatalogueDraft({
         where record_id = ${recordId}
         for update
       `;
+      const contentHash = contentHashForCatalogueContent(content);
+      const accepted = { ...content, contentHash } satisfies CatalogueContent;
+      // A record becomes a draft the moment it differs from what it started
+      // as, never because its editor autosaved what was already there. Saving
+      // an untouched record has to leave it exactly as it was found.
+      const base = draftRow ? null : await catalogueDraftBase(tx, record);
+      if (base && diffSnapshotWrites(base.content, accepted).length === 0)
+        return {
+          draft: unsavedDraft(recordId, base),
+          unchanged: true as const,
+          changedPaths: [] as string[],
+        };
       const draft = draftRow
         ? draftFromRow(draftRow)
         : await createDraftInTransaction(tx, record, userId);
       if (draft.revision !== expectedRevision)
         throw new CatalogueDraftConflictError(draft.revision);
 
-      const contentHash = contentHashForCatalogueContent(content);
-      const accepted = { ...content, contentHash } satisfies CatalogueContent;
       const changes = diffSnapshotWrites(draft.content, accepted);
       if (changes.length === 0)
         return {

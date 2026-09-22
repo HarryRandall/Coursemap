@@ -1,19 +1,18 @@
 "use client";
 
-import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
-import { LoaderCircle, RefreshCw, TriangleAlert } from "lucide-react";
+import { LoaderCircle, RefreshCw } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { catalogueSummaryMeta } from "@/lib/coursemap/catalogue-summary";
 import {
   CATALOGUE_KIND_LABELS,
   type CatalogueDirectoryPage,
-  type CatalogueDirectoryRecord,
   adminCatalogueRecordPath,
   adminCatalogueYearPath,
 } from "@/lib/coursemap/catalogue-kinds";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { CatalogueStateBadge } from "@/ui/admin/catalogue-table/catalogue-state-badge";
 import {
   CatalogueIdentity,
   DataTableShell,
@@ -25,44 +24,65 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/admin/catalogue-table/catalogue-table";
+import { DirectoryRowActions } from "@/ui/admin/catalogue/directory-row-actions";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { Pagination } from "@/ui/common/pagination";
+import { startTask } from "@/ui/common/task-toast";
 import { YearPicker } from "@/ui/common/year-picker";
 import { readImportStream } from "./import-stream";
 
-function formatDate(value: string | null) {
-  if (!value) return null;
-  return new Intl.DateTimeFormat("en-AU", { dateStyle: "medium" }).format(
-    new Date(value),
-  );
+/** The column is scanned, so the year is dropped once it is the obvious one. */
+function shortDate(value: string) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    ...(date.getFullYear() === new Date().getFullYear()
+      ? {}
+      : { year: "numeric" }),
+  }).format(date);
 }
 
-const SOURCE_STATE_LABELS = {
-  never_synced: "Never synced",
-  syncing: "Syncing",
-  up_to_date: "Up to date",
-  changes_available: "Changes available",
-  sync_failed: "Sync failed",
-} as const;
-
-/** Names the work waiting on a record rather than the pipeline state. */
-function sourceStateLabel(record: CatalogueDirectoryRecord) {
-  if (record.sourceState !== "changes_available")
-    return SOURCE_STATE_LABELS[record.sourceState];
-  const changes = `${record.openChangeCount} ANU change${record.openChangeCount === 1 ? "" : "s"}`;
-  if (record.conflictCount === 0) return changes;
-  return `${changes}, ${record.conflictCount} conflict${record.conflictCount === 1 ? "" : "s"}`;
+/** The whole timestamp, for the hover that answers "when exactly?". */
+function fullDate(value: string) {
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
-function sourceStateVariant(
-  state: keyof typeof SOURCE_STATE_LABELS,
-): "outline" | "success-light" | "warning-light" | "destructive-light" {
-  if (state === "up_to_date") return "success-light";
-  if (state === "changes_available" || state === "syncing")
-    return "warning-light";
-  if (state === "sync_failed") return "destructive-light";
-  return "outline";
+/**
+ * Each phase of the refresh gets a stretch of the bar: where it starts, which
+ * is what the work has reported, and where it ends, which the bar drifts
+ * towards while the phase lasts. ANU answers some phases instantly, so
+ * without the stretch the bar would be still for a second and then teleport.
+ */
+const REFRESH_PHASES: Record<string, { percent: number; ceiling: number }> = {
+  fetching: { percent: 12, ceiling: 62 },
+  saving: { percent: 68, ceiling: 92 },
+  done: { percent: 94, ceiling: 99 },
+};
+
+type RefreshResult = {
+  entryCount?: number;
+  added?: number;
+  updated?: number;
+  retired?: number;
+  isComplete?: boolean;
+};
+
+/** What the refresh actually did, rather than that it happened. */
+function refreshSummary(result: RefreshResult) {
+  const entries = `${(result.entryCount ?? 0).toLocaleString("en-AU")} ${
+    result.entryCount === 1 ? "entry" : "entries"
+  }`;
+  const changes = [
+    result.added ? `${result.added} added` : null,
+    result.updated ? `${result.updated} updated` : null,
+    result.retired ? `${result.retired} retired` : null,
+  ].filter(Boolean);
+  return `${entries} · ${changes.length ? changes.join(", ") : "no changes"}`;
 }
 
 export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
@@ -71,7 +91,6 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   const searchParams = useSearchParams();
   const labels = CATALOGUE_KIND_LABELS[page.kind];
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const filtered = Boolean(searchParams.get("q"));
 
@@ -87,7 +106,12 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
 
   async function refreshDirectory() {
     setRefreshing(true);
-    setRefreshMessage("Contacting ANU...");
+    const task = startTask({
+      id: `directory:${page.kind}:${page.academicYear}`,
+      title: `Refreshing the ANU ${labels.singular.toLowerCase()} listing`,
+      detail: "Contacting ANU.",
+      ceiling: 10,
+    });
     try {
       const response = await fetch("/api/admin/catalogue-directory", {
         method: "POST",
@@ -97,20 +121,43 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
           academicYear: page.academicYear,
         }),
       });
+      let result: RefreshResult = {};
       await readImportStream(response, (event) => {
+        if (event.type === "started") {
+          task.step({ percent: 4, ceiling: 20, detail: "Contacting ANU." });
+        }
         if (event.type === "progress" && typeof event.message === "string") {
-          setRefreshMessage(event.message);
+          const phase = REFRESH_PHASES[String(event.phase)] ?? {
+            percent: 50,
+            ceiling: 80,
+          };
+          task.step({ ...phase, detail: event.message });
+        }
+        if (event.type === "complete" && event.result) {
+          result = event.result as RefreshResult;
         }
       });
-      toast.success("ANU listing refreshed.");
+      const outcome = {
+        title: `${page.academicYear} ${labels.plural.toLowerCase()} refreshed`,
+        detail: refreshSummary(result),
+      };
+      if (result.isComplete === false) {
+        task.note({
+          ...outcome,
+          detail: `${outcome.detail}. The listing may be incomplete, so nothing was retired.`,
+        });
+      } else {
+        task.done(outcome);
+      }
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "The refresh failed.",
-      );
+      task.fail({
+        title: "The ANU listing refresh failed",
+        detail: error instanceof Error ? error.message : "The refresh failed.",
+        retry: refreshDirectory,
+      });
     } finally {
       setRefreshing(false);
-      setRefreshMessage(null);
     }
   }
 
@@ -127,6 +174,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
           variant="outline"
           onClick={refreshDirectory}
           disabled={refreshing}
+          aria-busy={refreshing}
         >
           {refreshing ? (
             <LoaderCircle
@@ -137,14 +185,9 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
           ) : (
             <RefreshCw size={16} aria-hidden="true" />
           )}
-          {refreshMessage ?? "Refresh ANU listing"}
+          Refresh ANU listing
         </Button>
       </div>
-      {page.status.message ? (
-        <p className="text-sm text-amber-700 dark:text-amber-400" role="status">
-          {page.status.message}
-        </p>
-      ) : null}
       <FilterBar
         searchPlaceholder={`Search ${labels.plural.toLowerCase()} by code or title`}
       />
@@ -161,6 +204,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
           filtered={filtered}
           clearHref={pathname}
           onSync={page.status.state === "never" ? refreshDirectory : undefined}
+          syncing={refreshing}
         />
       ) : (
         <DataTableShell
@@ -183,9 +227,11 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
             <TableHeader>
               <TableRow>
                 <TableHead>{labels.singular}</TableHead>
-                <TableHead>Publication</TableHead>
-                <TableHead>ANU listing</TableHead>
-                <TableHead>ANU source</TableHead>
+                <TableHead>State</TableHead>
+                <TableHead>Updated</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -195,6 +241,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
                   page.academicYear,
                   record.code,
                 );
+                const updated = record.latestSync?.completedAt ?? null;
                 return (
                   <LinkedTableRow key={record.code}>
                     <TableCell>
@@ -203,43 +250,30 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
                         title={record.title ?? "Title not available"}
                         kind={page.kind}
                         href={href}
+                        meta={catalogueSummaryMeta(record.summary, page.kind)}
                       />
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          record.isPublished ? "success-light" : "outline"
-                        }
-                      >
-                        {record.isPublished ? "Published" : "Not published"}
-                      </Badge>
+                      <CatalogueStateBadge record={record} />
                     </TableCell>
-                    <TableCell>
-                      {record.isListedByAnu === false ? (
-                        <span className="inline-flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400">
-                          <TriangleAlert size={15} aria-hidden="true" />
-                          No longer listed by ANU
-                          {record.lastSeenAt
-                            ? ` · Last seen ${formatDate(record.lastSeenAt)}`
-                            : ""}
-                        </span>
-                      ) : record.isListedByAnu ? (
-                        <span className="text-sm">Listed by ANU</span>
+                    <TableCell
+                      className="tabular-nums"
+                      title={updated ? fullDate(updated) : undefined}
+                    >
+                      {updated ? (
+                        shortDate(updated)
                       ) : (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-muted-foreground/70">
                           Never synced
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={sourceStateVariant(record.sourceState)}>
-                        {sourceStateLabel(record)}
-                      </Badge>
-                      {record.latestSync?.completedAt ? (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {formatDate(record.latestSync.completedAt)}
-                        </span>
-                      ) : null}
+                    <TableCell className="text-right">
+                      <DirectoryRowActions
+                        academicYear={page.academicYear}
+                        kind={page.kind}
+                        record={record}
+                      />
                     </TableCell>
                   </LinkedTableRow>
                 );

@@ -69,8 +69,12 @@ export type CatalogueDirectoryRecord = {
   code: string;
   title: string | null;
   summary: Record<string, unknown>;
-  recordPublicId: string | null;
+  /** Null until ANU discovery has created the record a sync would run on. */
+  recordId: number | null;
+  /** True only when unpublished edits exist, not merely a draft row. */
   hasDraft: boolean;
+  /** The revision a row action has to submit to act on that draft. */
+  draftRevision: number | null;
   isPublished: boolean;
   isListedByAnu: boolean | null;
   lastSeenAt: string | null;

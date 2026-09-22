@@ -1,5 +1,7 @@
 import "server-only";
 import type { PostgrestError } from "@supabase/supabase-js";
+import { emptyCatalogueContent } from "@/lib/catalogue/content";
+import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CatalogueDirectoryPage,
@@ -122,7 +124,7 @@ export async function loadCatalogueDirectoryPage({
     readAllRows((from, to) =>
       supabase
         .from("catalogue_records")
-        .select("id,code_id,public_id,published_version_id,archived_at")
+        .select("id,code_id,published_version_id,archived_at")
         .eq("academic_year_id", year.id)
         .eq("kind", kind)
         .order("code_id")
@@ -141,7 +143,9 @@ export async function loadCatalogueDirectoryPage({
     readAllRows((from, to) =>
       supabase
         .from("catalogue_drafts")
-        .select("record_id,catalogue_records!inner(academic_year_id,kind)")
+        .select(
+          "record_id,content_hash,revision,catalogue_records!inner(academic_year_id,kind)",
+        )
         .eq("catalogue_records.academic_year_id", year.id)
         .eq("catalogue_records.kind", kind)
         .order("record_id")
@@ -192,7 +196,31 @@ export async function loadCatalogueDirectoryPage({
   const recordByCodeId = new Map(
     records.data.map((record) => [record.code_id, record]),
   );
-  const draftIds = new Set((drafts.data ?? []).map((draft) => draft.record_id));
+  // A draft row is only worth reporting when it says something the record did
+  // not already say. Comparing hashes keeps a draft that was restored from the
+  // publication, or edited back to match it, out of the Draft state.
+  const draftRows = new Map(
+    (drafts.data ?? []).map((draft) => [draft.record_id, draft]),
+  );
+  const draftedPublishedVersionIds = records.data.flatMap((record) =>
+    draftRows.has(record.id) && record.published_version_id
+      ? [record.published_version_id]
+      : [],
+  );
+  // Named by identifier rather than filtered by year, because only records
+  // that carry a draft reach this list and that is a handful, not thousands.
+  const { data: publishedVersions } = draftedPublishedVersionIds.length
+    ? await supabase
+        .from("catalogue_versions")
+        .select("id,content_hash")
+        .in("id", draftedPublishedVersionIds)
+    : { data: [] as Array<{ id: number; content_hash: string }> };
+  const publishedHashes = new Map(
+    (publishedVersions ?? []).map((version) => [
+      version.id,
+      version.content_hash,
+    ]),
+  );
   const latestSync = new Map<number, (typeof syncs.data)[number]>();
   for (const sync of syncs.data ?? [])
     if (!latestSync.has(sync.record_id)) latestSync.set(sync.record_id, sync);
@@ -229,7 +257,23 @@ export async function loadCatalogueDirectoryPage({
       ? recordByCodeId.get(listing.itemId)
       : undefined;
     const sync = record ? latestSync.get(record.id) : undefined;
-    const hasDraft = record ? draftIds.has(record.id) : false;
+    const draftRow = record ? draftRows.get(record.id) : undefined;
+    // What the draft would have started as. An unpublished record starts
+    // empty, so a draft holding nothing is not a draft anyone has to act on.
+    const baseHash = !draftRow
+      ? null
+      : record?.published_version_id
+        ? publishedHashes.get(record.published_version_id)
+        : contentHashForCatalogueContent(
+            emptyCatalogueContent({
+              kind,
+              code: listing.code,
+              academicYear,
+              title: listing.title,
+            }),
+          );
+    const hasDraft =
+      draftRow !== undefined && draftRow.content_hash !== baseHash;
     const isPublished = Boolean(
       record?.published_version_id && !record.archived_at,
     );
@@ -249,8 +293,9 @@ export async function loadCatalogueDirectoryPage({
       code: listing.code,
       title: listing.title,
       summary: (listing.summary ?? {}) as Record<string, unknown>,
-      recordPublicId: record?.public_id ?? null,
+      recordId: record?.id ?? null,
       hasDraft,
+      draftRevision: hasDraft ? (draftRow?.revision ?? null) : null,
       isPublished,
       isListedByAnu: listing.is_current,
       lastSeenAt: listing.last_seen_at,

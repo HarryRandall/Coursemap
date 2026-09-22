@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
-  createCatalogueDraft,
+  loadCatalogueEditorState,
   discardCatalogueDraft,
   publishCatalogueDraft,
   restoreCatalogueVersion,
@@ -89,7 +89,7 @@ afterAll(async () => {
 });
 
 test("every operation leaves one attributable audit event behind", async () => {
-  const draft = await createCatalogueDraft({ recordId, userId: ADMIN_ID, sql });
+  const draft = (await loadCatalogueEditorState(recordId, sql)).draft;
   let revision = draft.revision;
   let content = draft.content;
   for (const description of ["First pass.", "Second pass.", "Third pass."]) {
@@ -147,7 +147,7 @@ test("every operation leaves one attributable audit event behind", async () => {
 });
 
 test("restoring a version keeps the draft it replaces", async () => {
-  const draft = await createCatalogueDraft({ recordId, userId: ADMIN_ID, sql });
+  const draft = (await loadCatalogueEditorState(recordId, sql)).draft;
   const inProgress = structuredClone(draft.content);
   inProgress.course.details.description = "Work in progress worth keeping.";
   const saved = await saveCatalogueDraft({

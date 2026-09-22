@@ -3,7 +3,7 @@ import { afterAll, beforeAll, test } from "vitest";
 
 import {
   CatalogueDraftConflictError,
-  createCatalogueDraft,
+  loadCatalogueEditorState,
   discardCatalogueDraft,
   publishCatalogueDraft,
   restoreCatalogueVersion,
@@ -82,11 +82,7 @@ afterAll(async () => {
 });
 
 test("mutable drafts autosave, audit, publish, discard and restore safely", async () => {
-  const initial = await createCatalogueDraft({
-    recordId,
-    userId: ADMIN_ID,
-    sql,
-  });
+  const initial = (await loadCatalogueEditorState(recordId, sql)).draft;
   assert.equal(initial.revision, 0);
   assert.equal(initial.baseVersionId, null);
   assert.equal(initial.content.course.details.title, "Draft Systems");
@@ -195,11 +191,7 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
     "A manually authored course.",
   );
 
-  const fromPublished = await createCatalogueDraft({
-    recordId,
-    userId: ADMIN_ID,
-    sql,
-  });
+  const fromPublished = (await loadCatalogueEditorState(recordId, sql)).draft;
   assert.equal(fromPublished.baseVersionId, firstPublish.versionId);
   assert.equal(
     fromPublished.contentHash,
@@ -243,11 +235,7 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
   });
   assert.equal(revertedDiscard.meaningful, false);
 
-  const nextDraft = await createCatalogueDraft({
-    recordId,
-    userId: ADMIN_ID,
-    sql,
-  });
+  const nextDraft = (await loadCatalogueEditorState(recordId, sql)).draft;
   const secondEdit = structuredClone(nextDraft.content);
   secondEdit.course.details.title = "Draft Systems Advanced";
   await saveCatalogueDraft({
@@ -337,11 +325,7 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
     2,
   );
 
-  const blank = await createCatalogueDraft({
-    recordId,
-    userId: ADMIN_ID,
-    sql,
-  });
+  const blank = (await loadCatalogueEditorState(recordId, sql)).draft;
   const discardContent = structuredClone(blank.content);
   discardContent.course.details.description = "Work worth restoring.";
   const discardSave = await saveCatalogueDraft({
@@ -431,4 +415,68 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
   assert.equal(noOpDiscard.meaningful, false);
   assert.equal(noOpDiscard.checkpointVersionId, null);
   assert.ok(secondPublish.versionId > firstPublish.versionId);
+});
+
+async function draftRowCount() {
+  const [row] = await sql`
+    select count(*)::integer as count
+    from public.catalogue_drafts where record_id = ${recordId}
+  `;
+  return row.count;
+}
+
+test("reading a record, or saving it unchanged, never makes it a draft", async () => {
+  await sql`delete from public.catalogue_drafts where record_id = ${recordId}`;
+  const opened = await loadCatalogueEditorState(recordId, sql);
+  assert.equal(opened.hasDraft, false);
+  assert.equal(opened.draft.revision, 0);
+  assert.equal(await draftRowCount(), 0);
+
+  const untouched = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: 0,
+    content: opened.draft.content,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(untouched.unchanged, true);
+  assert.equal(await draftRowCount(), 0);
+
+  const edited = structuredClone(opened.draft.content);
+  edited.course.details.description = "Now there is something to keep.";
+  const saved = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: 0,
+    content: edited,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(saved.draft.revision, 1);
+  assert.equal(await draftRowCount(), 1);
+  assert.equal((await loadCatalogueEditorState(recordId, sql)).hasDraft, true);
+
+  // Undoing the edit by hand is as good as discarding it: the row survives to
+  // carry the audit trail, but the record is no longer waiting on anybody.
+  const reverted = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: 1,
+    content: opened.draft.content,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(reverted.draft.contentHash, opened.draft.contentHash);
+  assert.equal((await loadCatalogueEditorState(recordId, sql)).hasDraft, false);
+
+  const discarded = await discardCatalogueDraft({
+    recordId,
+    expectedRevision: reverted.draft.revision,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  assert.equal(discarded.meaningful, false);
+  assert.equal(await draftRowCount(), 0);
 });
