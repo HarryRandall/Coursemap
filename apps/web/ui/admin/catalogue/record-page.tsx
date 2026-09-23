@@ -13,8 +13,10 @@ import { loadCatalogueChangelog } from "@/lib/coursemap/admin-catalogue-changelo
 import {
   loadCatalogueRecord,
   loadVersionCoursePreview,
+  loadVersionReviewNotes,
   loadVersionWrite,
 } from "@/lib/coursemap/admin-catalogue-record";
+import { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import { courseDetailsFromWrite } from "@/lib/coursemap/course-version-view";
 import {
   ADMIN_CATALOGUE_OPERATIONS_PATH,
@@ -106,7 +108,14 @@ export async function CatalogueRecordPage({
   const publishedPreview = studentContent
     ? { course: studentCourse, content: studentCourse ? null : studentContent }
     : null;
-  const review = await loadSourceReview(record.recordId, draft.content);
+  const [review, notes] = await Promise.all([
+    loadSourceReview(record.recordId, draft.content),
+    record.latestSourceVersionId
+      ? loadVersionReviewNotes(record.latestSourceVersionId).then(
+          summariseReviewNotes,
+        )
+      : null,
+  ]);
   const unpublished = hasChanges
     ? diffSnapshotWrites(studentContent, draft.content)
     : [];
@@ -183,6 +192,7 @@ export async function CatalogueRecordPage({
                 hasEverSynced={record.syncs.length > 0}
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
+                notes={notes}
                 latestSync={
                   canManageImports && record.syncs[0]
                     ? {

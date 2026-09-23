@@ -1,8 +1,10 @@
 import Link from "next/link";
 
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
+import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { ModelNotes } from "./model-notes";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
 
@@ -72,6 +74,7 @@ export function CatalogueChangesPanel({
   isPublished,
   kindLabel,
   latestSync = null,
+  notes = null,
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -83,6 +86,8 @@ export function CatalogueChangesPanel({
   kindLabel: string;
   /** The check these changes came out of, for readers allowed to open it. */
   latestSync?: { id: string; completedAt: string | null } | null;
+  /** What the model flagged on the latest ANU version. */
+  notes?: ReturnType<typeof summariseReviewNotes> | null;
 }) {
   const conflicts = review?.conflicts ?? [];
   const incoming = review?.incoming ?? [];
@@ -117,6 +122,7 @@ export function CatalogueChangesPanel({
           </Link>
         </p>
       ) : null}
+      {notes ? <ModelNotes {...notes} /> : null}
       {conflicts.length === 0 && incoming.length === 0 ? (
         <CatalogueEmpty title={empty.title} description={empty.description} />
       ) : null}
