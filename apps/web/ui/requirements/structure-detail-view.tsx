@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Banknote,
   BookOpen,
@@ -28,11 +27,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
-import {
-  CATALOGUE_KIND_LABELS,
-  publicCatalogueRecordPath,
-} from "@/lib/coursemap/catalogue-kinds";
-import { isCatalogueKind } from "@/lib/catalogue/content";
+import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import type {
   StructureDetails,
   StructureFee,
@@ -42,10 +37,15 @@ import {
   STRUCTURE_FEE_BASIS_LABELS,
   STRUCTURE_FEE_TYPE_LABELS,
 } from "@/lib/coursemap/structure-types";
-import { STRUCTURE_RELATIONSHIP_LABELS } from "@/lib/catalogue/structure-vocabulary";
+import { CatalogueMarkdown } from "@/ui/common/catalogue-markdown";
 import { SectionNavigation } from "@/ui/common/section-navigation";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
 import type { TreeContext } from "@/ui/requirements/requirement-presentation";
+import { StructureRelated } from "@/ui/requirements/structure-related";
+import {
+  StructureSectionCard,
+  structureSectionAnchor,
+} from "@/ui/requirements/structure-section";
 
 export const structureDetailTabs = [
   { id: "overview", label: "Overview", icon: BookOpen },
@@ -86,54 +86,6 @@ function feeAmount(fee: StructureFee) {
   return basis ? `${amount} ${basis}` : amount;
 }
 
-const CODE_LINE = /^[A-Z]{4}[0-9]{4}[A-Z]?$|^[A-Z0-9][A-Z0-9-]{1,31}$/u;
-
-/**
- * ANU section bodies arrive as one line per scraped element, so rendering them
- * as pre-wrapped text produced a wall with no rhythm: a course code, its
- * title and its unit value read as three unrelated sentences. Each line is
- * given its own row, and a bare code is set in the monospace face so a study
- * plan scans as a list of courses rather than prose.
- */
-function SectionLines({ markdown }: { markdown: string }) {
-  const lines = markdown
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0)
-    return (
-      <p className="text-sm text-muted-foreground">
-        The ANU page left this section empty.
-      </p>
-    );
-  if (lines.length === 1)
-    return (
-      <p className="text-sm leading-relaxed text-foreground/80">{lines[0]}</p>
-    );
-  return (
-    <ul className="flex flex-col gap-1 text-sm text-foreground/80">
-      {lines.map((line, index) => (
-        <li
-          key={`${index}-${line}`}
-          className={
-            CODE_LINE.test(line)
-              ? "font-mono text-xs tracking-wide text-foreground"
-              : line === "OR" || line === "AND"
-                ? "text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                : "leading-relaxed"
-          }
-        >
-          {line}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function sectionAnchor(sectionKey: string) {
-  return `section-${sectionKey}`;
-}
-
 /**
  * The reader's body of a structure page. The student route and the import
  * preview both render this, so a draft preview cannot drift away from what a
@@ -166,7 +118,9 @@ export function StructureDetailView({
     ["Study as", structure.studyAs],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
 
-  const informationSections = structure.sections;
+  const availableCourseCodes = new Set(
+    treeContext.catalogue.courses.map((course) => course.code),
+  );
 
   return (
     <div className="w-full">
@@ -207,12 +161,18 @@ export function StructureDetailView({
               </CardHeader>
               <CardContent className="space-y-4 border-t border-border/60 pt-5 text-sm leading-relaxed text-foreground/80">
                 {structure.introduction ? (
-                  <p className="whitespace-pre-line">
-                    {structure.introduction}
-                  </p>
+                  <CatalogueMarkdown
+                    markdown={structure.introduction}
+                    academicYear={structure.year}
+                    availableCourseCodes={availableCourseCodes}
+                  />
                 ) : null}
                 {structure.description ? (
-                  <p className="whitespace-pre-line">{structure.description}</p>
+                  <CatalogueMarkdown
+                    markdown={structure.description}
+                    academicYear={structure.year}
+                    availableCourseCodes={availableCourseCodes}
+                  />
                 ) : null}
                 {!structure.introduction && !structure.description ? (
                   <p className="text-muted-foreground">
@@ -296,53 +256,7 @@ export function StructureDetailView({
               </Card>
             ) : null}
 
-            {structure.relationships.length ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    <h2>Related</h2>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="border-t border-border/60 pt-5">
-                  <ul className="space-y-2 text-sm">
-                    {structure.relationships.map((relationship) => (
-                      <li key={relationship.position}>
-                        <Link
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
-                          href={
-                            isCatalogueKind(relationship.targetKind)
-                              ? publicCatalogueRecordPath(
-                                  relationship.targetKind,
-                                  structure.year,
-                                  relationship.targetCode,
-                                )
-                              : "/courses"
-                          }
-                        >
-                          <span className="min-w-0">
-                            <span className="font-mono font-semibold">
-                              {relationship.targetCode}
-                            </span>
-                            {relationship.targetTitle ? (
-                              <span className="ml-2 text-muted-foreground">
-                                {relationship.targetTitle}
-                              </span>
-                            ) : null}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {
-                              STRUCTURE_RELATIONSHIP_LABELS[
-                                relationship.relationshipKind
-                              ]
-                            }
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ) : null}
+            <StructureRelated structure={structure} />
           </div>
         </div>
       </TabsContent>
@@ -370,28 +284,25 @@ export function StructureDetailView({
       </TabsContent>
 
       <TabsContent value="information" className="flex flex-col gap-4">
-        {informationSections.length ? (
+        {structure.sections.length ? (
           <>
-            <SectionNavigation
-              sections={informationSections.map((section) => ({
-                id: sectionAnchor(section.sectionKey),
-                label: section.heading,
-              }))}
-            />
-            {informationSections.map((section) => (
-              <Card
+            {/* A jump list earns its place only when there is enough to
+                scroll past; above one or two cards it repeated their titles. */}
+            {structure.sections.length >= 3 ? (
+              <SectionNavigation
+                sections={structure.sections.map((section) => ({
+                  id: structureSectionAnchor(section),
+                  label: section.heading,
+                }))}
+              />
+            ) : null}
+            {structure.sections.map((section) => (
+              <StructureSectionCard
                 key={section.sectionKey}
-                id={sectionAnchor(section.sectionKey)}
-              >
-                <CardHeader>
-                  <CardTitle>
-                    <h2>{section.heading}</h2>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="border-t border-border/60 pt-5">
-                  <SectionLines markdown={section.markdown} />
-                </CardContent>
-              </Card>
+                section={section}
+                academicYear={structure.year}
+                availableCourseCodes={availableCourseCodes}
+              />
             ))}
           </>
         ) : (
