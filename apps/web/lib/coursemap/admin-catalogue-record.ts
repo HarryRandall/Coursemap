@@ -1,4 +1,8 @@
 import "server-only";
+import type {
+  VersionEvidence,
+  VersionFlag,
+} from "@/lib/catalogue/review-notes";
 import { readVersionContent } from "@/lib/catalogue-import/version-content";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import type { CatalogueContent } from "@/lib/catalogue/content";
@@ -209,6 +213,46 @@ export async function loadVersionWrite(
   versionId: number,
 ): Promise<CatalogueContent | null> {
   return withSyncDatabaseClient((sql) => readVersionContent(sql, versionId));
+}
+
+/**
+ * The flags and model evidence stored with a source version, for the Changes
+ * tab. Empty for a version an administrator published, which has neither.
+ */
+export async function loadVersionReviewNotes(versionId: number): Promise<{
+  flags: VersionFlag[];
+  evidence: VersionEvidence[];
+}> {
+  return withSyncDatabaseClient(async (sql) => {
+    const [flags, evidence] = await Promise.all([
+      sql`
+        select field_path, severity, code, message
+        from public.catalogue_version_flags
+        where version_id = ${versionId}
+        order by position
+      `,
+      sql`
+        select field_path, confidence, source_excerpt
+        from public.catalogue_version_provenance
+        where version_id = ${versionId} and method = 'model'
+        order by id
+      `,
+    ]);
+    return {
+      flags: flags.map((row) => ({
+        fieldPath: row.field_path === null ? null : String(row.field_path),
+        severity: row.severity === "error" ? "error" : "warning",
+        code: String(row.code),
+        message: String(row.message),
+      })),
+      evidence: evidence.map((row) => ({
+        fieldPath: String(row.field_path),
+        confidence: row.confidence === null ? null : Number(row.confidence),
+        excerpt:
+          row.source_excerpt === null ? null : String(row.source_excerpt),
+      })),
+    };
+  });
 }
 
 /** The student-facing course details for a version, or null for structures. */

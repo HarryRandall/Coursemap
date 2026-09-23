@@ -418,7 +418,10 @@ async function insertRequirements(
   }
 }
 
-/** Writes every content, requirement and evidence row for a new snapshot. */
+/**
+ * Writes every content, requirement, evidence and review-flag row for a new
+ * snapshot.
+ */
 export async function insertVersionContent(
   tx: Tx,
   {
@@ -466,6 +469,16 @@ export async function insertVersionContent(
         ${snapshotId}, ${academicYearId}, ${sourcePageId}, ${evidence.fieldPath},
         ${evidence.method}, ${evidence.confidence}, ${evidence.sourceLocator},
         ${evidence.sourceExcerpt}
+      )
+    `;
+  }
+  for (const [index, flag] of write.flags.entries()) {
+    await tx`
+      insert into public.catalogue_version_flags (
+        version_id, position, field_path, severity, code, message
+      ) values (
+        ${snapshotId}, ${index + 1}, ${flag.fieldPath}, ${flag.severity},
+        ${flag.code}, ${flag.message}
       )
     `;
   }
