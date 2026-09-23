@@ -23,6 +23,14 @@ export function normaliseAcademicStructureModelExtraction(value: unknown) {
     return { value: normalised, normalisations };
   }
 
+  const requirementRecord = requirements as Record<string, unknown>;
+  if (requirementRecord.unmodelledText === undefined) {
+    requirementRecord.unmodelledText = [];
+    normalisations.push(
+      "$.requirements.unmodelledText was absent and is read as no unmodelled wording.",
+    );
+  }
+
   const visitRule = (rule: unknown, path: string) => {
     if (typeof rule !== "object" || rule === null || Array.isArray(rule)) {
       return;

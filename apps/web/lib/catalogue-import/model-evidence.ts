@@ -1,25 +1,45 @@
 /** Evidence the review screen should question, attributed to its field. */
 export type UnsupportedModelWording = { fieldKey: string; wording: string };
 
-function normalisedWords(value: string) {
+function words(value: string) {
   return (
     value
       .normalize("NFKC")
-      .replace(/\[(.*?)\]\([^)]+\)/g, "$1")
       .toLowerCase()
       .match(/[\p{L}\p{N}]+/gu) ?? []
   );
 }
 
 /**
- * Whether the page carries the wording word for word. Markdown formatting,
- * punctuation, case and link targets are ignored, so a quote survives the
- * page conversion; a paraphrase does not. `pageText` is the page's words
- * joined by single spaces.
+ * The page's words, joined by single spaces, read two ways: with every link
+ * target dropped, and with a record link's code kept after its text. A quote
+ * may name "Mathematics" or "Mathematics (MATH-MAJ)" and both are the page.
  */
-function pageSupportsWording(pageText: string, wording: string) {
-  const words = normalisedWords(wording);
-  return words.length === 0 || pageText.includes(` ${words.join(" ")} `);
+function pageTexts(pageMarkdown: string) {
+  const withoutTargets = pageMarkdown.replace(/\[(.*?)\]\([^)]+\)/g, "$1");
+  const withCodes = pageMarkdown.replace(
+    /\[(.*?)\]\(([A-Z0-9][A-Z0-9-]{1,31})\)/g,
+    "$1 $2",
+  );
+  return [withoutTargets, withCodes].map(
+    (text) => ` ${words(text.replace(/\[(.*?)\]\([^)]+\)/g, "$1")).join(" ")} `,
+  );
+}
+
+/**
+ * Whether the page carries the wording word for word. Markdown formatting,
+ * punctuation and case are ignored, so a quote survives the page conversion;
+ * a paraphrase does not. Wording gathered from several places on the page,
+ * such as a section merging two ANU headings, is checked paragraph by
+ * paragraph.
+ */
+function pageSupportsWording(texts: readonly string[], wording: string) {
+  return wording.split(/\n\s*\n/).every((paragraph) => {
+    const quoted = words(paragraph.replace(/\[(.*?)\]\([^)]+\)/g, "$1"));
+    if (quoted.length === 0) return true;
+    const needle = ` ${quoted.join(" ")} `;
+    return texts.some((text) => text.includes(needle));
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,11 +56,11 @@ export function unsupportedModelWording(
   extraction: Record<string, unknown>,
   pageMarkdown: string,
 ): UnsupportedModelWording[] {
-  const pageText = ` ${normalisedWords(pageMarkdown).join(" ")} `;
+  const texts = pageTexts(pageMarkdown);
   const found = new Map<string, UnsupportedModelWording>();
   const check = (fieldKey: string, wording: unknown) => {
     if (typeof wording !== "string" || !wording.trim()) return;
-    if (pageSupportsWording(pageText, wording)) return;
+    if (pageSupportsWording(texts, wording)) return;
     found.set(`${fieldKey}\u0000${wording}`, { fieldKey, wording });
   };
   const visit = (fieldKey: string, value: unknown) => {
