@@ -13,6 +13,9 @@ pnpm-lock.yaml
 # Preserve downloaded assets, source fixtures and generated database types.
 apps/web/public
 apps/web/tests/fixtures/calendar
+apps/web/tests/fixtures/catalogue/anu-2026-aacom.html
+apps/web/tests/fixtures/catalogue/anu-2026-adma-spec.html
+apps/web/tests/fixtures/catalogue/anu-2026-finm3006.html
 apps/web/types/database.ts
 
 # psql include files are SQL; Prettier would otherwise infer HTML.
