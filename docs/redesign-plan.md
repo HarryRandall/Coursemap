@@ -53,9 +53,9 @@ Depends on A4 for the shared requirement model and on A6 for the review gate.
 - The prerequisite graph draws group nodes for `any_of` and `at_least` so
   alternatives are visible, keeps course-code edges for `all_of`, and marks
   planned courses distinctly from completed ones.
-- The administrator editor is reused for structure requirements. Automatic
-  mapping is extended to the deterministic parser output. The editor no longer
-  locks when a condition kind is unsupported because the vocabulary is shared.
+- The administrator editor is reused for structure requirements. The editor no
+  longer locks when a condition kind is unsupported because the vocabulary is
+  shared.
 
 ### Stacked pull requests
 

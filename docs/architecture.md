@@ -152,9 +152,14 @@ before detailed content is synced. An incomplete discovery updates records it
 observed but cannot mark unseen listings as no longer current.
 
 Detailed ANU checks run through `apps/web/lib/catalogue-sync/`. A sync owns one
-record and one queue message. The worker claims it with a versioned lease,
-captures immutable source material and artefacts, runs deterministic and model
-extraction through the kind adapters, validates the projection and persists an
+record and one queue message, and starts only when an administrator syncs that
+record; nothing calls the model on its own. The worker claims the sync with a
+versioned lease, captures immutable source material and artefacts, converts the
+whole page to Markdown and asks the model for the complete record through the
+kind adapter. The model owns every field. The adapter keeps each part of the
+response that fits the extraction contract, leaves the rest empty with an error
+flag, and warns about wording the page does not contain; nothing is rejected
+for review to see. The projection is then validated and persisted as an
 immutable source version. Queue retries reuse safe completed evidence and
 cannot finish after losing a lease. Expired work is recovered up to five
 attempts. Hosted syncs use the `catalogue-sync-v1` Vercel Queue topic; local
