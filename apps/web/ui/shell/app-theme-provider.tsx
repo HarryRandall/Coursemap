@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { forceLightTheme } from "@/lib/theme";
+import { isLightOnlyPath, themeStorageKey } from "@/lib/theme";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
@@ -19,13 +19,11 @@ export function AppThemeProvider({
     <ThemeProvider
       attribute="class"
       value={{ light: "light", dark: "dark-mode" }}
-      forcedTheme={
-        forceLightTheme(pathname ?? "/", authenticated) ? "light" : undefined
-      }
+      forcedTheme={isLightOnlyPath(pathname ?? "/") ? "light" : undefined}
       defaultTheme="system"
       enableSystem
       disableTransitionOnChange
-      storageKey="coursemap.theme"
+      storageKey={themeStorageKey(authenticated)}
       // Keep the library's inline bootstrap inert during client rendering.
       // Its effects still manage theme changes and system preference updates.
       scriptProps={{ type: "text/plain" }}

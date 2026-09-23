@@ -31,10 +31,10 @@ export default async function LoginPage({
 
   return (
     <AuthShell>
-      <h1 className="text-2xl font-bold tracking-tight text-zinc-950 sm:text-3xl">
+      <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         Welcome back
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-zinc-500">
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
         Sign in to your plan and pick up where you left off.
       </p>
 
@@ -53,11 +53,11 @@ export default async function LoginPage({
       </div>
 
       <div className="my-6 flex items-center gap-3" aria-hidden="true">
-        <span className="h-px flex-1 bg-zinc-200" />
-        <span className="text-[11px] text-zinc-400">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-[11px] text-muted-foreground">
           or continue with email
         </span>
-        <span className="h-px flex-1 bg-zinc-200" />
+        <span className="h-px flex-1 bg-border" />
       </div>
 
       <SignInForm
@@ -66,11 +66,11 @@ export default async function LoginPage({
         initialError={initialError}
       />
 
-      <p className="mt-6 text-center text-sm text-zinc-500">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         New to Coursemap?{" "}
         <Link
           href={signUpHref}
-          className="font-semibold text-brand-700 hover:text-brand-800 hover:underline"
+          className="font-semibold text-primary hover:underline"
         >
           Create an account
         </Link>

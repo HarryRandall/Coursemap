@@ -2,7 +2,11 @@
 
 /* eslint-disable @next/next/no-html-link-for-pages -- The root fallback must recover with a full document navigation. */
 
+import { themeInitialisationScript } from "@/lib/theme";
+
 // This fallback replaces the root layout and cannot rely on its styles or providers.
+// It cannot tell whether anyone is signed in, so it applies the saved theme,
+// which sign-out clears.
 export default function GlobalError({
   error,
   reset,
@@ -11,9 +15,12 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>Something went wrong · Coursemap</title>
+        <script
+          dangerouslySetInnerHTML={{ __html: themeInitialisationScript(true) }}
+        />
       </head>
       <body style={{ margin: 0 }}>
         <style>{`
@@ -31,7 +38,7 @@ export default function GlobalError({
           .fallback button { background: var(--brand); border-color: var(--brand); color: white; }
           .fallback :focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
           .fallback .reference { font-size: 12px; overflow-wrap: anywhere; }
-          @media (prefers-color-scheme: dark) { .fallback { --canvas: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --edge: #27272a; --brand: #8b5cf6; } }
+          .dark-mode .fallback { --canvas: #0a0a0a; --ink: #fafafa; --muted: #a1a1aa; --edge: #27272a; --brand: #8b5cf6; }
         `}</style>
         <div className="fallback">
           <header>
