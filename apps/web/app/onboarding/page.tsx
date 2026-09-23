@@ -36,5 +36,11 @@ export default async function OnboardingPage() {
     );
   }
 
-  return <OnboardingForm catalogue={catalogue} email={viewer.email ?? ""} />;
+  return (
+    <OnboardingForm
+      catalogue={catalogue}
+      currentYear={new Date().getFullYear()}
+      email={viewer.email ?? ""}
+    />
+  );
 }

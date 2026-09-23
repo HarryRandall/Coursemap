@@ -47,8 +47,7 @@ import { GeneratedAvatar } from "@/ui/common/generated-avatar";
 import { SelectField } from "@/ui/common/select-field";
 import type { OnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
 import { nominalProgrammeDuration } from "@/lib/coursemap/plan-timeline";
-
-const STUDENT_NUMBER_PATTERN = /^u\d{7}$/;
+import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
 
 const sections = [
   { value: "about", label: "About you", icon: UserRound },
@@ -149,9 +148,9 @@ export function ProfileEditor({
   /* Validation and save                                               */
   /* ---------------------------------------------------------------- */
 
-  const studentNumber = draft.studentId.trim().toLowerCase();
+  const studentNumber = normaliseStudentNumber(draft.studentId);
   const studentNumberError =
-    studentNumber && !STUDENT_NUMBER_PATTERN.test(studentNumber)
+    studentNumber === null
       ? "Use the format u1234567, or leave it blank."
       : null;
   const nameError = !draft.name.trim() ? "Add your name." : null;
@@ -183,9 +182,12 @@ export function ProfileEditor({
       return;
     }
     setSaving(true);
-    const result = await updateProfile({ ...draft, studentId: studentNumber });
+    const result = await updateProfile({
+      ...draft,
+      studentId: studentNumber ?? "",
+    });
     setSaving(false);
-    notify(result.message, result.ok ? "success" : "warning");
+    notify(result.message, result.ok ? "success" : "error");
   }
 
   const major = majors.find((item) => item.code === draft.majorCode);

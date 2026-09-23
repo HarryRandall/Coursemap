@@ -1,4 +1,4 @@
-import type { AppState } from "@/app/providers";
+import type { AppState } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 

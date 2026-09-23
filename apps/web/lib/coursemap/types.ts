@@ -91,3 +91,23 @@ export type Relation = {
   state: "Verified" | "Automatic" | "Review";
   sourceText: string;
 };
+
+export type Profile = {
+  name: string;
+  studentId: string;
+  email: string;
+  commencementYear: number;
+  catalogueYear: number;
+  degreeCode: string;
+  majorCode: string;
+  minorCodes: string[];
+  specialisationCodes: string[];
+  studyLoad: "Full time" | "Part time";
+  extensionYears: number;
+};
+
+export type AppState = {
+  schemaVersion: 1;
+  profile: Profile;
+  attempts: Attempt[];
+};

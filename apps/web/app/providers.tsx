@@ -3,6 +3,7 @@ import { useInputModality } from "@/lib/browser/use-input-modality";
 import { Toaster } from "@coursemap/ui/primitives/sonner";
 import type { CSSProperties } from "react";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import {
   createContext,
   useCallback,
@@ -13,7 +14,9 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthViewer } from "@/lib/auth/viewer";
-import type { Attempt, AttemptStatus } from "@/lib/coursemap/types";
+import type { AppState, AttemptStatus, Profile } from "@/lib/coursemap/types";
+
+export type { AppState, Profile } from "@/lib/coursemap/types";
 import {
   addPlanCourse,
   movePlanCourse,
@@ -24,27 +27,7 @@ import {
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
 
-export type Profile = {
-  name: string;
-  studentId: string;
-  email: string;
-  commencementYear: number;
-  catalogueYear: number;
-  degreeCode: string;
-  majorCode: string;
-  minorCodes: string[];
-  specialisationCodes: string[];
-  studyLoad: "Full time" | "Part time";
-  extensionYears: number;
-};
-
-export type AppState = {
-  schemaVersion: 1;
-  profile: Profile;
-  attempts: Attempt[];
-};
-
-type ToastTone = "success" | "warning" | "info";
+type ToastTone = "success" | "warning" | "info" | "error";
 
 type AppContextValue = {
   state: AppState;
@@ -111,6 +94,9 @@ export function AppProvider({
 }) {
   useInputModality();
   const router = useRouter();
+  // The vendored Toaster reads the stored theme, which ignores a forced one.
+  const { forcedTheme, resolvedTheme } = useTheme();
+  const toastTheme = forcedTheme ?? resolvedTheme;
   const initialState = useMemo(
     () => suppliedInitialState ?? createInitialState(viewer),
     [suppliedInitialState, viewer],
@@ -143,7 +129,8 @@ export function AppProvider({
   }, [viewer]);
 
   const notify = useCallback((message: string, tone: ToastTone = "success") => {
-    if (tone === "warning") toast.warning(message);
+    if (tone === "error") toast.error(message);
+    else if (tone === "warning") toast.warning(message);
     else if (tone === "info") toast.info(message);
     else toast.success(message);
   }, []);
@@ -394,6 +381,11 @@ export function AppProvider({
     <AppContext.Provider value={value}>
       {children}
       <Toaster
+        theme={
+          toastTheme === "dark" || toastTheme === "light"
+            ? toastTheme
+            : "system"
+        }
         position="top-center"
         style={{ "--width": "560px" } as CSSProperties}
         closeButton

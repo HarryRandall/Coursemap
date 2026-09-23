@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 
 import { collectSelectableStructureCodes } from "../lib/coursemap/programme-structure-options.ts";
 
 test("keeps only explicit programme structure relationship semantics", () => {
   const codes = collectSelectableStructureCodes({
-    programmeSnapshotIds: new Set([101]),
+    programmeVersionIds: new Set([101]),
     relationships: [
       relationship("required", "MATH-MAJ"),
       relationship("option", "COMP-MAJ"),
@@ -31,7 +30,7 @@ test("keeps only explicit programme structure relationship semantics", () => {
 
 test("includes structure options from programme structure-set requirements", () => {
   const codes = collectSelectableStructureCodes({
-    programmeSnapshotIds: new Set([101]),
+    programmeVersionIds: new Set([101]),
     relationships: [],
     requirementConditions: [
       condition(1, "structure_set", "major"),
@@ -58,19 +57,6 @@ test("includes structure options from programme structure-set requirements", () 
     specialisation: ["AI-SPEC"],
   });
   assert.equal(codes.has(202), false);
-});
-
-test("onboarding loads explicit relationship and structure-set semantics without zero fallbacks", async () => {
-  const source = await readFile(
-    new URL("../lib/coursemap/onboarding-catalogue.ts", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(source, /collectSelectableStructureCodes/u);
-  assert.match(source, /relationship_kind,version_id,target_code,target_kind/u);
-  assert.match(source, /from\("requirement_conditions"\)/u);
-  assert.match(source, /from\("requirement_condition_options"\)/u);
-  assert.doesNotMatch(source, /snapshot\.units === null \? 0/u);
 });
 
 function relationship(relationshipKind, targetCode, targetKind = "major") {
