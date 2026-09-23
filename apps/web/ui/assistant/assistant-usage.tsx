@@ -26,7 +26,7 @@ const activity = [18, 12, 24, 16, 31, 15, 12];
 export function AssistantUsage() {
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="space-y-6">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">Compass usage preview</h1>

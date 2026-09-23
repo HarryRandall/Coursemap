@@ -870,7 +870,7 @@ test("lists a selected building's rooms and turns a room into the destination", 
   assert.match(roomFinder, /journey\.steps\.map/);
   assert.match(roomFinder, /onShowLevel=\{showIndoorLevel\}/);
   assert.match(roomFinder, /requestKey: indoorFocusRequest/);
-  assert.match(roomFinder, /aria-label=\{`Show \$\{level\.name\}`\}/);
+  assert.match(roomFinder, /`Show \$\{level\.name\}/);
   assert.match(roomFinder, /min-h-11 min-w-11/);
   assert.match(roomFinder, /initialRoomBuilding \?\?/);
 });

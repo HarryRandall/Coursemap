@@ -786,9 +786,16 @@ export function RoomFinder({
             const shown = level.id === shownLevelId;
             const onRoute = journey?.route.levelIds.includes(level.id) ?? false;
             return (
-              <Hint key={level.id} label={level.name}>
+              <Hint
+                key={level.id}
+                label={onRoute ? `${level.name} · on your route` : level.name}
+              >
                 <button
-                  aria-label={`Show ${level.name}`}
+                  aria-label={
+                    onRoute
+                      ? `Show ${level.name}, on your route`
+                      : `Show ${level.name}`
+                  }
                   aria-current={shown ? "true" : undefined}
                   className={cn(
                     "relative min-h-11 min-w-11 rounded-md text-xs font-semibold outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
@@ -800,7 +807,7 @@ export function RoomFinder({
                   {level.ref || level.number}
                   {onRoute && !shown ? (
                     <span
-                      aria-label="on your route"
+                      aria-hidden="true"
                       className="absolute top-1 right-1 size-1.5 rounded-full bg-amber-500"
                     />
                   ) : null}
