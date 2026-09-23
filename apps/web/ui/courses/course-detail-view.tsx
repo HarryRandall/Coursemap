@@ -49,7 +49,6 @@ import type { Attempt } from "@/lib/coursemap/types";
 import {
   evaluateRequisiteExpression,
   type CompletedRequisiteCourse,
-  parseRequisiteSummary,
 } from "@/lib/coursemap/requisite-summary";
 import {
   feeValue,
@@ -133,8 +132,6 @@ export function CourseDetailView({
       },
     ),
   );
-  const requisiteSummary =
-    structuredRule ?? parseRequisiteSummary(course.prerequisiteText);
   const requisiteProgress = structuredRule
     ? evaluateRequisiteExpression(
         structuredRule,
@@ -555,7 +552,7 @@ export function CourseDetailView({
                   />
                 </div>
               </div>
-            ) : requisiteSummary ? (
+            ) : structuredRule ? (
               <div>
                 <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
                   Coursemap summary
@@ -563,7 +560,7 @@ export function CourseDetailView({
                 <div className="mt-2">
                   <RequisiteExpressionSummary
                     academicYear={course.year}
-                    expression={requisiteSummary}
+                    expression={structuredRule}
                     availableCourseCodes={availableCourseCodes}
                   />
                 </div>

@@ -24,12 +24,6 @@ import type {
 } from "./course-types";
 import { accentFor } from "@/lib/coursemap/course-accent";
 import type { RequisiteExpression } from "./requisite-summary";
-import {
-  type PrerequisiteFallbackDetail,
-  prerequisiteCodesFromSnapshotProjection,
-  prerequisiteEdgesWithSnapshotFallback,
-  resolvePrerequisiteFallbackDetails,
-} from "./snapshot-prerequisite-codes";
 
 const ANU_SOURCE_BASE_URL = "https://programsandcourses.anu.edu.au";
 const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/u;
@@ -757,10 +751,7 @@ function readAssessments(root: { [key: string]: Json | undefined }) {
   });
 }
 
-function detailAsCourseDetails(
-  value: Json,
-  fallbackDetails: Readonly<Record<string, PrerequisiteFallbackDetail>> = {},
-): CourseDetails | null {
+function detailAsCourseDetails(value: Json): CourseDetails | null {
   if (!isRecord(value) || !isRecord(value.snapshot)) return null;
   const code = readString(
     value.code,
@@ -773,18 +764,15 @@ function detailAsCourseDetails(
   const snapshot = value.snapshot;
   const unitValue = readUnitValue(snapshot, value);
   const offerings = readOfferings(value.offeringSessions, academicYear);
-  const prerequisiteEdges = prerequisiteEdgesWithSnapshotFallback({
-    courseCode: code,
-    fallbackDetails,
-    projection: value,
-    storedEdges: readPrerequisiteEdges(value.prerequisiteEdges),
-  });
+  const prerequisiteEdges = readPrerequisiteEdges(value.prerequisiteEdges);
   const prerequisiteCodes = [
     ...new Set(
       [
-        ...prerequisiteCodesFromSnapshotProjection(value),
+        ...readArray(value.prerequisiteCodes).map((item) =>
+          readString(item).toUpperCase(),
+        ),
         ...prerequisiteEdges.map((edge) => edge.from),
-      ].filter((item) => COURSE_CODE_PATTERN.test(item)),
+      ].filter((item) => item !== code && COURSE_CODE_PATTERN.test(item)),
     ),
   ].sort();
   const availableCourseCodes = new Set<string>([code]);
@@ -1458,39 +1446,6 @@ type LooseRpcClient = {
   ) => Promise<{ data: Json | null; error: { message: string } | null }>;
 };
 
-async function loadPrerequisiteFallbackDetails(
-  client: LooseRpcClient,
-  projection: Json,
-  courseCode: string,
-  academicYear: number,
-) {
-  if (!isRecord(projection)) return {};
-  const storedEdges = readPrerequisiteEdges(projection.prerequisiteEdges);
-  return resolvePrerequisiteFallbackDetails({
-    courseCode,
-    projection,
-    storedEdges,
-    loadNode: async (prerequisiteCode) => {
-      const { data, error } = await client.rpc("published_course_detail", {
-        p_academic_year: academicYear,
-        p_course_code: prerequisiteCode,
-      });
-      if (error || !isRecord(data)) {
-        return {
-          isAvailable: false,
-          prerequisiteEdges: [],
-          projection: null,
-        };
-      }
-      return {
-        isAvailable: true,
-        prerequisiteEdges: readPrerequisiteEdges(data.prerequisiteEdges),
-        projection: data,
-      };
-    },
-  });
-}
-
 export async function loadPublishedCourse(
   code: string,
   academicYear: number,
@@ -1512,13 +1467,7 @@ export async function loadPublishedCourse(
       });
       if (error) throw new Error(error.message);
       if (!data) return null;
-      const fallbackDetails = await loadPrerequisiteFallbackDetails(
-        client,
-        data,
-        normalisedCode,
-        academicYear,
-      );
-      return detailAsCourseDetails(data, fallbackDetails);
+      return detailAsCourseDetails(data);
     },
     ["published-course-detail", String(academicYear), normalisedCode],
     {

@@ -203,7 +203,7 @@ test("unlocked courses appear when the reverse lookup found some", () => {
   );
 });
 
-test("without a reviewed rule the graph says where its codes came from", () => {
+test("without a rule the graph draws no prerequisites of its own", () => {
   renderGraph({
     expression: null,
     prerequisiteEdges: [
@@ -215,9 +215,13 @@ test("without a reviewed rule the graph says where its codes came from", () => {
       },
     ],
   });
-  expect(screen.getByRole("link", { name: /COMP1600/u })).toBeInTheDocument();
+  // Only the rule says what a course requires; a stored edge alone carries no
+  // operator, so nothing is drawn from it.
+  expect(screen.queryByRole("link", { name: /COMP1600/u })).toBeNull();
   expect(
-    screen.getByText(/Drawn from the course codes found/u),
+    screen.getByText(
+      "The prerequisites for COMP3600 have not been read into a chain yet. They are listed below as ANU publishes them.",
+    ),
   ).toBeInTheDocument();
 });
 

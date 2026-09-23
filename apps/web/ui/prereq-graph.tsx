@@ -152,9 +152,11 @@ export function PrereqGraph({
         className="px-5 pb-5 text-center text-sm text-muted-foreground"
         data-testid="prereq-graph"
       >
-        {unlocksAreKnown
-          ? `${code} has no prerequisites, and no published course lists it as one.`
-          : `${code} has no prerequisites. Which courses it leads to is not known until it is published.`}
+        {hasPrerequisiteWording
+          ? `The prerequisites for ${code} have not been read into a chain yet. They are listed below as ANU publishes them.`
+          : unlocksAreKnown
+            ? `${code} has no prerequisites, and no published course lists it as one.`
+            : `${code} has no prerequisites. Which courses it leads to is not known until it is published.`}
       </p>
     );
   }
@@ -374,12 +376,6 @@ export function PrereqGraph({
               Not a prerequisite: this course cannot be counted with{" "}
               {graph.incompatibleCodes.join(", ")}.
             </span>
-          </p>
-        ) : null}
-        {graph.source === "references" ? (
-          <p className="mt-4 text-xs text-muted-foreground">
-            Drawn from the course codes found in the prerequisite wording. The
-            rule has not been reviewed, so any choice between them is not shown.
           </p>
         ) : null}
       </div>

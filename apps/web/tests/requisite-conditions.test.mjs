@@ -4,7 +4,6 @@ import { test } from "vitest";
 
 const {
   addChild,
-  automaticExpressionFromSource,
   applyCourseMatch,
   conditionSourceText,
   conditionSummary,
@@ -234,7 +233,7 @@ test("rebuilds nested any-of groups from stored rows", () => {
   });
 });
 
-test("empty reviewed conditions mean use the automatic mapping", () => {
+test("an empty reviewed tree validates as empty", () => {
   const empty = validateReviewedTree({
     operator: "all_of",
     conditions: [],
@@ -249,12 +248,6 @@ test("empty reviewed conditions mean use the automatic mapping", () => {
     },
   });
   assert.equal(isEmptyReviewedTree(empty.tree), true);
-  assert.deepEqual(
-    automaticExpressionFromSource(
-      "To enrol in this course you must have completed STAT6045.",
-    ),
-    { kind: "course", code: "STAT6045" },
-  );
 });
 
 test("rejects an out-of-range GPA and accepts a 7-point value", () => {

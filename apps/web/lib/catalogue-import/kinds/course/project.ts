@@ -4,7 +4,6 @@ import {
   type CourseRule,
 } from "./contract.ts";
 import { stableFingerprint } from "../../canonical.ts";
-import { extractAnuCourseCodes } from "../../../coursemap/course-codes.ts";
 
 type RuleKind =
   | "prerequisite"
@@ -324,20 +323,6 @@ function addRuleReference(
   });
 }
 
-function addLexicalRuleReferences(
-  accumulator: RuleProjectionAccumulator,
-  ruleKey: RuleKind,
-  sourceTexts: readonly (string | null | undefined)[],
-) {
-  for (const sourceText of sourceTexts) {
-    if (!sourceText) continue;
-    const normalisedSourceText = cleanText(sourceText);
-    for (const courseCode of extractAnuCourseCodes(normalisedSourceText)) {
-      addRuleReference(accumulator, ruleKey, courseCode, normalisedSourceText);
-    }
-  }
-}
-
 function addAtomicRule(
   rule: CourseRule,
   context: {
@@ -577,10 +562,6 @@ function addStructuredRule({
     hardness: "hard",
     sourceText: savedSourceText,
   });
-  addLexicalRuleReferences(accumulator, ruleKey, [
-    savedSourceText,
-    ...extraText,
-  ]);
   const rootKey = `${ruleKey}:group:root`;
   const rootOperator = rule?.op === "one_of" ? "any_of" : "all_of";
   accumulator.ruleGroups.push({
@@ -678,7 +659,6 @@ function addIncompatibilityRule(
       rawText ??
       `Incompatible with ${[...hardCodes, ...advisoryCodes].join(", ")}`,
   });
-  addLexicalRuleReferences(accumulator, ruleKey, [rawText]);
   const rootKey = `${ruleKey}:group:root`;
   accumulator.ruleGroups.push({
     key: rootKey,
