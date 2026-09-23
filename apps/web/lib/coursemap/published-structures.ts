@@ -8,9 +8,15 @@ import { createPublicClient } from "@/lib/supabase/public-server";
 import type { Json } from "@/types/database";
 import { requirementTreeFromSource } from "@/lib/coursemap/requirement-write-tree";
 import {
-  REQUIREMENT_SOURCE_SECTION_KEYS,
-  type StructureDetails,
-  type StructureKind,
+  STRUCTURE_SECTION_LABELS,
+  isStructureRelationshipKind,
+  isStructureSectionKey,
+} from "@/lib/catalogue/structure-vocabulary";
+import type {
+  StructureDetails,
+  StructureKind,
+  StructureRelationship,
+  StructureSection,
 } from "@/lib/coursemap/structure-types";
 
 const STRUCTURE_CODE_PATTERN = /^[A-Z0-9][A-Z0-9-]{1,31}$/u;
@@ -151,21 +157,24 @@ function structureFromProjection(value: Json): StructureDetails | null {
     atar: readNullableNumber(snapshot.atar),
     studyAs: readNullableString(snapshot.studyAs),
     contactText: readNullableString(snapshot.contactText),
-    sections: readRecords(value.sections)
-      .map((section) => ({
-        position: readNumber(section.position),
-        sectionKey: readString(section.sectionKey),
-        heading: readString(section.heading),
-        markdown: readString(section.markdown),
-      }))
-      .filter(
-        (section) =>
-          section.heading.trim().length > 0 &&
-          section.markdown.trim().length > 0 &&
-          // The requirement tree already carries this prose.
-          (!requirements ||
-            !REQUIREMENT_SOURCE_SECTION_KEYS.includes(section.sectionKey)),
-      ),
+    // Only Coursemap's fixed sections and relationship meanings are read;
+    // anything else in an older snapshot is not shown.
+    sections: readRecords(value.sections).flatMap<StructureSection>(
+      (section) => {
+        const sectionKey = readString(section.sectionKey);
+        const markdown = readString(section.markdown);
+        return isStructureSectionKey(sectionKey) && markdown.trim()
+          ? [
+              {
+                position: readNumber(section.position),
+                sectionKey,
+                heading: STRUCTURE_SECTION_LABELS[sectionKey],
+                markdown,
+              },
+            ]
+          : [];
+      },
+    ),
     learningOutcomes: readRecords(value.learningOutcomes).map((outcome) => ({
       position: readNumber(outcome.position),
       outcomeText: readString(outcome.outcomeText),
@@ -181,13 +190,24 @@ function structureFromProjection(value: Json): StructureDetails | null {
       sourceLabel: readNullableString(fee.sourceLabel),
       sourceText: readNullableString(fee.sourceText),
     })),
-    relationships: readRecords(value.relationships).map((relationship) => ({
-      position: readNumber(relationship.position),
-      relationshipKind: readString(relationship.relationshipKind, "other"),
-      targetKind: readString(relationship.targetKind, "programme"),
-      targetCode: readString(relationship.targetCode).toUpperCase(),
-      targetTitle: readNullableString(relationship.targetTitle),
-    })),
+    relationships: readRecords(
+      value.relationships,
+    ).flatMap<StructureRelationship>((relationship) => {
+      const relationshipKind = readString(relationship.relationshipKind);
+      const targetKind = readString(relationship.targetKind);
+      return isStructureRelationshipKind(relationshipKind) &&
+        STRUCTURE_KINDS.some((kind) => kind === targetKind)
+        ? [
+            {
+              position: readNumber(relationship.position),
+              relationshipKind,
+              targetKind: targetKind as StructureKind,
+              targetCode: readString(relationship.targetCode).toUpperCase(),
+              targetTitle: readNullableString(relationship.targetTitle),
+            },
+          ]
+        : [];
+    }),
     requirements,
   };
 }

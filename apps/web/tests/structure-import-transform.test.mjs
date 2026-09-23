@@ -218,12 +218,36 @@ test("strict validation rejects extra keys and selected-target mismatches", () =
   const kindMismatch = validateAcademicStructureExtraction(wrongKind);
   assert.equal(kindMismatch.success, false);
 
-  const underscoredSection = structuredClone(extraction);
-  underscoredSection.sections[0].key = "other_information";
+  const unknownSection = structuredClone(extraction);
+  unknownSection.sections[0].key = "other_information";
   assert.equal(
-    validateAcademicStructureExtraction(underscoredSection).success,
-    true,
+    validateAcademicStructureExtraction(unknownSection).success,
+    false,
   );
+
+  const repeatedSection = structuredClone(extraction);
+  repeatedSection.sections[1].key = repeatedSection.sections[0].key;
+  assert.ok(
+    validateAcademicStructureExtraction(repeatedSection).issues.some(
+      ({ path }) => path === "$.sections.1.key",
+    ),
+  );
+
+  const programmeOption = structuredClone(extraction);
+  programmeOption.relationships[0] = {
+    ...programmeOption.relationships[0],
+    targetKind: "programme",
+    targetCode: "BIT",
+  };
+  assert.ok(
+    validateAcademicStructureExtraction(programmeOption).issues.some(
+      ({ path }) => path === "$.relationships.0.targetKind",
+    ),
+  );
+
+  const retiredKind = structuredClone(extraction);
+  retiredKind.relationships[0].relationshipKind = "source_reference";
+  assert.equal(validateAcademicStructureExtraction(retiredKind).success, false);
   assert.ok(
     kindMismatch.issues.some(
       ({ path, message }) =>
@@ -437,9 +461,9 @@ test("projects an explicit nested requirement tree without flattening its logic"
     ],
   );
   assert.deepEqual(projection.sections[0], {
-    position: structured.sections[0].position,
+    position: 1,
     sectionKey: structured.sections[0].key,
-    heading: structured.sections[0].heading,
+    heading: "Fees and scholarships",
     markdown: structured.sections[0].markdown,
     sourceText: structured.sections[0].sourceText,
     sourceLocator: structured.sections[0].sourceLocator,
@@ -463,15 +487,15 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v6",
+    "coursemap-academic-structure-prompt.v7",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
-    "academic-structure-extraction.v3",
+    "academic-structure-extraction.v4",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION,
-    "academic-structure-snapshot.v2",
+    "academic-structure-snapshot.v3",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
@@ -534,11 +558,26 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
       .const,
     "model",
   );
-  assert.equal(
-    ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.$defs.section.properties.key
-      .pattern,
-    "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
+  assert.deepEqual(
+    ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.$defs.section.properties.key.enum,
+    [
+      "study_options",
+      "admission",
+      "careers",
+      "first_year_advice",
+      "advice",
+      "inherent_requirements",
+      "fees_and_scholarships",
+      "further_information",
+      "contacts",
+    ],
   );
+  assert.deepEqual(
+    ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.$defs.relationship.properties
+      .relationshipKind.enum,
+    ["offered_in", "option", "incompatible"],
+  );
+  assert.match(systemPrompt, /titled "Taken with"/);
   assert.match(systemPrompt, /Set method to model/);
   assert.match(systemPrompt, /tidied, never rewritten/);
   assert.match(systemPrompt, /Back to the top/);

@@ -1,21 +1,15 @@
+import type {
+  StructureRelationshipKind,
+  StructureSectionKey,
+} from "@/lib/catalogue/structure-vocabulary";
 import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
 import type { RequirementTreeGroup } from "@/lib/coursemap/requirement-tree-node";
 
 export type StructureKind = Exclude<CatalogueKind, "course">;
 
-/**
- * The ANU page states its requirements once, as prose, and the importer turns
- * that same prose into the requirement tree. Showing the section as well would
- * put the reader through it twice, so the tree stands in for it.
- */
-export const REQUIREMENT_SOURCE_SECTION_KEYS = [
-  "program-requirements",
-  "requirements",
-];
-
 export type StructureSection = {
   position: number;
-  sectionKey: string;
+  sectionKey: StructureSectionKey;
   heading: string;
   markdown: string;
 };
@@ -34,8 +28,8 @@ export type StructureFee = {
 
 export type StructureRelationship = {
   position: number;
-  relationshipKind: string;
-  targetKind: string;
+  relationshipKind: StructureRelationshipKind;
+  targetKind: StructureKind;
   targetCode: string;
   targetTitle: string | null;
 };
@@ -68,16 +62,6 @@ export type StructureDetails = {
   fees: StructureFee[];
   relationships: StructureRelationship[];
   requirements: RequirementTreeGroup | null;
-};
-
-/** Reader-facing names for the stored relationship kinds. */
-export const STRUCTURE_RELATIONSHIP_LABELS: Record<string, string> = {
-  source_reference: "Mentioned by the ANU page",
-  relevant: "Relevant",
-  option: "Option",
-  required: "Required",
-  incompatible: "Cannot be combined",
-  other: "Related",
 };
 
 /** Reader-facing names for the stored fee audiences and bases. */

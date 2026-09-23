@@ -13,6 +13,7 @@ import {
 } from "@/lib/catalogue-import/version-content";
 import {
   CATALOGUE_CONTENT_SCHEMA_VERSION,
+  assertStructureVocabulary,
   emptyCatalogueContent,
   validateCatalogueContent,
   type CatalogueContent,
@@ -348,6 +349,7 @@ export async function saveCatalogueDraft({
 }) {
   assertEditingSession(editingSessionId);
   const content = validateCatalogueContent(submitted);
+  assertStructureVocabulary(content);
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);

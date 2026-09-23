@@ -36,14 +36,13 @@ import { isCatalogueKind } from "@/lib/catalogue/content";
 import type {
   StructureDetails,
   StructureFee,
-  StructureRelationship,
 } from "@/lib/coursemap/structure-types";
 import {
   STRUCTURE_FEE_AUDIENCE_LABELS,
   STRUCTURE_FEE_BASIS_LABELS,
   STRUCTURE_FEE_TYPE_LABELS,
-  STRUCTURE_RELATIONSHIP_LABELS,
 } from "@/lib/coursemap/structure-types";
+import { STRUCTURE_RELATIONSHIP_LABELS } from "@/lib/catalogue/structure-vocabulary";
 import { SectionNavigation } from "@/ui/common/section-navigation";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
 import type { TreeContext } from "@/ui/requirements/requirement-presentation";
@@ -85,67 +84,6 @@ function feeAmount(fee: StructureFee) {
   }).format(fee.amount);
   const basis = STRUCTURE_FEE_BASIS_LABELS[fee.basis] ?? "";
   return basis ? `${amount} ${basis}` : amount;
-}
-
-/**
- * Sections this page already renders from structured data. Printed again as
- * scraped text they doubled the page: the requirements are the Requirements
- * tab's tree, and the outcomes and the indicative fees are cards on the
- * Overview. Matched on the ANU anchor id, which is stable, rather than the
- * heading. Only verified duplicates are listed; "feeinformation" looks like
- * one but carries the amenities fee and how fees are set, so it stays.
- */
-const SECTIONS_RENDERED_ELSEWHERE = new Set([
-  "program-requirements",
-  "learning-outcomes",
-  "indicative-fees",
-]);
-
-/**
- * Sections that are only a list of names the relationships already hold with
- * codes, so they become links. "majors-and-minors" is guidance, not a list,
- * and is left as written.
- */
-const LINKED_LIST_SECTIONS: Record<string, string> = {
-  majors: "major",
-  minors: "minor",
-  specialisations: "specialisation",
-};
-
-function StructureOptionLinks({
-  options,
-  year,
-}: {
-  options: StructureRelationship[];
-  year: number;
-}) {
-  return (
-    <ul className="flex flex-wrap gap-2">
-      {options.map((option) => (
-        <li key={option.targetCode}>
-          <Link
-            href={
-              isCatalogueKind(option.targetKind)
-                ? publicCatalogueRecordPath(
-                    option.targetKind,
-                    year,
-                    option.targetCode,
-                  )
-                : "/courses"
-            }
-            className="inline-flex items-baseline gap-2 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
-          >
-            <span className="font-medium text-foreground">
-              {option.targetTitle ?? option.targetCode}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">
-              {option.targetCode}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
 }
 
 const CODE_LINE = /^[A-Z]{4}[0-9]{4}[A-Z]?$|^[A-Z0-9][A-Z0-9-]{1,31}$/u;
@@ -228,22 +166,7 @@ export function StructureDetailView({
     ["Study as", structure.studyAs],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
 
-  const informationSections = structure.sections.filter(
-    (section) => !SECTIONS_RENDERED_ELSEWHERE.has(section.sectionKey),
-  );
-  // A structure is listed once as an option and again as merely relevant, so
-  // only the options count, and each code appears once.
-  const optionsByKind = (kind: string) => [
-    ...new Map(
-      structure.relationships
-        .filter(
-          (relationship) =>
-            relationship.relationshipKind === "option" &&
-            relationship.targetKind === kind,
-        )
-        .map((relationship) => [relationship.targetCode, relationship]),
-    ).values(),
-  ];
+  const informationSections = structure.sections;
 
   return (
     <div className="w-full">
@@ -407,9 +330,11 @@ export function StructureDetailView({
                             ) : null}
                           </span>
                           <span className="shrink-0 text-xs text-muted-foreground">
-                            {STRUCTURE_RELATIONSHIP_LABELS[
-                              relationship.relationshipKind
-                            ] ?? "Related"}
+                            {
+                              STRUCTURE_RELATIONSHIP_LABELS[
+                                relationship.relationshipKind
+                              ]
+                            }
                           </span>
                         </Link>
                       </li>
@@ -453,32 +378,21 @@ export function StructureDetailView({
                 label: section.heading,
               }))}
             />
-            {informationSections.map((section) => {
-              const optionKind = LINKED_LIST_SECTIONS[section.sectionKey];
-              const options = optionKind ? optionsByKind(optionKind) : [];
-              return (
-                <Card
-                  key={section.sectionKey}
-                  id={sectionAnchor(section.sectionKey)}
-                >
-                  <CardHeader>
-                    <CardTitle>
-                      <h2>{section.heading}</h2>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="border-t border-border/60 pt-5">
-                    {options.length ? (
-                      <StructureOptionLinks
-                        options={options}
-                        year={structure.year}
-                      />
-                    ) : (
-                      <SectionLines markdown={section.markdown} />
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {informationSections.map((section) => (
+              <Card
+                key={section.sectionKey}
+                id={sectionAnchor(section.sectionKey)}
+              >
+                <CardHeader>
+                  <CardTitle>
+                    <h2>{section.heading}</h2>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="border-t border-border/60 pt-5">
+                  <SectionLines markdown={section.markdown} />
+                </CardContent>
+              </Card>
+            ))}
           </>
         ) : (
           <Empty className="rounded-xl border border-dashed bg-card py-12">

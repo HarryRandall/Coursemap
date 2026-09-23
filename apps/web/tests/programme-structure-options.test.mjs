@@ -3,18 +3,19 @@ import { test } from "vitest";
 
 import { collectSelectableStructureCodes } from "../lib/coursemap/programme-structure-options.ts";
 
-test("keeps only explicit programme structure relationship semantics", () => {
+test("keeps only a programme's options as student choices", () => {
   const codes = collectSelectableStructureCodes({
     programmeVersionIds: new Set([101]),
     relationships: [
-      relationship("required", "MATH-MAJ"),
+      relationship("option", "MATH-MAJ"),
       relationship("option", "COMP-MAJ"),
-      relationship("source_reference", "STAT-MAJ"),
-      relationship("relevant", "PHYS-MAJ"),
+      relationship("offered_in", "STAT-MAJ"),
       relationship("incompatible", "ANTH-MAJ"),
-      relationship("other", "ECON-MAJ"),
-      relationship("required", "DATA-MIN", "minor"),
-      { ...relationship("required", "CHEM-MAJ"), version_id: 202 },
+      // Kinds older snapshots used are no longer choices.
+      relationship("required", "PHYS-MAJ"),
+      relationship("source_reference", "ECON-MAJ"),
+      relationship("option", "DATA-MIN", "minor"),
+      { ...relationship("option", "CHEM-MAJ"), version_id: 202 },
     ],
     requirementConditions: [],
     requirementOptions: [],
