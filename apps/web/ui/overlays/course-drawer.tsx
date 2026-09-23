@@ -90,7 +90,7 @@ export function CourseDrawer({
     : undefined;
   const remove = async () => {
     const result = await removeAttempt(attempt.id);
-    notify(result.message, result.ok ? "success" : "warning");
+    notify(result.message, result.ok ? "success" : "error");
     if (result.ok) onClose();
   };
 
@@ -423,14 +423,12 @@ export function CourseDrawer({
               variant="outline"
               size="sm"
               disabled={recorded || unitSelectionMissing}
+              aria-pressed={attempt.status === "completed"}
               className={cn(
-                cn(
-                  attempt.status === "completed" &&
-                    "!bg-card !text-emerald-700 !ring-emerald-300 hover:!bg-emerald-50 disabled:opacity-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900",
-                  attempt.status !== "completed" &&
-                    "hover:!bg-emerald-50 hover:!text-emerald-700 hover:!ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900",
-                ),
                 "w-full",
+                attempt.status === "completed"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                  : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
               )}
               onClick={async () => {
                 const result = await updateAttempt(
@@ -443,7 +441,7 @@ export function CourseDrawer({
                   result.ok
                     ? `${course.code} marked as completed`
                     : result.message,
-                  result.ok ? "success" : "warning",
+                  result.ok ? "success" : "error",
                 );
               }}
               type="button"
@@ -455,13 +453,12 @@ export function CourseDrawer({
               variant={attempt.status === "failed" ? "destructive" : "outline"}
               size="sm"
               disabled={recorded || unitSelectionMissing}
+              aria-pressed={attempt.status === "failed"}
               className={cn(
-                cn(
-                  attempt.status === "failed" && "opacity-100",
-                  attempt.status !== "failed" &&
-                    "hover:!bg-rose-50 hover:!text-rose-700 hover:!ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
-                ),
                 "w-full",
+                attempt.status === "failed"
+                  ? "disabled:opacity-100"
+                  : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
               )}
               onClick={async () => {
                 const result = await updateAttempt(
@@ -474,7 +471,7 @@ export function CourseDrawer({
                   result.ok
                     ? `${course.code} recorded as a failed attempt`
                     : result.message,
-                  result.ok ? "success" : "warning",
+                  result.ok ? "success" : "error",
                 );
               }}
               type="button"
@@ -487,7 +484,7 @@ export function CourseDrawer({
               size="sm"
               disabled={recorded}
               onClick={() => void remove()}
-              className={cn(undefined, "w-full")}
+              className="w-full"
               type="button"
             >
               <Trash2 size={14} />

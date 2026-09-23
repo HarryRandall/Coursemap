@@ -107,7 +107,7 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
         router.refresh();
       } catch {
         setSelected(null);
-        toast.error("An unexpected error occurred");
+        notify("We couldn't save that result. Try again.", "error");
       }
     });
   }
