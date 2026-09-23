@@ -1,7 +1,7 @@
 import "server-only";
-import type { PostgrestError } from "@supabase/supabase-js";
 import { emptyCatalogueContent } from "@/lib/catalogue/content";
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
+import { readAllRows } from "@/lib/supabase/read-all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CatalogueDirectoryPage,
@@ -14,25 +14,6 @@ import { catalogueRecordState } from "./catalogue-kinds";
 export * from "./catalogue-kinds";
 
 const PAGE_SIZE = 50;
-const ROW_PAGE_SIZE = 1000;
-
-async function readAllRows<Row>(
-  readPage: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{
-    data: Row[] | null;
-    error: PostgrestError | null;
-  }>,
-) {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += ROW_PAGE_SIZE) {
-    const { data, error } = await readPage(from, from + ROW_PAGE_SIZE - 1);
-    if (error) return { data: rows, error };
-    rows.push(...(data ?? []));
-    if ((data?.length ?? 0) < ROW_PAGE_SIZE) return { data: rows, error: null };
-  }
-}
 
 export async function loadCatalogueYears() {
   const supabase = await createClient();

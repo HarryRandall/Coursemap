@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Profile } from "@/app/providers";
-import type { AttemptStatus } from "@/lib/coursemap/types";
+import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
+import type { AttemptStatus, Profile } from "@/lib/coursemap/types";
 import { createClient } from "@/lib/supabase/server";
 
 export type CoursemapActionResult = {
@@ -13,19 +13,6 @@ export type CoursemapActionResult = {
   unitsAttempted?: number;
   unitsEarned?: number;
 };
-
-const STUDENT_NUMBER_PATTERN = /^u\d{7}$/;
-
-function normaliseStudentNumber(value: string) {
-  const studentNumber = value.trim().toLowerCase();
-  if (!studentNumber) return "";
-  if (!STUDENT_NUMBER_PATTERN.test(studentNumber)) {
-    throw new Error(
-      "Enter a student number in the format u1234567, or leave it blank.",
-    );
-  }
-  return studentNumber;
-}
 
 function termParts(termId: string) {
   if (termId === "unscheduled") {
@@ -53,6 +40,13 @@ export async function saveProfileAndPlan(
 ): Promise<CoursemapActionResult> {
   try {
     const studentNumber = normaliseStudentNumber(profile.studentId);
+    if (studentNumber === null) {
+      return {
+        ok: false,
+        message:
+          "Enter a student number in the format u1234567, or leave it blank.",
+      };
+    }
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
       "save_current_user_primary_plan",
@@ -151,6 +145,7 @@ export async function removePlanCourse(
       { p_plan_item_id: planItemId },
     );
     if (error) throw error;
+    if (data) revalidatePath("/plan");
     return data
       ? { ok: true, message: "Course removed from the plan" }
       : { ok: false, message: "Course was not found in your plan" };

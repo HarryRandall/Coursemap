@@ -49,35 +49,35 @@ function isSelectableStructureKind(
  * become student choices.
  */
 export function collectSelectableStructureCodes({
-  programmeSnapshotIds,
+  programmeVersionIds,
   relationships,
   requirementConditions,
   requirementOptions,
 }: {
-  programmeSnapshotIds: ReadonlySet<number>;
+  programmeVersionIds: ReadonlySet<number>;
   relationships: readonly ProgrammeStructureRelationship[];
   requirementConditions: readonly ProgrammeStructureRequirementCondition[];
   requirementOptions: readonly ProgrammeStructureRequirementOption[];
 }) {
-  const codesBySnapshotId = new Map<
+  const codesByVersionId = new Map<
     number,
     Record<SelectableStructureKind, Set<string>>
   >();
   const addCode = (
-    snapshotId: number,
+    versionId: number,
     kind: SelectableStructureKind,
     code: string,
   ) => {
-    if (!programmeSnapshotIds.has(snapshotId)) return;
+    if (!programmeVersionIds.has(versionId)) return;
     const codes =
-      codesBySnapshotId.get(snapshotId) ??
+      codesByVersionId.get(versionId) ??
       ({
         major: new Set<string>(),
         minor: new Set<string>(),
         specialisation: new Set<string>(),
       } satisfies Record<SelectableStructureKind, Set<string>>);
     codes[kind].add(code.toUpperCase());
-    codesBySnapshotId.set(snapshotId, codes);
+    codesByVersionId.set(versionId, codes);
   };
 
   for (const relationship of relationships) {
@@ -102,7 +102,7 @@ export function collectSelectableStructureCodes({
   >();
   for (const condition of requirementConditions) {
     if (
-      programmeSnapshotIds.has(condition.version_id) &&
+      programmeVersionIds.has(condition.version_id) &&
       condition.condition_kind === "structure_set" &&
       isSelectableStructureKind(condition.structure_kind)
     ) {
@@ -125,8 +125,8 @@ export function collectSelectableStructureCodes({
   }
 
   return new Map<number, SelectableStructureCodes>(
-    [...codesBySnapshotId].map(([snapshotId, codes]) => [
-      snapshotId,
+    [...codesByVersionId].map(([versionId, codes]) => [
+      versionId,
       {
         major: [...codes.major].sort(),
         minor: [...codes.minor].sort(),
