@@ -193,6 +193,23 @@ test("keeps a malformed requirement branch as its wording, not the whole tree", 
   );
 });
 
+test("accepts a section gathered from several places on the page", () => {
+  const model = structuredClone(extraction);
+  model.sections[0].sourceText = [
+    extraction.sections[1].sourceText,
+    extraction.fees[0].sourceText,
+  ].join("\n\n");
+  assert.equal(finalise(model).warningCount, 0);
+});
+
+test("reads a missing unmodelled list as none", () => {
+  const model = structuredClone(extraction);
+  delete model.requirements.unmodelledText;
+  const { extraction: finalised, errorCount } = finalise(model);
+  assert.equal(errorCount, 0);
+  assert.deepEqual(finalised.requirements.unmodelledText, []);
+});
+
 test("does not store the introduction twice when the model repeats it", () => {
   const model = structuredClone(extraction);
   model.description = model.introduction;
