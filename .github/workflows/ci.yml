@@ -203,3 +203,47 @@ jobs:
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
+
+  production-database:
+    name: Apply production migrations
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - quality
+      - routes
+      - database
+      - browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: Production
+    env:
+      SUPABASE_POOLER_URL: postgresql://postgres.mogdmhkqkpvksvtvwdgl@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.114.0
+
+      - name: Prepare production database connection
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: >-
+          node -e 'const fs = require("node:fs"); const url = new
+          URL(process.env.SUPABASE_POOLER_URL); url.password =
+          process.env.SUPABASE_DB_PASSWORD;
+          fs.appendFileSync(process.env.GITHUB_ENV,
+          `SUPABASE_DB_URL=${url.href}\n`);'
+
+      - name: Preview production migrations
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
+
+      - name: Apply production migrations
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
