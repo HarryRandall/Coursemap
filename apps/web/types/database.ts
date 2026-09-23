@@ -2039,6 +2039,51 @@ export type Database = {
           },
         ]
       }
+      catalogue_version_flags: {
+        Row: {
+          code: string
+          field_path: string | null
+          id: number
+          message: string
+          position: number
+          severity: string
+          version_id: number
+        }
+        Insert: {
+          code: string
+          field_path?: string | null
+          id?: never
+          message: string
+          position: number
+          severity: string
+          version_id: number
+        }
+        Update: {
+          code?: string
+          field_path?: string | null
+          id?: never
+          message?: string
+          position?: number
+          severity?: string
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_version_flags_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_version_flags_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["version_id"]
+          },
+        ]
+      }
       catalogue_version_provenance: {
         Row: {
           academic_year_id: number
@@ -4272,4 +4317,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
