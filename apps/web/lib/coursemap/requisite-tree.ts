@@ -148,11 +148,8 @@ export type RequisiteGraph = {
   /** Furthest prerequisite column, counting left from the course itself. */
   maximumDepth: number;
   nodes: RequisiteGraphNode[];
-  /**
-   * Where the upstream side came from: the reviewed rule tree, the flat course
-   * codes detected in the prerequisite prose, or nothing at all.
-   */
-  source: "none" | "references" | "rule";
+  /** Whether the upstream side came from the rule tree or there is none. */
+  source: "none" | "rule";
 };
 
 const GRAPH_COURSE_CODE = /^[A-Z]{4}\d{4}[A-Z]?$/u;
@@ -293,17 +290,6 @@ export function buildRequisiteGraph({
     };
     attach(expression, currentId, 1, false);
     if (nodes.length > 1) source = "rule";
-  }
-
-  if (source === "none") {
-    // No reviewed tree: fall back to the course codes detected upstream, which
-    // carry no operator and are labelled as detected rather than as the rule.
-    for (const edge of prerequisiteEdges) {
-      if (edge.to !== code || edge.from === code) continue;
-      const id = addCourseNode(edge.from, 1, null);
-      edges.push({ from: id, to: currentId, alternative: false });
-      source = "references";
-    }
   }
 
   // Chain further upstream from every course the rule names, so a prerequisite

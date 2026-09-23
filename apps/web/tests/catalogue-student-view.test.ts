@@ -107,9 +107,9 @@ test("a draft reads as a course through the published mapping", () => {
     { position: 1, body: "Reason about trust boundaries." },
   ]);
   assert.equal(course.prerequisiteText, "COMP1100 or COMP1130");
-  // The codes come from the rule's own reference and from its wording, the
-  // same way a published read builds them.
-  assert.deepEqual(course.prerequisiteCodes, ["COMP1100", "COMP1130"]);
+  // The codes come from the rule itself, the same way a published read builds
+  // them. COMP1130 appears only in the wording, which is never scanned.
+  assert.deepEqual(course.prerequisiteCodes, ["COMP1100"]);
   assert.ok(course.prerequisiteRule);
 });
 

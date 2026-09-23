@@ -12,6 +12,39 @@ import type { Json } from "@/types/database";
  * deliberately absent: they are computed over published courses only, and
  * their absence is how the view knows the question was never asked.
  */
+/**
+ * The course codes a prerequisite rule names, collected as
+ * `private.course_version_projection` collects `prerequisiteCodes`: from the
+ * rule's references, its course conditions and its course options.
+ */
+function prerequisiteCodesFromWrite(write: CatalogueContent) {
+  const requirements = write.requirements;
+  const prerequisiteConditions = requirements.conditions.filter(
+    (condition) => condition.ruleKey === "prerequisite",
+  );
+  const conditionKeys = new Set(
+    prerequisiteConditions.map((condition) => condition.key),
+  );
+  return [
+    ...new Set([
+      ...requirements.references
+        .filter((reference) => reference.ruleKey === "prerequisite")
+        .map((reference) => reference.code),
+      ...prerequisiteConditions.flatMap((condition) =>
+        condition.kind === "course" && condition.itemCode
+          ? [condition.itemCode]
+          : [],
+      ),
+      ...requirements.options
+        .filter(
+          (option) =>
+            option.kind === "course" && conditionKeys.has(option.conditionKey),
+        )
+        .map((option) => option.code),
+    ]),
+  ].sort();
+}
+
 function courseProjectionFromWrite(write: CatalogueContent): Json {
   const course = write.course;
   if (!course) return null;
@@ -98,6 +131,7 @@ function courseProjectionFromWrite(write: CatalogueContent): Json {
       reviewState: reference.reviewState,
       confidence: reference.confidence,
     })),
+    prerequisiteCodes: prerequisiteCodesFromWrite(write),
     sourceUpdatedAt: course.details.sourceUpdatedAt,
   } as unknown as Json;
 }
