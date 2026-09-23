@@ -119,6 +119,80 @@ test("warns about wording the page does not contain without dropping it", () => 
   );
 });
 
+function condition(key, overrides = {}) {
+  return {
+    type: "condition",
+    key,
+    conditionKind: "course_list",
+    minimumUnits: 6,
+    maximumUnits: null,
+    minimumCourses: null,
+    courseCodes: ["COMP1100"],
+    structureKind: null,
+    structureCodes: [],
+    subjectCode: null,
+    minimumLevel: null,
+    maximumLevel: null,
+    tag: null,
+    freeText: null,
+    sourceText: extraction.requirements.sourceText,
+    sourceLocator: "#program-requirements",
+    ...overrides,
+  };
+}
+
+function requirementTree(children) {
+  return {
+    type: "group",
+    key: "requirements:root",
+    operator: "all_of",
+    minimumCount: null,
+    title: null,
+    sourceText: extraction.requirements.sourceText,
+    sourceLocator: "#program-requirements",
+    children,
+  };
+}
+
+test("clears a minimum count the operator does not use", () => {
+  const model = structuredClone(extraction);
+  model.requirements.rule = requirementTree([
+    {
+      ...requirementTree([condition("a"), condition("b")]),
+      key: "requirements:choice",
+      operator: "any_of",
+      minimumCount: 1,
+    },
+  ]);
+  const { extraction: finalised, errorCount } = finalise(model);
+  assert.equal(errorCount, 0);
+  assert.equal(finalised.requirements.rule.children[0].minimumCount, null);
+  assert.equal(finalised.requirements.rule.children[0].children.length, 2);
+});
+
+test("keeps a malformed requirement branch as its wording, not the whole tree", () => {
+  const model = structuredClone(extraction);
+  model.requirements.rule = requirementTree([
+    condition("kept"),
+    condition("broken", {
+      minimumUnits: -6,
+      sourceText: "12 units from a list the model misread",
+    }),
+  ]);
+  const { extraction: finalised, errorCount } = finalise(model);
+  assert.equal(errorCount, 0);
+  const [kept, broken] = finalised.requirements.rule.children;
+  assert.equal(kept.conditionKind, "course_list");
+  assert.equal(broken.conditionKind, "free_text");
+  assert.equal(broken.freeText, "12 units from a list the model misread");
+  assert.ok(
+    finalised.reviewItems.some(
+      ({ fieldKey, kind }) =>
+        fieldKey === "requirements.rule.children.1" && kind === "ambiguous",
+    ),
+  );
+});
+
 test("does not store the introduction twice when the model repeats it", () => {
   const model = structuredClone(extraction);
   model.description = model.introduction;

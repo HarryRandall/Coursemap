@@ -8,6 +8,7 @@ import {
 import {
   ensureRequirementRootGroup,
   normaliseAcademicStructureModelExtraction,
+  repairRequirementNodes,
 } from "./model-canonical.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
@@ -107,8 +108,29 @@ export function finaliseAcademicStructureExtraction({
   const normalised = normaliseAcademicStructureModelExtraction(
     withModelEvidenceMethod(model),
   );
+  const validate = (candidate: unknown) =>
+    validateAcademicStructureExtraction(candidate, {
+      expectedKind: kind,
+      expectedCode: code,
+      expectedYear: year,
+    });
+  // A malformed requirement branch becomes labelled text before salvage, so
+  // it costs only that branch rather than the whole tree.
+  let candidate = normalised.value;
+  const repairedRequirements: string[] = [];
+  for (let pass = 0; pass < 5; pass += 1) {
+    const validation = validate(candidate);
+    if (validation.success) break;
+    const repair = repairRequirementNodes(
+      candidate,
+      validation.issues.map(({ path }) => path),
+    );
+    if (repair.repairedPaths.length === 0) break;
+    candidate = repair.value;
+    repairedRequirements.push(...repair.repairedPaths);
+  }
   const { extraction, dropped } = salvageModelExtraction({
-    value: normalised.value,
+    value: candidate,
     empty: emptyAcademicStructureExtraction({
       kind,
       code,
@@ -116,12 +138,7 @@ export function finaliseAcademicStructureExtraction({
       title: listingTitle,
     }),
     fixedKeys: STRUCTURE_IDENTITY_FIELDS,
-    validate: (candidate) =>
-      validateAcademicStructureExtraction(candidate, {
-        expectedKind: kind,
-        expectedCode: code,
-        expectedYear: year,
-      }),
+    validate,
   });
 
   const unsupported = unsupportedModelWording(extraction, pageMarkdown);
@@ -138,6 +155,13 @@ export function finaliseAcademicStructureExtraction({
           },
         ]
       : []),
+    ...repairedRequirements.map((fieldKey) => ({
+      fieldKey,
+      kind: "ambiguous" as const,
+      severity: "warning" as const,
+      message:
+        "The model's structure for this requirement did not fit the contract, so it is kept as the page's wording. Structure it in the requirement editor.",
+    })),
     ...dropped.map(({ fieldKey, messages }) => ({
       fieldKey,
       kind: "invalid" as const,
@@ -180,6 +204,7 @@ export function finaliseAcademicStructureExtraction({
       responseError,
       responseProblem: problem,
       providerNormalisations: normalised.normalisations,
+      repairedRequirements,
       droppedFields: dropped,
       unsupportedWording: unsupported,
     },
