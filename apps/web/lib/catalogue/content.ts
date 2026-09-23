@@ -118,7 +118,7 @@ export type RequirementWrite = {
 
 export type CatalogueVersionProvenance = {
   fieldPath: string;
-  method: "deterministic" | "model" | "manual";
+  method: "model" | "manual";
   confidence: number | null;
   sourceLocator: string | null;
   sourceExcerpt: string | null;

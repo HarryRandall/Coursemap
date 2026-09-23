@@ -20,26 +20,17 @@ export type ValidationOutcome = {
   issues: Array<{ path: string; message: string }>;
 };
 
-export type MergeOutcome<Extraction> = {
+export type FinaliseOutcome<Extraction> = {
   extraction: Extraction;
-  /** Whether the model output passed strict validation before merging. */
-  modelValid: boolean;
   warningCount: number;
   errorCount: number;
   report: unknown;
-  /**
-   * Set when the model output was discarded. The processor records it on the
-   * sync so a source version built from deterministic parsing alone says so.
-   */
-  errorCode?: string | null;
-  /** The reason, for `catalogue_extractions.error_summary`. */
-  errorSummary?: string | null;
 };
 
 /**
- * Everything kind-specific about a sync: where the page lives, how it
- * becomes Markdown and model input, the deterministic parser, the model
- * contract and how a merged extraction becomes version rows. The processor
+ * Everything kind-specific about a sync: where the page lives, how it becomes
+ * model input, the model contract and how the finalised extraction becomes
+ * version rows. The model owns every field of the extraction; the processor
  * owns stages, artefacts, leases and persistence.
  */
 export type CatalogueSyncAdapter<Extraction = unknown> = {
@@ -56,31 +47,28 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
     claim: ClaimedCatalogueSync,
     options: { signal?: AbortSignal },
   ): Promise<FetchedSourcePage>;
-  /** Normalised Markdown for the audit trail and the trimmed model input. */
-  prepareInput(
-    claim: ClaimedCatalogueSync,
-    page: FetchedSourcePage,
-  ): { markdown: string; modelInput: string };
+  /** The whole page as Markdown, which is also the model input. */
+  prepareInput(claim: ClaimedCatalogueSync, page: FetchedSourcePage): string;
   buildSystemPrompt(): string;
-  buildUserPrompt(claim: ClaimedCatalogueSync, modelInput: string): string;
-  extractDeterministic(
-    claim: ClaimedCatalogueSync,
-    page: FetchedSourcePage,
-  ): Extraction;
-  /** Strict validation of raw model output against the extraction contract. */
+  buildUserPrompt(claim: ClaimedCatalogueSync, pageMarkdown: string): string;
+  /** Strict validation of raw model output, recorded for the audit trail. */
   validateModelOutput(
     claim: ClaimedCatalogueSync,
     value: unknown,
   ): ValidationOutcome;
-  merge(input: {
+  /**
+   * The stored extraction: every part of the response that fits the contract,
+   * with review items for what did not and for wording the page lacks.
+   */
+  finalise(input: {
     claim: ClaimedCatalogueSync;
-    deterministic: Extraction;
+    /** The directory title, used only when the model gives none. */
+    listingTitle: string | null;
     model: unknown;
-    modelValid: boolean;
-    modelInput: string;
+    pageMarkdown: string;
     responseError: string | null;
     /** The provider's stop reason; `length` means the response was truncated. */
     finishReason: string | null;
-  }): MergeOutcome<Extraction>;
+  }): FinaliseOutcome<Extraction>;
   project(extraction: Extraction): CatalogueContent;
 };

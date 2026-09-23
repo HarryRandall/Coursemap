@@ -21,6 +21,7 @@ import {
   finishCatalogueSync,
   finishSyncStage,
   getCatalogueSyncStatus,
+  readListingTitle,
   recordSourceDocument,
   recordSyncArtifact,
   releaseCatalogueSyncForRetry,
@@ -312,22 +313,25 @@ async function processClaimedSync({
       if (page.sourceError) throw page.sourceError;
     });
 
-    const prepared = await runStage("markdown_normalise", async (stageId) => {
-      const result = adapter.prepareInput(claim, page);
-      await persistArtifact({
-        stageId,
-        stageName: "markdown_normalise",
-        kind: "normalised_markdown",
-        mediaType: "text/markdown",
-        body: result.markdown,
-      });
-      return result;
-    });
+    const pageMarkdown = await runStage(
+      "markdown_normalise",
+      async (stageId) => {
+        const markdown = adapter.prepareInput(claim, page);
+        await persistArtifact({
+          stageId,
+          stageName: "markdown_normalise",
+          kind: "normalised_markdown",
+          mediaType: "text/markdown",
+          body: markdown,
+        });
+        return markdown;
+      },
+    );
 
     const userPrompt = await runStage(
       "model_input_prepare",
       async (stageId) => {
-        const prompt = adapter.buildUserPrompt(claim, prepared.modelInput);
+        const prompt = adapter.buildUserPrompt(claim, pageMarkdown);
         await persistArtifact({
           stageId,
           stageName: "model_input_prepare",
@@ -336,21 +340,6 @@ async function processClaimedSync({
           body: prompt,
         });
         return prompt;
-      },
-    );
-
-    const deterministic = await runStage(
-      "deterministic_extract",
-      async (stageId) => {
-        const result = adapter.extractDeterministic(claim, page);
-        await persistArtifact({
-          stageId,
-          stageName: "deterministic_extract",
-          kind: "deterministic_output",
-          mediaType: "application/json",
-          body: stableStringify(result),
-        });
-        return result;
       },
     );
 
@@ -493,13 +482,12 @@ async function processClaimedSync({
       adapter.validateModelOutput(claim, modelResult.result.parsed),
     );
 
-    const merged = await runStage("domain_validate", async (stageId) => {
-      const outcome = adapter.merge({
+    const finalised = await runStage("domain_validate", async (stageId) => {
+      const outcome = adapter.finalise({
         claim,
-        deterministic,
+        listingTitle: await readListingTitle(sql, claim.recordId),
         model: modelResult.result.parsed,
-        modelValid: modelValidation.success,
-        modelInput: userPrompt,
+        pageMarkdown,
         responseError: modelResult.result.responseError,
         finishReason: modelResult.result.finishReason,
       });
@@ -527,20 +515,19 @@ async function processClaimedSync({
         extractionId: modelResult.extractionId,
         validatedArtifactId: validated.id,
         schemaValid: modelValidation.success,
-        domainValid: outcome.modelValid && outcome.errorCount === 0,
+        domainValid: outcome.errorCount === 0,
         warningCount: outcome.warningCount,
         errorCount: outcome.errorCount,
         errorSummary:
-          outcome.errorSummary ??
-          (outcome.modelValid && outcome.errorCount === 0
+          outcome.errorCount === 0
             ? null
-            : "The model response failed strict extraction validation; deterministic data was retained."),
+            : `${outcome.errorCount} part${outcome.errorCount === 1 ? "" : "s"} of the model response could not be used and need review.`,
       });
       return outcome;
     });
 
     const write = await runStage("content_project", async (stageId) => {
-      const result = adapter.project(merged.extraction);
+      const result = adapter.project(finalised.extraction);
       await persistArtifact({
         stageId,
         stageName: "content_project",
@@ -569,8 +556,8 @@ async function processClaimedSync({
       status: persisted.status,
       sourceDocumentId,
       sourceVersionId: persisted.sourceVersionId,
-      errorCode: merged.errorCode ?? null,
-      errorMessage: merged.errorSummary ?? null,
+      errorCode: null,
+      errorMessage: null,
     });
   } catch (error) {
     const code = syncErrorCode(error);

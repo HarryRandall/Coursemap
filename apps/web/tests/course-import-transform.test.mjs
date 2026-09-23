@@ -10,15 +10,7 @@ import {
   COURSE_EXTRACTION_JSON_SCHEMA,
   validateCourseExtraction,
 } from "../lib/catalogue-import/kinds/course/contract.ts";
-import { extractDeterministicCourse } from "../lib/catalogue-import/kinds/course/deterministic.ts";
-import {
-  buildCourseModelInput,
-  convertCourseHtmlToMarkdown,
-} from "../lib/catalogue-import/kinds/course/markdown.ts";
-import {
-  checkCourseExtractionEvidence,
-  mergeCourseExtractions,
-} from "../lib/catalogue-import/kinds/course/merge.ts";
+import { finaliseCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
 import {
   canonicaliseCourseModelExtraction,
   courseModelCanonicalisationReviewItem,
@@ -30,219 +22,119 @@ import {
 } from "../lib/catalogue-import/kinds/course/prompt.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 
-const sourceUrl = "https://programsandcourses.anu.edu.au/2026/course/COMP2400";
-const html = await readFile(
-  new URL(
-    "./fixtures/course-import/anu-2026-comp2400-rich.html",
-    import.meta.url,
+// A complete, valid extraction of the reduced COMP2400 page in
+// fixtures/course-import, in the shape the model returns.
+const extraction = JSON.parse(
+  await readFile(
+    new URL(
+      "./fixtures/course-import/anu-2026-comp2400-extraction.json",
+      import.meta.url,
+    ),
+    "utf8",
   ),
-  "utf8",
 );
+const pageMarkdown = JSON.stringify(extraction);
 
-const markdown = convertCourseHtmlToMarkdown({
-  html,
-  courseCode: "COMP2400",
-  year: 2026,
-  sourceUrl,
-});
-const selected = buildCourseModelInput(markdown.markdown, 2026);
-const deterministic = extractDeterministicCourse({
-  html,
-  courseCode: "COMP2400",
-  year: 2026,
-  sourceUrl,
-});
-
-test("preserves rich and unknown sections in deterministic Markdown", () => {
-  assert.match(markdown.markdown, /## Fees/);
-  assert.match(markdown.markdown, /## Learning Outcomes/);
-  assert.match(markdown.markdown, /## Indicative Assessment/);
-  assert.match(markdown.markdown, /## Workload/);
-  assert.match(markdown.markdown, /## Research-led teaching/);
-  assert.match(
-    markdown.markdown,
-    /This previously unknown section must remain inspectable/,
-  );
-  assert.match(markdown.markdown, /### 2026/);
-  assert.match(markdown.markdown, /### 2027/);
-  assert.doesNotMatch(markdown.markdown, /Repeated site navigation/);
-  assert.ok(
-    markdown.statistics.outputCharacters < markdown.statistics.inputCharacters,
-  );
-});
-
-test("builds a shorter model input containing only selected-year offerings", () => {
-  assert.match(selected.modelInput, /### 2026/);
-  assert.match(selected.modelInput, /23 Feb 2026/);
-  assert.doesNotMatch(selected.modelInput, /### 2027/);
-  assert.doesNotMatch(selected.modelInput, /22 Feb 2027/);
-  assert.ok(selected.modelInput.length < markdown.markdown.length);
-  assert.ok(selected.includedSections.includes("Research-led teaching"));
-  assert.equal(
-    selected.modelInput.match(/^## Offerings, Dates and Class Summary Links$/gm)
-      ?.length,
-    1,
-  );
-  assert.match(
-    selected.modelInput,
-    /\[View\]\(https:\/\/programsandcourses\.anu\.edu\.au\/course\/COMP2400\/First%20Semester\/1234\)/,
-  );
-  assert.doesNotMatch(selected.modelInput, /\[View\]\(COMP2400\)/);
-});
-
-test("keeps ordinary ANU entity links compact without trusting external class links", () => {
-  const linkedHtml = html.replace(
-    "successfully completed COMP1100",
-    'successfully completed <a href="/2026/course/COMP1100#overview">Introduction to Computing</a>',
-  );
-  const linked = convertCourseHtmlToMarkdown({
-    html: linkedHtml,
-    courseCode: "COMP2400",
+function finalise(model, overrides = {}) {
+  return finaliseCourseExtraction({
+    code: "COMP2400",
     year: 2026,
-    sourceUrl,
+    listingTitle: "Relational Databases",
+    model,
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+    ...overrides,
   });
-  assert.match(linked.markdown, /\[Introduction to Computing\]\(COMP1100\)/);
-  assert.match(
-    linked.markdown,
-    /https:\/\/programsandcourses\.anu\.edu\.au\/course\/COMP2400\/First%20Semester\/1234/,
-  );
+}
 
-  const external = convertCourseHtmlToMarkdown({
-    html: html.replace(
-      "/course/COMP2400/First%20Semester/1234",
-      "https://evil.example/course/COMP2400/First%20Semester/1234",
-    ),
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-  assert.doesNotMatch(external.markdown, /evil\.example/);
-  assert.doesNotMatch(external.markdown, /\[View\]\(COMP2400\)/);
-});
-
-test("does not duplicate nested secondary headings as top-level sections", () => {
-  const nestedHeadingHtml = html
-    .replace("<body>", '<body><div class="body__inner">')
-    .replace("</body>", "</div></body>")
-    .replace(
-      '<div id="indicative-fees__domestic">',
-      '<div><h2>Course fees</h2><p>Domestic and international</p></div><div id="indicative-fees__domestic">',
-    );
-  const converted = convertCourseHtmlToMarkdown({
-    html: nestedHeadingHtml,
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-  const input = buildCourseModelInput(converted.markdown, 2026);
-  assert.equal(input.modelInput.match(/^## Course fees$/gm)?.length, 1);
-});
-
-test("deterministically extracts every rich course section and excludes future classes", () => {
-  assert.equal(deterministic.code, "COMP2400");
-  assert.equal(deterministic.title, "Relational Databases");
-  assert.deepEqual(deterministic.unitValue, { kind: "fixed", units: 6 });
-  assert.equal(deterministic.school, "School of Computing");
-  assert.equal(deterministic.college, "ANU College of Systems and Society");
-  assert.deepEqual(deterministic.areasOfInterest, [
-    "Information Technology",
-    "Software Engineering",
-  ]);
-  assert.equal(deterministic.workloadHours, 130);
-  assert.equal(deterministic.fees.length, 3);
-  assert.deepEqual(
-    deterministic.fees.map(({ audience, amount, studentContributionBand }) => ({
-      audience,
-      amount,
-      studentContributionBand,
-    })),
-    [
-      {
-        audience: "commonwealth_supported",
-        amount: null,
-        studentContributionBand: 2,
-      },
-      { audience: "domestic", amount: 5520, studentContributionBand: null },
-      {
-        audience: "international",
-        amount: 7020,
-        studentContributionBand: null,
-      },
-    ],
-  );
-  assert.deepEqual(
-    deterministic.learningOutcomes.map(({ text }) => text),
-    [
-      "Design a normalised relational schema.",
-      "Write and evaluate relational queries.",
-    ],
-  );
-  assert.deepEqual(
-    deterministic.assessmentItems.map(({ weight }) => weight),
-    [40, 60],
-  );
-  assert.deepEqual(
-    deterministic.offerings.map(({ calendarYear, classNumber }) => ({
-      calendarYear,
-      classNumber,
-    })),
-    [{ calendarYear: 2026, classNumber: "1234" }],
-  );
-  assert.equal(
-    deterministic.requisites.prerequisiteText.includes("COMP1100"),
-    true,
-  );
-  assert.deepEqual(deterministic.requisites.prerequisiteRule, {
-    op: "one_of",
+test("keeps a requisite rule the model reads from a semicolon list", () => {
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
     rules: [
-      { op: "completed", courseCode: "COMP1100" },
-      { op: "completed", courseCode: "COMP1130" },
+      { op: "completed", courseCode: "FINM2001" },
+      { op: "completed", courseCode: "FINM2002" },
+      {
+        op: "one_of",
+        rules: [
+          { op: "completed", courseCode: "FINM2003" },
+          { op: "completed", courseCode: "FINM3011" },
+        ],
+      },
     ],
-  });
-  assert.deepEqual(deterministic.requisites.incompatibilityCourseCodes, [
-    "COMP6240",
-  ]);
+  };
+  const { extraction: finalised, errorCount } = finalise(model);
+  assert.equal(errorCount, 0);
   assert.deepEqual(
-    deterministic.attributes.map(({ attributeKind, value }) => ({
-      attributeKind,
-      value,
-    })),
-    [
-      { attributeKind: "graduate_attribute", value: "Transdisciplinary" },
-      { attributeKind: "graduate_attribute", value: "Critical Thinking" },
-      { attributeKind: "stem", value: "STEM Course" },
-    ],
+    finalised.requisites.prerequisiteRule,
+    model.requisites.prerequisiteRule,
   );
-  assert.equal(
-    validateCourseExtraction(deterministic, {
-      expectedCode: "COMP2400",
-      expectedYear: 2026,
-      evidenceMethod: "deterministic",
-    }).success,
-    true,
+  const projection = projectCourseSnapshot(finalised);
+  assert.deepEqual(
+    projection.ruleConditions
+      .filter(({ ruleKey }) => ruleKey === "prerequisite")
+      .map(({ requiredCourseCode }) => requiredCourseCode),
+    ["FINM2001", "FINM2002", "FINM2003", "FINM3011"],
   );
 });
 
-test("omits an unexpected ANU class link for review without aborting extraction", () => {
-  const extraction = extractDeterministicCourse({
-    html: html.replace(
-      "/course/COMP2400/First%20Semester/1234",
-      "/2026/course/COMP2400",
-    ),
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-  assert.equal(extraction.offerings[0].classSummaryUrl, null);
+test("a malformed rule costs only the rule, not the requisite wording", () => {
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteRule = { op: "completed", courseCode: "nope" };
+  const { extraction: finalised, errorCount } = finalise(model);
+  assert.equal(finalised.requisites.prerequisiteRule, null);
+  assert.equal(
+    finalised.requisites.prerequisiteText,
+    extraction.requisites.prerequisiteText,
+  );
+  assert.equal(errorCount, 1);
   assert.ok(
-    extraction.reviewItems.some(
-      ({ fieldKey, kind, message }) =>
-        fieldKey === "offerings" &&
-        kind === "invalid" &&
-        message.includes("class summary link was"),
+    finalised.reviewItems.some(
+      ({ fieldKey, severity }) =>
+        fieldKey === "requisites.prerequisiteRule" && severity === "error",
     ),
   );
-  assert.equal(validateCourseExtraction(extraction).success, true);
+});
+
+test("never takes identity from the model and falls back to the listing title", () => {
+  const model = structuredClone(extraction);
+  model.code = "COMP9999";
+  model.year = 2027;
+  model.level = 9000;
+  delete model.title;
+  const { extraction: finalised } = finalise(model);
+  assert.equal(finalised.code, "COMP2400");
+  assert.equal(finalised.year, 2026);
+  assert.equal(finalised.level, 2000);
+  assert.equal(finalised.subjectCode, "COMP");
+  assert.equal(finalised.title, "Relational Databases");
+});
+
+test("keeps evidence whatever method the model wrote", () => {
+  const model = structuredClone(extraction);
+  model.evidence = model.evidence.map((item) => ({
+    ...item,
+    method: "deterministic",
+  }));
+  const { extraction: finalised } = finalise(model);
+  assert.equal(finalised.evidence.length, extraction.evidence.length);
+  assert.ok(finalised.evidence.every(({ method }) => method === "model"));
+});
+
+test("stores an empty, flagged record when the response is not JSON", () => {
+  const { extraction: finalised, errorCount } = finalise(null, {
+    responseError:
+      "OpenRouter returned invalid JSON despite structured-output mode.",
+  });
+  assert.equal(finalised.title, "Relational Databases");
+  assert.deepEqual(finalised.offerings, []);
+  assert.ok(errorCount >= 2);
+  assert.ok(
+    finalised.reviewItems.some(({ message }) =>
+      message.includes("invalid JSON"),
+    ),
+  );
 });
 
 test("accepts ANU's single-letter course variants throughout the extraction contract", () => {
@@ -261,11 +153,11 @@ test("accepts ANU's single-letter course variants throughout the extraction cont
     "^[A-Z]{4}[0-9]{4}[A-Z]?$",
   );
 
-  const extraction = structuredClone(deterministic);
-  extraction.code = "COMP8900F";
-  extraction.offerings[0].classSummaryUrl =
+  const variant = structuredClone(extraction);
+  variant.code = "COMP8900F";
+  variant.offerings[0].classSummaryUrl =
     "https://programsandcourses.anu.edu.au/course/COMP8900F/First%20Semester/1234";
-  extraction.requisites.prerequisiteRule = {
+  variant.requisites.prerequisiteRule = {
     op: "all_of",
     rules: [
       { op: "completed", courseCode: "COMP8900P" },
@@ -276,8 +168,8 @@ test("accepts ANU's single-letter course variants throughout the extraction cont
       },
     ],
   };
-  extraction.requisites.incompatibilityCourseCodes = ["TOKP2001X"];
-  extraction.relatedCourses = [
+  variant.requisites.incompatibilityCourseCodes = ["TOKP2001X"];
+  variant.relatedCourses = [
     {
       position: 1,
       relationKind: "equivalent",
@@ -287,147 +179,21 @@ test("accepts ANU's single-letter course variants throughout the extraction cont
     },
   ];
 
-  const result = validateCourseExtraction(extraction, {
+  const result = validateCourseExtraction(variant, {
     expectedCode: "COMP8900F",
     expectedYear: 2026,
-    evidenceMethod: "deterministic",
   });
   assert.equal(result.success, true, JSON.stringify(result.issues));
 });
 
-test("deterministic requisite extraction preserves single-letter variants", () => {
-  const extraction = extractDeterministicCourse({
-    html: html
-      .replaceAll("COMP1100", "COMP8900F")
-      .replaceAll("COMP1130", "COMP8900P")
-      .replaceAll("COMP6240", "EXTN1001A"),
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-
-  assert.match(extraction.requisites.prerequisiteText, /COMP8900F/);
-  assert.match(extraction.requisites.prerequisiteText, /COMP8900P/);
-  assert.deepEqual(extraction.requisites.incompatibilityCourseCodes, [
-    "EXTN1001A",
-  ]);
-});
-
-test("keeps unpunctuated ANU prerequisite codes out of incompatibilities", () => {
-  const unpunctuatedHtml = html.replace(
-    "COMP1130. You are not able",
-    "COMP1130\n\nYou are not able",
-  );
-  const extraction = extractDeterministicCourse({
-    html: unpunctuatedHtml,
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-
-  assert.match(extraction.requisites.prerequisiteText, /COMP1100/);
-  assert.match(extraction.requisites.prerequisiteText, /COMP1130/);
-  assert.doesNotMatch(
-    extraction.requisites.incompatibilityText,
-    /COMP1100|COMP1130/,
-  );
-  assert.deepEqual(extraction.requisites.incompatibilityCourseCodes, [
-    "COMP6240",
-  ]);
-});
-
-test("maps corequisite course wording to completed-or-concurrent rules", () => {
-  const extraction = extractDeterministicCourse({
-    html: html.replace(
-      "COMP1130. You are not able",
-      "COMP1130. Co-requisite: COMP2100 or COMP2110. You are not able",
-    ),
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-
-  assert.deepEqual(extraction.requisites.corequisiteRule, {
-    op: "one_of",
-    rules: [
-      { op: "completed_or_concurrent", courseCode: "COMP2100" },
-      { op: "completed_or_concurrent", courseCode: "COMP2110" },
-    ],
-  });
-});
-
-test("preserves and flags prerequisite wording that cannot be parsed safely", () => {
-  const extraction = extractDeterministicCourse({
-    html: html.replace(
-      "COMP1100 or\n      COMP1130.",
-      "COMP1100 or COMP1130 and MATH1013.",
-    ),
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-
-  assert.equal(extraction.requisites.prerequisiteRule, null);
-  assert.match(extraction.requisites.prerequisiteText, /MATH1013/u);
-  assert.ok(
-    extraction.reviewItems.some(
-      ({ fieldKey, kind }) =>
-        fieldKey === "requisites.prerequisiteRule" && kind === "ambiguous",
-    ),
-  );
-});
-
-test("does not read the Lo in Log books as a learning-outcome marker", () => {
-  const logBookHtml = html.replace(
-    "Database design assignment (40%) [LO 1]",
-    "Log books indicating activities conducted over the internship. (0) [LO 1, 2]",
-  );
-  const extraction = extractDeterministicCourse({
-    html: logBookHtml,
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-  assert.deepEqual(
-    extraction.assessmentItems[0].learningOutcomePositions,
-    [1, 2],
-  );
-  assert.equal(
-    validateCourseExtraction(extraction, {
-      expectedCode: "COMP2400",
-      expectedYear: 2026,
-      evidenceMethod: "deterministic",
-    }).success,
-    true,
-  );
-});
-
-test("drops malformed outcome links for review instead of aborting projection", () => {
-  const malformedHtml = html.replace("[LO 1]", "[LO 0, 1, 99]");
-  const extraction = extractDeterministicCourse({
-    html: malformedHtml,
-    courseCode: "COMP2400",
-    year: 2026,
-    sourceUrl,
-  });
-  assert.deepEqual(extraction.assessmentItems[0].learningOutcomePositions, [1]);
-  assert.ok(
-    extraction.reviewItems.some(
-      ({ fieldKey, kind }) =>
-        fieldKey === "assessmentItems.0.learningOutcomePositions" &&
-        kind === "invalid",
-    ),
-  );
-});
-
 test("runtime contract rejects unknown keys and future-year offering rows", () => {
-  const withUnknown = structuredClone(deterministic);
+  const withUnknown = structuredClone(extraction);
   withUnknown.hallucinated = true;
   const unknownResult = validateCourseExtraction(withUnknown);
   assert.equal(unknownResult.success, false);
   assert.ok(unknownResult.issues.some(({ path }) => path === "$.hallucinated"));
 
-  const withFutureOffering = structuredClone(deterministic);
+  const withFutureOffering = structuredClone(extraction);
   withFutureOffering.offerings[0].calendarYear = 2027;
   const futureResult = validateCourseExtraction(withFutureOffering);
   assert.equal(futureResult.success, false);
@@ -442,9 +208,14 @@ test("runtime contract rejects unknown keys and future-year offering rows", () =
 test("advertises exact model formats in the prompt and JSON Schema", () => {
   const prompt = buildCourseExtractionSystemPrompt();
   assert.match(prompt, /YYYY-MM-DD/);
-  assert.match(prompt, /complete literal HTTPS URL/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v2");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v3");
+  assert.match(
+    prompt,
+    /complete HTTPS URL on programsandcourses\.anu\.edu\.au/,
+  );
+  assert.match(prompt, /tidied, never rewritten/);
+  assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v3");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v4");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -465,7 +236,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
 });
 
 test("canonicalises bounded provider formats without changing the raw response", () => {
-  const raw = structuredClone(deterministic);
+  const raw = structuredClone(extraction);
   raw.evidence = [];
   raw.reviewItems = [];
   Object.assign(raw.offerings[0], {
@@ -479,7 +250,6 @@ test("canonicalises bounded provider formats without changing the raw response",
   const providerValidation = validateCourseExtraction(raw, {
     expectedCode: "COMP2400",
     expectedYear: 2026,
-    evidenceMethod: "model",
   });
   assert.equal(providerValidation.success, false);
   assert.equal(providerValidation.issues.length, 5);
@@ -502,7 +272,6 @@ test("canonicalises bounded provider formats without changing the raw response",
     validateCourseExtraction(canonical.value, {
       expectedCode: "COMP2400",
       expectedYear: 2026,
-      evidenceMethod: "model",
     }).success,
     true,
   );
@@ -511,22 +280,19 @@ test("canonicalises bounded provider formats without changing the raw response",
   assert.equal(reviewItem?.severity, "warning");
   assert.match(reviewItem?.message ?? "", /5 provider formatting values/);
 
-  const merged = mergeCourseExtractions({
-    deterministic,
-    model: canonical.value,
-    modelInput: selected.modelInput,
-  });
-  assert.equal(
-    merged.extraction.offerings[0].classSummaryUrl,
-    deterministic.offerings[0].classSummaryUrl,
-  );
-  assert.equal(merged.extraction.offerings[0].startsOn, "2026-02-23");
-  const projection = projectCourseSnapshot(merged.extraction);
+  const finalised = finaliseCourseExtraction({
+    code: "COMP2400",
+    year: 2026,
+    listingTitle: "Relational Databases",
+    model: raw,
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+  }).extraction;
+  assert.equal(finalised.offerings[0].classSummaryUrl, null);
+  assert.equal(finalised.offerings[0].startsOn, "2026-02-23");
+  const projection = projectCourseSnapshot(finalised);
   assert.equal(projection.offeringSessions[0].startsOn, "2026-02-23");
-  assert.equal(
-    projection.offeringSessions[0].classSummaryUrl,
-    deterministic.offerings[0].classSummaryUrl,
-  );
 });
 
 test("leaves ambiguous or impossible model dates invalid", () => {
@@ -540,7 +306,7 @@ test("leaves ambiguous or impossible model dates invalid", () => {
     "2027-04-03",
     "Tomorrow",
   ]) {
-    const model = structuredClone(deterministic);
+    const model = structuredClone(extraction);
     model.evidence = [];
     model.offerings[0].startsOn = value;
     const canonical = canonicaliseCourseModelExtraction(model, {
@@ -551,7 +317,6 @@ test("leaves ambiguous or impossible model dates invalid", () => {
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: "COMP2400",
       expectedYear: 2026,
-      evidenceMethod: "model",
     });
     assert.equal(result.success, false, value);
     assert.ok(
@@ -575,7 +340,7 @@ test("leaves untrusted class summary references invalid", () => {
     "https://user@programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/not-a-class",
   ]) {
-    const model = structuredClone(deterministic);
+    const model = structuredClone(extraction);
     model.evidence = [];
     model.offerings[0].classSummaryUrl = value;
     const canonical = canonicaliseCourseModelExtraction(model, {
@@ -586,7 +351,6 @@ test("leaves untrusted class summary references invalid", () => {
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: "COMP2400",
       expectedYear: 2026,
-      evidenceMethod: "model",
     });
     assert.equal(result.success, false, value);
     assert.ok(
@@ -597,88 +361,12 @@ test("leaves untrusted class summary references invalid", () => {
     );
   }
 
-  const valid = canonicaliseCourseModelExtraction(deterministic, {
+  const valid = canonicaliseCourseModelExtraction(extraction, {
     expectedCode: "COMP2400",
     expectedYear: 2026,
   });
   assert.deepEqual(valid.changes, []);
   assert.equal(validateCourseExtraction(valid.value).success, true);
-});
-
-test("evidence checking requires source text and support for scalar claims", () => {
-  const model = structuredClone(deterministic);
-  model.evidence = [
-    {
-      fieldKey: "college",
-      sourceLocator: "Key facts",
-      evidenceExcerpt: "ANU College: ANU College of Systems and Society",
-      confidence: 0.9,
-      method: "model",
-    },
-    {
-      fieldKey: "sourceUpdatedAt",
-      sourceLocator: "Key facts",
-      evidenceExcerpt: "Relational Databases",
-      confidence: 0.5,
-      method: "model",
-    },
-  ];
-  model.sourceUpdatedAt = "2026-08-29T00:00:00.000Z";
-  const checked = checkCourseExtractionEvidence(model, selected.modelInput);
-  assert.deepEqual(checked.matchedFieldKeys, ["college"]);
-  assert.ok(
-    checked.issues.some(
-      ({ fieldKey, message }) =>
-        fieldKey === "sourceUpdatedAt" && message.includes("claimed scalar"),
-    ),
-  );
-});
-
-test("merge keeps deterministic conflicts and accepts only evidenced model fills", () => {
-  const base = structuredClone(deterministic);
-  base.college = null;
-  base.evidence = base.evidence.filter(
-    ({ fieldKey }) => fieldKey !== "college",
-  );
-
-  const model = structuredClone(base);
-  model.title = "Relational Databases (model rewrite)";
-  model.college = "ANU College of Systems and Society";
-  model.sourceUpdatedAt = "2026-08-29T00:00:00.000Z";
-  model.evidence = [
-    {
-      fieldKey: "title",
-      sourceLocator: "front matter",
-      evidenceExcerpt: "Relational Databases",
-      confidence: 0.8,
-      method: "model",
-    },
-    {
-      fieldKey: "college",
-      sourceLocator: "Key facts",
-      evidenceExcerpt: "ANU College: ANU College of Systems and Society",
-      confidence: 0.9,
-      method: "model",
-    },
-  ];
-
-  const merged = mergeCourseExtractions({
-    deterministic: base,
-    model,
-    modelInput: selected.modelInput,
-  });
-  assert.equal(merged.extraction.title, "Relational Databases");
-  assert.equal(merged.extraction.college, "ANU College of Systems and Society");
-  assert.equal(merged.extraction.sourceUpdatedAt, null);
-  assert.ok(merged.conflicts.some(({ fieldKey }) => fieldKey === "title"));
-  assert.ok(merged.modelAcceptedFields.includes("college"));
-  assert.ok(merged.modelRejectedFields.includes("sourceUpdatedAt"));
-  assert.ok(
-    merged.extraction.reviewItems.some(
-      ({ fieldKey, kind }) =>
-        fieldKey === "sourceUpdatedAt" && kind === "evidence_missing",
-    ),
-  );
 });
 
 test("stable serialisation and fingerprints ignore object key insertion order", () => {
@@ -689,84 +377,5 @@ test("stable serialisation and fingerprints ignore object key insertion order", 
   assert.notEqual(
     stableFingerprint(left),
     stableFingerprint({ ...right, list: [1, 2] }),
-  );
-});
-
-test("equivalent attributes ignore evidence wording and unordered positions", () => {
-  const base = structuredClone(deterministic);
-  base.attributes = [
-    {
-      value: "Critical Thinking",
-      position: 1,
-      sourceText: "Graduate Attributes: Critical Thinking",
-      attributeKind: "graduate_attribute",
-    },
-    {
-      value: "STEM Course",
-      position: 2,
-      sourceText: "STEM Course",
-      attributeKind: "stem",
-    },
-  ];
-  const model = structuredClone(base);
-  model.attributes = model.attributes.reverse().map((attribute, index) => ({
-    ...attribute,
-    position: index + 1,
-    sourceText: attribute.value,
-  }));
-  model.evidence = [];
-  const merged = mergeCourseExtractions({
-    deterministic: base,
-    model,
-    modelInput: selected.modelInput,
-  });
-  assert.equal(
-    merged.conflicts.some(({ fieldKey }) => fieldKey === "attributes"),
-    false,
-  );
-  assert.deepEqual(merged.extraction.attributes, base.attributes);
-  model.attributes[0].value = "Different attribute";
-  const changed = mergeCourseExtractions({
-    deterministic: base,
-    model,
-    modelInput: selected.modelInput,
-  });
-  assert.ok(
-    changed.conflicts.some(({ fieldKey }) => fieldKey === "attributes"),
-  );
-});
-
-test("assessment value and learning-outcome link changes remain conflicts", () => {
-  const model = structuredClone(deterministic);
-  model.evidence = [];
-  assert.ok(model.assessmentItems.length > 0);
-  model.assessmentItems[0].weight = (model.assessmentItems[0].weight ?? 0) + 1;
-  const merged = mergeCourseExtractions({
-    deterministic,
-    model,
-    modelInput: selected.modelInput,
-  });
-  assert.ok(
-    merged.conflicts.some(({ fieldKey }) => fieldKey === "assessmentItems"),
-  );
-  assert.deepEqual(
-    merged.extraction.assessmentItems,
-    deterministic.assessmentItems,
-  );
-});
-
-test("assessment outcome link ordering does not create an extraction conflict", () => {
-  const model = structuredClone(deterministic);
-  model.evidence = [];
-  for (const item of model.assessmentItems)
-    item.learningOutcomePositions.reverse();
-  const merged = mergeCourseExtractions({
-    deterministic,
-    model,
-    modelInput: selected.modelInput,
-  });
-  assert.equal(
-    merged.conflicts.some(({ fieldKey }) => fieldKey === "assessmentItems"),
-    false,
   );
 });

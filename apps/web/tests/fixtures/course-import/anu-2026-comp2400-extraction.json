@@ -1,0 +1,350 @@
+{
+  "schemaVersion": "course-extraction.v2",
+  "code": "COMP2400",
+  "year": 2026,
+  "title": "Relational Databases",
+  "unitValue": {
+    "kind": "fixed",
+    "units": 6
+  },
+  "eftsl": null,
+  "level": 2000,
+  "subjectCode": "COMP",
+  "subjectName": "Computer Science",
+  "school": "School of Computing",
+  "college": "ANU College of Systems and Society",
+  "academicCareer": "UGRD",
+  "convenerText": "Ada Lovelace",
+  "deliverySummary": "In Person",
+  "introduction": "Students design, query and reason about relational databases.",
+  "description": "A rigorous introduction to relational data management.",
+  "workloadText": "Students should allow 130 hours for this course.",
+  "workloadHours": 130,
+  "inherentRequirements": "Students must be able to use a computer for extended periods.",
+  "prescribedTexts": "No prescribed text.",
+  "offeringStatus": "offered",
+  "sourceUpdatedAt": null,
+  "areasOfInterest": ["Information Technology", "Software Engineering"],
+  "fees": [
+    {
+      "position": 1,
+      "feeYear": 2026,
+      "audience": "commonwealth_supported",
+      "feeType": "student_contribution",
+      "amount": null,
+      "currency": null,
+      "basis": "course",
+      "studentContributionBand": 2,
+      "sourceLabel": "Student Contribution Band",
+      "sourceText": "Student Contribution Band: 2"
+    },
+    {
+      "position": 2,
+      "feeYear": 2026,
+      "audience": "domestic",
+      "feeType": "indicative",
+      "amount": 5520,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "Domestic indicative fee",
+      "sourceText": "Domestic students: $5,520"
+    },
+    {
+      "position": 3,
+      "feeYear": 2026,
+      "audience": "international",
+      "feeType": "indicative",
+      "amount": 7020,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "International indicative fee",
+      "sourceText": "International students: $7,020"
+    }
+  ],
+  "learningOutcomes": [
+    {
+      "position": 1,
+      "text": "Design a normalised relational schema."
+    },
+    {
+      "position": 2,
+      "text": "Write and evaluate relational queries."
+    }
+  ],
+  "assessmentItems": [
+    {
+      "position": 1,
+      "title": "Database design assignment",
+      "weight": 40,
+      "hurdle": null,
+      "dueText": null,
+      "sourceText": "Database design assignment (40%) [LO 1]",
+      "learningOutcomePositions": [1]
+    },
+    {
+      "position": 2,
+      "title": "Final examination - hurdle",
+      "weight": 60,
+      "hurdle": true,
+      "dueText": null,
+      "sourceText": "Final examination (60%) [LO 1, 2] - hurdle",
+      "learningOutcomePositions": [1, 2]
+    }
+  ],
+  "offerings": [
+    {
+      "position": 1,
+      "calendarYear": 2026,
+      "periodCode": "S1",
+      "periodName": "First Semester",
+      "classNumber": "1234",
+      "startsOn": "2026-02-23",
+      "endsOn": "2026-05-29",
+      "lastEnrolmentDate": "2026-03-02",
+      "censusDate": "2026-03-31",
+      "deliveryMode": "In Person",
+      "location": "Acton",
+      "classSummaryUrl": "https://programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/1234",
+      "sourceText": "1234 23 Feb 2026 2 Mar 2026 31 Mar 2026 29 May 2026 In Person Acton View"
+    }
+  ],
+  "requisites": {
+    "prerequisiteText": "To enrol in this course you must have successfully completed COMP1100 or COMP1130.",
+    "corequisiteText": null,
+    "incompatibilityText": "You are not able to enrol in this course if you have successfully completed COMP6240.",
+    "prerequisiteRule": {
+      "op": "one_of",
+      "rules": [
+        {
+          "op": "completed",
+          "courseCode": "COMP1100"
+        },
+        {
+          "op": "completed",
+          "courseCode": "COMP1130"
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["COMP6240"],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  },
+  "relatedCourses": [
+    {
+      "position": 1,
+      "relationKind": "co_taught",
+      "courseCode": "COMP6240",
+      "courseTitle": null,
+      "sourceText": "COMP6240"
+    }
+  ],
+  "attributes": [
+    {
+      "position": 1,
+      "attributeKind": "graduate_attribute",
+      "value": "Transdisciplinary",
+      "sourceText": "Graduate Attributes: Transdisciplinary"
+    },
+    {
+      "position": 2,
+      "attributeKind": "graduate_attribute",
+      "value": "Critical Thinking",
+      "sourceText": "Graduate Attributes: Critical Thinking"
+    },
+    {
+      "position": 3,
+      "attributeKind": "stem",
+      "value": "STEM Course",
+      "sourceText": "STEM Course"
+    }
+  ],
+  "evidence": [
+    {
+      "fieldKey": "code",
+      "sourceLocator": "meta[name=\"course-code\"]",
+      "evidenceExcerpt": "COMP2400",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "year",
+      "sourceLocator": "meta[name=\"course-year\"]",
+      "evidenceExcerpt": "2026",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "title",
+      "sourceLocator": "meta[name=\"course-name\"]",
+      "evidenceExcerpt": "Relational Databases",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "unitValue",
+      "sourceLocator": ".degree-summary__requirements-units",
+      "evidenceExcerpt": "Unit Value 6 units",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "subjectName",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Computer Science",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "school",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "School of Computing",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "college",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "ANU College of Systems and Society",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "academicCareer",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "UGRD",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "convenerText",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Ada Lovelace",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "deliverySummary",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "In Person",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "introduction",
+      "sourceLocator": "#introduction",
+      "evidenceExcerpt": "Students design, query and reason about relational databases.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "description",
+      "sourceLocator": "meta[name=\"course-description\"]",
+      "evidenceExcerpt": "A rigorous introduction to relational data management.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "workloadText",
+      "sourceLocator": "#workload",
+      "evidenceExcerpt": "Students should allow 130 hours for this course.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "workloadHours",
+      "sourceLocator": "#workload",
+      "evidenceExcerpt": "Students should allow 130 hours for this course.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "inherentRequirements",
+      "sourceLocator": "#inherent-requirements",
+      "evidenceExcerpt": "Students must be able to use a computer for extended periods.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "prescribedTexts",
+      "sourceLocator": "#prescribed-texts",
+      "evidenceExcerpt": "No prescribed text.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "areasOfInterest",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Information Technology, Software Engineering",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "fees",
+      "sourceLocator": "#fees",
+      "evidenceExcerpt": "Student Contribution Band: 2 Domestic students: $5,520 International students: $7,020",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "learningOutcomes",
+      "sourceLocator": "#learning-outcomes",
+      "evidenceExcerpt": "Design a normalised relational schema. Write and evaluate relational queries.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "assessmentItems",
+      "sourceLocator": "#indicative-assessment",
+      "evidenceExcerpt": "Database design assignment (40%) [LO 1] Final examination (60%) [LO 1, 2] - hurdle",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "offerings",
+      "sourceLocator": ".course-tabs-menu:2026",
+      "evidenceExcerpt": "1234 23 Feb 2026 2 Mar 2026 31 Mar 2026 29 May 2026 In Person Acton View",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "requisites.prerequisiteText",
+      "sourceLocator": "#incompatibility",
+      "evidenceExcerpt": "To enrol in this course you must have successfully completed COMP1100 or COMP1130.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "requisites.prerequisiteRule",
+      "sourceLocator": "#incompatibility",
+      "evidenceExcerpt": "To enrol in this course you must have successfully completed COMP1100 or COMP1130.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "requisites.incompatibilityText",
+      "sourceLocator": "#incompatibility",
+      "evidenceExcerpt": "You are not able to enrol in this course if you have successfully completed COMP6240.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "relatedCourses",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "COMP6240",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "attributes",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Graduate Attributes: Transdisciplinary Graduate Attributes: Critical Thinking STEM Course",
+      "confidence": 0.99,
+      "method": "model"
+    }
+  ],
+  "overallConfidence": 0.98,
+  "reviewItems": []
+}

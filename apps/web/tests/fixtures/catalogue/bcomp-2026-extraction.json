@@ -1,0 +1,552 @@
+{
+  "schemaVersion": "academic-structure-extraction.v3",
+  "kind": "programme",
+  "code": "BCOMP",
+  "year": 2026,
+  "title": "Bachelor of Computing",
+  "acronym": "BCMPT",
+  "shortName": "Computing",
+  "introduction": "A broad, source-backed computing programme.",
+  "description": "Fallback description.",
+  "totalUnits": 144,
+  "durationYears": 3,
+  "academicCareer": "Undergraduate",
+  "college": "ANU College of Systems and Society",
+  "deliveryMode": "In Person",
+  "selectionRank": 80,
+  "atar": 80,
+  "canCombine": true,
+  "canCombineVertical": false,
+  "studyAs": "Full-time or part-time",
+  "contactText": "Course Convenor",
+  "summaryFields": [
+    {
+      "position": 1,
+      "key": "academic_plan",
+      "label": "Academic Plan",
+      "values": ["BCOMP"],
+      "sourceText": "Academic Plan: BCOMP"
+    },
+    {
+      "position": 2,
+      "key": "academic_career",
+      "label": "Academic Career",
+      "values": ["Undergraduate"],
+      "sourceText": "Academic Career: Undergraduate"
+    },
+    {
+      "position": 3,
+      "key": "mode_of_delivery",
+      "label": "Mode of Delivery",
+      "values": ["In Person"],
+      "sourceText": "Mode of Delivery: In Person"
+    },
+    {
+      "position": 4,
+      "key": "academic_contact",
+      "label": "Academic Contact",
+      "values": ["Course Convenor"],
+      "sourceText": "Academic Contact: Course Convenor"
+    },
+    {
+      "position": 5,
+      "key": "short_name",
+      "label": "Short Name",
+      "values": ["Computing"],
+      "sourceText": "Short Name: Computing"
+    },
+    {
+      "position": 6,
+      "key": "duration",
+      "label": "Duration",
+      "values": ["3 years"],
+      "sourceText": "Duration: 3 years"
+    },
+    {
+      "position": 7,
+      "key": "college",
+      "label": "College",
+      "values": ["ANU College of Systems and Society"],
+      "sourceText": "College: ANU College of Systems and Society"
+    },
+    {
+      "position": 8,
+      "key": "selection_rank",
+      "label": "Selection Rank",
+      "values": ["80"],
+      "sourceText": "Selection Rank: 80"
+    },
+    {
+      "position": 9,
+      "key": "atar",
+      "label": "ATAR",
+      "values": ["80"],
+      "sourceText": "ATAR: 80"
+    },
+    {
+      "position": 10,
+      "key": "can_combine",
+      "label": "Can Combine",
+      "values": ["Yes"],
+      "sourceText": "Can Combine: Yes"
+    },
+    {
+      "position": 11,
+      "key": "can_combine_vertically",
+      "label": "Can Combine Vertically",
+      "values": ["No"],
+      "sourceText": "Can Combine Vertically: No"
+    },
+    {
+      "position": 12,
+      "key": "study_as",
+      "label": "Study As",
+      "values": ["Full-time or part-time"],
+      "sourceText": "Study As: Full-time or part-time"
+    },
+    {
+      "position": 13,
+      "key": "minimum",
+      "label": "Minimum",
+      "values": ["144 Units"],
+      "sourceText": "Minimum: 144 Units"
+    }
+  ],
+  "sections": [
+    {
+      "position": 1,
+      "key": "learning-outcomes",
+      "heading": "Learning Outcomes",
+      "markdown": "Apply computing concepts to practical problems.\nCommunicate technical decisions clearly.",
+      "sourceText": "Apply computing concepts to practical problems.\nCommunicate technical decisions clearly.",
+      "sourceLocator": "#learning-outcomes"
+    },
+    {
+      "position": 2,
+      "key": "program-requirements",
+      "heading": "Program Requirements",
+      "markdown": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+      "sourceText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+      "sourceLocator": "#program-requirements"
+    },
+    {
+      "position": 3,
+      "key": "majors",
+      "heading": "Majors",
+      "markdown": "Software Development",
+      "sourceText": "Software Development",
+      "sourceLocator": "#majors"
+    },
+    {
+      "position": 4,
+      "key": "relevant-degrees",
+      "heading": "Relevant Degrees",
+      "markdown": "Bachelor of Information Technology\nIndicative fees\nCommonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "sourceText": "Bachelor of Information Technology\nIndicative fees\nCommonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "sourceLocator": "#relevant-degrees"
+    },
+    {
+      "position": 5,
+      "key": "indicative-fees",
+      "heading": "Indicative fees",
+      "markdown": "Commonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "sourceText": "Commonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "sourceLocator": "#indicative-fees"
+    },
+    {
+      "position": 6,
+      "key": "fee-information",
+      "heading": "Fee Information",
+      "markdown": "The annual indicative fee is based on a full-time load.",
+      "sourceText": "The annual indicative fee is based on a full-time load.",
+      "sourceLocator": "#fee-information"
+    },
+    {
+      "position": 7,
+      "key": "future-ideas",
+      "heading": "Future Ideas",
+      "markdown": "This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long.",
+      "sourceText": "This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long.",
+      "sourceLocator": "#future-ideas"
+    }
+  ],
+  "learningOutcomes": [
+    {
+      "position": 1,
+      "text": "Apply computing concepts to practical problems.",
+      "sourceText": "Apply computing concepts to practical problems.",
+      "sourceLocator": "#learning-outcomes"
+    },
+    {
+      "position": 2,
+      "text": "Communicate technical decisions clearly.",
+      "sourceText": "Communicate technical decisions clearly.",
+      "sourceLocator": "#learning-outcomes"
+    }
+  ],
+  "fees": [
+    {
+      "position": 1,
+      "feeYear": null,
+      "audience": "commonwealth_supported",
+      "feeType": "student_contribution",
+      "amount": null,
+      "currency": null,
+      "basis": "programme",
+      "sourceLabel": "Commonwealth Supported Place (CSP)",
+      "sourceText": "Commonwealth Supported Place (CSP)",
+      "sourceLocator": "#indicative-fees__domestic"
+    },
+    {
+      "position": 2,
+      "feeYear": null,
+      "audience": "international",
+      "feeType": "indicative",
+      "amount": 56120,
+      "currency": null,
+      "basis": "annual",
+      "sourceLabel": "Annual indicative fee for international students",
+      "sourceText": "Annual indicative fee for international students\n$56,120.00",
+      "sourceLocator": "#indicative-fees__international"
+    }
+  ],
+  "relationships": [
+    {
+      "position": 1,
+      "relationshipKind": "source_reference",
+      "targetKind": "course",
+      "targetCode": "COMP1100",
+      "targetTitle": null,
+      "sourceText": "COMP1100",
+      "sourceLocator": "#program-requirements"
+    },
+    {
+      "position": 2,
+      "relationshipKind": "source_reference",
+      "targetKind": "course",
+      "targetCode": "COMP1130",
+      "targetTitle": null,
+      "sourceText": "COMP1130",
+      "sourceLocator": "#program-requirements"
+    },
+    {
+      "position": 3,
+      "relationshipKind": "source_reference",
+      "targetKind": "major",
+      "targetCode": "SOFT-MAJ",
+      "targetTitle": "Software Development",
+      "sourceText": "Software Development",
+      "sourceLocator": "#program-requirements"
+    },
+    {
+      "position": 4,
+      "relationshipKind": "option",
+      "targetKind": "major",
+      "targetCode": "SOFT-MAJ",
+      "targetTitle": "Software Development",
+      "sourceText": "Software Development",
+      "sourceLocator": "#majors"
+    },
+    {
+      "position": 5,
+      "relationshipKind": "relevant",
+      "targetKind": "programme",
+      "targetCode": "BIT",
+      "targetTitle": "Bachelor of Information Technology",
+      "sourceText": "Bachelor of Information Technology",
+      "sourceLocator": "#relevant-degrees"
+    }
+  ],
+  "requirements": {
+    "sourceText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+    "sourceLocator": "#program-requirements",
+    "rule": {
+      "type": "group",
+      "key": "requirements:root",
+      "operator": "all_of",
+      "minimumCount": null,
+      "title": "Program Requirements",
+      "sourceText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+      "sourceLocator": "#program-requirements",
+      "children": [
+        {
+          "type": "condition",
+          "key": "requirements:source-text",
+          "conditionKind": "free_text",
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCourses": null,
+          "courseCodes": [],
+          "structureKind": null,
+          "structureCodes": [],
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "tag": null,
+          "freeText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+          "sourceText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+          "sourceLocator": "#program-requirements"
+        }
+      ]
+    },
+    "unmodelledText": [
+      "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development"
+    ]
+  },
+  "evidence": [
+    {
+      "fieldKey": "kind",
+      "sourceLocator": "meta[name=\"program-code\"]",
+      "evidenceExcerpt": "program",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "code",
+      "sourceLocator": "meta[name=\"program-code\"]",
+      "evidenceExcerpt": "BCOMP",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "year",
+      "sourceLocator": "meta[name=\"program-year\"]",
+      "evidenceExcerpt": "2026",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "title",
+      "sourceLocator": "meta[name=\"program-name\"]",
+      "evidenceExcerpt": "Bachelor of Computing",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "shortName",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Short Name: Computing",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "introduction",
+      "sourceLocator": "#introduction",
+      "evidenceExcerpt": "A broad, source-backed computing programme.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "description",
+      "sourceLocator": "meta[name=\"program-description\"]",
+      "evidenceExcerpt": "<p>Fallback description.</p>",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "durationYears",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Duration: 3 years",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "college",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "College: ANU College of Systems and Society",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "selectionRank",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Selection Rank: 80",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "atar",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "ATAR: 80",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "canCombine",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Can Combine: Yes",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "canCombineVertical",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Can Combine Vertically: No",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "studyAs",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Study As: Full-time or part-time",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.academic_plan",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Academic Plan: BCOMP",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.academic_career",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Academic Career: Undergraduate",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.mode_of_delivery",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Mode of Delivery: In Person",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.academic_contact",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Academic Contact: Course Convenor",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.short_name",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Short Name: Computing",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.duration",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Duration: 3 years",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.college",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "College: ANU College of Systems and Society",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.selection_rank",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Selection Rank: 80",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.atar",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "ATAR: 80",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.can_combine",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Can Combine: Yes",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.can_combine_vertically",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Can Combine Vertically: No",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.study_as",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Study As: Full-time or part-time",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "summaryFields.minimum",
+      "sourceLocator": ".degree-summary",
+      "evidenceExcerpt": "Minimum: 144 Units",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.learning-outcomes",
+      "sourceLocator": "#learning-outcomes",
+      "evidenceExcerpt": "Apply computing concepts to practical problems.\nCommunicate technical decisions clearly.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.program-requirements",
+      "sourceLocator": "#program-requirements",
+      "evidenceExcerpt": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.majors",
+      "sourceLocator": "#majors",
+      "evidenceExcerpt": "Software Development",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.relevant-degrees",
+      "sourceLocator": "#relevant-degrees",
+      "evidenceExcerpt": "Bachelor of Information Technology\nIndicative fees\nCommonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.indicative-fees",
+      "sourceLocator": "#indicative-fees",
+      "evidenceExcerpt": "Commonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.fee-information",
+      "sourceLocator": "#fee-information",
+      "evidenceExcerpt": "The annual indicative fee is based on a full-time load.",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "sections.future-ideas",
+      "sourceLocator": "#future-ideas",
+      "evidenceExcerpt": "This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally...",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "fees.0",
+      "sourceLocator": "#indicative-fees__domestic",
+      "evidenceExcerpt": "Commonwealth Supported Place (CSP)",
+      "confidence": 0.99,
+      "method": "model"
+    },
+    {
+      "fieldKey": "fees.1",
+      "sourceLocator": "#indicative-fees__international",
+      "evidenceExcerpt": "Annual indicative fee for international students\n$56,120.00",
+      "confidence": 0.99,
+      "method": "model"
+    }
+  ],
+  "overallConfidence": null,
+  "reviewItems": []
+}

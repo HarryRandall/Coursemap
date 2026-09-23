@@ -108,7 +108,7 @@ export type CourseExtractionEvidence = {
   sourceLocator: string;
   evidenceExcerpt: string;
   confidence: number;
-  method: "deterministic" | "model";
+  method: "model";
 };
 
 export type CourseExtractionReviewItem = {
@@ -125,9 +125,9 @@ export type CourseExtractionReviewItem = {
 };
 
 /**
- * The complete extraction contract shared by deterministic parsing, the model
- * response and the merge step. Every property is present. Missing source data
- * is represented by null or an empty array, never by an omitted key.
+ * The complete extraction contract for one course page, produced by the model.
+ * Every property is present. Missing source data is represented by null or an
+ * empty array, never by an omitted key.
  */
 export type CourseExtraction = {
   schemaVersion: typeof COURSE_EXTRACTION_SCHEMA_VERSION;
@@ -177,7 +177,6 @@ export type CourseExtractionValidationResult =
 export type CourseExtractionValidationOptions = {
   expectedCode?: string;
   expectedYear?: number;
-  evidenceMethod?: CourseExtractionEvidence["method"];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -1065,18 +1064,7 @@ function validateExtractionShape(
       minimum: 0,
       maximum: 1,
     });
-    requireEnum(
-      evidence.method,
-      `${path}.method`,
-      ["deterministic", "model"],
-      issues,
-    );
-    if (options.evidenceMethod && evidence.method !== options.evidenceMethod) {
-      issues.push({
-        path: `${path}.method`,
-        message: `must be ${options.evidenceMethod}`,
-      });
-    }
+    requireEnum(evidence.method, `${path}.method`, ["model"], issues);
   });
   requireNumber(record.overallConfidence, "$.overallConfidence", issues, {
     nullable: true,
