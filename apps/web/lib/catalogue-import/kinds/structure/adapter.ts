@@ -1,24 +1,14 @@
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { structureCatalogueContent } from "../../../catalogue/content.ts";
+import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
 import {
   ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA,
   type AcademicStructureExtraction,
   type AcademicStructureKind,
   validateAcademicStructureExtraction,
 } from "./contract.ts";
-import { extractDeterministicAcademicStructure } from "./deterministic.ts";
-import {
-  buildAcademicStructureModelInput,
-  convertAcademicStructureHtmlToMarkdown,
-} from "./markdown.ts";
-import {
-  ACADEMIC_STRUCTURE_MODEL_FIELDS,
-  academicStructureModelEvidenceIssues,
-  academicStructureModelFieldRoot,
-  mergeAcademicStructureExtractions,
-  normaliseAcademicStructureModelExtraction,
-} from "./merge.ts";
-import { academicStructureModelResponseError } from "./model-response-error.ts";
+import { finaliseAcademicStructureExtraction } from "./finalise.ts";
+import { normaliseAcademicStructureModelExtraction } from "./model-canonical.ts";
 import { projectAcademicStructureSnapshot } from "./project.ts";
 import {
   ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS,
@@ -56,34 +46,23 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       );
     },
     prepareInput(claim, page) {
-      const result = convertAcademicStructureHtmlToMarkdown({
+      return convertAnuPageToMarkdown({
         html: page.html,
-        kind: structureKind(claim.kind),
-        code: claim.code,
-        year: claim.academicYear,
-        sourceUrl: page.sourceUrl,
+        frontMatter: {
+          kind: claim.kind,
+          code: claim.code,
+          year: claim.academicYear,
+          source_url: page.sourceUrl,
+        },
       });
-      return {
-        markdown: result.markdown,
-        modelInput: buildAcademicStructureModelInput(result).modelInput,
-      };
     },
     buildSystemPrompt: buildAcademicStructureExtractionSystemPrompt,
-    buildUserPrompt(claim, modelInput) {
+    buildUserPrompt(claim, pageMarkdown) {
       return buildAcademicStructureExtractionUserPrompt({
         expectedKind: structureKind(claim.kind),
         expectedCode: claim.code,
         academicYear: claim.academicYear,
-        modelInput,
-      });
-    },
-    extractDeterministic(claim, page) {
-      return extractDeterministicAcademicStructure({
-        html: page.html,
-        kind: structureKind(claim.kind),
-        code: claim.code,
-        year: claim.academicYear,
-        sourceUrl: page.sourceUrl,
+        pageMarkdown,
       });
     },
     validateModelOutput(claim, value) {
@@ -92,112 +71,30 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         expectedKind: structureKind(claim.kind),
         expectedCode: claim.code,
         expectedYear: claim.academicYear,
-        evidenceMethod: "model",
       });
       return {
         success: result.success,
         issues: result.success ? [] : result.issues,
       };
     },
-    merge({
+    finalise({
       claim,
-      deterministic,
+      listingTitle,
       model,
-      modelValid,
-      modelInput,
-      responseError,
+      pageMarkdown,
       finishReason,
+      responseError,
     }) {
-      const normalised = normaliseAcademicStructureModelExtraction(model);
-      const validation = validateAcademicStructureExtraction(normalised.value, {
-        expectedKind: structureKind(claim.kind),
-        expectedCode: claim.code,
-        expectedYear: claim.academicYear,
-        evidenceMethod: "model",
-      });
-      // A truncated response reads as a cause rather than a bare finish
-      // reason, and travels to catalogue_extractions.error_summary.
-      const responseCause = academicStructureModelResponseError({
+      return finaliseAcademicStructureExtraction({
+        kind: structureKind(claim.kind),
+        code: claim.code,
+        year: claim.academicYear,
+        listingTitle,
+        model,
+        pageMarkdown,
         finishReason,
         responseError,
       });
-      const evidenceIssues = validation.success
-        ? academicStructureModelEvidenceIssues(validation.data, modelInput)
-        : [];
-      // A response that did not finish, or that failed the contract, carries
-      // no field worth trusting. Anything else is judged field by field: one
-      // unsupported fee no longer costs the requirement tree, which matters
-      // because the deterministic fallback models that tree as a single
-      // free-text condition.
-      const discarded = !modelValid || !validation.success || !!responseCause;
-      const modelFields = ACADEMIC_STRUCTURE_MODEL_FIELDS as readonly string[];
-      const rejectedFields = new Set<string>(
-        discarded
-          ? modelFields
-          : evidenceIssues
-              .map(({ fieldKey }) => academicStructureModelFieldRoot(fieldKey))
-              .filter((field) => modelFields.includes(field)),
-      );
-      const extraction =
-        discarded || !validation.success
-          ? structuredClone(deterministic)
-          : mergeAcademicStructureExtractions({
-              deterministic,
-              model: validation.data,
-              rejectedFields,
-            });
-
-      if (discarded) {
-        extraction.reviewItems.push({
-          fieldKey: "modelExtraction",
-          kind: "invalid",
-          severity: "error",
-          message:
-            responseCause ??
-            "The model response failed the strict academic structure extraction contract; only deterministic parsing reached this snapshot.",
-        });
-      } else {
-        for (const field of rejectedFields) {
-          extraction.reviewItems.push({
-            fieldKey: field,
-            kind: "evidence_missing",
-            severity: "warning",
-            message: `The model supplied ${field} without wording from the selected-year source; the deterministic value was kept.`,
-          });
-        }
-      }
-      const warningCount = extraction.reviewItems.filter(
-        ({ severity }) => severity === "warning",
-      ).length;
-      const errorCount = extraction.reviewItems.filter(
-        ({ severity }) => severity === "error",
-      ).length;
-      return {
-        extraction,
-        modelValid: !discarded,
-        warningCount,
-        errorCount,
-        errorCode: discarded ? "MODEL_OUTPUT_REJECTED" : null,
-        errorSummary: discarded
-          ? (responseCause ??
-            "The model response failed strict extraction validation; deterministic data was retained.")
-          : null,
-        report: {
-          responseError,
-          responseCause,
-          finishReason,
-          schemaValid: validation.success,
-          schemaIssues: validation.success ? [] : validation.issues,
-          evidenceValid: evidenceIssues.length === 0,
-          evidenceIssues,
-          providerNormalisations: normalised.normalisations,
-          modelUsed: !discarded,
-          modelRejectedFields: [...rejectedFields].sort(),
-          modelAcceptedFields: discarded
-            ? []
-            : modelFields.filter((field) => !rejectedFields.has(field)),
-        },
-      };
     },
     project(extraction) {
       return structureCatalogueContent({

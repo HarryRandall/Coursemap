@@ -130,7 +130,7 @@ export type AcademicStructureExtractionEvidence = {
   sourceLocator: string;
   evidenceExcerpt: string;
   confidence: number;
-  method: "deterministic" | "model";
+  method: "model";
 };
 
 export type AcademicStructureExtractionReviewItem = {
@@ -191,7 +191,6 @@ export type AcademicStructureExtractionValidationOptions = {
   expectedKind?: AcademicStructureKind;
   expectedCode?: string;
   expectedYear?: number;
-  evidenceMethod?: AcademicStructureExtractionEvidence["method"];
 };
 
 export type AcademicStructureExtractionValidationResult =
@@ -620,7 +619,7 @@ const evidenceSchema = z
     sourceLocator: nonEmptyString,
     evidenceExcerpt: nonEmptyString,
     confidence: z.number().finite().min(0).max(1),
-    method: z.enum(["deterministic", "model"]),
+    method: z.literal("model"),
   })
   .strict();
 
@@ -736,15 +735,6 @@ export function validateAcademicStructureExtraction(
     issues.push({
       path: "$.year",
       message: `must match the selected year ${options.expectedYear}`,
-    });
-  }
-  if (
-    options.evidenceMethod &&
-    extraction.evidence.some(({ method }) => method !== options.evidenceMethod)
-  ) {
-    issues.push({
-      path: "$.evidence",
-      message: `must contain only ${options.evidenceMethod} evidence`,
     });
   }
   for (const [index, relationship] of extraction.relationships.entries()) {

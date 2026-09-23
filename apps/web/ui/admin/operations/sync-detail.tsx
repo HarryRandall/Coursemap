@@ -43,7 +43,6 @@ const STAGE_LABELS: Record<string, string> = {
   html_capture: "HTML capture",
   markdown_normalise: "Markdown normalise",
   model_input_prepare: "Model input",
-  deterministic_extract: "Deterministic extraction",
   model_extract: "Model extraction",
   schema_validate: "Schema validation",
   domain_validate: "Domain validation",

@@ -156,7 +156,7 @@ test("applying one unit leaves every other path and its evidence alone", () => {
     },
     {
       fieldPath: "title",
-      method: "deterministic",
+      method: "model",
       confidence: 1,
       sourceLocator: "#title",
       sourceExcerpt: "ANU title",

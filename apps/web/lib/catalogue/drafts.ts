@@ -461,7 +461,7 @@ async function materialiseDraftVersion(
     contentHash,
     evidence: evidenceRows.map((row) => ({
       fieldPath: String(row.field_path),
-      method: row.origin as "deterministic" | "model" | "manual",
+      method: row.origin as "model" | "manual",
       confidence: row.confidence === null ? null : Number(row.confidence),
       sourceLocator:
         row.source_locator === null ? null : String(row.source_locator),

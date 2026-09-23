@@ -8,7 +8,6 @@ export type SyncArtifactKind =
   | "raw_html"
   | "normalised_markdown"
   | "model_input"
-  | "deterministic_output"
   | "model_request"
   | "model_response"
   | "validated_json"

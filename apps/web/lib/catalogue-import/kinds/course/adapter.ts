@@ -1,20 +1,13 @@
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { courseCatalogueContent } from "../../../catalogue/content.ts";
+import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
 import {
   COURSE_EXTRACTION_JSON_SCHEMA,
   type CourseExtraction,
   validateCourseExtraction,
 } from "./contract.ts";
-import { extractDeterministicCourse } from "./deterministic.ts";
-import {
-  buildCourseModelInput,
-  convertCourseHtmlToMarkdown,
-} from "./markdown.ts";
-import { mergeCourseExtractions } from "./merge.ts";
-import {
-  canonicaliseCourseModelExtraction,
-  courseModelCanonicalisationReviewItem,
-} from "./model-canonical.ts";
+import { finaliseCourseExtraction } from "./finalise.ts";
+import { canonicaliseCourseModelExtraction } from "./model-canonical.ts";
 import { projectCourseSnapshot } from "./project.ts";
 import {
   COURSE_IMPORT_PARSER_VERSION,
@@ -41,32 +34,22 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     return fetchAnuCoursePage(claim.academicYear, claim.code, { signal });
   },
   prepareInput(claim, page) {
-    const { markdown } = convertCourseHtmlToMarkdown({
+    return convertAnuPageToMarkdown({
       html: page.html,
-      courseCode: claim.code,
-      year: claim.academicYear,
-      sourceUrl: page.sourceUrl,
+      frontMatter: {
+        kind: "course",
+        code: claim.code,
+        year: claim.academicYear,
+        source_url: page.sourceUrl,
+      },
     });
-    return {
-      markdown,
-      modelInput: buildCourseModelInput(markdown, claim.academicYear)
-        .modelInput,
-    };
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
-  buildUserPrompt(claim, modelInput) {
+  buildUserPrompt(claim, pageMarkdown) {
     return buildCourseExtractionUserPrompt({
       expectedCode: claim.code,
       academicYear: claim.academicYear,
-      modelInput,
-    });
-  },
-  extractDeterministic(claim, page) {
-    return extractDeterministicCourse({
-      html: page.html,
-      courseCode: claim.code,
-      year: claim.academicYear,
-      sourceUrl: page.sourceUrl,
+      pageMarkdown,
     });
   },
   validateModelOutput(claim, value) {
@@ -77,57 +60,29 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: claim.code,
       expectedYear: claim.academicYear,
-      evidenceMethod: "model",
     });
     return {
       success: result.success,
       issues: result.success ? [] : result.issues,
     };
   },
-  merge({ claim, deterministic, model, modelValid, modelInput }) {
-    const canonical = canonicaliseCourseModelExtraction(model, {
-      expectedCode: claim.code,
-      expectedYear: claim.academicYear,
+  finalise({
+    claim,
+    listingTitle,
+    model,
+    pageMarkdown,
+    finishReason,
+    responseError,
+  }) {
+    return finaliseCourseExtraction({
+      code: claim.code,
+      year: claim.academicYear,
+      listingTitle,
+      model,
+      pageMarkdown,
+      finishReason,
+      responseError,
     });
-    const result = mergeCourseExtractions({
-      deterministic,
-      model: canonical.value,
-      modelInput,
-    });
-    const canonicalisationReviewItem = courseModelCanonicalisationReviewItem(
-      canonical.changes,
-    );
-    if (canonicalisationReviewItem) {
-      result.extraction.reviewItems.push(canonicalisationReviewItem);
-    }
-    const warningCount = result.extraction.reviewItems.filter(
-      ({ severity }) => severity === "warning",
-    ).length;
-    const errorCount = modelValid
-      ? result.extraction.reviewItems.filter(
-          ({ severity }) => severity === "error",
-        ).length
-      : result.modelValidationIssues.length;
-    return {
-      extraction: result.extraction,
-      modelValid,
-      warningCount,
-      errorCount,
-      errorCode: modelValid ? null : "MODEL_OUTPUT_REJECTED",
-      errorSummary: modelValid
-        ? null
-        : "The model response failed the strict course extraction contract; only deterministic parsing reached this snapshot.",
-      report: {
-        schemaValid: modelValid,
-        modelValidationIssues: result.modelValidationIssues,
-        canonicalisationChanges: canonical.changes,
-        conflicts: result.conflicts,
-        evidenceIssues: result.evidenceIssues,
-        modelAcceptedFields: result.modelAcceptedFields,
-        modelRejectedFields: result.modelRejectedFields,
-        reviewItems: result.extraction.reviewItems,
-      },
-    };
   },
   project(extraction) {
     return courseCatalogueContent({

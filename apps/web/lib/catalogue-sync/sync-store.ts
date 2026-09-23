@@ -15,7 +15,6 @@ export type SyncStageName =
   | "html_capture"
   | "markdown_normalise"
   | "model_input_prepare"
-  | "deterministic_extract"
   | "model_extract"
   | "schema_validate"
   | "domain_validate"
@@ -149,6 +148,17 @@ export async function getCatalogueSyncStatus(sql: AnySyncSql, syncId: string) {
   const [row] =
     await sql`select status from public.catalogue_syncs where id = ${syncId}::uuid`;
   return row ? String(row.status) : null;
+}
+
+/** The directory title for a record, used when the model gives no title. */
+export async function readListingTitle(sql: AnySyncSql, recordId: number) {
+  const [row] = await sql`
+    select title from public.catalogue_listings
+    where record_id = ${recordId}
+    order by is_current desc, last_seen_at desc
+    limit 1
+  `;
+  return row?.title ? String(row.title) : null;
 }
 
 export async function startSyncStage(
