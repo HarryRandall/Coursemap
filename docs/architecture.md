@@ -214,7 +214,7 @@ official calendar; importing calendar events does not itself reconcile them.
 
 ## Delivery
 
-Changes move through focused branches and pull requests. GitHub Actions checks formatting, linting, types, tests and the production build. Vercel creates preview deployments and promotes `main` after checks. Supabase schema changes remain forward-only migrations in the same pull request as their application code.
+Changes move through focused branches and pull requests. GitHub Actions checks formatting, linting, types, tests and the production build. Vercel creates preview deployments and promotes `main` after checks. Supabase schema changes remain forward-only migrations in the same pull request as their application code. Pull requests exercise the complete migration history locally. After every gate passes on `main`, the production database job previews and applies pending migrations through the protected GitHub `Production` environment.
 
 `supabase/migrations/` is an eight-part baseline that states the schema as it
 is rather than the ninety-five migrations that reached it. The hosted project

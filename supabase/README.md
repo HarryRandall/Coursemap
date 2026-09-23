@@ -36,6 +36,23 @@ Edit a baseline part only to correct something that has never been deployed.
 Once the hosted project has applied a file, changing it puts the two out of
 step, and a forward migration is the only way back.
 
+## Production delivery
+
+Pull requests rebuild and test the complete migration history against local
+Supabase. They never receive production credentials and cannot change the
+hosted database.
+
+After a commit reaches `main`, GitHub Actions waits for the quality, route,
+database and browser gates. The `Apply production migrations` job then enters
+the `Production` environment, previews the pending migration plan and applies
+it to project `mogdmhkqkpvksvtvwdgl` with `supabase db push`. The environment
+must provide `SUPABASE_DB_PASSWORD` as a secret. The job constructs the
+percent-encoded session-pooler URL at runtime, so it does not require a broad
+Supabase Management API token.
+
+Production migrations are forward-only. Do not edit, rename or remove a
+migration after it has been applied. Add a new migration to correct it.
+
 `seed.sql` intentionally contains no catalogue or user fixtures. `pnpm db:reset` performs an explicitly local reset, then applies the separate preview
 fixture through a database client that refuses every non-loopback connection.
 Reapply it to an already running local stack with `pnpm db:seed:preview`.
