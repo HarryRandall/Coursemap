@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "academic-structure-extraction.v3",
+  "schemaVersion": "academic-structure-extraction.v4",
   "kind": "programme",
   "code": "BCOMP",
   "year": 2026,
@@ -114,57 +114,13 @@
   ],
   "sections": [
     {
-      "position": 1,
-      "key": "learning-outcomes",
-      "heading": "Learning Outcomes",
-      "markdown": "Apply computing concepts to practical problems.\nCommunicate technical decisions clearly.",
-      "sourceText": "Apply computing concepts to practical problems.\nCommunicate technical decisions clearly.",
-      "sourceLocator": "#learning-outcomes"
-    },
-    {
-      "position": 2,
-      "key": "program-requirements",
-      "heading": "Program Requirements",
-      "markdown": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
-      "sourceText": "The Bachelor of Computing requires completion of 144 units, of which:\n12 units from completion of one course from the following list:\nCOMP1100 Programming as Problem Solving\nCOMP1130 Programming as Problem Solving Advanced\nOR completion of one of the following majors:\nSoftware Development",
-      "sourceLocator": "#program-requirements"
-    },
-    {
-      "position": 3,
-      "key": "majors",
-      "heading": "Majors",
-      "markdown": "Software Development",
-      "sourceText": "Software Development",
-      "sourceLocator": "#majors"
-    },
-    {
-      "position": 4,
-      "key": "relevant-degrees",
-      "heading": "Relevant Degrees",
-      "markdown": "Bachelor of Information Technology\nIndicative fees\nCommonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
-      "sourceText": "Bachelor of Information Technology\nIndicative fees\nCommonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
-      "sourceLocator": "#relevant-degrees"
-    },
-    {
-      "position": 5,
-      "key": "indicative-fees",
-      "heading": "Indicative fees",
-      "markdown": "Commonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
-      "sourceText": "Commonwealth Supported Place (CSP)\nAnnual indicative fee for international students\n$56,120.00",
-      "sourceLocator": "#indicative-fees"
-    },
-    {
-      "position": 6,
-      "key": "fee-information",
-      "heading": "Fee Information",
+      "key": "fees_and_scholarships",
       "markdown": "The annual indicative fee is based on a full-time load.",
       "sourceText": "The annual indicative fee is based on a full-time load.",
       "sourceLocator": "#fee-information"
     },
     {
-      "position": 7,
-      "key": "future-ideas",
-      "heading": "Future Ideas",
+      "key": "further_information",
       "markdown": "This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long.",
       "sourceText": "This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long. This lower-priority marketing paragraph is intentionally long.",
       "sourceLocator": "#future-ideas"
@@ -213,48 +169,12 @@
   "relationships": [
     {
       "position": 1,
-      "relationshipKind": "source_reference",
-      "targetKind": "course",
-      "targetCode": "COMP1100",
-      "targetTitle": null,
-      "sourceText": "COMP1100",
-      "sourceLocator": "#program-requirements"
-    },
-    {
-      "position": 2,
-      "relationshipKind": "source_reference",
-      "targetKind": "course",
-      "targetCode": "COMP1130",
-      "targetTitle": null,
-      "sourceText": "COMP1130",
-      "sourceLocator": "#program-requirements"
-    },
-    {
-      "position": 3,
-      "relationshipKind": "source_reference",
-      "targetKind": "major",
-      "targetCode": "SOFT-MAJ",
-      "targetTitle": "Software Development",
-      "sourceText": "Software Development",
-      "sourceLocator": "#program-requirements"
-    },
-    {
-      "position": 4,
       "relationshipKind": "option",
       "targetKind": "major",
       "targetCode": "SOFT-MAJ",
       "targetTitle": "Software Development",
       "sourceText": "Software Development",
       "sourceLocator": "#majors"
-    },
-    {
-      "position": 5,
-      "relationshipKind": "relevant",
-      "targetKind": "programme",
-      "targetCode": "BIT",
-      "targetTitle": "Bachelor of Information Technology",
-      "sourceText": "Bachelor of Information Technology",
-      "sourceLocator": "#relevant-degrees"
     }
   ],
   "requirements": {

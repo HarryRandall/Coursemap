@@ -1,5 +1,9 @@
 import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
+import {
+  isStructureRelationshipKind,
+  isStructureSectionKey,
+} from "./structure-vocabulary.ts";
 
 export type CatalogueKind =
   "course" | "programme" | "major" | "minor" | "specialisation";
@@ -444,6 +448,32 @@ export function validateCatalogueContent(value: unknown): CatalogueContent {
     }
   }
   return structuredClone(value) as CatalogueContent;
+}
+
+/**
+ * Refuses structure content an administrator submits with a section or
+ * relationship outside Coursemap's fixed vocabulary. Stored content is not
+ * checked on read: an older version may still hold retired values, which the
+ * readers skip rather than fail on.
+ */
+export function assertStructureVocabulary(content: CatalogueContent) {
+  if (content.kind === "course") return;
+  if (
+    !content.structure.sections.every((section) =>
+      isStructureSectionKey(section.sectionKey),
+    )
+  ) {
+    throw new TypeError("Every section needs one of the fixed section types.");
+  }
+  if (
+    !content.structure.relationships.every((relationship) =>
+      isStructureRelationshipKind(relationship.relationshipKind),
+    )
+  ) {
+    throw new TypeError(
+      "Every related record needs to be offered in, an option or incompatible.",
+    );
+  }
 }
 
 type CourseProjectionCondition =

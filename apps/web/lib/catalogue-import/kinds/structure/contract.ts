@@ -1,7 +1,13 @@
 import { z } from "zod";
+import {
+  STRUCTURE_RELATIONSHIP_KINDS,
+  STRUCTURE_SECTION_KEYS,
+  type StructureRelationshipKind,
+  type StructureSectionKey,
+} from "../../../catalogue/structure-vocabulary.ts";
 
 export const ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION =
-  "academic-structure-extraction.v3" as const;
+  "academic-structure-extraction.v4" as const;
 
 export const ACADEMIC_STRUCTURE_KINDS = [
   "programme",
@@ -32,10 +38,9 @@ export type AcademicStructureSummaryField = {
   sourceText: string;
 };
 
+/** One fixed information section; its heading comes from the key. */
 export type AcademicStructureSection = {
-  position: number;
-  key: string;
-  heading: string;
+  key: StructureSectionKey;
   markdown: string;
   sourceText: string;
   sourceLocator: string;
@@ -63,14 +68,8 @@ export type AcademicStructureFee = {
 
 export type AcademicStructureRelationship = {
   position: number;
-  relationshipKind:
-    | "source_reference"
-    | "relevant"
-    | "option"
-    | "required"
-    | "incompatible"
-    | "other";
-  targetKind: AcademicStructureKind | "course";
+  relationshipKind: StructureRelationshipKind;
+  targetKind: AcademicStructureKind;
   targetCode: string;
   targetTitle: string | null;
   sourceText: string;
@@ -233,9 +232,7 @@ const summaryFieldSchema = z
 
 const sectionSchema = z
   .object({
-    position,
-    key: nonEmptyString.regex(/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/),
-    heading: nonEmptyString,
+    key: z.enum(STRUCTURE_SECTION_KEYS),
     markdown: nonEmptyString,
     sourceText: nonEmptyString,
     sourceLocator: nonEmptyString,
@@ -274,15 +271,8 @@ const feeSchema = z
 const relationshipSchema = z
   .object({
     position,
-    relationshipKind: z.enum([
-      "source_reference",
-      "relevant",
-      "option",
-      "required",
-      "incompatible",
-      "other",
-    ]),
-    targetKind: z.union([structureKindSchema, z.literal("course")]),
+    relationshipKind: z.enum(STRUCTURE_RELATIONSHIP_KINDS),
+    targetKind: structureKindSchema,
     targetCode: nonEmptyString,
     targetTitle: nullableString,
     sourceText: nonEmptyString,
@@ -738,16 +728,35 @@ export function validateAcademicStructureExtraction(
     });
   }
   for (const [index, relationship] of extraction.relationships.entries()) {
-    const targetMatches =
-      relationship.targetKind === "course"
-        ? COURSE_CODE_PATTERN.test(relationship.targetCode)
-        : codeMatchesKind(relationship.targetKind, relationship.targetCode);
-    if (!targetMatches) {
+    if (!codeMatchesKind(relationship.targetKind, relationship.targetCode)) {
       issues.push({
         path: `$.relationships.${index}.targetCode`,
         message: `does not match target kind ${relationship.targetKind}`,
       });
     }
+    // Structures are offered in degrees, and a degree's options are the
+    // majors, minors and specialisations studied within it.
+    const expectsProgramme = relationship.relationshipKind === "offered_in";
+    const expectsComponent = relationship.relationshipKind === "option";
+    if (
+      (expectsProgramme && relationship.targetKind !== "programme") ||
+      (expectsComponent && relationship.targetKind === "programme")
+    ) {
+      issues.push({
+        path: `$.relationships.${index}.targetKind`,
+        message: `cannot be ${relationship.targetKind} for ${relationship.relationshipKind}`,
+      });
+    }
+  }
+  const seenSections = new Set<string>();
+  for (const [index, section] of extraction.sections.entries()) {
+    if (seenSections.has(section.key)) {
+      issues.push({
+        path: `$.sections.${index}.key`,
+        message: "must appear once; merge the wording into one section",
+      });
+    }
+    seenSections.add(section.key);
   }
 
   return issues.length === 0
@@ -884,21 +893,9 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
     section: {
       type: "object",
       additionalProperties: false,
-      required: [
-        "position",
-        "key",
-        "heading",
-        "markdown",
-        "sourceText",
-        "sourceLocator",
-      ],
+      required: ["key", "markdown", "sourceText", "sourceLocator"],
       properties: {
-        position: { type: "integer", minimum: 1 },
-        key: {
-          type: "string",
-          pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$",
-        },
-        heading: { type: "string", minLength: 1 },
+        key: { enum: [...STRUCTURE_SECTION_KEYS] },
         markdown: { type: "string", minLength: 1 },
         sourceText: { type: "string", minLength: 1 },
         sourceLocator: { type: "string", minLength: 1 },
@@ -968,17 +965,8 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
       ],
       properties: {
         position: { type: "integer", minimum: 1 },
-        relationshipKind: {
-          enum: [
-            "source_reference",
-            "relevant",
-            "option",
-            "required",
-            "incompatible",
-            "other",
-          ],
-        },
-        targetKind: { enum: [...ACADEMIC_STRUCTURE_KINDS, "course"] },
+        relationshipKind: { enum: [...STRUCTURE_RELATIONSHIP_KINDS] },
+        targetKind: { enum: [...ACADEMIC_STRUCTURE_KINDS] },
         targetCode: { type: "string", minLength: 1 },
         targetTitle: nullableStringSchema,
         sourceText: { type: "string", minLength: 1 },

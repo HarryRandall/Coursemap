@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 
 import {
+  assertStructureVocabulary,
   emptyCatalogueContent,
   validateCatalogueContent,
 } from "@/lib/catalogue/content";
+import { structureDetailsFromWrite } from "@/lib/coursemap/structure-version-view";
 
 test("manual course authoring starts with a complete kind-specific aggregate", () => {
   const content = emptyCatalogueContent({
@@ -49,4 +51,77 @@ test("draft validation rejects incomplete aggregates before persistence", () => 
       requirements: {},
     }),
   ).toThrow("The catalogue content aggregate is incomplete.");
+});
+
+function structureWith(
+  sections: Array<Record<string, unknown>>,
+  relationships: Array<Record<string, unknown>>,
+) {
+  const content = emptyCatalogueContent({
+    kind: "major",
+    code: "MATH-MAJ",
+    academicYear: 2026,
+    title: "Mathematics",
+  });
+  if (!content.structure) throw new Error("Expected structure content.");
+  content.structure.sections = sections as never;
+  content.structure.relationships = relationships as never;
+  return content;
+}
+
+const section = (sectionKey: string) => ({
+  position: 1,
+  sectionKey,
+  heading: "Any heading",
+  markdown: "- MATH1115 Advanced Mathematics and Applications 1",
+  sourceText: "MATH1115 Advanced Mathematics and Applications 1",
+  sourceLocator: "manual",
+});
+
+const relationship = (relationshipKind: string) => ({
+  position: 1,
+  relationshipKind,
+  targetKind: "programme",
+  targetCode: "BSC",
+  targetTitle: "Bachelor of Science",
+  sourceText: "Bachelor of Science",
+  sourceLocator: "manual",
+});
+
+test("a submitted structure keeps to the fixed sections and relationships", () => {
+  expect(() =>
+    assertStructureVocabulary(
+      structureWith(
+        [section("first_year_advice")],
+        [relationship("offered_in")],
+      ),
+    ),
+  ).not.toThrow();
+  expect(() =>
+    assertStructureVocabulary(
+      structureWith([section("other-information")], []),
+    ),
+  ).toThrow("Every section needs one of the fixed section types.");
+  expect(() =>
+    assertStructureVocabulary(
+      structureWith([], [relationship("source_reference")]),
+    ),
+  ).toThrow(/offered in, an option or incompatible/);
+});
+
+test("readers show only the fixed vocabulary, under Coursemap's headings", () => {
+  const content = structureWith(
+    [section("first_year_advice"), section("other-information")],
+    [relationship("offered_in"), relationship("relevant")],
+  );
+  // Stored content from an older sync can still hold retired values; reading
+  // it must not fail, and those values are not shown.
+  expect(validateCatalogueContent(content)).toEqual(content);
+  const details = structureDetailsFromWrite(content);
+  expect(
+    details?.sections.map(({ sectionKey, heading }) => [sectionKey, heading]),
+  ).toEqual([["first_year_advice", "First-year advice"]]);
+  expect(
+    details?.relationships.map(({ relationshipKind }) => relationshipKind),
+  ).toEqual(["offered_in"]);
 });

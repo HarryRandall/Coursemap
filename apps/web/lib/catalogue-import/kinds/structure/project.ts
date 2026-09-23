@@ -1,5 +1,9 @@
 import { stableFingerprint } from "../../canonical.ts";
 import {
+  STRUCTURE_SECTION_KEYS,
+  STRUCTURE_SECTION_LABELS,
+} from "../../../catalogue/structure-vocabulary.ts";
+import {
   parseAcademicStructureExtraction,
   type AcademicStructureExtraction,
   type AcademicStructureKind,
@@ -262,14 +266,22 @@ export function projectAcademicStructureSnapshot(
         sourceText: field.sourceText,
       })),
     ),
-    sections: extraction.sections.map((section) => ({
-      position: section.position,
-      sectionKey: section.key,
-      heading: section.heading,
-      markdown: section.markdown,
-      sourceText: section.sourceText,
-      sourceLocator: section.sourceLocator,
-    })),
+    // Sections are stored in Coursemap's fixed reading order under Coursemap's
+    // own headings, whatever order and names the ANU page used.
+    sections: [...extraction.sections]
+      .sort(
+        (left, right) =>
+          STRUCTURE_SECTION_KEYS.indexOf(left.key) -
+          STRUCTURE_SECTION_KEYS.indexOf(right.key),
+      )
+      .map((section, index) => ({
+        position: index + 1,
+        sectionKey: section.key,
+        heading: STRUCTURE_SECTION_LABELS[section.key],
+        markdown: section.markdown,
+        sourceText: section.sourceText,
+        sourceLocator: section.sourceLocator,
+      })),
     learningOutcomes: extraction.learningOutcomes.map((outcome) => ({
       position: outcome.position,
       outcomeText: outcome.text,

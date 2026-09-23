@@ -2,11 +2,21 @@
 
 import { Button } from "@coursemap/ui/primitives/button";
 import { Input } from "@coursemap/ui/primitives/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@coursemap/ui/primitives/select";
 import { Textarea } from "@coursemap/ui/primitives/textarea";
 import { Plus, Trash2 } from "lucide-react";
 
 type Scalar = string | number | boolean | null;
 type Row = Record<string, Scalar>;
+
+/** One allowed value of a field with a fixed vocabulary, and its name. */
+export type FieldChoice = { value: string; label: string };
 
 const LONG_TEXT_KEYS = new Set([
   "description",
@@ -62,6 +72,7 @@ export function ScalarField({
   onChange,
   long = false,
   readOnly = false,
+  choices,
 }: {
   id: string;
   label: string;
@@ -69,8 +80,41 @@ export function ScalarField({
   onChange: (value: Scalar) => void;
   long?: boolean;
   readOnly?: boolean;
+  /** Limits the field to these values, chosen by name. */
+  choices?: readonly FieldChoice[];
 }) {
-  if (readOnly) return <ReadOnlyField label={label} value={value} />;
+  if (readOnly) {
+    const chosen = choices?.find((choice) => choice.value === value);
+    return <ReadOnlyField label={label} value={chosen?.label ?? value} />;
+  }
+  if (choices) {
+    return (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium" htmlFor={id}>
+          {label}
+        </label>
+        <Select
+          value={
+            choices.some((choice) => choice.value === value)
+              ? String(value)
+              : undefined
+          }
+          onValueChange={onChange}
+        >
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder="Choose one" />
+          </SelectTrigger>
+          <SelectContent>
+            {choices.map((choice) => (
+              <SelectItem key={choice.value} value={choice.value}>
+                {choice.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
   if (
     typeof value === "boolean" ||
     (value === null && /^(can|is|has|hurdle)/.test(label))
@@ -184,6 +228,7 @@ export function RowsEditor({
   hiddenKeys = ["position"],
   emptyLabel,
   readOnly = false,
+  choices = {},
 }: {
   idPrefix: string;
   rows: Row[];
@@ -193,6 +238,8 @@ export function RowsEditor({
   emptyLabel: string;
   /** Lists the rows as they stand, without add, remove or entry. */
   readOnly?: boolean;
+  /** Fields limited to a fixed vocabulary, by key. */
+  choices?: Partial<Record<string, readonly FieldChoice[]>>;
 }) {
   const shape = rows[0] ?? template;
   const keys = Object.keys(shape).filter((key) => !hiddenKeys.includes(key));
@@ -239,6 +286,7 @@ export function RowsEditor({
                       value={row[key] ?? null}
                       long={long}
                       readOnly={readOnly}
+                      choices={choices[key]}
                       onChange={(next) =>
                         onChange(
                           rows.map((candidate, at) =>

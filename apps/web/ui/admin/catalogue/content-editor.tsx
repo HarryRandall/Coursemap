@@ -19,14 +19,24 @@ import type {
   CatalogueContent,
   RequirementRuleKind,
 } from "@/lib/catalogue/content";
-import { FIELD_LABELS } from "@/lib/coursemap/catalogue-kinds";
+import {
+  STRUCTURE_RELATIONSHIP_KINDS,
+  STRUCTURE_RELATIONSHIP_LABELS,
+  STRUCTURE_SECTION_KEYS,
+  STRUCTURE_SECTION_LABELS,
+  isStructureSectionKey,
+} from "@/lib/catalogue/structure-vocabulary";
+import {
+  CATALOGUE_KIND_LABELS,
+  FIELD_LABELS,
+} from "@/lib/coursemap/catalogue-kinds";
 import {
   createEmptyTree,
   type ReviewedRuleTree,
 } from "@/lib/coursemap/requisite-conditions";
 import { RequisiteRuleTree } from "@/ui/admin/requisites/requisite-rule-tree";
 import { useCatalogueEditor } from "./catalogue-editor-context";
-import { DetailsEditor, RowsEditor } from "./section-editor";
+import { DetailsEditor, type FieldChoice, RowsEditor } from "./section-editor";
 import { JsonCode } from "@/ui/common/json-code";
 
 type Row = Record<string, string | number | boolean | null>;
@@ -114,9 +124,17 @@ const COURSE_COLLECTIONS: Array<{
   },
 ];
 
+const STRUCTURE_KIND_CHOICES: FieldChoice[] = (
+  ["programme", "major", "minor", "specialisation"] as const
+).map((kind) => ({ value: kind, label: CATALOGUE_KIND_LABELS[kind].singular }));
+
 const STRUCTURE_COLLECTIONS: Array<{
   key: keyof NonNullable<CatalogueContent["structure"]>;
   template: Row;
+  hiddenKeys?: string[];
+  choices?: Partial<Record<string, readonly FieldChoice[]>>;
+  /** Fills fields that follow from others, such as a section's heading. */
+  normalise?: (row: Row) => Row;
 }> = [
   {
     key: "sections",
@@ -128,6 +146,19 @@ const STRUCTURE_COLLECTIONS: Array<{
       sourceText: "",
       sourceLocator: "manual",
     },
+    hiddenKeys: ["position", "heading"],
+    choices: {
+      sectionKey: STRUCTURE_SECTION_KEYS.map((key) => ({
+        value: key,
+        label: STRUCTURE_SECTION_LABELS[key],
+      })),
+    },
+    normalise: (row) => ({
+      ...row,
+      heading: isStructureSectionKey(row.sectionKey)
+        ? STRUCTURE_SECTION_LABELS[row.sectionKey]
+        : "",
+    }),
   },
   {
     key: "learningOutcomes",
@@ -163,6 +194,13 @@ const STRUCTURE_COLLECTIONS: Array<{
       targetTitle: "",
       sourceText: "",
       sourceLocator: "manual",
+    },
+    choices: {
+      relationshipKind: STRUCTURE_RELATIONSHIP_KINDS.map((kind) => ({
+        value: kind,
+        label: STRUCTURE_RELATIONSHIP_LABELS[kind],
+      })),
+      targetKind: STRUCTURE_KIND_CHOICES,
     },
   },
 ];
@@ -354,23 +392,31 @@ export function CatalogueContentEditor() {
               }
             />
           </Section>
-          {STRUCTURE_COLLECTIONS.map(({ key, template }) =>
-            !editing && (write.structure![key] as Row[]).length === 0 ? null : (
-              <Section
-                key={key}
-                title={FIELD_LABELS[`structure.${key}`] ?? key}
-                count={(write.structure![key] as Row[]).length}
-              >
-                <RowsEditor
-                  idPrefix={`structure-${key}`}
-                  rows={write.structure![key] as unknown as Row[]}
-                  template={template}
-                  emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
-                  readOnly={!editing}
-                  onChange={(rows) => updateStructure({ [key]: rows } as never)}
-                />
-              </Section>
-            ),
+          {STRUCTURE_COLLECTIONS.map(
+            ({ key, template, hiddenKeys, choices, normalise }) =>
+              !editing &&
+              (write.structure![key] as Row[]).length === 0 ? null : (
+                <Section
+                  key={key}
+                  title={FIELD_LABELS[`structure.${key}`] ?? key}
+                  count={(write.structure![key] as Row[]).length}
+                >
+                  <RowsEditor
+                    idPrefix={`structure-${key}`}
+                    rows={write.structure![key] as unknown as Row[]}
+                    template={template}
+                    hiddenKeys={hiddenKeys}
+                    choices={choices}
+                    emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
+                    readOnly={!editing}
+                    onChange={(rows) =>
+                      updateStructure({
+                        [key]: normalise ? rows.map(normalise) : rows,
+                      } as never)
+                    }
+                  />
+                </Section>
+              ),
           )}
           <RuleSection
             ruleKey="structure"

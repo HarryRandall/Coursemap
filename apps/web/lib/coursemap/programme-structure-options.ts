@@ -83,8 +83,7 @@ export function collectSelectableStructureCodes({
   for (const relationship of relationships) {
     if (
       isSelectableStructureKind(relationship.target_kind) &&
-      (relationship.relationship_kind === "required" ||
-        relationship.relationship_kind === "option")
+      relationship.relationship_kind === "option"
     ) {
       addCode(
         relationship.version_id,
