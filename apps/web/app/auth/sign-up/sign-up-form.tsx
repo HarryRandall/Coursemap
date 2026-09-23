@@ -3,10 +3,9 @@ import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Field, FieldDescription } from "@coursemap/ui/primitives/field";
 import { Input } from "@coursemap/ui/primitives/input";
-import { cn } from "@/lib/cn";
 
 import { CircleAlert, LockKeyhole, Mail } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/browser";
 
@@ -22,6 +21,10 @@ export function SignUpForm({
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const errorId = useId();
+  const passwordHintId = useId();
+  const confirmationRef = useRef<HTMLInputElement>(null);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,11 +32,13 @@ export function SignUpForm({
 
     if (password !== passwordConfirmation) {
       setErrorMessage("Passwords do not match.");
+      confirmationRef.current?.select();
       return;
     }
 
     setSubmitting(true);
     setErrorMessage(null);
+    setNotice(null);
 
     try {
       const supabase = createClient();
@@ -56,7 +61,7 @@ export function SignUpForm({
       }
 
       if (!data.session) {
-        setErrorMessage(
+        setNotice(
           "Your account was created, but email confirmation is still enabled. Contact the Coursemap administrator before trying again.",
         );
         return;
@@ -80,7 +85,7 @@ export function SignUpForm({
           <span className="text-sm font-medium">{"Email address"}</span>
           <span className="relative block">
             <Mail
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -92,7 +97,10 @@ export function SignUpForm({
               maxLength={254}
               placeholder="name@anu.edu.au"
               required
-              disabled={!configured || submitting}
+              disabled={!configured}
+              readOnly={submitting}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? errorId : undefined}
               className="min-h-11 pl-10"
             />
           </span>
@@ -104,7 +112,7 @@ export function SignUpForm({
           <span className="text-sm font-medium">{"Password"}</span>
           <span className="relative block">
             <LockKeyhole
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -116,14 +124,19 @@ export function SignUpForm({
               minLength={8}
               maxLength={128}
               required
-              disabled={!configured || submitting}
+              disabled={!configured}
+              readOnly={submitting}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={
+                errorMessage ? `${passwordHintId} ${errorId}` : passwordHintId
+              }
               className="min-h-11 pl-10"
             />
           </span>
-          <FieldDescription>
-            {"Use at least 8 characters and do not reuse your ANU password."}
-          </FieldDescription>
         </label>
+        <FieldDescription id={passwordHintId}>
+          Use at least 8 characters and do not reuse your ANU password.
+        </FieldDescription>
       </Field>
 
       <Field>
@@ -131,19 +144,23 @@ export function SignUpForm({
           <span className="text-sm font-medium">{"Confirm password"}</span>
           <span className="relative block">
             <LockKeyhole
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
               type="password"
               name="passwordConfirmation"
               value={passwordConfirmation}
+              ref={confirmationRef}
               onChange={(event) => setPasswordConfirmation(event.target.value)}
               autoComplete="new-password"
               minLength={8}
               maxLength={128}
               required
-              disabled={!configured || submitting}
+              disabled={!configured}
+              readOnly={submitting}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? errorId : undefined}
               className="min-h-11 pl-10"
             />
           </span>
@@ -151,17 +168,25 @@ export function SignUpForm({
       </Field>
 
       {errorMessage && (
-        <Alert role="alert" variant={"destructive"}>
-          <CircleAlert />
+        <Alert id={errorId} role="alert" variant="destructive">
+          <CircleAlert aria-hidden="true" />
           <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+
+      {notice && (
+        <Alert role="status" variant="warning">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
 
       <Button
         type="submit"
         variant="default"
-        disabled={!configured || submitting}
-        className={cn("min-h-11", "w-full")}
+        disabled={!configured}
+        aria-disabled={submitting || undefined}
+        className="min-h-11 w-full"
       >
         {submitting ? "Creating account..." : "Create account"}
       </Button>

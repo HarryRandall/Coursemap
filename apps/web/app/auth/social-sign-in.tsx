@@ -1,6 +1,5 @@
 "use client";
 import { Button } from "@coursemap/ui/primitives/button";
-import { cn } from "@/lib/cn";
 
 import { useCoursemap } from "@/app/providers";
 
@@ -60,10 +59,7 @@ export function SocialSignIn({ disabled }: { disabled?: boolean }) {
         type="button"
         disabled={disabled}
         onClick={() => announce("Google")}
-        className={cn(
-          "min-h-11 !rounded-xl text-[13px] font-semibold",
-          "w-full",
-        )}
+        className="min-h-11 w-full"
         size="lg"
         variant="outline"
       >
@@ -74,10 +70,7 @@ export function SocialSignIn({ disabled }: { disabled?: boolean }) {
         type="button"
         disabled={disabled}
         onClick={() => announce("Microsoft")}
-        className={cn(
-          "min-h-11 !rounded-xl text-[13px] font-semibold",
-          "w-full",
-        )}
+        className="min-h-11 w-full"
         size="lg"
         variant="outline"
       >

@@ -3,10 +3,9 @@ import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Field } from "@coursemap/ui/primitives/field";
 import { Input } from "@coursemap/ui/primitives/input";
-import { cn } from "@/lib/cn";
 
 import { CircleAlert, LockKeyhole, Mail } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/browser";
 
@@ -23,6 +22,8 @@ export function SignInForm({
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
+  const errorId = useId();
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,11 +40,15 @@ export function SignInForm({
       });
 
       if (error) {
+        const invalidCredentials = error.message
+          .toLowerCase()
+          .includes("invalid login credentials");
         setErrorMessage(
-          error.message.toLowerCase().includes("invalid login credentials")
+          invalidCredentials
             ? "Email or password is incorrect."
             : "Coursemap could not sign you in. Wait a moment and try again.",
         );
+        if (invalidCredentials) passwordRef.current?.select();
         return;
       }
 
@@ -70,7 +75,7 @@ export function SignInForm({
           <span className="text-sm font-medium">{"Email address"}</span>
           <span className="relative block">
             <Mail
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -82,7 +87,10 @@ export function SignInForm({
               maxLength={254}
               placeholder="name@anu.edu.au"
               required
-              disabled={!configured || submitting}
+              disabled={!configured}
+              readOnly={submitting}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? errorId : undefined}
               className="min-h-11 pl-10"
             />
           </span>
@@ -94,7 +102,7 @@ export function SignInForm({
           <span className="text-sm font-medium">{"Password"}</span>
           <span className="relative block">
             <LockKeyhole
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-400"
+              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
@@ -102,11 +110,15 @@ export function SignInForm({
               name="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              ref={passwordRef}
               autoComplete="current-password"
               minLength={8}
               maxLength={128}
               required
-              disabled={!configured || submitting}
+              disabled={!configured}
+              readOnly={submitting}
+              aria-invalid={errorMessage ? true : undefined}
+              aria-describedby={errorMessage ? errorId : undefined}
               className="min-h-11 pl-10"
             />
           </span>
@@ -114,8 +126,8 @@ export function SignInForm({
       </Field>
 
       {errorMessage && (
-        <Alert role="alert" variant={"destructive"}>
-          <CircleAlert />
+        <Alert id={errorId} role="alert" variant="destructive">
+          <CircleAlert aria-hidden="true" />
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
@@ -123,8 +135,9 @@ export function SignInForm({
       <Button
         type="submit"
         variant="default"
-        disabled={!configured || submitting}
-        className={cn("min-h-11", "w-full")}
+        disabled={!configured}
+        aria-disabled={submitting || undefined}
+        className="min-h-11 w-full"
       >
         {submitting ? "Signing in..." : "Sign in"}
       </Button>
