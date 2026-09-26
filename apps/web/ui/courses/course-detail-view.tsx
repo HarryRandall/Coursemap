@@ -32,6 +32,7 @@ import {
   BookOpen,
   Banknote,
   CalendarClock,
+  ChevronRight,
   ArrowUpRight,
   ClipboardCheck,
   GitBranch,
@@ -42,14 +43,10 @@ import {
   Plus,
 } from "lucide-react";
 import { Hint } from "@/ui/common/hint";
-import { PrereqGraph } from "@/ui/prereq-graph";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
-import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
 import type { Attempt } from "@/lib/coursemap/types";
-import {
-  evaluateRequisiteExpression,
-  type CompletedRequisiteCourse,
-} from "@/lib/coursemap/requisite-summary";
+import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
+import { studentRecord } from "@/lib/coursemap/requisite-evaluation";
 import {
   feeValue,
   formatDate,
@@ -59,11 +56,9 @@ import {
   unitValueLabel,
 } from "@/ui/courses/course-detail-format";
 import { CourseReferenceText } from "@/ui/courses/course-reference";
-import {
-  RequisiteExpressionSummary,
-  RequisiteProgressSummary,
-  RequisiteRuleSummary,
-} from "@/ui/courses/requisite-summary";
+import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
+import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
+import { RequisiteExpressionSummary } from "@/ui/courses/requisite-summary";
 
 export const courseDetailTabs = [
   { id: "overview", label: "Overview", icon: BookOpen },
@@ -107,12 +102,15 @@ const NO_ATTEMPTS: readonly Attempt[] = [];
  */
 export function CourseDetailView({
   attempts = NO_ATTEMPTS,
+  commencementYear = null,
   course,
   onAddToPlan,
   requisiteCompletion,
 }: {
-  /** The reader's own plan, so the graph can mark what they have done. */
+  /** The reader's own plan, so the requisites can mark what they have done. */
   attempts?: readonly Attempt[];
+  /** The year the reader started their degree, for year-standing rules. */
+  commencementYear?: number | null;
   course: CourseDetails;
   onAddToPlan?: () => void;
   requisiteCompletion: {
@@ -124,20 +122,13 @@ export function CourseDetailView({
   const availableCourseCodes = new Set(course.availableCourseCodes);
   const structuredRule = course.prerequisiteRule?.expression ?? null;
   const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
-  const statusByCode = new Map(
-    [...new Set(attempts.map((attempt) => attempt.courseCode))].flatMap(
-      (attemptCode) => {
-        const status = requirementCourseStatus(attemptCode, attempts);
-        return status ? [[attemptCode, status] as const] : [];
-      },
-    ),
-  );
-  const requisiteProgress = structuredRule
-    ? evaluateRequisiteExpression(
-        structuredRule,
-        requisiteCompletion.completedCourses,
-        requisiteCompletion.enrolledProgrammeCodes ?? [],
-      )
+  const student = requisiteCompletion.isAuthenticated
+    ? studentRecord({
+        attempts,
+        commencementYear,
+        completedCourses: requisiteCompletion.completedCourses,
+        programmeCodes: requisiteCompletion.enrolledProgrammeCodes ?? [],
+      })
     : null;
   const hasPrerequisiteWording =
     course.prerequisiteText.trim().length > 0 &&
@@ -503,138 +494,136 @@ export function CourseDetailView({
             </CardTitle>
           </CardHeader>
           <CardContent className="border-t border-border/60 px-0 pt-5 pb-0">
-            <PrereqGraph
+            <RequisiteDiagram
               academicYear={course.year}
               availableCourseCodes={availableCourseCodes}
               code={course.code}
               expression={relationalRule}
               hasPrerequisiteWording={hasPrerequisiteWording}
-              prerequisiteEdges={course.prerequisiteEdges}
-              showStudentState={
-                requisiteCompletion.isAuthenticated || attempts.length > 0
-              }
-              statusByCode={statusByCode}
+              student={student}
+              unlocks={course.prerequisiteEdges
+                .filter(
+                  (edge) =>
+                    edge.from === course.code && edge.to !== course.code,
+                )
+                .map((edge) => ({
+                  code: edge.to,
+                  isAvailable: edge.toIsAvailable,
+                }))}
               unlocksAreKnown={course.unlocksAreKnown}
             />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex-col gap-3 sm:flex-row">
+        <Card className="gap-0 pb-0">
+          <CardHeader className="pb-4">
             <CardTitle>
-              <h2>{"Requisites and compatibility"}</h2>
+              <h2>{"Enrolment requirements"}</h2>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-5 border-t border-border/60 pt-5 text-[13px] leading-relaxed text-foreground/80">
-            {requisiteProgress && requisiteCompletion.isAuthenticated ? (
-              <div>
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Prerequisites against your completed courses
-                </h3>
-                <div className="mt-2">
-                  <RequisiteProgressSummary
-                    academicYear={course.year}
-                    progress={requisiteProgress}
-                    availableCourseCodes={availableCourseCodes}
-                  />
-                </div>
-              </div>
-            ) : relationalRule ? (
-              <div>
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Prerequisite requirements
-                </h3>
-                <div className="mt-2">
-                  <RequisiteRuleSummary
-                    academicYear={course.year}
-                    expression={relationalRule}
-                    availableCourseCodes={availableCourseCodes}
-                  />
-                </div>
-              </div>
+          <CardContent className="border-t border-border/60 p-0 text-[13px] leading-relaxed text-foreground/80">
+            {relationalRule ? (
+              <EnrolmentSteps
+                academicYear={course.year}
+                availableCourseCodes={availableCourseCodes}
+                expression={relationalRule}
+                student={student}
+              />
             ) : structuredRule ? (
-              <div>
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Coursemap summary
-                </h3>
-                <div className="mt-2">
-                  <RequisiteExpressionSummary
-                    academicYear={course.year}
-                    expression={structuredRule}
-                    availableCourseCodes={availableCourseCodes}
-                  />
-                </div>
-              </div>
-            ) : null}
-            <div>
-              <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                Prerequisites as published
-              </h3>
-              <p className="mt-2 whitespace-pre-line">
-                <CourseReferenceText
+              <div className="px-6 py-5">
+                <RequisiteExpressionSummary
                   academicYear={course.year}
-                  text={course.prerequisiteText}
+                  expression={structuredRule}
                   availableCourseCodes={availableCourseCodes}
                 />
-              </p>
-            </div>
-            {course.corequisiteText ? (
-              <div className="border-t border-border/60 pt-5">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Corequisites
+              </div>
+            ) : (
+              <div className="px-6 py-5">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Prerequisites
                 </h3>
                 <p className="mt-2 whitespace-pre-line">
                   <CourseReferenceText
                     academicYear={course.year}
-                    text={course.corequisiteText}
+                    text={course.prerequisiteText}
                     availableCourseCodes={availableCourseCodes}
                   />
                 </p>
               </div>
-            ) : null}
-            {course.inherentRequirements ? (
-              <div className="border-t border-border/60 pt-5">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Inherent requirements
-                </h3>
-                <p className="mt-2 whitespace-pre-line">
-                  {course.inherentRequirements}
-                </p>
-              </div>
-            ) : null}
-            {course.assumedKnowledgeText ? (
-              <div className="border-t border-border/60 pt-5">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Assumed knowledge
-                </h3>
-                <p className="mt-2 whitespace-pre-line">
-                  {course.assumedKnowledgeText}
-                </p>
-              </div>
-            ) : null}
-            {course.permissionText ? (
-              <div className="border-t border-border/60 pt-5">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Permission
-                </h3>
-                <p className="mt-2 whitespace-pre-line">
-                  {course.permissionText}
-                </p>
-              </div>
-            ) : null}
-            {course.incompatibilityText ? (
-              <div className="border-t border-border/60 pt-5">
-                <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  Incompatibilities
-                </h3>
-                <p className="mt-2 whitespace-pre-line">
-                  <CourseReferenceText
-                    academicYear={course.year}
-                    text={course.incompatibilityText}
-                    availableCourseCodes={availableCourseCodes}
+            )}
+            {[
+              {
+                title: "Corequisites",
+                text: course.corequisiteText,
+                linked: true,
+              },
+              {
+                title: "Assumed knowledge",
+                text: course.assumedKnowledgeText,
+                linked: false,
+              },
+              {
+                title: "Inherent requirements",
+                text: course.inherentRequirements,
+                linked: false,
+              },
+            ].map((section) =>
+              section.text ? (
+                <section
+                  key={section.title}
+                  className="border-t border-border/60 px-6 py-5"
+                >
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {section.title}
+                  </h3>
+                  <p className="mt-2 whitespace-pre-line">
+                    {section.linked ? (
+                      <CourseReferenceText
+                        academicYear={course.year}
+                        text={section.text}
+                        availableCourseCodes={availableCourseCodes}
+                      />
+                    ) : (
+                      section.text
+                    )}
+                  </p>
+                </section>
+              ) : null,
+            )}
+            {/* The steps are Coursemap's reading of ANU's wording, so the
+                wording stays one click away to check them against. */}
+            {relationalRule ||
+            structuredRule ||
+            course.permissionText ||
+            course.incompatibilityText ? (
+              <details className="group border-t border-border/60 px-6 py-4">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                  <ChevronRight
+                    className="size-3.5 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+                    aria-hidden="true"
                   />
-                </p>
-              </div>
+                  ANU&apos;s wording
+                </summary>
+                <div className="mt-3 flex flex-col gap-3 border-l-2 border-border pl-3 text-xs text-muted-foreground">
+                  {[
+                    relationalRule || structuredRule
+                      ? course.prerequisiteText
+                      : "",
+                    course.permissionText,
+                    course.incompatibilityText,
+                  ]
+                    .filter((text): text is string => Boolean(text?.trim()))
+                    .map((text, index) => (
+                      <p key={index} className="whitespace-pre-line">
+                        <CourseReferenceText
+                          academicYear={course.year}
+                          text={text}
+                          availableCourseCodes={availableCourseCodes}
+                        />
+                      </p>
+                    ))}
+                </div>
+              </details>
             ) : null}
           </CardContent>
         </Card>
