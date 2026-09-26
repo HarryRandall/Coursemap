@@ -436,7 +436,7 @@ export function ProfileEditor({
             {/* ---------------------------------------------------- */}
             <aside
               aria-label="Profile summary"
-              className="space-y-4 lg:sticky lg:top-32"
+              className="space-y-4 lg:sticky lg:top-6"
             >
               <Card>
                 <CardContent className="pt-5">

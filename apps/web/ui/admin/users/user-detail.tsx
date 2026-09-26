@@ -209,7 +209,7 @@ export function AdminUserDetail({
         tabs={tabs}
       >
         <div className="mx-auto w-full min-w-0 space-y-5">
-          <header className="sticky top-[6.5rem] z-20 flex items-center gap-3 bg-background py-2">
+          <header className="sticky top-[6.5rem] z-20 flex items-center gap-3 bg-background py-2 md:top-0">
             <GeneratedAvatar
               name={data.user.displayName}
               email={data.user.email}
