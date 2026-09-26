@@ -60,6 +60,17 @@ const DRIFT = 0.008;
 const STILL = 0.05;
 
 /**
+ * The share of the distance each tick closes while the bar fills to the end
+ * once the work has finished, and the least it moves per tick while doing so.
+ * Quicker than an ordinary catch-up so the ending reads as a flourish.
+ */
+const FINISH = 0.3;
+const MIN_FINISH = 1.5;
+
+/** How long the full bar is held before the toast turns into the outcome. */
+const FULL_HOLD_MS = 350;
+
+/**
  * How long the running toast is held before it may settle. Phases the server
  * answers instantly would otherwise flash past unread.
  */
@@ -135,6 +146,7 @@ export function startTask({
   let timer: number | undefined;
   let settled = false;
   let dismissed = false;
+  let finished: (() => void) | undefined;
 
   function paint() {
     // Not toast.loading: sonner withholds the close button from a loading
@@ -158,6 +170,19 @@ export function startTask({
   }
 
   function glide() {
+    if (finished) {
+      shown = Math.min(
+        100,
+        shown + Math.max(MIN_FINISH, (100 - shown) * FINISH),
+      );
+      paint();
+      if (shown < 100) return;
+      stopGlide();
+      const then = finished;
+      finished = undefined;
+      window.setTimeout(then, FULL_HOLD_MS);
+      return;
+    }
     if (Date.now() - steppedAt > STALL_MS) {
       abandon({
         title,
@@ -194,7 +219,6 @@ export function startTask({
   function settle(kind: "done" | "note" | "fail", outcome: TaskOutcome) {
     if (settled) return;
     settled = true;
-    stopGlide();
     // A toast dismissed by hand has been read and put away; only a failure is
     // worth bringing back unasked.
     if (dismissed && kind !== "fail") return;
@@ -208,7 +232,12 @@ export function startTask({
         // task was painted with has to be cleared or it keeps turning under
         // the outcome. Undefined hands the icon back to the toast's own type.
         icon: undefined,
-        description: line ? <ToastDetail text={line} /> : undefined,
+        description: line ? (
+          <ToastDetail
+            text={line}
+            className="duration-300 animate-in fade-in-0"
+          />
+        ) : undefined,
         // A failure that offers a retry waits for it rather than timing out
         // from under the button.
         duration: retry ? Number.POSITIVE_INFINITY : TOAST_DURATION[tone],
@@ -216,6 +245,16 @@ export function startTask({
       };
       toast[tone](heading, options);
     };
+    // Finished work fills the bar to the end before it turns into the
+    // outcome, so the toast is seen through rather than swapped. Work that
+    // failed, stopped or was let go never reached the end, so its bar does not
+    // claim to, and a toast put away by hand has nothing left to animate.
+    if (kind === "done" && !dismissed) {
+      finished = show;
+      if (timer === undefined) timer = window.setInterval(glide, TICK_MS);
+      return;
+    }
+    stopGlide();
     const held = Date.now() - openedAt;
     if (held >= MIN_VISIBLE_MS) show();
     else window.setTimeout(show, MIN_VISIBLE_MS - held);
