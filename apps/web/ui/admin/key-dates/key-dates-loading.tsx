@@ -2,19 +2,10 @@ import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 
 const MONTH_ROWS = [4, 3, 2];
 
-export function KeyDatesToolbarLoading() {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <Skeleton className="h-9 w-28 rounded-lg" />
-      <Skeleton className="h-9 w-32 rounded-lg" />
-    </div>
-  );
-}
-
 /** Stands in for the month list on the Dates tab. */
 export function KeyDatesListLoading() {
   return (
-    <div aria-busy="true" className="workspace-scroll space-y-3">
+    <div aria-busy="true" className="space-y-3">
       <span className="sr-only">Loading key dates</span>
       {MONTH_ROWS.map((rows, month) => (
         <div
@@ -46,7 +37,7 @@ export function KeyDatesListLoading() {
 /** Stands in for the sync review or the sync prompt. */
 export function KeyDatesSyncLoading() {
   return (
-    <div aria-busy="true" className="workspace-scroll flex flex-col gap-4">
+    <div aria-busy="true" className="flex flex-1 flex-col gap-4">
       <span className="sr-only">Loading the sync</span>
       <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <div className="space-y-2">
@@ -66,7 +57,7 @@ export function KeyDatesSyncLoading() {
 /** Stands in for the changelog timeline. */
 export function KeyDatesChangelogLoading() {
   return (
-    <div aria-busy="true" className="workspace-scroll space-y-1">
+    <div aria-busy="true" className="space-y-1">
       <span className="sr-only">Loading the changelog</span>
       {Array.from({ length: 6 }, (_, index) => (
         <div key={index} className="flex gap-3 px-2 py-2.5">

@@ -1,10 +1,4 @@
-import type { ReactNode } from "react";
-import { CircleAlert } from "lucide-react";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@coursemap/ui/components/alert";
+import { Suspense, type ReactNode } from "react";
 import { loadAdminKeyDatesYear } from "@/lib/admin/key-dates";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { createUniversityCalendarUrl } from "@/lib/catalogue-import/anu-university-calendar";
@@ -17,17 +11,40 @@ import { KeyDatesToolbar } from "@/ui/admin/key-dates/key-dates-toolbar";
 import { AppShell } from "@/ui/shell";
 import { calendarYearParam } from "./year-param";
 
-async function loadYear(year: number) {
-  try {
-    return await loadAdminKeyDatesYear(year);
-  } catch {
-    return null;
-  }
+async function PendingTabList({ year }: { year: number }) {
+  const data = await loadAdminKeyDatesYear(year).catch(() => null);
+  const diff = data?.review
+    ? diffUniversityCalendarReview(data.review.events, data.published)
+    : null;
+  return (
+    <KeyDatesTabList
+      pendingChanges={diff ? Math.max(diff.added + diff.removed, 1) : null}
+    />
+  );
+}
+
+async function LoadedToolbar({ year }: { year: number }) {
+  const [data, canManage] = await Promise.all([
+    loadAdminKeyDatesYear(year).catch(() => null),
+    canManageCatalogueOperations(),
+  ]);
+  return (
+    <KeyDatesToolbar
+      canManage={canManage}
+      hasPublished={(data?.published.length ?? 0) > 0}
+      hasReview={Boolean(data?.review)}
+      sourceUrl={createUniversityCalendarUrl(year)}
+      year={year}
+      years={data?.years ?? [year]}
+    />
+  );
 }
 
 /**
- * The shell, section tabs and year picker for one calendar year. Sections
- * render as children, so moving between them only reloads the content.
+ * The shell, section tabs and year picker for one calendar year. Nothing
+ * here waits for the year's data: the tab badge and the toolbar's actions
+ * stream in behind fallbacks drawn the same way, so changing year or
+ * section only replaces the content below.
  */
 export default async function AdminKeyDatesYearLayout({
   children,
@@ -37,13 +54,16 @@ export default async function AdminKeyDatesYearLayout({
   params: Promise<{ year: string }>;
 }) {
   const year = calendarYearParam((await params).year);
-  const [data, canManage] = await Promise.all([
-    loadYear(year),
-    canManageCatalogueOperations(),
-  ]);
-  const reviewDiff = data?.review
-    ? diffUniversityCalendarReview(data.review.events, data.published)
-    : null;
+  const toolbarFallback = (
+    <KeyDatesToolbar
+      canManage={false}
+      hasPublished={false}
+      hasReview={false}
+      sourceUrl={createUniversityCalendarUrl(year)}
+      year={year}
+      years={[year]}
+    />
+  );
 
   return (
     <KeyDatesTabs year={year}>
@@ -51,37 +71,19 @@ export default async function AdminKeyDatesYearLayout({
         admin
         fill
         tabs={
-          <KeyDatesTabList
-            pendingChanges={
-              reviewDiff
-                ? Math.max(reviewDiff.added + reviewDiff.removed, 1)
-                : null
-            }
-          />
+          <Suspense fallback={<KeyDatesTabList pendingChanges={null} />}>
+            <PendingTabList year={year} />
+          </Suspense>
         }
       >
         <h1 className="sr-only">Key dates {year}</h1>
         <div className="workspace-stack w-full">
-          <KeyDatesToolbar
-            canManage={canManage}
-            hasPublished={(data?.published.length ?? 0) > 0}
-            hasReview={Boolean(data?.review)}
-            sourceUrl={createUniversityCalendarUrl(year)}
-            year={year}
-            years={data?.years ?? [year]}
-          />
-          {data ? (
-            children
-          ) : (
-            <Alert role="alert" variant="warning">
-              <CircleAlert aria-hidden="true" />
-              <AlertTitle>Key dates could not be loaded</AlertTitle>
-              <AlertDescription>
-                The calendar data for {year} is unavailable. Reload the page to
-                try again.
-              </AlertDescription>
-            </Alert>
-          )}
+          <div className="workspace-scroll flex flex-col gap-4">
+            <Suspense fallback={toolbarFallback}>
+              <LoadedToolbar year={year} />
+            </Suspense>
+            {children}
+          </div>
         </div>
       </AppShell>
     </KeyDatesTabs>

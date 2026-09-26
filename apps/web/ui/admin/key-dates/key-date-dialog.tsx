@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Info } from "lucide-react";
 import { toast } from "sonner";
@@ -63,7 +62,6 @@ export function KeyDateDialog({
   trigger?: ReactNode;
   year: number;
 }) {
-  const router = useRouter();
   const id = useId();
   const [internalOpen, setInternalOpen] = useState(false);
   const [date, setDate] = useState(entry?.date ?? "");
@@ -102,7 +100,6 @@ export function KeyDateDialog({
       }
       toast.success(result.message);
       changeOpen(false);
-      router.refresh();
     } catch {
       setError("The key date could not be saved. Try again.");
     } finally {

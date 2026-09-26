@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { EllipsisVertical, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,7 +34,6 @@ export function KeyDateRowMenu({
   reviewId?: string;
   year: number;
 }) {
-  const router = useRouter();
   const trigger = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -49,7 +47,6 @@ export function KeyDateRowMenu({
       : await removeKeyDateAction(year, event.eventId!);
     if (!result.ok) throw new Error(result.message);
     toast.success(result.message);
-    router.refresh();
   }
 
   return (

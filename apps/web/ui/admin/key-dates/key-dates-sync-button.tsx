@@ -29,7 +29,6 @@ export function KeyDatesSyncButton({
         else toast.error(result.message);
         if (result.staged)
           router.push(`/admin/key-dates/${year}/sync`, { scroll: false });
-        router.refresh();
       } catch {
         toast.error(`The ${year} calendar could not be synced. Try again.`);
       }
