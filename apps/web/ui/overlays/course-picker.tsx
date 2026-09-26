@@ -20,18 +20,16 @@ import {
 } from "@coursemap/ui/primitives/dialog";
 import {
   Empty,
-  EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
-import { OptionPicker } from "@/ui/common/option-picker";
+import { YearPicker } from "@/ui/common/year-picker";
 import { cn } from "@/lib/cn";
 import { ChevronRight, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCoursemap } from "@/app/providers";
 import type { Course, Term } from "@/lib/coursemap/types";
-import { CourseToken } from "@/ui/common/course-token";
 import { CoursePreview } from "@/ui/overlays/course-preview";
 import {
   CourseResultSkeleton,
@@ -254,44 +252,14 @@ export function CoursePicker({
           openerRef.current?.focus();
         }}
       >
-        <DialogHeader className="border-b border-border/60 px-5 pt-5 pr-16 pb-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <DialogTitle>Find a course</DialogTitle>
-            <Badge className="py-0.5" variant="primary-light">
-              {intent === "recommended" ? "Recommended for" : "Add to"}{" "}
-              {destination}
-            </Badge>
-          </div>
+        {/* The search bar is the header. The title and description stay for
+            screen readers; the destination sits in the bar beside the query. */}
+        <DialogHeader className="sr-only">
+          <DialogTitle>Find a course</DialogTitle>
           <DialogDescription>
-            Search the catalogue, select a result, then review it before adding
-            it to your plan.
+            {intent === "recommended" ? "Recommended for" : "Add to"}{" "}
+            {destination}
           </DialogDescription>
-          {term.id === "unscheduled" ? (
-            <div className="flex max-w-xs items-center gap-3 pt-1">
-              <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                Course year
-              </span>
-              <OptionPicker
-                value={String(academicYear)}
-                onValueChange={(nextValue) => {
-                  const year = Number(nextValue);
-                  if (!selectableAcademicYears.includes(year)) return;
-                  setUnscheduledAcademicYear(year);
-                  setPage(1);
-                  setResponse(null);
-                  setSelectedCode(null);
-                  setMobilePreviewOpen(false);
-                  setFailedKey(null);
-                }}
-                aria-label="Course year for unscheduled course"
-                searchable={false}
-                items={selectableAcademicYears.map((year) => ({
-                  value: String(year),
-                  label: String(year),
-                }))}
-              />
-            </div>
-          ) : null}
         </DialogHeader>
 
         {/*
@@ -306,7 +274,7 @@ export function CoursePicker({
           label="Course catalogue"
           className="min-h-0 bg-transparent"
         >
-          <div className="border-b border-border/60">
+          <div className="flex items-center gap-2 border-b border-border/60 py-2 pr-12 pl-2 [&>[data-slot=command-input-wrapper]]:min-w-0 [&>[data-slot=command-input-wrapper]]:flex-1 [&>[data-slot=command-input-wrapper]]:p-0">
             <CommandInput
               ref={searchRef}
               autoFocus
@@ -322,9 +290,29 @@ export function CoursePicker({
                   setFailedKey(null);
                 }
               }}
-              placeholder="Search by course code or name"
+              placeholder={`Search ${academicYear} courses by code or name`}
               aria-label="Search courses"
             />
+            <Badge className="shrink-0 py-0.5" variant="primary-light">
+              {intent === "recommended" ? "For" : "To"} {destination}
+            </Badge>
+            {term.id === "unscheduled" ? (
+              <YearPicker
+                ariaLabel="Course year"
+                years={selectableAcademicYears}
+                value={academicYear}
+                onChange={(year) => {
+                  if (year === "all" || !selectableAcademicYears.includes(year))
+                    return;
+                  setUnscheduledAcademicYear(year);
+                  setPage(1);
+                  setResponse(null);
+                  setSelectedCode(null);
+                  setMobilePreviewOpen(false);
+                  setFailedKey(null);
+                }}
+              />
+            ) : null}
           </div>
 
           <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_22rem]">
@@ -338,11 +326,7 @@ export function CoursePicker({
                     <EmptyMedia variant="icon">
                       <Search />
                     </EmptyMedia>
-                    <EmptyTitle>Search the catalogue</EmptyTitle>
-                    <EmptyDescription>
-                      Enter at least two characters of a course code or name.
-                      Only published {academicYear} courses appear here.
-                    </EmptyDescription>
+                    <EmptyTitle>Type a course code or name</EmptyTitle>
                   </EmptyHeader>
                 </Empty>
               </CommandList>
@@ -387,17 +371,15 @@ export function CoursePicker({
                                 onSelect={() => previewCourse(course.code)}
                                 className="data-[previewed=true]:bg-primary/10 data-[previewed=true]:ring-1 data-[previewed=true]:ring-primary/20 data-[previewed=true]:ring-inset"
                               >
-                                <CourseToken
-                                  code={course.code}
-                                  accent={course.accent}
-                                  size="sm"
-                                />
+                                <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-primary">
+                                  {course.code}
+                                </span>
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-[13px] font-medium text-foreground">
                                     {course.name}
                                   </span>
                                   <span className="block truncate text-[11px] text-muted-foreground">
-                                    {course.code} · {course.school}
+                                    {course.school}
                                   </span>
                                 </span>
                                 {inPlan ? (
@@ -407,19 +389,21 @@ export function CoursePicker({
                                   >
                                     In plan
                                   </Badge>
-                                ) : (
+                                ) : !available ? (
                                   <Badge
                                     className="px-2 py-0.5"
-                                    variant={
-                                      badgeVariantForTone[
-                                        available ? "success" : "warning"
-                                      ]
-                                    }
+                                    variant={badgeVariantForTone.warning}
                                   >
-                                    {available ? term.shortName : "Not offered"}
+                                    Not offered in {term.shortName}
                                   </Badge>
-                                )}
-                                <CommandShortcut aria-hidden="true">
+                                ) : null}
+                                <span className="shrink-0 text-[11px] text-muted-foreground">
+                                  {course.units}u
+                                </span>
+                                <CommandShortcut
+                                  aria-hidden="true"
+                                  className="md:hidden"
+                                >
                                   <ChevronRight size={15} />
                                 </CommandShortcut>
                               </CommandItem>
