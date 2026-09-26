@@ -6,9 +6,11 @@ import type {
   RequirementTreeNode,
   RequirementTreeOption,
 } from "@/lib/coursemap/requirement-tree-node";
-import type {
-  RequirementAllocation,
-  RequirementTreeProgress,
+import {
+  requirementNodeKey,
+  type RequirementAllocation,
+  type RequirementNodeProgress,
+  type RequirementTreeProgress,
 } from "@/lib/coursemap/requirement-progress";
 
 export type {
@@ -391,4 +393,165 @@ export function readingTreeContext({
     showStructureOptions: true,
     showPlanProgress: false,
   };
+}
+
+/**
+ * Whether a condition draws nothing: a total that only restates the unit
+ * target already shown above the tree, or structure options on a surface
+ * that picks structures through its own chooser.
+ */
+export function hidesCondition(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+) {
+  if (condition.conditionKind === "structure_set") {
+    return !context.showStructureOptions;
+  }
+  return (
+    condition.conditionKind === "units_total" &&
+    condition.minimumUnits === context.unitTarget &&
+    condition.maximumUnits === null
+  );
+}
+
+/** Warnings and notes read as alerts rather than as rules to meet. */
+export function isNotice(node: RequirementTreeNode) {
+  if (node.type !== "condition") return false;
+  const tone = conditionTone(node);
+  return tone === "warning" || tone === "note";
+}
+
+/**
+ * The listed courses a rule counts, and how many of them are completed or
+ * planned. With a plan behind the view, a course counts here only if it was
+ * allocated here; one this list shares with another rule may count there.
+ */
+export function listedCourseCounts(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+) {
+  const codes = [
+    ...new Set(
+      condition.options
+        .filter((option) => option.kind === "course")
+        .map((option) => option.code),
+    ),
+  ];
+  const progress = context.progress.get(requirementNodeKey(condition));
+  const countsHere = (code: string) =>
+    !context.placement || Boolean(progress?.matchedCourseCodes.includes(code));
+  const statusOf = (code: string) =>
+    countsHere(code) ? context.attemptStatusByCode.get(code) : undefined;
+  return {
+    codes,
+    required:
+      condition.minimumCourses !== null &&
+      condition.minimumCourses >= codes.length,
+    done: codes.filter((code) => statusOf(code) === "completed").length,
+    planned: codes.filter((code) =>
+      ["planned", "enrolled"].includes(statusOf(code) ?? ""),
+    ).length,
+  };
+}
+
+/** How far a rule has come, as a count against what it asks for. */
+export type RequirementFigure = {
+  value: number;
+  target: number;
+  unit: "units" | "courses";
+  /** The target is a cap rather than something to reach. */
+  maximum?: boolean;
+};
+
+/**
+ * Where a rule stands for the student, so the workspace can sort what still
+ * needs courses from what is covered, and say which in words.
+ */
+export type RequirementRowStatus =
+  | {
+      kind: "todo" | "planned" | "complete" | "limit" | "over_limit";
+      figure: RequirementFigure | null;
+      label: string;
+    }
+  | { kind: "unmeasured" };
+
+function statusFromCounts(
+  completed: number,
+  planned: number,
+  figure: RequirementFigure,
+  shortfall: (missing: number) => string,
+): RequirementRowStatus {
+  if (completed >= figure.target) {
+    return { kind: "complete", figure, label: "Complete" };
+  }
+  if (completed + planned >= figure.target) {
+    return { kind: "planned", figure, label: "Planned" };
+  }
+  return {
+    kind: "todo",
+    figure,
+    label: shortfall(figure.target - completed - planned),
+  };
+}
+
+function statusFromProgress(
+  progress: RequirementNodeProgress | undefined,
+): RequirementRowStatus {
+  if (!progress || progress.state === "unmeasured")
+    return { kind: "unmeasured" };
+  const target = progress.targetUnits;
+  if (target === null || target <= 0) return { kind: "unmeasured" };
+  const used = progress.completedUnits + progress.plannedUnits;
+  return statusFromCounts(
+    progress.completedUnits,
+    progress.plannedUnits,
+    { value: used, target, unit: "units" },
+    (missing) => `${formatUnits(missing)} to plan`,
+  );
+}
+
+export function requirementRowStatus(
+  node: RequirementTreeNode,
+  context: TreeContext,
+): RequirementRowStatus {
+  const progress = context.progress.get(requirementNodeKey(node));
+  if (node.type !== "condition") return statusFromProgress(progress);
+  const tone = conditionTone(node);
+  if (tone === "warning" || tone === "note") return { kind: "unmeasured" };
+  if (tone === "limit") {
+    const maximum = node.maximumUnits;
+    if (!progress || progress.state === "unmeasured" || maximum === null) {
+      return { kind: "limit", figure: null, label: "Limit" };
+    }
+    const used = progress.completedUnits + progress.plannedUnits;
+    const figure = {
+      value: used,
+      target: maximum,
+      unit: "units" as const,
+      maximum: true,
+    };
+    return progress.state === "over_limit"
+      ? { kind: "over_limit", figure, label: "Over the limit" }
+      : {
+          kind: "limit",
+          figure,
+          label: `${formatUnits(Math.max(0, maximum - used))} of room left`,
+        };
+  }
+  const target = node.minimumCourses;
+  if (
+    target !== null &&
+    target > 0 &&
+    node.options.some((option) => option.kind === "course")
+  ) {
+    const { required, done, planned } = listedCourseCounts(node, context);
+    return statusFromCounts(
+      done,
+      planned,
+      { value: done + planned, target, unit: "courses" },
+      (missing) =>
+        `${missing} ${missing === 1 ? "course" : "courses"} to ${required ? "plan" : "choose"}`,
+    );
+  }
+  return statusFromProgress(progress);
 }

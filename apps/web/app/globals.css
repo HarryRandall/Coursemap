@@ -46,6 +46,16 @@
   scrollbar-width: none;
 }
 
+/* Planned units, drawn as stripes in the current text colour so they read
+   as the lighter half of the same scale as completed units. */
+@utility planned-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    currentColor 0 3px,
+    transparent 3px 6px
+  );
+}
+
 /* ReUI uses this shadcn utility name inside its Nova style preset. */
 @utility no-scrollbar {
   &::-webkit-scrollbar {

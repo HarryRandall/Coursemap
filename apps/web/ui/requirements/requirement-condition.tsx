@@ -2,12 +2,14 @@
 import { useId, useState } from "react";
 import Link from "next/link";
 import {
+  Check,
   ChevronDown,
+  Circle,
   CircleAlert,
-  GaugeCircle,
+  CircleCheck,
+  CircleDashed,
   Info,
-  Layers,
-  ListChecks,
+  SquareDashed,
 } from "lucide-react";
 import {
   Alert,
@@ -19,13 +21,19 @@ import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import { requirementCourseHeading } from "@/lib/coursemap/requirement-display";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { publicCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
+import { cn } from "@/lib/cn";
 import {
   conditionHeading,
   conditionInterpretation,
+  conditionSummary,
   conditionTone,
+  hidesCondition,
+  listedCourseCounts,
+  requirementRowStatus,
   unitsDescription,
 } from "@/ui/requirements/requirement-presentation";
 import type {
+  RequirementRowStatus,
   RequirementTreeCondition,
   TreeContext,
 } from "@/ui/requirements/requirement-presentation";
@@ -36,9 +44,11 @@ import { UnitsBar } from "@/ui/requirements/units-bar";
 function CountedCourses({
   condition,
   context,
+  tone,
 }: {
   condition: RequirementTreeCondition;
   context: TreeContext;
+  tone: "progress" | "limit" | "over_limit";
 }) {
   const key = requirementNodeKey(condition);
   const progress = context.progress.get(key);
@@ -49,21 +59,21 @@ function CountedCourses({
     .filter(([, placement]) => placement.overCapKey === key)
     .map(([code]) => code);
   return (
-    <div className="mt-4 flex flex-col gap-2">
-      <UnitsBar progress={progress} />
-      <p className="text-xs text-muted-foreground">
-        {progress.completedUnits} units completed · {progress.plannedUnits}{" "}
-        planned
-      </p>
+    <div className="flex flex-col gap-3">
+      <UnitsBar
+        completed={progress.completedUnits}
+        planned={progress.plannedUnits}
+        goal={progress.targetUnits ?? progress.maximumUnits}
+        tone={tone}
+      />
       {progress.matchedCourseCodes.length ? (
         <ul className="flex flex-wrap gap-1.5" aria-label="Counting here">
           {progress.matchedCourseCodes.map((code) => (
-            <li
+            <CourseChip
               key={code}
-              className="rounded-md border border-border px-2 py-0.5 font-mono text-xs font-semibold"
-            >
-              {code}
-            </li>
+              code={code}
+              status={context.attemptStatusByCode.get(code)}
+            />
           ))}
         </ul>
       ) : null}
@@ -76,6 +86,33 @@ function CountedCourses({
   );
 }
 
+/** A course counting towards a rule: filled with a check once completed, dashed while planned. */
+function CourseChip({
+  code,
+  status,
+}: {
+  code: string;
+  status: "completed" | "planned" | "enrolled" | undefined;
+}) {
+  const completed = status === "completed";
+  return (
+    <li
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
+        completed
+          ? "border-success/30 bg-success/10 text-success"
+          : "border-dashed border-border",
+      )}
+    >
+      {completed ? <Check className="size-3" aria-hidden="true" /> : null}
+      {code}
+      <span className="sr-only">
+        {completed ? " completed" : status ? ` ${status}` : ""}
+      </span>
+    </li>
+  );
+}
+
 /** Rules that read every course the degree counts rather than using any up. */
 function spansDegree(condition: RequirementTreeCondition) {
   return (
@@ -83,6 +120,87 @@ function spansDegree(condition: RequirementTreeCondition) {
     (condition.maximumUnits !== null &&
       condition.minimumUnits === null &&
       condition.minimumCourses === null)
+  );
+}
+
+/** A glyph beside each rule that repeats its status pill in shape. */
+function StatusGlyph({ status }: { status: RequirementRowStatus }) {
+  const className = "mt-0.5 size-4 shrink-0";
+  switch (status.kind) {
+    case "complete":
+      return (
+        <CircleCheck
+          className={cn(className, "text-success")}
+          aria-hidden="true"
+        />
+      );
+    case "planned":
+      return (
+        <CircleDashed
+          className={cn(className, "text-success")}
+          aria-hidden="true"
+        />
+      );
+    case "limit":
+      return (
+        <SquareDashed
+          className={cn(className, "text-muted-foreground")}
+          aria-hidden="true"
+        />
+      );
+    case "over_limit":
+      return (
+        <SquareDashed
+          className={cn(className, "text-destructive")}
+          aria-hidden="true"
+        />
+      );
+    default:
+      return (
+        <Circle
+          className={cn(className, "text-muted-foreground/70")}
+          aria-hidden="true"
+        />
+      );
+  }
+}
+
+const statusBadge = {
+  todo: "warning-light",
+  planned: "outline",
+  complete: "success-light",
+  limit: "outline",
+  over_limit: "destructive-light",
+} as const;
+
+/** The count against the target and a short status, at the right of a rule. */
+function StatusSummary({ status }: { status: RequirementRowStatus }) {
+  if (status.kind === "unmeasured") return null;
+  const figure = status.figure;
+  return (
+    <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+      {figure ? (
+        <span className="text-sm text-muted-foreground tabular-nums">
+          <span className="font-semibold text-foreground">{figure.value}</span>
+          {figure.maximum ? " of max " : " / "}
+          {figure.target}{" "}
+          {figure.unit === "courses"
+            ? figure.target === 1
+              ? "course"
+              : "courses"
+            : "units"}
+        </span>
+      ) : null}
+      <Badge
+        variant={statusBadge[status.kind]}
+        className={cn(status.kind === "limit" && "border-dashed")}
+      >
+        {status.kind === "complete" ? (
+          <Check className="size-3" aria-hidden="true" />
+        ) : null}
+        {status.label}
+      </Badge>
+    </div>
   );
 }
 
@@ -110,28 +228,47 @@ function StatedCondition({
       </Alert>
     );
   }
+  const showProgress = context && context.showPlanProgress !== false;
+  const status: RequirementRowStatus = showProgress
+    ? requirementRowStatus(condition, context)
+    : { kind: "unmeasured" };
+  // The summary leads with how much is needed; the category only follows it
+  // when the summary does not already name it.
+  const title = conditionSummary(condition);
+  const heading = conditionHeading(condition);
+  const detail = [
+    title.toLowerCase().includes(heading.toLowerCase()) ? null : heading,
+    showProgress ? null : interpretation,
+    spansDegree(condition) ? "Counts across the whole degree" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <section className="rounded-xl border border-border bg-card px-5 py-4">
+    <section className="px-4 py-4 sm:px-5">
       <div className="flex items-start gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-          <GaugeCircle className="size-5" aria-hidden="true" />
-        </span>
+        {showProgress ? <StatusGlyph status={status} /> : null}
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold tracking-tight">
-            {conditionHeading(condition)}
-          </h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            {interpretation}
-          </p>
+          <h3 className="text-[15px] font-medium tracking-tight">{title}</h3>
+          {detail ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+          ) : null}
         </div>
-        {tone === "limit" ? (
-          <Badge variant="secondary">Limit</Badge>
-        ) : spansDegree(condition) ? (
-          <Badge variant="secondary">Whole degree</Badge>
-        ) : null}
+        <StatusSummary status={status} />
       </div>
-      {context ? (
-        <CountedCourses condition={condition} context={context} />
+      {showProgress ? (
+        <div className="mt-3 pl-7">
+          <CountedCourses
+            condition={condition}
+            context={context}
+            tone={
+              status.kind === "over_limit"
+                ? "over_limit"
+                : status.kind === "limit"
+                  ? "limit"
+                  : "progress"
+            }
+          />
+        </div>
       ) : null}
     </section>
   );
@@ -149,8 +286,8 @@ function StructureOptions({
     (option) => option.kind !== "course",
   );
   return (
-    <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <h3 className="text-base font-semibold tracking-tight">
+    <section className="px-4 py-4 sm:px-5">
+      <h3 className="text-[15px] font-medium tracking-tight">
         {conditionHeading(condition)}
       </h3>
       <p className="mt-0.5 text-sm text-muted-foreground">
@@ -212,14 +349,8 @@ export function RequirementCondition({
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
   const showProgress = context.showPlanProgress !== false;
-  if (
-    condition.conditionKind === "units_total" &&
-    condition.minimumUnits === context.unitTarget &&
-    condition.maximumUnits === null
-  )
-    return null;
+  if (hidesCondition(condition, context)) return null;
   if (condition.conditionKind === "structure_set") {
-    if (!context.showStructureOptions) return null;
     return condition.options.some((option) => option.kind !== "course") ? (
       <StructureOptions
         academicYear={context.catalogue.academicYear}
@@ -229,72 +360,35 @@ export function RequirementCondition({
       <StatedCondition condition={condition} />
     );
   }
-  const options = condition.options.filter(
-    (option) => option.kind === "course",
-  );
+  if (!condition.options.some((option) => option.kind === "course")) {
+    return <StatedCondition condition={condition} context={context} />;
+  }
   const progress = context.progress.get(requirementNodeKey(condition));
-  const measurable = progress && progress.state !== "unmeasured";
   const units = unitsDescription(
     condition.minimumUnits,
     condition.maximumUnits,
   );
-  if (options.length === 0) {
-    return <StatedCondition condition={condition} context={context} />;
-  }
-  const codes = [...new Set(options.map((option) => option.code))];
-  const required =
-    condition.minimumCourses !== null &&
-    condition.minimumCourses >= codes.length;
-  // With a plan behind the view, a course counts here only if it was
-  // allocated here; one this list shares with another rule may count there.
-  const countsHere = (code: string) =>
-    !context.placement || Boolean(progress?.matchedCourseCodes.includes(code));
-  const done = codes.filter(
-    (code) =>
-      countsHere(code) && context.attemptStatusByCode.get(code) === "completed",
-  ).length;
-  const planned = codes.filter(
-    (code) =>
-      countsHere(code) &&
-      ["planned", "enrolled"].includes(
-        context.attemptStatusByCode.get(code) ?? "",
-      ),
-  ).length;
+  const { codes, required, done, planned } = listedCourseCounts(
+    condition,
+    context,
+  );
+  const status: RequirementRowStatus = showProgress
+    ? requirementRowStatus(condition, context)
+    : { kind: "unmeasured" };
   const target = condition.minimumCourses;
-  const caption = !showProgress
-    ? null
-    : target !== null
-      ? [
-          done > 0 ? `${done} completed` : null,
-          planned > 0 ? `${planned} planned` : null,
-          target > done + planned
-            ? `${target - done - planned} ${target - done - planned === 1 ? "course" : "courses"} ${required ? "to plan" : "to choose"}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : measurable
-        ? `${progress.completedUnits} units completed · ${progress.plannedUnits} planned`
-        : null;
   return (
-    <section className="relative rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:hover]:border-foreground/20 has-[button[data-section-toggle]:hover]:shadow-sm motion-reduce:transition-none sm:p-5">
-      <div className="group flex items-center gap-3">
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-          {required ? (
-            <ListChecks className="size-5" aria-hidden="true" />
-          ) : (
-            <Layers className="size-5" aria-hidden="true" />
-          )}
-        </span>
+    <section className="relative px-4 py-4 transition-colors has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:focus-visible]:ring-inset has-[button[data-section-toggle]:hover]:bg-muted/30 motion-reduce:transition-none sm:px-5">
+      <div className="group flex items-start gap-3">
+        {showProgress ? <StatusGlyph status={status} /> : null}
         <div className="min-w-0 flex-1">
-          <h3 className="text-base font-semibold tracking-tight">
+          <h3 className="text-[15px] font-medium tracking-tight">
             <button
               type="button"
               data-section-toggle
               onClick={() => setExpanded(!expanded)}
               aria-expanded={expanded}
               aria-controls={panelId}
-              className="text-left outline-none after:absolute after:inset-0 after:cursor-pointer after:rounded-xl"
+              className="text-left outline-none after:absolute after:inset-0 after:cursor-pointer"
             >
               {required
                 ? codes.length === 1
@@ -315,35 +409,30 @@ export function RequirementCondition({
               : ""}
           </p>
         </div>
+        <StatusSummary status={status} />
         <ChevronDown
           aria-hidden="true"
-          className={`size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+          className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
         />
       </div>
       {!showProgress ? null : target !== null && target > 0 ? (
-        <div
-          aria-hidden="true"
-          className="mt-4 flex h-1.5 overflow-hidden rounded-full bg-muted-foreground/20"
-        >
-          <span
-            className="bg-success"
-            style={{ width: `${Math.min(100, (done / target) * 100)}%` }}
-          />
-          <span
-            className="bg-primary"
-            style={{
-              width: `${Math.min(Math.max(0, 100 - (done / target) * 100), (planned / target) * 100)}%`,
-            }}
-          />
-        </div>
-      ) : measurable ? (
-        <UnitsBar progress={progress} className="mt-4" />
+        <UnitsBar
+          completed={done}
+          planned={planned}
+          goal={target}
+          className="mt-3 ml-7 w-auto"
+        />
+      ) : progress && progress.state !== "unmeasured" ? (
+        <UnitsBar
+          completed={progress.completedUnits}
+          planned={progress.plannedUnits}
+          goal={progress.targetUnits ?? progress.maximumUnits}
+          tone={progress.state === "over_limit" ? "over_limit" : "progress"}
+          className="mt-3 ml-7 w-auto"
+        />
       ) : null}
-      {caption && (
-        <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
-      )}
       {showProgress && progress?.state === "over_limit" && (
-        <p className="mt-2 text-xs text-destructive">
+        <p className="mt-2 pl-7 text-xs text-destructive">
           Above this requirement&apos;s limit
         </p>
       )}
