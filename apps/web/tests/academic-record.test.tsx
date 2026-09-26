@@ -111,14 +111,14 @@ test("save failures close the result form and display a toast", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Edit test result" }));
   fireEvent.click(screen.getByRole("button", { name: "Save result" }));
   await waitFor(() =>
-    expect(toastError).toHaveBeenCalledWith("Could not save.", {
-      description: expect.objectContaining({
-        props: expect.objectContaining({
-          className: "line-clamp-1 break-all",
-          children: "Missing database function",
+    expect(toastError).toHaveBeenCalledWith(
+      "Could not save",
+      expect.objectContaining({
+        description: expect.objectContaining({
+          props: { text: "Missing database function" },
         }),
       }),
-    }),
+    ),
   );
   await waitFor(() =>
     expect(screen.queryByRole("button", { name: "Save result" })).toBeNull(),

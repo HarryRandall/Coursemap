@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Input } from "@coursemap/ui/primitives/input";
 import { Label } from "@coursemap/ui/primitives/label";
@@ -21,6 +20,7 @@ import {
 import type { ImportModel } from "@/lib/admin/import-model";
 import { ImportModelRow } from "./import-model-row";
 import type { ImportModelRowAction } from "./import-model-row";
+import { showToast } from "@/ui/common/toast";
 
 export function ImportModelManager({
   open,
@@ -55,7 +55,7 @@ export function ImportModelManager({
           return;
         }
         if (action === "add" && model === id) setId("");
-        toast.success(result.message);
+        showToast(result.message);
         router.refresh();
       } catch {
         setError("The model could not be saved. Try again.");

@@ -9,7 +9,6 @@ import {
   ExternalLink,
   TriangleAlert,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   Alert,
   AlertDescription,
@@ -34,6 +33,7 @@ import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
+import { showToast } from "@/ui/common/toast";
 
 const timestampFormat = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "medium",
@@ -120,14 +120,14 @@ export function KeyDatesReviewPanel({
   async function approve() {
     const result = await approveKeyDatesReviewAction(review.id, year);
     if (!result.ok) throw new Error(result.message);
-    toast.success(result.message);
+    showToast(result.message);
     router.push(`/admin/key-dates/${year}`);
   }
 
   async function discard() {
     const result = await discardKeyDatesReviewAction(review.id, year);
     if (!result.ok) throw new Error(result.message);
-    toast.success(result.message);
+    showToast(result.message);
   }
 
   return (

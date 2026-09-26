@@ -167,7 +167,7 @@ export function ProfileEditor({
   async function save(event: FormEvent) {
     event.preventDefault();
     if (nameError || !draft.degreeCode) {
-      notify("Add your name and select a degree before saving", "warning");
+      notify("Add your name and degree before saving", "warning");
       return;
     }
     if (studentNumberError) {

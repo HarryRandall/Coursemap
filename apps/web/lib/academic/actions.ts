@@ -41,7 +41,7 @@ export async function saveAcademicResult(
     const { canAccessAdmin } = await getAuthContext();
     return {
       ok: false,
-      message: "An unexpected error occurred",
+      message: "Couldn't save that result",
       ...(canAccessAdmin ? { detail } : {}),
     };
   }

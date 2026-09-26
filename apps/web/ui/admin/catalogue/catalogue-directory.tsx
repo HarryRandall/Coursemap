@@ -119,7 +119,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
     setRefreshing(true);
     const task = startTask({
       id: `directory:${page.kind}:${page.academicYear}`,
-      title: `Refreshing the ANU ${labels.singular.toLowerCase()} listing`,
+      title: `Refreshing ${page.academicYear} ${labels.plural.toLowerCase()}`,
       detail: "Contacting ANU.",
       ceiling: 10,
     });
@@ -154,8 +154,8 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       };
       if (result.isComplete === false) {
         task.note({
-          ...outcome,
-          detail: `${outcome.detail}. The listing may be incomplete, so nothing was retired.`,
+          title: `${page.academicYear} ${labels.plural.toLowerCase()} partly refreshed`,
+          detail: `${outcome.detail}. ANU's listing looked incomplete, so nothing was retired.`,
         });
       } else {
         task.done(outcome);
@@ -163,7 +163,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       router.refresh();
     } catch (error) {
       task.fail({
-        title: "The ANU listing refresh failed",
+        title: "Couldn't refresh the ANU listing",
         detail: error instanceof Error ? error.message : "The refresh failed.",
         retry: refreshDirectory,
       });

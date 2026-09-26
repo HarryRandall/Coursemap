@@ -400,7 +400,7 @@ export function CourseDrawer({
                         togglePermission(attempt.id);
                         notify(
                           attempt.permissionApproved
-                            ? "Permission removed"
+                            ? "Permission approval removed"
                             : "Permission approval recorded",
                         );
                       }}
@@ -469,7 +469,7 @@ export function CourseDrawer({
                 );
                 notify(
                   result.ok
-                    ? `${course.code} recorded as a failed attempt`
+                    ? `${course.code} marked as failed`
                     : result.message,
                   result.ok ? "success" : "error",
                 );

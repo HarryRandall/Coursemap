@@ -22,20 +22,19 @@ const SYNC_PROGRESS: Record<
   running: { percent: 50, ceiling: 88, detail: "Reading the ANU page." },
 };
 
-const SYNC_OUTCOMES = {
-  applied: {
-    title: "ANU changes applied",
-    detail: "The record is up to date.",
-  },
-  review_required: {
-    title: "ANU changes need review",
-    detail: "Open the changes to accept or reject them.",
-  },
-  unchanged: {
-    title: "No ANU changes",
-    detail: "ANU has not changed this record since the last sync.",
-  },
-} as const;
+function syncOutcome(code: string, status: string) {
+  if (status === "review_required")
+    return {
+      title: `${code} has ANU changes to review`,
+      detail: "Open Changes to accept or reject them.",
+    };
+  if (status === "unchanged")
+    return {
+      title: `${code} is up to date`,
+      detail: "Nothing has changed on ANU since the last sync.",
+    };
+  return { title: `${code} updated from ANU` };
+}
 
 export function CatalogueSyncButton({
   recordId,
@@ -78,8 +77,8 @@ export function CatalogueSyncButton({
     reportedStatus.current = null;
     task.current = startTask({
       id: `sync:${recordId}`,
-      title: `Syncing ${code} from ANU`,
-      detail: "Asking ANU for the latest version.",
+      title: `Syncing ${code}`,
+      detail: "Contacting ANU.",
       ceiling: 12,
     });
     startTransition(async () => {
@@ -94,8 +93,8 @@ export function CatalogueSyncButton({
       };
       if (!response.ok || !result.syncId) {
         task.current?.fail({
-          title: `Syncing ${code} from ANU could not start`,
-          detail: result.error ?? "The sync did not return an identifier.",
+          title: `Couldn't start the ${code} sync`,
+          detail: result.error ?? "The server did not return a sync.",
           retry: retrySync,
         });
         task.current = null;
@@ -117,8 +116,8 @@ export function CatalogueSyncButton({
   useEffect(
     () => () =>
       task.current?.abandon({
-        title: "The ANU sync is still running",
-        detail: "Open the record again to see how it finished.",
+        title: "Sync still running",
+        detail: "Reopen the record to see the result.",
       }),
     [],
   );
@@ -137,20 +136,16 @@ export function CatalogueSyncButton({
     }
     if (status === "failed") {
       task.current?.fail({
-        title: `Syncing ${code} from ANU failed`,
+        title: `${code} sync failed`,
         detail: latestSync.errorMessage ?? "The sync did not finish.",
         retry: retrySync,
       });
     } else if (status === "cancelled") {
       task.current?.note({
-        title: `Syncing ${code} from ANU was cancelled`,
+        title: `${code} sync cancelled`,
       });
     } else {
-      const outcome = SYNC_OUTCOMES[status as keyof typeof SYNC_OUTCOMES];
-      task.current?.done({
-        title: outcome?.title ?? `${code} synced from ANU`,
-        detail: outcome?.detail,
-      });
+      task.current?.done(syncOutcome(code, status));
     }
     task.current = null;
   }, [code, latestSync, retrySync, startedSyncId]);
