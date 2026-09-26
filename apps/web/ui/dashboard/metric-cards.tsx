@@ -514,10 +514,7 @@ export function buildMetricViews(
             }`,
       body:
         academic.wam === null ? (
-          <MetricEmpty
-            message="Record a result and your weighted average appears here."
-            action={{ label: "Add your results", href: "/academic" }}
-          />
+          <MetricEmpty />
         ) : markTrend.length > 1 ? (
           <TrendBars
             points={markTrend.map((point) => ({
@@ -540,10 +537,7 @@ export function buildMetricViews(
           : `Across ${academic.markedUnits} graded units`,
       body:
         academic.gpa === null ? (
-          <MetricEmpty
-            message="Your GPA is calculated once results are recorded."
-            action={{ label: "Add your results", href: "/academic" }}
-          />
+          <MetricEmpty />
         ) : undefined,
     },
     tuition: {
@@ -566,10 +560,7 @@ export function buildMetricViews(
             }`,
       body:
         tuition === null ? (
-          <MetricEmpty
-            message="No course in your plan has a published fee yet."
-            action={{ label: "Browse the catalogue", href: "/courses" }}
-          />
+          <MetricEmpty />
         ) : undefined,
     },
     "mark-trend": {
@@ -594,26 +585,26 @@ export function buildMetricViews(
             format={formatMark}
           />
         ) : (
-          <MetricEmpty
-            message="Each graded semester adds a bar here."
-            action={{ label: "Add your results", href: "/academic" }}
-          />
+          <MetricEmpty />
         ),
     },
     "grade-mix": {
       id: "grade-mix",
       title: METRIC_OPTIONS["grade-mix"].title,
-      value: String(academic.markedCourses),
-      unit: `completed ${courseWord(academic.markedCourses)}`,
+      value:
+        academic.markedCourses > 0
+          ? String(academic.markedCourses)
+          : "No marks yet",
+      unit:
+        academic.markedCourses > 0
+          ? `completed ${courseWord(academic.markedCourses)}`
+          : "",
       note: "",
       body:
         academic.markedCourses > 0 ? (
           <GradeBars points={grades} />
         ) : (
-          <MetricEmpty
-            message="Your grade mix builds up as results come in."
-            action={{ label: "Add your results", href: "/academic" }}
-          />
+          <MetricEmpty />
         ),
     },
   };
