@@ -34,6 +34,7 @@ import {
 } from "@coursemap/ui/primitives/tooltip";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
 import {
   planTimelineTerms,
   planTimelineYears,
@@ -139,6 +140,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     [timelineTerms],
   );
   const unscheduled = timelineTerms.find((term) => term.id === "unscheduled");
+  const recommendedCodes = useMemo(
+    () => recommendedCourseCodes(catalogue, state.profile, state.attempts),
+    [catalogue, state.profile, state.attempts],
+  );
   const pickerTerm = picker
     ? timelineTerms.find((term) => term.id === picker.termId)
     : undefined;
@@ -722,6 +727,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           term={pickerTerm}
           intent={picker.intent}
           academicYears={degreeYears.map((item) => item.year)}
+          recommendedCodes={recommendedCodes}
           onClose={() => setPicker(null)}
         />
       )}

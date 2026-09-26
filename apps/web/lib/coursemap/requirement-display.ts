@@ -1,5 +1,6 @@
-import type { Attempt } from "@/lib/coursemap/types";
+import type { Attempt, Profile } from "@/lib/coursemap/types";
 import type {
+  PlanCatalogue,
   PlanRequirementCondition,
   PlanRequirementNode,
 } from "@/lib/coursemap/plan-catalogue";
@@ -40,4 +41,39 @@ export function requirementCourseHeading(condition: PlanRequirementCondition) {
   if (condition.minimumUnits !== null)
     return `Choose ${condition.minimumUnits} units`;
   return "Course options";
+}
+
+/**
+ * Courses named by the student's chosen degree, major, minors and
+ * specialisations that are not yet anywhere in their plan, in requirement
+ * order. Withdrawn attempts do not count as planned.
+ */
+export function recommendedCourseCodes(
+  catalogue: Pick<PlanCatalogue, "structureRequirements">,
+  profile: Pick<
+    Profile,
+    "degreeCode" | "majorCode" | "minorCodes" | "specialisationCodes"
+  >,
+  attempts: readonly Attempt[],
+): string[] {
+  const chosen = new Set(
+    [
+      profile.degreeCode,
+      profile.majorCode,
+      ...(profile.minorCodes ?? []),
+      ...(profile.specialisationCodes ?? []),
+    ].filter(Boolean),
+  );
+  const planned = new Set(
+    attempts
+      .filter((attempt) => attempt.status !== "withdrawn")
+      .map((attempt) => attempt.courseCode),
+  );
+  return [
+    ...new Set(
+      catalogue.structureRequirements
+        .filter((structure) => chosen.has(structure.structureCode))
+        .flatMap((structure) => requirementCourseCodes(structure.root)),
+    ),
+  ].filter((code) => !planned.has(code));
 }
