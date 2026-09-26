@@ -2,6 +2,7 @@
 import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
+  ArrowRight,
   Check,
   ChevronDown,
   Circle,
@@ -27,6 +28,8 @@ import {
   conditionSummary,
   conditionTone,
   courseListTitle,
+  courseSearchHref,
+  suggestedCourses,
   hidesCondition,
   listedCourseCounts,
   requirementRowStatus,
@@ -38,6 +41,7 @@ import type {
   TreeContext,
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCourseOptions } from "./requirement-course-options";
+import { RequirementCourseRow } from "./requirement-course-row";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 
 /** A course counting towards a rule: filled with a check once completed, dashed while planned. */
@@ -101,6 +105,54 @@ function CountedCourses({
         <p className="text-xs text-destructive">
           Over this limit, so counting towards nothing: {overCap.join(", ")}
         </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A few courses that would count towards a rule still short of units, and a
+ * way into the course search with the rule's filters applied for the rest.
+ */
+function CourseSuggestions({
+  condition,
+  context,
+}: {
+  condition: RequirementTreeCondition;
+  context: TreeContext;
+}) {
+  const courses = suggestedCourses(condition, context);
+  const href = courseSearchHref(condition, context.catalogue.academicYear);
+  if (!courses.length && !href) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {courses.length ? (
+        <>
+          <p className="text-xs font-medium text-muted-foreground">
+            Suggested courses
+          </p>
+          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+            {courses.map((course) => (
+              <RequirementCourseRow
+                key={course.code}
+                code={course.code}
+                year={course.year}
+                course={course}
+                status={null}
+                onAdd={context.onAddCourse}
+              />
+            ))}
+          </ul>
+        </>
+      ) : null}
+      {href ? (
+        <Link
+          href={href}
+          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+        >
+          See all matching courses
+          <ArrowRight className="size-3.5" aria-hidden="true" />
+        </Link>
       ) : null}
     </div>
   );
@@ -328,6 +380,10 @@ function StatedCondition({
     showProgress && context ? (
       <CountedCourses condition={condition} context={context} />
     ) : null;
+  const suggestions =
+    status?.kind === "todo" && context ? (
+      <CourseSuggestions condition={condition} context={context} />
+    ) : null;
   return (
     <RuleRow
       status={status}
@@ -344,7 +400,12 @@ function StatedCondition({
         ) : null
       }
     >
-      {counted}
+      {counted || suggestions ? (
+        <div className="flex flex-col gap-3">
+          {counted}
+          {suggestions}
+        </div>
+      ) : null}
     </RuleRow>
   );
 }

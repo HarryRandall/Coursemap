@@ -8,6 +8,7 @@ import type {
 } from "@/lib/coursemap/requirement-tree-node";
 import {
   requirementNodeKey,
+  requirementNodeMatcher,
   type RequirementAllocation,
   type RequirementNodeProgress,
   type RequirementTreeProgress,
@@ -646,4 +647,62 @@ export function flattenRules(
       ? flattenRules(node.children)
       : [node],
   );
+}
+
+/**
+ * A few catalogue courses a rule would count that are not in the plan yet,
+ * lowest level first, as a place to start.
+ */
+export function suggestedCourses(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+  limit = 5,
+): Course[] {
+  const matches = requirementNodeMatcher(condition);
+  if (!matches) return [];
+  return context.catalogue.courses
+    .filter(
+      (course) =>
+        course.year === context.catalogue.academicYear &&
+        !context.attemptStatusByCode.has(course.code) &&
+        matches(course),
+    )
+    .sort((a, b) => a.level - b.level || a.code.localeCompare(b.code))
+    .slice(0, limit);
+}
+
+/**
+ * The course search with a rule's own filters applied, so "See all" shows
+ * every course that could count. Levels are published on the 1000 scale but
+ * the search takes the leading digit, with + for that level or above.
+ */
+export function courseSearchHref(
+  condition: RequirementTreeCondition,
+  academicYear: number | null,
+) {
+  const params = new URLSearchParams();
+  const digit = (level: number) => String(level < 10 ? level : level / 1000);
+  const { minimumLevel, maximumLevel } = condition;
+  const level =
+    minimumLevel !== null
+      ? minimumLevel === maximumLevel
+        ? digit(minimumLevel)
+        : `${digit(minimumLevel)}+`
+      : maximumLevel !== null
+        ? digit(maximumLevel)
+        : null;
+  if (condition.conditionKind === "subject_units" && condition.subjectCode) {
+    params.set("subject", condition.subjectCode);
+  } else if (condition.conditionKind === "tagged_units" && condition.tag) {
+    params.set("tag", condition.tag);
+  } else if (
+    condition.conditionKind !== "level_units" &&
+    condition.conditionKind !== "elective_units"
+  ) {
+    return null;
+  }
+  if (level && /^[1-9]\+?$/u.test(level)) params.set("level", level);
+  if (academicYear !== null) params.set("year", String(academicYear));
+  const query = params.toString();
+  return query ? `/courses?${query}` : "/courses";
 }

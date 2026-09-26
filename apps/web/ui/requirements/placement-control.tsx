@@ -45,16 +45,15 @@ export function PlacementControl({
       : []),
   ];
   return (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+    <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
       <span className="shrink-0">
         {current.pinned ? "You counted it towards" : "Counts towards"}
       </span>
       <OptionPicker
         aria-label={`Where ${courseCode} counts`}
-        className="relative z-10 h-7 min-w-0 flex-1 justify-between px-2 text-xs"
+        className="relative z-10 h-7 min-w-0 gap-1 border-transparent bg-transparent px-1.5 text-xs font-medium text-foreground shadow-none hover:bg-muted"
         items={items}
         size="sm"
-        variant="outline"
         value={current.nodeKey ?? ""}
         placeholder="Nothing yet"
         onValueChange={(next) =>
