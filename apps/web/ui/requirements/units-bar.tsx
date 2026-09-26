@@ -2,9 +2,9 @@
 import { cn } from "@/lib/cn";
 
 export /**
- * Completed and planned amounts stacked against a target: completed in full
- * green, planned in a lighter tint of it, so the two read as one scale. A cap is
- * drawn in muted tones, since filling it is not something to work towards.
+ * Completed and planned amounts stacked against a target: completed in green
+ * and planned in purple, as course statuses are everywhere else. A cap draws
+ * its used units in red, since filling it is not something to work towards.
  */
 function UnitsBar({
   completed,
@@ -24,14 +24,11 @@ function UnitsBar({
   const plannedShare = Math.min(100 - completedShare, (planned / goal) * 100);
   const fill = {
     progress: "bg-success",
-    limit: "bg-muted-foreground/50",
+    limit: "bg-destructive/70",
     over_limit: "bg-destructive",
   }[tone];
-  const plannedFill = {
-    progress: "bg-success/35",
-    limit: "bg-muted-foreground/25",
-    over_limit: "bg-destructive/40",
-  }[tone];
+  const plannedFill =
+    tone === "over_limit" ? "bg-destructive/40" : "bg-primary";
   return (
     <div
       aria-hidden="true"

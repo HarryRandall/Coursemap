@@ -3,6 +3,7 @@ import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  CalendarDays,
   Check,
   ChevronDown,
   Circle,
@@ -44,13 +45,19 @@ import { RequirementCourseOptions } from "./requirement-course-options";
 import { RequirementCourseRow } from "./requirement-course-row";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 
-/** A course counting towards a rule: filled with a check once completed, dashed while planned. */
+/**
+ * A course counting towards a rule: green once completed and purple while
+ * planned, as course statuses are everywhere else. Under a cap, completed
+ * courses turn red, since they use up what the limit allows.
+ */
 function CourseChip({
   code,
   status,
+  limit = false,
 }: {
   code: string;
   status: "completed" | "planned" | "enrolled" | undefined;
+  limit?: boolean;
 }) {
   const completed = status === "completed";
   return (
@@ -58,11 +65,19 @@ function CourseChip({
       className={cn(
         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
         completed
-          ? "border-success/30 bg-success/10 text-success"
-          : "border-dashed border-border",
+          ? limit
+            ? "border-destructive/30 bg-destructive/10 text-destructive"
+            : "border-success/30 bg-success/10 text-success"
+          : status
+            ? "border-primary/30 bg-primary/10 text-primary"
+            : "border-border",
       )}
     >
-      {completed ? <Check className="size-3" aria-hidden="true" /> : null}
+      {completed ? (
+        <Check className="size-3" aria-hidden="true" />
+      ) : status ? (
+        <CalendarDays className="size-3" aria-hidden="true" />
+      ) : null}
       {code}
       <span className="sr-only">
         {completed ? " completed" : status ? ` ${status}` : ""}
@@ -75,9 +90,11 @@ function CourseChip({
 function CountedCourses({
   condition,
   context,
+  limit = false,
 }: {
   condition: RequirementTreeCondition;
   context: TreeContext;
+  limit?: boolean;
 }) {
   const key = requirementNodeKey(condition);
   const progress = context.progress.get(key);
@@ -97,6 +114,7 @@ function CountedCourses({
               key={code}
               code={code}
               status={context.attemptStatusByCode.get(code)}
+              limit={limit}
             />
           ))}
         </ul>
@@ -182,7 +200,7 @@ function StatusGlyph({ status }: { status: RequirementRowStatus }) {
     case "planned":
       return (
         <CircleDashed
-          className={cn(className, "text-success")}
+          className={cn(className, "text-primary")}
           aria-hidden="true"
         />
       );
@@ -211,7 +229,7 @@ function StatusGlyph({ status }: { status: RequirementRowStatus }) {
 
 const statusBadge = {
   todo: "warning-light",
-  planned: "outline",
+  planned: "primary-light",
   limit: "outline",
   over_limit: "destructive-light",
 } as const;
@@ -378,7 +396,11 @@ function StatedCondition({
     .join(" · ");
   const counted =
     showProgress && context ? (
-      <CountedCourses condition={condition} context={context} />
+      <CountedCourses
+        condition={condition}
+        context={context}
+        limit={status?.kind === "limit" || status?.kind === "over_limit"}
+      />
     ) : null;
   const suggestions =
     status?.kind === "todo" && context ? (

@@ -16,18 +16,12 @@ import type {
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCondition } from "@/ui/requirements/requirement-condition";
 
-/**
- * Rules sorted by what the student still has to do, in the order shown. What
- * is already covered sits last and folded, so the list opens on what is next.
- */
+/** Rules sorted by what the student still has to do, in the order shown. */
 const sections = [
   { label: "Still to do", kinds: ["todo", "unmeasured"], folded: false },
   { label: "Limits", kinds: ["limit", "over_limit"], folded: false },
-  {
-    label: "Planned or complete",
-    kinds: ["planned", "complete"],
-    folded: true,
-  },
+  { label: "Planned", kinds: ["planned"], folded: false },
+  { label: "Complete", kinds: ["complete"], folded: false },
 ] as const;
 
 /**
