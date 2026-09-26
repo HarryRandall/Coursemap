@@ -784,6 +784,9 @@ function detailAsCourseDetails(value: Json): CourseDetails | null {
   const areasOfInterest = readArray(value.areasOfInterest).flatMap((item) =>
     isRecord(item) && readString(item.name) ? [readString(item.name)] : [],
   );
+  const tags = readArray(value.tags).flatMap((item) =>
+    isRecord(item) && readString(item.name) ? [readString(item.name)] : [],
+  );
   const attributes = readArray(value.attributes).flatMap<CourseAttribute>(
     (item) =>
       isRecord(item) && readString(item.value)
@@ -837,6 +840,7 @@ function detailAsCourseDetails(value: Json): CourseDetails | null {
     academicCareer: readNullableString(snapshot.academicCareer),
     accent: accentFor(code),
     areasOfInterest,
+    tags,
     assessments: readAssessments(value),
     assumedKnowledgeText: ruleText(value, "assumed_knowledge"),
     attributes,
@@ -1167,6 +1171,7 @@ async function loadListRelationships(
         academicCareer: snapshot.academic_career,
         accent: accentFor(code),
         areasOfInterest: [],
+        tags: [],
         assessments: [],
         assumedKnowledgeText: "",
         attributes: [],

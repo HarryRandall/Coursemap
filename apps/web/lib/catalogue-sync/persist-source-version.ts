@@ -134,6 +134,12 @@ async function insertCourseContent(
       values (${snapshotId}, ${area.position}, ${area.name})
     `;
   }
+  for (const tag of content.tags ?? []) {
+    await tx`
+      insert into public.course_tags (version_id, position, name)
+      values (${snapshotId}, ${tag.position}, ${tag.name})
+    `;
+  }
   for (const attribute of content.attributes) {
     await tx`
       insert into public.course_attributes (version_id, position, attribute_kind, value, source_text)

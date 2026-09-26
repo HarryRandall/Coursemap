@@ -146,6 +146,8 @@ export type CourseDetails = {
   academicCareer: string | null;
   accent: "blue" | "violet" | "mint" | "amber" | "rose" | "cyan";
   areasOfInterest: string[];
+  /** Free-form categories degree rules count units against. */
+  tags: string[];
   assessments: CourseAssessment[];
   attributes: CourseAttribute[];
   code: string;

@@ -63,6 +63,7 @@ export function emptyCourseExtraction({
     offeringStatus: "unknown",
     sourceUpdatedAt: null,
     areasOfInterest: [],
+    tags: [],
     fees: [],
     learningOutcomes: [],
     assessmentItems: [],

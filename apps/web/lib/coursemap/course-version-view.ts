@@ -57,6 +57,7 @@ function courseProjectionFromWrite(write: CatalogueContent): Json {
     unitOptions: course.unitOptions as unknown as Json,
     fees: course.fees as unknown as Json,
     areasOfInterest: course.areasOfInterest as unknown as Json,
+    tags: (course.tags ?? []) as unknown as Json,
     attributes: course.attributes as unknown as Json,
     relatedCourses: course.relatedCourses as unknown as Json,
     courseOffering: (course.offering ?? null) as unknown as Json,

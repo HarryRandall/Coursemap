@@ -114,6 +114,7 @@ export type CourseSnapshotProjectionData = {
     sourceText: string;
   }>;
   areasOfInterest: Array<{ position: number; name: string }>;
+  tags: Array<{ position: number; name: string }>;
   attributes: Array<{
     position: number;
     attributeKind: CourseExtraction["attributes"][number]["attributeKind"];
@@ -857,6 +858,18 @@ export function projectCourseSnapshot(
     areasOfInterest.map(({ name }) => name),
     "areas of interest",
   );
+  // A tag is one category however it is capitalised, so a repeat collapses
+  // into the first spelling given.
+  const seenTags = new Set<string>();
+  const tags = (extraction.tags ?? [])
+    .map((name) => cleanText(name))
+    .filter((name) => {
+      const key = name.toLowerCase();
+      if (!name || seenTags.has(key)) return false;
+      seenTags.add(key);
+      return true;
+    })
+    .map((name, index) => ({ position: index + 1, name }));
   const attributes = rowsByPosition(extraction.attributes, "attributes").map(
     (attribute) => ({
       ...attribute,
@@ -984,6 +997,7 @@ export function projectCourseSnapshot(
     unitOptions: unitValue.options,
     fees,
     areasOfInterest,
+    tags,
     attributes,
     relatedCourses,
     courseOffering:
