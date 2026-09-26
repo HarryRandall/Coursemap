@@ -92,15 +92,13 @@ test("a permission is a badge on the course, not a prerequisite box", () => {
   ).toBeInTheDocument();
 });
 
-test("unlocked courses without published details are not links", () => {
+test("unlocked courses without published details still link, marked unavailable", () => {
   renderDiagram();
   expect(screen.getByRole("link", { name: /COMP4500/u })).toBeInTheDocument();
-  expect(
-    screen.queryByRole("link", { name: /COMP4550/u }),
-  ).not.toBeInTheDocument();
-  expect(
-    screen.getByTitle("COMP4550: course details unavailable"),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /COMP4550/u })).toHaveAttribute(
+    "title",
+    "COMP4550: course details unavailable",
+  );
 });
 
 test("completed requirements say so in words as well as colour", () => {
