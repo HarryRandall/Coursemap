@@ -13,7 +13,10 @@ import {
   saveCatalogueDraft,
   unpublishCatalogueRecord,
 } from "@/lib/catalogue/drafts";
-import { resolveSourceChange } from "@/lib/catalogue/source-review-decisions";
+import {
+  markFieldForReview,
+  resolveSourceChange,
+} from "@/lib/catalogue/source-review-decisions";
 import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
 import { revalidatePublishedRecord } from "@/lib/coursemap/published-cache";
 import type { SourceReviewDecision } from "@/lib/catalogue/source-review-store";
@@ -302,5 +305,70 @@ export async function resolveSourceChangeAction({
     };
   } catch (error) {
     return draftFailure(error, "The ANU change could not be resolved.");
+  }
+}
+
+/**
+ * Approves parts of a record's first ANU reading as read. Each keeps the value
+ * the draft already holds, so approving changes no content; it only clears
+ * the item, and with it any hold on publishing.
+ */
+export async function approveFirstReadAction({
+  recordId,
+  changeIds,
+  path,
+}: {
+  recordId: number;
+  changeIds: number[];
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  let revision: number | undefined;
+  try {
+    for (const changeId of changeIds) {
+      const resolved = await resolveSourceChange({
+        recordId,
+        changeId,
+        decision: "use_source",
+        userId: viewer.id,
+      });
+      revision = resolved.revision;
+    }
+  } catch (error) {
+    revalidateRecord(path);
+    return draftFailure(error, "The ANU reading could not be approved.");
+  }
+  revalidateRecord(path);
+  return {
+    ok: true,
+    revision,
+    message:
+      changeIds.length === 1
+        ? "Approved."
+        : `${changeIds.length} parts approved.`,
+  };
+}
+
+/** Puts one field back on the Changes tab for a person to look at. */
+export async function markFieldForReviewAction({
+  recordId,
+  fieldPath,
+  path,
+}: {
+  recordId: number;
+  fieldPath: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  try {
+    const marked = await markFieldForReview({ recordId, fieldPath });
+    revalidateRecord(path);
+    return { ok: true, message: `${marked.label} is back up for review.` };
+  } catch (error) {
+    return draftFailure(error, "The field could not be marked for review.");
   }
 }

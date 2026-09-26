@@ -1,3 +1,5 @@
+import { evidenceBelongsToReviewUnit } from "./review-units.ts";
+
 /** One note the model left on a source version. */
 export type VersionFlag = {
   fieldPath: string | null;
@@ -141,4 +143,26 @@ export function summariseReviewNotes({
       (left, right) => left.confidence - right.confidence,
     ),
   };
+}
+
+// The course model names requisites by their wording or rule, where review
+// units name the requirement rule itself.
+const REQUISITE_RULES: Record<string, string> = {
+  prerequisite: "prerequisite",
+  corequisite: "corequisite",
+  incompatibility: "incompatibility",
+  softIncompatibility: "incompatibility",
+};
+
+/** Whether a note from the model is about the given review unit. */
+export function noteBelongsToReviewUnit(
+  fieldPath: string,
+  notePath: string | null,
+) {
+  if (evidenceBelongsToReviewUnit(fieldPath, notePath)) return true;
+  const requisite = notePath?.match(
+    /^(?:requisites\.)?([a-zA-Z]+?)(?:Rule|Text|CourseCodes)$/,
+  )?.[1];
+  const rule = requisite ? REQUISITE_RULES[requisite] : undefined;
+  return rule !== undefined && fieldPath === `requirements.${rule}`;
 }

@@ -12,6 +12,7 @@ const actions = vi.hoisted(() => ({ resolve: vi.fn() }));
 
 vi.mock("@/lib/coursemap/admin-catalogue-actions", () => ({
   resolveSourceChangeAction: actions.resolve,
+  approveFirstReadAction: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -34,6 +35,9 @@ function change(overrides: Partial<SourceReviewChange> = {}) {
     isStale: false,
     decision: null,
     resolvedAt: null,
+    confidence: null,
+    band: null,
+    reason: null,
     ...overrides,
   } satisfies SourceReviewChange;
 }
@@ -46,6 +50,7 @@ function review(overrides: Partial<SourceReview> = {}): SourceReview {
     conflicts: [],
     incoming: [],
     overrides: [],
+    firstRead: [],
     resolved: [],
     ...overrides,
   };
@@ -104,7 +109,7 @@ test("a matching record offers nothing to review", () => {
   ).toBeTruthy();
 });
 
-test("a conflict shows all three values and both decisions", () => {
+test("a conflict diffs the draft against ANU and offers both decisions", () => {
   renderPanel({
     review: review({
       conflicts: [
@@ -116,10 +121,15 @@ test("a conflict shows all three values and both decisions", () => {
     }),
   });
   expect(screen.getByText("Conflicts")).toBeTruthy();
-  expect(screen.getByText("Previous ANU")).toBeTruthy();
   expect(screen.getByText("Current")).toBeTruthy();
-  expect(screen.getByText("New ANU")).toBeTruthy();
-  expect(screen.getByText("Manually changed")).toBeTruthy();
+  expect(screen.getAllByText("New ANU").length).toBeGreaterThan(0);
+  expect(document.body.textContent).toContain("Locally authored");
+  expect(
+    screen.getByText("What ANU changed since the last check"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Changed by hand since the last check."),
+  ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Keep current" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Use ANU" })).toBeTruthy();
 });
@@ -159,52 +169,102 @@ test("kept values stay available without nagging", () => {
   expect(screen.queryByRole("button", { name: "Keep current" })).toBeNull();
 });
 
-test("what the model flagged leads the tab, least certain field first", () => {
+test("the model's notes sit on the change they are about", () => {
   renderPanel({
-    review: review({ incoming: [change()] }),
+    review: review({
+      incoming: [change({ fieldPath: "course.fees", label: "Fees" })],
+    }),
     notes: summariseReviewNotes({
       flags: [
+        {
+          fieldPath: "fees",
+          severity: "warning",
+          code: "EVIDENCE_MISSING",
+          message: "The ANU page does not contain this wording: $5520",
+        },
         {
           fieldPath: "requisites.prerequisiteRule",
           severity: "error",
           code: "INVALID",
           message: "The rule named a course code ANU does not use.",
         },
-        {
-          fieldPath: "requirements.rule.children.3",
-          severity: "warning",
-          code: "AMBIGUOUS",
-          message: "Kept as the page's wording.",
-        },
       ],
-      evidence: [
-        { fieldPath: "fees", confidence: 0.9, excerpt: "$5520" },
-        { fieldPath: "offerings", confidence: 0.55, excerpt: "First Semester" },
-        { fieldPath: "college", confidence: 0.7, excerpt: "ANU College" },
-      ],
+      evidence: [{ fieldPath: "offerings", confidence: 0.55, excerpt: null }],
     }),
-  });
-  expect(
-    screen.getByRole("heading", { name: "What to check" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("1 part could not be read and was left empty"),
-  ).toBeInTheDocument();
-  expect(screen.getByText("Prerequisite rule:")).toBeInTheDocument();
-  expect(screen.getByText("Requirements, branch 4:")).toBeInTheDocument();
-  const uncertain = screen
-    .getAllByText(/% sure$/u)
-    .map((node) => node.textContent);
-  // Fees are sure enough not to be listed.
-  expect(uncertain).toEqual(["55% sure", "70% sure"]);
-});
-
-test("nothing flagged means no notes section", () => {
-  renderPanel({
-    review: review({ incoming: [change()] }),
-    notes: summariseReviewNotes({ flags: [], evidence: [] }),
   });
   expect(
     screen.queryByRole("heading", { name: "What to check" }),
   ).not.toBeInTheDocument();
+  expect(
+    screen.getByText("The ANU page does not contain this wording: $5520"),
+  ).toBeInTheDocument();
+  // No open change carries the prerequisite rule, so it is listed on its own.
+  expect(
+    screen.getByText("1 part could not be read and was left empty"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("55% sure")).not.toBeInTheDocument();
+});
+
+test("a first reading leads with what needs review and folds what was read plainly", () => {
+  renderPanel({
+    review: review({
+      firstRead: [
+        change({
+          id: 21,
+          classification: "first_read",
+          label: "Prerequisite rule",
+          fieldPath: "requirements.prerequisite",
+          unitKind: "requirement_rule",
+          confidence: 0.42,
+          band: "needs_review",
+          reason: "One sentence was split into several conditions",
+        }),
+        change({
+          id: 22,
+          classification: "first_read",
+          confidence: 0.8,
+          band: "check",
+          reason: "Probably right, worth a look",
+        }),
+        change({
+          id: 23,
+          classification: "first_read",
+          label: "Title",
+          confidence: 0.97,
+          band: "accepted",
+          reason: "Stated plainly on the page",
+        }),
+      ],
+    }),
+  });
+  expect(screen.getByText("First reading from ANU")).toBeTruthy();
+  expect(
+    screen.getByText(/1 part needs review before this can be published/u),
+  ).toBeTruthy();
+  expect(screen.getByText("42% sure")).toBeTruthy();
+  expect(
+    screen.getByText("One sentence was split into several conditions"),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Approve all 1" })).toBeTruthy();
+  expect(screen.getByText("Stated plainly")).toBeTruthy();
+  expect(screen.queryByText("No changes to review")).toBeNull();
+});
+
+test("leaves out first readings taken word for word from the page", () => {
+  renderPanel({
+    review: review({
+      firstRead: [
+        change({
+          id: 31,
+          classification: "first_read",
+          label: "Title",
+          confidence: 1,
+          band: "accepted",
+          reason: "Stated plainly on the page",
+        }),
+      ],
+    }),
+  });
+  expect(screen.queryByText("First reading from ANU")).toBeNull();
+  expect(screen.getByText("No changes to review")).toBeTruthy();
 });
