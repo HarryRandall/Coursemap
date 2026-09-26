@@ -1,8 +1,8 @@
 "use client";
-import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, Plus } from "lucide-react";
+import { CalendarDays, Check, Plus } from "lucide-react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
+import { CatalogueIdentity } from "@/ui/admin/catalogue-table/catalogue-table";
 import type { Course } from "@/lib/coursemap/types";
 import type { ReactNode } from "react";
 
@@ -35,24 +35,16 @@ export function RequirementCourseRow({
   const completed = status === "completed";
   const planned = status === "planned" || status === "enrolled";
   return (
-    <li className="group relative flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 text-sm transition-colors focus-within:bg-muted/40 hover:bg-muted/30 motion-reduce:transition-none">
-      <Link
-        href={`/courses/${course?.year ?? year}/${code.toLowerCase()}`}
-        className="flex min-w-0 flex-1 items-baseline gap-2 outline-none after:absolute after:inset-0"
-      >
-        <span className="shrink-0 font-mono font-semibold">{code}</span>
-        {course ? (
-          <span className="truncate text-muted-foreground">{course.name}</span>
-        ) : null}
-        <ArrowRight
-          className="size-3.5 shrink-0 self-center text-muted-foreground opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 motion-reduce:transition-none"
-          aria-hidden="true"
+    <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 text-sm transition-colors hover:bg-muted/30 motion-reduce:transition-none">
+      <div className="min-w-0 flex-1">
+        <CatalogueIdentity
+          code={code}
+          title={course?.name ?? code}
+          href={`/courses/${course?.year ?? year}/${code.toLowerCase()}`}
+          meta={course?.units ? [`${course.units} units`] : []}
         />
-      </Link>
-      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-        {course?.units ? (
-          <span className="tabular-nums">{course.units} units</span>
-        ) : null}
+      </div>
+      <span className="flex shrink-0 items-center gap-2 text-xs">
         {showStatus ? (
           <Badge
             variant={

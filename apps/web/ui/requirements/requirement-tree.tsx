@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useContext, useId, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import {
@@ -14,7 +14,10 @@ import type {
   RequirementTreeNode,
   TreeContext,
 } from "@/ui/requirements/requirement-presentation";
-import { RequirementCondition } from "@/ui/requirements/requirement-condition";
+import {
+  OpenRulesContext,
+  RequirementCondition,
+} from "@/ui/requirements/requirement-condition";
 
 /** Rules sorted by what the student still has to do, in the order shown. */
 const sections = [
@@ -143,6 +146,21 @@ export function RequirementGroupView({
   /** Inside another group's panel, where rules are not sorted into sections. */
   nested?: boolean;
 }) {
+  const inherited = useContext(OpenRulesContext);
+  const [openKeys, setOpenKeys] = useState<ReadonlySet<string>>(new Set());
+  const ownRules = useMemo(
+    () => ({
+      isOpen: (key: string) => openKeys.has(key),
+      toggle: (key: string) =>
+        setOpenKeys((previous) => {
+          const next = new Set(previous);
+          if (!next.delete(key)) next.add(key);
+          return next;
+        }),
+    }),
+    [openKeys],
+  );
+  const openRules = nested && inherited ? inherited : ownRules;
   const alternative =
     group.operator === "any_of" || group.operator === "at_least";
   const children = group.children.filter(
@@ -186,59 +204,61 @@ export function RequirementGroupView({
     ? [...notices, ...sortedRules.filter(isNotice)]
     : notices;
   return (
-    <div className="space-y-4">
-      {alternative || units ? (
-        <div>
-          <h3 className="text-sm font-semibold">
-            {group.operator === "any_of"
-              ? "Choose one of these options"
-              : group.operator === "at_least"
-                ? `Choose at least ${group.minimumCount ?? 1} of these options`
-                : "Course requirements"}
-          </h3>
-          {units ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {units} across the following requirements
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {group.description ? (
-        <p className="text-sm text-muted-foreground">{group.description}</p>
-      ) : null}
-      {sorted ? (
-        sections.map((section) => (
+    <OpenRulesContext.Provider value={openRules}>
+      <div className="space-y-4">
+        {alternative || units ? (
+          <div>
+            <h3 className="text-sm font-semibold">
+              {group.operator === "any_of"
+                ? "Choose one of these options"
+                : group.operator === "at_least"
+                  ? `Choose at least ${group.minimumCount ?? 1} of these options`
+                  : "Course requirements"}
+            </h3>
+            {units ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {units} across the following requirements
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {group.description ? (
+          <p className="text-sm text-muted-foreground">{group.description}</p>
+        ) : null}
+        {sorted ? (
+          sections.map((section) => (
+            <RequirementPanel
+              key={section.label}
+              label={section.label}
+              folded={section.folded}
+              nodes={sortedRules.filter(
+                (child) =>
+                  !isNotice(child) &&
+                  (section.kinds as readonly string[]).includes(
+                    requirementRowStatus(child, context).kind,
+                  ),
+              )}
+              context={context}
+              alternative={false}
+            />
+          ))
+        ) : (
           <RequirementPanel
-            key={section.label}
-            label={section.label}
-            folded={section.folded}
-            nodes={sortedRules.filter(
-              (child) =>
-                !isNotice(child) &&
-                (section.kinds as readonly string[]).includes(
-                  requirementRowStatus(child, context).kind,
-                ),
-            )}
+            nodes={rows}
             context={context}
-            alternative={false}
+            alternative={group.operator === "any_of"}
           />
-        ))
-      ) : (
-        <RequirementPanel
-          nodes={rows}
-          context={context}
-          alternative={group.operator === "any_of"}
-        />
-      )}
-      {shownNotices.map((child) =>
-        child.type === "condition" ? (
-          <RequirementCondition
-            key={requirementNodeKey(child)}
-            condition={child}
-            context={context}
-          />
-        ) : null,
-      )}
-    </div>
+        )}
+        {shownNotices.map((child) =>
+          child.type === "condition" ? (
+            <RequirementCondition
+              key={requirementNodeKey(child)}
+              condition={child}
+              context={context}
+            />
+          ) : null,
+        )}
+      </div>
+    </OpenRulesContext.Provider>
   );
 }

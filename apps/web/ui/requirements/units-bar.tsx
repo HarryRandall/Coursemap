@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 export /**
  * Completed and planned amounts stacked against a target: completed in green
  * and planned in purple, as course statuses are everywhere else. A cap draws
- * its used units in red, since filling it is not something to work towards.
+ * its used units in grey, since filling it is not something to work towards.
  */
 function UnitsBar({
   completed,
@@ -24,7 +24,7 @@ function UnitsBar({
   const plannedShare = Math.min(100 - completedShare, (planned / goal) * 100);
   const fill = {
     progress: "bg-success",
-    limit: "bg-destructive/70",
+    limit: "bg-muted-foreground/60",
     over_limit: "bg-destructive",
   }[tone];
   const plannedFill =

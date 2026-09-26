@@ -1,5 +1,11 @@
 "use client";
-import { useId, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -48,7 +54,7 @@ import { UnitsBar } from "@/ui/requirements/units-bar";
 /**
  * A course counting towards a rule: green once completed and purple while
  * planned, as course statuses are everywhere else. Under a cap, completed
- * courses turn red, since they use up what the limit allows.
+ * courses are grey, since they use up room rather than make progress.
  */
 function CourseChip({
   code,
@@ -66,7 +72,7 @@ function CourseChip({
         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
         completed
           ? limit
-            ? "border-destructive/30 bg-destructive/10 text-destructive"
+            ? "border-border bg-muted text-muted-foreground"
             : "border-success/30 bg-success/10 text-success"
           : status
             ? "border-primary/30 bg-primary/10 text-primary"
@@ -275,24 +281,40 @@ function StatusSummary({ status }: { status: RequirementRowStatus }) {
 }
 
 /**
+ * Which rules are open, kept above the rows. A rule moves between sections
+ * when a course is placed elsewhere, and a row that kept its own state would
+ * close under the student as it moved.
+ */
+export const OpenRulesContext = createContext<{
+  isOpen: (key: string) => boolean;
+  toggle: (key: string) => void;
+} | null>(null);
+
+/**
  * One rule as a compact row: its status, what it asks for and how far along
  * it is. What sits behind it, the courses counting towards it or the options
  * it offers, stays folded away until the row is opened.
  */
 function RuleRow({
+  ruleKey,
   status,
   title,
   detail,
   bar,
   children,
 }: {
+  ruleKey: string;
   status: RequirementRowStatus | null;
   title: string;
   detail?: ReactNode;
   bar?: ReactNode;
   children?: ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const openRules = useContext(OpenRulesContext);
+  const [localExpanded, setLocalExpanded] = useState(false);
+  const expanded = openRules ? openRules.isOpen(ruleKey) : localExpanded;
+  const setExpanded = (next: boolean) =>
+    openRules ? openRules.toggle(ruleKey) : setLocalExpanded(next);
   const panelId = useId();
   const expandable = Boolean(children);
   return (
@@ -408,6 +430,7 @@ function StatedCondition({
     ) : null;
   return (
     <RuleRow
+      ruleKey={requirementNodeKey(condition)}
       status={status}
       title={title}
       detail={detail}
@@ -543,6 +566,7 @@ export function RequirementCondition({
     .join(" · ");
   return (
     <RuleRow
+      ruleKey={requirementNodeKey(condition)}
       status={status}
       title={courseListTitle(condition, codes, required)}
       detail={

@@ -45,21 +45,21 @@ export function PlacementControl({
       : []),
   ];
   return (
-    <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-      <span className="shrink-0">
-        {current.pinned ? "You counted it towards" : "Counts towards"}
-      </span>
-      <OptionPicker
-        aria-label={`Where ${courseCode} counts`}
-        className="relative z-10 h-7 min-w-0 gap-1 border-transparent bg-transparent px-1.5 text-xs font-medium text-foreground shadow-none hover:bg-muted"
-        items={items}
-        size="sm"
-        value={current.nodeKey ?? ""}
-        placeholder="Nothing yet"
-        onValueChange={(next) =>
-          placement.onPlace(courseCode, next === AUTOMATIC ? null : next)
-        }
-      />
-    </div>
+    <OptionPicker
+      aria-label={`Where ${courseCode} counts`}
+      title={
+        current.pinned
+          ? "You chose where this course counts"
+          : "Where this course counts"
+      }
+      className="relative z-10 h-7 min-w-0 gap-1 px-2 text-xs"
+      items={items}
+      size="sm"
+      value={current.nodeKey ?? ""}
+      placeholder="Nothing yet"
+      onValueChange={(next) =>
+        placement.onPlace(courseCode, next === AUTOMATIC ? null : next)
+      }
+    />
   );
 }

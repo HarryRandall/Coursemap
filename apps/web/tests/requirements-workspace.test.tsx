@@ -206,6 +206,19 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+/** A course row's link, which reads as the course's name. */
+function courseLink(code: string) {
+  const link = screen
+    .getAllByRole("link")
+    .find(
+      (candidate) =>
+        candidate.getAttribute("href") ===
+        `/courses/2026/${code.toLowerCase()}`,
+    );
+  if (!link) throw new Error(`No link to ${code}`);
+  return link;
+}
+
 test("requirements use separate tabs without source disclosures or the summary sidebar", async () => {
   const user = userEvent.setup();
   render(<Requirements catalogue={catalogue} choices={choices} />);
@@ -294,7 +307,7 @@ test("a course opens the semester chooser and is saved in the selected year", as
   );
   render(<Requirements catalogue={catalogue} choices={choices} />);
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  expect(screen.getByRole("link", { name: /COMP1100/ })).toHaveAttribute(
+  expect(courseLink("COMP1100")).toHaveAttribute(
     "href",
     "/courses/2026/comp1100",
   );
@@ -338,9 +351,9 @@ test("completed study takes precedence over a planned repeat and existing course
   expect(requirementCourseStatus("COMP1100", state.attempts)).toBe("completed");
   render(<Requirements catalogue={catalogue} choices={choices} />);
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  const done = screen.getByRole("link", { name: /COMP1100/ }).closest("li")!;
+  const done = courseLink("COMP1100").closest("li")!;
   expect(within(done).getByText("Completed")).toBeVisible();
-  const planned = screen.getByRole("link", { name: /COMP1110/ }).closest("li")!;
+  const planned = courseLink("COMP1110").closest("li")!;
   expect(within(planned).getByText("Planned")).toBeVisible();
   expect(
     screen.queryByRole("button", { name: /Add COMP/ }),
@@ -388,7 +401,7 @@ test("unpublished requirement courses still link and retain planned status", asy
     />,
   );
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  const course = screen.getByRole("link", { name: /COMP1100/ });
+  const course = courseLink("COMP1100");
   expect(course).toHaveAttribute("href", "/courses/2026/comp1100");
   const row = course.closest("li")!;
   expect(within(row).getByText("Planned")).toBeVisible();
