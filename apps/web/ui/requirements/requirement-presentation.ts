@@ -6,7 +6,13 @@ import type {
   RequirementTreeNode,
   RequirementTreeOption,
 } from "@/lib/coursemap/requirement-tree-node";
-import type { RequirementTreeProgress } from "@/lib/coursemap/requirement-progress";
+import {
+  requirementNodeKey,
+  requirementNodeMatcher,
+  type RequirementAllocation,
+  type RequirementNodeProgress,
+  type RequirementTreeProgress,
+} from "@/lib/coursemap/requirement-progress";
 
 export type {
   RequirementTreeCondition,
@@ -336,6 +342,21 @@ export type TreeContext = {
    * report nothing but zero.
    */
   showPlanProgress?: boolean;
+  /**
+   * Where each course in the plan counts, and how to move one. Present only
+   * where a plan sits behind the view.
+   */
+  placement?: {
+    allocation: RequirementAllocation;
+    /** The parts a course may count towards, most specific first. */
+    optionsFor: (
+      courseCode: string,
+    ) => Array<{ nodeKey: string; label: string }>;
+    labelFor: (nodeKey: string) => string;
+    onPlace: (courseCode: string, nodeKey: string | null) => void;
+    /** Shows where each course counts without offering to move it. */
+    readOnly?: boolean;
+  };
 };
 
 const NO_PROGRESS: RequirementTreeProgress = new Map();
@@ -375,4 +396,315 @@ export function readingTreeContext({
     showStructureOptions: true,
     showPlanProgress: false,
   };
+}
+
+/**
+ * Whether a condition draws nothing: a total that only restates the unit
+ * target already shown above the tree, or structure options on a surface
+ * that picks structures through its own chooser.
+ */
+export function hidesCondition(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+) {
+  if (condition.conditionKind === "structure_set") {
+    return !context.showStructureOptions;
+  }
+  return (
+    condition.conditionKind === "units_total" &&
+    condition.minimumUnits === context.unitTarget &&
+    condition.maximumUnits === null
+  );
+}
+
+/** Warnings and notes read as alerts rather than as rules to meet. */
+export function isNotice(node: RequirementTreeNode) {
+  if (node.type !== "condition") return false;
+  const tone = conditionTone(node);
+  return tone === "warning" || tone === "note";
+}
+
+/**
+ * The listed courses a rule counts, and how many of them are completed or
+ * planned. With a plan behind the view, a course counts here only if it was
+ * allocated here; one this list shares with another rule may count there.
+ */
+export function listedCourseCounts(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+) {
+  const codes = [
+    ...new Set(
+      condition.options
+        .filter((option) => option.kind === "course")
+        .map((option) => option.code),
+    ),
+  ];
+  const progress = context.progress.get(requirementNodeKey(condition));
+  const countsHere = (code: string) =>
+    !context.placement || Boolean(progress?.matchedCourseCodes.includes(code));
+  const statusOf = (code: string) =>
+    countsHere(code) ? context.attemptStatusByCode.get(code) : undefined;
+  return {
+    codes,
+    required:
+      condition.minimumCourses !== null &&
+      condition.minimumCourses >= codes.length,
+    done: codes.filter((code) => statusOf(code) === "completed").length,
+    planned: codes.filter((code) =>
+      ["planned", "enrolled"].includes(statusOf(code) ?? ""),
+    ).length,
+  };
+}
+
+/** How far a rule has come, as a count against what it asks for. */
+export type RequirementFigure = {
+  value: number;
+  target: number;
+  unit: "units" | "courses";
+  /** The target is a cap rather than something to reach. */
+  maximum?: boolean;
+};
+
+/**
+ * Where a rule stands for the student, so the workspace can sort what still
+ * needs courses from what is covered, and say which in words.
+ */
+export type RequirementRowStatus =
+  | {
+      kind: "todo" | "planned" | "complete" | "limit" | "over_limit";
+      figure: RequirementFigure | null;
+      label: string;
+    }
+  | { kind: "unmeasured" };
+
+function statusFromCounts(
+  completed: number,
+  planned: number,
+  figure: RequirementFigure,
+  shortfall: (missing: number) => string,
+): RequirementRowStatus {
+  if (completed >= figure.target) {
+    return { kind: "complete", figure, label: "Complete" };
+  }
+  if (completed + planned >= figure.target) {
+    return { kind: "planned", figure, label: "Planned" };
+  }
+  return {
+    kind: "todo",
+    figure,
+    label: shortfall(figure.target - completed - planned),
+  };
+}
+
+function statusFromProgress(
+  progress: RequirementNodeProgress | undefined,
+): RequirementRowStatus {
+  if (!progress || progress.state === "unmeasured")
+    return { kind: "unmeasured" };
+  const target = progress.targetUnits;
+  if (target === null || target <= 0) return { kind: "unmeasured" };
+  const used = progress.completedUnits + progress.plannedUnits;
+  return statusFromCounts(
+    progress.completedUnits,
+    progress.plannedUnits,
+    { value: used, target, unit: "units" },
+    (missing) => `${formatUnits(missing)} to plan`,
+  );
+}
+
+const statusRank = { todo: 0, planned: 1, complete: 2 } as const;
+
+/**
+ * A group reads as its children do: all of them for a set of rules, and the
+ * best few for a choice between them. Limits and unmeasured rules have no say.
+ */
+function groupStatus(
+  group: RequirementTreeGroup,
+  context: TreeContext,
+): RequirementRowStatus {
+  const ranks = group.children.flatMap((child) => {
+    if (child.type === "condition" && hidesCondition(child, context)) return [];
+    const status = requirementRowStatus(child, context);
+    return status.kind === "todo" ||
+      status.kind === "planned" ||
+      status.kind === "complete"
+      ? [statusRank[status.kind]]
+      : [];
+  });
+  if (ranks.length === 0) return { kind: "unmeasured" };
+  const needed =
+    group.operator === "any_of"
+      ? 1
+      : group.operator === "at_least"
+        ? Math.min(ranks.length, Math.max(1, group.minimumCount ?? 1))
+        : ranks.length;
+  const rank = ranks.sort((a, b) => b - a)[needed - 1];
+  if (rank === statusRank.complete) {
+    return { kind: "complete", figure: null, label: "Complete" };
+  }
+  if (rank === statusRank.planned) {
+    return { kind: "planned", figure: null, label: "Planned" };
+  }
+  return { kind: "todo", figure: null, label: "To plan" };
+}
+
+export function requirementRowStatus(
+  node: RequirementTreeNode,
+  context: TreeContext,
+): RequirementRowStatus {
+  const progress = context.progress.get(requirementNodeKey(node));
+  if (node.type !== "condition") {
+    const measured = statusFromProgress(progress);
+    return measured.kind === "unmeasured"
+      ? groupStatus(node, context)
+      : measured;
+  }
+  const tone = conditionTone(node);
+  if (tone === "warning" || tone === "note") return { kind: "unmeasured" };
+  if (tone === "limit") {
+    const maximum = node.maximumUnits;
+    if (!progress || progress.state === "unmeasured" || maximum === null) {
+      return { kind: "limit", figure: null, label: "Limit" };
+    }
+    const used = progress.completedUnits + progress.plannedUnits;
+    const figure = {
+      value: used,
+      target: maximum,
+      unit: "units" as const,
+      maximum: true,
+    };
+    return progress.state === "over_limit"
+      ? { kind: "over_limit", figure, label: "Over the limit" }
+      : {
+          kind: "limit",
+          figure,
+          label: `${formatUnits(Math.max(0, maximum - used))} of room left`,
+        };
+  }
+  const target = node.minimumCourses;
+  if (
+    target !== null &&
+    target > 0 &&
+    node.options.some((option) => option.kind === "course")
+  ) {
+    const { required, done, planned } = listedCourseCounts(node, context);
+    return statusFromCounts(
+      done,
+      planned,
+      { value: done + planned, target, unit: "courses" },
+      (missing) =>
+        `${missing} ${missing === 1 ? "course" : "courses"} to ${required ? "plan" : "choose"}`,
+    );
+  }
+  return statusFromProgress(progress);
+}
+
+function listed(codes: string[], conjunction: "and" | "or") {
+  return codes.length === 1
+    ? codes[0]
+    : `${codes.slice(0, -1).join(", ")} ${conjunction} ${codes.at(-1)}`;
+}
+
+/**
+ * A course list named by what the student does with it: "Pick COMP1100 or
+ * COMP1130" when the options are few enough to read in a line, and a count
+ * of them otherwise.
+ */
+export function courseListTitle(
+  condition: RequirementTreeCondition,
+  codes: string[],
+  required: boolean,
+) {
+  if (required) {
+    return codes.length <= 3
+      ? `Take ${listed(codes, "and")}`
+      : `Take all ${codes.length} listed courses`;
+  }
+  const count = condition.minimumCourses;
+  if (count === 1 && codes.length <= 3) return `Pick ${listed(codes, "or")}`;
+  if (count !== null) {
+    return `Pick ${count} of ${codes.length} courses`;
+  }
+  if (condition.minimumUnits !== null) {
+    return `Pick ${formatUnits(condition.minimumUnits)} from ${codes.length} courses`;
+  }
+  return `Pick from ${codes.length} courses`;
+}
+
+/**
+ * The rules a sorted view lists as rows. A set of rules with no heading or
+ * bounds of its own only wraps its children, so they are sorted alongside
+ * their siblings rather than kept in a panel of their own.
+ */
+export function flattenRules(
+  nodes: RequirementTreeNode[],
+): RequirementTreeNode[] {
+  return nodes.flatMap((node) =>
+    node.type === "group" &&
+    node.operator === "all_of" &&
+    !node.description &&
+    node.minimumUnits === null &&
+    node.maximumUnits === null
+      ? flattenRules(node.children)
+      : [node],
+  );
+}
+
+/**
+ * A few catalogue courses a rule would count that are not in the plan yet,
+ * lowest level first, as a place to start.
+ */
+export function suggestedCourses(
+  condition: RequirementTreeCondition,
+  context: TreeContext,
+  limit = 5,
+): Course[] {
+  const matches = requirementNodeMatcher(condition);
+  if (!matches) return [];
+  return context.catalogue.courses
+    .filter(
+      (course) =>
+        course.year === context.catalogue.academicYear &&
+        !context.attemptStatusByCode.has(course.code) &&
+        matches(course),
+    )
+    .sort((a, b) => a.level - b.level || a.code.localeCompare(b.code))
+    .slice(0, limit);
+}
+
+/**
+ * The course search with a rule's own filters applied, so "See all" shows
+ * every course that could count. Levels are published on the 1000 scale but
+ * the search takes the leading digit, with + for that level or above.
+ */
+export function courseSearchHref(
+  condition: RequirementTreeCondition,
+  academicYear: number | null,
+) {
+  const params = new URLSearchParams();
+  const digit = (level: number) => String(level < 10 ? level : level / 1000);
+  const { minimumLevel, maximumLevel } = condition;
+  const level =
+    minimumLevel !== null
+      ? minimumLevel === maximumLevel
+        ? digit(minimumLevel)
+        : `${digit(minimumLevel)}+`
+      : maximumLevel !== null
+        ? digit(maximumLevel)
+        : null;
+  if (condition.conditionKind === "subject_units" && condition.subjectCode) {
+    params.set("subject", condition.subjectCode);
+  } else if (condition.conditionKind === "tagged_units" && condition.tag) {
+    params.set("tag", condition.tag);
+  } else if (
+    condition.conditionKind !== "level_units" &&
+    condition.conditionKind !== "elective_units"
+  ) {
+    return null;
+  }
+  if (level && /^[1-9]\+?$/u.test(level)) params.set("level", level);
+  if (academicYear !== null) params.set("year", String(academicYear));
+  const query = params.toString();
+  return query ? `/courses?${query}` : "/courses";
 }
