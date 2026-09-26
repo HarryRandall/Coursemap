@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { scrollParent } from "@/lib/scroll-parent";
 
 export type ArticleTocItem = {
   id: string;
@@ -30,12 +31,11 @@ export function ArticleToc({ items }: { items: ArticleTocItem[] }) {
           current = item.id;
         }
       }
-      const scrollingElement =
-        document.scrollingElement ?? document.documentElement;
+      const first = items[0] && document.getElementById(items[0].id);
+      const scroller = scrollParent(first ?? null);
       const atPageEnd =
-        scrollingElement.scrollHeight > window.innerHeight &&
-        window.scrollY + window.innerHeight >=
-          scrollingElement.scrollHeight - 2;
+        scroller.scrollHeight > scroller.clientHeight &&
+        scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2;
       const lastSection = items.at(-1);
       if (atPageEnd && lastSection) current = lastSection.id;
       setActiveId(current);
@@ -46,11 +46,16 @@ export function ArticleToc({ items }: { items: ArticleTocItem[] }) {
     };
 
     update();
-    window.addEventListener("scroll", schedule, { passive: true });
+    // Scroll events do not bubble, so listen in the capture phase to hear the
+    // content panel as well as the document.
+    document.addEventListener("scroll", schedule, {
+      capture: true,
+      passive: true,
+    });
     window.addEventListener("resize", schedule);
     return () => {
       if (frame !== 0) window.cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", schedule);
+      document.removeEventListener("scroll", schedule, { capture: true });
       window.removeEventListener("resize", schedule);
     };
   }, [items]);

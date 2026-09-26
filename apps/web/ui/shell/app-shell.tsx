@@ -77,22 +77,21 @@ export function AppShell({
     <SidebarProvider
       open={open}
       onOpenChange={setOpen}
-      className={cn(
-        // A filled page is exactly one viewport tall and scrolls nothing at
-        // the document level, so no OS scrollbar is drawn over the window
-        // edge. Narrow screens keep scrolling the page, which is what a
-        // thumb expects.
-        fill && "md:h-dvh md:min-h-0 md:overflow-hidden",
-      )}
+      // On desktop the shell is exactly one viewport tall and the content
+      // panel scrolls, so its scrollbar sits inside the panel rather than at
+      // the window edge. Narrow screens keep scrolling the page, which is what
+      // a thumb expects.
+      className="md:h-dvh md:min-h-0 md:overflow-hidden"
     >
       <AppSidebar admin={admin} />
 
       <SidebarInset
         className={cn(
-          "min-w-0 md:ring-1 md:ring-border",
-          // The inset margins come out of the viewport, so a filled page lets
-          // the wrapper stretch the panel rather than claiming its full height.
-          fill && "md:min-h-0 md:overflow-hidden",
+          // The inset margins come out of the viewport, so the wrapper
+          // stretches the panel rather than the panel claiming full height.
+          "min-w-0 md:min-h-0 md:ring-1 md:ring-border",
+          // A filled page hands scrolling to its own workspace areas.
+          fill ? "md:overflow-hidden" : "md:overflow-y-auto",
         )}
       >
         <Topbar
