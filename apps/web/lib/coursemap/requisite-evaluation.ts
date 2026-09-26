@@ -10,7 +10,10 @@ import type { Attempt } from "@/lib/coursemap/types";
  * as "not known" rather than as a failure.
  */
 export type StudentRecord = {
-  completed: ReadonlyMap<string, { units: number; mark: number | null }>;
+  completed: ReadonlyMap<
+    string,
+    { units: number; mark: number | null; tags?: readonly string[] }
+  >;
   /** Courses taken this semester, which satisfy a concurrent requisite. */
   enrolled: ReadonlySet<string>;
   programmeCodes: readonly string[];
@@ -46,11 +49,11 @@ function subjectOf(code: string) {
 
 function unitsWhere(
   student: StudentRecord,
-  include: (code: string) => boolean,
+  include: (code: string, tags: readonly string[]) => boolean,
 ) {
   let units = 0;
   for (const [code, result] of student.completed) {
-    if (include(code)) units += result.units;
+    if (include(code, result.tags ?? [])) units += result.units;
   }
   return units;
 }
@@ -176,7 +179,16 @@ export function evaluateCondition(
       return scoreEvaluation(student.wam, condition.minimumWam, "wam");
     case "gpa":
       return scoreEvaluation(student.gpa, condition.minimumGpa, "gpa");
-    case "tagged_units":
+    case "tagged_units": {
+      // A tag is one category however it is capitalised.
+      const wanted = condition.tag.toLowerCase();
+      return unitsEvaluation(
+        unitsWhere(student, (_code, tags) =>
+          tags.some((tag) => tag.toLowerCase() === wanted),
+        ),
+        condition.units,
+      );
+    }
     case "elective_units":
     case "permission":
     case "other":
@@ -248,6 +260,7 @@ export function studentRecord({
       {
         units: course.units,
         mark: markByCode.get(course.code.toUpperCase()) ?? null,
+        tags: course.tags ?? [],
       },
     ]),
   );

@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { Check, CircleSlash, Info, KeyRound, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  Check,
+  CircleSlash,
+  Info,
+  KeyRound,
+  X,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
@@ -13,6 +20,7 @@ import {
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 import {
   groupSentence,
+  requisiteExplorerLink,
   requisiteNoun,
   requisiteSentence,
   splitRequisiteRule,
@@ -24,6 +32,8 @@ type ChipState = "done" | "enrolled" | "todo";
 
 type Step = {
   title: string;
+  /** The explorer, filtered to the courses that count towards this step. */
+  link?: { href: string; label: string } | null;
   marker: Marker;
   counted: boolean;
   body: ReactNode;
@@ -302,6 +312,7 @@ export function EnrolmentSteps({
       case "units_total":
       case "subject_units":
       case "level_units":
+      case "tagged_units":
         return measure?.kind === "units" ? (
           <UnitsBar value={measure.value} target={measure.target} />
         ) : null;
@@ -334,7 +345,6 @@ export function EnrolmentSteps({
             ))}
           </div>
         );
-      case "tagged_units":
       case "elective_units":
         return student ? (
           <p className="text-xs text-muted-foreground">
@@ -434,6 +444,10 @@ export function EnrolmentSteps({
       return {
         title:
           node.kind === "group" ? groupSentence(node) : requisiteSentence(node),
+        link:
+          node.kind === "group"
+            ? null
+            : requisiteExplorerLink(node, academicYear),
         marker: result?.status ?? "unmet",
         counted: true,
         body:
@@ -506,7 +520,23 @@ export function EnrolmentSteps({
             ) : null}
             <MarkerIcon marker={step.marker} index={index + 1} />
             <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
-              <p className="font-medium text-foreground">{step.title}</p>
+              {step.link ? (
+                <Link
+                  href={step.link.href}
+                  prefetch={false}
+                  title={step.link.label}
+                  className="group/step inline-flex w-fit items-center gap-1 font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+                >
+                  {step.title}
+                  <ArrowUpRight
+                    className="size-3.5 text-muted-foreground transition-colors group-hover/step:text-primary motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
+                  <span className="sr-only">. {step.link.label}</span>
+                </Link>
+              ) : (
+                <p className="font-medium text-foreground">{step.title}</p>
+              )}
               {step.body}
             </div>
           </li>

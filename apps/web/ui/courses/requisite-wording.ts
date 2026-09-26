@@ -138,3 +138,48 @@ export function groupSentence(group: Group) {
   if (group.operator === "any_of") return `${verb} one of ${noun}`;
   return `${verb} any ${group.minimumCount ?? 1} of ${noun}`;
 }
+
+/**
+ * Where to see the courses that count towards a unit requirement: the course
+ * explorer, filtered the way the rule is worded. Requirements that name their
+ * own courses link through those courses instead, so they have none.
+ */
+export function requisiteExplorerLink(
+  condition: CourseRuleCondition,
+  academicYear: number,
+): { href: string; label: string } | null {
+  const params = new URLSearchParams({ year: String(academicYear) });
+  switch (condition.kind) {
+    case "subject_units":
+      if (!condition.subject) return null;
+      params.set("subject", condition.subject);
+      return {
+        href: `/courses?${params}`,
+        label: `See ${condition.subject} courses`,
+      };
+    case "level_units": {
+      const level = condition.minimumLevel / 1000;
+      params.set(
+        "level",
+        condition.maximumLevel === condition.minimumLevel
+          ? String(level)
+          : `${level}+`,
+      );
+      if (condition.subject) params.set("subject", condition.subject);
+      return {
+        href: `/courses?${params}`,
+        label: `See ${levelPhrase(condition.minimumLevel, condition.maximumLevel)}${
+          condition.subject ? ` ${condition.subject}` : ""
+        } courses`,
+      };
+    }
+    case "tagged_units":
+      params.set("tag", condition.tag);
+      return {
+        href: `/courses?${params}`,
+        label: `See courses tagged ${condition.tag}`,
+      };
+    default:
+      return null;
+  }
+}

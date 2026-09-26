@@ -174,9 +174,33 @@ test("the student record takes marks and enrolments from the plan", () => {
     ],
     programmeCodes: ["aacom"],
   });
-  expect(record.completed.get("COMP1100")).toEqual({ units: 6, mark: 80 });
+  expect(record.completed.get("COMP1100")).toEqual({
+    units: 6,
+    mark: 80,
+    tags: [],
+  });
   expect(record.enrolled.has("COMP2310")).toBe(true);
   expect(record.programmeCodes).toEqual(["AACOM"]);
   expect(record.wam).toBe(70);
   expect(record.studyYear).toBeNull();
+});
+
+test("tagged units count completed courses carrying the tag, however it is cased", () => {
+  const tagged: StudentRecord = {
+    ...student,
+    completed: new Map([
+      ["PHYS1101", { units: 6, mark: 70, tags: ["science"] }],
+      ["CHEM1101", { units: 6, mark: 70, tags: ["Science", "Laboratory"] }],
+      ["ARTH1001", { units: 6, mark: 70, tags: ["Arts"] }],
+    ]),
+  };
+  expect(
+    evaluateRule(
+      { ...base, kind: "tagged_units", tag: "Science", units: 18 },
+      tagged,
+    ),
+  ).toEqual({
+    status: "partial",
+    measure: { kind: "units", value: 12, target: 18 },
+  });
 });

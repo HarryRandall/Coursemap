@@ -83,12 +83,33 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
         course.code,
       ]),
     );
+    // A tagged-units rule counts the tags of the version actually completed.
+    const { data: tagRows, error: tagsError } = versionIds.length
+      ? await supabase
+          .from("course_tags")
+          .select("version_id,name")
+          .in("version_id", versionIds)
+      : { data: [], error: null };
+    if (tagsError) throw tagsError;
+    const tagsByVersionId = new Map<number, string[]>();
+    for (const row of tagRows ?? []) {
+      tagsByVersionId.set(row.version_id, [
+        ...(tagsByVersionId.get(row.version_id) ?? []),
+        row.name,
+      ]);
+    }
     return {
       completedCourses: attemptRows.flatMap((attempt) => {
         const codeId = codeIdByVersionId.get(attempt.catalogue_version_id);
         const code = codeId ? codeByCourseId.get(codeId) : undefined;
         return code && attempt.units_earned > 0
-          ? [{ code, units: attempt.units_earned }]
+          ? [
+              {
+                code,
+                units: attempt.units_earned,
+                tags: tagsByVersionId.get(attempt.catalogue_version_id) ?? [],
+              },
+            ]
           : [];
       }),
       enrolledProgrammeCodes: await loadEnrolledProgrammeCodes(

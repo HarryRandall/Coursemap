@@ -21,6 +21,7 @@ import {
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 import {
   groupLabel,
+  requisiteExplorerLink,
   requisiteNoun,
   splitRequisiteRule,
 } from "@/ui/courses/requisite-wording";
@@ -168,20 +169,46 @@ function Leaf({
       />
     );
   }
-  return (
-    <div
-      style={style}
-      className={cn(
-        "flex h-11 items-center gap-2 rounded-lg border px-3",
-        met ? "border-success/40 bg-success/5" : "border-border bg-card",
-        className,
-      )}
-    >
+  const link = requisiteExplorerLink(node, academicYear);
+  const box = cn(
+    "flex h-11 items-center gap-2 rounded-lg border px-3",
+    met ? "border-success/40 bg-success/5" : "border-border bg-card",
+    className,
+  );
+  const content = (
+    <>
       <KindIcon kind={node.kind} />
       <span className="line-clamp-2 min-w-0 flex-1 text-xs leading-snug font-medium">
         {requisiteNoun(node)}
       </span>
-      {met ? <Met /> : null}
+      {met ? (
+        <Met />
+      ) : link ? (
+        <ArrowUpRight
+          className="size-3.5 shrink-0 text-muted-foreground/70"
+          aria-hidden="true"
+        />
+      ) : null}
+    </>
+  );
+  // A unit rule opens the courses that count towards it.
+  return link ? (
+    <Link
+      href={link.href}
+      prefetch={false}
+      title={link.label}
+      aria-label={`${requisiteNoun(node)}. ${link.label}`}
+      style={style}
+      className={cn(
+        box,
+        "transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
+      )}
+    >
+      {content}
+    </Link>
+  ) : (
+    <div style={style} className={box}>
+      {content}
     </div>
   );
 }
