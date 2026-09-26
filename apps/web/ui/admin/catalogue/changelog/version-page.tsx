@@ -118,7 +118,7 @@ export async function CatalogueVersionPage({
       currentBreadcrumbLabel={`Version ${versionOrdinal}`}
       breadcrumbSegmentLabels={{
         [labels.segment]: labels.plural,
-        [String(academicYear)]: String(academicYear),
+        [encodeURIComponent(record.code.toLowerCase())]: record.code,
         changelog: "Changelog",
       }}
     >
