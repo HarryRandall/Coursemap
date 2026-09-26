@@ -20,8 +20,8 @@ function money(amount: number) {
 const VISIBLE_YEARS = 3;
 
 /**
- * The estimate split by study year. Rows share the chart's height, so one
- * year fills it and each further year takes an equal part.
+ * The estimate split by study year. Each row is a third of the chart's
+ * height, so fewer years keep the same row size and sit centred.
  */
 export function TuitionMetric({
   tuition,
@@ -87,17 +87,17 @@ export function TuitionMetric({
         </>
       }
     >
-      <ul className="flex h-24 flex-col gap-1.5" aria-live="polite">
+      <ul className="flex h-24 flex-col justify-center gap-1.5" aria-live="polite">
         {shown.map((fee) => (
           <Tooltip key={fee.year} delayDuration={100}>
             <TooltipTrigger asChild>
               <li
                 tabIndex={0}
                 aria-label={`${fee.year}: ${money(fee.amount)} across ${fee.courses} ${fee.courses === 1 ? "course" : "courses"}`}
-                className="group grid min-h-0 flex-1 grid-cols-[2.25rem_1fr_auto] items-center gap-2.5 rounded-md text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="group grid h-7 shrink-0 grid-cols-[2.25rem_1fr_auto] items-center gap-2.5 rounded-md text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="text-muted-foreground">{fee.year}</span>
-                <div className="h-full min-h-3 overflow-hidden rounded-md bg-muted">
+                <div className="h-full overflow-hidden rounded-md bg-muted">
                   <div
                     className="enter-grow-across h-full rounded-md bg-primary transition-opacity group-hover:opacity-85"
                     style={{
