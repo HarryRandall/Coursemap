@@ -82,6 +82,12 @@ function fallbackLabel(segment: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+/** Names the product area a path belongs to, as its sidebar entry does. */
+export function sectionLabel(pathname: string) {
+  const segment = pathname.split("/").find(Boolean) ?? "dashboard";
+  return labels[segment] ?? fallbackLabel(segment);
+}
+
 function buildCrumbs(
   pathname: string,
   segmentLabels: Record<string, string | null> = {},
