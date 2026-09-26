@@ -174,7 +174,18 @@ export function planCourseFromDetails(course: CourseDetails): Course {
           ? "Review"
           : "Automatic",
     accent: course.accent,
+    domesticFee: domesticFee(course.fees),
   };
+}
+
+/** The latest domestic fee amount, taken as published without conversion. */
+function domesticFee(fees: CourseDetails["fees"]) {
+  return (
+    fees
+      .filter((fee) => fee.audience === "domestic" && fee.amount !== null)
+      .sort((a, b) => (b.feeYear ?? 0) - (a.feeYear ?? 0))
+      .at(0)?.amount ?? null
+  );
 }
 
 export function buildAcademicStructureRequirementTree({

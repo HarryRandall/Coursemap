@@ -52,14 +52,30 @@ export function weightedAverageMark(results: readonly MarkedResult[]) {
     : null;
 }
 
+/** Grade points for result codes that carry them without a mark. */
+const CODE_POINTS: Record<string, number> = {
+  HD: 7,
+  D: 6,
+  CR: 5,
+  P: 4,
+  PS: 4,
+  N: 0,
+  NCN: 0,
+  WN: 0,
+};
+
 // ANU: https://www.anu.edu.au/students/program-administration/assessments-exams/grade-point-average-gpa
 export function gradePointAverage(results: readonly MarkedResult[]) {
   const included = results.flatMap((result) => {
     let points: number;
-    if (result.resultCode === "PS") points = 4;
-    else if (result.resultCode === "NCN" || result.resultCode === "WN")
-      points = 0;
-    else if (result.resultCode || result.mark === undefined) return [];
+    const code = result.resultCode?.toUpperCase();
+    // A recorded mark decides the grade; the code covers results without one.
+    if (result.mark === undefined && code && code in CODE_POINTS)
+      points = CODE_POINTS[code];
+    else if (code === "PS") points = 4;
+    else if (code === "NCN" || code === "WN") points = 0;
+    else if ((code && !(code in CODE_POINTS)) || result.mark === undefined)
+      return [];
     else
       points =
         result.mark >= 80

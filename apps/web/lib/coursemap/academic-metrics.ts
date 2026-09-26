@@ -8,7 +8,6 @@ import {
   type MarkedResult,
 } from "@/lib/academic/metrics";
 import { termLabel } from "@/lib/coursemap/dashboard-series";
-import type { CourseFee } from "@/lib/coursemap/course-types";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import {
   isActiveAttempt,
@@ -66,8 +65,12 @@ export type AcademicTermPoint = {
   label: string;
   year: number;
   wam: number;
+  /** Null when no result in the period carries grade points. */
+  gpa: number | null;
   units: number;
   courses: number;
+  /** Each marked course in the period, in course code order. */
+  marks: { code: string; mark: number }[];
 };
 
 /** One point per teaching period that has at least one mark, oldest first. */
@@ -87,8 +90,16 @@ export function academicTermPoints(
           label: termLabel(term),
           year: term.year,
           wam,
+          gpa: gradePointAverage(inTerm),
           units: inTerm.reduce((sum, row) => sum + row.units, 0),
           courses: inTerm.length,
+          marks: inTerm
+            .flatMap((row) =>
+              row.mark === undefined
+                ? []
+                : [{ code: row.course.code, mark: row.mark }],
+            )
+            .sort((a, b) => a.code.localeCompare(b.code)),
         },
       ];
     });
@@ -149,73 +160,25 @@ export function gradeDistribution(inputs: AcademicInputs): GradeTally[] {
 /* Tuition                                                             */
 /* ------------------------------------------------------------------ */
 
-/** 48 units is one full-time equivalent year at ANU. */
-const UNITS_PER_EFTSL = 48;
-
-/** Preferred fee types, most specific first. */
-const FEE_TYPE_ORDER = ["student_contribution", "tuition", "indicative"];
-
-/**
- * Published fees keyed by course code.
- *
- * Fees live on CourseDetails, not on the planning Course, so the caller has to
- * supply them. Passing an empty lookup yields null and the caller shows an
- * empty state — which is the honest result until fee data is loaded for a plan.
- */
-export type CourseFeeLookup = ReadonlyMap<string, readonly CourseFee[]>;
-
 export type TuitionEstimate = {
   total: number;
-  currency: string;
-  audience: string;
-  /** Courses in the plan that carry a usable published fee. */
+  /** Courses in the plan that carry a published domestic fee. */
   pricedCourses: number;
   plannedCourses: number;
-  /** Latest fee year contributing to the estimate. */
-  feeYear: number | null;
+  /** Estimated fees per study year, oldest first. */
+  byYear: { year: number; amount: number; courses: number }[];
 };
 
-function feeAmountFor(
-  fees: readonly CourseFee[],
-  units: number,
-  audience: string,
-) {
-  const fee = fees
-    .filter(
-      (item) =>
-        item.amount !== null &&
-        item.audience === audience &&
-        FEE_TYPE_ORDER.includes(item.feeType),
-    )
-    .sort(
-      (a, b) =>
-        FEE_TYPE_ORDER.indexOf(a.feeType) - FEE_TYPE_ORDER.indexOf(b.feeType),
-    )
-    .at(0);
-  if (!fee || fee.amount === null) return null;
-  // Annual and unknown bases cannot be attributed to a single course.
-  if (fee.basis === "course") return { amount: fee.amount, fee };
-  if (fee.basis === "unit") return { amount: fee.amount * units, fee };
-  if (fee.basis === "eftsl")
-    return { amount: (fee.amount * units) / UNITS_PER_EFTSL, fee };
-  return null;
-}
-
 /**
- * Sums published fees across every course in the plan. Returns null when no
- * course has a usable fee, so the caller shows an empty state rather than a
+ * Sums each plan course's published domestic fee, as listed. Returns null when
+ * no course has one, so the caller shows an empty state rather than a
  * misleading zero.
  */
 export function tuitionEstimate({
   attempts,
   courses,
   snapshotCourses,
-  fees,
-  audience = "domestic",
-}: Omit<AcademicInputs, "terms"> & {
-  fees: CourseFeeLookup;
-  audience?: string;
-}): TuitionEstimate | null {
+}: Omit<AcademicInputs, "terms">): TuitionEstimate | null {
   const catalogue = { courses, snapshotCourses, terms: [] };
   const planned = attempts.filter(isActiveAttempt).flatMap((attempt) => {
     const course = planningCourseForAttempt(attempt, catalogue);
@@ -223,28 +186,28 @@ export function tuitionEstimate({
   });
   let total = 0;
   let pricedCourses = 0;
-  let currency = "AUD";
-  let feeYear: number | null = null;
+  const byYear = new Map<number, { amount: number; courses: number }>();
   planned.forEach(({ attempt, course }) => {
-    const priced = feeAmountFor(
-      fees.get(course.code) ?? [],
-      unitsForAttempt(attempt, course),
-      audience,
-    );
-    if (!priced) return;
-    total += priced.amount;
+    const amount = course.domesticFee;
+    if (amount === null || amount === undefined) return;
+    total += amount;
     pricedCourses += 1;
-    currency = priced.fee.currency ?? currency;
-    if (priced.fee.feeYear !== null)
-      feeYear = Math.max(feeYear ?? priced.fee.feeYear, priced.fee.feeYear);
+    const year = Number(attempt.termId.slice(0, 4)) || attempt.academicYear;
+    if (year) {
+      const entry = byYear.get(year) ?? { amount: 0, courses: 0 };
+      byYear.set(year, {
+        amount: entry.amount + amount,
+        courses: entry.courses + 1,
+      });
+    }
   });
   if (pricedCourses === 0) return null;
   return {
     total,
-    currency,
-    audience,
     pricedCourses,
     plannedCourses: planned.length,
-    feeYear,
+    byYear: [...byYear]
+      .sort(([a], [b]) => a - b)
+      .map(([year, entry]) => ({ year, ...entry })),
   };
 }
