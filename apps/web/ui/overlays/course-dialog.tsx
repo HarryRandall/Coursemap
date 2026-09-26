@@ -14,17 +14,13 @@ import { cn } from "@/lib/cn";
 
 import {
   AlertTriangle,
-  BookMarked,
-  CalendarDays,
   Check,
   ExternalLink,
-  Info,
   ShieldCheck,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
@@ -44,14 +40,21 @@ import {
   DialogContent,
   DialogTitle,
 } from "@coursemap/ui/primitives/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@coursemap/ui/primitives/tabs";
 
 import { StatusPill } from "@/ui/common/status-pill";
 import { StarButton } from "@/ui/common/star-button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 
 /**
- * A planned or recorded course: its details on the left, requisites and unit
- * choices on the right, and the result actions along the bottom.
+ * A planned or recorded course: the key facts up top, its description and
+ * requisites a tab apart, and the result actions along the bottom. A missing
+ * prerequisite shows above the tabs so it is seen without looking for it.
  */
 export function CourseDialog({
   attemptId,
@@ -72,6 +75,7 @@ export function CourseDialog({
   const [attemptedUnitsInput, setAttemptedUnitsInput] = useState(() =>
     attempt?.unitsAttempted === undefined ? "" : String(attempt.unitsAttempted),
   );
+  const [showFullDescription, setShowFullDescription] = useState(false);
   const unitRequirement = course ? attemptUnitRequirement(course) : null;
   const status = attempt
     ? effectiveStatus(attempt, state.attempts, catalogue)
@@ -93,6 +97,17 @@ export function CourseDialog({
   const submittedAttemptedUnits = unitSelectionRequired
     ? (selectedAttemptedUnits ?? undefined)
     : undefined;
+  const showUnits = !recorded && unitSelectionRequired;
+  const facts = [
+    `${unitsForAttempt(attempt, course)} units`,
+    `Level ${course.level}`,
+    course.sessions.map((item) => item.replace("Semester ", "S")).join(", "),
+    course.delivery,
+  ].filter(Boolean);
+  const details = [
+    ["Convener", course.convener],
+    ["Counts towards", course.countsTowards.join(", ")],
+  ].filter(([, value]) => value);
   const remove = async () => {
     const result = await removeAttempt(attempt.id);
     notify(result.message, result.ok ? "success" : "error");
@@ -111,345 +126,296 @@ export function CourseDialog({
         showCloseButton={false}
         aria-labelledby={"course-dialog-title"}
         aria-describedby={undefined}
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
       >
-        <Button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10"
-          variant="outline"
-          aria-label={"Close course details"}
-          title={"Close course details"}
-          size="icon"
-          type="button"
-        >
-          <X size={18} />
-        </Button>
-
-        <div className="flex-1 overflow-y-auto px-5 pt-5 pb-6 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 pr-12">
-            <p className="font-mono text-[11px] font-medium text-muted-foreground/80">
-              {course.code}
-            </p>
-            <StatusPill status={status} />
-            <StarButton courseCode={course.code} />
-          </div>
-          <DialogTitle asChild>
-            <h2
-              id="course-dialog-title"
-              className="mt-3 text-2xl leading-tight font-bold tracking-tight text-foreground"
-            >
-              {course.name}
-            </h2>
-          </DialogTitle>
-
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            {course.description}
-          </p>
-
-          <div className="mt-4 grid gap-x-6 gap-y-5 md:grid-cols-2">
-            <div className="min-w-0">
-              <div className="grid grid-cols-3 divide-x divide-border rounded-xl ring-1 ring-border">
-                {[
-                  ["Units", String(unitsForAttempt(attempt, course))],
-                  ["Level", String(course.level)],
-                  [
-                    "Offered",
-                    course.sessions
-                      .map((item) => item.replace("Semester ", "S"))
-                      .join(" · "),
-                  ],
-                ].map(([label, value]) => (
-                  <div key={label} className="min-w-0 px-3 py-2.5">
-                    <p className="text-[10px] tracking-wide text-muted-foreground/80 uppercase">
-                      {label}
-                    </p>
-                    <p className="mt-0.5 truncate text-[13px] font-semibold text-foreground/90">
-                      {value}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 divide-y divide-border rounded-xl ring-1 ring-border">
-                {[
-                  [
-                    <UserRound key="i" size={16} />,
-                    "Convener",
-                    course.convener,
-                  ],
-                  [
-                    <CalendarDays key="i" size={16} />,
-                    "Delivery",
-                    course.delivery,
-                  ],
-                  [
-                    <BookMarked key="i" size={16} />,
-                    "Counts towards",
-                    course.countsTowards.join(", "),
-                  ],
-                ]
-                  .filter(([, , value]) => value)
-                  .map(([icon, label, value], index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-[1.25rem_5rem_1fr] items-center gap-2.5 px-3 py-3"
-                    >
-                      <span className="text-muted-foreground/80">{icon}</span>
-                      <span className="text-xs text-muted-foreground/80">
-                        {label}
-                      </span>
-                      <span className="text-xs font-medium text-foreground/80">
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-
-              <Button
-                asChild
-                variant="outline"
-                size="default"
-                className="mt-3 !h-auto w-full justify-between px-3 py-2.5 text-left"
-              >
-                <ReuiLink
-                  href={`/courses/${course.year}/${course.code.toLowerCase()}`}
-                >
-                  <span className="min-w-0 whitespace-normal">
-                    <span className="block text-xs font-semibold text-foreground/90">
-                      More course information
-                    </span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed font-normal text-muted-foreground">
-                      View assessment, learning outcomes and the complete course
-                      record.
-                    </span>
-                  </span>
-                  <ExternalLink
-                    size={14}
-                    className="shrink-0 text-muted-foreground/80"
-                  />
-                </ReuiLink>
-              </Button>
+        <header className="flex items-start gap-3 px-5 pt-5 pb-3 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <p className="font-mono text-[11px] font-medium text-muted-foreground">
+                {course.code}
+              </p>
+              <StatusPill status={status} />
             </div>
-            <div className="min-w-0">
-              {!recorded && unitRequirement.kind === "unavailable" ? (
-                <Alert className="mb-5" variant={"warning"}>
-                  <AlertDescription>
-                    This course cannot be added to your plan yet.
-                  </AlertDescription>
-                </Alert>
+            <DialogTitle asChild>
+              <h2
+                id="course-dialog-title"
+                className="mt-1.5 text-xl leading-tight font-semibold tracking-tight text-foreground"
+              >
+                {course.name}
+              </h2>
+            </DialogTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {facts.join(" · ")}
+            </p>
+          </div>
+          <StarButton courseCode={course.code} />
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            aria-label={"Close course details"}
+            title={"Close course details"}
+            size="icon-sm"
+            type="button"
+          >
+            <X size={16} />
+          </Button>
+        </header>
+
+        {!prereqsMet ? (
+          <div className="mx-5 mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 sm:mx-6 dark:bg-rose-950/60 dark:text-rose-300">
+            <AlertTriangle size={14} className="shrink-0" />
+            <p className="min-w-0 flex-1 text-xs font-medium">
+              Prerequisites aren&apos;t planned before this yet
+            </p>
+            <FixIssueButton attempt={attempt} catalogue={catalogue} />
+          </div>
+        ) : null}
+
+        <Tabs
+          defaultValue="about"
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+          <TabsList variant="line" className="mx-5 sm:mx-6">
+            <TabsTrigger value="about">About</TabsTrigger>
+            <TabsTrigger value="requisites">
+              Requisites
+              {!prereqsMet ? (
+                <span
+                  aria-label="needs attention"
+                  className="size-1.5 rounded-full bg-rose-500"
+                />
               ) : null}
-              {!recorded &&
-              unitSelectionRequired &&
-              unitRequirement.kind !== "unavailable" ? (
-                <section className="mb-5">
-                  <Field>
-                    <label className="flex flex-col gap-2">
-                      <span className="text-sm font-medium">
-                        {"Units attempted"}
+            </TabsTrigger>
+          </TabsList>
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-5 py-4 sm:px-6">
+            <TabsContent value="about" className="mt-0 space-y-3">
+              <p
+                className={cn(
+                  "text-[13px] leading-relaxed text-muted-foreground",
+                  !showFullDescription && "line-clamp-4",
+                )}
+              >
+                {course.description}
+              </p>
+              {course.description.length > 280 ? (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary"
+                  onClick={() => setShowFullDescription((open) => !open)}
+                >
+                  {showFullDescription ? "Show less" : "Read more"}
+                </button>
+              ) : null}
+              <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 text-xs">
+                {details.map(([label, value]) => (
+                  <Fragment key={label}>
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="text-foreground">{value}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+              <ReuiLink
+                href={`/courses/${course.year}/${course.code.toLowerCase()}`}
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+              >
+                Full course page
+                <ExternalLink size={12} aria-hidden="true" />
+              </ReuiLink>
+            </TabsContent>
+
+            <TabsContent value="requisites" className="mt-0 space-y-4">
+              <section>
+                <h3 className="text-xs font-semibold text-foreground">
+                  Needs first
+                </h3>
+                {course.prerequisiteCodes.length > 0 ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {course.prerequisiteCodes.map((code) => (
+                      <span
+                        key={code}
+                        className={cn(
+                          "rounded-md px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-inset",
+                          !missing.has(code)
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900"
+                            : "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
+                        )}
+                      >
+                        {code}
                       </span>
-                      {unitRequirement.kind === "choice" ? (
-                        <OptionPicker
-                          value={"coursemap:" + String(attemptedUnitsInput)}
-                          onValueChange={(nextValue) => {
-                            const option = unitRequirement.options
-                              .map((option) => ({
-                                label: option.label
-                                  ? `${option.units} units · ${option.label}`
-                                  : `${option.units} units`,
-                                value: String(option.units),
-                              }))
-                              .find(
-                                (option) =>
-                                  "coursemap:" + String(option.value) ===
-                                  nextValue,
-                              );
-                            if (option) setAttemptedUnitsInput(option.value);
-                          }}
-                          aria-label={"Units attempted"}
-                          onPointerDown={(event) => event.stopPropagation()}
-                          placeholder={"Choose units"}
-                          items={unitRequirement.options
+                    ))}
+                  </div>
+                ) : null}
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  {course.prerequisiteText || "No prerequisites."}
+                </p>
+              </section>
+
+              {course.incompatibilities.length > 0 && (
+                <section>
+                  <h3 className="text-xs font-semibold text-foreground">
+                    Can&apos;t take with
+                  </h3>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {course.incompatibilities.map((code) => (
+                      <span
+                        key={code}
+                        className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+                      >
+                        {code}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {course.permissionText && (
+                <section>
+                  <h3 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <ShieldCheck
+                      size={13}
+                      aria-hidden="true"
+                      className={
+                        attempt.permissionApproved
+                          ? "text-emerald-600 dark:text-emerald-300"
+                          : "text-primary"
+                      }
+                    />
+                    Permission code
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {course.permissionText}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-1 -ml-2 h-7 px-2 text-[11px] text-primary hover:text-primary"
+                    onClick={() => {
+                      togglePermission(attempt.id);
+                      notify(
+                        attempt.permissionApproved
+                          ? "Permission approval removed"
+                          : "Permission approval recorded",
+                      );
+                    }}
+                    type="button"
+                  >
+                    {attempt.permissionApproved
+                      ? "Remove approval"
+                      : "Record approval"}
+                  </Button>
+                </section>
+              )}
+            </TabsContent>
+          </div>
+        </Tabs>
+
+        {showUnits ? (
+          <div className="border-t border-border px-5 pt-3 sm:px-6">
+            {!recorded && unitRequirement.kind === "unavailable" ? (
+              <Alert className="mb-3" variant={"warning"}>
+                <AlertDescription>
+                  This course cannot be added to your plan yet.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {!recorded &&
+            unitSelectionRequired &&
+            unitRequirement.kind !== "unavailable" ? (
+              <section className="pb-3">
+                <Field>
+                  <label className="flex flex-col gap-2">
+                    <span className="text-sm font-medium">
+                      {"Units attempted"}
+                    </span>
+                    {unitRequirement.kind === "choice" ? (
+                      <OptionPicker
+                        value={"coursemap:" + String(attemptedUnitsInput)}
+                        onValueChange={(nextValue) => {
+                          const option = unitRequirement.options
                             .map((option) => ({
                               label: option.label
                                 ? `${option.units} units · ${option.label}`
                                 : `${option.units} units`,
                               value: String(option.units),
                             }))
-                            .map((option) => ({
-                              value: "coursemap:" + String(option.value),
-                              label: option.label,
-                            }))}
-                        />
-                      ) : (
-                        <Input
-                          aria-invalid={unitError ? true : undefined}
-                          inputMode="decimal"
-                          max={
-                            unitRequirement.kind === "range"
-                              ? unitRequirement.maximumUnits
-                              : 999.99
-                          }
-                          min={
-                            unitRequirement.kind === "range"
-                              ? unitRequirement.minimumUnits
-                              : 0.01
-                          }
-                          onChange={(event) =>
-                            setAttemptedUnitsInput(event.target.value)
-                          }
-                          placeholder="Enter units"
-                          step="0.01"
-                          type="number"
-                          value={attemptedUnitsInput}
-                        />
-                      )}
-                      {unitError ? <FieldError>{unitError}</FieldError> : null}
-                      <FieldDescription>
-                        {unitRequirement.kind === "range"
-                          ? `Published range: ${unitRequirement.minimumUnits} to ${unitRequirement.maximumUnits} units.`
-                          : unitRequirement.kind === "choice"
-                            ? "Choose the published unit value you attempted."
-                            : null}
-                      </FieldDescription>
-                    </label>
-                  </Field>
-                </section>
-              ) : null}
-
-              <section>
-                <h3 className="text-[13px] font-semibold text-foreground">
-                  Requisites
-                </h3>
-
-                <div className="mt-3 divide-y divide-border/60 overflow-hidden rounded-xl ring-1 ring-border">
-                  <div className="flex gap-3 p-3">
-                    <span
-                      className={cn(
-                        "grid size-8 shrink-0 place-items-center rounded-lg",
-                        prereqsMet
-                          ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300"
-                          : "bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:text-rose-300",
-                      )}
-                    >
-                      {prereqsMet ? (
-                        <BookMarked size={17} />
-                      ) : (
-                        <AlertTriangle size={17} />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-foreground/90">
-                        Prerequisite
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {course.prerequisiteText}
-                      </p>
-                      {course.prerequisiteCodes.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {course.prerequisiteCodes.map((code) => (
-                            <span
-                              key={code}
-                              className={cn(
-                                "rounded-md px-1.5 py-1 font-mono text-[10px] ring-1 ring-inset",
-                                !missing.has(code)
-                                  ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900"
-                                  : "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
-                              )}
-                            >
-                              {code}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      {!prereqsMet && (
-                        <div className="mt-2 space-y-2">
-                          <div className="flex items-center gap-2 rounded-lg bg-rose-50 px-2.5 py-2 text-rose-700 ring-1 ring-rose-100 ring-inset dark:bg-rose-950/60 dark:text-rose-300">
-                            <Info size={14} className="shrink-0" />
-                            <p className="text-[11px] leading-snug font-medium">
-                              {[...missing].join(" + ")} must be completed or
-                              planned earlier
-                            </p>
-                          </div>
-                          <FixIssueButton
-                            attempt={attempt}
-                            catalogue={catalogue}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {course.incompatibilities.length > 0 && (
-                    <div className="flex gap-3 p-3">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-                        <X size={17} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-foreground/90">
-                          Incompatible with
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {course.incompatibilities.join(", ")}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {course.permissionText && (
-                    <div className="flex gap-3 bg-primary/5 p-3">
-                      <span
-                        className={cn(
-                          "grid size-8 shrink-0 place-items-center rounded-lg",
-                          attempt.permissionApproved
-                            ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-300"
-                            : "bg-primary/15 text-primary",
-                        )}
-                      >
-                        <ShieldCheck size={17} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-semibold text-foreground/90">
-                          Permission code
-                        </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {course.permissionText}
-                        </p>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="mt-1 -ml-2 h-7 px-2 text-[11px] text-primary hover:text-primary"
-                          onClick={() => {
-                            togglePermission(attempt.id);
-                            notify(
-                              attempt.permissionApproved
-                                ? "Permission approval removed"
-                                : "Permission approval recorded",
+                            .find(
+                              (option) =>
+                                "coursemap:" + String(option.value) ===
+                                nextValue,
                             );
-                          }}
-                          type="button"
-                        >
-                          {attempt.permissionApproved
-                            ? "Remove approval"
-                            : "Record approval"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                          if (option) setAttemptedUnitsInput(option.value);
+                        }}
+                        aria-label={"Units attempted"}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        placeholder={"Choose units"}
+                        items={unitRequirement.options
+                          .map((option) => ({
+                            label: option.label
+                              ? `${option.units} units · ${option.label}`
+                              : `${option.units} units`,
+                            value: String(option.units),
+                          }))
+                          .map((option) => ({
+                            value: "coursemap:" + String(option.value),
+                            label: option.label,
+                          }))}
+                      />
+                    ) : (
+                      <Input
+                        aria-invalid={unitError ? true : undefined}
+                        inputMode="decimal"
+                        max={
+                          unitRequirement.kind === "range"
+                            ? unitRequirement.maximumUnits
+                            : 999.99
+                        }
+                        min={
+                          unitRequirement.kind === "range"
+                            ? unitRequirement.minimumUnits
+                            : 0.01
+                        }
+                        onChange={(event) =>
+                          setAttemptedUnitsInput(event.target.value)
+                        }
+                        placeholder="Enter units"
+                        step="0.01"
+                        type="number"
+                        value={attemptedUnitsInput}
+                      />
+                    )}
+                    {unitError ? <FieldError>{unitError}</FieldError> : null}
+                    <FieldDescription>
+                      {unitRequirement.kind === "range"
+                        ? `Published range: ${unitRequirement.minimumUnits} to ${unitRequirement.maximumUnits} units.`
+                        : unitRequirement.kind === "choice"
+                          ? "Choose the published unit value you attempted."
+                          : null}
+                    </FieldDescription>
+                  </label>
+                </Field>
               </section>
-            </div>
+            ) : null}
           </div>
-        </div>
-
+        ) : null}
         <footer className="border-t border-border/60 bg-muted/40 px-5 py-3 sm:px-6">
-          <div className="grid grid-cols-3 gap-2 sm:ml-auto sm:w-[26rem]">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={recorded}
+              onClick={() => void remove()}
+              className="mr-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
+              type="button"
+            >
+              <Trash2 size={14} />
+              Remove
+            </Button>
             <Button
               variant="outline"
               size="sm"
               disabled={recorded || unitSelectionMissing}
               aria-pressed={attempt.status === "completed"}
               className={cn(
-                "w-full",
                 attempt.status === "completed"
                   ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
                   : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
@@ -479,7 +445,6 @@ export function CourseDialog({
               disabled={recorded || unitSelectionMissing}
               aria-pressed={attempt.status === "failed"}
               className={cn(
-                "w-full",
                 attempt.status === "failed"
                   ? "disabled:opacity-100"
                   : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
@@ -502,17 +467,6 @@ export function CourseDialog({
             >
               <X size={14} />
               Failed
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={recorded}
-              onClick={() => void remove()}
-              className="w-full"
-              type="button"
-            >
-              <Trash2 size={14} />
-              Remove
             </Button>
           </div>
         </footer>
