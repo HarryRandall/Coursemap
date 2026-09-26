@@ -337,6 +337,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       return [
         {
           code,
+          kind,
           name:
             kind === "programme"
               ? (degree?.name ?? requirements.structureName)
@@ -883,7 +884,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           {panelOpen ? (
             <aside
               aria-label="Courses to plan"
-              className="min-w-0 lg:sticky lg:top-0 lg:w-[22rem] lg:shrink-0"
+              className="min-w-0 lg:sticky lg:top-0 lg:w-[26rem] lg:shrink-0"
             >
               <CoursesToPlan
                 required={toPlan.required}

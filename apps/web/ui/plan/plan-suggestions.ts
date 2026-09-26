@@ -1,5 +1,8 @@
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
-import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import type {
+  PlanCatalogue,
+  PlanStructureKind,
+} from "@/lib/coursemap/plan-catalogue";
 import {
   conditionHeading,
   conditionTone,
@@ -15,6 +18,7 @@ import {
 
 export type PlannedStructure = {
   code: string;
+  kind: PlanStructureKind;
   name: string;
   root: RequirementTreeGroup;
   context: TreeContext;
@@ -26,16 +30,22 @@ export type CourseToPlan = {
   required: boolean;
   /** A few words on the rule it counts towards, such as "COMP courses". */
   tag: string;
+  structureKind: PlanStructureKind;
 };
 
-/** Rules that still need courses, from the top of the tree down. */
+/**
+ * Rules that still need courses, from the top of the tree down. The whole
+ * structure reads as planned once its unit total is, so the root is always
+ * opened; a group within it is skipped once it is planned or complete.
+ */
 function rulesToPlan(
   node: RequirementTreeNode,
   context: TreeContext,
+  root = true,
 ): RequirementTreeCondition[] {
   if (node.type === "group") {
-    return requirementRowStatus(node, context).kind === "todo"
-      ? node.children.flatMap((child) => rulesToPlan(child, context))
+    return root || requirementRowStatus(node, context).kind === "todo"
+      ? node.children.flatMap((child) => rulesToPlan(child, context, false))
       : [];
   }
   if (hidesCondition(node, context) || conditionTone(node) !== "requirement")
@@ -92,6 +102,15 @@ export function coursesToPlan({
     rulesToPlan(structure.root, structure.context).forEach((rule) => {
       const listed = listedCourseCounts(rule, structure.context);
       const compulsory = listed.codes.length > 0 && listed.required;
+      // A choice the student already made, counted under another rule,
+      // is theirs to move rather than a reason to suggest the alternatives.
+      if (
+        !compulsory &&
+        listed.codes.some((code) =>
+          structure.context.attemptStatusByCode.has(code),
+        )
+      )
+        return;
       const courses = (
         listed.codes.length > 0
           ? listed.codes.flatMap((code) => {
@@ -110,6 +129,7 @@ export function coursesToPlan({
           course,
           required: compulsory,
           tag,
+          structureKind: structure.kind,
         });
       });
     });

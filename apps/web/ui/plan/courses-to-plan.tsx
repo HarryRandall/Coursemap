@@ -1,9 +1,16 @@
 "use client";
-import { useId, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDown, GripVertical, Plus } from "lucide-react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import { GripVertical, Plus } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
+import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
 import type {
   CourseToPlan,
   PlannedStructure,
@@ -33,10 +40,7 @@ function CourseList({
 }) {
   if (items.length === 0) return null;
   return (
-    <section aria-label={label} className="space-y-1.5">
-      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {label}
-      </h3>
+    <section aria-label={label}>
       <ul className="space-y-1.5">
         {items.map((item) => (
           <li
@@ -102,9 +106,16 @@ function CourseList({
   );
 }
 
+const KIND_LABELS: Partial<Record<PlanStructureKind, string>> = {
+  major: "Major",
+  minor: "Minor",
+  specialisation: "Specialisation",
+};
+
 /**
- * What the plan still needs, as courses to drag into a semester. The rules
- * behind them fold away under one line.
+ * What the plan still needs, as courses to drag into a semester, in a box of
+ * its own that scrolls. Tabs split compulsory courses from suggestions and
+ * each chosen major or minor, and keep the rules behind them one tab away.
  */
 export function CoursesToPlan({
   required,
@@ -126,11 +137,34 @@ export function CoursesToPlan({
   ) => void;
   onHide: () => void;
 }) {
-  const [showRules, setShowRules] = useState(false);
-  const rulesId = useId();
+  const kinds = [
+    ...new Set(
+      structures
+        .map((structure) => structure.kind)
+        .filter((kind) => kind !== "programme"),
+    ),
+  ];
+  const tabs = [
+    { value: "required", label: "Required", items: required },
+    {
+      value: "suggested",
+      label: "Suggested",
+      items: suggested.filter((item) => item.structureKind === "programme"),
+    },
+    ...kinds.map((kind) => ({
+      value: kind,
+      label: KIND_LABELS[kind] ?? kind,
+      items: [...required, ...suggested].filter(
+        (item) => item.structureKind === kind,
+      ),
+    })),
+  ];
+  const [tab, setTab] = useState(
+    () => tabs.find((item) => item.items.length > 0)?.value ?? "rules",
+  );
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card lg:max-h-[calc(100dvh-12rem)]">
+      <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
         <h2 className="text-sm font-semibold text-foreground">
           Courses to plan
         </h2>
@@ -138,53 +172,53 @@ export function CoursesToPlan({
           Hide
         </Button>
       </div>
-      {required.length + suggested.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
-          Every requirement has courses planned.
-        </p>
-      ) : (
-        <>
-          <CourseList
-            label="Required"
-            items={required}
-            onAdd={onAdd}
-            onDragStart={onDragStart}
-          />
-          <CourseList
-            label="Suggested"
-            items={suggested}
-            onAdd={onAdd}
-            onDragStart={onDragStart}
-          />
-        </>
-      )}
-      <section className="border-t border-border pt-3">
-        <button
-          type="button"
-          aria-expanded={showRules}
-          aria-controls={rulesId}
-          onClick={() => setShowRules(!showRules)}
-          className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <span className="text-sm font-semibold text-foreground">
-            Requirements
-          </span>
-          <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            {rulesLeft === 0 ? "All planned" : `${rulesLeft} still to plan`}
-            <ChevronDown
-              size={14}
-              aria-hidden="true"
-              className={cn(
-                "transition-transform motion-reduce:transition-none",
-                showRules && "rotate-180",
-              )}
-            />
-          </span>
-        </button>
-        <div id={rulesId} hidden={!showRules} className="mt-3">
-          <PlanRequirements structures={structures} />
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex min-h-0 flex-1 flex-col gap-0"
+      >
+        <div className="overflow-x-auto px-3 pb-3">
+          <TabsList aria-label="Courses to plan" className="w-full">
+            {tabs.map((item) => (
+              <TabsTrigger key={item.value} value={item.value}>
+                {item.label}
+                <span className="text-muted-foreground tabular-nums">
+                  {item.items.length}
+                </span>
+              </TabsTrigger>
+            ))}
+            <TabsTrigger value="rules">
+              Rules
+              <span className="text-muted-foreground tabular-nums">
+                {rulesLeft}
+              </span>
+            </TabsTrigger>
+          </TabsList>
         </div>
-      </section>
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-3 py-3">
+          {tabs.map((item) => (
+            <TabsContent key={item.value} value={item.value} className="mt-0">
+              {item.items.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground">
+                  {item.value === "required"
+                    ? "Every compulsory course is in your plan."
+                    : "Nothing to suggest here right now."}
+                </p>
+              ) : (
+                <CourseList
+                  label={item.label}
+                  items={item.items}
+                  onAdd={onAdd}
+                  onDragStart={onDragStart}
+                />
+              )}
+            </TabsContent>
+          ))}
+          <TabsContent value="rules" className="mt-0">
+            <PlanRequirements structures={structures} />
+          </TabsContent>
+        </div>
+      </Tabs>
     </div>
   );
 }
