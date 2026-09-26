@@ -35,6 +35,13 @@ export function PlacementControl({
       </p>
     );
   }
+  if (placement.readOnly) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        {current.nodeKey ? placement.labelFor(current.nodeKey) : "Nothing yet"}
+      </span>
+    );
+  }
   const items = [
     ...options.map((option) => ({
       value: option.nodeKey,

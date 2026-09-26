@@ -354,6 +354,8 @@ export type TreeContext = {
     ) => Array<{ nodeKey: string; label: string }>;
     labelFor: (nodeKey: string) => string;
     onPlace: (courseCode: string, nodeKey: string | null) => void;
+    /** Shows where each course counts without offering to move it. */
+    readOnly?: boolean;
   };
 };
 
