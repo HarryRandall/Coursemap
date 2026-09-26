@@ -46,7 +46,10 @@ import { Hint } from "@/ui/common/hint";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
-import { studentRecord } from "@/lib/coursemap/requisite-evaluation";
+import {
+  studentRecord,
+  type StudentRecord,
+} from "@/lib/coursemap/requisite-evaluation";
 import {
   feeValue,
   formatDate,
@@ -105,6 +108,7 @@ export function CourseDetailView({
   commencementYear = null,
   course,
   onAddToPlan,
+  previewStudent,
   requisiteCompletion,
 }: {
   /** The reader's own plan, so the requisites can mark what they have done. */
@@ -113,6 +117,11 @@ export function CourseDetailView({
   commencementYear?: number | null;
   course: CourseDetails;
   onAddToPlan?: () => void;
+  /**
+   * A sample student for the admin preview. When given, it replaces the
+   * reader's own record, and null previews a signed-out reader.
+   */
+  previewStudent?: StudentRecord | null;
   requisiteCompletion: {
     completedCourses: CompletedRequisiteCourse[];
     enrolledProgrammeCodes?: string[];
@@ -122,14 +131,17 @@ export function CourseDetailView({
   const availableCourseCodes = new Set(course.availableCourseCodes);
   const structuredRule = course.prerequisiteRule?.expression ?? null;
   const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
-  const student = requisiteCompletion.isAuthenticated
-    ? studentRecord({
-        attempts,
-        commencementYear,
-        completedCourses: requisiteCompletion.completedCourses,
-        programmeCodes: requisiteCompletion.enrolledProgrammeCodes ?? [],
-      })
-    : null;
+  const student =
+    previewStudent !== undefined
+      ? previewStudent
+      : requisiteCompletion.isAuthenticated
+        ? studentRecord({
+            attempts,
+            commencementYear,
+            completedCourses: requisiteCompletion.completedCourses,
+            programmeCodes: requisiteCompletion.enrolledProgrammeCodes ?? [],
+          })
+        : null;
   const hasPrerequisiteWording =
     course.prerequisiteText.trim().length > 0 &&
     !/^No prerequisites listed\.?$/iu.test(course.prerequisiteText.trim());
