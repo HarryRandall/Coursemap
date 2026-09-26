@@ -10,12 +10,25 @@ import {
   type SampleStudent,
 } from "@/lib/coursemap/requisite-samples";
 import { structureDetailsFromWrite } from "@/lib/coursemap/structure-version-view";
+import { sampleStructurePlan } from "@/lib/coursemap/structure-samples";
+import {
+  allocateRequirements,
+  requirementConditionsByKey,
+  requirementTreeProgress,
+} from "@/lib/coursemap/requirement-progress";
+import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
 import {
   CourseDetailTabsList,
   CourseDetailView,
   type CourseTab,
 } from "@/ui/courses/course-detail-view";
-import { readingTreeContext } from "@/ui/requirements/requirement-presentation";
+import {
+  conditionHeading,
+  readingTreeContext,
+  type RequirementTreeCondition,
+  type RequirementTreeGroup,
+  type TreeContext,
+} from "@/ui/requirements/requirement-presentation";
 import {
   StructureDetailTabsList,
   StructureDetailView,
@@ -81,30 +94,107 @@ export function CoursePreview({ course }: { course: CourseDetails }) {
 }
 
 /**
+ * The requirement tree as a made-up student would see it, through the same
+ * progress and placement the requirements workspace uses. Where a course
+ * counts is shown but cannot be moved, since there is no plan to save it to.
+ */
+function sampleTreeContext(
+  root: RequirementTreeGroup | null,
+  reader: SampleStudent,
+  year: number,
+  unitTarget: number | null,
+): TreeContext {
+  const { courses, attempts } = sampleStructurePlan(root, reader, year);
+  const catalogue = {
+    ...readingTreeContext({ academicYear: year, courses, unitTarget })
+      .catalogue,
+  };
+  const allocation = allocateRequirements({ root, attempts, catalogue });
+  const conditions = requirementConditionsByKey(root);
+  const labelFor = (nodeKey: string) => {
+    const condition = conditions.get(nodeKey);
+    return condition
+      ? conditionHeading(condition as RequirementTreeCondition)
+      : "another requirement";
+  };
+  return {
+    catalogue,
+    attemptStatusByCode: new Map(
+      attempts.flatMap((attempt) => {
+        const status = requirementCourseStatus(attempt.courseCode, attempts);
+        return status ? [[attempt.courseCode, status] as const] : [];
+      }),
+    ),
+    selectedStructureCodes: new Set(),
+    progress: requirementTreeProgress({
+      root,
+      attempts,
+      catalogue,
+      allocation,
+    }),
+    unitTarget,
+    showStructureOptions: true,
+    placement: {
+      allocation,
+      labelFor,
+      optionsFor: () => [],
+      onPlace: () => undefined,
+      readOnly: true,
+    },
+  };
+}
+
+/**
  * The reader's view of a structure snapshot, through the same component the
  * published page uses. A reviewer judges the requirement tree as a student
- * will read it rather than as stored JSON.
+ * will read it rather than as stored JSON, and the reader switch fills it
+ * with a made-up student, as the course preview does, so every progress
+ * state can be checked without a real record.
  */
 export function StructurePreview({ write }: { write: CatalogueContent }) {
   const [tab, setTab] = useState<StructureTab>("overview");
-  const structure = structureDetailsFromWrite(write);
-  if (!structure) return null;
+  const [reader, setReader] = useState<PreviewReader>("signed-out");
+  const structure = useMemo(() => structureDetailsFromWrite(write), [write]);
+  const treeContext = useMemo(
+    () =>
+      !structure
+        ? null
+        : reader === "signed-out"
+          ? readingTreeContext({
+              academicYear: structure.year,
+              unitTarget: structure.units,
+            })
+          : sampleTreeContext(
+              structure.requirements,
+              reader,
+              structure.year,
+              structure.units,
+            ),
+    [reader, structure],
+  );
+  if (!structure || !treeContext) return null;
   return (
     <Tabs
       value={tab}
       onValueChange={(value) => setTab(value as StructureTab)}
       className="block"
     >
-      <div className="mb-4 overflow-x-auto">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 overflow-x-auto">
         <StructureDetailTabsList />
+        <Tabs
+          value={reader}
+          onValueChange={(value) => setReader(value as PreviewReader)}
+        >
+          <TabsList aria-label="Preview as">
+            {PREVIEW_READERS.map((option) => (
+              <TabsTrigger key={option.value} value={option.value}>
+                {option.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
-      <StructureDetailView
-        structure={structure}
-        treeContext={readingTreeContext({
-          academicYear: structure.year,
-          unitTarget: structure.units,
-        })}
-      />
+      <StructureDetailView structure={structure} treeContext={treeContext} />
     </Tabs>
   );
 }
