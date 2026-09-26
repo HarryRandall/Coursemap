@@ -10,7 +10,10 @@ import {
   TableRow,
 } from "@coursemap/ui/primitives/table";
 
+import type { GradeCode } from "@/lib/academic/metrics";
 import type { EffectiveStatus } from "@/lib/planner";
+import { gradeColours } from "./grade-colours";
+import { darkStatusTint } from "./status-badge-tint";
 
 export type PlanCourseRow = {
   code: string;
@@ -18,6 +21,8 @@ export type PlanCourseRow = {
   units: number;
   termLabel: string;
   grade: string;
+  /** The grade band behind the result, when it has one. */
+  gradeCode: GradeCode | null;
   status: EffectiveStatus;
   statusLabel: string;
 };
@@ -32,7 +37,7 @@ const STATUS_VARIANT: Record<EffectiveStatus, string> = {
   withdrawn: "outline",
 };
 
-/** Every course in the plan, newest term last, with its result when there is one. */
+/** Every course in the plan, in the order it is taken, with its result. */
 export function PlanCourseTable({
   courses,
 }: {
@@ -66,10 +71,23 @@ export function PlanCourseTable({
               {course.units}
             </TableCell>
             <TableCell className="text-right tabular-nums">
-              {course.grade}
+              {course.gradeCode ? (
+                <span
+                  className="inline-flex min-w-8 justify-center rounded-md px-1.5 py-0.5 text-xs font-semibold"
+                  style={{
+                    color: gradeColours[course.gradeCode],
+                    backgroundColor: `color-mix(in oklab, ${gradeColours[course.gradeCode]} 16%, transparent)`,
+                  }}
+                >
+                  {course.grade}
+                </span>
+              ) : (
+                course.grade
+              )}
             </TableCell>
             <TableCell className="text-right">
               <Badge
+                className={darkStatusTint[STATUS_VARIANT[course.status]]}
                 variant={
                   STATUS_VARIANT[course.status] as React.ComponentProps<
                     typeof Badge

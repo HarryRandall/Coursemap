@@ -59,10 +59,7 @@ export function CompositionSlot({
         </Link>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-56">
-        <span className="block font-medium">{course.name}</span>
-        <span className="block opacity-80">
-          {course.code} · {status} · {course.units} units
-        </span>
+        {course.name}
       </TooltipContent>
     </Tooltip>
   );

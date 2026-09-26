@@ -52,7 +52,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  border: 1.5px solid #8b5cf6;
+  border: 1.5px solid var(--color-primary);
   border-radius: 4px;
   background: transparent;
   color: var(--color-foreground);
@@ -74,11 +74,11 @@
 }
 .slot[data-status="Completed"]:hover,
 .slot[data-status="Completed"]:focus-visible {
-  background-color: rgb(16 185 129 / 0.16);
+  background-color: color-mix(in oklab, var(--color-success) 16%, transparent);
 }
 .slot[data-status="Planned"]:hover,
 .slot[data-status="Planned"]:focus-visible {
-  background-color: rgb(139 92 246 / 0.18);
+  background-color: color-mix(in oklab, var(--color-primary) 18%, transparent);
 }
 .slot:not([data-status="Unallocated"]):hover,
 .slot:not([data-status="Unallocated"]):focus-visible {
@@ -93,7 +93,7 @@
   border-color: var(--color-muted-foreground);
 }
 .slot[data-status="Completed"] {
-  border-color: #10b981;
+  border-color: var(--color-success);
 }
 .slot[data-status="More"] {
   border: 1px solid var(--color-border);
