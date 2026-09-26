@@ -27,7 +27,7 @@ import {
 import { YearPicker } from "@/ui/common/year-picker";
 import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
-import { ChevronRight, LoaderCircle, Search } from "lucide-react";
+import { Check, ChevronRight, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCoursemap } from "@/app/providers";
 import type { Course, Term } from "@/lib/coursemap/types";
@@ -39,24 +39,35 @@ import {
 
 type CourseSearchResponse = {
   academicYear: number;
+  filters: string;
   courses: Course[];
   page: number;
   pageSize: number;
   query: string;
   total: number;
 };
-function requestKey(query: string, page: number, academicYear: number) {
-  return `${academicYear}:${query}:${page}`;
+function requestKey(
+  query: string,
+  page: number,
+  academicYear: number,
+  filters: string,
+) {
+  return `${academicYear}:${filters}:${query}:${page}`;
 }
+
+const LEVELS = [1, 2, 3, 4] as const;
 export function CoursePicker({
   term,
   intent = "all",
   academicYears = [],
+  recommendedCodes = [],
   onClose,
 }: {
   term?: Term;
   intent?: "all" | "recommended";
   academicYears?: number[];
+  /** Courses the student's chosen structures still need, shown before a search. */
+  recommendedCodes?: string[];
   onClose: () => void;
 }) {
   const { state, addCourse, notify } = useCoursemap();
@@ -69,6 +80,12 @@ export function CoursePicker({
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [addingCode, setAddingCode] = useState<string | null>(null);
+  const [offeredOnly, setOfferedOnly] = useState(true);
+  const [level, setLevel] = useState<number | null>(null);
+  const [recommendations, setRecommendations] = useState<{
+    key: string;
+    courses: Course[];
+  } | null>(null);
   const selectableAcademicYears = useMemo(
     () =>
       [
@@ -98,7 +115,16 @@ export function CoursePicker({
     term?.id === "unscheduled"
       ? unscheduledAcademicYear
       : (term?.year ?? state.profile.catalogueYear);
-  const currentRequestKey = requestKey(trimmedQuery, page, academicYear);
+  const sessionFilter =
+    offeredOnly && term && term.id !== "unscheduled" ? term.name : "";
+  const filterKey = `${sessionFilter}|${level ?? ""}`;
+  const currentRequestKey = requestKey(
+    trimmedQuery,
+    page,
+    academicYear,
+    filterKey,
+  );
+  const recommendationKey = `${academicYear}:${recommendedCodes.join(",")}`;
   const loading = loadingKey === currentRequestKey;
   const failed = failedKey === currentRequestKey;
 
@@ -116,6 +142,8 @@ export function CoursePicker({
           pageSize: "10",
           year: String(academicYear),
         });
+        if (sessionFilter) params.set("session", sessionFilter);
+        if (level) params.set("level", String(level));
         const result = await fetch(`/api/courses/search?${params}`, {
           signal: controller.signal,
         });
@@ -131,7 +159,8 @@ export function CoursePicker({
           const previous =
             page > 1 &&
             current?.query === trimmedQuery &&
-            current.academicYear === academicYear
+            current.academicYear === academicYear &&
+            current.filters === filterKey
               ? current.courses
               : [];
           const courses = [...previous, ...next.courses].filter(
@@ -142,6 +171,7 @@ export function CoursePicker({
           return {
             ...next,
             academicYear,
+            filters: filterKey,
             courses,
             query: trimmedQuery,
           };
@@ -161,15 +191,79 @@ export function CoursePicker({
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [academicYear, currentRequestKey, page, retryCount, term, trimmedQuery]);
+  }, [
+    academicYear,
+    currentRequestKey,
+    filterKey,
+    level,
+    page,
+    retryCount,
+    sessionFilter,
+    term,
+    trimmedQuery,
+  ]);
+
+  useEffect(() => {
+    if (!term || recommendedCodes.length === 0) return;
+    if (recommendations?.key === recommendationKey) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      codes: recommendedCodes.slice(0, 60).join(","),
+      year: String(academicYear),
+    });
+    fetch(`/api/courses/search?${params}`, { signal: controller.signal })
+      .then((result) => (result.ok ? result.json() : { courses: [] }))
+      .then((next: { courses: Course[] }) => {
+        // Keep the requirement order rather than the catalogue's.
+        const order = new Map(
+          recommendedCodes.map((code, index) => [code, index]),
+        );
+        setRecommendations({
+          key: recommendationKey,
+          courses: [...next.courses].sort(
+            (left, right) =>
+              (order.get(left.code) ?? 0) - (order.get(right.code) ?? 0),
+          ),
+        });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted)
+          setRecommendations({ key: recommendationKey, courses: [] });
+      });
+    return () => controller.abort();
+  }, [
+    academicYear,
+    recommendationKey,
+    recommendations?.key,
+    recommendedCodes,
+    term,
+  ]);
 
   const activeResponse =
     response?.query === trimmedQuery &&
     response.academicYear === academicYear &&
+    response.filters === filterKey &&
     trimmedQuery.length >= 2
       ? response
       : null;
-  const courses = activeResponse?.courses ?? [];
+  const browsing = trimmedQuery.length < 2;
+  const recommendationsLoading =
+    browsing &&
+    recommendedCodes.length > 0 &&
+    recommendations?.key !== recommendationKey;
+  const recommended =
+    recommendations?.key === recommendationKey
+      ? recommendations.courses.filter(
+          (course) =>
+            (!sessionFilter || course.sessions.includes(sessionFilter)) &&
+            (!level || course.level === level * 1000),
+        )
+      : [];
+  const courses = browsing ? recommended : (activeResponse?.courses ?? []);
+  const showPrompt =
+    browsing &&
+    !recommendationsLoading &&
+    (recommendations?.courses.length ?? 0) === 0;
   const selected =
     courses.find((course) => course.code === selectedCode) ??
     courses[0] ??
@@ -208,8 +302,18 @@ export function CoursePicker({
     activeResponse &&
     activeResponse.page * activeResponse.pageSize < activeResponse.total,
   );
-  const firstPageLoading = page === 1 && !activeResponse && !failed;
-  const firstPageFailed = failed && page === 1 && !activeResponse;
+  const firstPageLoading = browsing
+    ? recommendationsLoading
+    : page === 1 && !activeResponse && !failed;
+  const firstPageFailed = !browsing && failed && page === 1 && !activeResponse;
+  const filtersActive = Boolean(sessionFilter || level);
+  const changeFilters = (next: () => void) => {
+    next();
+    setPage(1);
+    setSelectedCode(null);
+    setMobilePreviewOpen(false);
+    setFailedKey(null);
+  };
   const destination = `${term.name}${term.year < 2029 ? ` ${term.year}` : ""}`;
 
   const previewCourse = (courseCode: string) => {
@@ -234,7 +338,7 @@ export function CoursePicker({
   const loadNextPage = () => {
     if (loading || failed || !hasNextPage) return;
     const nextPage = page + 1;
-    setLoadingKey(requestKey(trimmedQuery, nextPage, academicYear));
+    setLoadingKey(requestKey(trimmedQuery, nextPage, academicYear, filterKey));
     setPage(nextPage);
   };
 
@@ -253,8 +357,8 @@ export function CoursePicker({
           openerRef.current?.focus();
         }}
       >
-        {/* The search bar is the header. The title and description stay for
-            screen readers; the destination sits in the bar beside the query. */}
+        {/* The search bar is the header. The title and destination stay for
+            screen readers; the add button names the semester. */}
         <DialogHeader className="sr-only">
           <DialogTitle>Find a course</DialogTitle>
           <DialogDescription>
@@ -275,7 +379,7 @@ export function CoursePicker({
           label="Course catalogue"
           className="min-h-0 bg-transparent"
         >
-          <div className="flex items-center gap-2 border-b border-border/60 py-2 pr-12 pl-2 [&>[data-slot=command-input-wrapper]]:min-w-0 [&>[data-slot=command-input-wrapper]]:flex-1 [&>[data-slot=command-input-wrapper]]:p-0">
+          <div className="py-3 pr-12 pl-3 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-11!">
             <CommandInput
               ref={searchRef}
               autoFocus
@@ -293,10 +397,44 @@ export function CoursePicker({
               }}
               placeholder={`Search ${academicYear} courses by code or name`}
               aria-label="Search courses"
+              className="text-base md:text-sm"
             />
-            <Badge className="shrink-0 py-0.5" variant="primary-light">
-              {intent === "recommended" ? "For" : "To"} {destination}
-            </Badge>
+          </div>
+          <div
+            role="group"
+            aria-label="Filter courses"
+            className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-3 pb-3"
+          >
+            {term.id !== "unscheduled" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant={offeredOnly ? "secondary" : "outline"}
+                aria-pressed={offeredOnly}
+                onClick={() =>
+                  changeFilters(() => setOfferedOnly(!offeredOnly))
+                }
+              >
+                {offeredOnly ? <Check aria-hidden="true" /> : null}
+                Offered in {term.shortName}
+              </Button>
+            ) : null}
+            {LEVELS.map((option) => (
+              <Button
+                key={option}
+                type="button"
+                size="sm"
+                variant={level === option ? "secondary" : "outline"}
+                aria-pressed={level === option}
+                onClick={() =>
+                  changeFilters(() =>
+                    setLevel(level === option ? null : option),
+                  )
+                }
+              >
+                Level {option}
+              </Button>
+            ))}
             {term.id === "unscheduled" ? (
               <YearPicker
                 ariaLabel="Course year"
@@ -317,7 +455,7 @@ export function CoursePicker({
           </div>
 
           <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            {trimmedQuery.length < 2 ? (
+            {showPrompt ? (
               <CommandList
                 label="Course results"
                 className="col-span-full max-h-none overflow-hidden !p-0"
@@ -349,13 +487,21 @@ export function CoursePicker({
                   ) : (
                     <>
                       <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
-                        No published {academicYear} courses match &lsquo;
-                        {trimmedQuery}&rsquo;. Try a course code such as
-                        COMP1100.
+                        {browsing
+                          ? "No recommended courses match these filters."
+                          : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
+                              filtersActive
+                                ? " Try clearing the filters."
+                                : " Try a course code such as COMP1100."
+                            }`}
                       </CommandEmpty>
                       {courses.length > 0 ? (
                         <CommandGroup
-                          heading={`${activeResponse?.total ?? courses.length} results`}
+                          heading={
+                            browsing
+                              ? "Recommended for your plan"
+                              : `${activeResponse?.total ?? courses.length} results`
+                          }
                         >
                           {courses.map((course) => {
                             const inPlan =
@@ -465,7 +611,7 @@ export function CoursePicker({
               </section>
             )}
 
-            {trimmedQuery.length >= 2 ? (
+            {!showPrompt ? (
               <CoursePreview
                 course={selected}
                 term={term}
