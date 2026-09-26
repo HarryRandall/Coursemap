@@ -8,7 +8,7 @@ function GhostBars({ height }: { height: number }) {
       {GHOST_BARS.map((scale, index) => (
         <div
           key={index}
-          className="flex-1 rounded-md border border-dashed border-border"
+          className="flex-1 rounded-md bg-muted"
           style={{ height: scale * height }}
         />
       ))}

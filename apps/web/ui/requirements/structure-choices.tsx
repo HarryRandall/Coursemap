@@ -86,7 +86,7 @@ export function StructureChoices({
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-border px-5 py-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-border px-5 py-10 text-center text-sm text-muted-foreground">
           {query
             ? "No matching options."
             : `No ${label} options are available for this degree.`}

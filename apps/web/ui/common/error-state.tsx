@@ -20,7 +20,7 @@ export function ErrorState({
   children?: ReactNode;
 }) {
   return (
-    <section className="flex min-h-96 flex-1 flex-col items-center justify-center gap-4 overflow-auto rounded-xl border-2 border-dotted bg-card px-6 py-12 text-center">
+    <section className="flex min-h-96 flex-1 flex-col items-center justify-center gap-4 overflow-auto rounded-xl border bg-card px-6 py-12 text-center">
       {code && (
         <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
           {code}

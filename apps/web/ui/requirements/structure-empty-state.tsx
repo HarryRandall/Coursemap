@@ -30,7 +30,7 @@ export function StructureEmptyState({
   onChoose?: () => void;
 }) {
   return (
-    <Empty className="min-h-96 flex-1 gap-5 rounded-xl border-2 border-dotted bg-card px-6 py-12">
+    <Empty className="min-h-96 flex-1 gap-5 rounded-xl border bg-card px-6 py-12">
       <StructureEmptyIllustration kind={kind} />
       <EmptyHeader>
         <EmptyTitle className="text-xl">

@@ -157,6 +157,11 @@
   display: none !important;
 }
 
+/* Empty states use the same solid border as every other panel. */
+.style-nova .cn-empty {
+  border-style: solid;
+}
+
 /* Collapsed sidebar: the hidden group label is pulled over the previous
    group's last item, so it must not take pointer events. */
 .style-nova .group[data-collapsible="icon"] .cn-sidebar-group-label {

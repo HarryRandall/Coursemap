@@ -268,7 +268,7 @@ export function StructureDetailView({
             context={treeContext}
           />
         ) : (
-          <Empty className="rounded-xl border border-dashed bg-card py-12">
+          <Empty className="rounded-xl border bg-card py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Target aria-hidden="true" />
@@ -306,7 +306,7 @@ export function StructureDetailView({
             ))}
           </>
         ) : (
-          <Empty className="rounded-xl border border-dashed bg-card py-12">
+          <Empty className="rounded-xl border bg-card py-12">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <GraduationCap aria-hidden="true" />

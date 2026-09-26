@@ -267,7 +267,7 @@ export function Requirements({
                       }}
                     />
                   ) : (
-                    <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                    <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
                       Your {label.toLowerCase()} is selected.{" "}
                       <Link
                         className="font-medium text-primary hover:underline"

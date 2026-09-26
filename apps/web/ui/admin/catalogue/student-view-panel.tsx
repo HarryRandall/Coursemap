@@ -39,7 +39,7 @@ export function StudentViewPanel({
 
   if (!draft && !published) {
     return (
-      <div className="rounded-xl border border-dashed p-10 text-center">
+      <div className="rounded-xl border p-10 text-center">
         <h2 className="font-semibold">Nothing to preview yet</h2>
         <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
           {`Sync from ANU or write the ${kindLabel} content, and this is what students will read.`}
