@@ -153,6 +153,8 @@ export type CourseExtraction = {
   offeringStatus: "offered" | "not_offered" | "unknown";
   sourceUpdatedAt: string | null;
   areasOfInterest: string[];
+  /** Free-form categories degree rules can count units against. */
+  tags: string[];
   fees: CourseFee[];
   learningOutcomes: CourseLearningOutcome[];
   assessmentItems: CourseAssessmentItem[];
@@ -613,6 +615,7 @@ function validateExtractionShape(
       "offeringStatus",
       "sourceUpdatedAt",
       "areasOfInterest",
+      "tags",
       "fees",
       "learningOutcomes",
       "assessmentItems",
@@ -697,6 +700,9 @@ function validateExtractionShape(
     "$.areasOfInterest",
     issues,
     (item, path) => requireString(item, path, issues),
+  );
+  requireArray(record.tags, "$.tags", issues, (item, path) =>
+    requireString(item, path, issues),
   );
   requireArray(record.fees, "$.fees", issues, (item, path) => {
     const fee = exactRecord(
@@ -1179,6 +1185,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
     "offeringStatus",
     "sourceUpdatedAt",
     "areasOfInterest",
+    "tags",
     "fees",
     "learningOutcomes",
     "assessmentItems",
@@ -1255,6 +1262,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
     offeringStatus: { enum: ["offered", "not_offered", "unknown"] },
     sourceUpdatedAt: { $ref: "#/$defs/nullableInstant" },
     areasOfInterest: { type: "array", items: { type: "string", minLength: 1 } },
+    tags: { type: "array", items: { type: "string", minLength: 1 } },
     fees: { type: "array", items: { $ref: "#/$defs/fee" } },
     learningOutcomes: { type: "array", items: { $ref: "#/$defs/outcome" } },
     assessmentItems: { type: "array", items: { $ref: "#/$defs/assessment" } },

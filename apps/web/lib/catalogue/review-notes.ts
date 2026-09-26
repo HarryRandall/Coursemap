@@ -54,6 +54,7 @@ const FIELD_NAMES: Record<string, string> = {
   rule: "Requirement tree",
   sourceUpdatedAt: "ANU update date",
   areasOfInterest: "Areas of interest",
+  tags: "Tags",
   relatedCourses: "Related courses",
   contactText: "Contact",
   convenerText: "Convener",

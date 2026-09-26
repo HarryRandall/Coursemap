@@ -17,10 +17,13 @@ import {
 } from "../lib/catalogue-import/kinds/course/model-canonical.ts";
 import {
   buildCourseExtractionSystemPrompt,
+  buildCourseExtractionUserPrompt,
   COURSE_IMPORT_PARSER_VERSION,
   COURSE_IMPORT_PROMPT_VERSION,
 } from "../lib/catalogue-import/kinds/course/prompt.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
+import { courseCatalogueContent } from "../lib/catalogue/content.ts";
+import { catalogueReviewUnits } from "../lib/catalogue/review-units.ts";
 
 // A complete, valid extraction of the reduced COMP2400 page in
 // fixtures/course-import, in the shape the model returns.
@@ -215,7 +218,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v3");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v4");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v5");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -377,5 +380,52 @@ test("stable serialisation and fingerprints ignore object key insertion order", 
   assert.notEqual(
     stableFingerprint(left),
     stableFingerprint({ ...right, list: [1, 2] }),
+  );
+});
+
+test("tags collapse case-insensitive repeats and stay out of content when empty", () => {
+  const tagged = projectCourseSnapshot(
+    finalise({
+      ...extraction,
+      tags: ["Science", " science ", "Research  Project"],
+    }).extraction,
+  );
+  assert.deepEqual(tagged.tags, [
+    { position: 1, name: "Science" },
+    { position: 2, name: "Research Project" },
+  ]);
+  assert.deepEqual(courseCatalogueContent({ projection: tagged }).course.tags, [
+    { position: 1, name: "Science" },
+    { position: 2, name: "Research Project" },
+  ]);
+
+  // Content written before tags must hash the same as content with none.
+  const untagged = courseCatalogueContent({
+    projection: projectCourseSnapshot(finalise(extraction).extraction),
+  });
+  assert.equal("tags" in untagged.course, false);
+  assert.equal(
+    catalogueReviewUnits(untagged).some(
+      ({ fieldPath }) => fieldPath === "course.tags",
+    ),
+    false,
+  );
+});
+
+test("the user prompt offers the tags already in use", () => {
+  const prompt = buildCourseExtractionUserPrompt({
+    expectedCode: "comp2400",
+    academicYear: 2026,
+    knownTags: ["Science", "Engineering"],
+    pageMarkdown: "# COMP2400",
+  });
+  assert.match(prompt, /Known tags: Science; Engineering\n/u);
+  assert.equal(
+    buildCourseExtractionUserPrompt({
+      expectedCode: "comp2400",
+      academicYear: 2026,
+      pageMarkdown: "# COMP2400",
+    }),
+    "Expected course: COMP2400\nSelected academic year: 2026\n\n# COMP2400",
   );
 });

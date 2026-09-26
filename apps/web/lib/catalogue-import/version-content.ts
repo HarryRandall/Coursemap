@@ -174,6 +174,7 @@ async function readCourseContent(
     outcomes,
     assessments,
     links,
+    tags,
   ] = await Promise.all([
     sql`select position, units, label, source_text from public.course_unit_options where version_id = ${versionId} order by position`,
     sql`select * from public.course_fees where version_id = ${versionId} order by position`,
@@ -185,6 +186,7 @@ async function readCourseContent(
     sql`select id, position, body from public.course_learning_outcomes where version_id = ${versionId} order by position`,
     sql`select id, position, title, weight, hurdle, due_text, source_text from public.course_assessment_items where version_id = ${versionId} order by position`,
     sql`select assessment_item_id, learning_outcome_id from public.course_assessment_outcomes where version_id = ${versionId}`,
+    sql`select position, name from public.course_tags where version_id = ${versionId} order by position`,
   ]);
   const outcomePosition = new Map(
     outcomes.map((row) => [Number(row.id), Number(row.position)]),
@@ -242,6 +244,15 @@ async function readCourseContent(
       position: Number(row.position),
       name: String(row.name),
     })),
+    // Left out when empty, so versions from before tags hash as they did.
+    ...(tags.length
+      ? {
+          tags: tags.map((row) => ({
+            position: Number(row.position),
+            name: String(row.name),
+          })),
+        }
+      : {}),
     attributes: attributes.map((row) => ({
       position: Number(row.position),
       attributeKind: row.attribute_kind,

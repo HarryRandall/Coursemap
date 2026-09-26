@@ -36,6 +36,7 @@ import {
 } from "@/lib/coursemap/requisite-conditions";
 import { RequisiteRuleTree } from "@/ui/admin/requisites/requisite-rule-tree";
 import { useCatalogueEditor } from "./catalogue-editor-context";
+import { TagsEditor } from "./tags-editor";
 import { DetailsEditor, type FieldChoice, RowsEditor } from "./section-editor";
 import { JsonCode } from "@/ui/common/json-code";
 
@@ -317,6 +318,31 @@ export function CatalogueContentEditor() {
               }
             />
           </Section>
+          {!editing && !write.course.tags?.length ? null : (
+            <Section
+              title={FIELD_LABELS["course.tags"] ?? "Tags"}
+              count={write.course.tags?.length ?? 0}
+              defaultOpen
+            >
+              <TagsEditor
+                tags={write.course.tags ?? []}
+                readOnly={!editing}
+                onChange={(tags) =>
+                  setWrite((current) => {
+                    if (!current.course) return current;
+                    // No tags is no key, so the content hashes as it did
+                    // before tags existed.
+                    const course: NonNullable<CatalogueContent["course"]> = {
+                      ...current.course,
+                      tags,
+                    };
+                    if (!tags.length) delete course.tags;
+                    return { ...current, course };
+                  })
+                }
+              />
+            </Section>
+          )}
           {!editing &&
           !Object.values(write.course.offering ?? {}).some(
             (value) => value !== null && value !== "",

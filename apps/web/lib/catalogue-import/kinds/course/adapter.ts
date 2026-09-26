@@ -17,6 +17,7 @@ import {
   buildCourseExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuCoursePage } from "./source.ts";
+import { loadKnownCourseTags } from "./tags.ts";
 
 export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
   kinds: ["course"],
@@ -45,10 +46,14 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     });
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
-  buildUserPrompt(claim, pageMarkdown) {
+  async loadPromptContext(sql) {
+    return { knownTags: await loadKnownCourseTags(sql) };
+  },
+  buildUserPrompt(claim, pageMarkdown, context) {
     return buildCourseExtractionUserPrompt({
       expectedCode: claim.code,
       academicYear: claim.academicYear,
+      knownTags: context?.knownTags ?? [],
       pageMarkdown,
     });
   },
