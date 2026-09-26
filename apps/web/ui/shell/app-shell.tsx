@@ -86,13 +86,9 @@ export function AppShell({
       <AppSidebar admin={admin} />
 
       <SidebarInset
-        className={cn(
-          // The inset margins come out of the viewport, so the wrapper
-          // stretches the panel rather than the panel claiming full height.
-          "min-w-0 md:min-h-0 md:ring-1 md:ring-border",
-          // A filled page hands scrolling to its own workspace areas.
-          fill ? "md:overflow-hidden" : "md:overflow-y-auto",
-        )}
+        // The inset margins come out of the viewport, so the wrapper
+        // stretches the panel rather than the panel claiming full height.
+        className="min-w-0 md:min-h-0 md:overflow-hidden md:ring-1 md:ring-border"
       >
         <Topbar
           loading={loading}
@@ -164,6 +160,9 @@ export function AppShell({
             // Lets a page hand its remaining height to one scrolling child,
             // such as a directory table that should reach the viewport floor.
             fill && "flex min-h-0 flex-1 flex-col md:overflow-hidden",
+            // Other pages scroll below the topbar and tabs, so the header
+            // never moves and the scrollbar starts under it.
+            !fill && "md:min-h-0 md:overflow-y-auto md:overscroll-contain",
           )}
         >
           {fullBleed || fullWidth ? (

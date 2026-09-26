@@ -10,7 +10,7 @@ export function SectionNavigation({
   return (
     <nav
       aria-label={label}
-      className="sticky top-[6.5rem] z-20 -mx-1 flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-background px-1 py-2"
+      className="sticky top-[6.5rem] z-20 -mx-1 flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-background px-1 py-2 md:top-0"
     >
       {sections.map((section) => (
         <a

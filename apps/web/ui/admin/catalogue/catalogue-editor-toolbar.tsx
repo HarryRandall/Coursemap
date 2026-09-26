@@ -53,7 +53,7 @@ export function CatalogueEditorToolbar() {
       : { dot: "bg-muted-foreground/40", label: "Not published" };
 
   return (
-    <div className="sticky top-[6.5rem] z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur">
+    <div className="sticky top-[6.5rem] z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-background/95 px-4 py-2.5 shadow-sm backdrop-blur md:top-0">
       <div
         className="inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm"
         role={

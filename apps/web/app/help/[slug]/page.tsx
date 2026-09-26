@@ -238,7 +238,7 @@ export default async function HelpArticlePage({
           )}
         </article>
 
-        <aside className="min-w-0 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto lg:pr-3">
+        <aside className="min-w-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-7.5rem)] lg:overflow-y-auto lg:pr-3">
           <div className="hidden lg:block">
             <ArticleToc items={tocItems} />
           </div>
