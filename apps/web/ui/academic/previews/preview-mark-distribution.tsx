@@ -21,6 +21,48 @@ import {
   type PreviewCourse,
 } from "./preview-data";
 
+const SKELETON_ROWS = [
+  [58, 71, 84],
+  [49, 66],
+  [62, 77, 90],
+];
+
+/** Faint grid and dots in the chart's place until a mark is recorded. */
+function MarkDistributionSkeleton() {
+  return (
+    <div className="relative h-32 w-full" aria-label="No marks yet" role="img">
+      <div className="absolute inset-x-0 top-5 bottom-6 flex justify-between">
+        {[0, 25, 50, 75, 100].map((tick) => (
+          <div
+            key={tick}
+            className="h-full border-l border-dashed border-border"
+          />
+        ))}
+      </div>
+      <div className="absolute inset-x-0 top-5 bottom-6 flex flex-col justify-around">
+        {SKELETON_ROWS.map((row, index) => (
+          <div key={index} className="relative h-2.5">
+            {row.map((mark) => (
+              <span
+                key={mark}
+                className="absolute size-2.5 -translate-x-1/2 rounded-full bg-muted"
+                style={{ left: `${mark}%` }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex justify-between text-xs text-muted-foreground/60">
+        {[0, 25, 50, 75, 100].map((tick) => (
+          <span key={tick} className="w-0 whitespace-nowrap">
+            <span className="inline-block -translate-x-1/2">{tick}%</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function PreviewMarkDistribution({
   courses,
   live = false,
@@ -52,9 +94,7 @@ export function PreviewMarkDistribution({
       </CardHeader>
       <CardContent className="px-2 pb-0 sm:px-5">
         {courses.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            No marks yet
-          </div>
+          <MarkDistributionSkeleton />
         ) : (
           <ChartContainer
             config={{ mark: { label: "Mark", color: "var(--color-primary)" } }}
