@@ -169,8 +169,8 @@ a.title:focus-visible {
 }
 
 .shell[data-layout="public-courses"] tr {
-  min-width: 870px;
-  grid-template-columns: minmax(240px, 1fr) 80px 210px 180px 70px 60px;
+  min-width: 660px;
+  grid-template-columns: minmax(240px, 1fr) 80px 180px 70px 60px;
 }
 .shell[data-layout="users"] tr {
   min-width: 700px;
