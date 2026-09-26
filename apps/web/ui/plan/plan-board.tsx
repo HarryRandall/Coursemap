@@ -425,21 +425,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       return;
     }
 
-    const destinationTerm = timelineTerms.find(
-      (term) => term.id === drop.termId,
-    );
-    if (
-      destinationTerm &&
-      destinationTerm.id !== "unscheduled" &&
-      course.year !== destinationTerm.year
-    ) {
-      notify(
-        `${attempt.courseCode} is a ${course.year} course. Remove it and add the ${destinationTerm.year} version instead.`,
-        "warning",
-      );
-      return;
-    }
-
     const destination = entriesFor(drop.termId).filter(
       (entry) => entry.attempt.id !== drop.attemptId,
     );

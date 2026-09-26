@@ -85,6 +85,18 @@ function createInitialState(viewer: AuthViewer | null) {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/**
+ * A scheduled course takes the version for the year it is placed in, so its
+ * academic year follows the term; Later keeps the year it already had.
+ */
+function courseYearForTerm<T extends number | undefined>(
+  termId: string,
+  fallback: T,
+) {
+  const match = /^(\d{4})-/.exec(termId);
+  return match ? Number(match[1]) : fallback;
+}
+
 export function AppProvider({
   children,
   viewer,
@@ -164,7 +176,7 @@ export function AppProvider({
           ...current.attempts,
           {
             id: result.id!,
-            academicYear,
+            academicYear: courseYearForTerm(termId, academicYear),
             courseCode,
             termId,
             status: "planned",
@@ -210,7 +222,11 @@ export function AppProvider({
         const remaining = current.attempts.filter(
           (attempt) => attempt.id !== attemptId,
         );
-        const next = { ...moving, termId };
+        const next = {
+          ...moving,
+          termId,
+          academicYear: courseYearForTerm(termId, moving.academicYear),
+        };
         const beforeIndex = beforeAttemptId
           ? remaining.findIndex((attempt) => attempt.id === beforeAttemptId)
           : -1;
@@ -234,10 +250,21 @@ export function AppProvider({
       const result = await movePlanCourse(attemptId, termId, beforeAttemptId);
       if (!result.ok) {
         setState((current) => ({ ...current, attempts: previousAttempts }));
+        return result;
+      }
+      const moved = previousAttempts.find(
+        (attempt) => attempt.id === attemptId,
+      );
+      // Another year's version may not be in the loaded catalogue yet.
+      if (
+        moved &&
+        moved.academicYear !== courseYearForTerm(termId, moved.academicYear)
+      ) {
+        router.refresh();
       }
       return result;
     },
-    [state.attempts],
+    [router, state.attempts],
   );
 
   const updateAttempt = useCallback(
