@@ -10,6 +10,7 @@ import {
   normaliseAcademicStructureModelExtraction,
   repairRequirementNodes,
 } from "./model-canonical.ts";
+import { withListedStructureOptions } from "./listed-options.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
   modelResponseProblem,
@@ -190,6 +191,10 @@ export function finaliseAcademicStructureExtraction({
   const finalised: AcademicStructureExtraction = {
     ...extraction,
     description,
+    relationships:
+      kind === "programme"
+        ? withListedStructureOptions(extraction.relationships, pageMarkdown)
+        : extraction.relationships,
     requirements: ensureRequirementRootGroup(extraction.requirements),
     reviewItems,
   };

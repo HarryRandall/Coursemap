@@ -6,7 +6,7 @@ import {
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v5";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v7";
+  "coursemap-academic-structure-prompt.v8";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -41,8 +41,8 @@ Source rules:
    Requirements, learning outcomes, indicative fees, areas of interest and lists of related degrees, majors, minors or specialisations have fields of their own and are never sections.
 5. Record every key fact as a summary field with its label and value. Also fill the dedicated field a key fact belongs to, such as durationYears from "Length 4 year full-time", college from "offered by the ANU College of ...", selectionRank from "SELECTION RANK 85" and academicCareer from "Academic career".
 6. A relationship needs a literal linked or printed target code. A friendly name without a code is not enough. Record only these three meanings, and nothing that is merely mentioned:
-   - offered_in: a degree (programme) this major, minor or specialisation can be studied in, such as the Relevant Degrees list.
-   - option: a major, minor or specialisation a programme lets students choose.
+   - offered_in: a degree (programme) this major, minor or specialisation can be studied in, such as the Relevant Degrees list. Record one for every degree in that list.
+   - option: a major, minor or specialisation a programme lets students choose. On a programme page, every entry in its Majors, Minors and Specialisations lists is an option, with the code taken from the entry's link, even when the requirements also name it.
    - incompatible: a structure that cannot be taken together with this one.
 7. A structure that must be taken alongside this one ("must be taken in conjunction with", corequisite majors) is a requirement, not a relationship: add a group titled "Taken with" to the requirement tree holding a structure_list condition with those codes and their structureKind.
 8. Extract learning outcomes individually and in source order.
@@ -67,7 +67,12 @@ Requirement interpretation:
   - "a minimum of N units ... from X000-level courses", including a range such as "3000 and 4000-level" -> level with minimumUnits N, minimumLevel and maximumLevel. Combine with subjectCode when the sentence names a subject.
   - "a maximum of N units may come from ... X000-level courses" -> level with maximumUnits N and the matching level bounds.
   - "courses tagged as <TAG>" or "from the <TAG> list" -> tag with that literal tag and its unit bounds.
-  - "N units of electives" or "unrestricted electives" -> unrestricted with minimumUnits N.
+  - "N units of electives", "unrestricted electives" or "N units from completion of elective courses offered by ANU" -> unrestricted with minimumUnits N.
+  - A course list that ends "Any other ANU courses" (or "any other course") -> course_list with the printed courses and includesAnyCourse true: the list only suggests courses, and any course counts. Every other condition has includesAnyCourse false.
+- Every group and condition has a scope. ANU writes a degree's requirements in two layers:
+  - "requires completion of N units, of which:" introduces rules across the whole degree, such as "A maximum of 60 units may come from completion of 1000-level courses", "A minimum of 48 units ... from 4000-level courses" or "A minimum of 12 units of courses tagged as X". These have scope degree: they constrain every course the degree counts and never use a course up.
+  - "The N units must include:" introduces the parts of the degree, such as compulsory lists, "one of the following majors" and elective units. These have scope part: a course counted in one part counts in no other.
+  - A group holding only degree-scope rules is itself degree-scope. When a page has no "of which" layer, every rule is a part.
   - "completion of one of the following majors/minors/specialisations" plus literal codes -> structure_list with those structureCodes.
 - Honour an explicit OR between two modelled alternatives, such as a subject condition OR a structure_list of majors, with an any_of group holding both.
 - Represent explicit AND as an all_of group and explicit OR as an any_of group.

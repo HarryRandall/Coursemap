@@ -48,7 +48,7 @@ async function readRequirements(
   );
   const groups = await sql`
     select id, rule_id, parent_group_id, group_key, label, description, operator, minimum_count,
-      minimum_units, maximum_units, source_text, source_locator, position
+      minimum_units, maximum_units, source_text, source_locator, position, scope
     from public.requirement_groups where version_id = ${versionId} order by rule_id, position, id
   `;
   const groupKeyById = new Map(
@@ -103,6 +103,7 @@ async function readRequirements(
       minimumCount: num(group.minimum_count),
       minimumUnits: num(group.minimum_units),
       maximumUnits: num(group.maximum_units),
+      ...(group.scope === "degree" ? { scope: "degree" as const } : {}),
       sourceText: str(group.source_text),
       sourceLocator: str(group.source_locator),
       position: Number(group.position),
@@ -136,6 +137,10 @@ async function readRequirements(
       sourceLocator: str(condition.source_locator),
       reviewState: condition.review_state as ReviewState,
       confidence: Number(condition.confidence),
+      ...(condition.scope === "degree" ? { scope: "degree" as const } : {}),
+      ...(condition.includes_any_course
+        ? { includesAnyCourse: true as const }
+        : {}),
     })),
     options: options.map((option) => ({
       conditionKey: conditionKeyById.get(Number(option.condition_id))!,

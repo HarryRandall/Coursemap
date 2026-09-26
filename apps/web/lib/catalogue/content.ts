@@ -70,6 +70,11 @@ export type RequirementWrite = {
     minimumCount: number | null;
     minimumUnits: number | null;
     maximumUnits: number | null;
+    /**
+     * `degree` when the group constrains every course the degree counts.
+     * Absent for a part of the degree, so earlier content keeps its hash.
+     */
+    scope?: "degree";
     sourceText: string | null;
     sourceLocator: string | null;
     position: number;
@@ -102,6 +107,10 @@ export type RequirementWrite = {
     sourceLocator: string | null;
     reviewState: ReviewState;
     confidence: number;
+    /** As for groups: `degree` when the rule spans the whole degree. */
+    scope?: "degree";
+    /** A course list ending "Any other ANU courses"; absent when closed. */
+    includesAnyCourse?: true;
   }>;
   options: Array<{
     conditionKey: string;
@@ -719,6 +728,7 @@ export function structureCatalogueContent({
             minimumCount: group.minimumCount,
             minimumUnits: group.minimumUnits,
             maximumUnits: group.maximumUnits,
+            ...(group.scope === "degree" ? { scope: "degree" as const } : {}),
             sourceText: group.sourceText,
             sourceLocator: group.sourceLocator,
             position: group.position,
@@ -754,6 +764,12 @@ export function structureCatalogueContent({
               sourceLocator: condition.sourceLocator,
               reviewState: "automatic" as const,
               confidence: 1,
+              ...(condition.scope === "degree"
+                ? { scope: "degree" as const }
+                : {}),
+              ...(condition.includesAnyCourse
+                ? { includesAnyCourse: true as const }
+                : {}),
             })),
             // Source wording the parser could not model keeps its place as an
             // `other` condition under the root group so students still see it.

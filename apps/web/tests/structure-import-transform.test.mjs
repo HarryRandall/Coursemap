@@ -504,7 +504,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v7",
+    "coursemap-academic-structure-prompt.v8",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
@@ -606,5 +606,33 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
       pageMarkdown: "source data",
     }),
     /Expected structure kind: programme[\s\S]*BCOMP[\s\S]*2026[\s\S]*source data/,
+  );
+});
+
+test("records the majors and minors a programme page lists that the model left out", () => {
+  const model = structuredClone(extraction);
+  const { extraction: finalised } = finalise(model, {
+    pageMarkdown: `${pageMarkdown}\n\n## Minors\n\n- [Human-Centred and Creative Computing](HCCC-MIN)\n- [Not a minor](COMP1100)\n\n## Admission\n\n- [Other](ARTS-MIN)`,
+  });
+  const added = finalised.relationships.filter(
+    ({ targetKind }) => targetKind === "minor",
+  );
+  assert.deepEqual(
+    added.map(
+      ({ relationshipKind, targetCode, targetTitle, sourceLocator }) => ({
+        relationshipKind,
+        targetCode,
+        targetTitle,
+        sourceLocator,
+      }),
+    ),
+    [
+      {
+        relationshipKind: "option",
+        targetCode: "HCCC-MIN",
+        targetTitle: "Human-Centred and Creative Computing",
+        sourceLocator: "Minors",
+      },
+    ],
   );
 });

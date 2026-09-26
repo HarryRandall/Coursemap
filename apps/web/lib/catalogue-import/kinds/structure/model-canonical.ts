@@ -101,6 +101,7 @@ export function ensureRequirementRootGroup(
           : "requirements:root",
       operator: "all_of" as const,
       minimumCount: null,
+      scope: "part" as const,
       title: "Requirements",
       sourceText: requirements.sourceText ?? rule.sourceText,
       sourceLocator: requirements.sourceLocator ?? rule.sourceLocator,
