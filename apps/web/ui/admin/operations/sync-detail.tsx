@@ -90,16 +90,19 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
         <SyncDetailSectionOnly section={["overview", "stages"]}>
           <Alert variant="destructive">
             <CircleAlert aria-hidden="true" />
-            <AlertTitle>This sync failed</AlertTitle>
+            <AlertTitle>
+              This sync failed
+              {sync.errorCode ? (
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · Code <code className="font-mono">{sync.errorCode}</code>
+                </span>
+              ) : null}
+            </AlertTitle>
             <AlertDescription>
               <p className="font-mono text-xs break-words">
                 {sync.errorMessage}
               </p>
-              {sync.errorCode ? (
-                <p className="text-xs">
-                  Code <code className="font-mono">{sync.errorCode}</code>
-                </p>
-              ) : null}
             </AlertDescription>
             <AlertAction>
               <SyncRetryButton
