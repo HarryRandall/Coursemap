@@ -121,7 +121,8 @@ test("hands the toast back when the page that was watching it goes", async () =>
   await waitFor(() => expect(progress).toHaveBeenCalled());
   view.unmount();
 
-  // Otherwise the toast spins on with nothing left polling to finish it.
+  // Otherwise the toast spins at whatever percentage it had reached, with
+  // nothing left polling to ever finish it.
   await waitFor(() =>
     expect(info).toHaveBeenCalledWith(
       "Sync still running",

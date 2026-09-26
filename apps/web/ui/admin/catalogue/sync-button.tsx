@@ -8,10 +8,18 @@ import type { CatalogueKind } from "@/lib/catalogue/content";
 import type { CatalogueSync } from "@/lib/coursemap/admin-catalogue-record";
 import { startTask, type TaskHandle } from "@/ui/common/task-toast";
 
-/** What each status of a sync still in flight is doing, under its title. */
-const SYNC_PROGRESS: Record<string, { detail: string }> = {
-  queued: { detail: "Waiting for a worker." },
-  running: { detail: "Reading the ANU page." },
+/**
+ * A record sync is queued and worked on elsewhere, so each status owns a
+ * stretch of the bar: where the sync has reached, and where that status ends.
+ * The bar drifts across its stretch while the status holds, so a sync picked
+ * up instantly still reads as movement rather than a jump.
+ */
+const SYNC_PROGRESS: Record<
+  string,
+  { percent: number; ceiling: number; detail: string }
+> = {
+  queued: { percent: 12, ceiling: 45, detail: "Waiting for a worker." },
+  running: { percent: 50, ceiling: 88, detail: "Reading the ANU page." },
 };
 
 function syncOutcome(code: string, status: string) {
@@ -77,6 +85,7 @@ export function useCatalogueSync({
       id: `sync:${recordId}`,
       title: `Syncing ${code}`,
       detail: "Contacting ANU.",
+      ceiling: 12,
     });
     startTransition(async () => {
       const response = await fetch("/api/admin/catalogue-syncs", {
@@ -109,7 +118,7 @@ export function useCatalogueSync({
 
   // The sync runs on the server and this button is the only thing watching it.
   // Leaving the page stops the poll, so the toast is handed back rather than
-  // left spinning with nothing to finish it.
+  // left spinning at whatever percentage it had reached.
   useEffect(
     () => () =>
       task.current?.abandon({
