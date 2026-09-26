@@ -12,6 +12,7 @@ const actions = vi.hoisted(() => ({ resolve: vi.fn() }));
 
 vi.mock("@/lib/coursemap/admin-catalogue-actions", () => ({
   resolveSourceChangeAction: actions.resolve,
+  approveFirstReadAction: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -34,6 +35,9 @@ function change(overrides: Partial<SourceReviewChange> = {}) {
     isStale: false,
     decision: null,
     resolvedAt: null,
+    confidence: null,
+    band: null,
+    reason: null,
     ...overrides,
   } satisfies SourceReviewChange;
 }
@@ -46,6 +50,7 @@ function review(overrides: Partial<SourceReview> = {}): SourceReview {
     conflicts: [],
     incoming: [],
     overrides: [],
+    firstRead: [],
     resolved: [],
     ...overrides,
   };
@@ -207,4 +212,49 @@ test("nothing flagged means no notes section", () => {
   expect(
     screen.queryByRole("heading", { name: "What to check" }),
   ).not.toBeInTheDocument();
+});
+
+test("a first reading leads with what needs review and folds what was read plainly", () => {
+  renderPanel({
+    review: review({
+      firstRead: [
+        change({
+          id: 21,
+          classification: "first_read",
+          label: "Prerequisite rule",
+          fieldPath: "requirements.prerequisite",
+          unitKind: "requirement_rule",
+          confidence: 0.42,
+          band: "needs_review",
+          reason: "One sentence was split into several conditions",
+        }),
+        change({
+          id: 22,
+          classification: "first_read",
+          confidence: 0.8,
+          band: "check",
+          reason: "Probably right, worth a look",
+        }),
+        change({
+          id: 23,
+          classification: "first_read",
+          label: "Title",
+          confidence: 0.97,
+          band: "accepted",
+          reason: "Stated plainly on the page",
+        }),
+      ],
+    }),
+  });
+  expect(screen.getByText("First reading from ANU")).toBeTruthy();
+  expect(
+    screen.getByText(/1 part needs review before this can be published/u),
+  ).toBeTruthy();
+  expect(screen.getByText("42% sure")).toBeTruthy();
+  expect(
+    screen.getByText("One sentence was split into several conditions"),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Approve all 1" })).toBeTruthy();
+  expect(screen.getByText("1 read plainly from the page")).toBeTruthy();
+  expect(screen.queryByText("No changes to review")).toBeNull();
 });

@@ -5,6 +5,7 @@ import type { SnapshotChange } from "@/lib/catalogue-import/changes";
 import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { FirstReadReview } from "./first-read-review";
 import { ModelNotes } from "./model-notes";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
@@ -91,6 +92,7 @@ export function CatalogueChangesPanel({
   notes?: ReturnType<typeof summariseReviewNotes> | null;
 }) {
   const conflicts = review?.conflicts ?? [];
+  const firstRead = review?.firstRead ?? [];
   const incoming = review?.incoming ?? [];
   const overrides = review?.overrides ?? [];
   const unpublishedCount = isPublished ? unpublished.length : 0;
@@ -100,7 +102,8 @@ export function CatalogueChangesPanel({
     kindLabel,
   });
   const showUnpublished = unpublishedCount > 0;
-  const isEmpty = conflicts.length === 0 && incoming.length === 0;
+  const isEmpty =
+    conflicts.length === 0 && incoming.length === 0 && firstRead.length === 0;
   // The empty state reaches the page floor only when nothing follows it.
   const fillsPage = isEmpty && overrides.length === 0 && !showUnpublished;
 
@@ -127,6 +130,14 @@ export function CatalogueChangesPanel({
         </p>
       ) : null}
       {notes ? <ModelNotes {...notes} /> : null}
+      {firstRead.length ? (
+        <FirstReadReview
+          canWrite={canWrite}
+          changes={firstRead}
+          path={path}
+          recordId={recordId}
+        />
+      ) : null}
       {isEmpty ? (
         <CatalogueEmpty title={empty.title} description={empty.description} />
       ) : null}
