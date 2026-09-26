@@ -30,11 +30,11 @@ import {
 export type ReviewSubject = { code: string; academicYear: number };
 
 // Bookkeeping every row carries that says nothing to a reviewer.
-const HIDDEN_COLUMNS = new Set(["position", "key", "id"]);
+export const HIDDEN_COLUMNS = new Set(["position", "key", "id"]);
 // Rules drawn as a chain into the course; the rest read better as a list.
 const GRAPHED_RULES = new Set(["prerequisite", "corequisite"]);
 
-function isBlank(value: unknown) {
+export function isBlank(value: unknown) {
   return (
     value === null ||
     value === undefined ||
@@ -43,11 +43,11 @@ function isBlank(value: unknown) {
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function heading(key: string) {
+export function heading(key: string) {
   const words = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_.]/g, " ")
@@ -55,7 +55,7 @@ function heading(key: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function plainText(value: unknown): string {
+export function plainText(value: unknown): string {
   if (isBlank(value)) return "";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) return value.map(plainText).join(", ");
@@ -189,7 +189,7 @@ function Frame({ children }: { children: React.ReactNode }) {
   );
 }
 
-function RequirementValue({
+export function RequirementValue({
   label,
   subject,
   value,
@@ -298,6 +298,13 @@ function requirementRows(
   ];
 }
 
+/** A rule's steps, dropping the all-of wrapper that says nothing the rows don't. */
+export function ruleRows(expression: CourseRuleExpression) {
+  return expression.kind === "group" && expression.operator === "all_of"
+    ? expression.conditions.flatMap((child) => requirementRows(child))
+    : requirementRows(expression);
+}
+
 function RequirementTable({
   expression,
   label,
@@ -305,11 +312,7 @@ function RequirementTable({
   expression: CourseRuleExpression;
   label: string;
 }) {
-  // A single all-of wrapper says nothing the rows below it don't.
-  const rows =
-    expression.kind === "group" && expression.operator === "all_of"
-      ? expression.conditions.flatMap((child) => requirementRows(child))
-      : requirementRows(expression);
+  const rows = ruleRows(expression);
   return (
     <Frame>
       <Table aria-label={label}>

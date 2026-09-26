@@ -7,12 +7,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/cn";
 import type { SourceReviewChange } from "@/lib/catalogue/source-review-store";
 import {
   approveFirstReadAction,
   resolveSourceChangeAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
+import { ReviewDiff } from "./review-diff";
 import { type ReviewSubject, ReviewValue } from "./review-value";
 
 const BAND_BADGE = {
@@ -85,25 +85,28 @@ function FirstReadCard({
       {change.reason ? (
         <p className="mt-1 text-sm text-muted-foreground">{change.reason}</p>
       ) : null}
-      {/* Two columns only when there is something to compare against. */}
-      <div
-        className={cn("mt-3 grid gap-4", change.isStale && "lg:grid-cols-2")}
-      >
-        <ReviewValue
-          label="Read from ANU"
-          value={change.incomingSourceValue}
-          unitKind={change.unitKind}
-          subject={subject}
-        />
+      <div className="mt-3">
         {change.isStale ? (
+          <>
+            <p className="mb-2 text-sm text-muted-foreground">
+              You corrected this after the reading.
+            </p>
+            <ReviewDiff
+              before={change.incomingSourceValue}
+              after={change.localValue}
+              beforeLabel="ANU reading"
+              afterLabel="Your edit"
+              unitKind={change.unitKind}
+            />
+          </>
+        ) : (
           <ReviewValue
-            label="Your edit"
-            value={change.localValue}
+            label="Read from ANU"
+            value={change.incomingSourceValue}
             unitKind={change.unitKind}
-            note="You corrected this after the reading."
             subject={subject}
           />
-        ) : null}
+        )}
       </div>
       {canWrite ? (
         <div className="mt-4 flex flex-wrap gap-2">

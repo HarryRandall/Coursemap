@@ -109,7 +109,7 @@ test("a matching record offers nothing to review", () => {
   ).toBeTruthy();
 });
 
-test("a conflict shows all three values and both decisions", () => {
+test("a conflict diffs the draft against ANU and offers both decisions", () => {
   renderPanel({
     review: review({
       conflicts: [
@@ -121,10 +121,15 @@ test("a conflict shows all three values and both decisions", () => {
     }),
   });
   expect(screen.getByText("Conflicts")).toBeTruthy();
-  expect(screen.getByText("Previous ANU")).toBeTruthy();
   expect(screen.getByText("Current")).toBeTruthy();
-  expect(screen.getByText("New ANU")).toBeTruthy();
-  expect(screen.getByText("Manually changed")).toBeTruthy();
+  expect(screen.getAllByText("New ANU").length).toBeGreaterThan(0);
+  expect(document.body.textContent).toContain("Locally authored");
+  expect(
+    screen.getByText("What ANU changed since the last check"),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Changed by hand since the last check."),
+  ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Keep current" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Use ANU" })).toBeTruthy();
 });
