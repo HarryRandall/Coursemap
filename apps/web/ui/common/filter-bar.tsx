@@ -49,8 +49,11 @@ export function FilterBar({
   searchPlaceholder,
   filters = [],
   state,
+  autoFocus = false,
 }: {
   searchPlaceholder: string;
+  /** Focuses the search on mount, for a bar that opens a dialog. */
+  autoFocus?: boolean;
   filters?: FilterConfig[];
   /** Keeps small, already-loaded datasets synchronous and client-filtered. */
   state?: ControlledFilterState;
@@ -156,6 +159,7 @@ export function FilterBar({
           />
           <Input
             type="search"
+            autoFocus={autoFocus}
             value={query}
             placeholder={searchPlaceholder}
             className="h-10 pl-9"

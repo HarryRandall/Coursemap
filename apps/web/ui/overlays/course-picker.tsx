@@ -6,7 +6,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList,
   CommandShortcut,
@@ -25,9 +24,10 @@ import {
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
 import { YearPicker } from "@/ui/common/year-picker";
+import { FilterBar } from "@/ui/common/filter-bar";
 import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
-import { Check, ChevronRight, LoaderCircle, Search } from "lucide-react";
+import { ChevronRight, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCoursemap } from "@/app/providers";
 import type { Course, Term } from "@/lib/coursemap/types";
@@ -80,7 +80,10 @@ export function CoursePicker({
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [addingCode, setAddingCode] = useState<string | null>(null);
-  const [offeredOnly, setOfferedOnly] = useState(true);
+  // Offered in the destination semester by default; cleared to show any.
+  const [session, setSession] = useState(() =>
+    term && term.id !== "unscheduled" ? term.name : "",
+  );
   const [level, setLevel] = useState<number | null>(null);
   const [recommendations, setRecommendations] = useState<{
     key: string;
@@ -108,15 +111,14 @@ export function CoursePicker({
       ? document.activeElement
       : null,
   );
-  const searchRef = useRef<HTMLInputElement>(null);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const trimmedQuery = query.trim();
   const academicYear =
     term?.id === "unscheduled"
       ? unscheduledAcademicYear
       : (term?.year ?? state.profile.catalogueYear);
-  const sessionFilter =
-    offeredOnly && term && term.id !== "unscheduled" ? term.name : "";
+  const sessionFilter = term?.id === "unscheduled" ? "" : session;
   const filterKey = `${sessionFilter}|${level ?? ""}`;
   const currentRequestKey = requestKey(
     trimmedQuery,
@@ -326,7 +328,11 @@ export function CoursePicker({
 
   const showResults = () => {
     setMobilePreviewOpen(false);
-    window.requestAnimationFrame(() => searchRef.current?.focus());
+    window.requestAnimationFrame(() =>
+      searchAreaRef.current
+        ?.querySelector<HTMLInputElement>('input[type="search"]')
+        ?.focus(),
+    );
   };
 
   const retrySearch = () => {
@@ -379,62 +385,69 @@ export function CoursePicker({
           label="Course catalogue"
           className="min-h-0 bg-transparent"
         >
-          <div className="py-3 pr-12 pl-3 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-11!">
-            <CommandInput
-              ref={searchRef}
-              autoFocus
-              value={query}
-              onValueChange={(value) => {
-                const nextQuery = value.trim();
-                const queryChanged = nextQuery !== trimmedQuery;
-                setQuery(value);
-                if (queryChanged) {
-                  setPage(1);
-                  setSelectedCode(null);
-                  setMobilePreviewOpen(false);
-                  setFailedKey(null);
-                }
-              }}
-              placeholder={`Search ${academicYear} courses by code or name`}
-              aria-label="Search courses"
-              className="text-base md:text-sm"
-            />
-          </div>
+          {/* The picker's own shortcuts (arrows, Enter) come from the search
+              field; keys inside the filter menus stay with those menus. */}
           <div
-            role="group"
-            aria-label="Filter courses"
-            className="flex flex-wrap items-center gap-1.5 border-b border-border/60 px-3 pb-3"
+            ref={searchAreaRef}
+            className="flex items-start gap-2 border-b border-border/60 py-3 pr-12 pl-3"
+            onKeyDown={(event) => {
+              if (
+                !(event.target instanceof HTMLInputElement) ||
+                event.target.type !== "search"
+              )
+                event.stopPropagation();
+            }}
           >
-            {term.id !== "unscheduled" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant={offeredOnly ? "secondary" : "outline"}
-                aria-pressed={offeredOnly}
-                onClick={() =>
-                  changeFilters(() => setOfferedOnly(!offeredOnly))
-                }
-              >
-                {offeredOnly ? <Check aria-hidden="true" /> : null}
-                Offered in {term.shortName}
-              </Button>
-            ) : null}
-            {LEVELS.map((option) => (
-              <Button
-                key={option}
-                type="button"
-                size="sm"
-                variant={level === option ? "secondary" : "outline"}
-                aria-pressed={level === option}
-                onClick={() =>
-                  changeFilters(() =>
-                    setLevel(level === option ? null : option),
-                  )
-                }
-              >
-                Level {option}
-              </Button>
-            ))}
+            <div className="min-w-0 flex-1">
+              <FilterBar
+                autoFocus
+                searchPlaceholder={`Search ${academicYear} courses by code or name`}
+                filters={[
+                  ...(term.id !== "unscheduled"
+                    ? [
+                        {
+                          key: "session",
+                          label: "Offered in",
+                          allLabel: "Any semester",
+                          options: [
+                            { value: term.name, label: term.shortName },
+                          ],
+                        },
+                      ]
+                    : []),
+                  {
+                    key: "level",
+                    label: "Level",
+                    allLabel: "Any level",
+                    options: LEVELS.map((option) => ({
+                      value: String(option),
+                      label: `Level ${option}`,
+                    })),
+                  },
+                ]}
+                state={{
+                  query,
+                  values: { session, level: level ? String(level) : "" },
+                  onQueryChange: (value) => {
+                    const nextQuery = value.trim();
+                    const queryChanged = nextQuery !== trimmedQuery;
+                    setQuery(value);
+                    if (queryChanged) {
+                      setPage(1);
+                      setSelectedCode(null);
+                      setMobilePreviewOpen(false);
+                      setFailedKey(null);
+                    }
+                  },
+                  onFilterChange: (key, value) =>
+                    changeFilters(() => {
+                      if (key === "session") setSession(value);
+                      if (key === "level")
+                        setLevel(value ? Number(value) : null);
+                    }),
+                }}
+              />
+            </div>
             {term.id === "unscheduled" ? (
               <YearPicker
                 ariaLabel="Course year"
