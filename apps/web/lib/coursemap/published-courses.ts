@@ -100,8 +100,19 @@ const SNAPSHOT_LIST_SELECT =
 export type PublishedCourseFilters = {
   query?: string;
   subject?: string;
+  /** A level digit, such as 2, or that level or higher, such as 2+. */
   level?: string;
   session?: string;
+  college?: string;
+  area?: string;
+  tag?: string;
+};
+
+export type CourseFilterOptions = {
+  subjects: Array<{ code: string; name: string | null }>;
+  colleges: string[];
+  areas: string[];
+  tags: string[];
 };
 
 export type PublishedCoursePage = {
@@ -952,6 +963,68 @@ async function loadAcademicYearOptionsUncached(): Promise<
   );
 }
 
+async function loadCourseFilterOptionsUncached(
+  academicYear: number,
+): Promise<CourseFilterOptions> {
+  const empty = { subjects: [], colleges: [], areas: [], tags: [] };
+  const supabase = createPublicClient();
+  const year = await academicYearRecord(supabase, academicYear);
+  if (!year) return empty;
+  const [summaries, areas, tags] = await Promise.all([
+    supabase
+      .from("published_course_summaries")
+      .select("version_id,subject_code,subject_name,college")
+      .eq("academic_year_id", year.id),
+    // Only published versions are readable here, so every row belongs to a
+    // published course of some year; the year's version set narrows them.
+    supabase.from("course_areas_of_interest").select("version_id,name"),
+    supabase.from("course_tags").select("version_id,name"),
+  ]);
+  for (const result of [summaries, areas, tags]) {
+    if (result.error) throw result.error;
+  }
+  const versions = new Set((summaries.data ?? []).map((row) => row.version_id));
+  const distinctNames = (rows: Array<{ version_id: number; name: string }>) => {
+    const byKey = new Map<string, string>();
+    for (const row of rows) {
+      if (!versions.has(row.version_id)) continue;
+      const key = row.name.toLowerCase();
+      if (!byKey.has(key)) byKey.set(key, row.name);
+    }
+    return [...byKey.values()].sort((left, right) => left.localeCompare(right));
+  };
+  const subjects = new Map<string, string | null>();
+  const colleges = new Set<string>();
+  for (const row of summaries.data ?? []) {
+    if (row.subject_code && !subjects.has(row.subject_code)) {
+      subjects.set(row.subject_code, row.subject_name);
+    }
+    if (row.college) colleges.add(row.college);
+  }
+  return {
+    subjects: [...subjects]
+      .map(([code, name]) => ({ code, name }))
+      .sort((left, right) => left.code.localeCompare(right.code)),
+    colleges: [...colleges].sort((left, right) => left.localeCompare(right)),
+    areas: distinctNames(areas.data ?? []),
+    tags: distinctNames(tags.data ?? []),
+  };
+}
+
+/** The values the course explorer can filter a year's courses by. */
+export async function loadCourseFilterOptions(
+  academicYear: number,
+): Promise<CourseFilterOptions> {
+  return unstable_cache(
+    () => loadCourseFilterOptionsUncached(academicYear),
+    ["published-course-filter-options", String(academicYear)],
+    {
+      revalidate: 300,
+      tags: [PUBLISHED_COURSE_PAGE_TAG, publishedCourseYearTag(academicYear)],
+    },
+  )();
+}
+
 export async function loadAcademicYearOptions(): Promise<AcademicYearOption[]> {
   return unstable_cache(
     loadAcademicYearOptionsUncached,
@@ -972,6 +1045,40 @@ function searchPattern(value: string) {
     .replace(/[,%()]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Parses a level filter: `2` is 2000 level, `2+` is 2000 level or higher. */
+function levelFilter(value: string) {
+  const match = /^([1-9])(\+?)$/u.exec(value);
+  return match
+    ? { level: Number(match[1]) * 1000, orHigher: match[2] === "+" }
+    : null;
+}
+
+/** Versions carrying an area of interest or tag, matched however it is cased. */
+async function snapshotIdsNamed(
+  supabase: SupabaseClient<Database>,
+  table: "course_areas_of_interest" | "course_tags",
+  name: string,
+) {
+  const { data, error } = await supabase
+    .from(table)
+    .select("version_id")
+    .ilike(
+      "name",
+      name.replace(/[\\%_]/gu, (character) => `\\${character}`),
+    );
+  if (error) throw error;
+  return [...new Set((data ?? []).map((row) => row.version_id))];
+}
+
+function intersect(lists: Array<number[] | null>) {
+  const present = lists.filter((list): list is number[] => list !== null);
+  if (present.length === 0) return null;
+  return present.reduce((kept, list) => {
+    const allowed = new Set(list);
+    return kept.filter((id) => allowed.has(id));
+  });
 }
 
 async function snapshotIdsForSession(
@@ -1265,8 +1372,11 @@ async function loadPublishedCoursePageUncached({
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const query = firstFilterValue(filters.query);
   const subject = firstFilterValue(filters.subject).toUpperCase();
-  const level = Number(firstFilterValue(filters.level));
+  const level = levelFilter(firstFilterValue(filters.level));
   const session = firstFilterValue(filters.session);
+  const college = firstFilterValue(filters.college);
+  const area = firstFilterValue(filters.area);
+  const tag = firstFilterValue(filters.tag);
 
   const supabase = createPublicClient();
   const year = await academicYearRecord(supabase, academicYear);
@@ -1274,10 +1384,16 @@ async function loadPublishedCoursePageUncached({
     return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
   }
   const cleanedQuery = searchPattern(query);
-  const sessionSnapshotIds = session
-    ? await snapshotIdsForSession(supabase, year.id, session)
-    : null;
-  if (sessionSnapshotIds?.length === 0) {
+  const snapshotIds = intersect(
+    await Promise.all([
+      session ? snapshotIdsForSession(supabase, year.id, session) : null,
+      area
+        ? snapshotIdsNamed(supabase, "course_areas_of_interest", area)
+        : null,
+      tag ? snapshotIdsNamed(supabase, "course_tags", tag) : null,
+    ]),
+  );
+  if (snapshotIds?.length === 0) {
     return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
   }
 
@@ -1286,11 +1402,14 @@ async function loadPublishedCoursePageUncached({
     .select(SNAPSHOT_LIST_SELECT, { count: "exact" })
     .eq("academic_year_id", year.id);
   if (subject) snapshotsQuery = snapshotsQuery.eq("subject_code", subject);
-  if (Number.isInteger(level) && level > 0) {
-    snapshotsQuery = snapshotsQuery.eq("level", level * 1000);
+  if (level) {
+    snapshotsQuery = level.orHigher
+      ? snapshotsQuery.gte("level", level.level)
+      : snapshotsQuery.eq("level", level.level);
   }
-  if (sessionSnapshotIds) {
-    snapshotsQuery = snapshotsQuery.in("version_id", sessionSnapshotIds);
+  if (college) snapshotsQuery = snapshotsQuery.eq("college", college);
+  if (snapshotIds) {
+    snapshotsQuery = snapshotsQuery.in("version_id", snapshotIds);
   }
   if (cleanedQuery) {
     const pattern = `*${cleanedQuery}*`;
@@ -1323,16 +1442,21 @@ export async function loadPublishedCoursePage(args: {
     100,
     Math.max(1, Math.floor(args.pageSize ?? 24)),
   );
-  const query = firstFilterValue(args.filters?.query);
-  const subject = firstFilterValue(args.filters?.subject).toUpperCase();
-  const level = Number(firstFilterValue(args.filters?.level));
-  const session = firstFilterValue(args.filters?.session);
+  const filters = {
+    query: firstFilterValue(args.filters?.query),
+    subject: firstFilterValue(args.filters?.subject).toUpperCase(),
+    level: firstFilterValue(args.filters?.level),
+    session: firstFilterValue(args.filters?.session),
+    college: firstFilterValue(args.filters?.college),
+    area: firstFilterValue(args.filters?.area),
+    tag: firstFilterValue(args.filters?.tag),
+  };
 
   return unstable_cache(
     () =>
       loadPublishedCoursePageUncached({
         academicYear: args.academicYear,
-        filters: { query, subject, level: String(level), session },
+        filters,
         page: safePage,
         pageSize: safePageSize,
       }),
@@ -1341,10 +1465,7 @@ export async function loadPublishedCoursePage(args: {
       String(args.academicYear),
       String(safePage),
       String(safePageSize),
-      query,
-      subject,
-      String(level),
-      session,
+      ...Object.values(filters),
     ],
     {
       revalidate: 300,
