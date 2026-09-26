@@ -19,6 +19,8 @@ import {
 import { DegreeComposition } from "@/ui/dashboard/degree-composition";
 import { AppShell } from "@/ui/shell";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import type { OnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
+import { degreeComposition } from "@/lib/coursemap/degree-composition";
 import {
   cumulativeDashboardUnits,
   currentDashboardTermId,
@@ -70,7 +72,13 @@ function finishLabelFor(
   return `${term?.name ?? last.label} ${last.year}`;
 }
 
-export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
+export function Dashboard({
+  catalogue,
+  choices,
+}: {
+  catalogue: PlanCatalogue;
+  choices: OnboardingCatalogue;
+}) {
   const { state } = useCoursemap();
   const previewMetrics = process.env.NODE_ENV === "development";
   const degree = catalogue.degrees.find(
@@ -158,6 +166,31 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
       }),
     [catalogue.structureRequirements, planningCatalogue, state.attempts],
   );
+
+  const composition = useMemo(() => {
+    const inYear = <T extends { catalogueYear: number }>(items: T[]) =>
+      items.filter((item) => item.catalogueYear === catalogue.academicYear);
+    return degreeComposition({
+      degreeUnits: unitTarget,
+      profile: state.profile,
+      programme:
+        inYear(choices.degrees).find(
+          (item) => item.code === state.profile.degreeCode,
+        ) ?? null,
+      structureOptions: [...inYear(choices.majors), ...inYear(choices.minors)],
+      requirements: catalogue.structureRequirements,
+      attempts: state.attempts,
+      catalogue: planningCatalogue,
+    });
+  }, [
+    catalogue.academicYear,
+    catalogue.structureRequirements,
+    choices,
+    planningCatalogue,
+    state.attempts,
+    state.profile,
+    unitTarget,
+  ]);
 
   const academicInputs = useMemo(
     () => ({ ...planningCatalogue, attempts: state.attempts }),
@@ -313,6 +346,8 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
 
         <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
           <DegreeComposition
+            sections={composition}
+            academicYear={catalogue.academicYear}
             courseLinks={Object.fromEntries(
               catalogue.courses.map((course) => [
                 course.code,

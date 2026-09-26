@@ -128,7 +128,7 @@ type CatalogueRecordRow = {
   id: number;
 };
 
-function isPlanStructureKind(value: string): value is PlanStructureKind {
+export function isPlanStructureKind(value: string): value is PlanStructureKind {
   return ["programme", "major", "minor", "specialisation"].includes(value);
 }
 

@@ -1,5 +1,6 @@
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import { loadOnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
 import { Dashboard } from "./dashboard";
 
 export const dynamic = "force-dynamic";
@@ -9,13 +10,17 @@ export const dynamic = "force-dynamic";
  * which offers onboarding, rather than being redirected into it.
  */
 export default async function DashboardPage() {
-  let catalogue;
+  let data;
   try {
-    catalogue = await loadCurrentUserPlanCatalogue();
+    const [catalogue, choices] = await Promise.all([
+      loadCurrentUserPlanCatalogue(),
+      loadOnboardingCatalogue(),
+    ]);
+    data = { catalogue, choices };
   } catch {
     return (
       <PlanningCatalogueError pageTitle="Dashboard" retryHref="/dashboard" />
     );
   }
-  return <Dashboard catalogue={catalogue} />;
+  return <Dashboard {...data} />;
 }
