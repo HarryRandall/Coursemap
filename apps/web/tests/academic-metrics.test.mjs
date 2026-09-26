@@ -34,9 +34,9 @@ const terms = [
 ];
 
 const courses = [
-  { code: "COMP1100", year: 2025, units: 6 },
-  { code: "MATH1005", year: 2025, units: 6 },
-  { code: "COMP2100", year: 2025, units: 12 },
+  { code: "COMP1100", year: 2025, units: 6, domesticFee: 1110 },
+  { code: "MATH1005", year: 2025, units: 6, domesticFee: null },
+  { code: "COMP2100", year: 2025, units: 12, domesticFee: 2400 },
 ];
 
 const attempt = (overrides) => ({
@@ -128,75 +128,73 @@ test("returns every grade band so an empty band still holds its place", () => {
   );
 });
 
-test("prices per-unit fees by the units actually attempted", () => {
+test("lists each semester's marked courses and its grade point average", () => {
+  const [point] = academicTermPoints({
+    courses,
+    terms,
+    attempts: [
+      attempt({ courseCode: "MATH1005", termId: "2025-s1", mark: 85 }),
+      attempt({ courseCode: "COMP1100", termId: "2025-s1", mark: 65 }),
+    ],
+  });
+  assert.deepEqual(point.marks, [
+    { code: "COMP1100", mark: 65 },
+    { code: "MATH1005", mark: 85 },
+  ]);
+  // A credit (5) and a high distinction (7) over equal units.
+  assert.equal(point.gpa, 6);
+});
+
+test("reads grade points from a grade code when no mark is recorded", () => {
+  const { gpa } = academicSummary({
+    courses,
+    terms,
+    attempts: [
+      attempt({ courseCode: "COMP1100", termId: "2025-s1", resultCode: "HD" }),
+      attempt({ courseCode: "MATH1005", termId: "2025-s1", resultCode: "CR" }),
+    ],
+  });
+  assert.equal(gpa, 6);
+});
+
+test("a mark decides grade points even when a grade code is stored", () => {
+  const { gpa } = academicSummary({
+    courses,
+    terms,
+    attempts: [
+      attempt({
+        courseCode: "COMP1100",
+        termId: "2025-s1",
+        mark: 72,
+        resultCode: "D",
+      }),
+    ],
+  });
+  assert.equal(gpa, 6);
+});
+
+test("sums each course's raw domestic fee by study year", () => {
   const estimate = tuitionEstimate({
     courses,
     attempts: [
-      attempt({ courseCode: "COMP2100", termId: "2025-s1", status: "planned" }),
+      attempt({ courseCode: "COMP1100", termId: "2025-s1" }),
+      attempt({ courseCode: "COMP2100", termId: "2026-s1", status: "planned" }),
+      attempt({ courseCode: "MATH1005", termId: "2026-s1", status: "planned" }),
     ],
-    fees: new Map([
-      [
-        "COMP2100",
-        [
-          {
-            amount: 100,
-            audience: "domestic",
-            basis: "unit",
-            currency: "AUD",
-            feeType: "student_contribution",
-            feeYear: 2025,
-          },
-        ],
-      ],
-    ]),
   });
-  assert.equal(estimate.total, 1200);
-  assert.equal(estimate.pricedCourses, 1);
-  assert.equal(estimate.feeYear, 2025);
+  assert.equal(estimate.total, 3510);
+  assert.equal(estimate.pricedCourses, 2);
+  assert.equal(estimate.plannedCourses, 3);
+  assert.deepEqual(estimate.byYear, [
+    { year: 2025, amount: 1110, courses: 1 },
+    { year: 2026, amount: 2400, courses: 1 },
+  ]);
 });
 
 test("returns null rather than a zero estimate when no fee is published", () => {
   const estimate = tuitionEstimate({
     courses,
-    attempts: [
-      attempt({ courseCode: "COMP1100", termId: "2025-s1", status: "planned" }),
-    ],
-    fees: new Map(),
+    attempts: [attempt({ courseCode: "MATH1005", termId: "2025-s1" })],
   });
   assert.equal(estimate, null);
-});
-
-test("ignores fees for another audience and unattributable bases", () => {
-  const fees = new Map([
-    [
-      "COMP1100",
-      [
-        {
-          amount: 5000,
-          audience: "international",
-          basis: "course",
-          currency: "AUD",
-          feeType: "tuition",
-          feeYear: 2025,
-        },
-        {
-          amount: 40000,
-          audience: "domestic",
-          basis: "annual",
-          currency: "AUD",
-          feeType: "tuition",
-          feeYear: 2025,
-        },
-      ],
-    ],
-  ]);
-  const attempts = [
-    attempt({ courseCode: "COMP1100", termId: "2025-s1", status: "planned" }),
-  ];
-  assert.equal(tuitionEstimate({ courses, attempts, fees }), null);
-  assert.equal(
-    tuitionEstimate({ courses, attempts, fees, audience: "international" })
-      .total,
-    5000,
-  );
 });
