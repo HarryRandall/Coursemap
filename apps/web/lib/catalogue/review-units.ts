@@ -147,11 +147,29 @@ export function catalogueReviewUnitMap(content: CatalogueContent | null) {
  * that match nothing stay with the content they were already on, because an
  * accepted field must never relabel a field nobody decided on.
  */
+/**
+ * Model fields that land in review units under other names: a course's unit
+ * value becomes its unit kind, counts and options, and its offerings become
+ * the offering and its sessions.
+ */
+const MODEL_FIELD_UNITS: Record<string, readonly string[]> = {
+  unitValue: [
+    "course.details.unitValueKind",
+    "course.details.units",
+    "course.details.minimumUnits",
+    "course.details.maximumUnits",
+    "course.unitOptions",
+  ],
+  offerings: ["course.offering", "course.sessions"],
+};
+
 export function evidenceBelongsToReviewUnit(
   fieldPath: string,
   evidencePath: string | null,
 ) {
   if (!evidencePath) return false;
+  const root = evidencePath.split(/[.[]/)[0] ?? evidencePath;
+  if (MODEL_FIELD_UNITS[root]?.includes(fieldPath)) return true;
   const leaf = fieldPath.split(".").pop() ?? fieldPath;
   return (
     evidencePath === fieldPath ||

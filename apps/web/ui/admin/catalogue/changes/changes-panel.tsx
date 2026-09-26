@@ -1,12 +1,22 @@
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
-import { isCertainFirstRead } from "@/lib/catalogue/first-read";
+import {
+  type FirstReadItem,
+  isCertainFirstRead,
+} from "@/lib/catalogue/first-read";
 import {
   noteBelongsToReviewUnit,
   type summariseReviewNotes,
 } from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
+import { AllFields } from "./all-fields";
 import { FirstReadReview } from "./first-read-review";
 import { UnreadParts } from "./model-notes";
 import type { ReviewSubject } from "./review-value";
@@ -80,6 +90,7 @@ export function CatalogueChangesPanel({
   kindLabel,
   notes = null,
   subject = null,
+  allFields = [],
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -93,6 +104,8 @@ export function CatalogueChangesPanel({
   notes?: ReturnType<typeof summariseReviewNotes> | null;
   /** The course or structure itself, for drawing requirement rules. */
   subject?: ReviewSubject | null;
+  /** Every filled field as the draft holds it, rated like a first reading. */
+  allFields?: readonly FirstReadItem[];
 }) {
   const conflicts = review?.conflicts ?? [];
   const firstRead = (review?.firstRead ?? []).filter(
@@ -126,7 +139,7 @@ export function CatalogueChangesPanel({
   // The empty state reaches the page floor only when nothing follows it.
   const fillsPage = isEmpty && overrides.length === 0 && !showUnpublished;
 
-  return (
+  const toReview = (
     <div className={cn("flex flex-col gap-8", fillsPage && "flex-1")}>
       <UnreadParts errors={unreadParts} />
       {firstRead.length ? (
@@ -210,5 +223,33 @@ export function CatalogueChangesPanel({
         </Section>
       ) : null}
     </div>
+  );
+  if (allFields.length === 0) return toReview;
+  const openPaths = new Set(open.map((change) => change.fieldPath));
+  return (
+    <Tabs defaultValue="review" className="gap-6">
+      <TabsList aria-label="Changes view">
+        <TabsTrigger value="review">
+          To review
+          <span className="text-muted-foreground tabular-nums">
+            {conflicts.length +
+              incoming.length +
+              firstRead.filter((change) => change.band !== "accepted").length}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="all">
+          All fields
+          <span className="text-muted-foreground tabular-nums">
+            {allFields.length}
+          </span>
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="review" className="flex flex-col">
+        {toReview}
+      </TabsContent>
+      <TabsContent value="all">
+        <AllFields items={allFields} openPaths={openPaths} />
+      </TabsContent>
+    </Tabs>
   );
 }

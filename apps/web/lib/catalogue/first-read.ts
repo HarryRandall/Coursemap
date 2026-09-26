@@ -13,7 +13,8 @@ import {
  *   Coursemap cannot check. Publishing waits until each one is approved or
  *   corrected.
  * - `check`: probably right, but worth a look. Approve in bulk.
- * - `accepted`: stated plainly on the page. Folded away, and reopenable.
+ * - `accepted`: stated plainly on the page, or given no confidence at all.
+ *   Folded away, and reopenable.
  */
 export type FirstReadBand = "needs_review" | "check" | "accepted";
 
@@ -23,14 +24,19 @@ export const NEEDS_REVIEW_BELOW = 0.7;
 export const ACCEPTED_FROM = 0.9;
 
 /**
- * Read with full confidence and nothing flagged: the draft already holds it
- * and there is nothing for a person to add, so review leaves it out.
+ * Taken as read without a person: nothing flagged, and either read with full
+ * confidence or given no confidence to judge by. The draft already holds the
+ * value, so review leaves it out and lists it only among all fields.
  */
 export function isCertainFirstRead(item: {
   band: FirstReadBand | null;
   confidence: number | null;
 }) {
-  return item.band === "accepted" && item.confidence === 1;
+  return (
+    item.band !== null &&
+    item.band !== "needs_review" &&
+    (item.confidence === 1 || item.confidence === null)
+  );
 }
 
 export type FirstReadItem = {
@@ -122,8 +128,8 @@ export function classifyFirstRead(content: CatalogueContent): FirstReadItem[] {
       band = "check";
       reason = warning.message;
     } else if (confidence === null) {
-      band = "check";
-      reason = "No evidence was given for this";
+      band = "accepted";
+      reason = "No confidence was given, so it was taken as read";
     } else if (confidence < ACCEPTED_FROM) {
       band = "check";
       reason = "Probably right, worth a look";

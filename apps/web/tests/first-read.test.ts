@@ -49,10 +49,10 @@ test("confidence sorts plain readings from ones worth a look", () => {
     band: "check",
     confidence: 0.82,
   });
+  // With no confidence to judge by, the reading is taken as read.
   expect(band(content, "course.details.convenerText")).toMatchObject({
-    band: "check",
+    band: "accepted",
     confidence: null,
-    reason: "No evidence was given for this",
   });
   // Empty parts of the reading have nothing to review.
   expect(band(content, "course.details.workloadText")).toBeUndefined();
@@ -124,4 +124,17 @@ test("a rule split from one sentence needs review, as COMP2710's permission did"
     band: "needs_review",
     reason: "One sentence was split into several conditions",
   });
+});
+
+test("a course's unit value evidence rates its unit kind and count", () => {
+  const content = course();
+  content.evidence.push({
+    fieldPath: "unitValue",
+    method: "model",
+    confidence: 0.95,
+    sourceLocator: null,
+    sourceExcerpt: null,
+  });
+  expect(band(content, "course.details.unitValueKind")?.confidence).toBe(0.95);
+  expect(band(content, "course.details.units")?.confidence).toBe(0.95);
 });

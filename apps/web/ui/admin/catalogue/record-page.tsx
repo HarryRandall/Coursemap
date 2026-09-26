@@ -16,6 +16,10 @@ import {
   loadVersionReviewNotes,
   loadVersionWrite,
 } from "@/lib/coursemap/admin-catalogue-record";
+import {
+  classifyFirstRead,
+  isCertainFirstRead,
+} from "@/lib/catalogue/first-read";
 import { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import { courseDetailsFromWrite } from "@/lib/coursemap/course-version-view";
 import {
@@ -132,8 +136,9 @@ export async function CatalogueRecordPage({
   const openChanges =
     (review?.conflicts.length ?? 0) +
     (review?.incoming.length ?? 0) +
-    (review?.firstRead.filter((change) => change.band !== "accepted").length ??
-      0);
+    (review?.firstRead.filter(
+      (change) => change.band !== "accepted" && !isCertainFirstRead(change),
+    ).length ?? 0);
 
   return (
     <RecordTabs value={section} path={path}>
@@ -197,6 +202,7 @@ export async function CatalogueRecordPage({
                 path={path}
                 recordId={record.recordId}
                 review={review}
+                allFields={classifyFirstRead(draft.content)}
                 subject={
                   kind === "course" ? { code: record.code, academicYear } : null
                 }
