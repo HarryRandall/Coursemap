@@ -100,8 +100,7 @@ export function termSuggestions({
         if (
           seen.has(course.code) ||
           planned.has(course.code) ||
-          (course.sessions.length > 0 &&
-            !courseIsAvailable(course, term.name))
+          (course.sessions.length > 0 && !courseIsAvailable(course, term.name))
         )
           return;
         seen.add(course.code);
