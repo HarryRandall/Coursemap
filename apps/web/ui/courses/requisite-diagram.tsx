@@ -371,7 +371,9 @@ export function RequisiteDiagram({
   const mergeX = REQUIRES_W + MERGE_GAP;
   const courseX = mergeX + (merges ? 44 : 0);
   const unlockX = courseX + COURSE_W + UNLOCK_GAP;
-  const width = unlockX + UNLOCK_W;
+  // With nothing known to follow, the column is left out rather than filled
+  // with a placeholder, and the diagram closes on the course.
+  const width = unlocks.length ? unlockX + UNLOCK_W : courseX + COURSE_W;
   const spineX = courseX + COURSE_W + UNLOCK_GAP / 2;
   const unlockTop = mid - unlockTotal / 2;
   const unlockCentre = (index: number) =>
@@ -388,9 +390,11 @@ export function RequisiteDiagram({
           <p className="absolute" style={{ left: courseX, width: COURSE_W }}>
             This course
           </p>
-          <p className="absolute" style={{ left: unlockX, width: UNLOCK_W }}>
-            Unlocks
-          </p>
+          {unlocks.length ? (
+            <p className="absolute" style={{ left: unlockX, width: UNLOCK_W }}>
+              Unlocks
+            </p>
+          ) : null}
         </div>
         <div className="relative" style={{ height }}>
           <svg
@@ -505,39 +509,23 @@ export function RequisiteDiagram({
             ) : null}
           </div>
 
-          {unlocks.length === 0 ? (
-            <Placeholder
-              label={
-                unlocksAreKnown
-                  ? "No published course lists this one"
-                  : "Not known yet"
+          {unlocks.map((unlock, index) => (
+            <CourseCard
+              key={unlock.code}
+              code={unlock.code}
+              academicYear={academicYear}
+              available={
+                unlock.isAvailable || availableCourseCodes.has(unlock.code)
               }
+              met={false}
+              className="absolute"
               style={{
                 left: unlockX,
                 width: UNLOCK_W,
-                top: mid - EMPTY_H / 2,
-                height: EMPTY_H,
+                top: unlockCentre(index) - CARD / 2,
               }}
             />
-          ) : (
-            unlocks.map((unlock, index) => (
-              <CourseCard
-                key={unlock.code}
-                code={unlock.code}
-                academicYear={academicYear}
-                available={
-                  unlock.isAvailable || availableCourseCodes.has(unlock.code)
-                }
-                met={false}
-                className="absolute"
-                style={{
-                  left: unlockX,
-                  width: UNLOCK_W,
-                  top: unlockCentre(index) - CARD / 2,
-                }}
-              />
-            ))
-          )}
+          ))}
         </div>
 
         {incompatible.length ? (

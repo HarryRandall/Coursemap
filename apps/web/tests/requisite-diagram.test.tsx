@@ -130,3 +130,10 @@ test("a course with nothing on either side explains the gap", () => {
     ),
   ).toBeInTheDocument();
 });
+
+test("with nothing known to follow, the unlocks column is left out", () => {
+  renderDiagram({ unlocks: [], unlocksAreKnown: false });
+  expect(screen.queryByText("Unlocks")).not.toBeInTheDocument();
+  expect(screen.queryByText("Not known yet")).not.toBeInTheDocument();
+  expect(screen.getByText("This course")).toBeInTheDocument();
+});
