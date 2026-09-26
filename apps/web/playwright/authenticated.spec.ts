@@ -82,9 +82,7 @@ test("course selection persists in an independent student plan", async ({
     page.getByRole("button", { name: "Add an unscheduled course" }),
   ).toBeFocused();
   await page.getByRole("button", { name: "Add an unscheduled course" }).click();
-  await dialog
-    .getByPlaceholder("Search by course code or name")
-    .fill("COMP1100");
+  await dialog.getByPlaceholder(/courses by code or name/).fill("COMP1100");
   await dialog.getByRole("option", { name: /COMP1100/ }).click();
   await dialog.getByRole("button", { name: /Add to/ }).click();
   await expect(dialog).not.toBeVisible();

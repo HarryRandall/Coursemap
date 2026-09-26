@@ -70,6 +70,8 @@ export const test = base.extend<{
     });
     try {
       await sql`insert into public.plans (owner_id, academic_year_id, name, is_primary, commencement_year, study_load) select ${student.id}::uuid, id, 'Browser regression plan', true, 2026, 'full_time' from public.academic_years where year = 2026`;
+      // A plan without a degree shows the onboarding prompt, not the planner.
+      await sql`insert into public.plan_structures (plan_id, owner_id, catalogue_record_id, role) select plans.id, plans.owner_id, records.id, 'programme' from public.plans join public.catalogue_records as records on records.academic_year_id = plans.academic_year_id join public.catalogue_codes as codes on codes.id = records.code_id where plans.owner_id = ${student.id}::uuid and codes.code = 'LOCAL-PROGRAMME'`;
       await provide(student);
     } finally {
       await sql.end();
