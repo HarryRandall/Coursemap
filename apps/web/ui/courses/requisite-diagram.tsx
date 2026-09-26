@@ -58,6 +58,10 @@ function heightOf(node: CourseRuleExpression): number {
   );
 }
 
+/** Met is the checklist's own verdict, so the graph and the steps agree. */
+const isMet = (node: CourseRuleExpression, student: StudentRecord | null) =>
+  student ? evaluateRule(node, student).status === "met" : false;
+
 const courseHref = (year: number, code: string) =>
   `/courses/${year}/${code.toLowerCase()}`;
 
@@ -108,10 +112,19 @@ function CourseCard({
       <span
         style={style}
         title={`${code}: course details unavailable`}
-        className={cn(box, "border-border bg-muted/40 text-muted-foreground")}
+        className={cn(
+          box,
+          met
+            ? "border-success/40 bg-success/5"
+            : "border-border bg-muted/40 text-muted-foreground",
+        )}
       >
         <span className="font-mono text-[13px] font-semibold">{code}</span>
-        <LockKeyhole className="size-3.5" aria-hidden="true" />
+        {met ? (
+          <Met />
+        ) : (
+          <LockKeyhole className="size-3.5" aria-hidden="true" />
+        )}
       </span>
     );
   }
@@ -156,7 +169,7 @@ function Leaf({
   style?: CSSProperties;
   className?: string;
 }) {
-  const met = student ? evaluateRule(node, student).status === "met" : false;
+  const met = isMet(node, student);
   if (node.kind === "course") {
     return (
       <CourseCard
@@ -250,6 +263,7 @@ function GroupBox({
   className?: string;
 }) {
   const choice = group.operator !== "all_of";
+  const met = isMet(group, shared.student);
   return (
     <div
       role="group"
@@ -257,9 +271,12 @@ function GroupBox({
       style={{ ...style, height: heightOf(group), padding: PAD }}
       className={cn(
         "rounded-xl border",
-        choice
-          ? "border-dashed border-primary/50 bg-primary/[0.04]"
-          : "border-border bg-muted/30",
+        choice && "border-dashed",
+        met
+          ? "border-success/50 bg-success/[0.04]"
+          : choice
+            ? "border-primary/50 bg-primary/[0.04]"
+            : "border-border bg-muted/30",
         className,
       )}
     >
@@ -267,10 +284,15 @@ function GroupBox({
         style={{ height: HEADER }}
         className={cn(
           "px-1 text-[10px] font-bold tracking-wider uppercase",
-          choice ? "text-primary" : "text-muted-foreground",
+          met
+            ? "text-success"
+            : choice
+              ? "text-primary"
+              : "text-muted-foreground",
         )}
       >
         {groupLabel(group)}
+        {met ? <span className="sr-only"> (met)</span> : null}
       </p>
       {group.conditions.map((child, index) => (
         <div key={index}>
@@ -286,21 +308,21 @@ function GroupBox({
   );
 }
 
-function Head({ x, y }: { x: number; y: number }) {
+function Head({ x, y, met = false }: { x: number; y: number; met?: boolean }) {
   return (
     <path
       d={`M ${x - 8} ${y - 4.5} L ${x} ${y} L ${x - 8} ${y + 4.5} z`}
-      className="fill-muted-foreground/80"
+      className={met ? "fill-success" : "fill-muted-foreground/80"}
     />
   );
 }
 
-function Line({ d }: { d: string }) {
+function Line({ d, met = false }: { d: string; met?: boolean }) {
   return (
     <path
       d={d}
       fill="none"
-      className="stroke-muted-foreground/55"
+      className={met ? "stroke-success" : "stroke-muted-foreground/55"}
       strokeWidth={1.5}
     />
   );
@@ -391,8 +413,15 @@ export function RequisiteDiagram({
       heights
         .slice(0, index)
         .reduce((total, entryHeight) => total + entryHeight + ENTRY_GAP, 0);
-    return { node, top, anchor: top + heights[index]! / 2 };
+    return {
+      node,
+      top,
+      anchor: top + heights[index]! / 2,
+      met: isMet(node, student),
+    };
   });
+  // The arrow into the course turns green only once every requirement is met.
+  const allMet = placed.length > 0 && placed.every((entry) => entry.met);
 
   const merges = placed.length > 1;
   const mergeX = REQUIRES_W + MERGE_GAP;
@@ -438,6 +467,7 @@ export function RequisiteDiagram({
                   return (
                     <Line
                       key={entry.anchor}
+                      met={entry.met}
                       d={`M ${REQUIRES_W} ${entry.anchor} C ${bend} ${entry.anchor}, ${bend} ${mid}, ${mergeX} ${mid}`}
                     />
                   );
@@ -446,15 +476,18 @@ export function RequisiteDiagram({
                   cx={mergeX}
                   cy={mid}
                   r={3.5}
-                  className="fill-muted-foreground"
+                  className={allMet ? "fill-success" : "fill-muted-foreground"}
                 />
-                <Line d={`M ${mergeX} ${mid} H ${courseX - 2}`} />
-                <Head x={courseX - 2} y={mid} />
+                <Line met={allMet} d={`M ${mergeX} ${mid} H ${courseX - 2}`} />
+                <Head met={allMet} x={courseX - 2} y={mid} />
               </>
             ) : placed.length === 1 ? (
               <>
-                <Line d={`M ${REQUIRES_W} ${mid} H ${courseX - 2}`} />
-                <Head x={courseX - 2} y={mid} />
+                <Line
+                  met={allMet}
+                  d={`M ${REQUIRES_W} ${mid} H ${courseX - 2}`}
+                />
+                <Head met={allMet} x={courseX - 2} y={mid} />
               </>
             ) : null}
             {unlocks.length === 1 ? (
