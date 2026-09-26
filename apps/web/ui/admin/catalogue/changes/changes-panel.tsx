@@ -1,11 +1,25 @@
-import Link from "next/link";
-
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
-import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
+import {
+  type FirstReadItem,
+  isCertainFirstRead,
+} from "@/lib/catalogue/first-read";
+import {
+  noteBelongsToReviewUnit,
+  type summariseReviewNotes,
+} from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
-import { ModelNotes } from "./model-notes";
+import { AllFields } from "./all-fields";
+import { FirstReadReview } from "./first-read-review";
+import { UnreadParts } from "./model-notes";
+import type { ReviewSubject } from "./review-value";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
 
@@ -74,8 +88,9 @@ export function CatalogueChangesPanel({
   hasEverSynced,
   isPublished,
   kindLabel,
-  latestSync = null,
   notes = null,
+  subject = null,
+  allFields = [],
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -85,14 +100,33 @@ export function CatalogueChangesPanel({
   hasEverSynced: boolean;
   isPublished: boolean;
   kindLabel: string;
-  /** The check these changes came out of, for readers allowed to open it. */
-  latestSync?: { id: string; completedAt: string | null } | null;
   /** What the model flagged on the latest ANU version. */
   notes?: ReturnType<typeof summariseReviewNotes> | null;
+  /** The course or structure itself, for drawing requirement rules. */
+  subject?: ReviewSubject | null;
+  /** Every filled field as the draft holds it, rated like a first reading. */
+  allFields?: readonly FirstReadItem[];
 }) {
   const conflicts = review?.conflicts ?? [];
+  const firstRead = (review?.firstRead ?? []).filter(
+    (change) => !isCertainFirstRead(change),
+  );
   const incoming = review?.incoming ?? [];
   const overrides = review?.overrides ?? [];
+  // The model's notes ride on the change they are about and clear with it;
+  // uncertainty already shows as each card's confidence.
+  const flagged = notes ? [...notes.errors, ...notes.warnings] : [];
+  const open = [...firstRead, ...conflicts, ...incoming, ...overrides];
+  const notesFor = (fieldPath: string) =>
+    flagged.filter((note) =>
+      noteBelongsToReviewUnit(fieldPath, note.fieldPath),
+    );
+  const unreadParts = (notes?.errors ?? []).filter(
+    (note) =>
+      !open.some((change) =>
+        noteBelongsToReviewUnit(change.fieldPath, note.fieldPath),
+      ),
+  );
   const unpublishedCount = isPublished ? unpublished.length : 0;
   const empty = reviewEmptyState({
     hasEverSynced,
@@ -100,33 +134,29 @@ export function CatalogueChangesPanel({
     kindLabel,
   });
   const showUnpublished = unpublishedCount > 0;
-  const isEmpty = conflicts.length === 0 && incoming.length === 0;
+  const isEmpty =
+    conflicts.length === 0 && incoming.length === 0 && firstRead.length === 0;
   // The empty state reaches the page floor only when nothing follows it.
   const fillsPage = isEmpty && overrides.length === 0 && !showUnpublished;
 
-  return (
+  const toReview = (
     <div className={cn("flex flex-col gap-8", fillsPage && "flex-1")}>
-      {/*
-        Everything on this tab is the output of a sync, so the sync that
-        produced it is named here rather than left to be found in Activity.
-      */}
-      {latestSync ? (
-        <p className="text-sm text-muted-foreground">
-          {latestSync.completedAt
-            ? `Last checked against ANU on ${new Intl.DateTimeFormat("en-AU", {
-                dateStyle: "long",
-                timeStyle: "short",
-              }).format(new Date(latestSync.completedAt))}. `
-            : "A check against ANU is under way. "}
-          <Link
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-            href={`/admin/operations/catalogue/syncs/${latestSync.id}`}
-          >
-            Sync diagnostics
-          </Link>
-        </p>
+      <UnreadParts errors={unreadParts} />
+      {firstRead.length ? (
+        <FirstReadReview
+          canWrite={canWrite}
+          changes={firstRead}
+          notes={Object.fromEntries(
+            firstRead.map((change) => [
+              change.fieldPath,
+              notesFor(change.fieldPath),
+            ]),
+          )}
+          path={path}
+          recordId={recordId}
+          subject={subject}
+        />
       ) : null}
-      {notes ? <ModelNotes {...notes} /> : null}
       {isEmpty ? (
         <CatalogueEmpty title={empty.title} description={empty.description} />
       ) : null}
@@ -138,8 +168,10 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>
@@ -153,8 +185,10 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>
@@ -174,8 +208,10 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>
@@ -187,5 +223,55 @@ export function CatalogueChangesPanel({
         </Section>
       ) : null}
     </div>
+  );
+  if (allFields.length === 0) return toReview;
+  // Every open row, including first readings taken as read, which are open
+  // but not listed for review.
+  const openFields = Object.fromEntries(
+    [
+      ...(review?.firstRead ?? []).filter(
+        (change) => !isCertainFirstRead(change),
+      ),
+      ...conflicts,
+      ...incoming,
+    ].map((change) => [
+      change.fieldPath,
+      {
+        changeId: change.id,
+        approvable: change.classification === "first_read" && !change.isStale,
+      },
+    ]),
+  );
+  return (
+    <Tabs defaultValue="review" className="gap-6">
+      <TabsList aria-label="Changes view">
+        <TabsTrigger value="review">
+          To review
+          <span className="text-muted-foreground tabular-nums">
+            {conflicts.length +
+              incoming.length +
+              firstRead.filter((change) => change.band !== "accepted").length}
+          </span>
+        </TabsTrigger>
+        <TabsTrigger value="all">
+          All fields
+          <span className="text-muted-foreground tabular-nums">
+            {allFields.length}
+          </span>
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="review" className="flex flex-col">
+        {toReview}
+      </TabsContent>
+      <TabsContent value="all">
+        <AllFields
+          canWrite={canWrite}
+          items={allFields}
+          open={openFields}
+          path={path}
+          recordId={recordId}
+        />
+      </TabsContent>
+    </Tabs>
   );
 }

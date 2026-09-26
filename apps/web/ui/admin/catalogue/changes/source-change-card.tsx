@@ -8,9 +8,30 @@ import type {
   SourceReviewChange,
   SourceReviewDecision,
 } from "@/lib/catalogue/source-review-store";
+import type { ReviewNote } from "@/lib/catalogue/review-notes";
 import { resolveSourceChangeAction } from "@/lib/coursemap/admin-catalogue-actions";
-import { ReviewValue } from "./review-value";
+import { confidenceLabel } from "./first-read-review";
+import { CardNotes } from "./model-notes";
+import { ReviewDiff } from "./review-diff";
+import { type ReviewSubject, ReviewValue } from "./review-value";
 import { showToast } from "@/ui/common/toast";
+
+function Fold({
+  summary,
+  children,
+}: {
+  summary: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details>
+      <summary className="cursor-pointer text-sm text-muted-foreground underline-offset-4 hover:underline">
+        {summary}
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
+}
 
 // The section heading already says a row was kept or has converged, so only
 // the two actionable classifications carry a badge of their own.
@@ -31,11 +52,15 @@ export function SourceChangeCard({
   recordId,
   path,
   canWrite,
+  subject = null,
+  notes = [],
 }: {
   change: SourceReviewChange;
   recordId: number;
   path: string;
   canWrite: boolean;
+  subject?: ReviewSubject | null;
+  notes?: readonly ReviewNote[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -62,43 +87,62 @@ export function SourceChangeCard({
     <article className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{change.label}</h3>
-        {CLASSIFICATION_LABELS[change.classification] ? (
-          <Badge
-            variant={
-              change.classification === "conflict"
-                ? "warning-light"
-                : "info-light"
-            }
-          >
-            {CLASSIFICATION_LABELS[change.classification]}
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="tabular-nums">
+            {confidenceLabel(change.confidence)}
           </Badge>
-        ) : null}
+          {CLASSIFICATION_LABELS[change.classification] ? (
+            <Badge
+              variant={
+                change.classification === "conflict"
+                  ? "warning-light"
+                  : "info-light"
+              }
+            >
+              {CLASSIFICATION_LABELS[change.classification]}
+            </Badge>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      <CardNotes notes={notes} />
+      {change.isStale || change.classification === "conflict" ? (
+        <p className="mt-1 text-sm text-muted-foreground">
+          {change.isStale
+            ? "You changed this after the review was created."
+            : "Changed by hand since the last check."}
+        </p>
+      ) : null}
+      <div className="mt-3 flex flex-col gap-3">
+        {/* What choosing ANU would do to the draft as it stands. */}
+        <ReviewDiff
+          before={change.localValue}
+          after={change.incomingSourceValue}
+          beforeLabel="Current"
+          afterLabel={isOverride ? "ANU" : "New ANU"}
+          unitKind={change.unitKind}
+        />
         {change.classification === "conflict" && change.hasBaseSource ? (
-          <ReviewValue
-            label="Previous ANU"
-            value={change.baseSourceValue}
-            unitKind={change.unitKind}
-          />
+          <Fold summary="What ANU changed since the last check">
+            <ReviewDiff
+              before={change.baseSourceValue}
+              after={change.incomingSourceValue}
+              beforeLabel="Previous ANU"
+              afterLabel="New ANU"
+              unitKind={change.unitKind}
+            />
+          </Fold>
         ) : null}
-        <ReviewValue
-          label="Current"
-          value={change.localValue}
-          unitKind={change.unitKind}
-          note={
-            change.isStale
-              ? "You changed this after the review was created."
-              : change.classification === "conflict"
-                ? "Manually changed"
-                : undefined
-          }
-        />
-        <ReviewValue
-          label={isOverride ? "ANU" : "New ANU"}
-          value={change.incomingSourceValue}
-          unitKind={change.unitKind}
-        />
+        {change.unitKind === "requirement_rule" &&
+        change.incomingSourceValue !== null ? (
+          <Fold summary="View the ANU rule">
+            <ReviewValue
+              label={isOverride ? "ANU" : "New ANU"}
+              value={change.incomingSourceValue}
+              unitKind={change.unitKind}
+              subject={subject}
+            />
+          </Fold>
+        ) : null}
       </div>
       {canWrite ? (
         <div className="mt-4 flex flex-wrap gap-2">
