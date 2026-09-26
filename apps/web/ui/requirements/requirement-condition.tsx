@@ -32,11 +32,67 @@ import type {
 import { RequirementCourseOptions } from "./requirement-course-options";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 
+/** The courses a rule holds, and any a degree-wide cap turned away. */
+function CountedCourses({
+  condition,
+  context,
+}: {
+  condition: RequirementTreeCondition;
+  context: TreeContext;
+}) {
+  const key = requirementNodeKey(condition);
+  const progress = context.progress.get(key);
+  if (!context.placement || !progress || progress.state === "unmeasured") {
+    return null;
+  }
+  const overCap = [...context.placement.allocation]
+    .filter(([, placement]) => placement.overCapKey === key)
+    .map(([code]) => code);
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <UnitsBar progress={progress} />
+      <p className="text-xs text-muted-foreground">
+        {progress.completedUnits} units completed · {progress.plannedUnits}{" "}
+        planned
+      </p>
+      {progress.matchedCourseCodes.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Counting here">
+          {progress.matchedCourseCodes.map((code) => (
+            <li
+              key={code}
+              className="rounded-md border border-border px-2 py-0.5 font-mono text-xs font-semibold"
+            >
+              {code}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {overCap.length ? (
+        <p className="text-xs text-destructive">
+          Over this limit, so counting towards nothing: {overCap.join(", ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Rules that read every course the degree counts rather than using any up. */
+function spansDegree(condition: RequirementTreeCondition) {
+  return (
+    condition.scope === "degree" ||
+    (condition.maximumUnits !== null &&
+      condition.minimumUnits === null &&
+      condition.minimumCourses === null)
+  );
+}
+
 /** A rule with no course list of its own: units, levels, tags and electives. */
 function StatedCondition({
   condition,
+  context,
 }: {
   condition: RequirementTreeCondition;
+  context?: TreeContext;
 }) {
   const tone = conditionTone(condition);
   const interpretation =
@@ -68,8 +124,15 @@ function StatedCondition({
             {interpretation}
           </p>
         </div>
-        {tone === "limit" ? <Badge variant="secondary">Limit</Badge> : null}
+        {tone === "limit" ? (
+          <Badge variant="secondary">Limit</Badge>
+        ) : spansDegree(condition) ? (
+          <Badge variant="secondary">Whole degree</Badge>
+        ) : null}
       </div>
+      {context ? (
+        <CountedCourses condition={condition} context={context} />
+      ) : null}
     </section>
   );
 }
@@ -175,18 +238,27 @@ export function RequirementCondition({
     condition.minimumUnits,
     condition.maximumUnits,
   );
-  if (options.length === 0) return <StatedCondition condition={condition} />;
+  if (options.length === 0) {
+    return <StatedCondition condition={condition} context={context} />;
+  }
   const codes = [...new Set(options.map((option) => option.code))];
   const required =
     condition.minimumCourses !== null &&
     condition.minimumCourses >= codes.length;
+  // With a plan behind the view, a course counts here only if it was
+  // allocated here; one this list shares with another rule may count there.
+  const countsHere = (code: string) =>
+    !context.placement || Boolean(progress?.matchedCourseCodes.includes(code));
   const done = codes.filter(
-    (code) => context.attemptStatusByCode.get(code) === "completed",
+    (code) =>
+      countsHere(code) && context.attemptStatusByCode.get(code) === "completed",
   ).length;
-  const planned = codes.filter((code) =>
-    ["planned", "enrolled"].includes(
-      context.attemptStatusByCode.get(code) ?? "",
-    ),
+  const planned = codes.filter(
+    (code) =>
+      countsHere(code) &&
+      ["planned", "enrolled"].includes(
+        context.attemptStatusByCode.get(code) ?? "",
+      ),
   ).length;
   const target = condition.minimumCourses;
   const caption = !showProgress
@@ -238,6 +310,9 @@ export function RequirementCondition({
           <p className="mt-0.5 text-xs text-muted-foreground">
             {units} · {codes.length}{" "}
             {required ? (codes.length === 1 ? "course" : "courses") : "options"}
+            {condition.includesAnyCourse
+              ? " · any other ANU course counts too"
+              : ""}
           </p>
         </div>
         <ChevronDown

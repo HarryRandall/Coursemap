@@ -13,6 +13,7 @@ import { Button } from "@coursemap/ui/primitives/button";
 import { Hint } from "@/ui/common/hint";
 import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
+import type { ReactNode } from "react";
 
 export function RequirementCourseRow({
   code,
@@ -22,6 +23,7 @@ export function RequirementCourseRow({
   required = false,
   showStatus = true,
   onAdd,
+  placement,
 }: {
   code: string;
   course: Course | undefined;
@@ -31,6 +33,8 @@ export function RequirementCourseRow({
   /** Off where no plan sits behind the view, so every card would read the same. */
   showStatus?: boolean;
   onAdd?: (course: Course) => void;
+  /** Where the course counts in the degree, for a course in the plan. */
+  placement?: ReactNode;
 }) {
   const completed = status === "completed";
   const planned = status === "planned" || status === "enrolled";
@@ -122,6 +126,9 @@ export function RequirementCourseRow({
               Add to plan
             </Button>
           )}
+          {placement ? (
+            <div className="relative z-10 w-full">{placement}</div>
+          ) : null}
         </div>
       ) : null}
     </li>

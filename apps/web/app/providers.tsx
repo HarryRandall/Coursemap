@@ -24,6 +24,7 @@ import {
   removePlanCourse,
   saveProfileAndPlan,
   setCurrentUserPlanExtensionYears,
+  setRequirementPlacement,
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
 
@@ -54,6 +55,11 @@ type AppContextValue = {
     attemptedUnits?: number,
   ) => Promise<CoursemapActionResult>;
   removeAttempt: (attemptId: string) => Promise<CoursemapActionResult>;
+  /** Moves a course to a part of the degree, or back to automatic with null. */
+  setPlacement: (
+    courseCode: string,
+    placement: { structureCode: string; requirementKey: string } | null,
+  ) => Promise<CoursemapActionResult>;
   togglePermission: (attemptId: string) => void;
   toggleOverloadApproval: (attemptId: string) => void;
   notify: (message: string, tone?: ToastTone) => void;
@@ -335,6 +341,31 @@ export function AppProvider({
     }));
   }, []);
 
+  const setPlacement = useCallback(
+    async (
+      courseCode: string,
+      placement: { structureCode: string; requirementKey: string } | null,
+    ) => {
+      const previous = state.placements ?? [];
+      const others = previous.filter(
+        (choice) => choice.courseCode !== courseCode,
+      );
+      // The page reallocates at once; a failed save puts the choice back.
+      setState((current) => ({
+        ...current,
+        placements: placement
+          ? [...others, { courseCode, ...placement }]
+          : others,
+      }));
+      const result = await setRequirementPlacement(courseCode, placement);
+      if (!result.ok) {
+        setState((current) => ({ ...current, placements: previous }));
+      }
+      return result;
+    },
+    [state.placements],
+  );
+
   const toggleOverloadApproval = useCallback((attemptId: string) => {
     setState((current) => ({
       ...current,
@@ -357,6 +388,7 @@ export function AppProvider({
       reorderAttempt,
       updateAttempt,
       removeAttempt,
+      setPlacement,
       togglePermission,
       toggleOverloadApproval,
       notify,
@@ -371,6 +403,7 @@ export function AppProvider({
       reorderAttempt,
       updateAttempt,
       removeAttempt,
+      setPlacement,
       togglePermission,
       toggleOverloadApproval,
       notify,

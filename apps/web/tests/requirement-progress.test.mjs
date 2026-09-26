@@ -5,7 +5,8 @@ const { "requirement-progress": progressModule } = {
   "requirement-progress":
     await import("../lib/coursemap/requirement-progress.ts"),
 };
-const { requirementTreeProgress, requirementNodeKey } = progressModule;
+const { allocateRequirements, requirementTreeProgress, requirementNodeKey } =
+  progressModule;
 
 function course(code, level, units = 6) {
   return {
@@ -187,8 +188,8 @@ test("a maximum-only rule reports over_limit once the plan exceeds it", () => {
 
 test("unmeasured mandatory rules prevent certifying their group", () => {
   const tagRule = condition(1, {
-    conditionKind: "tagged_units",
-    tag: "Transdisciplinary Problem-Solving",
+    conditionKind: "other",
+    freeText: "Approval of the program convener",
     minimumUnits: 12,
   });
   const listRule = condition(2, {
@@ -251,22 +252,27 @@ test("an empty tree yields no progress", () => {
   assert.equal(progress.size, 0);
 });
 
-test("a bounded unit rule still enforces its maximum after meeting the minimum", () => {
+test("a part never takes more than its maximum; the extra course counts nowhere", () => {
   const rule = condition(1, {
     conditionKind: "subject_units",
     subjectCode: "COMP",
     minimumUnits: 6,
     maximumUnits: 6,
   });
-  const result = requirementTreeProgress({
-    root: group(10, "all_of", [rule]),
-    attempts: [
-      attempt("a", "COMP1100", "completed"),
-      attempt("b", "COMP1110", "planned"),
-    ],
-    catalogue,
-  });
-  assert.equal(result.get(requirementNodeKey(rule)).state, "over_limit");
+  const root = group(10, "all_of", [rule]);
+  const attempts = [
+    attempt("a", "COMP1100", "completed"),
+    attempt("b", "COMP1110", "planned"),
+  ];
+  const result = requirementTreeProgress({ root, attempts, catalogue });
+  assert.equal(result.get(requirementNodeKey(rule)).state, "satisfied");
+  assert.deepEqual(result.get(requirementNodeKey(rule)).matchedCourseCodes, [
+    "COMP1100",
+  ]);
+  assert.equal(
+    allocateRequirements({ root, attempts, catalogue }).get("COMP1110").nodeKey,
+    null,
+  );
 });
 
 test("completed credit survives a later planned duplicate", () => {
@@ -316,8 +322,8 @@ test("minimum_count requires enough measured alternatives", () => {
     [
       condition(1, { minimumUnits: 6, options: [option("COMP1100")] }),
       condition(2, {
-        conditionKind: "tagged_units",
-        tag: "Unknown",
+        conditionKind: "other",
+        freeText: "Approval of the program convener",
         minimumUnits: 6,
       }),
     ],
@@ -329,4 +335,172 @@ test("minimum_count requires enough measured alternatives", () => {
     catalogue,
   });
   assert.equal(result.get(requirementNodeKey(root)).state, "unmeasured");
+});
+
+const allocationCatalogue = {
+  courses: [
+    course("COMP1100", 1000),
+    course("COMP1110", 1000),
+    course("MATH1013", 1000),
+    course("COMP2100", 2000),
+    course("COMP3600", 3000),
+    course("COMP3620", 3000),
+    course("COMP4450", 4000),
+    course("ARTH2181", 2000),
+    { ...course("PHYS2101", 2000), tags: ["Science"] },
+  ],
+  terms,
+};
+
+/** Shaped like AACOM: caps and minimums "of which", parts it "must include". */
+function degree() {
+  const cap = condition(1, {
+    conditionKind: "level_units",
+    maximumLevel: 1000,
+    maximumUnits: 12,
+    scope: "degree",
+  });
+  const research = condition(2, {
+    conditionKind: "level_units",
+    subjectCode: "COMP",
+    minimumLevel: 4000,
+    minimumUnits: 6,
+    scope: "degree",
+  });
+  const compulsory = condition(3, {
+    minimumUnits: 12,
+    options: [option("COMP2100"), option("COMP3600")],
+  });
+  const advanced = condition(4, {
+    conditionKind: "subject_units",
+    subjectCode: "COMP",
+    minimumLevel: 3000,
+    minimumUnits: 12,
+  });
+  const ict = condition(5, {
+    minimumUnits: 6,
+    options: [option("ARTH2181")],
+    includesAnyCourse: true,
+  });
+  const electives = condition(6, {
+    conditionKind: "elective_units",
+    minimumUnits: 12,
+  });
+  const root = group(10, "all_of", [
+    cap,
+    research,
+    compulsory,
+    advanced,
+    ict,
+    electives,
+  ]);
+  return { root, cap, research, compulsory, advanced, ict, electives };
+}
+
+const allocationAttempts = [
+  attempt("a", "COMP1100", "completed"),
+  attempt("b", "COMP1110", "completed"),
+  attempt("c", "MATH1013", "planned"),
+  attempt("d", "COMP2100", "completed"),
+  attempt("e", "COMP3600", "completed"),
+  attempt("f", "COMP3620", "planned"),
+  attempt("g", "COMP4450", "planned"),
+  attempt("h", "PHYS2101", "planned"),
+];
+
+test("each course counts towards one part, most specific first", () => {
+  const { root, compulsory, advanced, ict, electives } = degree();
+  const placed = allocateRequirements({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+  });
+  const nodeOf = (code) => placed.get(code).nodeKey;
+  // COMP3600 is a 3000-level COMP course too, but the named list wins.
+  assert.equal(nodeOf("COMP3600"), requirementNodeKey(compulsory));
+  assert.equal(nodeOf("COMP2100"), requirementNodeKey(compulsory));
+  assert.equal(nodeOf("COMP3620"), requirementNodeKey(advanced));
+  assert.equal(nodeOf("COMP4450"), requirementNodeKey(advanced));
+  // An open list takes any course once its own list has nothing left.
+  assert.equal(nodeOf("COMP1100"), requirementNodeKey(ict));
+  assert.equal(nodeOf("COMP1110"), requirementNodeKey(electives));
+  assert.equal(nodeOf("PHYS2101"), requirementNodeKey(electives));
+});
+
+test("a course beyond a degree-wide cap counts towards nothing", () => {
+  const { root, cap } = degree();
+  const placed = allocateRequirements({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+  });
+  // Two completed 1000-level courses fill the 12-unit cap; the planned third
+  // is the one left out, whatever order the plan lists them in.
+  assert.deepEqual(placed.get("MATH1013"), {
+    nodeKey: null,
+    pinned: false,
+    overCapKey: requirementNodeKey(cap),
+  });
+  const progress = requirementTreeProgress({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+    allocation: placed,
+  });
+  assert.equal(progress.get(requirementNodeKey(cap)).state, "over_limit");
+});
+
+test("a degree-wide minimum reads courses without using them up", () => {
+  const { root, research, advanced } = degree();
+  const progress = requirementTreeProgress({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+  });
+  assert.deepEqual(
+    progress.get(requirementNodeKey(research)).matchedCourseCodes,
+    ["COMP4450"],
+  );
+  assert.ok(
+    progress
+      .get(requirementNodeKey(advanced))
+      .matchedCourseCodes.includes("COMP4450"),
+  );
+});
+
+test("electives are measured, and a student's choice moves a course", () => {
+  const { root, ict, electives } = degree();
+  const pins = new Map([["COMP1100", requirementNodeKey(electives)]]);
+  const placed = allocateRequirements({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+    pins,
+  });
+  assert.deepEqual(placed.get("COMP1100"), {
+    nodeKey: requirementNodeKey(electives),
+    pinned: true,
+    overCapKey: null,
+  });
+  // The open list then takes the next course that fits it.
+  assert.equal(placed.get("COMP1110").nodeKey, requirementNodeKey(ict));
+  const progress = requirementTreeProgress({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+    allocation: placed,
+  });
+  assert.notEqual(
+    progress.get(requirementNodeKey(electives)).state,
+    "unmeasured",
+  );
+
+  // A choice the course cannot satisfy is ignored.
+  const wrong = allocateRequirements({
+    root,
+    attempts: allocationAttempts,
+    catalogue: allocationCatalogue,
+    pins: new Map([["COMP1100", requirementNodeKey(degree().compulsory)]]),
+  });
+  assert.equal(wrong.get("COMP1100").pinned, false);
 });

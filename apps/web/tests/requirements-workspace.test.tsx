@@ -87,6 +87,8 @@ const condition: PlanRequirementCondition = {
   structureKind: null,
   subjectCode: null,
   tag: null,
+  scope: "part",
+  includesAnyCourse: false,
 };
 const root: PlanRequirementGroup = {
   type: "group",
@@ -102,6 +104,7 @@ const root: PlanRequirementGroup = {
   sourceLocator: "#source",
   sourceText: "Original group wording",
   title: "Complete every item",
+  scope: "part",
 };
 const catalogue: PlanCatalogue = {
   academicYear: 2026,
