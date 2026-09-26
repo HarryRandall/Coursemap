@@ -46,11 +46,12 @@ export function readLocalSupabaseEnvironment({ runCommand = spawnSync } = {}) {
 
 export function createLocalApplicationEnvironment({
   baseEnvironment = process.env,
+  port = 3000,
   supabaseEnvironment = readLocalSupabaseEnvironment(),
 } = {}) {
   return {
     ...baseEnvironment,
-    NEXT_PUBLIC_SITE_URL: "http://127.0.0.1:3000",
+    NEXT_PUBLIC_SITE_URL: `http://127.0.0.1:${port}`,
     // The import pipeline and admin workspace connect to Postgres directly.
     COURSEMAP_DATABASE_URL: supabaseEnvironment.databaseUrl,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: supabaseEnvironment.publishableKey,

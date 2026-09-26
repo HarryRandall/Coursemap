@@ -59,7 +59,7 @@ pnpm install
 cp apps/web/.env.example apps/web/.env.local
 pnpm db:start      # local Supabase stack
 pnpm db:reset      # migrations plus demonstration fixtures
-pnpm dev           # http://127.0.0.1:3000
+pnpm dev           # http://127.0.0.1:3000; pnpm dev --port 3001 for another
 # Or build and run the production server against the same local stack:
 pnpm build
 pnpm start

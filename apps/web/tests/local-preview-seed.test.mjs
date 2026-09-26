@@ -10,7 +10,10 @@ import {
 } from "../scripts/local/reset-preview.mjs";
 import { seedLocalPreview } from "../scripts/local/seed-preview.mjs";
 import { buildLocalProduction } from "../scripts/local/build-preview.mjs";
-import { startLocalDevelopmentPreview } from "../scripts/local/dev-preview.mjs";
+import {
+  developmentPort,
+  startLocalDevelopmentPreview,
+} from "../scripts/local/dev-preview.mjs";
 import { startLocalProductionPreview } from "../scripts/local/production-preview.mjs";
 import { startBuiltLocalProduction } from "../scripts/local/start-preview.mjs";
 import {
@@ -281,4 +284,33 @@ test("applies the preview fixture only after the local reset succeeds", async ()
   });
 
   assert.deepEqual(events, ["reset", "seed"]);
+});
+
+test("development runs on a chosen port so two checkouts can run together", () => {
+  assert.equal(developmentPort([], {}), 3000);
+  assert.equal(developmentPort(["--port", "3001"], {}), 3001);
+  assert.equal(developmentPort(["--port=3002"], {}), 3002);
+  assert.equal(developmentPort(["-p", "3003"], {}), 3003);
+  assert.equal(developmentPort([], { PORT: "3004" }), 3004);
+  assert.equal(developmentPort(["--port", "3005"], { PORT: "3004" }), 3005);
+  assert.throws(() => developmentPort(["--port", "web"], {}), /1 to 65535/);
+
+  let args;
+  startLocalDevelopmentPreview({
+    port: 3001,
+    environment: {},
+    spawnCommand(_executable, spawnArgs) {
+      args = spawnArgs;
+      return new EventEmitter();
+    },
+  });
+  assert.deepEqual(args.slice(-2), ["--port", "3001"]);
+  assert.equal(
+    createLocalApplicationEnvironment({
+      baseEnvironment: {},
+      port: 3001,
+      supabaseEnvironment: {},
+    }).NEXT_PUBLIC_SITE_URL,
+    "http://127.0.0.1:3001",
+  );
 });
