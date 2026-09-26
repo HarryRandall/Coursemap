@@ -17,9 +17,11 @@ test("catalogue content autosaves and remains separate from student view", async
   );
   await expect(page.getByRole("button", { name: /save/i })).toHaveCount(0);
   // A record opens as what it says rather than as a form, so the editor and
-  // the draft behind it both start with Edit.
-  await expect(page.getByRole("status")).toContainText("Published");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  // the draft behind it both start with Edit in the record actions menu.
+  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  const recordActions = page.getByRole("button", { name: "Record actions" });
+  await recordActions.click();
+  await page.getByRole("menuitem", { name: "Edit" }).click();
   await expect(page.getByRole("status")).toContainText("Saved");
 
   const description = page.getByLabel("Description");
@@ -34,14 +36,15 @@ test("catalogue content autosaves and remains separate from student view", async
   await expect(page.getByLabel("Description")).toHaveValue(
     `${originalDescription}\n\nAutosave browser check.`,
   );
+  await recordActions.click();
   await expect(
-    page.getByRole("button", { name: "Publish", exact: true }),
+    page.getByRole("menuitem", { name: "Publish", exact: true }),
   ).toBeEnabled();
   await expect(
-    page.getByRole("button", { name: "Unpublish", exact: true }),
+    page.getByRole("menuitem", { name: "Unpublish", exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: "Discard draft" }).click();
+  await page.getByRole("menuitem", { name: "Discard draft" }).click();
   const discardDialog = page.getByRole("dialog", {
     name: "Discard this draft?",
   });
@@ -50,10 +53,10 @@ test("catalogue content autosaves and remains separate from student view", async
   // Discarding leaves the editor rather than the record: the reader is put
   // back on the content they were editing, as the published version again.
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100$/);
-  await expect(page.getByRole("status")).toContainText("Published");
-  await expect(
-    page.getByRole("button", { name: "Edit", exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("Published", { exact: true })).toBeVisible();
+  await recordActions.click();
+  await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await page.getByRole("tab", { name: "Changelog" }).click();
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100\/changelog$/);
