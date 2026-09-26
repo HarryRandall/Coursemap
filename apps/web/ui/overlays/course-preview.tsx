@@ -69,7 +69,12 @@ export function CoursePreview({
                   {course.code}
                 </p>
                 <h3 className="mt-0.5 text-lg leading-tight font-bold tracking-tight text-foreground">
-                  {course.name}
+                  <ReuiLink
+                    href={`/courses/${course.year}/${course.code.toLowerCase()}`}
+                    className="text-inherit hover:underline"
+                  >
+                    {course.name}
+                  </ReuiLink>
                 </h3>
               </div>
             </div>

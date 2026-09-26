@@ -25,6 +25,7 @@ import {
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
 import { YearPicker } from "@/ui/common/year-picker";
+import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
 import { ChevronRight, LoaderCircle, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -315,7 +316,7 @@ export function CoursePicker({
             ) : null}
           </div>
 
-          <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
             {trimmedQuery.length < 2 ? (
               <CommandList
                 label="Course results"
@@ -371,15 +372,20 @@ export function CoursePicker({
                                 onSelect={() => previewCourse(course.code)}
                                 className="data-[previewed=true]:bg-primary/10 data-[previewed=true]:ring-1 data-[previewed=true]:ring-primary/20 data-[previewed=true]:ring-inset"
                               >
-                                <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-primary">
-                                  {course.code}
-                                </span>
+                                <CourseToken
+                                  code={course.code}
+                                  accent={course.accent}
+                                  size="sm"
+                                />
                                 <span className="min-w-0 flex-1">
                                   <span className="block truncate text-[13px] font-medium text-foreground">
                                     {course.name}
                                   </span>
                                   <span className="block truncate text-[11px] text-muted-foreground">
-                                    {course.school}
+                                    <span className="font-mono">
+                                      {course.code}
+                                    </span>{" "}
+                                    · {course.school}
                                   </span>
                                 </span>
                                 {inPlan ? (
