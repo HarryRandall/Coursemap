@@ -535,10 +535,7 @@ export function buildMetricViews(
         academic.gpa === null
           ? ""
           : `Across ${academic.markedUnits} graded units`,
-      body:
-        academic.gpa === null ? (
-          <MetricEmpty />
-        ) : undefined,
+      body: academic.gpa === null ? <MetricEmpty /> : undefined,
     },
     tuition: {
       id: "tuition",
@@ -558,10 +555,7 @@ export function buildMetricViews(
           : `${tuition.pricedCourses} of ${tuition.plannedCourses} ${courseWord(tuition.plannedCourses)} priced${
               tuition.feeYear ? ` · ${tuition.feeYear} fees` : ""
             }`,
-      body:
-        tuition === null ? (
-          <MetricEmpty />
-        ) : undefined,
+      body: tuition === null ? <MetricEmpty /> : undefined,
     },
     "mark-trend": {
       id: "mark-trend",
