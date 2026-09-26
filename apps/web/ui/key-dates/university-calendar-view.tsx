@@ -15,7 +15,13 @@ import {
   TreePalm,
 } from "lucide-react";
 
-import { OptionPicker } from "@/ui/common/option-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@coursemap/ui/primitives/select";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { cn } from "@/lib/cn";
 import {
@@ -184,14 +190,7 @@ export function UniversityCalendarView({
         <h2 className="text-xl font-semibold tracking-tight">
           University calendar
         </h2>
-        <OptionPicker
-          aria-label="Calendar year"
-          className="w-24"
-          searchable={false}
-          items={availableYears.map((value) => ({
-            value: String(value),
-            label: String(value),
-          }))}
+        <Select
           value={String(year)}
           onValueChange={(value) => {
             const nextYear = Number(value);
@@ -203,7 +202,18 @@ export function UniversityCalendarView({
               { scroll: false },
             );
           }}
-        />
+        >
+          <SelectTrigger size="sm" aria-label="Calendar year">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="end">
+            {availableYears.map((value) => (
+              <SelectItem key={value} value={String(value)}>
+                {value}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {!query && !category && upcoming.length > 0 && (
