@@ -39,7 +39,7 @@ export function AssistantSidebar() {
   const close = () => setOpenMobile(false);
   const history = chats.filter((chat) => chat.messages.length > 0);
   return (
-    <Sidebar collapsible="icon" className="select-none">
+    <Sidebar variant="inset" collapsible="icon" className="select-none">
       <SidebarHeader className="gap-3 px-3 pb-3 group-data-[collapsible=icon]:px-2">
         <Link
           href="/dashboard"

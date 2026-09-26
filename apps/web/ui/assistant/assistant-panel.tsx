@@ -68,7 +68,9 @@ export function AssistantPanel({
       className={cn(
         styles.panel,
         "sticky top-0 h-dvh shrink-0 overflow-hidden",
-        open ? "w-96 lg:w-[26rem]" : "w-0",
+        // The docked panel sits beside the content panel with the same inset,
+        // so its open width also carries the right-hand gutter.
+        open ? "w-[24.5rem] lg:w-[26.5rem]" : "w-0",
       )}
       inert={!open}
       aria-hidden={!open}
@@ -81,7 +83,7 @@ export function AssistantPanel({
         onKeyDown={(event) => {
           if (event.key === "Escape" && !event.defaultPrevented) onClose();
         }}
-        className="h-dvh w-96 border-l border-border bg-background outline-none lg:w-[26rem]"
+        className="mt-2 h-[calc(100dvh-1rem)] w-96 overflow-hidden rounded-xl bg-background shadow-sm ring-1 ring-border outline-none lg:w-[26rem]"
       >
         {content}
       </aside>

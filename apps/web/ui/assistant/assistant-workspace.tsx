@@ -49,7 +49,7 @@ export function AssistantWorkspace({
       className="h-dvh min-h-0 overflow-hidden"
     >
       <AssistantSidebar />
-      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
+      <SidebarInset className="min-h-0 min-w-0 overflow-hidden md:ring-1 md:ring-border">
         <Topbar
           loading={loading}
           title={
