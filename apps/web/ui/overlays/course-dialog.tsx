@@ -20,10 +20,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import type { Attempt } from "@/lib/coursemap/types";
 import {
   attemptedUnitsError,
   attemptedUnitsFromInput,
@@ -31,10 +32,14 @@ import {
 } from "@/lib/coursemap/attempt-units";
 import {
   effectiveStatus,
+  isActiveAttempt,
   missingPrereqs,
   planningCourseForAttempt,
+  termIndex,
   unitsForAttempt,
 } from "@/lib/planner";
+import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
+import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +55,62 @@ import {
 import { StatusPill } from "@/ui/common/status-pill";
 import { StarButton } from "@/ui/common/star-button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
+
+const AUD = new Intl.NumberFormat("en-AU", {
+  style: "currency",
+  currency: "AUD",
+  maximumFractionDigits: 0,
+});
+/** "First Semester" as S1, so the header stays one line. */
+function shortSession(session: string) {
+  if (/first|semester 1\b/i.test(session)) return "S1";
+  if (/second|semester 2\b/i.test(session)) return "S2";
+  return session;
+}
+const COURSE_CODE = /\b[A-Z]{4}\d{4}\b/g;
+
+/**
+ * The plan as a student record for one course's requisites: courses planned
+ * or done before its semester count as completed, and ones beside it as
+ * taken at the same time.
+ */
+function planStudentRecord(
+  attempt: Attempt,
+  attempts: Attempt[],
+  degreeCode: string,
+  catalogue?: PlanCatalogue,
+): StudentRecord {
+  const order = termIndex(attempt.termId, catalogue);
+  const others = attempts.filter(
+    (other) => other.id !== attempt.id && isActiveAttempt(other),
+  );
+  return {
+    completed: new Map(
+      others
+        .filter((other) => termIndex(other.termId, catalogue) < order)
+        .map((other) => {
+          const course = planningCourseForAttempt(other, catalogue);
+          return [
+            other.courseCode.toUpperCase(),
+            {
+              units: unitsForAttempt(other, course),
+              mark: other.mark ?? null,
+              tags: course?.tags ?? [],
+            },
+          ];
+        }),
+    ),
+    enrolled: new Set(
+      others
+        .filter((other) => termIndex(other.termId, catalogue) === order)
+        .map((other) => other.courseCode.toUpperCase()),
+    ),
+    programmeCodes: degreeCode ? [degreeCode] : [],
+    wam: null,
+    gpa: null,
+    studyYear: null,
+  };
+}
 
 /**
  * A planned or recorded course: the key facts up top, its description and
@@ -86,6 +147,9 @@ export function CourseDialog({
   const missing = new Set(missingPrereqs(attempt, state.attempts, catalogue));
   const prereqsMet = missing.size === 0;
   const recorded = attempt.status !== "planned";
+  const enrolled = attempt.status === "enrolled";
+  /** A result or withdrawal is history and stays put; an enrolment can go. */
+  const final = recorded && !enrolled;
   const selectedAttemptedUnits = attemptedUnitsFromInput(
     unitRequirement,
     attemptedUnitsInput,
@@ -99,15 +163,37 @@ export function CourseDialog({
     : undefined;
   const showUnits = !recorded && unitSelectionRequired;
   const facts = [
-    `${unitsForAttempt(attempt, course)} units`,
-    `Level ${course.level}`,
-    course.sessions.map((item) => item.replace("Semester ", "S")).join(", "),
-    course.delivery,
-  ].filter(Boolean);
-  const details = [
+    ["Units", String(unitsForAttempt(attempt, course))],
+    ["Level", String(course.level)],
+    [
+      "Offered",
+      [...new Set(course.sessions)].join(", ") || "Not listed this year",
+    ],
+    ["Delivery", course.delivery],
+    [
+      "Cost",
+      course.domesticFee != null
+        ? `${AUD.format(course.domesticFee)} domestic`
+        : "Not listed",
+    ],
     ["Convener", course.convener],
     ["Counts towards", course.countsTowards.join(", ")],
   ].filter(([, value]) => value);
+  const incompatibleCodes = [
+    ...new Set(course.incompatibilities.join(" ").match(COURSE_CODE) ?? []),
+  ];
+  const availableCodes = new Set(
+    (catalogue?.courses ?? []).map((item) => item.code),
+  );
+  const rule = course.prerequisiteRule?.relationalExpression ?? null;
+  const student = rule
+    ? planStudentRecord(
+        attempt,
+        state.attempts,
+        state.profile.degreeCode,
+        catalogue,
+      )
+    : null;
   const remove = async () => {
     const result = await removeAttempt(attempt.id);
     notify(result.message, result.ok ? "success" : "error");
@@ -126,7 +212,7 @@ export function CourseDialog({
         showCloseButton={false}
         aria-labelledby={"course-dialog-title"}
         aria-describedby={undefined}
-        className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        className="flex h-[min(38rem,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
       >
         <header className="flex items-start gap-3 px-5 pt-5 pb-3 sm:px-6">
           <div className="min-w-0 flex-1">
@@ -145,7 +231,10 @@ export function CourseDialog({
               </h2>
             </DialogTitle>
             <p className="mt-1 text-xs text-muted-foreground">
-              {facts.join(" · ")}
+              {unitsForAttempt(attempt, course)} units · Level {course.level}
+              {course.sessions.length
+                ? ` · ${[...new Set(course.sessions.map(shortSession))].join(", ")}`
+                : ""}
             </p>
           </div>
           <StarButton courseCode={course.code} />
@@ -188,75 +277,94 @@ export function CourseDialog({
             </TabsTrigger>
           </TabsList>
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-5 py-4 sm:px-6">
-            <TabsContent value="about" className="mt-0 space-y-3">
-              <p
-                className={cn(
-                  "text-[13px] leading-relaxed text-muted-foreground",
-                  !showFullDescription && "line-clamp-4",
-                )}
-              >
-                {course.description}
-              </p>
-              {course.description.length > 280 ? (
-                <button
-                  type="button"
-                  className="text-xs font-medium text-primary"
-                  onClick={() => setShowFullDescription((open) => !open)}
-                >
-                  {showFullDescription ? "Show less" : "Read more"}
-                </button>
-              ) : null}
-              <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1.5 text-xs">
-                {details.map(([label, value]) => (
-                  <Fragment key={label}>
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="text-foreground">{value}</dd>
-                  </Fragment>
+            <TabsContent value="about" className="mt-0 space-y-4">
+              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border ring-1 ring-border sm:grid-cols-3">
+                {facts.map(([label, value]) => (
+                  <div key={label} className="min-w-0 bg-card px-3 py-2">
+                    <dt className="text-[11px] text-muted-foreground">
+                      {label}
+                    </dt>
+                    <dd className="mt-0.5 text-[13px] font-medium text-foreground">
+                      {value}
+                    </dd>
+                  </div>
                 ))}
               </dl>
-              <ReuiLink
-                href={`/courses/${course.year}/${course.code.toLowerCase()}`}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-              >
-                Full course page
-                <ExternalLink size={12} aria-hidden="true" />
-              </ReuiLink>
+              <div>
+                <p
+                  className={cn(
+                    "text-[13px] leading-relaxed text-muted-foreground",
+                    !showFullDescription && "line-clamp-3",
+                  )}
+                >
+                  {course.description}
+                </p>
+                <div className="mt-1.5 flex items-center gap-4 text-xs font-medium">
+                  {course.description.length > 220 ? (
+                    <button
+                      type="button"
+                      className="text-primary"
+                      onClick={() => setShowFullDescription((open) => !open)}
+                    >
+                      {showFullDescription ? "Show less" : "Read more"}
+                    </button>
+                  ) : null}
+                  <ReuiLink
+                    href={`/courses/${course.year}/${course.code.toLowerCase()}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    Full course page
+                    <ExternalLink size={12} aria-hidden="true" />
+                  </ReuiLink>
+                </div>
+              </div>
             </TabsContent>
 
             <TabsContent value="requisites" className="mt-0 space-y-4">
-              <section>
-                <h3 className="text-xs font-semibold text-foreground">
-                  Needs first
-                </h3>
-                {course.prerequisiteCodes.length > 0 ? (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {course.prerequisiteCodes.map((code) => (
-                      <span
-                        key={code}
-                        className={cn(
-                          "rounded-md px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-inset",
-                          !missing.has(code)
-                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900"
-                            : "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
-                        )}
-                      >
-                        {code}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  {course.prerequisiteText || "No prerequisites."}
-                </p>
-              </section>
+              {rule ? (
+                <div className="-mx-5 -my-4 sm:-mx-6">
+                  <EnrolmentSteps
+                    academicYear={course.year}
+                    availableCourseCodes={availableCodes}
+                    expression={rule}
+                    student={student}
+                  />
+                </div>
+              ) : (
+                <section>
+                  <h3 className="text-xs font-semibold text-foreground">
+                    Needs first
+                  </h3>
+                  {course.prerequisiteCodes.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {course.prerequisiteCodes.map((code) => (
+                        <span
+                          key={code}
+                          className={cn(
+                            "rounded-md px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-inset",
+                            !missing.has(code)
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900"
+                              : "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
+                          )}
+                        >
+                          {code}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {course.prerequisiteText || "No prerequisites."}
+                  </p>
+                </section>
+              )}
 
-              {course.incompatibilities.length > 0 && (
+              {!rule && incompatibleCodes.length > 0 && (
                 <section>
                   <h3 className="text-xs font-semibold text-foreground">
                     Can&apos;t take with
                   </h3>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {course.incompatibilities.map((code) => (
+                    {incompatibleCodes.map((code) => (
                       <span
                         key={code}
                         className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
@@ -402,7 +510,7 @@ export function CourseDialog({
             <Button
               variant="ghost"
               size="sm"
-              disabled={recorded}
+              disabled={final}
               onClick={() => void remove()}
               className="mr-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
               type="button"
@@ -410,64 +518,74 @@ export function CourseDialog({
               <Trash2 size={14} />
               Remove
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={recorded || unitSelectionMissing}
-              aria-pressed={attempt.status === "completed"}
-              className={cn(
-                attempt.status === "completed"
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-                  : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
-              )}
-              onClick={async () => {
-                const result = await updateAttempt(
-                  attempt.id,
-                  "completed",
-                  undefined,
-                  submittedAttemptedUnits,
-                );
-                notify(
-                  result.ok
-                    ? `${course.code} marked as completed`
-                    : result.message,
-                  result.ok ? "success" : "error",
-                );
-              }}
-              type="button"
-            >
-              <Check size={14} />
-              Completed
-            </Button>
-            <Button
-              variant={attempt.status === "failed" ? "destructive" : "outline"}
-              size="sm"
-              disabled={recorded || unitSelectionMissing}
-              aria-pressed={attempt.status === "failed"}
-              className={cn(
-                attempt.status === "failed"
-                  ? "disabled:opacity-100"
-                  : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
-              )}
-              onClick={async () => {
-                const result = await updateAttempt(
-                  attempt.id,
-                  "failed",
-                  undefined,
-                  submittedAttemptedUnits,
-                );
-                notify(
-                  result.ok
-                    ? `${course.code} marked as failed`
-                    : result.message,
-                  result.ok ? "success" : "error",
-                );
-              }}
-              type="button"
-            >
-              <X size={14} />
-              Failed
-            </Button>
+            {enrolled ? (
+              <Button asChild variant="outline" size="sm">
+                <ReuiLink href="/academic">Add result</ReuiLink>
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={recorded || unitSelectionMissing}
+                  aria-pressed={attempt.status === "completed"}
+                  className={cn(
+                    attempt.status === "completed"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                      : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
+                  )}
+                  onClick={async () => {
+                    const result = await updateAttempt(
+                      attempt.id,
+                      "completed",
+                      undefined,
+                      submittedAttemptedUnits,
+                    );
+                    notify(
+                      result.ok
+                        ? `${course.code} marked as completed`
+                        : result.message,
+                      result.ok ? "success" : "error",
+                    );
+                  }}
+                  type="button"
+                >
+                  <Check size={14} />
+                  Completed
+                </Button>
+                <Button
+                  variant={
+                    attempt.status === "failed" ? "destructive" : "outline"
+                  }
+                  size="sm"
+                  disabled={recorded || unitSelectionMissing}
+                  aria-pressed={attempt.status === "failed"}
+                  className={cn(
+                    attempt.status === "failed"
+                      ? "disabled:opacity-100"
+                      : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
+                  )}
+                  onClick={async () => {
+                    const result = await updateAttempt(
+                      attempt.id,
+                      "failed",
+                      undefined,
+                      submittedAttemptedUnits,
+                    );
+                    notify(
+                      result.ok
+                        ? `${course.code} marked as failed`
+                        : result.message,
+                      result.ok ? "success" : "error",
+                    );
+                  }}
+                  type="button"
+                >
+                  <X size={14} />
+                  Failed
+                </Button>
+              </>
+            )}
           </div>
         </footer>
       </DialogContent>

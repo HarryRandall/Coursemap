@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthViewer } from "@/lib/auth/viewer";
+import { saveAcademicResult } from "@/lib/academic/actions";
 import type { AppState, AttemptStatus, Profile } from "@/lib/coursemap/types";
 
 export type { AppState, Profile } from "@/lib/coursemap/types";
@@ -346,7 +347,17 @@ export function AppProvider({
       }
       if (!attempt)
         return { ok: false, message: "That course is no longer in your plan" };
-      const result = await removePlanCourse(attemptId);
+      // An enrolment is a recorded attempt rather than a plan item, and has
+      // no result yet, so it is removed from the academic record instead.
+      const result =
+        attempt.status === "enrolled"
+          ? await saveAcademicResult(attemptId, "remove").then((response) => ({
+              ok: response.ok,
+              message: response.ok
+                ? "Course removed from the plan"
+                : response.message,
+            }))
+          : await removePlanCourse(attemptId);
       if (!result.ok) return result;
       setState((current) => ({
         ...current,
