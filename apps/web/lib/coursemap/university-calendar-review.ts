@@ -30,7 +30,7 @@ export type UniversityCalendarReviewDiff = {
   unchanged: number;
 };
 
-type CalendarEntry = { date: string; title: string };
+type CalendarEntry = { date: string; title: string; manual?: boolean };
 
 type PublishedEntry = CalendarEntry & {
   id?: number;
@@ -69,7 +69,7 @@ export function diffUniversityCalendarReview(
       title: entry.title,
       category: categoriseUniversityCalendarEvent(entry.title),
       change: match ? "unchanged" : "added",
-      manual: match?.origin === "manual",
+      manual: entry.manual === true || match?.origin === "manual",
       eventId: match?.id,
     });
   }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Tabs } from "@coursemap/ui/primitives/tabs";
 import { SectionTabs } from "@/ui/common/section-tabs";
 import {
   keyDatesPath,
+  keyDatesSectionFromPath,
   type KeyDatesSection,
 } from "@/lib/admin/key-dates-sections";
 import { routeIcons } from "@/ui/shell/route-icons";
@@ -13,14 +14,13 @@ import { routeIcons } from "@/ui/shell/route-icons";
 /** Routes the section tabs, so each section has its own address. */
 export function KeyDatesTabs({
   children,
-  section,
   year,
 }: {
   children: ReactNode;
-  section: KeyDatesSection;
   year: number;
 }) {
   const router = useRouter();
+  const section = keyDatesSectionFromPath(usePathname());
   return (
     <Tabs
       className="block"

@@ -192,3 +192,53 @@ export async function removeKeyDateAction(
   refreshKeyDates(year);
   return { ok: true, message: "The key date was removed." };
 }
+
+/**
+ * Edits a date in a pending sync before it is published, or leaves it out
+ * when `replacement` is null. An edited date is published as manual.
+ */
+export async function reviseKeyDatesReviewAction(
+  reviewId: string,
+  year: number,
+  original: { date: string; title: string },
+  replacement: { date: string; title: string } | null,
+): Promise<KeyDatesActionResult> {
+  if (!(await canManageCatalogueOperations()))
+    return { ok: false, message: PERMISSION_REQUIRED };
+  if (replacement) {
+    if (!replacement.title.trim())
+      return { ok: false, message: "Give the date a title." };
+    if (
+      !ISO_DATE.test(replacement.date) ||
+      !replacement.date.startsWith(`${year}-`)
+    )
+      return { ok: false, message: `Choose a date in ${year}.` };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("revise_university_calendar_review", {
+    p_review_id: reviewId,
+    p_event_date: original.date,
+    p_title: original.title,
+    p_new_event_date: replacement?.date,
+    p_new_title: replacement?.title.trim(),
+  });
+  if (error)
+    return {
+      ok: false,
+      message:
+        error.code === "55000" ||
+        error.code === "22023" ||
+        error.code === "P0002"
+          ? error.message
+          : "The sync could not be updated. Try again.",
+    };
+
+  refreshKeyDates(year);
+  return {
+    ok: true,
+    message: replacement
+      ? "The date was updated in this sync."
+      : "The date was left out of this sync.",
+  };
+}

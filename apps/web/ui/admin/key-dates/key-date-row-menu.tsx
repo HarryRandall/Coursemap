@@ -12,28 +12,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@coursemap/ui/primitives/dropdown-menu";
-import { removeKeyDateAction } from "@/lib/admin/key-dates-actions";
+import {
+  removeKeyDateAction,
+  reviseKeyDatesReviewAction,
+} from "@/lib/admin/key-dates-actions";
 import type { UniversityCalendarReviewEvent } from "@/lib/coursemap/university-calendar-review";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { KeyDateDialog } from "@/ui/admin/key-dates/key-date-dialog";
-import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
 import { calendarDateLabel } from "@/ui/key-dates/category-badge";
 
-function KeyDateRowMenu({
+/**
+ * Edit and remove for one row. A published date is changed directly; a date
+ * that only exists in the sync under review (`reviewId`) is corrected or left
+ * out of that sync instead.
+ */
+export function KeyDateRowMenu({
   event,
+  reviewId,
   year,
 }: {
-  event: UniversityCalendarReviewEvent & { eventId: number };
+  event: UniversityCalendarReviewEvent;
+  reviewId?: string;
   year: number;
 }) {
   const router = useRouter();
   const trigger = useRef<HTMLButtonElement>(null);
   const [editing, setEditing] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const label = `${event.title} options`;
+  const staged = event.eventId === undefined;
+  if (staged && !reviewId) return null;
+  const day = calendarDateLabel(event.date, { day: "numeric", month: "long" });
 
   async function remove() {
-    const result = await removeKeyDateAction(year, event.eventId);
+    const result = staged
+      ? await reviseKeyDatesReviewAction(reviewId!, year, event, null)
+      : await removeKeyDateAction(year, event.eventId!);
     if (!result.ok) throw new Error(result.message);
     toast.success(result.message);
     router.refresh();
@@ -41,10 +54,12 @@ function KeyDateRowMenu({
 
   return (
     <>
-      <DropdownMenu>
+      {/* Not modal, so the list keeps scrolling while the menu is open. */}
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
-            aria-label={label}
+            aria-label={`${event.title} options`}
+            className="text-muted-foreground"
             ref={trigger}
             size="icon-sm"
             variant="ghost"
@@ -52,7 +67,7 @@ function KeyDateRowMenu({
             <EllipsisVertical aria-hidden="true" size={16} />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" hideWhenDetached>
           <DropdownMenuItem onSelect={() => setEditing(true)}>
             <Pencil aria-hidden="true" />
             Edit
@@ -63,58 +78,44 @@ function KeyDateRowMenu({
             onSelect={() => setRemoving(true)}
           >
             <Trash2 aria-hidden="true" />
-            Remove
+            {staged ? "Leave out" : "Remove"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <KeyDateDialog
         entry={{ id: event.eventId, date: event.date, title: event.title }}
+        hint={
+          staged
+            ? "Your correction is published with this sync and kept by later syncs."
+            : undefined
+        }
         onOpenChange={setEditing}
+        onSave={
+          staged
+            ? (draft) =>
+                reviseKeyDatesReviewAction(reviewId!, year, event, {
+                  date: draft.date,
+                  title: draft.title,
+                })
+            : undefined
+        }
         open={editing}
         year={year}
       />
       <ConfirmDialog
-        confirmLabel="Remove"
-        description={`Students stop seeing "${event.title}" on ${calendarDateLabel(event.date, { day: "numeric", month: "long" })}. ${
-          event.manual
-            ? "It will not come back unless it is added again."
-            : "A later sync that still lists it will offer to add it back."
-        }`}
+        confirmLabel={staged ? "Leave out" : "Remove"}
+        description={
+          staged
+            ? `"${event.title}" on ${day} will not be published with this sync.`
+            : `Students stop seeing "${event.title}" on ${day}.`
+        }
         destructive
         onConfirm={remove}
         onOpenChange={setRemoving}
         open={removing}
         returnFocusRef={trigger}
-        title="Remove this key date?"
+        title={staged ? "Leave this date out?" : "Remove this key date?"}
       />
     </>
-  );
-}
-
-/** The dates students see for the year, each with edit and remove actions. */
-export function KeyDatesPublishedList({
-  canManage,
-  events,
-  year,
-}: {
-  canManage: boolean;
-  events: UniversityCalendarReviewEvent[];
-  year: number;
-}) {
-  return (
-    <KeyDatesMonthList
-      actions={
-        canManage
-          ? (event) =>
-              event.eventId !== undefined ? (
-                <KeyDateRowMenu
-                  event={{ ...event, eventId: event.eventId }}
-                  year={year}
-                />
-              ) : null
-          : undefined
-      }
-      events={events}
-    />
   );
 }

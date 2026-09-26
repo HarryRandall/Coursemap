@@ -62,8 +62,11 @@ test("the review opens on what approval changes and publishes on confirmation", 
   expect(within(changes).getByText("Examination period begins")).toBeVisible();
   expect(within(changes).getByText("Census date")).toBeVisible();
   expect(within(changes).queryByText("Semester 1 begins")).toBeNull();
-  expect(screen.getByText("1 new")).toBeVisible();
-  expect(screen.getByText("1 removed")).toBeVisible();
+  expect(
+    screen.getByRole("heading", {
+      name: "This sync adds 1 date and removes 1.",
+    }),
+  ).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "Approve and publish" }));
   await user.click(screen.getByRole("button", { name: "Publish" }));

@@ -4277,6 +4277,16 @@ export type Database = {
         Args: { p_event_id: number }
         Returns: undefined
       }
+      revise_university_calendar_review: {
+        Args: {
+          p_event_date: string
+          p_new_event_date?: string
+          p_new_title?: string
+          p_review_id: string
+          p_title: string
+        }
+        Returns: undefined
+      }
       save_current_user_academic_result: {
         Args: {
           p_grade?: string

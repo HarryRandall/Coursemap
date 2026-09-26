@@ -7,8 +7,6 @@ import {
   CircleAlert,
   CircleCheck,
   ExternalLink,
-  Minus,
-  Plus,
   TriangleAlert,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -94,33 +92,6 @@ function WarningsNotice({ warnings }: { warnings: ImportDiagnostic[] }) {
   );
 }
 
-function CountChip({
-  count,
-  label,
-  tone,
-}: {
-  count: number;
-  label: string;
-  tone: "added" | "removed" | "unchanged";
-}) {
-  const Icon = tone === "added" ? Plus : tone === "removed" ? Minus : null;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums",
-        tone === "added" &&
-          "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-        tone === "removed" &&
-          "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
-        tone === "unchanged" && "bg-muted text-muted-foreground",
-      )}
-    >
-      {Icon ? <Icon aria-hidden="true" size={12} /> : null}
-      {count} {label}
-    </span>
-  );
-}
-
 /**
  * A synced year waiting for a decision. The decision sits at the top beside
  * what it would change, so a long list never pushes it out of reach.
@@ -167,40 +138,29 @@ export function KeyDatesReviewPanel({
 
   return (
     <section aria-labelledby="key-dates-review" className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <h2
-            id="key-dates-review"
-            className="flex flex-wrap items-center gap-2 text-sm font-semibold"
-          >
-            Sync ready to review
-            <Badge variant="primary-light">Not yet published</Badge>
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 id="key-dates-review" className="text-sm font-medium">
+            {changes > 0
+              ? `This sync adds ${plural(diff.added, "date")} and removes ${diff.removed}.`
+              : "This sync matches what students already see."}
           </h2>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <CountChip count={diff.added} label="new" tone="added" />
-            <CountChip count={diff.removed} label="removed" tone="removed" />
-            <CountChip
-              count={diff.unchanged}
-              label="unchanged"
-              tone="unchanged"
-            />
-            <span className="text-xs text-muted-foreground">
-              · Fetched{" "}
-              <time dateTime={review.fetchedAt}>
-                {timestampFormat.format(new Date(review.fetchedAt))}
-              </time>{" "}
-              from{" "}
-              <a
-                className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
-                href={review.canonicalUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                the ANU calendar
-                <ExternalLink aria-hidden="true" size={12} />
-              </a>
-            </span>
-          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Fetched{" "}
+            <time dateTime={review.fetchedAt}>
+              {timestampFormat.format(new Date(review.fetchedAt))}
+            </time>{" "}
+            from{" "}
+            <a
+              className="inline-flex items-center gap-1 underline-offset-4 hover:text-foreground hover:underline"
+              href={review.canonicalUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              the ANU calendar
+              <ExternalLink aria-hidden="true" size={11} />
+            </a>
+          </p>
         </div>
         {canManage ? (
           <div className="flex shrink-0 gap-2">
@@ -262,11 +222,8 @@ export function KeyDatesReviewPanel({
             <TabsTrigger key={value} className="gap-2" value={value}>
               {label}
               <Badge
-                className={cn(
-                  "tabular-nums",
-                  view !== value && "text-muted-foreground",
-                )}
-                variant={view === value ? "primary-light" : "outline"}
+                className="text-muted-foreground tabular-nums"
+                variant="outline"
               >
                 {count}
               </Badge>
@@ -275,7 +232,11 @@ export function KeyDatesReviewPanel({
         </TabsList>
         <TabsContent className="mt-0" value="changes">
           {changedEvents.length > 0 ? (
-            <KeyDatesMonthList events={changedEvents} showChanges />
+            <KeyDatesMonthList
+              editable={canManage ? { year, reviewId: review.id } : undefined}
+              events={changedEvents}
+              showChanges
+            />
           ) : (
             <p
               className="flex items-center gap-2 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground"
@@ -291,7 +252,11 @@ export function KeyDatesReviewPanel({
           )}
         </TabsContent>
         <TabsContent className="mt-0" value="all">
-          <KeyDatesMonthList events={diff.events} showChanges />
+          <KeyDatesMonthList
+            editable={canManage ? { year, reviewId: review.id } : undefined}
+            events={diff.events}
+            showChanges
+          />
         </TabsContent>
       </Tabs>
     </section>
