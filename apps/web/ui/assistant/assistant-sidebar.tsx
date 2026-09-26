@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { SquarePen, ChartNoAxesColumn } from "lucide-react";
+import { ArrowLeft, SquarePen, ChartNoAxesColumn } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,13 +18,23 @@ import {
 import { BrandMark } from "@/ui/brand-mark";
 import { CourseFind } from "@/ui/course-find";
 import { AccountMenu } from "@/ui/shell/account-menu";
+import { sectionLabel } from "@/ui/shell/breadcrumbs";
 import { usePathname } from "next/navigation";
 import { AssistantRecentChat } from "./assistant-recent-chat";
 import { assistantAge } from "@/lib/assistant/history";
 import { useAssistant } from "./assistant-provider";
 
 export function AssistantSidebar() {
-  const { chats, active, select, remove, rename, newChat } = useAssistant();
+  const {
+    chats,
+    active,
+    select,
+    remove,
+    rename,
+    newChat,
+    returnPath,
+    setPanelOpen,
+  } = useAssistant();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const [now, setNow] = useState<number | null>(null);
@@ -111,6 +121,28 @@ export function AssistantSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        {/* Leaving Compass sits with the account row, as the admin shell's
+            way back does, and names the page it returns to. */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              tooltip={`Back to ${sectionLabel(returnPath)}`}
+              className="h-10 gap-3 px-3"
+            >
+              <Link
+                href={returnPath}
+                onClick={() => {
+                  setPanelOpen(false);
+                  close();
+                }}
+              >
+                <ArrowLeft aria-hidden="true" />
+                <span>Back to {sectionLabel(returnPath)}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <AccountMenu />
       </SidebarFooter>
     </Sidebar>
