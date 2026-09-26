@@ -128,6 +128,7 @@ export async function loadCoursemapState(
       itemsResult,
       attemptsResult,
       placementsResult,
+      starsResult,
     ] = await Promise.all([
       supabase
         .from("academic_years")
@@ -157,6 +158,11 @@ export async function loadCoursemapState(
         .from("plan_requirement_placements")
         .select("course_code,structure_code,requirement_key")
         .eq("plan_id", plan.id),
+      supabase
+        .from("plan_starred_courses")
+        .select("course_code")
+        .eq("plan_id", plan.id)
+        .order("created_at"),
     ]);
 
     const structures = structuresResult.data ?? [];
@@ -321,6 +327,7 @@ export async function loadCoursemapState(
         structureCode: row.structure_code,
         requirementKey: row.requirement_key,
       })),
+      starredCourses: (starsResult.data ?? []).map((row) => row.course_code),
     };
   } catch {
     return fallback;

@@ -16,6 +16,7 @@ import type {
   PlannedStructure,
 } from "@/ui/plan/plan-suggestions";
 import { PlanRequirements } from "@/ui/plan/plan-requirements";
+import { StarButton } from "@/ui/common/star-button";
 
 /** "First Semester" as S1, so a row can show every session it runs in. */
 function sessionLabel(session: string) {
@@ -88,6 +89,7 @@ function CourseList({
                 )}
               </span>
             </button>
+            <StarButton courseCode={item.course.code} />
             <Button
               type="button"
               variant="ghost"
@@ -120,6 +122,7 @@ const KIND_LABELS: Partial<Record<PlanStructureKind, string>> = {
 export function CoursesToPlan({
   required,
   suggested,
+  starred,
   structures,
   rulesLeft,
   onAdd,
@@ -128,6 +131,7 @@ export function CoursesToPlan({
 }: {
   required: CourseToPlan[];
   suggested: CourseToPlan[];
+  starred: CourseToPlan[];
   structures: PlannedStructure[];
   rulesLeft: number;
   onAdd: (course: Course) => void;
@@ -158,6 +162,7 @@ export function CoursesToPlan({
         (item) => item.structureKind === kind,
       ),
     })),
+    { value: "starred", label: "Starred", items: starred },
   ];
   const [tab, setTab] = useState(
     () => tabs.find((item) => item.items.length > 0)?.value ?? "rules",
@@ -202,7 +207,9 @@ export function CoursesToPlan({
                 <p className="px-1 py-2 text-xs text-muted-foreground">
                   {item.value === "required"
                     ? "Every compulsory course is in your plan."
-                    : "Nothing to suggest here right now."}
+                    : item.value === "starred"
+                      ? "Star a course in search or in this list to keep it here."
+                      : "Nothing to suggest here right now."}
                 </p>
               ) : (
                 <CourseList

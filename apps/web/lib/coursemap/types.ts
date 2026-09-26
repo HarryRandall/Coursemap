@@ -126,4 +126,6 @@ export type AppState = {
   attempts: Attempt[];
   /** Courses the student moved to a part of their degree themselves. */
   placements?: RequirementPlacementChoice[];
+  /** Codes of courses the student starred to consider later. */
+  starredCourses?: string[];
 };

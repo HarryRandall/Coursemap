@@ -107,6 +107,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
+  const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -367,6 +368,58 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     structures,
     attempts: state.attempts,
     catalogue: planningCatalogue,
+  });
+
+  // Starred courses the planner has not loaded are fetched by code.
+  const findCourse = (code: string) =>
+    planningCatalogue.courses.find(
+      (course) =>
+        course.code === code && course.year === catalogue.academicYear,
+    ) ??
+    planningCatalogue.courses.find((course) => course.code === code) ??
+    fetchedCourses.find((course) => course.code === code);
+  const starredCodes = state.starredCourses ?? [];
+  const missingStarred = starredCodes
+    .filter((code) => !findCourse(code))
+    .join(",");
+  useEffect(() => {
+    if (!missingStarred || catalogue.academicYear === null) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      codes: missingStarred,
+      year: String(catalogue.academicYear),
+    });
+    fetch(`/api/courses/search?${params}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { courses?: Course[] } | null) => {
+        const loaded = payload?.courses ?? [];
+        setFetchedCourses((current) => [
+          ...current,
+          ...loaded.filter(
+            (course) => !current.some((item) => item.code === course.code),
+          ),
+        ]);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [missingStarred, catalogue.academicYear]);
+  const inPlan = new Set(
+    state.attempts
+      .filter((attempt) => attempt.status !== "withdrawn")
+      .map((attempt) => attempt.courseCode),
+  );
+  const starred: CourseToPlan[] = starredCodes.flatMap((code) => {
+    const course = inPlan.has(code) ? undefined : findCourse(code);
+    return course
+      ? [
+          {
+            course,
+            required: false,
+            tag: "Starred",
+            structureKind: "programme" as const,
+          },
+        ]
+      : [];
   });
 
   const issueNote = (entry: Entry) => {
@@ -889,6 +942,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               <CoursesToPlan
                 required={toPlan.required}
                 suggested={toPlan.suggested}
+                starred={starred}
                 structures={structures}
                 rulesLeft={rulesToPlanCount(structures)}
                 onAdd={addToSelectedYear}

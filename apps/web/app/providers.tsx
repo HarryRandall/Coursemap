@@ -24,6 +24,7 @@ import {
   removePlanCourse,
   saveProfileAndPlan,
   setCurrentUserPlanExtensionYears,
+  setCourseStar,
   setRequirementPlacement,
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
@@ -58,6 +59,8 @@ type AppContextValue = {
     courseCode: string,
     placement: { structureCode: string; requirementKey: string } | null,
   ) => Promise<CoursemapActionResult>;
+  /** Stars a course to consider later, or unstars it. */
+  toggleStar: (courseCode: string) => Promise<CoursemapActionResult>;
   togglePermission: (attemptId: string) => void;
   toggleOverloadApproval: (attemptId: string) => void;
   notify: (message: string, tone?: ToastTone) => void;
@@ -363,6 +366,26 @@ export function AppProvider({
     [state.placements],
   );
 
+  const toggleStar = useCallback(
+    async (courseCode: string) => {
+      const previous = state.starredCourses ?? [];
+      const starred = !previous.includes(courseCode);
+      // The star shows at once; a failed save takes it back.
+      setState((current) => ({
+        ...current,
+        starredCourses: starred
+          ? [...previous, courseCode]
+          : previous.filter((code) => code !== courseCode),
+      }));
+      const result = await setCourseStar(courseCode, starred);
+      if (!result.ok) {
+        setState((current) => ({ ...current, starredCourses: previous }));
+      }
+      return result;
+    },
+    [state.starredCourses],
+  );
+
   const toggleOverloadApproval = useCallback((attemptId: string) => {
     setState((current) => ({
       ...current,
@@ -386,6 +409,7 @@ export function AppProvider({
       updateAttempt,
       removeAttempt,
       setPlacement,
+      toggleStar,
       togglePermission,
       toggleOverloadApproval,
       notify,
@@ -401,6 +425,7 @@ export function AppProvider({
       updateAttempt,
       removeAttempt,
       setPlacement,
+      toggleStar,
       togglePermission,
       toggleOverloadApproval,
       notify,
