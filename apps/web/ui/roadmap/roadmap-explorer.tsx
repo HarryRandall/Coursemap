@@ -21,7 +21,7 @@ export function RoadmapExplorer({ stages }: { stages: RoadmapStage[] }) {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-1 flex-col gap-8">
       <FilterBar
         searchPlaceholder="Search roadmap..."
         filters={[
@@ -60,7 +60,7 @@ export function RoadmapExplorer({ stages }: { stages: RoadmapStage[] }) {
       {filtered.length ? (
         <RoadmapTimeline stages={filtered} />
       ) : (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-border px-6 py-16 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-border px-6 py-16 text-center">
           <h2 className="text-base font-semibold">No matching roadmap items</h2>
           <p className="text-sm text-muted-foreground">
             Try another search or clear your filters.

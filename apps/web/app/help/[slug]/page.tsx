@@ -118,7 +118,7 @@ export default async function HelpArticlePage({
     <AppShell currentBreadcrumbLabel={article.title}>
       <div
         key={article.slug}
-        className="mx-auto grid animate-fade-in items-start gap-10 py-2 sm:py-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-10"
+        className="mx-auto grid w-full animate-fade-in items-start gap-10 py-2 sm:py-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-10"
       >
         <article className="max-w-3xl min-w-0">
           <h1 className="sr-only">{article.title}</h1>
