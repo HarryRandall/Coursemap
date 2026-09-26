@@ -81,6 +81,8 @@ export async function GET(request: Request) {
         query,
         level: searchParams.get("level") ?? undefined,
         session: searchParams.get("session") ?? undefined,
+        subject: searchParams.get("subject") ?? undefined,
+        tag: searchParams.get("tag") ?? undefined,
       },
       page: Number.isFinite(requestedPage) ? requestedPage : 1,
       pageSize: Number.isFinite(requestedPageSize) ? requestedPageSize : 8,
