@@ -21,6 +21,7 @@ import {
   dropTargetAtPoint,
 } from "@/ui/admin/requisites/requisite-drag";
 import { GroupBlock } from "@/ui/admin/requisites/requisite-group-block";
+import { scrollParent } from "@/lib/scroll-parent";
 
 type DropTarget = { groupId: string; id: string; index: number };
 export function RequisiteRuleTree({
@@ -110,6 +111,7 @@ export function RequisiteRuleTree({
     );
     if (!card) return;
     const rect = card.getBoundingClientRect();
+    const scroller = scrollParent(card);
     setActiveId(movingId);
     previewDrop(movingId, null);
     setDragPointer({
@@ -134,11 +136,15 @@ export function RequisiteRuleTree({
       if (floatingCardRef.current) {
         floatingCardRef.current.style.transform = `translate3d(${moveEvent.clientX - (event.clientX - rect.left)}px, ${moveEvent.clientY - (event.clientY - rect.top)}px, 0)`;
       }
-      if (moveEvent.clientY < 72) {
-        window.scrollBy({ top: -12, behavior: "auto" });
+      const bounds =
+        scroller === document.scrollingElement
+          ? { top: 0, bottom: window.innerHeight }
+          : scroller.getBoundingClientRect();
+      if (moveEvent.clientY < bounds.top + 72) {
+        scroller.scrollBy({ top: -12, behavior: "auto" });
       }
-      if (moveEvent.clientY > window.innerHeight - 72) {
-        window.scrollBy({ top: 12, behavior: "auto" });
+      if (moveEvent.clientY > bounds.bottom - 72) {
+        scroller.scrollBy({ top: 12, behavior: "auto" });
       }
       previewDrop(
         movingId,
