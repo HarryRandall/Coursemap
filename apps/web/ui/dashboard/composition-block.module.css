@@ -27,11 +27,15 @@
   font-size: 14px;
   line-height: 18px;
 }
+.name,
 .units {
-  display: flex;
-  flex-direction: column;
   font-size: 12px;
   line-height: 16px;
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .slots {
   position: absolute;
@@ -48,15 +52,52 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  border: 1.5px solid #8b5cf6;
+  border: 1.5px solid var(--color-primary);
   border-radius: 4px;
   background: transparent;
   color: var(--color-foreground);
   opacity: 0;
-  transition: opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 120ms ease-out,
+    transform 120ms ease-out;
+}
+.code {
+  transition: transform 120ms ease-out;
+}
+.openIcon {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.slot[data-status="Completed"]:hover,
+.slot[data-status="Completed"]:focus-visible {
+  background-color: color-mix(in oklab, var(--color-success) 16%, transparent);
+}
+.slot[data-status="Planned"]:hover,
+.slot[data-status="Planned"]:focus-visible {
+  background-color: color-mix(in oklab, var(--color-primary) 18%, transparent);
+}
+.slot:not([data-status="Unallocated"]):hover,
+.slot:not([data-status="Unallocated"]):focus-visible {
+  transform: translateY(-1px);
+}
+.slot:hover .openIcon,
+.slot:focus-visible .openIcon {
+  opacity: 1;
+}
+.slot[data-status="Unallocated"]:hover,
+.slot[data-status="Unallocated"]:focus-visible {
+  border-color: var(--color-muted-foreground);
 }
 .slot[data-status="Completed"] {
-  border-color: #10b981;
+  border-color: var(--color-success);
+}
+.slot[data-status="More"] {
+  border: 1px solid var(--color-border);
+  color: var(--color-muted-foreground);
 }
 .slot[data-status="Unallocated"] {
   border: 1px dashed var(--color-border);
@@ -66,7 +107,8 @@
   opacity: 0;
   pointer-events: none;
 }
-.block[data-open="true"] .units {
+.block[data-open="true"] .units,
+.block[data-open="true"] .name {
   display: none;
 }
 .block[data-open="true"] .heading {
@@ -85,8 +127,14 @@
 @media (prefers-reduced-motion: reduce) {
   .block,
   .slot,
+  .code,
+  .openIcon,
   .trigger {
     transition: none;
+  }
+  .slot:not([data-status="Unallocated"]):hover,
+  .slot:not([data-status="Unallocated"]):focus-visible {
+    transform: none;
   }
 }
 
@@ -118,6 +166,51 @@
 @media (prefers-reduced-motion: reduce) {
   .emptyLabel,
   .addIcon {
+    transition: none;
+  }
+}
+
+/* An unchosen major or minor. Like the other blocks, it clears to the card on
+   hover, where a dashed place invites the student to choose one. */
+.invitation {
+  display: block;
+  color: #172033;
+  transition: background-color 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.invitation .heading {
+  transition: opacity 120ms ease-out;
+}
+.invitationAction {
+  position: absolute;
+  inset: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed var(--color-muted-foreground);
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-foreground);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.invitation:hover,
+.invitation:focus-visible {
+  background-color: var(--color-card);
+}
+.invitation:hover .heading,
+.invitation:focus-visible .heading {
+  opacity: 0;
+}
+.invitation:hover .invitationAction,
+.invitation:focus-visible .invitationAction {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .invitation,
+  .invitation .heading,
+  .invitationAction {
     transition: none;
   }
 }

@@ -31,6 +31,8 @@ export type Course = {
   lastChanged: string;
   parseState: "Verified" | "Automatic" | "Review";
   accent: Accent;
+  /** The published domestic fee for the course, as listed, when there is one. */
+  domesticFee?: number | null;
 };
 
 export type Degree = {

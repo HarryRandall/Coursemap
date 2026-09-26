@@ -1,5 +1,6 @@
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import {
+  isPlanStructureKind,
   loadCurrentUserPlanCatalogue,
   planCourseFromDetails,
 } from "@/lib/coursemap/plan-catalogue";
@@ -10,7 +11,12 @@ import { Requirements } from "./requirements";
 
 export const dynamic = "force-dynamic";
 
-export default async function RequirementsPage() {
+export default async function RequirementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   let data;
   try {
     const [catalogue, choices] = await Promise.all([
@@ -50,5 +56,10 @@ export default async function RequirementsPage() {
     );
   }
 
-  return <Requirements {...data} />;
+  return (
+    <Requirements
+      {...data}
+      initialTab={tab && isPlanStructureKind(tab) ? tab : "programme"}
+    />
+  );
 }

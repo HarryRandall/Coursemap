@@ -25,13 +25,16 @@ import {
   requirementConditionsByKey,
   requirementTreeProgress,
 } from "@/lib/coursemap/requirement-progress";
-import { planningCourseForAttempt } from "@/lib/planner";
 import {
   conditionHeading,
   type RequirementTreeCondition,
 } from "@/ui/requirements/requirement-presentation";
 import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
-import { degreeUnitProgress } from "@/lib/planner";
+import {
+  degreeUnitProgress,
+  planningCourseForAttempt,
+  unitsForAttempt,
+} from "@/lib/planner";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
 import { StructureProgress } from "@/ui/requirements/structure-progress";
 import { StructureEmptyState } from "@/ui/requirements/structure-empty-state";
@@ -48,13 +51,16 @@ const sections = [
 export function Requirements({
   catalogue,
   choices,
+  initialTab = "programme",
 }: {
   catalogue: PlanCatalogue;
   choices: OnboardingCatalogue;
+  /** The section to open first, such as the major when adding one. */
+  initialTab?: PlanStructureKind;
 }) {
   const { state, updateProfile, notify, setPlacement } = useCoursemap();
   const router = useRouter();
-  const [tab, setTab] = useState<PlanStructureKind>("programme");
+  const [tab, setTab] = useState<PlanStructureKind>(initialTab);
   const [choosing, setChoosing] = useState(false);
   const [pending, setPending] = useState(false);
   const [addingCourse, setAddingCourse] = useState<Course | null>(null);
@@ -150,9 +156,13 @@ export function Requirements({
         <h1 className="sr-only">Requirements</h1>
         <StructureProgress
           name={degree ? (programme?.name ?? degree.name) : "Your degree"}
-          code={degree?.code ?? null}
-          year={degree ? catalogue.academicYear : null}
           target={degree?.units ?? null}
+          enrolledUnits={state.attempts
+            .filter((attempt) => attempt.status === "enrolled")
+            .reduce((total, attempt) => {
+              const course = planningCourseForAttempt(attempt, catalogue);
+              return course ? total + unitsForAttempt(attempt, course) : total;
+            }, 0)}
           progress={degreeUnitProgress(
             state.attempts,
             degree?.units ?? 0,

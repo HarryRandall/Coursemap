@@ -128,7 +128,9 @@ export function MonthCalendar({
       <CardContent className="flex h-full flex-col p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{monthLabel(focus)}</h2>
-          <div className="flex items-center">
+          {/* The buttons overhang the row so the heading lines up with the
+              neighbouring card's heading. */}
+          <div className="-my-2 flex items-center">
             <Button
               aria-label="Previous month"
               variant="ghost"
@@ -147,7 +149,7 @@ export function MonthCalendar({
             </Button>
           </div>
         </div>
-        <div className="mt-2 grid grid-cols-7">
+        <div className="mt-2 grid flex-1 grid-cols-7 content-center">
           {weekdayLabels.map((label) => (
             <div
               key={label}
@@ -220,11 +222,6 @@ export function MonthCalendar({
             );
           })}
         </div>
-        {events.some((event) => event.startsOn && event.endsOn) ? null : (
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            No dates to show for your selected study periods.
-          </p>
-        )}
       </CardContent>
     </Card>
   );
