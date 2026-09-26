@@ -1,5 +1,4 @@
 "use client";
-import { toast } from "sonner";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@coursemap/ui/primitives/dialog";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
+import { showToast } from "@/ui/common/toast";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { ResultsEmptyState } from "@/ui/academic/results-empty-state";
 import { PreviewLayout } from "@/ui/academic/previews/preview-layout";
@@ -97,10 +97,8 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
         );
         if (!response.ok) {
           setSelected(null);
-          toast.error(response.message, {
-            description: response.detail ? (
-              <span className="line-clamp-1 break-all">{response.detail}</span>
-            ) : undefined,
+          showToast(response.message, "error", {
+            detail: response.detail,
           });
           return;
         }
@@ -109,7 +107,7 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
         router.refresh();
       } catch {
         setSelected(null);
-        notify("We couldn't save that result. Try again.", "error");
+        notify("Couldn't save that result. Try again.", "error");
       }
     });
   }

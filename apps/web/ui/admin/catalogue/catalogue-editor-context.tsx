@@ -10,7 +10,6 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { toast } from "sonner";
 
 import type { CatalogueContent } from "@/lib/catalogue/content";
 import {
@@ -20,6 +19,7 @@ import {
   saveCatalogueDraftAction,
   unpublishAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
+import { showToast } from "@/ui/common/toast";
 
 export type CatalogueSaveState = "saved" | "saving" | "error" | "conflict";
 
@@ -179,7 +179,7 @@ export function CatalogueEditorProvider({
       record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
-    toast.success(result.message);
+    showToast(result.message ?? "Published");
     setEditingSessionId(crypto.randomUUID());
     setIsPublished(true);
     setHasDraft(false);
@@ -196,7 +196,7 @@ export function CatalogueEditorProvider({
       record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
-    toast.success(result.message);
+    showToast(result.message ?? "Unpublished");
     setEditingSessionId(crypto.randomUUID());
     setIsPublished(false);
     router.refresh();
@@ -210,7 +210,7 @@ export function CatalogueEditorProvider({
       path,
     });
     if (!result.ok) throw new Error(result.error);
-    toast.success(result.message);
+    showToast(result.message ?? "Draft discarded");
     setEditingSessionId(crypto.randomUUID());
     setHasDraft(false);
     setHasUnpublishedChanges(false);
@@ -235,7 +235,7 @@ export function CatalogueEditorProvider({
     });
     setOpening(false);
     if (!result.ok) {
-      toast.error(result.error);
+      showToast(result.error, "error");
       return;
     }
     setRevision(result.revision ?? revision);

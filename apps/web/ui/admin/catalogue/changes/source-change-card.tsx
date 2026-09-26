@@ -4,13 +4,13 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { toast } from "sonner";
 import type {
   SourceReviewChange,
   SourceReviewDecision,
 } from "@/lib/catalogue/source-review-store";
 import { resolveSourceChangeAction } from "@/lib/coursemap/admin-catalogue-actions";
 import { ReviewValue } from "./review-value";
+import { showToast } from "@/ui/common/toast";
 
 // The section heading already says a row was kept or has converged, so only
 // the two actionable classifications carry a badge of their own.
@@ -50,10 +50,10 @@ export function SourceChangeCard({
         path,
       });
       if (!result.ok) {
-        toast.error(result.error);
+        showToast(result.error, "error");
         return;
       }
-      toast.success(result.message ?? "The ANU change was resolved.");
+      showToast(result.message ?? "ANU change resolved");
       router.refresh();
     });
   }

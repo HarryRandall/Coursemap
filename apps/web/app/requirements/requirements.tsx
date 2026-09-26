@@ -130,7 +130,7 @@ export function Requirements({
         router.refresh();
       }
     } catch {
-      notify("Your selection could not be saved. Try again.", "warning");
+      notify("Couldn't save your selection. Try again.", "warning");
     } finally {
       setPending(false);
     }

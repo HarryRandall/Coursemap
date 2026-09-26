@@ -3,7 +3,6 @@
 import { EyeOff, RefreshCw, Send, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
 
 import {
   discardDraftAction,
@@ -21,6 +20,7 @@ import {
 import { anuSourceUrl } from "@/ui/admin/catalogue/anu-source";
 import { CatalogueRowActions } from "@/ui/admin/catalogue-table/catalogue-row-actions";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
+import { showToast } from "@/ui/common/toast";
 
 type DraftAction = "publish" | "discard" | "unpublish";
 
@@ -65,7 +65,10 @@ export function DirectoryRowActions({
 
   async function startSync() {
     if (record.recordId === null) {
-      toast.error("Refresh the ANU listing before syncing this record.");
+      showToast(
+        "Refresh the ANU listing first. This record is not in it yet.",
+        "warning",
+      );
       return;
     }
     setSyncing(true);
@@ -77,13 +80,17 @@ export function DirectoryRowActions({
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) {
-        toast.error(result.error ?? "The ANU sync could not start.");
+        showToast("Couldn't start the ANU sync", "error", {
+          detail: result.error,
+        });
         return;
       }
-      toast.success(`Syncing ${record.code} from ANU...`);
+      showToast(`Syncing ${record.code}`, "info", {
+        detail: "The row updates when ANU has been read.",
+      });
       router.refresh();
     } catch {
-      toast.error("The ANU sync could not start.");
+      showToast("Couldn't start the ANU sync", "error");
     } finally {
       setSyncing(false);
     }
@@ -115,8 +122,8 @@ export function DirectoryRowActions({
         path: recordPath,
         record: publishedRecord,
       });
-    if (result.ok) toast.success(result.message ?? "Done.");
-    else toast.error(result.error);
+    if (result.ok) showToast(result.message ?? "Saved");
+    else showToast(result.error, "error");
     // Even a refusal refreshes: the row is out of date either way, and the
     // menu it offers has to match what the record now is.
     router.refresh();

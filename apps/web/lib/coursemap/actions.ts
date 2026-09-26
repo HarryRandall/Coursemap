@@ -28,7 +28,7 @@ function failure(error: unknown): CoursemapActionResult {
   const rawMessage =
     error && typeof error === "object" && "message" in error
       ? String(error.message)
-      : "Coursemap could not save that change.";
+      : "Couldn't save that change. Try again.";
   const message = rawMessage.includes("profiles_student_number_format_check")
     ? "Enter a student number in the format u1234567, or leave it blank."
     : rawMessage;
@@ -65,7 +65,7 @@ export async function saveProfileAndPlan(
     );
     if (error) throw error;
     revalidatePath("/", "layout");
-    return { ok: true, id: data, message: "Profile and academic plan saved" };
+    return { ok: true, id: data, message: "Profile saved" };
   } catch (error) {
     return failure(error);
   }
@@ -148,7 +148,7 @@ export async function removePlanCourse(
     if (data) revalidatePath("/plan");
     return data
       ? { ok: true, message: "Course removed from the plan" }
-      : { ok: false, message: "Course was not found in your plan" };
+      : { ok: false, message: "That course is no longer in your plan" };
   } catch (error) {
     return failure(error);
   }

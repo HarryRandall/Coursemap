@@ -3,6 +3,7 @@
 import { Progress } from "@coursemap/ui/primitives/progress";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { TOAST_DURATION, ToastDetail } from "@/ui/common/toast";
 
 export type TaskStep = {
   /** Where the work has actually reached, 0-100. The bar catches up to it. */
@@ -13,6 +14,7 @@ export type TaskStep = {
    * the movement is continuous without ever claiming unreported progress.
    */
   ceiling: number;
+  /** What the work is doing now, shown above the bar. */
   detail: string;
 };
 
@@ -30,8 +32,6 @@ export type TaskHandle = {
   /** Let go of work that outlives whatever was watching it. */
   abandon: (outcome: TaskOutcome) => void;
 };
-
-const SETTLED_DURATION = 6000;
 
 /** How often the bar is redrawn while work runs. */
 const TICK_MS = 90;
@@ -60,6 +60,17 @@ const DRIFT = 0.008;
 const STILL = 0.05;
 
 /**
+ * The share of the distance each tick closes while the bar fills to the end
+ * once the work has finished, and the least it moves per tick while doing so.
+ * Quicker than an ordinary catch-up so the ending reads as a flourish.
+ */
+const FINISH = 0.3;
+const MIN_FINISH = 1.5;
+
+/** How long the full bar is held before the toast turns into the outcome. */
+const FULL_HOLD_MS = 350;
+
+/**
  * How long the running toast is held before it may settle. Phases the server
  * answers instantly would otherwise flash past unread.
  */
@@ -73,10 +84,9 @@ const MIN_VISIBLE_MS = 800;
 const STALL_MS = 150_000;
 
 /**
- * The toast body while work runs. It stays the two lines every other toast
- * uses, title then detail, with the bar as a rule beneath them; the button
- * that started the work keeps its own label rather than reflowing the toolbar
- * on every event.
+ * The toast body while work runs: the step the work has reached with how far
+ * along it is, over a thin bar. The step is one line so the toast keeps the
+ * same height from start to finish.
  */
 function TaskProgress({
   percent,
@@ -86,14 +96,22 @@ function TaskProgress({
   detail: string;
 }) {
   return (
-    <div className="mt-1 flex w-full flex-col gap-2">
+    <div className="mt-0.5 flex w-full flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="truncate">{detail}</span>
-        <span className="shrink-0 tabular-nums">{Math.round(percent)}%</span>
+        <span className="truncate" title={detail}>
+          {detail}
+        </span>
+        <span className="shrink-0 text-xs tabular-nums">
+          {Math.round(percent)}%
+        </span>
       </div>
       {/* The track is drawn against the toast, not the page, so it needs a
           ground of its own to show how much of the work is left. */}
-      <Progress value={percent} className="bg-foreground/15" />
+      <Progress
+        value={percent}
+        aria-label={detail}
+        className="h-1 bg-foreground/10"
+      />
     </div>
   );
 }
@@ -128,6 +146,7 @@ export function startTask({
   let timer: number | undefined;
   let settled = false;
   let dismissed = false;
+  let finished: (() => void) | undefined;
 
   function paint() {
     // Not toast.loading: sonner withholds the close button from a loading
@@ -151,10 +170,23 @@ export function startTask({
   }
 
   function glide() {
+    if (finished) {
+      shown = Math.min(
+        100,
+        shown + Math.max(MIN_FINISH, (100 - shown) * FINISH),
+      );
+      paint();
+      if (shown < 100) return;
+      stopGlide();
+      const then = finished;
+      finished = undefined;
+      window.setTimeout(then, FULL_HOLD_MS);
+      return;
+    }
     if (Date.now() - steppedAt > STALL_MS) {
       abandon({
         title,
-        detail: "This is taking longer than expected. Reload to check on it.",
+        detail: "Still running. Reload later to check on it.",
       });
       return;
     }
@@ -187,32 +219,42 @@ export function startTask({
   function settle(kind: "done" | "note" | "fail", outcome: TaskOutcome) {
     if (settled) return;
     settled = true;
-    stopGlide();
     // A toast dismissed by hand has been read and put away; only a failure is
     // worth bringing back unasked.
     if (dismissed && kind !== "fail") return;
     const show = () => {
       const { title: heading, detail: line, retry } = outcome;
+      const tone =
+        kind === "done" ? "success" : kind === "note" ? "info" : "error";
       const options = {
         id,
         // Sonner merges into the toast already on screen, so the spinner this
         // task was painted with has to be cleared or it keeps turning under
         // the outcome. Undefined hands the icon back to the toast's own type.
         icon: undefined,
-        // A toast is its title and one line under it. A message too long for
-        // that line is kept whole in the tooltip rather than growing the toast.
         description: line ? (
-          <span className="block truncate" title={line}>
-            {line}
-          </span>
+          <ToastDetail
+            text={line}
+            className="duration-300 animate-in fade-in-0"
+          />
         ) : undefined,
-        duration: kind === "fail" ? Number.POSITIVE_INFINITY : SETTLED_DURATION,
+        // A failure that offers a retry waits for it rather than timing out
+        // from under the button.
+        duration: retry ? Number.POSITIVE_INFINITY : TOAST_DURATION[tone],
         ...(retry ? { action: { label: "Retry", onClick: retry } } : {}),
       };
-      if (kind === "done") toast.success(heading, options);
-      else if (kind === "note") toast.info(heading, options);
-      else toast.error(heading, options);
+      toast[tone](heading, options);
     };
+    // Finished work fills the bar to the end before it turns into the
+    // outcome, so the toast is seen through rather than swapped. Work that
+    // failed, stopped or was let go never reached the end, so its bar does not
+    // claim to, and a toast put away by hand has nothing left to animate.
+    if (kind === "done" && !dismissed) {
+      finished = show;
+      if (timer === undefined) timer = window.setInterval(glide, TICK_MS);
+      return;
+    }
+    stopGlide();
     const held = Date.now() - openedAt;
     if (held >= MIN_VISIBLE_MS) show();
     else window.setTimeout(show, MIN_VISIBLE_MS - held);
