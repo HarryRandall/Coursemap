@@ -279,7 +279,7 @@ export function Dashboard({
   return (
     <AppShell>
       <div
-        className="mx-auto flex flex-col gap-6"
+        className="flex flex-col gap-6"
         data-entered={entered || undefined}
       >
         <h1 className="sr-only">Dashboard</h1>

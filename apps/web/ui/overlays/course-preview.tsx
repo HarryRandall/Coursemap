@@ -1,4 +1,5 @@
 "use client";
+import { StarButton } from "@/ui/common/star-button";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   Empty,
@@ -77,6 +78,7 @@ export function CoursePreview({
                   </ReuiLink>
                 </h3>
               </div>
+              <StarButton courseCode={course.code} />
             </div>
 
             <p className="mt-4 text-[13px] leading-5 text-muted-foreground">

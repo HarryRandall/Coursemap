@@ -46,6 +46,7 @@ import {
 } from "@coursemap/ui/primitives/dialog";
 
 import { StatusPill } from "@/ui/common/status-pill";
+import { StarButton } from "@/ui/common/star-button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 
 /**
@@ -130,6 +131,7 @@ export function CourseDialog({
               {course.code}
             </p>
             <StatusPill status={status} />
+            <StarButton courseCode={course.code} />
           </div>
           <DialogTitle asChild>
             <h2
