@@ -55,12 +55,12 @@ function EmptyCalendarCard({
 }) {
   const latestYear = availableYears[0];
   return (
-    <Card className="overflow-hidden">
-      <Empty className="relative py-14 sm:py-20">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-linear-to-b from-primary/8 to-transparent"
-        />
+    <Card className="relative min-h-96 flex-1 py-0">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-linear-to-b from-primary/8 to-transparent"
+      />
+      <Empty className="relative flex-1 py-14 sm:py-20">
         <EmptyHeader className="relative max-w-lg">
           <EmptyMedia>
             <CalendarIllustration />
@@ -194,7 +194,7 @@ export default async function KeyDatesPage({
         {calendarUnavailable ? (
           <CalendarLoadError retryHref={retryHref} />
         ) : allEvents.length === 0 || data.year === null ? (
-          <div className="workspace-scroll w-full">
+          <div className="workspace-scroll flex w-full flex-col">
             <EmptyCalendarCard
               availableYears={data.availableYears}
               canManage={canSync}
