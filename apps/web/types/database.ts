@@ -4450,12 +4450,12 @@ export type Database = {
         }
         Returns: number
       }
-      set_current_user_plan_extension_years: {
-        Args: { p_extension_years: number }
-        Returns: undefined
-      }
       set_current_user_course_star: {
         Args: { p_course_code: string; p_starred: boolean }
+        Returns: undefined
+      }
+      set_current_user_plan_extension_years: {
+        Args: { p_extension_years: number }
         Returns: undefined
       }
       set_current_user_requirement_placement: {
