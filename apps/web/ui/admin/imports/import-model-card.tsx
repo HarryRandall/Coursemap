@@ -3,7 +3,6 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Cpu, Plus, Settings2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Card } from "@coursemap/ui/primitives/card";
 import {
@@ -19,6 +18,7 @@ import { cn } from "@/lib/cn";
 import { ImportModelLogo } from "./import-model-logo";
 import { ImportModelPrice } from "./import-model-price";
 import { ImportModelManager } from "./import-model-manager";
+import { showToast } from "@/ui/common/toast";
 
 const dateFormatter = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
@@ -50,13 +50,13 @@ export function ImportModelCard({
       try {
         const result = await setImportModel(next);
         if (!result.ok) {
-          toast.error(result.message);
+          showToast(result.message, "error");
           return;
         }
-        toast.success(result.message);
+        showToast(result.message);
         router.refresh();
       } catch {
-        toast.error("The default model could not be saved. Try again.");
+        showToast("Couldn't save the default model. Try again.", "error");
       }
     });
   }

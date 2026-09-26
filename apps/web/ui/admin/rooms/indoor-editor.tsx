@@ -1,6 +1,5 @@
 "use client";
 import { buildingDrawingAngle } from "@/lib/rooms/indoor-orientation";
-import { toast } from "sonner";
 
 import { useSearchParams } from "next/navigation";
 import {
@@ -80,6 +79,7 @@ import {
   type CampusMapData,
   type CampusMapPlace,
 } from "@/lib/rooms/campus-map";
+import { showToast } from "@/ui/common/toast";
 
 /** Old links used `?tab=`; the 3D views map onto the perspective toggle. */
 function perspectiveFromSearch(value: string | null) {
@@ -361,7 +361,7 @@ export function IndoorEditor({
         status,
       });
       if (result.ok) {
-        toast.success(result.message);
+        showToast(result.message);
         setSavedRecord((current) => ({
           ...current,
           name,
@@ -377,13 +377,14 @@ export function IndoorEditor({
           sourceName,
         });
       } else {
-        toast.error(result.message);
+        showToast(result.message, "error");
       }
     } catch (error) {
-      toast.error(
+      showToast(
         error instanceof Error
           ? error.message
-          : "This floor plan could not be saved.",
+          : "Couldn't save this floor plan",
+        "error",
       );
     } finally {
       setSavingStatus(null);

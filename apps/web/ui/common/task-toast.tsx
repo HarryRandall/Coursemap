@@ -1,18 +1,11 @@
 "use client";
 
-import { Progress } from "@coursemap/ui/primitives/progress";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { TOAST_DURATION, ToastDetail } from "@/ui/common/toast";
 
 export type TaskStep = {
-  /** Where the work has actually reached, 0-100. The bar catches up to it. */
-  percent: number;
-  /**
-   * Where this phase ends, which is where the next one begins. Once the bar
-   * has caught up it drifts towards this for as long as the phase lasts, so
-   * the movement is continuous without ever claiming unreported progress.
-   */
-  ceiling: number;
+  /** What the work is doing now, shown under the title while it runs. */
   detail: string;
 };
 
@@ -31,34 +24,6 @@ export type TaskHandle = {
   abandon: (outcome: TaskOutcome) => void;
 };
 
-const SETTLED_DURATION = 6000;
-
-/** How often the bar is redrawn while work runs. */
-const TICK_MS = 90;
-
-/**
- * The share of the distance each tick closes while the bar is behind what the
- * work has reported. Brisk enough to feel answered, slow enough to read as
- * movement rather than a jump.
- */
-const CATCH_UP = 0.18;
-
-/**
- * The least the bar moves per tick while catching up. Easing alone only ever
- * approaches what was reported, which would strand the bar just short of it
- * and never hand over to the drift.
- */
-const MIN_CATCH = 0.35;
-
-/**
- * The share closed each tick while the bar is merely waiting out a phase. It
- * approaches the end of the phase without arriving, easing off as it goes.
- */
-const DRIFT = 0.008;
-
-/** Below this the bar has settled into its phase and repainting only churns. */
-const STILL = 0.05;
-
 /**
  * How long the running toast is held before it may settle. Phases the server
  * answers instantly would otherwise flash past unread.
@@ -73,145 +38,85 @@ const MIN_VISIBLE_MS = 800;
 const STALL_MS = 150_000;
 
 /**
- * The toast body while work runs. It stays the two lines every other toast
- * uses, title then detail, with the bar as a rule beneath them; the button
- * that started the work keeps its own label rather than reflowing the toolbar
- * on every event.
- */
-function TaskProgress({
-  percent,
-  detail,
-}: {
-  percent: number;
-  detail: string;
-}) {
-  return (
-    <div className="mt-1 flex w-full flex-col gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="truncate">{detail}</span>
-        <span className="shrink-0 tabular-nums">{Math.round(percent)}%</span>
-      </div>
-      {/* The track is drawn against the toast, not the page, so it needs a
-          ground of its own to show how much of the work is left. */}
-      <Progress value={percent} className="bg-foreground/15" />
-    </div>
-  );
-}
-
-/**
- * Opens one progress toast for a long-running operation and returns the handle
- * that drives it. The `id` is the operation rather than the click, so starting
- * the same work again replaces its toast instead of stacking another one.
+ * Opens one toast for a long-running operation and returns the handle that
+ * drives it. The `id` is the operation rather than the click, so starting the
+ * same work again replaces its toast instead of stacking another one.
  *
- * Phases arrive whenever the work reports them, which for a cached or empty
- * step is no time at all. The bar therefore catches up to what was reported
- * and then drifts through the rest of the phase, so the reported progress
- * stays honest while the movement stays readable.
+ * While the work runs the toast is a spinner, the title and the step it has
+ * reached. The steps are reported far too unevenly for a bar to say anything
+ * true about how long is left, so none is drawn.
  */
 export function startTask({
   id,
   title,
   detail,
-  ceiling = 20,
 }: {
   id: string;
   title: string;
   detail: string;
-  ceiling?: number;
 }): TaskHandle {
   const openedAt = Date.now();
-  let shown = 0;
-  let floor = 0;
-  let limit = ceiling;
-  let text = detail;
-  let steppedAt = Date.now();
-  let timer: number | undefined;
+  let stall: number | undefined;
   let settled = false;
   let dismissed = false;
 
-  function paint() {
+  function paint(line: string) {
     // Not toast.loading: sonner withholds the close button from a loading
     // toast, and work that carries on server-side has to be dismissable.
     toast(title, {
       id,
       icon: <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />,
-      description: <TaskProgress percent={shown} detail={text} />,
+      description: <ToastDetail text={line} />,
       duration: Number.POSITIVE_INFINITY,
       onDismiss: () => {
         dismissed = true;
-        stopGlide();
+        window.clearTimeout(stall);
       },
     });
   }
 
-  function stopGlide() {
-    if (timer === undefined) return;
-    window.clearInterval(timer);
-    timer = undefined;
+  function watch() {
+    window.clearTimeout(stall);
+    stall = window.setTimeout(
+      () =>
+        abandon({
+          title,
+          detail: "Still running. Reload later to check on it.",
+        }),
+      STALL_MS,
+    );
   }
 
-  function glide() {
-    if (Date.now() - steppedAt > STALL_MS) {
-      abandon({
-        title,
-        detail: "This is taking longer than expected. Reload to check on it.",
-      });
-      return;
-    }
-    if (shown < floor) {
-      shown = Math.min(
-        floor,
-        shown + Math.max(MIN_CATCH, (floor - shown) * CATCH_UP),
-      );
-      paint();
-      return;
-    }
-    const next = shown + (limit - shown) * DRIFT;
-    if (next - shown < STILL) return;
-    shown = next;
-    paint();
-  }
-
-  function step({ percent, ceiling: end, detail: line }: TaskStep) {
+  function step({ detail: line }: TaskStep) {
     if (settled || dismissed) return;
-    steppedAt = Date.now();
-    floor = Math.max(floor, percent);
-    limit = Math.max(limit, end);
-    text = line;
-    // The wording is what the reader is waiting on, so it lands at once while
-    // the bar catches up behind it.
-    paint();
-    if (timer === undefined) timer = window.setInterval(glide, TICK_MS);
+    paint(line);
+    watch();
   }
 
   function settle(kind: "done" | "note" | "fail", outcome: TaskOutcome) {
     if (settled) return;
     settled = true;
-    stopGlide();
+    window.clearTimeout(stall);
     // A toast dismissed by hand has been read and put away; only a failure is
     // worth bringing back unasked.
     if (dismissed && kind !== "fail") return;
     const show = () => {
       const { title: heading, detail: line, retry } = outcome;
+      const tone =
+        kind === "done" ? "success" : kind === "note" ? "info" : "error";
       const options = {
         id,
         // Sonner merges into the toast already on screen, so the spinner this
         // task was painted with has to be cleared or it keeps turning under
         // the outcome. Undefined hands the icon back to the toast's own type.
         icon: undefined,
-        // A toast is its title and one line under it. A message too long for
-        // that line is kept whole in the tooltip rather than growing the toast.
-        description: line ? (
-          <span className="block truncate" title={line}>
-            {line}
-          </span>
-        ) : undefined,
-        duration: kind === "fail" ? Number.POSITIVE_INFINITY : SETTLED_DURATION,
+        description: line ? <ToastDetail text={line} /> : undefined,
+        // A failure that offers a retry waits for it rather than timing out
+        // from under the button.
+        duration: retry ? Number.POSITIVE_INFINITY : TOAST_DURATION[tone],
         ...(retry ? { action: { label: "Retry", onClick: retry } } : {}),
       };
-      if (kind === "done") toast.success(heading, options);
-      else if (kind === "note") toast.info(heading, options);
-      else toast.error(heading, options);
+      toast[tone](heading, options);
     };
     const held = Date.now() - openedAt;
     if (held >= MIN_VISIBLE_MS) show();
@@ -222,8 +127,8 @@ export function startTask({
     settle("note", outcome);
   }
 
-  paint();
-  timer = window.setInterval(glide, TICK_MS);
+  paint(detail);
+  watch();
 
   return {
     step,
