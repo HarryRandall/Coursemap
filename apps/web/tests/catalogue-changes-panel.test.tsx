@@ -255,6 +255,25 @@ test("a first reading leads with what needs review and folds what was read plain
     screen.getByText("One sentence was split into several conditions"),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Approve all 1" })).toBeTruthy();
-  expect(screen.getByText("1 read plainly from the page")).toBeTruthy();
+  expect(screen.getByText("Stated plainly")).toBeTruthy();
   expect(screen.queryByText("No changes to review")).toBeNull();
+});
+
+test("leaves out first readings taken word for word from the page", () => {
+  renderPanel({
+    review: review({
+      firstRead: [
+        change({
+          id: 31,
+          classification: "first_read",
+          label: "Title",
+          confidence: 1,
+          band: "accepted",
+          reason: "Stated plainly on the page",
+        }),
+      ],
+    }),
+  });
+  expect(screen.queryByText("First reading from ANU")).toBeNull();
+  expect(screen.getByText("No changes to review")).toBeTruthy();
 });

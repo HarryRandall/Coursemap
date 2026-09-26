@@ -2,16 +2,18 @@
 
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/cn";
 import type { SourceReviewChange } from "@/lib/catalogue/source-review-store";
 import {
   approveFirstReadAction,
   resolveSourceChangeAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
-import { ReviewValue } from "./review-value";
+import { type ReviewSubject, ReviewValue } from "./review-value";
 
 const BAND_BADGE = {
   needs_review: { label: "Needs review", variant: "destructive-light" },
@@ -19,9 +21,9 @@ const BAND_BADGE = {
   accepted: { label: "Accepted", variant: "success-light" },
 } as const;
 
-function confidenceLabel(confidence: number | null) {
+export function confidenceLabel(confidence: number | null) {
   return confidence === null
-    ? "No evidence"
+    ? "No % given"
     : `${Math.round(confidence * 100)}% sure`;
 }
 
@@ -59,11 +61,13 @@ function FirstReadCard({
   recordId,
   path,
   canWrite,
+  subject,
 }: {
   change: SourceReviewChange;
   recordId: number;
   path: string;
   canWrite: boolean;
+  subject: ReviewSubject | null;
 }) {
   const { isPending, approve, keepEdit } = useResolve(recordId, path);
   const band = BAND_BADGE[change.band ?? "check"];
@@ -81,11 +85,15 @@ function FirstReadCard({
       {change.reason ? (
         <p className="mt-1 text-sm text-muted-foreground">{change.reason}</p>
       ) : null}
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      {/* Two columns only when there is something to compare against. */}
+      <div
+        className={cn("mt-3 grid gap-4", change.isStale && "lg:grid-cols-2")}
+      >
         <ReviewValue
           label="Read from ANU"
           value={change.incomingSourceValue}
           unitKind={change.unitKind}
+          subject={subject}
         />
         {change.isStale ? (
           <ReviewValue
@@ -93,6 +101,7 @@ function FirstReadCard({
             value={change.localValue}
             unitKind={change.unitKind}
             note="You corrected this after the reading."
+            subject={subject}
           />
         ) : null}
       </div>
@@ -174,11 +183,13 @@ export function FirstReadReview({
   recordId,
   path,
   canWrite,
+  subject = null,
 }: {
   changes: SourceReviewChange[];
   recordId: number;
   path: string;
   canWrite: boolean;
+  subject?: ReviewSubject | null;
 }) {
   const needsReview = changes.filter(
     (change) => change.band === "needs_review",
@@ -192,6 +203,7 @@ export function FirstReadReview({
       key={change.id}
       path={path}
       recordId={recordId}
+      subject={subject}
     />
   );
 
@@ -238,17 +250,24 @@ export function FirstReadReview({
 
       {accepted.length ? (
         <details className="group flex flex-col gap-3">
-          <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
-            <span className="underline-offset-4 group-hover:underline">
-              {accepted.length} read plainly from the page
-            </span>
+          <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              <ChevronRight
+                aria-hidden="true"
+                className="size-4 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
+              />
+              Stated plainly
+              <span className="font-normal text-muted-foreground tabular-nums">
+                {accepted.length}
+              </span>
+            </h3>
           </summary>
           <div className="mt-3 flex flex-col gap-3">
             {canWrite ? (
               <div className="flex justify-end">
                 <BulkApprove
                   changes={accepted}
-                  label={`Approve all ${accepted.length} read plainly`}
+                  label={`Approve all ${accepted.length} stated plainly`}
                   path={path}
                   recordId={recordId}
                 />

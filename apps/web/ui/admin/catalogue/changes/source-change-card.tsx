@@ -10,7 +10,8 @@ import type {
   SourceReviewDecision,
 } from "@/lib/catalogue/source-review-store";
 import { resolveSourceChangeAction } from "@/lib/coursemap/admin-catalogue-actions";
-import { ReviewValue } from "./review-value";
+import { confidenceLabel } from "./first-read-review";
+import { type ReviewSubject, ReviewValue } from "./review-value";
 
 // The section heading already says a row was kept or has converged, so only
 // the two actionable classifications carry a badge of their own.
@@ -31,11 +32,13 @@ export function SourceChangeCard({
   recordId,
   path,
   canWrite,
+  subject = null,
 }: {
   change: SourceReviewChange;
   recordId: number;
   path: string;
   canWrite: boolean;
+  subject?: ReviewSubject | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -62,30 +65,43 @@ export function SourceChangeCard({
     <article className="rounded-xl border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-medium">{change.label}</h3>
-        {CLASSIFICATION_LABELS[change.classification] ? (
-          <Badge
-            variant={
-              change.classification === "conflict"
-                ? "warning-light"
-                : "info-light"
-            }
-          >
-            {CLASSIFICATION_LABELS[change.classification]}
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="tabular-nums">
+            {confidenceLabel(change.confidence)}
           </Badge>
-        ) : null}
+          {CLASSIFICATION_LABELS[change.classification] ? (
+            <Badge
+              variant={
+                change.classification === "conflict"
+                  ? "warning-light"
+                  : "info-light"
+              }
+            >
+              {CLASSIFICATION_LABELS[change.classification]}
+            </Badge>
+          ) : null}
+        </div>
       </div>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+      <div
+        className={
+          change.classification === "conflict" && change.hasBaseSource
+            ? "mt-3 grid gap-4 lg:grid-cols-3"
+            : "mt-3 grid gap-4 lg:grid-cols-2"
+        }
+      >
         {change.classification === "conflict" && change.hasBaseSource ? (
           <ReviewValue
             label="Previous ANU"
             value={change.baseSourceValue}
             unitKind={change.unitKind}
+            subject={subject}
           />
         ) : null}
         <ReviewValue
           label="Current"
           value={change.localValue}
           unitKind={change.unitKind}
+          subject={subject}
           note={
             change.isStale
               ? "You changed this after the review was created."
@@ -98,6 +114,7 @@ export function SourceChangeCard({
           label={isOverride ? "ANU" : "New ANU"}
           value={change.incomingSourceValue}
           unitKind={change.unitKind}
+          subject={subject}
         />
       </div>
       {canWrite ? (

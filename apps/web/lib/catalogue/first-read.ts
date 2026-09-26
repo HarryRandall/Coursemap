@@ -22,6 +22,17 @@ export const NEEDS_REVIEW_BELOW = 0.7;
 /** From here up, a reading with no flags is taken as read. */
 export const ACCEPTED_FROM = 0.9;
 
+/**
+ * Read with full confidence and nothing flagged: the draft already holds it
+ * and there is nothing for a person to add, so review leaves it out.
+ */
+export function isCertainFirstRead(item: {
+  band: FirstReadBand | null;
+  confidence: number | null;
+}) {
+  return item.band === "accepted" && item.confidence === 1;
+}
+
 export type FirstReadItem = {
   fieldPath: string;
   unitKind: CatalogueReviewUnit["unitKind"];
