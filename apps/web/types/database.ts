@@ -2729,6 +2729,45 @@ export type Database = {
           },
         ]
       }
+      course_tags: {
+        Row: {
+          created_at: string
+          id: number
+          name: string
+          position: number
+          version_id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          name: string
+          position: number
+          version_id: number
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          name?: string
+          position?: number
+          version_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_tags_snapshot_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_tags_snapshot_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["version_id"]
+          },
+        ]
+      }
       course_unit_options: {
         Row: {
           created_at: string
