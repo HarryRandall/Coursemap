@@ -1,222 +1,153 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
-import { Plus } from "lucide-react";
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
-import styles from "./composition-block.module.css";
+import {
+  compositionSectionUnits,
+  type CompositionKind,
+  type CompositionSection,
+} from "@/lib/coursemap/degree-composition";
+import { useElementSize } from "@/hooks/use-element-size";
+import { CompositionBlock } from "./composition-block";
+import { CompositionInvitation } from "./composition-invitation";
+import { compositionLayout } from "./composition-layout";
 
-type PreviewCourse = {
-  code: string;
-  name: string;
-  status: "Completed" | "Planned";
+const titles: Record<CompositionKind, string> = {
+  core: "Programme core",
+  major: "Major",
+  minor: "Minor",
+  electives: "Electives",
 };
-const sections = [
-  {
-    name: "Major",
-    units: 72,
-    colour: "bg-violet-300",
-    grid: "grid-cols-3 grid-rows-4",
-    courses: [
-      {
-        code: "COMP1100",
-        name: "Programming as Problem Solving",
-        status: "Completed",
-      },
-      { code: "COMP1110", name: "Structured Programming", status: "Completed" },
-      {
-        code: "COMP1600",
-        name: "Foundations of Computing",
-        status: "Completed",
-      },
-      {
-        code: "COMP2100",
-        name: "Software Design Methodologies",
-        status: "Completed",
-      },
-      {
-        code: "COMP2300",
-        name: "Computer Organisation and Program Execution",
-        status: "Planned",
-      },
-      { code: "COMP3600", name: "Algorithms", status: "Planned" },
-    ],
-  },
-  {
-    name: "Core",
-    units: 36,
-    colour: "bg-blue-300",
-    grid: "grid-cols-2 grid-rows-3",
-    courses: [
-      {
-        code: "MATH1005",
-        name: "Discrete Mathematical Models",
-        status: "Completed",
-      },
-      {
-        code: "MATH1013",
-        name: "Mathematics and Applications 1",
-        status: "Planned",
-      },
-    ],
-  },
-  {
-    name: "Electives",
-    units: 24,
-    colour: "bg-emerald-300",
-    grid: "grid-cols-2 grid-rows-2",
-    courses: [
-      {
-        code: "FINM3008",
-        name: "Applied Portfolio Construction",
-        status: "Planned",
-      },
-    ],
-  },
-  {
-    name: "Breadth",
-    units: 12,
-    colour: "bg-amber-300",
-    grid: "grid-cols-2 grid-rows-1",
-    courses: [],
-  },
-] satisfies {
-  name: string;
-  units: number;
-  colour: string;
-  grid: string;
-  courses: PreviewCourse[];
-}[];
 
-function CompositionBlock({
-  section,
-  courseLinks,
-  className = "",
-}: {
-  section: (typeof sections)[number];
-  courseLinks: Record<string, string>;
-  className?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div
-      className={`${styles.block} ${section.colour} ${className} relative min-h-0 min-w-0 overflow-hidden rounded-lg`}
-      data-open={open}
-      data-category={section.name}
-      onPointerEnter={(event) => {
-        if (event.pointerType === "mouse") setOpen(true);
-      }}
-      onPointerLeave={() => setOpen(false)}
-      onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          setOpen(false);
-          event.currentTarget.querySelector("button")?.focus();
-        }
-      }}
-    >
-      <button
-        type="button"
-        className={`${styles.trigger} focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring`}
-        aria-expanded={open}
-        tabIndex={open ? -1 : 0}
-        aria-label={`${section.name}, ${section.units} units, ${section.units / 6} course slots`}
-        onClick={(event) => setOpen(event.detail > 0 ? true : !open)}
-      >
-        <span className={styles.heading}>
-          <strong>{section.name}</strong>
-          <span className={styles.units}>{section.units} units</span>
-        </span>
-      </button>
-      <div inert={!open} className={`${styles.slots} ${section.grid}`}>
-        {Array.from({ length: section.units / 6 }, (_, index) => {
-          const course = section.courses[index];
-          return (
-            <Link
-              key={index}
-              href={
-                course
-                  ? (courseLinks[course.code] ?? `/courses?q=${course.code}`)
-                  : "/courses?year=2026"
-              }
-              className={`${styles.slot} text-[10px] focus-visible:outline-2 focus-visible:outline-ring`}
-              data-status={course?.status ?? "Unallocated"}
-              aria-label={
-                course
-                  ? `View ${course.code} ${course.name} · ${course.status} · 6 units`
-                  : `Add a course to ${section.name}, slot ${index + 1}, 6 units`
-              }
-            >
-              {course ? (
-                <span>
-                  {course.code.replace(/\d/g, "")}
-                  <wbr />
-                  {course.code.replace(/\D/g, "")}
-                </span>
-              ) : (
-                <>
-                  <span className={styles.emptyLabel}>6 units</span>
-                  <Plus
-                    size={16}
-                    className={styles.addIcon}
-                    aria-hidden="true"
-                  />
-                </>
-              )}
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+const fills: Record<CompositionKind, string[]> = {
+  core: ["bg-blue-300"],
+  major: ["bg-violet-300"],
+  minor: ["bg-amber-300", "bg-rose-300"],
+  electives: ["bg-emerald-300"],
+};
+
+const emptyHrefs: Record<Exclude<CompositionKind, "electives">, string> = {
+  core: "/requirements?tab=programme",
+  major: "/requirements?tab=major",
+  minor: "/requirements?tab=minor",
+};
+
+/** Space given to an optional major or minor, which states no unit size. */
+const OPTIONAL_LAYOUT_UNITS = 24;
+
+/** Half the gap between blocks, in pixels. */
+const HALF_GAP = 3;
 
 export function DegreeComposition({
+  sections,
+  academicYear,
   courseLinks,
 }: {
+  sections: readonly CompositionSection[];
+  academicYear: number | null;
   courseLinks: Record<string, string>;
 }) {
+  // Blocks are placed in percentages so the first paint is already right; the
+  // measured size is only needed to fit slots when a block opens.
+  const [areaRef, area] = useElementSize<HTMLDivElement>({
+    width: 0,
+    height: 0,
+  });
+  const rects = compositionLayout(
+    sections.map(
+      (section) => compositionSectionUnits(section) || OPTIONAL_LAYOUT_UNITS,
+    ),
+    100,
+    100,
+  );
+  const minorIndex = new Map(
+    sections
+      .filter((section) => section.kind === "minor")
+      .map((section, index) => [section.key, index]),
+  );
+  const courseHref = (code: string) =>
+    courseLinks[code] ?? `/courses?q=${code}`;
+  const electivesHref =
+    academicYear === null ? "/courses" : `/courses?year=${academicYear}`;
+
   return (
     <Card className="h-full py-0">
       <CardContent className="flex h-full flex-col gap-4 p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold">Degree composition</h2>
-          <p className="text-sm font-medium tabular-nums">144 units</p>
-        </div>
-        <div
-          className="grid min-h-52 flex-1 grid-cols-4 gap-1.5"
-          aria-label="Sample degree composition"
-        >
-          <CompositionBlock
-            section={sections[0]}
-            courseLinks={courseLinks}
-            className="col-span-2"
-          />
-          <CompositionBlock section={sections[1]} courseLinks={courseLinks} />
-          <div className="grid min-w-0 grid-rows-[2fr_1fr] gap-1.5">
-            {sections.slice(2).map((section) => (
-              <CompositionBlock
-                key={section.name}
-                section={section}
-                courseLinks={courseLinks}
-              />
+          <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            {[
+              ["Completed", "bg-emerald-500"],
+              ["Planned", "bg-violet-500"],
+              ["Unallocated", "bg-muted-foreground/40"],
+            ].map(([label, colour]) => (
+              <span key={label} className="flex items-center gap-1.5">
+                <span className={`size-2 rounded-sm ${colour}`} />
+                {label}
+              </span>
             ))}
           </div>
         </div>
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          {[
-            ["Completed", "bg-emerald-500"],
-            ["Planned", "bg-violet-500"],
-            ["Unallocated", "bg-muted-foreground/40"],
-          ].map(([label, colour]) => (
-            <span key={label} className="flex items-center gap-1.5">
-              <span className={`size-2 rounded-sm ${colour}`} />
-              {label}
-            </span>
-          ))}
-        </div>
+        {sections.length > 0 ? (
+          <div className="relative min-h-52 flex-1">
+            {/* The area overhangs by half a gap so outer blocks sit flush. */}
+            <div
+              ref={areaRef}
+              className="absolute"
+              style={{ inset: -HALF_GAP }}
+            >
+              {sections.map((section, index) => {
+                const rect = rects[index];
+                const palette = fills[section.kind];
+                const colour =
+                  palette[(minorIndex.get(section.key) ?? 0) % palette.length];
+                const title = titles[section.kind];
+                return (
+                  <div
+                    key={section.key}
+                    className="absolute flex"
+                    style={{
+                      left: `${rect.x}%`,
+                      top: `${rect.y}%`,
+                      width: `${rect.width}%`,
+                      height: `${rect.height}%`,
+                      padding: HALF_GAP,
+                    }}
+                  >
+                    {section.unchosen ? (
+                      <CompositionInvitation
+                        title={title}
+                        action={`Add a ${section.kind}`}
+                        units={section.targetUnits}
+                        href={emptyHrefs[section.kind as "major" | "minor"]}
+                        colour={colour}
+                      />
+                    ) : (
+                      <CompositionBlock
+                        section={section}
+                        title={title}
+                        colour={colour}
+                        width={(rect.width / 100) * area.width - HALF_GAP * 2}
+                        height={
+                          (rect.height / 100) * area.height - HALF_GAP * 2
+                        }
+                        courseHref={courseHref}
+                        emptyHref={
+                          section.kind === "electives"
+                            ? electivesHref
+                            : emptyHrefs[section.kind]
+                        }
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="flex min-h-52 flex-1 items-center justify-center text-sm text-muted-foreground">
+            Your degree&apos;s unit total is not published yet.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
