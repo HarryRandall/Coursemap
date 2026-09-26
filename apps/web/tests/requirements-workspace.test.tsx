@@ -219,7 +219,7 @@ test("requirements use separate tabs without source disclosures or the summary s
     ),
   ).not.toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: /Choose 1 course/ }),
+    screen.getByRole("heading", { name: /Pick COMP1100 or COMP1110/ }),
   ).toBeVisible();
   await user.click(screen.getByRole("tab", { name: "Minors" }));
   expect(
@@ -340,10 +340,8 @@ test("completed study takes precedence over a planned repeat and existing course
   await user.click(screen.getByRole("button", { name: /View courses/ }));
   const done = screen.getByRole("link", { name: /COMP1100/ }).closest("li")!;
   expect(within(done).getByText("Completed")).toBeVisible();
-  expect(done).toHaveClass("bg-success/5");
   const planned = screen.getByRole("link", { name: /COMP1110/ }).closest("li")!;
   expect(within(planned).getByText("Planned")).toBeVisible();
-  expect(planned).toHaveClass("bg-primary/5");
   expect(
     screen.queryByRole("button", { name: /Add COMP/ }),
   ).not.toBeInTheDocument();

@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   Check,
@@ -18,7 +18,6 @@ import {
 } from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
-import { requirementCourseHeading } from "@/lib/coursemap/requirement-display";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { publicCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { cn } from "@/lib/cn";
@@ -27,6 +26,7 @@ import {
   conditionInterpretation,
   conditionSummary,
   conditionTone,
+  courseListTitle,
   hidesCondition,
   listedCourseCounts,
   requirementRowStatus,
@@ -39,52 +39,6 @@ import type {
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCourseOptions } from "./requirement-course-options";
 import { UnitsBar } from "@/ui/requirements/units-bar";
-
-/** The courses a rule holds, and any a degree-wide cap turned away. */
-function CountedCourses({
-  condition,
-  context,
-  tone,
-}: {
-  condition: RequirementTreeCondition;
-  context: TreeContext;
-  tone: "progress" | "limit" | "over_limit";
-}) {
-  const key = requirementNodeKey(condition);
-  const progress = context.progress.get(key);
-  if (!context.placement || !progress || progress.state === "unmeasured") {
-    return null;
-  }
-  const overCap = [...context.placement.allocation]
-    .filter(([, placement]) => placement.overCapKey === key)
-    .map(([code]) => code);
-  return (
-    <div className="flex flex-col gap-3">
-      <UnitsBar
-        completed={progress.completedUnits}
-        planned={progress.plannedUnits}
-        goal={progress.targetUnits ?? progress.maximumUnits}
-        tone={tone}
-      />
-      {progress.matchedCourseCodes.length ? (
-        <ul className="flex flex-wrap gap-1.5" aria-label="Counting here">
-          {progress.matchedCourseCodes.map((code) => (
-            <CourseChip
-              key={code}
-              code={code}
-              status={context.attemptStatusByCode.get(code)}
-            />
-          ))}
-        </ul>
-      ) : null}
-      {overCap.length ? (
-        <p className="text-xs text-destructive">
-          Over this limit, so counting towards nothing: {overCap.join(", ")}
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
 /** A course counting towards a rule: filled with a check once completed, dashed while planned. */
 function CourseChip({
@@ -113,6 +67,45 @@ function CourseChip({
   );
 }
 
+/** The courses a rule holds, and any a degree-wide cap turned away. */
+function CountedCourses({
+  condition,
+  context,
+}: {
+  condition: RequirementTreeCondition;
+  context: TreeContext;
+}) {
+  const key = requirementNodeKey(condition);
+  const progress = context.progress.get(key);
+  if (!context.placement || !progress || progress.state === "unmeasured") {
+    return null;
+  }
+  const overCap = [...context.placement.allocation]
+    .filter(([, placement]) => placement.overCapKey === key)
+    .map(([code]) => code);
+  if (!progress.matchedCourseCodes.length && !overCap.length) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      {progress.matchedCourseCodes.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Counting here">
+          {progress.matchedCourseCodes.map((code) => (
+            <CourseChip
+              key={code}
+              code={code}
+              status={context.attemptStatusByCode.get(code)}
+            />
+          ))}
+        </ul>
+      ) : null}
+      {overCap.length ? (
+        <p className="text-xs text-destructive">
+          Over this limit, so counting towards nothing: {overCap.join(", ")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Rules that read every course the degree counts rather than using any up. */
 function spansDegree(condition: RequirementTreeCondition) {
   return (
@@ -123,7 +116,7 @@ function spansDegree(condition: RequirementTreeCondition) {
   );
 }
 
-/** A glyph beside each rule that repeats its status pill in shape. */
+/** A glyph beside each rule that gives its status a shape as well as a colour. */
 function StatusGlyph({ status }: { status: RequirementRowStatus }) {
   const className = "mt-0.5 size-4 shrink-0";
   switch (status.kind) {
@@ -142,16 +135,15 @@ function StatusGlyph({ status }: { status: RequirementRowStatus }) {
         />
       );
     case "limit":
-      return (
-        <SquareDashed
-          className={cn(className, "text-muted-foreground")}
-          aria-hidden="true"
-        />
-      );
     case "over_limit":
       return (
         <SquareDashed
-          className={cn(className, "text-destructive")}
+          className={cn(
+            className,
+            status.kind === "limit"
+              ? "text-muted-foreground"
+              : "text-destructive",
+          )}
           aria-hidden="true"
         />
       );
@@ -168,19 +160,22 @@ function StatusGlyph({ status }: { status: RequirementRowStatus }) {
 const statusBadge = {
   todo: "warning-light",
   planned: "outline",
-  complete: "success-light",
   limit: "outline",
   over_limit: "destructive-light",
 } as const;
 
-/** The count against the target and a short status, at the right of a rule. */
+/**
+ * The count against the target and, while something is left to do, a short
+ * status. A completed rule says so in words for screen readers only; its
+ * glyph and full bar already show it.
+ */
 function StatusSummary({ status }: { status: RequirementRowStatus }) {
   if (status.kind === "unmeasured") return null;
   const figure = status.figure;
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+    <div className="flex shrink-0 items-center gap-2">
       {figure ? (
-        <span className="text-sm text-muted-foreground tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           <span className="font-semibold text-foreground">{figure.value}</span>
           {figure.maximum ? " of max " : " / "}
           {figure.target}{" "}
@@ -191,17 +186,94 @@ function StatusSummary({ status }: { status: RequirementRowStatus }) {
             : "units"}
         </span>
       ) : null}
-      <Badge
-        variant={statusBadge[status.kind]}
-        className={cn(status.kind === "limit" && "border-dashed")}
-      >
-        {status.kind === "complete" ? (
-          <Check className="size-3" aria-hidden="true" />
-        ) : null}
-        {status.label}
-      </Badge>
+      {status.kind === "complete" ? (
+        <span className="sr-only">{status.label}</span>
+      ) : (
+        <Badge
+          variant={statusBadge[status.kind]}
+          className={cn(status.kind === "limit" && "border-dashed")}
+        >
+          {status.label}
+        </Badge>
+      )}
     </div>
   );
+}
+
+/**
+ * One rule as a compact row: its status, what it asks for and how far along
+ * it is. What sits behind it, the courses counting towards it or the options
+ * it offers, stays folded away until the row is opened.
+ */
+function RuleRow({
+  status,
+  title,
+  detail,
+  bar,
+  children,
+}: {
+  status: RequirementRowStatus | null;
+  title: string;
+  detail?: ReactNode;
+  bar?: ReactNode;
+  children?: ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
+  const expandable = Boolean(children);
+  return (
+    <section className="relative px-4 py-3 transition-colors has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:focus-visible]:ring-inset has-[button[data-section-toggle]:hover]:bg-muted/30 motion-reduce:transition-none sm:px-5">
+      <div className="group flex items-start gap-3">
+        {status ? <StatusGlyph status={status} /> : null}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-medium">
+            {expandable ? (
+              <button
+                type="button"
+                data-section-toggle
+                onClick={() => setExpanded(!expanded)}
+                aria-expanded={expanded}
+                aria-controls={panelId}
+                className="text-left outline-none after:absolute after:inset-0 after:cursor-pointer"
+              >
+                {title}
+                <span className="sr-only">
+                  {" "}
+                  · {expanded ? "Hide courses" : "View courses"}
+                </span>
+              </button>
+            ) : (
+              title
+            )}
+          </h3>
+          {detail ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
+          ) : null}
+        </div>
+        {status ? <StatusSummary status={status} /> : null}
+        {expandable ? (
+          <ChevronDown
+            aria-hidden="true"
+            className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+          />
+        ) : null}
+      </div>
+      {bar ? <div className="mt-2 pl-7">{bar}</div> : null}
+      {expandable ? (
+        <div id={panelId} hidden={!expanded} className="relative z-10">
+          {expanded ? <div className="mt-3 pl-7">{children}</div> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function barTone(status: RequirementRowStatus) {
+  return status.kind === "over_limit"
+    ? "over_limit"
+    : status.kind === "limit"
+      ? "limit"
+      : "progress";
 }
 
 /** A rule with no course list of its own: units, levels, tags and electives. */
@@ -229,9 +301,8 @@ function StatedCondition({
     );
   }
   const showProgress = context && context.showPlanProgress !== false;
-  const status: RequirementRowStatus = showProgress
-    ? requirementRowStatus(condition, context)
-    : { kind: "unmeasured" };
+  const status = showProgress ? requirementRowStatus(condition, context) : null;
+  const progress = context?.progress.get(requirementNodeKey(condition));
   // The summary leads with how much is needed; the category only follows it
   // when the summary does not already name it.
   const title = conditionSummary(condition);
@@ -243,34 +314,28 @@ function StatedCondition({
   ]
     .filter(Boolean)
     .join(" · ");
+  const counted =
+    showProgress && context ? (
+      <CountedCourses condition={condition} context={context} />
+    ) : null;
   return (
-    <section className="px-4 py-4 sm:px-5">
-      <div className="flex items-start gap-3">
-        {showProgress ? <StatusGlyph status={status} /> : null}
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-medium tracking-tight">{title}</h3>
-          {detail ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
-          ) : null}
-        </div>
-        <StatusSummary status={status} />
-      </div>
-      {showProgress ? (
-        <div className="mt-3 pl-7">
-          <CountedCourses
-            condition={condition}
-            context={context}
-            tone={
-              status.kind === "over_limit"
-                ? "over_limit"
-                : status.kind === "limit"
-                  ? "limit"
-                  : "progress"
-            }
+    <RuleRow
+      status={status}
+      title={title}
+      detail={detail}
+      bar={
+        status && progress && progress.state !== "unmeasured" ? (
+          <UnitsBar
+            completed={progress.completedUnits}
+            planned={progress.plannedUnits}
+            goal={progress.targetUnits ?? progress.maximumUnits}
+            tone={barTone(status)}
           />
-        </div>
-      ) : null}
-    </section>
+        ) : null
+      }
+    >
+      {counted}
+    </RuleRow>
   );
 }
 
@@ -286,10 +351,8 @@ function StructureOptions({
     (option) => option.kind !== "course",
   );
   return (
-    <section className="px-4 py-4 sm:px-5">
-      <h3 className="text-[15px] font-medium tracking-tight">
-        {conditionHeading(condition)}
-      </h3>
+    <section className="px-4 py-3 sm:px-5">
+      <h3 className="text-sm font-medium">{conditionHeading(condition)}</h3>
       <p className="mt-0.5 text-sm text-muted-foreground">
         {conditionInterpretation(condition)}
       </p>
@@ -346,9 +409,6 @@ export function RequirementCondition({
   condition: RequirementTreeCondition;
   context: TreeContext;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const panelId = useId();
-  const showProgress = context.showPlanProgress !== false;
   if (hidesCondition(condition, context)) return null;
   if (condition.conditionKind === "structure_set") {
     return condition.options.some((option) => option.kind !== "course") ? (
@@ -363,6 +423,7 @@ export function RequirementCondition({
   if (!condition.options.some((option) => option.kind === "course")) {
     return <StatedCondition condition={condition} context={context} />;
   }
+  const showProgress = context.showPlanProgress !== false;
   const progress = context.progress.get(requirementNodeKey(condition));
   const units = unitsDescription(
     condition.minimumUnits,
@@ -372,81 +433,48 @@ export function RequirementCondition({
     condition,
     context,
   );
-  const status: RequirementRowStatus = showProgress
-    ? requirementRowStatus(condition, context)
-    : { kind: "unmeasured" };
+  const status = showProgress ? requirementRowStatus(condition, context) : null;
   const target = condition.minimumCourses;
+  const detail = [
+    units,
+    `${codes.length} ${required ? (codes.length === 1 ? "course" : "courses") : "options"}`,
+    condition.includesAnyCourse ? "any other ANU course counts too" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <section className="relative px-4 py-4 transition-colors has-[button[data-section-toggle]:focus-visible]:ring-2 has-[button[data-section-toggle]:focus-visible]:ring-ring has-[button[data-section-toggle]:focus-visible]:ring-inset has-[button[data-section-toggle]:hover]:bg-muted/30 motion-reduce:transition-none sm:px-5">
-      <div className="group flex items-start gap-3">
-        {showProgress ? <StatusGlyph status={status} /> : null}
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-medium tracking-tight">
-            <button
-              type="button"
-              data-section-toggle
-              onClick={() => setExpanded(!expanded)}
-              aria-expanded={expanded}
-              aria-controls={panelId}
-              className="text-left outline-none after:absolute after:inset-0 after:cursor-pointer"
-            >
-              {required
-                ? codes.length === 1
-                  ? "Required course"
-                  : "Required courses"
-                : requirementCourseHeading(condition)}
-              <span className="sr-only">
-                {" "}
-                · {expanded ? "Hide courses" : "View courses"}
-              </span>
-            </button>
-          </h3>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {units} · {codes.length}{" "}
-            {required ? (codes.length === 1 ? "course" : "courses") : "options"}
-            {condition.includesAnyCourse
-              ? " · any other ANU course counts too"
-              : ""}
-          </p>
-        </div>
-        <StatusSummary status={status} />
-        <ChevronDown
-          aria-hidden="true"
-          className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
-        />
-      </div>
-      {!showProgress ? null : target !== null && target > 0 ? (
-        <UnitsBar
-          completed={done}
-          planned={planned}
-          goal={target}
-          className="mt-3 ml-7 w-auto"
-        />
-      ) : progress && progress.state !== "unmeasured" ? (
-        <UnitsBar
-          completed={progress.completedUnits}
-          planned={progress.plannedUnits}
-          goal={progress.targetUnits ?? progress.maximumUnits}
-          tone={progress.state === "over_limit" ? "over_limit" : "progress"}
-          className="mt-3 ml-7 w-auto"
-        />
-      ) : null}
-      {showProgress && progress?.state === "over_limit" && (
-        <p className="mt-2 pl-7 text-xs text-destructive">
-          Above this requirement&apos;s limit
-        </p>
-      )}
-      <div id={panelId} hidden={!expanded} className="relative z-10">
-        {expanded && (
-          <div className="mt-5 border-t border-border/60 pt-5">
-            <RequirementCourseOptions
-              codes={codes}
-              required={required}
-              context={context}
-            />
-          </div>
-        )}
-      </div>
-    </section>
+    <RuleRow
+      status={status}
+      title={courseListTitle(condition, codes, required)}
+      detail={
+        <>
+          {detail}
+          {showProgress && progress?.state === "over_limit" ? (
+            <span className="text-destructive">
+              {" "}
+              · Above this requirement&apos;s limit
+            </span>
+          ) : null}
+        </>
+      }
+      bar={
+        !status ? null : target !== null && target > 0 ? (
+          <UnitsBar completed={done} planned={planned} goal={target} />
+        ) : progress && progress.state !== "unmeasured" ? (
+          <UnitsBar
+            completed={progress.completedUnits}
+            planned={progress.plannedUnits}
+            goal={progress.targetUnits ?? progress.maximumUnits}
+            tone={barTone(status)}
+          />
+        ) : null
+      }
+    >
+      <RequirementCourseOptions
+        codes={codes}
+        required={required}
+        context={context}
+      />
+    </RuleRow>
   );
 }

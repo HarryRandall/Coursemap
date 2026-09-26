@@ -31,14 +31,11 @@ export function RequirementCourseOptions({
   const sorted = [...codes].sort(
     (a, b) => rank(a) - rank(b) || a.localeCompare(b),
   );
-  const hasCourseDetails = sorted.some((code) => courseFor(code));
   const pageCount = Math.max(1, Math.ceil(sorted.length / 6));
   const safePage = Math.min(page, pageCount);
   return (
-    <div className="space-y-4">
-      <ul
-        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${hasCourseDetails ? (showStatus ? "auto-rows-[minmax(14rem,auto)]" : "auto-rows-[11rem]") : "auto-rows-[9rem]"}`}
-      >
+    <div className="space-y-3">
+      <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
         {sorted.slice((safePage - 1) * 6, safePage * 6).map((code) => (
           <RequirementCourseRow
             key={code}
@@ -59,20 +56,6 @@ export function RequirementCourseOptions({
             }
           />
         ))}
-        {Array.from(
-          {
-            length:
-              Math.min(6, sorted.length) -
-              sorted.slice((safePage - 1) * 6, safePage * 6).length,
-          },
-          (_, index) => (
-            <li
-              key={`space-${index}`}
-              aria-hidden="true"
-              className="invisible"
-            />
-          ),
-        )}
       </ul>
       {codes.length > 6 && (
         <Pagination

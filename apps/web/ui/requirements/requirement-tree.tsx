@@ -1,6 +1,9 @@
 "use client";
+import { useId, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import {
+  flattenRules,
   hidesCondition,
   isNotice,
   requirementRowStatus,
@@ -13,11 +16,18 @@ import type {
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCondition } from "@/ui/requirements/requirement-condition";
 
-/** Rules sorted by what the student still has to do, in the order shown. */
+/**
+ * Rules sorted by what the student still has to do, in the order shown. What
+ * is already covered sits last and folded, so the list opens on what is next.
+ */
 const sections = [
-  { label: "Still to do", kinds: ["todo", "unmeasured"] },
-  { label: "Planned or complete", kinds: ["planned", "complete"] },
-  { label: "Limits", kinds: ["limit", "over_limit"] },
+  { label: "Still to do", kinds: ["todo", "unmeasured"], folded: false },
+  { label: "Limits", kinds: ["limit", "over_limit"], folded: false },
+  {
+    label: "Planned or complete",
+    kinds: ["planned", "complete"],
+    folded: true,
+  },
 ] as const;
 
 /** Rules drawn as rows of one bordered panel. */
@@ -26,24 +36,47 @@ function RequirementPanel({
   context,
   alternative,
   label,
+  folded = false,
 }: {
   nodes: RequirementTreeNode[];
   context: TreeContext;
   alternative: boolean;
   label?: string;
+  /** Starts closed behind its label. */
+  folded?: boolean;
 }) {
+  const [open, setOpen] = useState(!folded);
+  const panelId = useId();
   if (nodes.length === 0) return null;
+  const labelClass =
+    "text-xs font-medium tracking-wide text-muted-foreground uppercase";
   return (
     <section aria-label={label}>
-      {label ? (
-        <p
-          aria-hidden="true"
-          className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase"
+      {label && folded ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen(!open)}
+          className={`${labelClass} mb-2 flex items-center gap-1.5 rounded-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring`}
         >
+          {label}
+          <span className="font-normal tabular-nums">{nodes.length}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`size-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      ) : label ? (
+        <p aria-hidden="true" className={`${labelClass} mb-2`}>
           {label}
         </p>
       ) : null}
-      <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <div
+        id={panelId}
+        hidden={!open}
+        className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
+      >
         {nodes.map((child, index) => (
           <div key={requirementNodeKey(child)}>
             {alternative && index > 0 ? (
@@ -54,7 +87,7 @@ function RequirementPanel({
             {child.type === "condition" ? (
               <RequirementCondition condition={child} context={context} />
             ) : (
-              <div className="px-4 py-4 sm:px-5">
+              <div className="px-4 py-3 sm:px-5">
                 <RequirementGroupView group={child} context={context} nested />
               </div>
             )}
@@ -108,6 +141,15 @@ export function RequirementGroupView({
   // With a plan behind the view, the top level sorts rules by what is left
   // to do. Alternatives keep their order, since the choice is between them.
   const sorted = !nested && !alternative && context.showPlanProgress !== false;
+  const sortedRules = sorted
+    ? flattenRules(rows).filter(
+        (child) =>
+          !(child.type === "condition" && hidesCondition(child, context)),
+      )
+    : [];
+  const shownNotices = sorted
+    ? [...notices, ...sortedRules.filter(isNotice)]
+    : notices;
   return (
     <div className="space-y-4">
       {alternative || units ? (
@@ -134,10 +176,13 @@ export function RequirementGroupView({
           <RequirementPanel
             key={section.label}
             label={section.label}
-            nodes={rows.filter((child) =>
-              (section.kinds as readonly string[]).includes(
-                requirementRowStatus(child, context).kind,
-              ),
+            folded={section.folded}
+            nodes={sortedRules.filter(
+              (child) =>
+                !isNotice(child) &&
+                (section.kinds as readonly string[]).includes(
+                  requirementRowStatus(child, context).kind,
+                ),
             )}
             context={context}
             alternative={false}
@@ -150,7 +195,7 @@ export function RequirementGroupView({
           alternative={group.operator === "any_of"}
         />
       )}
-      {notices.map((child) =>
+      {shownNotices.map((child) =>
         child.type === "condition" ? (
           <RequirementCondition
             key={requirementNodeKey(child)}

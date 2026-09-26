@@ -510,12 +510,53 @@ function statusFromProgress(
   );
 }
 
+const statusRank = { todo: 0, planned: 1, complete: 2 } as const;
+
+/**
+ * A group reads as its children do: all of them for a set of rules, and the
+ * best few for a choice between them. Limits and unmeasured rules have no say.
+ */
+function groupStatus(
+  group: RequirementTreeGroup,
+  context: TreeContext,
+): RequirementRowStatus {
+  const ranks = group.children.flatMap((child) => {
+    if (child.type === "condition" && hidesCondition(child, context)) return [];
+    const status = requirementRowStatus(child, context);
+    return status.kind === "todo" ||
+      status.kind === "planned" ||
+      status.kind === "complete"
+      ? [statusRank[status.kind]]
+      : [];
+  });
+  if (ranks.length === 0) return { kind: "unmeasured" };
+  const needed =
+    group.operator === "any_of"
+      ? 1
+      : group.operator === "at_least"
+        ? Math.min(ranks.length, Math.max(1, group.minimumCount ?? 1))
+        : ranks.length;
+  const rank = ranks.sort((a, b) => b - a)[needed - 1];
+  if (rank === statusRank.complete) {
+    return { kind: "complete", figure: null, label: "Complete" };
+  }
+  if (rank === statusRank.planned) {
+    return { kind: "planned", figure: null, label: "Planned" };
+  }
+  return { kind: "todo", figure: null, label: "To plan" };
+}
+
 export function requirementRowStatus(
   node: RequirementTreeNode,
   context: TreeContext,
 ): RequirementRowStatus {
   const progress = context.progress.get(requirementNodeKey(node));
-  if (node.type !== "condition") return statusFromProgress(progress);
+  if (node.type !== "condition") {
+    const measured = statusFromProgress(progress);
+    return measured.kind === "unmeasured"
+      ? groupStatus(node, context)
+      : measured;
+  }
   const tone = conditionTone(node);
   if (tone === "warning" || tone === "note") return { kind: "unmeasured" };
   if (tone === "limit") {
@@ -554,4 +595,55 @@ export function requirementRowStatus(
     );
   }
   return statusFromProgress(progress);
+}
+
+function listed(codes: string[], conjunction: "and" | "or") {
+  return codes.length === 1
+    ? codes[0]
+    : `${codes.slice(0, -1).join(", ")} ${conjunction} ${codes.at(-1)}`;
+}
+
+/**
+ * A course list named by what the student does with it: "Pick COMP1100 or
+ * COMP1130" when the options are few enough to read in a line, and a count
+ * of them otherwise.
+ */
+export function courseListTitle(
+  condition: RequirementTreeCondition,
+  codes: string[],
+  required: boolean,
+) {
+  if (required) {
+    return codes.length <= 3
+      ? `Take ${listed(codes, "and")}`
+      : `Take all ${codes.length} listed courses`;
+  }
+  const count = condition.minimumCourses;
+  if (count === 1 && codes.length <= 3) return `Pick ${listed(codes, "or")}`;
+  if (count !== null) {
+    return `Pick ${count} of ${codes.length} courses`;
+  }
+  if (condition.minimumUnits !== null) {
+    return `Pick ${formatUnits(condition.minimumUnits)} from ${codes.length} courses`;
+  }
+  return `Pick from ${codes.length} courses`;
+}
+
+/**
+ * The rules a sorted view lists as rows. A set of rules with no heading or
+ * bounds of its own only wraps its children, so they are sorted alongside
+ * their siblings rather than kept in a panel of their own.
+ */
+export function flattenRules(
+  nodes: RequirementTreeNode[],
+): RequirementTreeNode[] {
+  return nodes.flatMap((node) =>
+    node.type === "group" &&
+    node.operator === "all_of" &&
+    !node.description &&
+    node.minimumUnits === null &&
+    node.maximumUnits === null
+      ? flattenRules(node.children)
+      : [node],
+  );
 }
