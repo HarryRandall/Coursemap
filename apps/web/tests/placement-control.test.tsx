@@ -35,10 +35,9 @@ test("a student moves a course to another part it qualifies for", async () => {
     overCapKey: null,
   });
   render(<PlacementControl courseCode="COMP1100" placement={placement} />);
-  expect(screen.getByText("Counts towards")).toBeInTheDocument();
-  await user.click(
-    screen.getByRole("button", { name: "Where COMP1100 counts" }),
-  );
+  const trigger = screen.getByRole("button", { name: "Where COMP1100 counts" });
+  expect(trigger).toHaveAttribute("title", "Where this course counts");
+  await user.click(trigger);
   expect(
     screen.queryByRole("button", { name: "Let Coursemap decide" }),
   ).not.toBeInTheDocument();
@@ -54,10 +53,12 @@ test("a student's choice can be handed back to Coursemap", async () => {
     overCapKey: null,
   });
   render(<PlacementControl courseCode="COMP1100" placement={placement} />);
-  expect(screen.getByText("You counted it towards")).toBeInTheDocument();
-  await user.click(
-    screen.getByRole("button", { name: "Where COMP1100 counts" }),
+  const trigger = screen.getByRole("button", { name: "Where COMP1100 counts" });
+  expect(trigger).toHaveAttribute(
+    "title",
+    "You chose where this course counts",
   );
+  await user.click(trigger);
   await user.click(
     screen.getByRole("button", { name: "Let Coursemap decide" }),
   );
