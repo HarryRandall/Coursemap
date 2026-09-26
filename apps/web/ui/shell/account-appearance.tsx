@@ -29,7 +29,7 @@ export function AccountAppearance() {
         <Hint key={option} label={label}>
           <Button
             variant="outline"
-            size="icon"
+            size="icon-sm"
             aria-label={label}
             aria-pressed={value === option}
             onClick={() => setTheme(option)}

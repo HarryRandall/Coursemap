@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { SquarePen, ArrowLeft, ChartNoAxesColumn } from "lucide-react";
+import { SquarePen, ChevronLeft, ChartNoAxesColumn } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,8 @@ import { assistantAge } from "@/lib/assistant/history";
 import { useAssistant } from "./assistant-provider";
 
 export function AssistantSidebar() {
-  const { chats, active, select, remove, rename, newChat } = useAssistant();
+  const { chats, active, select, remove, rename, newChat, returnPath } =
+    useAssistant();
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const [now, setNow] = useState<number | null>(null);
@@ -41,14 +42,20 @@ export function AssistantSidebar() {
   return (
     <Sidebar variant="inset" collapsible="icon" className="select-none">
       <SidebarHeader className="gap-3 px-3 pb-3 group-data-[collapsible=icon]:px-2">
+        {/* The brand row is the way out of Compass, so it carries the back
+            arrow instead of a separate Back item among the chat actions. */}
         <Link
-          href="/dashboard"
-          aria-label="Coursemap home"
+          href={returnPath}
+          aria-label="Back to Coursemap"
           onClick={close}
-          className="flex h-12 items-center gap-2.5 overflow-hidden rounded-md px-1.5 group-data-[collapsible=icon]:px-0"
+          className="group/back flex h-12 items-center gap-1.5 overflow-hidden rounded-md px-1 transition-colors group-data-[collapsible=icon]:px-0 hover:bg-sidebar-accent group-data-[collapsible=icon]:hover:bg-transparent"
         >
+          <ChevronLeft
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-hover/back:-translate-x-0.5 group-hover/back:text-foreground group-data-[collapsible=icon]:hidden motion-reduce:transition-none"
+          />
           <BrandMark className="size-8 shrink-0" />
-          <strong className="brand-wordmark shrink-0 text-[17px] group-data-[collapsible=icon]:opacity-0">
+          <strong className="brand-wordmark ml-1 shrink-0 text-[17px] group-data-[collapsible=icon]:opacity-0">
             coursemap
           </strong>
         </Link>
@@ -57,18 +64,6 @@ export function AssistantSidebar() {
       <SidebarContent>
         <SidebarGroup className="px-3 py-2 group-data-[collapsible=icon]:px-2">
           <SidebarMenu className="gap-1">
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Back"
-                className="relative h-10 gap-3 px-3"
-              >
-                <Link href="/dashboard" onClick={close}>
-                  <ArrowLeft aria-hidden="true" />
-                  <span className="absolute inset-x-10 text-center">Back</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 tooltip="New chat"
