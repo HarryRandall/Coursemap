@@ -429,8 +429,8 @@ test("a first reading is rated for review and holds publishing until approved", 
     review.firstRead.find(
       (change) => change.fieldPath === "course.details.title",
     ).band,
-    "check",
-    "a value with no evidence is worth a look",
+    "accepted",
+    "a value with no confidence is taken as read",
   );
 
   const [draft] = await sql`

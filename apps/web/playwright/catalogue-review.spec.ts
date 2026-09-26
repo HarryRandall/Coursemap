@@ -8,9 +8,11 @@ test("the changes route reports local unpublished state without source review", 
   await page.goto("/admin/courses/2026/comp1110/changes");
 
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1110\/changes$/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText(
-    "COMP1110",
-  );
+  // The record summary sits on the Content tab only, so the breadcrumb names
+  // the record here.
+  await expect(
+    page.getByRole("navigation", { name: "Breadcrumb" }),
+  ).toContainText("COMP1110");
   await expect(page.getByRole("tab", { name: "Changes" })).toHaveAttribute(
     "aria-selected",
     "true",
