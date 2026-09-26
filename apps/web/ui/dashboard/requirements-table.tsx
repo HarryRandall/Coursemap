@@ -15,6 +15,7 @@ import {
   type RequirementBucketProgress,
 } from "@/lib/coursemap/requirement-progress";
 import { RequirementBar } from "@/ui/dashboard/requirement-bar";
+import { darkStatusTint } from "@/ui/dashboard/status-badge-tint";
 
 const STATUS_VARIANT = {
   complete: "success",
@@ -72,7 +73,12 @@ export function RequirementsTable({
                 />
               </TableCell>
               <TableCell className="text-right">
-                <Badge variant={STATUS_VARIANT[status]}>{label}</Badge>
+                <Badge
+                  variant={STATUS_VARIANT[status]}
+                  className={darkStatusTint[STATUS_VARIANT[status]]}
+                >
+                  {label}
+                </Badge>
               </TableCell>
             </TableRow>
           );

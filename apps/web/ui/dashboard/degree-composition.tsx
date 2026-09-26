@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
 import {
   compositionSectionUnits,
@@ -76,8 +77,8 @@ export function DegreeComposition({
           <h2 className="text-sm font-semibold">Degree composition</h2>
           <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {[
-              ["Completed", "bg-emerald-500"],
-              ["Planned", "bg-violet-500"],
+              ["Completed", "bg-success"],
+              ["Planned", "bg-primary"],
               ["Unallocated", "bg-muted-foreground/40"],
             ].map(([label, colour]) => (
               <span key={label} className="flex items-center gap-1.5">
@@ -104,14 +105,18 @@ export function DegreeComposition({
                 return (
                   <div
                     key={section.key}
-                    className="absolute flex"
-                    style={{
-                      left: `${rect.x}%`,
-                      top: `${rect.y}%`,
-                      width: `${rect.width}%`,
-                      height: `${rect.height}%`,
-                      padding: HALF_GAP,
-                    }}
+                    className="enter-pop absolute flex"
+                    style={
+                      {
+                        // Blocks settle in one after another.
+                        "--enter-delay": `${160 + index * 60}ms`,
+                        left: `${rect.x}%`,
+                        top: `${rect.y}%`,
+                        width: `${rect.width}%`,
+                        height: `${rect.height}%`,
+                        padding: HALF_GAP,
+                      } as CSSProperties
+                    }
                   >
                     {section.unchosen ? (
                       <CompositionInvitation

@@ -21,7 +21,11 @@ import type { SelectableStructureKind } from "@/lib/coursemap/programme-structur
 import type { Course } from "@/lib/coursemap/types";
 import { requirementTreeProgress } from "@/lib/coursemap/requirement-progress";
 import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
-import { degreeUnitProgress } from "@/lib/planner";
+import {
+  degreeUnitProgress,
+  planningCourseForAttempt,
+  unitsForAttempt,
+} from "@/lib/planner";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
 import { StructureProgress } from "@/ui/requirements/structure-progress";
 import { StructureEmptyState } from "@/ui/requirements/structure-empty-state";
@@ -143,9 +147,13 @@ export function Requirements({
         <h1 className="sr-only">Requirements</h1>
         <StructureProgress
           name={degree ? (programme?.name ?? degree.name) : "Your degree"}
-          code={degree?.code ?? null}
-          year={degree ? catalogue.academicYear : null}
           target={degree?.units ?? null}
+          enrolledUnits={state.attempts
+            .filter((attempt) => attempt.status === "enrolled")
+            .reduce((total, attempt) => {
+              const course = planningCourseForAttempt(attempt, catalogue);
+              return course ? total + unitsForAttempt(attempt, course) : total;
+            }, 0)}
           progress={degreeUnitProgress(
             state.attempts,
             degree?.units ?? 0,
