@@ -7,15 +7,21 @@ import { DataTableShell } from "@/ui/admin/catalogue-table/catalogue-table";
 import { FilterBar } from "@/ui/common/filter-bar";
 import {
   loadAcademicYearOptions,
+  loadCourseFilterOptions,
   loadPublishedCoursePage,
+  type CourseFilterOptions,
   type PublishedCoursePage,
 } from "@/lib/coursemap/published-courses";
 import { CourseDirectory } from "../course-directory";
 
 type CoursesSearchParams = {
   q?: string | string[];
+  subject?: string | string[];
   level?: string | string[];
   session?: string | string[];
+  college?: string | string[];
+  area?: string | string[];
+  tag?: string | string[];
   year?: string | string[];
   page?: string | string[];
 };
@@ -33,12 +39,25 @@ export default async function CoursesPage({
   const page = Math.max(1, Number(firstParam(params.page)) || 1);
   const query = firstParam(params.q).slice(0, 100);
   const levelParam = firstParam(params.level);
-  const level = ["1", "2", "3", "4"].includes(levelParam) ? levelParam : "";
+  // A digit is that level; a digit and + is that level or higher, which is
+  // how degree rules ask for units ("2000-level or higher").
+  const level = /^[1-9]\+?$/u.test(levelParam) ? levelParam : "";
   const sessionParam = firstParam(params.session);
   const session = ["Semester 1", "Semester 2"].includes(sessionParam)
     ? sessionParam
     : "";
-  const filters = { query, level, session };
+  const subjectParam = firstParam(params.subject).toUpperCase();
+  const subject = /^[A-Z]{4}$/u.test(subjectParam) ? subjectParam : "";
+  const college = firstParam(params.college).slice(0, 120);
+  const area = firstParam(params.area).slice(0, 120);
+  const tag = firstParam(params.tag).slice(0, 120);
+  const filters = { query, subject, level, session, college, area, tag };
+  let filterOptions: CourseFilterOptions = {
+    subjects: [],
+    colleges: [],
+    areas: [],
+    tags: [],
+  };
   let yearOptions: Awaited<ReturnType<typeof loadAcademicYearOptions>> = [];
   let selectedAcademicYear = new Date().getFullYear();
   let result: PublishedCoursePage = {
@@ -58,19 +77,26 @@ export default async function CoursesPage({
       : availableYears.has(currentYear)
         ? currentYear
         : (yearOptions[0]?.year ?? currentYear);
-    result = await loadPublishedCoursePage({
-      academicYear: selectedAcademicYear,
-      page,
-      filters,
-    });
+    [result, filterOptions] = await Promise.all([
+      loadPublishedCoursePage({
+        academicYear: selectedAcademicYear,
+        page,
+        filters,
+      }),
+      loadCourseFilterOptions(selectedAcademicYear),
+    ]);
   } catch {
     // Show an explicit outage state rather than an empty catalogue.
     catalogueUnavailable = true;
   }
   const paginationSearchParams = {
     q: query || undefined,
+    subject: subject || undefined,
     level: level || undefined,
     session: session || undefined,
+    college: college || undefined,
+    area: area || undefined,
+    tag: tag || undefined,
     year: String(selectedAcademicYear),
   };
 
@@ -125,6 +151,16 @@ export default async function CoursesPage({
               })),
             },
             {
+              key: "subject",
+              label: "Subject",
+              options: filterOptions.subjects.map((option) => ({
+                value: option.code,
+                label: option.name
+                  ? `${option.code} · ${option.name}`
+                  : option.code,
+              })),
+            },
+            {
               key: "level",
               label: "Level",
               options: [
@@ -132,6 +168,8 @@ export default async function CoursesPage({
                 { value: "2", label: "2000 level" },
                 { value: "3", label: "3000 level" },
                 { value: "4", label: "4000 level" },
+                { value: "2+", label: "2000 level or higher" },
+                { value: "3+", label: "3000 level or higher" },
               ],
             },
             {
@@ -142,6 +180,24 @@ export default async function CoursesPage({
                 { value: "Semester 2", label: "Semester 2" },
               ],
             },
+            ...(
+              [
+                ["college", "College", filterOptions.colleges],
+                ["area", "Area of interest", filterOptions.areas],
+                ["tag", "Tag", filterOptions.tags],
+              ] as const
+            ).flatMap(([key, label, values]) =>
+              // A filter with nothing to choose would only ever empty the list.
+              values.length
+                ? [
+                    {
+                      key,
+                      label,
+                      options: values.map((value) => ({ value, label: value })),
+                    },
+                  ]
+                : [],
+            ),
           ]}
         />
         <CourseDirectory
@@ -149,7 +205,7 @@ export default async function CoursesPage({
           page={result.page}
           pageSize={result.pageSize}
           total={result.total}
-          filtered={Boolean(query || level || session)}
+          filtered={Object.values(filters).some(Boolean)}
           academicYear={selectedAcademicYear}
           searchParams={paginationSearchParams}
         />
