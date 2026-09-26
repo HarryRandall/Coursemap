@@ -2,8 +2,8 @@
 import { cn } from "@/lib/cn";
 
 export /**
- * Completed and planned amounts stacked against a target: completed solid,
- * planned striped in the same colour, so the two read as one scale. A cap is
+ * Completed and planned amounts stacked against a target: completed in full
+ * green, planned in a lighter tint of it, so the two read as one scale. A cap is
  * drawn in muted tones, since filling it is not something to work towards.
  */
 function UnitsBar({
@@ -23,14 +23,14 @@ function UnitsBar({
   const completedShare = Math.min(100, (completed / goal) * 100);
   const plannedShare = Math.min(100 - completedShare, (planned / goal) * 100);
   const fill = {
-    progress: "bg-success/70",
+    progress: "bg-success",
     limit: "bg-muted-foreground/50",
     over_limit: "bg-destructive",
   }[tone];
-  const stripes = {
-    progress: "text-success/60",
-    limit: "text-muted-foreground/60",
-    over_limit: "text-destructive/60",
+  const plannedFill = {
+    progress: "bg-success/35",
+    limit: "bg-muted-foreground/25",
+    over_limit: "bg-destructive/40",
   }[tone];
   return (
     <div
@@ -45,10 +45,7 @@ function UnitsBar({
         style={{ width: `${completedShare}%` }}
       />
       <span
-        className={cn(
-          "block h-full bg-transparent planned-stripes transition-[width]",
-          stripes,
-        )}
+        className={cn("block h-full transition-[width]", plannedFill)}
         style={{ width: `${plannedShare}%` }}
       />
     </div>

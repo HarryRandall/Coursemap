@@ -30,6 +30,41 @@ const sections = [
   },
 ] as const;
 
+/**
+ * A choice whose other options this view leaves out, such as a major picked
+ * through its own tab, has only one rule left to show. Heading it "Choose one
+ * of these options" over a single rule reads as a mistake, so it is drawn as
+ * that rule with a line naming what else would do.
+ */
+function loneAlternative(node: RequirementTreeNode, context: TreeContext) {
+  if (node.type !== "group" || node.operator !== "any_of") return null;
+  const hidden = node.children.filter(
+    (child) => child.type === "condition" && hidesCondition(child, context),
+  );
+  const shown = node.children.filter((child) => !hidden.includes(child));
+  const rule = shown[0];
+  if (shown.length !== 1 || rule.type !== "condition" || !hidden.length) {
+    return null;
+  }
+  const kinds = [
+    ...new Set(
+      hidden.flatMap((child) =>
+        child.type === "condition"
+          ? child.options
+              .filter((option) => option.kind !== "course")
+              .map((option) => option.structureKind ?? option.kind)
+          : [],
+      ),
+    ),
+  ];
+  return {
+    rule,
+    note: kinds.length
+      ? `Or complete a listed ${kinds.join(" or ")} instead`
+      : "Or meet one of the other listed options instead",
+  };
+}
+
 /** Rules drawn as rows of one bordered panel. */
 function RequirementPanel({
   nodes,
@@ -86,6 +121,12 @@ function RequirementPanel({
             ) : null}
             {child.type === "condition" ? (
               <RequirementCondition condition={child} context={context} />
+            ) : loneAlternative(child, context) ? (
+              <RequirementCondition
+                condition={loneAlternative(child, context)!.rule}
+                note={loneAlternative(child, context)!.note}
+                context={context}
+              />
             ) : (
               <div className="px-4 py-3 sm:px-5">
                 <RequirementGroupView group={child} context={context} nested />

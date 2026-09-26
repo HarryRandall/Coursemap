@@ -176,7 +176,11 @@ function StatusSummary({ status }: { status: RequirementRowStatus }) {
     <div className="flex shrink-0 items-center gap-2">
       {figure ? (
         <span className="text-xs text-muted-foreground tabular-nums">
-          <span className="font-semibold text-foreground">{figure.value}</span>
+          <span className="font-semibold text-foreground">
+            {figure.maximum
+              ? figure.value
+              : Math.min(figure.value, figure.target)}
+          </span>
           {figure.maximum ? " of max " : " / "}
           {figure.target}{" "}
           {figure.unit === "courses"
@@ -258,7 +262,10 @@ function RuleRow({
           />
         ) : null}
       </div>
-      {bar ? <div className="mt-2 pl-7">{bar}</div> : null}
+      {/* A finished rule's tick says it all; a full bar would only repeat it. */}
+      {bar && status?.kind !== "complete" ? (
+        <div className="mt-2 pl-7">{bar}</div>
+      ) : null}
       {expandable ? (
         <div id={panelId} hidden={!expanded} className="relative z-10">
           {expanded ? <div className="mt-3 pl-7">{children}</div> : null}
@@ -280,9 +287,11 @@ function barTone(status: RequirementRowStatus) {
 function StatedCondition({
   condition,
   context,
+  note,
 }: {
   condition: RequirementTreeCondition;
   context?: TreeContext;
+  note?: string;
 }) {
   const tone = conditionTone(condition);
   const interpretation =
@@ -311,6 +320,7 @@ function StatedCondition({
     title.toLowerCase().includes(heading.toLowerCase()) ? null : heading,
     showProgress ? null : interpretation,
     spansDegree(condition) ? "Counts across the whole degree" : null,
+    note,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -405,9 +415,12 @@ function StructureOptions({
 export function RequirementCondition({
   condition,
   context,
+  note,
 }: {
   condition: RequirementTreeCondition;
   context: TreeContext;
+  /** A line about the rule's other options, such as those this view leaves out. */
+  note?: string;
 }) {
   if (hidesCondition(condition, context)) return null;
   if (condition.conditionKind === "structure_set") {
@@ -421,7 +434,9 @@ export function RequirementCondition({
     );
   }
   if (!condition.options.some((option) => option.kind === "course")) {
-    return <StatedCondition condition={condition} context={context} />;
+    return (
+      <StatedCondition condition={condition} context={context} note={note} />
+    );
   }
   const showProgress = context.showPlanProgress !== false;
   const progress = context.progress.get(requirementNodeKey(condition));
@@ -439,6 +454,7 @@ export function RequirementCondition({
     units,
     `${codes.length} ${required ? (codes.length === 1 ? "course" : "courses") : "options"}`,
     condition.includesAnyCourse ? "any other ANU course counts too" : null,
+    note,
   ]
     .filter(Boolean)
     .join(" · ");
