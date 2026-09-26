@@ -12,7 +12,7 @@ import { StructureEmptyIllustration } from "@/ui/requirements/structure-empty-il
 /** Academic history for a student with a plan but no current or past courses. */
 export function ResultsEmptyState() {
   return (
-    <Empty className="min-h-96 flex-1 gap-5 rounded-xl border-2 border-dotted bg-card px-6 py-12">
+    <Empty className="min-h-96 flex-1 gap-5 rounded-xl border bg-card px-6 py-12">
       <StructureEmptyIllustration kind="results" />
       <EmptyHeader>
         <EmptyTitle className="text-xl">No results yet</EmptyTitle>

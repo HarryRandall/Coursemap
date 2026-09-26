@@ -25,7 +25,7 @@ export function CatalogueEmpty({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded-xl border-2 border-dotted border-border bg-card px-5 py-8 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded-xl border border-border bg-card px-5 py-8 text-center">
       {error ? <ErrorIllustration kind="server" /> : <CatalogueIllustration />}
       <h2 className="text-lg font-semibold">
         {filtered ? "No matches this time." : title}

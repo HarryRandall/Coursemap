@@ -197,7 +197,7 @@ export default async function HelpArticlePage({
                     ) : null}
                     {section.videoPlaceholder ? (
                       <figure className="mt-6">
-                        <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-lg border-2 border-dotted border-border bg-muted px-6 text-center">
+                        <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-lg border border-border bg-muted px-6 text-center">
                           <Video
                             className="size-8 text-muted-foreground"
                             aria-hidden="true"

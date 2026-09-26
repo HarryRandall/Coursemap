@@ -121,7 +121,7 @@ export function HelpGuides() {
       </search>
 
       {trimmed && total === 0 ? (
-        <Empty className="rounded-xl border border-dashed border-border bg-card py-12">
+        <Empty className="rounded-xl border border-border bg-card py-12">
           <CatalogueIllustration />
           <EmptyHeader>
             <EmptyTitle>Nothing matches that search</EmptyTitle>

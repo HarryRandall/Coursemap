@@ -19,7 +19,7 @@ export function OnboardingPrompt({ className }: { className?: string }) {
   return (
     <Empty
       className={cn(
-        "min-h-96 flex-1 gap-5 rounded-xl border-2 border-dotted bg-card px-6 py-12",
+        "min-h-96 flex-1 gap-5 rounded-xl border bg-card px-6 py-12",
         className,
       )}
     >

@@ -29,7 +29,7 @@ export default function GlobalError({
           .fallback header { display: flex; justify-content: flex-start; padding: 20px 32px; }
           .fallback a { color: inherit; text-decoration: none; }
           .fallback .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
-          .fallback main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; border: 2px dotted var(--edge); border-radius: 12px; margin: 0 24px 24px; padding: 48px 24px; text-align: center; }
+          .fallback main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; border: 1px solid var(--edge); border-radius: 12px; margin: 0 24px 24px; padding: 48px 24px; text-align: center; }
           .fallback h1 { font-size: clamp(24px, 4vw, 30px); line-height: 1.25; margin: 0; }
           .fallback p { max-width: 480px; margin: 0; color: var(--muted); }
           .fallback .code { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }

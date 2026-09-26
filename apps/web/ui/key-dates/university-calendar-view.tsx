@@ -247,7 +247,7 @@ export function UniversityCalendarView({
           {months.length === 0 && (
             <p
               role="status"
-              className="rounded-xl border border-dashed border-border p-8 text-sm text-muted-foreground"
+              className="rounded-xl border border-border p-8 text-sm text-muted-foreground"
             >
               {period === "upcoming"
                 ? `No upcoming dates match in ${year}. Select Past dates or All dates to browse earlier events.`

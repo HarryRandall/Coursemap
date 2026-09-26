@@ -199,7 +199,7 @@ function LoopingPlanIllustration() {
 
 export function PlanEmptyState() {
   return (
-    <Empty className="h-full min-h-[70vh] w-full rounded-xl border border-dashed px-6 py-16 md:min-h-0">
+    <Empty className="h-full min-h-[70vh] w-full rounded-xl border px-6 py-16 md:min-h-0">
       <EmptyHeader>
         <EmptyMedia>
           <LoopingPlanIllustration />
