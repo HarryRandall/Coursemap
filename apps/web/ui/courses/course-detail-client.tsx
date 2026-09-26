@@ -63,6 +63,7 @@ export function CourseDetailClient({
       <AppShell tabs={<CourseDetailTabsList />}>
         <CourseDetailView
           attempts={state.attempts}
+          commencementYear={state.profile.commencementYear}
           course={course}
           onAddToPlan={() => setPlanOpen(true)}
           requisiteCompletion={requisiteCompletion}
