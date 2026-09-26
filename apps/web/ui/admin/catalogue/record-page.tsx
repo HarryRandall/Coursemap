@@ -200,7 +200,7 @@ export async function CatalogueRecordPage({
                 path={path}
                 recordId={record.recordId}
                 review={review}
-                allFields={classifyFirstRead(draft.content)}
+                allFields={hasDraft ? classifyFirstRead(draft.content) : []}
                 subject={
                   kind === "course" ? { code: record.code, academicYear } : null
                 }

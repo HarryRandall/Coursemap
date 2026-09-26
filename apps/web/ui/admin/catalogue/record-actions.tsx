@@ -29,7 +29,7 @@ type Confirming = "publish" | "discard" | "unpublish" | null;
 
 /**
  * Everything that can be done to the record, behind one menu beside its
- * title, with Edit kept in view. The badge beside the code already says
+ * title. The badge beside the code already says
  * whether it is published or drafted, so only whether the edits are saved is
  * reported here.
  */
@@ -170,15 +170,14 @@ function EditableRecordActions({ sync }: { sync: CatalogueSyncTarget | null }) {
           <RefreshCw aria-hidden="true" /> Reload
         </Button>
       ) : null}
-      {/* Opening the editor is the page's main action, so it stays in view. */}
-      {!editing ? (
-        <Button type="button" variant="outline" onClick={beginEditing}>
-          <Pencil aria-hidden="true" /> Edit
-        </Button>
-      ) : null}
       <DropdownMenu>
         <MenuTrigger />
         <DropdownMenuContent align="end" className="min-w-48">
+          {!editing ? (
+            <DropdownMenuItem onSelect={beginEditing}>
+              <Pencil aria-hidden="true" /> Edit
+            </DropdownMenuItem>
+          ) : null}
           {drafting ? (
             <DropdownMenuItem
               disabled={!hasUnpublishedChanges || busy || failed}

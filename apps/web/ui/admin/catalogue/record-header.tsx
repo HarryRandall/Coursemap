@@ -118,7 +118,11 @@ export function RecordHeader({
                 code: record.code,
                 kind: record.kind,
                 latestSync: record.syncs[0] ?? null,
-                hasSynced: record.sourceCheckedAt !== null,
+                // A record whose draft was discarded holds nothing from ANU
+                // any more, so reading it again is a first sync.
+                hasSynced:
+                  record.sourceCheckedAt !== null &&
+                  (hasDraft || record.publishedVersionId !== null),
               }
             : null
         }

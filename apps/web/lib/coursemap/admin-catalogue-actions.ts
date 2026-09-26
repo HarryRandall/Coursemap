@@ -13,7 +13,10 @@ import {
   saveCatalogueDraft,
   unpublishCatalogueRecord,
 } from "@/lib/catalogue/drafts";
-import { resolveSourceChange } from "@/lib/catalogue/source-review-decisions";
+import {
+  markFieldForReview,
+  resolveSourceChange,
+} from "@/lib/catalogue/source-review-decisions";
 import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
 import { revalidatePublishedRecord } from "@/lib/coursemap/published-cache";
 import type { SourceReviewDecision } from "@/lib/catalogue/source-review-store";
@@ -347,4 +350,25 @@ export async function approveFirstReadAction({
         ? "Approved."
         : `${changeIds.length} parts approved.`,
   };
+}
+
+/** Puts one field back on the Changes tab for a person to look at. */
+export async function markFieldForReviewAction({
+  recordId,
+  fieldPath,
+  path,
+}: {
+  recordId: number;
+  fieldPath: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  try {
+    const marked = await markFieldForReview({ recordId, fieldPath });
+    revalidateRecord(path);
+    return { ok: true, message: `${marked.label} is back up for review.` };
+  } catch (error) {
+    return draftFailure(error, "The field could not be marked for review.");
+  }
 }

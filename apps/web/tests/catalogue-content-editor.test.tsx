@@ -154,7 +154,8 @@ test("editing opens the draft actions, with nothing yet to publish", async () =>
   actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   renderEditor({ hasDraft: false });
-  await user.click(screen.getByRole("button", { name: "Edit" }));
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  await user.click(screen.getByRole("menuitem", { name: "Edit" }));
 
   await user.click(screen.getByRole("button", { name: "Record actions" }));
   expect(
@@ -205,7 +206,8 @@ test("a record without a draft is read until editing is asked for", async () => 
   expect(screen.getByText("Test course")).toBeInTheDocument();
   expect(actions.begin).not.toHaveBeenCalled();
 
-  await user.click(screen.getByRole("button", { name: "Edit" }));
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  await user.click(screen.getByRole("menuitem", { name: "Edit" }));
   expect(screen.getByLabelText("Title")).toHaveValue("Test course");
   // Asking to edit is what opens the draft, so the record is still a draft
   // when whoever opened it comes back to the page later.
@@ -219,7 +221,8 @@ test("backing out of an opened draft discards it, keeping no checkpoint", async 
   actions.discard.mockResolvedValue({ ok: true, message: "Draft discarded." });
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   renderEditor({ hasDraft: false });
-  await user.click(screen.getByRole("button", { name: "Edit" }));
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  await user.click(screen.getByRole("menuitem", { name: "Edit" }));
 
   await user.click(screen.getByRole("button", { name: "Record actions" }));
   await user.click(screen.getByRole("menuitem", { name: "Discard draft" }));
@@ -233,8 +236,9 @@ test("backing out of an opened draft discards it, keeping no checkpoint", async 
   );
 
   await waitFor(() => expect(actions.discard).toHaveBeenCalled());
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument(),
+    expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument(),
   );
   expect(screen.queryByLabelText("Description")).not.toBeInTheDocument();
 });

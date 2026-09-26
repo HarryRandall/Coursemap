@@ -225,7 +225,23 @@ export function CatalogueChangesPanel({
     </div>
   );
   if (allFields.length === 0) return toReview;
-  const openPaths = new Set(open.map((change) => change.fieldPath));
+  // Every open row, including first readings taken as read, which are open
+  // but not listed for review.
+  const openFields = Object.fromEntries(
+    [
+      ...(review?.firstRead ?? []).filter(
+        (change) => !isCertainFirstRead(change),
+      ),
+      ...conflicts,
+      ...incoming,
+    ].map((change) => [
+      change.fieldPath,
+      {
+        changeId: change.id,
+        approvable: change.classification === "first_read" && !change.isStale,
+      },
+    ]),
+  );
   return (
     <Tabs defaultValue="review" className="gap-6">
       <TabsList aria-label="Changes view">
@@ -248,7 +264,13 @@ export function CatalogueChangesPanel({
         {toReview}
       </TabsContent>
       <TabsContent value="all">
-        <AllFields items={allFields} openPaths={openPaths} />
+        <AllFields
+          canWrite={canWrite}
+          items={allFields}
+          open={openFields}
+          path={path}
+          recordId={recordId}
+        />
       </TabsContent>
     </Tabs>
   );

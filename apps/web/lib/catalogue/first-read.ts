@@ -18,6 +18,9 @@ import {
  */
 export type FirstReadBand = "needs_review" | "check" | "accepted";
 
+/** The reason on a reading an administrator put back up for review. */
+export const MARKED_FOR_REVIEW = "Marked for review by an administrator";
+
 /** Below this the reading is a guess, and publishing waits on it. */
 export const NEEDS_REVIEW_BELOW = 0.7;
 /** From here up, a reading with no flags is taken as read. */
@@ -31,9 +34,11 @@ export const ACCEPTED_FROM = 0.9;
 export function isCertainFirstRead(item: {
   band: FirstReadBand | null;
   confidence: number | null;
+  reason?: string | null;
 }) {
   return (
     item.band !== null &&
+    item.reason !== MARKED_FOR_REVIEW &&
     item.band !== "needs_review" &&
     (item.confidence === 1 || item.confidence === null)
   );
