@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
 import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
@@ -99,9 +100,12 @@ export function CatalogueChangesPanel({
     kindLabel,
   });
   const showUnpublished = unpublishedCount > 0;
+  const isEmpty = conflicts.length === 0 && incoming.length === 0;
+  // The empty state reaches the page floor only when nothing follows it.
+  const fillsPage = isEmpty && overrides.length === 0 && !showUnpublished;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className={cn("flex flex-col gap-8", fillsPage && "flex-1")}>
       {/*
         Everything on this tab is the output of a sync, so the sync that
         produced it is named here rather than left to be found in Activity.
@@ -123,7 +127,7 @@ export function CatalogueChangesPanel({
         </p>
       ) : null}
       {notes ? <ModelNotes {...notes} /> : null}
-      {conflicts.length === 0 && incoming.length === 0 ? (
+      {isEmpty ? (
         <CatalogueEmpty title={empty.title} description={empty.description} />
       ) : null}
       {conflicts.length > 0 ? (

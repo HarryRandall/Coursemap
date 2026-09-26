@@ -43,7 +43,7 @@ function FoundationEmpty({
   description: string;
 }) {
   return (
-    <div className="rounded-xl border p-10 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center rounded-xl border p-10 text-center">
       <h2 className="font-semibold">{title}</h2>
       <p className="mx-auto mt-1 max-w-xl text-sm text-muted-foreground">
         {description}
@@ -135,10 +135,10 @@ export async function CatalogueRecordPage({
     <RecordTabs value={section} path={path}>
       <AppShell
         admin
-        currentBreadcrumbLabel={record.code}
         breadcrumbSegmentLabels={{
           [labels.segment]: labels.plural,
-          [String(academicYear)]: String(academicYear),
+          // The code names the record on every tab, and the open tab follows it.
+          [encodeURIComponent(record.code.toLowerCase())]: record.code,
         }}
         tabs={<RecordTabList changeCount={openChanges} />}
       >
@@ -152,7 +152,7 @@ export async function CatalogueRecordPage({
           initialHasUnpublishedChanges={hasUnpublishedChanges}
           path={path}
         >
-          <div className="flex w-full min-w-0 flex-col gap-6">
+          <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
             {/*
               The toolbar reports the record's state, so it leads the page
               rather than the fields. It appears only where it can act: the
@@ -169,7 +169,7 @@ export async function CatalogueRecordPage({
               openChangeCount={openChanges}
               conflictCount={review?.conflicts.length ?? 0}
             />
-            <TabsContent value="content" className="mt-0">
+            <TabsContent value="content" className="mt-0 flex flex-col">
               {canWrite ? (
                 <CatalogueContentEditor />
               ) : (
@@ -179,14 +179,14 @@ export async function CatalogueRecordPage({
                 />
               )}
             </TabsContent>
-            <TabsContent value="student-view" className="mt-0">
+            <TabsContent value="student-view" className="mt-0 flex flex-col">
               <StudentViewPanel
                 draft={draftPreview}
                 kindLabel={labels.singular.toLowerCase()}
                 published={publishedPreview}
               />
             </TabsContent>
-            <TabsContent value="changes" className="mt-0">
+            <TabsContent value="changes" className="mt-0 flex flex-col">
               <CatalogueChangesPanel
                 canWrite={canWrite}
                 hasEverSynced={record.syncs.length > 0}
@@ -207,7 +207,7 @@ export async function CatalogueRecordPage({
                 unpublished={unpublished}
               />
             </TabsContent>
-            <TabsContent value="changelog" className="mt-0">
+            <TabsContent value="changelog" className="mt-0 flex flex-col">
               <ChangelogTimeline
                 changelog={changelog}
                 path={path}

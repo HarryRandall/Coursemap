@@ -179,7 +179,7 @@ const stages: RoadmapStage[] = [
 export default function RoadmapPage() {
   return (
     <AppShell>
-      <div className="py-2 sm:py-4">
+      <div className="flex flex-1 flex-col py-2 sm:py-4">
         <h1 className="sr-only">Roadmap</h1>
         <RoadmapExplorer stages={stages} />
       </div>
