@@ -130,11 +130,6 @@
   --animate-limit-ring: limit-ring 900ms ease-out;
 }
 
-/* The content panel's ground, between the sidebar frame and the cards. */
-@theme inline {
-  --color-canvas: var(--canvas);
-}
-
 /* ------------------------------------------------------------------ */
 /* Product theme — ReUI semantic tokens                                */
 /* ------------------------------------------------------------------ */
@@ -145,8 +140,6 @@
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: var(--background);
-  /* A faint grey behind the white cards so they lift off the panel. */
-  --canvas: oklch(0.98 0 0);
   /* One tooltip surface for Radix tooltips and chart hover cards. */
   --tooltip: oklch(1 0 0);
   --tooltip-foreground: oklch(0.145 0 0);
@@ -205,7 +198,6 @@
   /* Cards lift one step above the page ground; in dark a lighter surface
      carries elevation that a border and shadow cannot. */
   --card: oklch(0.19 0 0);
-  --canvas: var(--background);
   --tooltip: oklch(0 0 0);
   --tooltip-foreground: oklch(1 0 0);
   --tooltip-border: oklch(1 0 0 / 18%);
