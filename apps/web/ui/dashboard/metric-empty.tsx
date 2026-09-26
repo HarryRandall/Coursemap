@@ -1,6 +1,4 @@
 "use client";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
 const GHOST_BARS = [0.45, 0.7, 0.55, 0.85, 0.65];
 
@@ -21,33 +19,9 @@ function GhostBars({ height }: { height: number }) {
 /**
  * Placeholder for a metric that has nothing to show yet.
  *
- * A new plan leaves most of the dashboard blank, and a tile reading "Estimate
- * unavailable" spends its whole footprint saying nothing. This keeps the tile's
- * shape — so the grid does not reflow once real data lands — and spends the
- * space on the single action that fills it.
+ * The card's headline already states the empty condition, so this only keeps
+ * the tile's shape and the grid does not reflow once real data lands.
  */
-export function MetricEmpty({
-  message,
-  action,
-  height = 56,
-}: {
-  message: string;
-  action?: { label: string; href: string };
-  height?: number;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <GhostBars height={height} />
-      <p className="text-[11px] leading-4 text-muted-foreground">{message}</p>
-      {action ? (
-        <Link
-          href={action.href}
-          className="inline-flex w-fit items-center gap-1 text-[11px] font-medium text-primary hover:underline"
-        >
-          {action.label}
-          <ArrowRight className="size-3" />
-        </Link>
-      ) : null}
-    </div>
-  );
+export function MetricEmpty({ height = 56 }: { height?: number }) {
+  return <GhostBars height={height} />;
 }
