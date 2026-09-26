@@ -2,7 +2,7 @@
 import { useInputModality } from "@/lib/browser/use-input-modality";
 import { Toaster } from "@coursemap/ui/primitives/sonner";
 import type { CSSProperties } from "react";
-import { toast } from "sonner";
+import { showToast, type ToastTone } from "@/ui/common/toast";
 import { useTheme } from "next-themes";
 import {
   createContext,
@@ -27,8 +27,6 @@ import {
   setRequirementPlacement,
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
-
-type ToastTone = "success" | "warning" | "info" | "error";
 
 type AppContextValue = {
   state: AppState;
@@ -135,10 +133,7 @@ export function AppProvider({
   }, [viewer]);
 
   const notify = useCallback((message: string, tone: ToastTone = "success") => {
-    if (tone === "error") toast.error(message);
-    else if (tone === "warning") toast.warning(message);
-    else if (tone === "info") toast.info(message);
-    else toast.success(message);
+    showToast(message, tone);
   }, []);
 
   const updateProfile = useCallback(
@@ -148,7 +143,7 @@ export function AppProvider({
       const result = await saveProfileAndPlan(nextProfile);
       if (!result.ok) return result;
       setState((current) => ({ ...current, profile: nextProfile }));
-      return { ok: true, message: "Profile and academic plan saved" };
+      return { ok: true, message: "Profile saved" };
     },
     [state.profile],
   );
@@ -253,7 +248,8 @@ export function AppProvider({
       attemptedUnits?: number,
     ) => {
       const attempt = state.attempts.find((item) => item.id === attemptId);
-      if (!attempt) return { ok: false, message: "Course was not found" };
+      if (!attempt)
+        return { ok: false, message: "That course is no longer in your plan" };
       if (attempt.status !== "planned") {
         return {
           ok: false,
@@ -318,7 +314,8 @@ export function AppProvider({
           message: "Recorded attempts stay in your academic history",
         };
       }
-      if (!attempt) return { ok: false, message: "Course was not found" };
+      if (!attempt)
+        return { ok: false, message: "That course is no longer in your plan" };
       const result = await removePlanCourse(attemptId);
       if (!result.ok) return result;
       setState((current) => ({
@@ -420,7 +417,7 @@ export function AppProvider({
             : "system"
         }
         position="top-center"
-        style={{ "--width": "560px" } as CSSProperties}
+        style={{ "--width": "420px" } as CSSProperties}
         closeButton
         visibleToasts={3}
       />

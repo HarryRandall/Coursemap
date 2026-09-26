@@ -61,7 +61,7 @@ test("starts one record-level ANU sync", async () => {
   expect(button).toBeDisabled();
   expect(button).toHaveTextContent("Sync");
   expect(progress).toHaveBeenCalledWith(
-    "Syncing COMP1100 from ANU",
+    "Syncing COMP1100",
     expect.objectContaining({ id: "sync:42" }),
   );
 });
@@ -87,17 +87,16 @@ test("reports a sync that could not start in its own toast", async () => {
 
   await waitFor(() =>
     expect(failure).toHaveBeenCalledWith(
-      "Syncing COMP1100 from ANU could not start",
+      "Couldn't start the COMP1100 sync",
       expect.objectContaining({ id: "sync:42" }),
     ),
   );
-  // The description is clamped to one line, so the reason it failed is carried
-  // whole in the tooltip.
+  // The description is clamped, so the reason it failed is carried whole.
   const [, options] = failure.mock.calls[0] as [
     string,
-    { description: { props: { title: string } } },
+    { description: { props: { text: string } } },
   ];
-  expect(options.description.props.title).toBe("Sync permission is required.");
+  expect(options.description.props.text).toBe("Sync permission is required.");
   expect(screen.getByRole("button")).toBeEnabled();
 });
 
@@ -122,11 +121,10 @@ test("hands the toast back when the page that was watching it goes", async () =>
   await waitFor(() => expect(progress).toHaveBeenCalled());
   view.unmount();
 
-  // Otherwise the toast spins at whatever percentage it had reached, with
-  // nothing left polling to ever finish it.
+  // Otherwise the toast spins on with nothing left polling to finish it.
   await waitFor(() =>
     expect(info).toHaveBeenCalledWith(
-      "The ANU sync is still running",
+      "Sync still running",
       expect.objectContaining({ id: "sync:42" }),
     ),
   );

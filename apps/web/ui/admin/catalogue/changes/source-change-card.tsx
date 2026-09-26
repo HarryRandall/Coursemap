@@ -4,7 +4,6 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { toast } from "sonner";
 import type {
   SourceReviewChange,
   SourceReviewDecision,
@@ -15,6 +14,7 @@ import { confidenceLabel } from "./first-read-review";
 import { CardNotes } from "./model-notes";
 import { ReviewDiff } from "./review-diff";
 import { type ReviewSubject, ReviewValue } from "./review-value";
+import { showToast } from "@/ui/common/toast";
 
 function Fold({
   summary,
@@ -75,10 +75,10 @@ export function SourceChangeCard({
         path,
       });
       if (!result.ok) {
-        toast.error(result.error);
+        showToast(result.error, "error");
         return;
       }
-      toast.success(result.message ?? "The ANU change was resolved.");
+      showToast(result.message ?? "ANU change resolved");
       router.refresh();
     });
   }

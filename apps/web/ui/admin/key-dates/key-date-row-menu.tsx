@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import { EllipsisVertical, Pencil, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   DropdownMenu,
@@ -19,6 +18,7 @@ import type { UniversityCalendarReviewEvent } from "@/lib/coursemap/university-c
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { KeyDateDialog } from "@/ui/admin/key-dates/key-date-dialog";
 import { calendarDateLabel } from "@/ui/key-dates/category-badge";
+import { showToast } from "@/ui/common/toast";
 
 /**
  * Edit and remove for one row. A published date is changed directly; a date
@@ -46,7 +46,7 @@ export function KeyDateRowMenu({
       ? await reviseKeyDatesReviewAction(reviewId!, year, event, null)
       : await removeKeyDateAction(year, event.eventId!);
     if (!result.ok) throw new Error(result.message);
-    toast.success(result.message);
+    showToast(result.message);
   }
 
   return (

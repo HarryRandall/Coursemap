@@ -45,6 +45,23 @@
   color: var(--toast-status-colour, inherit);
 }
 
+/* A toast is a short title and at most two lines of detail under it. The
+   title is clamped too, so a long server message can never grow the toast
+   into a paragraph; toastParts in ui/common/toast.tsx keeps titles short. */
+.toaster [data-sonner-toast] [data-title] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.toaster [data-sonner-toast] [data-description] {
+  color: var(--muted-foreground);
+  line-height: 1.4;
+}
+
 .toaster [data-sonner-toast][data-styled="true"] [data-close-button] {
   top: 12px;
   right: 12px;

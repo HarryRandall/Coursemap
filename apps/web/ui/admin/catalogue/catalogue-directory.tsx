@@ -60,12 +60,6 @@ function fullDate(value: string) {
  * towards while the phase lasts. ANU answers some phases instantly, so
  * without the stretch the bar would be still for a second and then teleport.
  */
-const REFRESH_PHASES: Record<string, { percent: number; ceiling: number }> = {
-  fetching: { percent: 12, ceiling: 62 },
-  saving: { percent: 68, ceiling: 92 },
-  done: { percent: 94, ceiling: 99 },
-};
-
 type RefreshResult = {
   entryCount?: number;
   added?: number;
@@ -119,9 +113,8 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
     setRefreshing(true);
     const task = startTask({
       id: `directory:${page.kind}:${page.academicYear}`,
-      title: `Refreshing the ANU ${labels.singular.toLowerCase()} listing`,
+      title: `Refreshing ${page.academicYear} ${labels.plural.toLowerCase()}`,
       detail: "Contacting ANU.",
-      ceiling: 10,
     });
     try {
       const response = await fetch("/api/admin/catalogue-directory", {
@@ -135,14 +128,10 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       let result: RefreshResult = {};
       await readImportStream(response, (event) => {
         if (event.type === "started") {
-          task.step({ percent: 4, ceiling: 20, detail: "Contacting ANU." });
+          task.step({ detail: "Contacting ANU." });
         }
         if (event.type === "progress" && typeof event.message === "string") {
-          const phase = REFRESH_PHASES[String(event.phase)] ?? {
-            percent: 50,
-            ceiling: 80,
-          };
-          task.step({ ...phase, detail: event.message });
+          task.step({ detail: event.message });
         }
         if (event.type === "complete" && event.result) {
           result = event.result as RefreshResult;
@@ -154,8 +143,8 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       };
       if (result.isComplete === false) {
         task.note({
-          ...outcome,
-          detail: `${outcome.detail}. The listing may be incomplete, so nothing was retired.`,
+          title: `${page.academicYear} ${labels.plural.toLowerCase()} partly refreshed`,
+          detail: `${outcome.detail}. ANU's listing looked incomplete, so nothing was retired.`,
         });
       } else {
         task.done(outcome);
@@ -163,7 +152,7 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
       router.refresh();
     } catch (error) {
       task.fail({
-        title: "The ANU listing refresh failed",
+        title: "Couldn't refresh the ANU listing",
         detail: error instanceof Error ? error.message : "The refresh failed.",
         retry: refreshDirectory,
       });
