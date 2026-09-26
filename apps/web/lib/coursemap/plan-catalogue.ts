@@ -49,6 +49,13 @@ export type PlanRequirementCondition = {
   structureKind: string | null;
   subjectCode: string | null;
   tag: string | null;
+  /**
+   * `part` fills a share of the degree and uses its courses up; `degree`
+   * constrains every course the degree counts, such as a 1000-level cap.
+   */
+  scope: "part" | "degree";
+  /** A course list ending "Any other ANU courses": any course counts. */
+  includesAnyCourse: boolean;
 };
 
 export type PlanRequirementGroup = {
@@ -65,6 +72,7 @@ export type PlanRequirementGroup = {
   sourceLocator: string;
   sourceText: string;
   title: string | null;
+  scope: "part" | "degree";
 };
 
 export type PlanRequirementNode =
@@ -165,6 +173,7 @@ export function planCourseFromDetails(course: CourseDetails): Course {
     // Requirement allocation and permission rules are intentionally omitted
     // until their source structures have been imported and reviewed.
     countsTowards: [],
+    tags: course.tags,
     sourceUrl: course.sourceUrl,
     lastChanged: course.sourceUpdatedAt ?? "Not listed",
     parseState:
@@ -248,6 +257,8 @@ export function buildAcademicStructureRequirementTree({
       structureKind: condition.structure_kind,
       subjectCode: condition.subject_code,
       tag: condition.tag,
+      scope: condition.scope === "degree" ? "degree" : "part",
+      includesAnyCourse: condition.includes_any_course,
     };
   }
 
@@ -278,6 +289,7 @@ export function buildAcademicStructureRequirementTree({
       sourceLocator: group.source_locator ?? "",
       sourceText: group.source_text ?? "",
       title: group.label,
+      scope: group.scope === "degree" ? "degree" : "part",
     };
   }
 

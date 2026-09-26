@@ -25,6 +25,8 @@ export type Course = {
   incompatibilities: string[];
   permissionText?: string;
   countsTowards: string[];
+  /** Free-form categories degree rules count units against, such as Science. */
+  tags?: string[];
   sourceUrl: string;
   lastChanged: string;
   parseState: "Verified" | "Automatic" | "Review";
@@ -108,8 +110,20 @@ export type Profile = {
   extensionYears: number;
 };
 
+/**
+ * A student's choice of where a course counts, by the requirement's
+ * structure code and stable key rather than a database id.
+ */
+export type RequirementPlacementChoice = {
+  courseCode: string;
+  structureCode: string;
+  requirementKey: string;
+};
+
 export type AppState = {
   schemaVersion: 1;
   profile: Profile;
   attempts: Attempt[];
+  /** Courses the student moved to a part of their degree themselves. */
+  placements?: RequirementPlacementChoice[];
 };
