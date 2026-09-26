@@ -166,14 +166,18 @@ export async function CatalogueRecordPage({
             {canWrite && section === "content" ? (
               <CatalogueEditorToolbar />
             ) : null}
-            <RecordHeader
-              record={record}
-              hasDraft={hasDraft}
-              hasUnpublishedChanges={hasUnpublishedChanges}
-              canSync={canManageImports}
-              openChangeCount={openChanges}
-              conflictCount={review?.conflicts.length ?? 0}
-            />
+            {/* The record's summary belongs with its content; the other
+                tabs lead with what they are for. */}
+            {section === "content" ? (
+              <RecordHeader
+                record={record}
+                hasDraft={hasDraft}
+                hasUnpublishedChanges={hasUnpublishedChanges}
+                canSync={canManageImports}
+                openChangeCount={openChanges}
+                conflictCount={review?.conflicts.length ?? 0}
+              />
+            ) : null}
             <TabsContent value="content" className="mt-0 flex flex-col">
               {canWrite ? (
                 <CatalogueContentEditor />
