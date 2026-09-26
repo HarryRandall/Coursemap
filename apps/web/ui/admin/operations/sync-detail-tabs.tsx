@@ -42,10 +42,14 @@ export function SyncDetailSectionOnly({
   section,
   children,
 }: {
-  section: SyncDetailSection;
+  section: SyncDetailSection | readonly SyncDetailSection[];
   children: ReactNode;
 }) {
-  return useContext(SyncDetailSectionContext) === section ? children : null;
+  const current = useContext(SyncDetailSectionContext);
+  const shown = Array.isArray(section)
+    ? section.includes(current)
+    : section === current;
+  return shown ? children : null;
 }
 
 export function SyncDetailTabList({

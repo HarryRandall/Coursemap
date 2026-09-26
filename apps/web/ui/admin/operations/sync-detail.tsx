@@ -1,8 +1,9 @@
 import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
-import { ExternalLink } from "lucide-react";
+import { CircleAlert, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
   Alert,
+  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@coursemap/ui/components/alert";
@@ -22,6 +23,7 @@ import type { SyncDetail } from "@/lib/coursemap/admin-operations";
 import { DataTableShell } from "@/ui/common/data-table";
 import { ArtefactViewer } from "./artefact-viewer";
 import { SyncDetailSectionOnly } from "./sync-detail-tabs";
+import { SyncRetryButton } from "./sync-retry-button";
 import {
   Facts,
   Measure,
@@ -83,11 +85,31 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
         </header>
       </SyncDetailSectionOnly>
 
+      {/* The artefacts are read for what was captured, not why it stopped. */}
       {sync.errorMessage ? (
-        <Alert variant="destructive">
-          <AlertTitle>{sync.errorCode ?? "The sync failed"}</AlertTitle>
-          <AlertDescription>{sync.errorMessage}</AlertDescription>
-        </Alert>
+        <SyncDetailSectionOnly section={["overview", "stages"]}>
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>This sync failed</AlertTitle>
+            <AlertDescription>
+              <p className="font-mono text-xs break-words">
+                {sync.errorMessage}
+              </p>
+              {sync.errorCode ? (
+                <p className="text-xs">
+                  Code <code className="font-mono">{sync.errorCode}</code>
+                </p>
+              ) : null}
+            </AlertDescription>
+            <AlertAction>
+              <SyncRetryButton
+                recordId={sync.recordId}
+                kind={sync.kind}
+                code={sync.code}
+              />
+            </AlertAction>
+          </Alert>
+        </SyncDetailSectionOnly>
       ) : null}
 
       <TabsContent value="overview" className="mt-0">
