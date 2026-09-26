@@ -5,7 +5,6 @@ import {
   Empty,
   EmptyHeader,
   EmptyTitle,
-  EmptyDescription,
   EmptyMedia,
 } from "@coursemap/ui/primitives/empty";
 import { cn } from "@/lib/cn";
@@ -67,8 +66,7 @@ export function PreviewTimeline({
           <EmptyMedia variant="icon">
             <BookCheck aria-hidden="true" />
           </EmptyMedia>
-          <EmptyTitle>No current courses or results</EmptyTitle>
-          <EmptyDescription>Future courses stay in your plan.</EmptyDescription>
+          <EmptyTitle>No results yet</EmptyTitle>
         </EmptyHeader>
       </Empty>
     );

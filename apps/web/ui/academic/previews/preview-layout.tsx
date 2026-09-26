@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PreviewAverageGauge } from "./preview-average-gauge";
 import { PreviewMarkDistribution } from "./preview-mark-distribution";
 import { PreviewTrendChart } from "./preview-trend-chart";
@@ -11,17 +12,20 @@ export function PreviewLayout({
   onSelect,
   onAction,
   live = false,
+  placeholder,
 }: {
   design: string;
   live?: boolean;
   courses: PreviewCourse[];
   onSelect: (code: string) => void;
   onAction?: (code: string, action: "clear" | "remove") => void;
+  /** Shown in place of an empty timeline, such as before onboarding. */
+  placeholder?: ReactNode;
 }) {
   const results = courses.filter((course) => course.mark !== undefined);
   return (
     <div className={live ? "workspace-stack" : "space-y-4"}>
-      {courses.length ? (
+      {courses.length || live ? (
         <div
           className={
             design === "3"
@@ -54,13 +58,17 @@ export function PreviewLayout({
         aria-label={live ? "Academic results" : undefined}
         tabIndex={live ? 0 : undefined}
       >
-        <PreviewTimeline
-          live={live}
-          courses={courses}
-          design={design}
-          onSelect={onSelect}
-          onAction={onAction}
-        />
+        {placeholder && !courses.length ? (
+          placeholder
+        ) : (
+          <PreviewTimeline
+            live={live}
+            courses={courses}
+            design={design}
+            onSelect={onSelect}
+            onAction={onAction}
+          />
+        )}
       </div>
     </div>
   );

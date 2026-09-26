@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
+import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { CourseDrawer, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
@@ -602,6 +603,40 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const draggedStatus = draggedAttempt
     ? effectiveStatus(draggedAttempt, state.attempts, planningCatalogue)
     : undefined;
+
+  if (!degree) {
+    return (
+      <AppShell fill fullWidth>
+        <div className="workspace-scroll flex flex-col gap-5">
+          <OnboardingPrompt />
+          <div aria-hidden="true" className="flex flex-col gap-5 opacity-40">
+            {[1, 2, 3].map((studyYear) => (
+              <section key={studyYear}>
+                <h2 className="mb-2 px-1 text-sm font-semibold text-foreground">
+                  Year {studyYear}
+                </h2>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {["First Semester", "Second Semester"].map((name) => (
+                    <div
+                      key={name}
+                      className="flex min-h-44 items-start justify-between rounded-xl bg-card p-3.5 ring-1 ring-border"
+                    >
+                      <p className="text-[13px] font-semibold text-foreground">
+                        {name}
+                      </p>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        0 / 24 units
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell fill fullWidth>
