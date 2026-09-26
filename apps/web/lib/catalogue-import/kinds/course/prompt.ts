@@ -1,7 +1,7 @@
 import { COURSE_EXTRACTION_SCHEMA_VERSION } from "./contract.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v3";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v4";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v5";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -30,6 +30,11 @@ Source rules:
 10. classSummaryUrl is null or a complete HTTPS URL on programsandcourses.anu.edu.au taken from the page.
 11. Use null or [] when the page does not state something.
 
+Tags:
+- tags are short categories that degree rules count units against, such as "courses tagged as Science" or "from the Engineering list". Tag a course with every category the page supports: the discipline its college or school teaches (Science, Engineering, Business, Arts, Law, Medicine), and course types the page names, such as research project, capstone, internship or work-integrated learning.
+- When a known tag listed with the input fits, use it exactly as written. Coin a new tag only for a category no known tag covers, in title case and at most three words.
+- Give evidence for each tag under fieldKey tags, with confidence below 0.8 when the tag is inferred rather than stated.
+
 Writing the record:
 - Display text (introduction, description, workload, inherent requirements, prescribed texts, convener, delivery summary, assessment titles and learning outcomes) is copied from the page and tidied, never rewritten. Fix capitalisation, British English spelling, obvious typos and broken Markdown formatting, and drop page furniture such as "Back to the top". Do not summarise, shorten, reorder or add wording. Keep every course code, programme code, number, date, name and email address exactly as printed.
 - Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page.
@@ -53,11 +58,14 @@ Evidence and review:
 export function buildCourseExtractionUserPrompt({
   expectedCode,
   academicYear,
+  knownTags = [],
   pageMarkdown,
 }: {
   expectedCode: string;
   academicYear: number;
+  knownTags?: readonly string[];
   pageMarkdown: string;
 }) {
-  return `Expected course: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n\n${pageMarkdown}`;
+  const tags = knownTags.length ? `Known tags: ${knownTags.join("; ")}\n` : "";
+  return `Expected course: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n${tags}\n${pageMarkdown}`;
 }

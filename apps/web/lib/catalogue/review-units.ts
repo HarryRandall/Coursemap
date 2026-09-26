@@ -96,6 +96,15 @@ export function catalogueReviewUnits(
         value: content.course[key],
       });
     }
+    // Tags are optional content, so an empty set and no set are the same
+    // thing and neither is a change to review.
+    if (content.course.tags?.length) {
+      units.push({
+        fieldPath: "course.tags",
+        unitKind: "collection",
+        value: content.course.tags,
+      });
+    }
   }
   if (content.structure) {
     for (const key of Object.keys(content.structure.details)) {

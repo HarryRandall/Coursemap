@@ -141,6 +141,11 @@ export type CourseContentWrite = {
   unitOptions: CourseSnapshotProjection["unitOptions"];
   fees: CourseSnapshotProjection["fees"];
   areasOfInterest: CourseSnapshotProjection["areasOfInterest"];
+  /**
+   * Free-form categories that degree rules count units against. Absent when
+   * a course has none, so content written before tags keeps its hash.
+   */
+  tags?: CourseSnapshotProjection["tags"];
   attributes: CourseSnapshotProjection["attributes"];
   relatedCourses: CourseSnapshotProjection["relatedCourses"];
   offering: CourseSnapshotProjection["courseOffering"];
@@ -422,7 +427,9 @@ export function validateCatalogueContent(value: unknown): CatalogueContent {
         "learningOutcomes",
         "assessmentItems",
         "assessmentOutcomes",
-      ])
+      ]) ||
+      (value.course.tags !== undefined &&
+        !hasObjectRows(value.course, ["tags"]))
     ) {
       throw new TypeError("The course content aggregate is incomplete.");
     }
@@ -511,6 +518,7 @@ export function courseCatalogueContent({
       unitOptions: projection.unitOptions,
       fees: projection.fees,
       areasOfInterest: projection.areasOfInterest,
+      ...(projection.tags.length ? { tags: projection.tags } : {}),
       attributes: projection.attributes,
       relatedCourses: projection.relatedCourses,
       offering: projection.courseOffering,
