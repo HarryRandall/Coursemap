@@ -144,6 +144,23 @@ function collectPredicates(node: PlanRequirementNode): CoursePredicate[] {
 }
 
 /**
+ * Whether a course is named by, or falls under a subject or level rule
+ * anywhere inside, the node. Returns null when nothing inside is measurable.
+ */
+export function requirementNodeMatcher(
+  node: PlanRequirementNode,
+): CoursePredicate | null {
+  const predicates = collectPredicates(node);
+  if (predicates.length === 0) return null;
+  return (course) => predicates.some((matches) => matches(course));
+}
+
+/** The unit goal a top-level requirement states, from its bounds or prose. */
+export function requirementTargetUnits(node: PlanRequirementNode) {
+  return bucketTargetUnits(node);
+}
+
+/**
  * Published rule prose leads with its unit count — "30 units from the
  * completion of the following compulsory courses". The lead is dropped from the
  * label because it truncates to nothing useful in a narrow card, and the count
@@ -301,13 +318,14 @@ export function requirementNodeKey(node: PlanRequirementNode) {
   return `${node.type}-${node.id}`;
 }
 
-type CreditedAttempt = {
+export type CreditedAttempt = {
   attempt: Attempt;
-  course: MatchableCourse & { units?: number };
+  course: MatchableCourse & { name: string; units?: number };
   units: number;
 };
 
-function creditedAttempts(
+/** Active plan entries, one per course, with the catalogue row they credit. */
+export function creditedAttempts(
   attempts: readonly Attempt[],
   catalogue: PlanningCatalogue,
 ): CreditedAttempt[] {

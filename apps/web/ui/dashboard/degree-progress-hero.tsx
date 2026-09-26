@@ -1,14 +1,10 @@
 "use client";
-import {
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
-} from "@coursemap/ui/primitives/tooltip";
+import { useState } from "react";
 
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
 
 import { cn } from "@/lib/cn";
-import { ProgressRing } from "@/ui/common/progress-ring";
+import { SemesterProgressRings } from "@/ui/common/semester-progress-rings";
 import type { DegreeUnitProgress } from "@/lib/planner";
 
 type Segment = {
@@ -35,8 +31,8 @@ export function DegreeProgressHero({
       id: "completed",
       label: "Completed",
       units: progress.completed,
-      className: "bg-emerald-500",
-      dotClassName: "bg-emerald-500",
+      className: "bg-success",
+      dotClassName: "bg-success",
     },
     {
       id: "enrolled",
@@ -61,19 +57,22 @@ export function DegreeProgressHero({
     },
   ];
   const total = unitTarget ?? progress.mapped;
+  // The status under the pointer, so the bar and legend highlight together.
+  const [active, setActive] = useState<string | null>(null);
+  const dim = (id: string) => active !== null && active !== id;
 
   return (
     <Card className="h-full py-0">
       <CardContent className="flex h-full flex-row items-center gap-6 p-5">
         {total > 0 && (
-          <ProgressRing
+          <SemesterProgressRings
             completed={progress.completed}
-            planned={progress.planned}
+            enrolled={enrolledUnits}
+            planned={plannedOnly}
             target={total}
-            size="large"
           >
             {progress.percent}%
-          </ProgressRing>
+          </SemesterProgressRings>
         )}
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-4">
@@ -86,7 +85,8 @@ export function DegreeProgressHero({
           </p>
 
           <div
-            className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
+            className="enter-grow-across flex h-5 w-full items-center gap-0.5"
+            onPointerLeave={() => setActive(null)}
             role="group"
             aria-label={segments
               .map((segment) => `${segment.label}: ${segment.units} units`)
@@ -95,26 +95,34 @@ export function DegreeProgressHero({
             {segments
               .filter((segment) => segment.units > 0)
               .map((segment) => (
-                <Tooltip key={segment.id}>
-                  <TooltipTrigger asChild>
-                    <span
-                      tabIndex={0}
-                      aria-label={`${segment.label}: ${segment.units} units`}
-                      style={{ flex: segment.units }}
-                      className={cn(
-                        "h-full first:rounded-l-full last:rounded-r-full",
-                        segment.className,
-                      )}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>{`${segment.label}: ${segment.units} units`}</TooltipContent>
-                </Tooltip>
+                <span
+                  key={segment.id}
+                  tabIndex={0}
+                  aria-label={`${segment.label}: ${segment.units} units`}
+                  style={{ flex: segment.units }}
+                  onPointerEnter={() => setActive(segment.id)}
+                  onFocus={() => setActive(segment.id)}
+                  onBlur={() => setActive(null)}
+                  className={cn(
+                    // The hovered part grows taller and the rest dim.
+                    "h-2.5 cursor-default transition-[height,opacity,border-radius] duration-200 ease-out outline-none first:rounded-l-full last:rounded-r-full focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    active === segment.id && "h-5 rounded-md",
+                    dim(segment.id) && "opacity-40",
+                    segment.className,
+                  )}
+                />
               ))}
           </div>
 
           <dl className="flex flex-wrap gap-x-4 gap-y-2">
             {segments.map((segment) => (
-              <div key={segment.id} className="flex items-center gap-2">
+              <div
+                key={segment.id}
+                className={cn(
+                  "flex items-center gap-2 transition-opacity duration-200 motion-reduce:transition-none",
+                  dim(segment.id) && "opacity-40",
+                )}
+              >
                 <span
                   aria-hidden="true"
                   className={cn("size-2 rounded-full", segment.dotClassName)}
