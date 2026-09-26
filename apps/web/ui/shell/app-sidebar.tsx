@@ -116,6 +116,11 @@ function adminNavigation(catalogueYear: number): NavSection[] {
           routeIcons.specialisations,
         ),
         {
+          href: "/admin/key-dates",
+          label: "Key dates",
+          icon: routeIcons["key-dates"],
+        },
+        {
           href: "/admin/operations/catalogue",
           label: "Activity",
           icon: routeIcons.sync,

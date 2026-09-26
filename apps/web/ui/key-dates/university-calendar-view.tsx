@@ -1,22 +1,16 @@
 "use client";
-import { badgeVariantForTone } from "@/lib/ui";
-
 import { Badge } from "@coursemap/ui/components/badge";
 
 import { Tabs, TabsContent, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  BookOpen,
-  ClipboardCheck,
-  GraduationCap,
-  MapPin,
-  PenLine,
-  TreePalm,
-} from "lucide-react";
 
 import { YearPicker } from "@/ui/common/year-picker";
 import { FilterBar } from "@/ui/common/filter-bar";
+import {
+  CategoryBadge,
+  calendarDateLabel as dateLabel,
+} from "@/ui/key-dates/category-badge";
 import { cn } from "@/lib/cn";
 import {
   UNIVERSITY_CALENDAR_CATEGORIES,
@@ -24,42 +18,6 @@ import {
   type UniversityCalendarEvent,
 } from "@/lib/coursemap/university-calendar";
 
-const categoryIcons = {
-  teaching: BookOpen,
-  examinations: PenLine,
-  enrolment: ClipboardCheck,
-  graduation: GraduationCap,
-  holiday: TreePalm,
-  campus: MapPin,
-};
-function CategoryBadge({ event }: { event: UniversityCalendarEvent }) {
-  const Icon = categoryIcons[event.category];
-  return (
-    <Badge variant={badgeVariantForTone[tones[event.category]]}>
-      <Icon size={12} aria-hidden="true" />
-      {categoryLabel(event)}
-    </Badge>
-  );
-}
-const tones = {
-  teaching: "brand",
-  examinations: "danger",
-  enrolment: "warning",
-  graduation: "success",
-  holiday: "info",
-  campus: "neutral",
-} as const;
-function categoryLabel(event: UniversityCalendarEvent) {
-  return UNIVERSITY_CALENDAR_CATEGORIES.find(
-    (item) => item.value === event.category,
-  )?.label;
-}
-function dateLabel(date: string, options: Intl.DateTimeFormatOptions) {
-  return new Intl.DateTimeFormat("en-AU", {
-    ...options,
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00Z`));
-}
 function Countdown({ date, today }: { date: string; today: string }) {
   const days = Math.round((Date.parse(date) - Date.parse(today)) / 86400000);
   return (
@@ -109,14 +67,14 @@ function EventRows({
               {event.title}
             </p>
             <div className="mt-1 text-xs text-muted-foreground md:hidden">
-              <CategoryBadge event={event} />
+              <CategoryBadge category={event.category} />
             </div>
             {event.date === todayIso && (
               <span className="text-xs font-medium text-primary">Today</span>
             )}
           </div>
           <div className="hidden justify-self-end md:block">
-            <CategoryBadge event={event} />
+            <CategoryBadge category={event.category} />
           </div>
         </li>
       ))}
@@ -215,7 +173,7 @@ export function UniversityCalendarView({
                 )}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <CategoryBadge event={event} />
+                  <CategoryBadge category={event.category} />
                   <span className="text-xs text-muted-foreground">
                     <Countdown date={event.date} today={todayIso} />
                   </span>

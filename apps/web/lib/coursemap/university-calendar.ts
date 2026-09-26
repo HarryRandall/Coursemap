@@ -23,10 +23,12 @@ export type UniversityCalendarEvent = UniversityCalendarEventRecord & {
 };
 
 /** Events for one month; `key` is YYYY-MM and `label` reads like "March 2026". */
-export type UniversityCalendarMonth = {
+export type UniversityCalendarMonth<
+  Event extends { date: string } = UniversityCalendarEvent,
+> = {
   key: string;
   label: string;
-  events: UniversityCalendarEvent[];
+  events: Event[];
 };
 
 export const UNIVERSITY_CALENDAR_CATEGORIES: Array<{
@@ -108,10 +110,10 @@ function monthLabel(key: string): string {
 }
 
 /** Groups already-sorted events into chronological YYYY-MM buckets. */
-export function groupUniversityCalendarEventsByMonth(
-  events: UniversityCalendarEvent[],
-): UniversityCalendarMonth[] {
-  const buckets = new Map<string, UniversityCalendarEvent[]>();
+export function groupUniversityCalendarEventsByMonth<
+  Event extends { date: string },
+>(events: Event[]): UniversityCalendarMonth<Event>[] {
+  const buckets = new Map<string, Event[]>();
   for (const event of events) {
     const key = event.date.slice(0, 7);
     const bucket = buckets.get(key);
