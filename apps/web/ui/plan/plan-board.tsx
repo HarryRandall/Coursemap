@@ -345,11 +345,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const originalTermId = attempt.termId;
     const result = await reorderAttempt(attemptId, termId, beforeAttemptId);
     const term = timelineTerms.find((item) => item.id === termId);
+    const termLabel = [term?.name, term?.year].filter(Boolean).join(" ");
     notify(
       result.ok
         ? originalTermId === termId
-          ? `${attempt.courseCode} reordered in ${term?.name} ${term?.year ?? ""}`
-          : `${attempt.courseCode} moved to ${term?.name} ${term?.year ?? ""}`
+          ? `${attempt.courseCode} reordered in ${termLabel}`
+          : `${attempt.courseCode} moved to ${termLabel}`
         : result.message,
       result.ok ? "success" : "warning",
     );
@@ -370,7 +371,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       attempt.status === "withdrawn"
     ) {
       notify(
-        `${attempt.courseCode} is recorded and cannot move to another semester`,
+        `${attempt.courseCode} already has a result. Courses with a result stay in their semester.`,
         "warning",
       );
       return;
@@ -385,7 +386,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       course.year !== destinationTerm.year
     ) {
       notify(
-        `${attempt.courseCode} uses the ${course.year} course year and cannot move to ${destinationTerm.year}. Remove it and add that year's course instead.`,
+        `${attempt.courseCode} is a ${course.year} course. Remove it and add the ${destinationTerm.year} version instead.`,
         "warning",
       );
       return;

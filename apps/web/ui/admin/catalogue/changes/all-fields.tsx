@@ -26,8 +26,8 @@ import { Pencil } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { toast } from "sonner";
 import { plainText } from "./review-value";
+import { showToast } from "@/ui/common/toast";
 
 function summary(item: FirstReadItem) {
   if (item.unitKind === "requirement_rule") {
@@ -78,10 +78,10 @@ function StatusSelect({
               path,
             });
       if (!result.ok) {
-        toast.error(result.error);
+        showToast(result.error, "error");
         return;
       }
-      if (result.message) toast.success(result.message);
+      if (result.message) showToast(result.message);
       router.refresh();
     });
   };

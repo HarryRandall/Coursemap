@@ -6,7 +6,6 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { toast } from "sonner";
 import type { ReviewNote } from "@/lib/catalogue/review-notes";
 import type { SourceReviewChange } from "@/lib/catalogue/source-review-store";
 import {
@@ -16,6 +15,7 @@ import {
 import { CardNotes } from "./model-notes";
 import { ReviewDiff } from "./review-diff";
 import { type ReviewSubject, ReviewValue } from "./review-value";
+import { showToast } from "@/ui/common/toast";
 
 const BAND_BADGE = {
   needs_review: { label: "Needs review", variant: "destructive-light" },
@@ -36,10 +36,10 @@ function useResolve(recordId: number, path: string) {
     startTransition(async () => {
       const result = await work();
       if (!result.ok) {
-        toast.error(result.error);
+        showToast(result.error, "error");
         return;
       }
-      if (result.message) toast.success(result.message);
+      if (result.message) showToast(result.message);
       router.refresh();
     });
   return {

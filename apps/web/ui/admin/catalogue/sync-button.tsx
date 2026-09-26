@@ -8,34 +8,25 @@ import type { CatalogueKind } from "@/lib/catalogue/content";
 import type { CatalogueSync } from "@/lib/coursemap/admin-catalogue-record";
 import { startTask, type TaskHandle } from "@/ui/common/task-toast";
 
-/**
- * A record sync is queued and worked on elsewhere, so each status owns a
- * stretch of the bar: where the sync has reached, and where that status ends.
- * The bar drifts across its stretch while the status holds, so a sync picked
- * up instantly still reads as movement rather than a jump.
- */
-const SYNC_PROGRESS: Record<
-  string,
-  { percent: number; ceiling: number; detail: string }
-> = {
-  queued: { percent: 12, ceiling: 45, detail: "Waiting for a worker." },
-  running: { percent: 50, ceiling: 88, detail: "Reading the ANU page." },
+/** What each status of a sync still in flight is doing, under its title. */
+const SYNC_PROGRESS: Record<string, { detail: string }> = {
+  queued: { detail: "Waiting for a worker." },
+  running: { detail: "Reading the ANU page." },
 };
 
-const SYNC_OUTCOMES = {
-  applied: {
-    title: "ANU changes applied",
-    detail: "The record is up to date.",
-  },
-  review_required: {
-    title: "ANU changes need review",
-    detail: "Open the changes to accept or reject them.",
-  },
-  unchanged: {
-    title: "No ANU changes",
-    detail: "ANU has not changed this record since the last sync.",
-  },
-} as const;
+function syncOutcome(code: string, status: string) {
+  if (status === "review_required")
+    return {
+      title: `${code} has ANU changes to review`,
+      detail: "Open Changes to accept or reject them.",
+    };
+  if (status === "unchanged")
+    return {
+      title: `${code} is up to date`,
+      detail: "Nothing has changed on ANU since the last sync.",
+    };
+  return { title: `${code} updated from ANU` };
+}
 
 export type CatalogueSyncTarget = {
   recordId: number;
@@ -84,9 +75,8 @@ export function useCatalogueSync({
     reportedStatus.current = null;
     task.current = startTask({
       id: `sync:${recordId}`,
-      title: `Syncing ${code} from ANU`,
-      detail: "Asking ANU for the latest version.",
-      ceiling: 12,
+      title: `Syncing ${code}`,
+      detail: "Contacting ANU.",
     });
     startTransition(async () => {
       const response = await fetch("/api/admin/catalogue-syncs", {
@@ -100,8 +90,8 @@ export function useCatalogueSync({
       };
       if (!response.ok || !result.syncId) {
         task.current?.fail({
-          title: `Syncing ${code} from ANU could not start`,
-          detail: result.error ?? "The sync did not return an identifier.",
+          title: `Couldn't start the ${code} sync`,
+          detail: result.error ?? "The server did not return a sync.",
           retry: retrySync,
         });
         task.current = null;
@@ -119,12 +109,12 @@ export function useCatalogueSync({
 
   // The sync runs on the server and this button is the only thing watching it.
   // Leaving the page stops the poll, so the toast is handed back rather than
-  // left spinning at whatever percentage it had reached.
+  // left spinning with nothing to finish it.
   useEffect(
     () => () =>
       task.current?.abandon({
-        title: "The ANU sync is still running",
-        detail: "Open the record again to see how it finished.",
+        title: "Sync still running",
+        detail: "Reopen the record to see the result.",
       }),
     [],
   );
@@ -143,20 +133,16 @@ export function useCatalogueSync({
     }
     if (status === "failed") {
       task.current?.fail({
-        title: `Syncing ${code} from ANU failed`,
+        title: `${code} sync failed`,
         detail: latestSync.errorMessage ?? "The sync did not finish.",
         retry: retrySync,
       });
     } else if (status === "cancelled") {
       task.current?.note({
-        title: `Syncing ${code} from ANU was cancelled`,
+        title: `${code} sync cancelled`,
       });
     } else {
-      const outcome = SYNC_OUTCOMES[status as keyof typeof SYNC_OUTCOMES];
-      task.current?.done({
-        title: outcome?.title ?? `${code} synced from ANU`,
-        detail: outcome?.detail,
-      });
+      task.current?.done(syncOutcome(code, status));
     }
     task.current = null;
   }, [code, latestSync, retrySync, startedSyncId]);
@@ -175,7 +161,7 @@ export function useCatalogueSync({
       if (!response.ok) {
         const result = (await response.json()) as { error?: string };
         task.current?.fail({
-          title: `Stopping the ${code} sync failed`,
+          title: `Couldn't stop the ${code} sync`,
           detail: result.error ?? "The sync could not be stopped.",
         });
         task.current = null;

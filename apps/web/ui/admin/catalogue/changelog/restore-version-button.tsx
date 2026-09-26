@@ -3,9 +3,9 @@
 import { Button } from "@coursemap/ui/primitives/button";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { toast } from "sonner";
 import { restoreCatalogueVersionAction } from "@/lib/coursemap/admin-catalogue-actions";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
+import { showToast } from "@/ui/common/toast";
 
 /**
  * Restores historical content as the working draft. The version itself never
@@ -41,10 +41,10 @@ export function RestoreVersionButton({
         path,
       });
       if (!result.ok) {
-        toast.error(result.error);
+        showToast(result.error, "error");
         return;
       }
-      toast.success(result.message ?? "Version restored as a draft.");
+      showToast(result.message ?? "Version restored as a draft");
       setOpen(false);
       router.push(path);
       router.refresh();

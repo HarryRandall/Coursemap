@@ -2,7 +2,6 @@
 
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Info } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   Dialog,
@@ -21,6 +20,7 @@ import {
 } from "@/lib/admin/key-dates-actions";
 import { DatePicker } from "@/ui/common/date-picker";
 import { Hint } from "@/ui/common/hint";
+import { showToast } from "@/ui/common/toast";
 
 export type KeyDateDraft = { id?: number; date: string; title: string };
 
@@ -98,7 +98,7 @@ export function KeyDateDialog({
         setError(result.message);
         return;
       }
-      toast.success(result.message);
+      showToast(result.message);
       changeOpen(false);
     } catch {
       setError("The key date could not be saved. Try again.");

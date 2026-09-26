@@ -12,7 +12,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
-import { cn } from "@/lib/cn";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   type RequirementRuleSlice,
@@ -20,6 +19,7 @@ import {
 } from "@/lib/catalogue/requirement-expression";
 import type { CatalogueReviewUnitKind } from "@/lib/catalogue/review-units";
 import { JsonCode } from "@/ui/common/json-code";
+import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
 import {
   groupSentence,
@@ -68,9 +68,6 @@ export function plainText(value: unknown): string {
   return String(value);
 }
 
-function percent(confidence: number) {
-  return `${Math.round(confidence * 100)}%`;
-}
 
 /**
  * One side of a comparison. Scalars read as themselves, a collection reads as
@@ -241,7 +238,15 @@ export function RequirementValue({
         ) : null}
         {expression ? (
           <TabsContent value="table">
-            <RequirementTable expression={expression} label={label} />
+            {/* The list a student sees on the course page. */}
+            <div className="overflow-hidden rounded-lg border border-border">
+              <EnrolmentSteps
+                academicYear={subject?.academicYear ?? new Date().getFullYear()}
+                availableCourseCodes={new Set(courseCodes(expression))}
+                expression={expression}
+                student={null}
+              />
+            </div>
           </TabsContent>
         ) : null}
         <TabsContent value="json">
@@ -303,48 +308,4 @@ export function ruleRows(expression: CourseRuleExpression) {
   return expression.kind === "group" && expression.operator === "all_of"
     ? expression.conditions.flatMap((child) => requirementRows(child))
     : requirementRows(expression);
-}
-
-function RequirementTable({
-  expression,
-  label,
-}: {
-  expression: CourseRuleExpression;
-  label: string;
-}) {
-  const rows = ruleRows(expression);
-  return (
-    <Frame>
-      <Table aria-label={label}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Requirement</TableHead>
-            <TableHead>Notes</TableHead>
-            <TableHead className="text-right">Confidence</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, index) => (
-            <TableRow key={index}>
-              <TableCell
-                className={cn(
-                  "whitespace-normal",
-                  row.confidence === null && "font-medium",
-                )}
-                style={{ paddingLeft: `${0.5 + row.depth * 1.25}rem` }}
-              >
-                {row.text}
-              </TableCell>
-              <TableCell className="whitespace-normal text-muted-foreground">
-                {row.detail}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {row.confidence === null ? "" : percent(row.confidence)}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Frame>
-  );
 }

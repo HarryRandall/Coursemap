@@ -9,8 +9,6 @@ import {
 import Link from "next/link";
 import {
   ArrowRight,
-  CalendarDays,
-  Check,
   ChevronDown,
   Circle,
   CircleAlert,
@@ -52,9 +50,10 @@ import { RequirementCourseRow } from "./requirement-course-row";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 
 /**
- * A course counting towards a rule: green once completed and purple while
- * planned, as course statuses are everywhere else. Under a cap, completed
- * courses are grey, since they use up room rather than make progress.
+ * A course counting towards a rule, marked by its border alone: solid green
+ * once completed and dashed purple while planned, so the dash carries the
+ * difference as well as the colour. Under a cap, completed courses are grey,
+ * since they use up room rather than make progress.
  */
 function CourseChip({
   code,
@@ -72,18 +71,13 @@ function CourseChip({
         "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
         completed
           ? limit
-            ? "border-border bg-muted text-muted-foreground"
-            : "border-success/30 bg-success/10 text-success"
+            ? "border-muted-foreground/40"
+            : "border-success/60"
           : status
-            ? "border-primary/30 bg-primary/10 text-primary"
+            ? "border-dashed border-primary/60"
             : "border-border",
       )}
     >
-      {completed ? (
-        <Check className="size-3" aria-hidden="true" />
-      ) : status ? (
-        <CalendarDays className="size-3" aria-hidden="true" />
-      ) : null}
       {code}
       <span className="sr-only">
         {completed ? " completed" : status ? ` ${status}` : ""}
@@ -233,17 +227,10 @@ function StatusGlyph({ status }: { status: RequirementRowStatus }) {
   }
 }
 
-const statusBadge = {
-  todo: "warning-light",
-  planned: "primary-light",
-  limit: "outline",
-  over_limit: "destructive-light",
-} as const;
-
 /**
- * The count against the target and, while something is left to do, a short
- * status. A completed rule says so in words for screen readers only; its
- * glyph and full bar already show it.
+ * The count against the target. What is left is plain from the count, so
+ * the status is in words for screen readers only, except a broken limit,
+ * which needs saying.
  */
 function StatusSummary({ status }: { status: RequirementRowStatus }) {
   if (status.kind === "unmeasured") return null;
@@ -266,15 +253,10 @@ function StatusSummary({ status }: { status: RequirementRowStatus }) {
             : "units"}
         </span>
       ) : null}
-      {status.kind === "complete" ? (
-        <span className="sr-only">{status.label}</span>
+      {status.kind === "over_limit" ? (
+        <Badge variant="destructive-light">{status.label}</Badge>
       ) : (
-        <Badge
-          variant={statusBadge[status.kind]}
-          className={cn(status.kind === "limit" && "border-dashed")}
-        >
-          {status.label}
-        </Badge>
+        <span className="sr-only">{status.label}</span>
       )}
     </div>
   );

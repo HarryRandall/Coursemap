@@ -3,10 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { RefreshCw } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import { cn } from "@/lib/cn";
 import { syncKeyDatesAction } from "@/lib/admin/key-dates-actions";
+import { showToast } from "@/ui/common/toast";
 
 /** Fetches the year from the ANU calendar and stages it for review. */
 export function KeyDatesSyncButton({
@@ -25,12 +25,12 @@ export function KeyDatesSyncButton({
     startTransition(async () => {
       try {
         const result = await syncKeyDatesAction(year);
-        if (result.ok) toast.success(result.message);
-        else toast.error(result.message);
+        if (result.ok) showToast(result.message);
+        else showToast(result.message, "error");
         if (result.staged)
           router.push(`/admin/key-dates/${year}/sync`, { scroll: false });
       } catch {
-        toast.error(`The ${year} calendar could not be synced. Try again.`);
+        showToast(`Couldn't sync the ${year} calendar. Try again.`, "error");
       }
     });
   }

@@ -15,11 +15,11 @@ import {
   MoreVertical,
   RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@coursemap/ui/primitives/button";
 import { OptionMenu } from "@/ui/common/option-menu";
 
 import styles from "./catalogue-table.module.css";
+import { showToast } from "@/ui/common/toast";
 
 type Action = {
   label: string;
@@ -119,8 +119,8 @@ export function CatalogueRowActions({
             setOpen(false);
             if (value === "copy" && code) {
               void navigator.clipboard.writeText(code).then(
-                () => toast.success("Code copied"),
-                () => toast.error("Could not copy the code"),
+                () => showToast("Code copied"),
+                () => showToast("Couldn't copy the code", "error"),
               );
             } else if (value.startsWith("extra-"))
               extraActions[Number(value.slice(6))]?.onSelect();
