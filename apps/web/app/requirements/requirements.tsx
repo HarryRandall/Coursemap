@@ -38,13 +38,16 @@ const sections = [
 export function Requirements({
   catalogue,
   choices,
+  initialTab = "programme",
 }: {
   catalogue: PlanCatalogue;
   choices: OnboardingCatalogue;
+  /** The section to open first, such as the major when adding one. */
+  initialTab?: PlanStructureKind;
 }) {
   const { state, updateProfile, notify } = useCoursemap();
   const router = useRouter();
-  const [tab, setTab] = useState<PlanStructureKind>("programme");
+  const [tab, setTab] = useState<PlanStructureKind>(initialTab);
   const [choosing, setChoosing] = useState(false);
   const [pending, setPending] = useState(false);
   const [addingCourse, setAddingCourse] = useState<Course | null>(null);
