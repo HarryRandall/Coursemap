@@ -344,13 +344,15 @@ async function insertRequirements(
       const [row] = await tx`
         insert into public.requirement_groups (
           rule_id, version_id, parent_group_id, group_key, label, description, operator,
-          minimum_count, minimum_units, maximum_units, source_text, source_locator, position
+          minimum_count, minimum_units, maximum_units, source_text, source_locator, position,
+          scope
         ) values (
           ${ruleId}, ${snapshotId},
           ${group.parentKey === null ? null : groupIds.get(group.parentKey)!},
           ${group.key}, ${group.label}, ${group.description}, ${group.operator},
           ${group.minimumCount}, ${group.minimumUnits}, ${group.maximumUnits},
-          ${group.sourceText}, ${group.sourceLocator}, ${group.position}
+          ${group.sourceText}, ${group.sourceLocator}, ${group.position},
+          ${group.scope ?? "part"}
         )
         returning id
       `;
@@ -377,7 +379,7 @@ async function insertRequirements(
         item_kind, structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
-        review_state, confidence
+        review_state, confidence, scope, includes_any_course
       ) values (
         ${ruleId}, ${snapshotId}, ${groupId}, ${condition.key}, ${condition.position},
         ${condition.kind}, ${conditionItemId},
@@ -388,7 +390,8 @@ async function insertRequirements(
         ${condition.minimumYear}, ${condition.minimumGpa}, ${condition.minimumWam},
         ${condition.tag}, ${condition.freeText}, ${condition.hardness},
         ${condition.sourceText}, ${condition.sourceLocator}, ${condition.reviewState},
-        ${condition.confidence}
+        ${condition.confidence}, ${condition.scope ?? "part"},
+        ${condition.includesAnyCourse ?? false}
       )
       returning id
     `;
