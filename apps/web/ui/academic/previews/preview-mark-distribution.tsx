@@ -53,7 +53,7 @@ export function PreviewMarkDistribution({
       <CardContent className="px-2 pb-0 sm:px-5">
         {courses.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            No marks recorded
+            No marks yet
           </div>
         ) : (
           <ChartContainer

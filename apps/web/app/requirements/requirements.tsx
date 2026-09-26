@@ -12,6 +12,7 @@ import {
 } from "@coursemap/ui/primitives/tabs";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
+import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import type {
   PlanCatalogue,
   PlanStructureKind,
@@ -141,19 +142,17 @@ export function Requirements({
     >
       <AppShell fill>
         <h1 className="sr-only">Requirements</h1>
-        {degree && (
-          <StructureProgress
-            name={programme?.name ?? degree.name}
-            code={degree.code}
-            year={catalogue.academicYear}
-            target={degree.units ?? null}
-            progress={degreeUnitProgress(
-              state.attempts,
-              degree.units ?? 0,
-              catalogue,
-            )}
-          />
-        )}
+        <StructureProgress
+          name={degree ? (programme?.name ?? degree.name) : "Your degree"}
+          code={degree?.code ?? null}
+          year={degree ? catalogue.academicYear : null}
+          target={degree?.units ?? null}
+          progress={degreeUnitProgress(
+            state.attempts,
+            degree?.units ?? 0,
+            catalogue,
+          )}
+        />
         <TabsList
           className="mb-5"
           aria-label="Requirement sections"
@@ -206,6 +205,7 @@ export function Requirements({
               <StructureEmptyState
                 kind={kind}
                 available={options[kind].length > 0}
+                needsDegree={!degree}
                 onChoose={() => setChoosing(true)}
               />
             ) : null}
@@ -220,14 +220,7 @@ export function Requirements({
                 onSelect={(option) => void chooseStructure(kind, option)}
               />
             ) : null}
-            {kind === "programme" && !degree ? (
-              <div className="rounded-xl border border-border bg-card p-8 text-center">
-                <h2 className="text-lg font-semibold">Choose your degree</h2>
-                <Button asChild className="mt-4">
-                  <Link href="/onboarding">Set up your plan</Link>
-                </Button>
-              </div>
-            ) : null}
+            {kind === "programme" && !degree ? <OnboardingPrompt /> : null}
             {selected[kind].map((code) => {
               const requirements = catalogue.structureRequirements.find(
                 (item) =>

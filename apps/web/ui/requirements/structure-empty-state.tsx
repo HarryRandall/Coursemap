@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
@@ -20,10 +21,12 @@ const descriptions = {
 export function StructureEmptyState({
   kind,
   available,
+  needsDegree = false,
   onChoose,
 }: {
   kind: SelectableStructureKind;
   available: boolean;
+  needsDegree?: boolean;
   onChoose?: () => void;
 }) {
   return (
@@ -31,17 +34,24 @@ export function StructureEmptyState({
       <StructureEmptyIllustration kind={kind} />
       <EmptyHeader>
         <EmptyTitle className="text-xl">
-          {available
+          {available || needsDegree
             ? `No ${kind} selected yet`
             : `No ${kind} options available`}
         </EmptyTitle>
         <EmptyDescription className="max-w-sm">
-          {available
+          {available || needsDegree
             ? descriptions[kind]
             : `There are no ${kind} options to show for this degree.`}
         </EmptyDescription>
       </EmptyHeader>
-      {available && onChoose ? (
+      {needsDegree ? (
+        <Button asChild>
+          <Link href="/onboarding">
+            Set up your plan
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        </Button>
+      ) : available && onChoose ? (
         <Button onClick={onChoose}>
           Choose a {kind}
           <ArrowRight aria-hidden="true" />

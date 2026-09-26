@@ -11,6 +11,7 @@ import {
 } from "@coursemap/ui/primitives/dialog";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
+import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { PreviewLayout } from "@/ui/academic/previews/preview-layout";
 import { PreviewMarkEntry } from "@/ui/academic/previews/preview-mark-entry";
 import {
@@ -119,6 +120,9 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
           design="3"
           live
           courses={courses}
+          placeholder={
+            state.profile.degreeCode ? undefined : <OnboardingPrompt />
+          }
           onSelect={(id) => {
             setSelected(id);
           }}

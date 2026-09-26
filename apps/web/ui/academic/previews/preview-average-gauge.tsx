@@ -69,14 +69,20 @@ export function PreviewAverageGauge({
           </PieChart>
         </ChartContainer>
         <div className="absolute top-[52px] flex flex-col items-center gap-2">
-          <span className="text-2xl font-semibold tracking-tight tabular-nums">
+          <span
+            className={
+              value === null
+                ? "pt-2 text-base font-semibold"
+                : "text-2xl font-semibold tracking-tight tabular-nums"
+            }
+          >
             {value === null
-              ? "—"
+              ? "No marks yet"
               : metric === "WAM"
                 ? `${formatPreviewMark(average)}%`
                 : average.toFixed(3)}
           </span>
-          {metric === "WAM" && value !== null ? (
+          {value === null ? null : metric === "WAM" ? (
             <PreviewGrade mark={average} />
           ) : (
             <span className="text-xs text-muted-foreground">
