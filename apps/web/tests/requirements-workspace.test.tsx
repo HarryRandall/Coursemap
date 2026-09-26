@@ -485,20 +485,14 @@ test("large requirement sections start collapsed and paginate without search", a
   const toggle = screen.getByRole("button", { name: /View courses/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   await user.click(toggle);
-  expect(screen.getAllByRole("button", { name: /not available/ })).toHaveLength(
-    6,
-  );
-  expect(
-    screen.getAllByRole("button", { name: /not available/ })[0],
-  ).toHaveTextContent("COMP2019");
+  expect(screen.getAllByRole("link")).toHaveLength(6);
+  expect(screen.getAllByRole("link")[0]).toHaveTextContent("COMP2019");
   await user.click(screen.getByRole("button", { name: "Next page" }));
   expect(
     screen.getByRole("navigation", { name: "courses pagination" }),
   ).toHaveTextContent("7–12 of 20");
   await user.click(screen.getByRole("button", { name: /Page\s*4/ }));
-  expect(screen.getAllByRole("button", { name: /not available/ })).toHaveLength(
-    2,
-  );
+  expect(screen.getAllByRole("link")).toHaveLength(2);
   expect(
     screen.getByRole("navigation", { name: "courses pagination" }),
   ).toHaveTextContent("19–20 of 20");
