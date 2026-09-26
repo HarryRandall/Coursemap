@@ -1,4 +1,5 @@
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import { requirementNodeMatcher } from "@/lib/coursemap/requirement-progress";
 import type {
   PlanCatalogue,
   PlanStructureKind,
@@ -89,6 +90,45 @@ export type StructureToPlan = {
   doneCount: number;
 };
 
+/**
+ * The course search filters that list what a units rule would count: its
+ * subject or tag, and its levels as the leading digit ("3+" for 3000 level
+ * or above). Rules any course meets have none.
+ */
+export function ruleSearchParams(rule: RequirementTreeCondition) {
+  const digit = (level: number) => String(level < 10 ? level : level / 1000);
+  const { minimumLevel, maximumLevel } = rule;
+  const params = new URLSearchParams();
+  if (rule.conditionKind === "subject_units" && rule.subjectCode)
+    params.set("subject", rule.subjectCode);
+  else if (rule.conditionKind === "tagged_units" && rule.tag)
+    params.set("tag", rule.tag);
+  else if (rule.conditionKind !== "level_units") return null;
+  if (minimumLevel !== null)
+    params.set(
+      "level",
+      minimumLevel === maximumLevel
+        ? digit(minimumLevel)
+        : `${digit(minimumLevel)}+`,
+    );
+  else if (maximumLevel !== null) params.set("level", digit(maximumLevel));
+  return params.size > 0 ? params.toString() : null;
+}
+
+/** Open rules across the structures that could use a course search. */
+export function ruleSearches(structures: PlannedStructure[]) {
+  return [
+    ...new Set(
+      structures.flatMap((structure) =>
+        rulesToPlan(structure.root, structure.context).flatMap((rule) => {
+          const params = ruleSearchParams(rule);
+          return params ? [params] : [];
+        }),
+      ),
+    ),
+  ];
+}
+
 /** A rule named in a few words, so a list of them reads at a glance. */
 function shortHeading(rule: RequirementTreeCondition, compulsory: boolean) {
   const level = rule.minimumLevel !== null ? ` ${rule.minimumLevel}+` : "";
@@ -135,11 +175,14 @@ export function structuresToPlan({
   structures,
   attempts,
   catalogue,
+  searched = new Map(),
   perRule = 3,
 }: {
   structures: PlannedStructure[];
   attempts: Attempt[];
   catalogue: PlanCatalogue;
+  /** Courses the course search found for a rule, by its search params. */
+  searched?: ReadonlyMap<string, Course[]>;
   perRule?: number;
 }): StructureToPlan[] {
   const planned = new Set(
@@ -150,6 +193,22 @@ export function structuresToPlan({
   return structures.map((structure) => {
     const { context } = structure;
     const open = rulesToPlan(structure.root, context);
+    const searchedFor = (rule: RequirementTreeCondition) => {
+      const params = ruleSearchParams(rule);
+      return params ? (searched.get(params) ?? []) : [];
+    };
+    // Any course counts towards electives, so they borrow the courses found
+    // for the structure's other rules.
+    const pool = open.flatMap(searchedFor);
+    const suggestedFor = (rule: RequirementTreeCondition) => {
+      const local = suggestedCourses(rule, context, perRule + 6);
+      if (local.length > 0) return local;
+      const found = searchedFor(rule);
+      if (found.length > 0) return found;
+      return ruleSearchParams(rule) === null && !requirementNodeMatcher(rule)
+        ? pool
+        : [];
+    };
     const seen = new Set<string>();
     const rules = open.flatMap((rule): RuleToPlan[] => {
       const listed = listedCourseCounts(rule, context);
@@ -171,7 +230,7 @@ export function structuresToPlan({
               );
               return course ? [course] : [];
             })
-          : suggestedCourses(rule, context, perRule + 6)
+          : suggestedFor(rule)
       )
         .filter((course) => !planned.has(course.code) && !seen.has(course.code))
         .map((course) => {

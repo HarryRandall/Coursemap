@@ -37,6 +37,7 @@ import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
 import {
   courseForTerm,
+  ruleSearches,
   structuresToPlan,
   type CourseToPlan,
   type PlannedStructure,
@@ -114,6 +115,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
+  const [searched, setSearched] = useState<ReadonlyMap<string, Course[]>>(
+    () => new Map(),
+  );
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -370,10 +374,39 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       ];
     },
   );
+  // Each open rule's courses come from the course search, so every rule has
+  // something to drag in even when the catalogue has not loaded its courses.
+  const searches = ruleSearches(structures)
+    .filter((params) => !searched.has(params))
+    .join("|");
+  useEffect(() => {
+    if (!searches || catalogue.academicYear === null) return;
+    const controller = new AbortController();
+    const year = String(catalogue.academicYear);
+    void Promise.all(
+      searches.split("|").map((params) =>
+        fetch(
+          `/api/courses/search?browse=1&pageSize=12&year=${year}&${params}`,
+          { signal: controller.signal },
+        )
+          .then((response) => (response.ok ? response.json() : null))
+          .then(
+            (payload: { courses?: Course[] } | null) =>
+              [params, payload?.courses ?? []] as const,
+          )
+          .catch(() => [params, [] as Course[]] as const),
+      ),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      setSearched((current) => new Map([...current, ...results]));
+    });
+    return () => controller.abort();
+  }, [searches, catalogue.academicYear]);
   const toPlan = structuresToPlan({
     structures,
     attempts: state.attempts,
     catalogue: planningCatalogue,
+    searched,
   });
 
   // Starred courses the planner has not loaded are fetched by code.
