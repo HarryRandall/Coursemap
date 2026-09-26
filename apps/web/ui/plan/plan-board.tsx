@@ -85,6 +85,8 @@ export type PickerState = { termId: string; intent: "all" | "recommended" };
 
 /** Drag ids for suggested courses, which have no attempt yet. */
 const SUGGESTION_DRAG = "suggestion:";
+/** Where a planned course dropped on the courses to plan box goes: out of the plan. */
+const REMOVE_DROP = "remove";
 export /** Single muted status mark - the only colour on the board. */
 function StatusMark({
   status,
@@ -103,8 +105,14 @@ function StatusMark({
 }
 export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const overloadFocus = useReturnFocus();
-  const { state, reorderAttempt, addCourse, setPlacement, notify } =
-    useCoursemap();
+  const {
+    state,
+    reorderAttempt,
+    addCourse,
+    removeAttempt,
+    setPlacement,
+    notify,
+  } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(true);
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
@@ -533,6 +541,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     draggedSuggestionRef.current = null;
     setDraggedSuggestion(null);
     if (cancelled || !drop) return;
+    if (drop.termId === REMOVE_DROP) {
+      void removeAttempt(drop.attemptId).then((result) =>
+        notify(result.message, result.ok ? "success" : "error"),
+      );
+      return;
+    }
     if (suggestion && drop.attemptId.startsWith(SUGGESTION_DRAG)) {
       const term = timelineTerms.find((item) => item.id === drop.termId);
       if (term) void requestAddSuggested(suggestion.course, term);
@@ -554,6 +568,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const row = event.currentTarget.closest<HTMLElement>("[data-drag-row]");
     if (!row) return;
     const rect = row.getBoundingClientRect();
+    const status = state.attempts.find((item) => item.id === dragId)?.status;
+    // Recorded attempts stay in the academic history, so only planned ones
+    // can be dragged back out of the plan.
+    const removable =
+      status !== "completed" && status !== "failed" && status !== "withdrawn";
 
     setDragging(dragId);
     if (termId) previewDrop({ attemptId: dragId, termId });
@@ -609,11 +628,20 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           : null;
       }
 
+      // A course lands only where it is let go: off every lane, a planned
+      // course falls back to where it was and a suggestion to nowhere.
       const lane = target?.closest<HTMLElement>("[data-drop-term]");
-      const termId = lane?.dataset.dropTerm;
-      if (!lane || !termId) return;
-
-      previewDrop({ attemptId: dragId, termId });
+      const over = lane?.dataset.dropTerm;
+      if (over) {
+        previewDrop({ attemptId: dragId, termId: over });
+      } else if (termId && removable && target?.closest("[data-drop-remove]")) {
+        previewDrop({ attemptId: dragId, termId: REMOVE_DROP });
+      } else if (termId) {
+        previewDrop({ attemptId: dragId, termId });
+      } else {
+        dragPreviewRef.current = null;
+        setDragPreview(null);
+      }
     };
 
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -922,7 +950,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           {panelOpen ? (
             <aside
               aria-label="Courses to plan"
-              className="min-w-0 lg:sticky lg:top-0 lg:w-[26rem] lg:shrink-0"
+              data-drop-remove
+              className={cn(
+                "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[26rem] lg:shrink-0",
+                dragPreview?.termId === REMOVE_DROP &&
+                  "ring-2 ring-destructive/40",
+              )}
             >
               <CoursesToPlan
                 required={toPlan.required}
