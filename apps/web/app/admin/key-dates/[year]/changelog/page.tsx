@@ -1,5 +1,6 @@
 import { loadAdminKeyDatesYear } from "@/lib/admin/key-dates";
 import { KeyDatesChangelog } from "@/ui/admin/key-dates/key-dates-changelog";
+import { KeyDatesLoadError } from "@/ui/admin/key-dates/key-dates-load-error";
 import { calendarYearParam } from "../year-param";
 
 export const dynamic = "force-dynamic";
@@ -11,11 +12,7 @@ export default async function AdminKeyDatesChangelogPage({
 }) {
   const year = calendarYearParam((await params).year);
   const data = await loadAdminKeyDatesYear(year).catch(() => null);
-  if (!data) return null;
+  if (!data) return <KeyDatesLoadError year={year} />;
 
-  return (
-    <div className="workspace-scroll">
-      <KeyDatesChangelog entries={data.changelog} year={year} />
-    </div>
-  );
+  return <KeyDatesChangelog entries={data.changelog} year={year} />;
 }

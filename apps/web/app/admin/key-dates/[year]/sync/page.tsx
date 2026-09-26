@@ -13,6 +13,7 @@ import { diffUniversityCalendarReview } from "@/lib/coursemap/university-calenda
 import { KeyDatesReviewPanel } from "@/ui/admin/key-dates/key-dates-review";
 import { KeyDatesSyncButton } from "@/ui/admin/key-dates/key-dates-sync-button";
 import { CalendarIllustration } from "@/ui/key-dates/calendar-illustration";
+import { KeyDatesLoadError } from "@/ui/admin/key-dates/key-dates-load-error";
 import { calendarYearParam } from "../year-param";
 
 export const dynamic = "force-dynamic";
@@ -32,49 +33,42 @@ export default async function AdminKeyDatesSyncPage({
     loadAdminKeyDatesYear(year).catch(() => null),
     canManageCatalogueOperations(),
   ]);
-  if (!data) return null;
+  if (!data) return <KeyDatesLoadError year={year} />;
 
   if (data.review) {
     return (
-      <div className="workspace-scroll">
-        <KeyDatesReviewPanel
-          canManage={canManage}
-          diff={diffUniversityCalendarReview(
-            data.review.events,
-            data.published,
-          )}
-          review={data.review}
-          year={year}
-        />
-      </div>
+      <KeyDatesReviewPanel
+        canManage={canManage}
+        diff={diffUniversityCalendarReview(data.review.events, data.published)}
+        review={data.review}
+        year={year}
+      />
     );
   }
 
   return (
-    <div className="workspace-scroll flex flex-col">
-      <Card className="flex-1 justify-center">
-        <Empty className="py-12 sm:py-16">
-          <EmptyHeader className="max-w-md">
-            <EmptyMedia>
-              <CalendarIllustration />
-            </EmptyMedia>
-            <EmptyTitle>
-              {data.publishedAt
-                ? `Last synced ${dayFormat.format(new Date(data.publishedAt))}`
-                : `${year} has not been synced`}
-            </EmptyTitle>
-            <EmptyDescription>
-              Nothing reaches students until you approve the sync, and dates you
-              entered yourself are kept.
-            </EmptyDescription>
-          </EmptyHeader>
-          {canManage ? (
-            <EmptyContent>
-              <KeyDatesSyncButton year={year} />
-            </EmptyContent>
-          ) : null}
-        </Empty>
-      </Card>
-    </div>
+    <Card className="flex-1 justify-center md:min-h-0">
+      <Empty className="py-12 sm:py-16">
+        <EmptyHeader className="max-w-md">
+          <EmptyMedia>
+            <CalendarIllustration />
+          </EmptyMedia>
+          <EmptyTitle>
+            {data.publishedAt
+              ? `Last synced ${dayFormat.format(new Date(data.publishedAt))}`
+              : `${year} has not been synced`}
+          </EmptyTitle>
+          <EmptyDescription>
+            Nothing reaches students until you approve the sync, and dates you
+            entered yourself are kept.
+          </EmptyDescription>
+        </EmptyHeader>
+        {canManage ? (
+          <EmptyContent>
+            <KeyDatesSyncButton year={year} />
+          </EmptyContent>
+        ) : null}
+      </Empty>
+    </Card>
   );
 }

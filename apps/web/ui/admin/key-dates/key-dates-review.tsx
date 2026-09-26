@@ -22,12 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@coursemap/ui/primitives/collapsible";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@coursemap/ui/primitives/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import {
   approveKeyDatesReviewAction,
@@ -37,6 +32,7 @@ import type { KeyDatesReview } from "@/lib/admin/key-dates";
 import type { UniversityCalendarReviewDiff } from "@/lib/coursemap/university-calendar-review";
 import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
+import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
 
 const timestampFormat = new Intl.DateTimeFormat("en-AU", {
@@ -126,14 +122,12 @@ export function KeyDatesReviewPanel({
     if (!result.ok) throw new Error(result.message);
     toast.success(result.message);
     router.push(`/admin/key-dates/${year}`);
-    router.refresh();
   }
 
   async function discard() {
     const result = await discardKeyDatesReviewAction(review.id, year);
     if (!result.ok) throw new Error(result.message);
     toast.success(result.message);
-    router.refresh();
   }
 
   return (
@@ -212,7 +206,7 @@ export function KeyDatesReviewPanel({
       {warnings.length > 0 ? <WarningsNotice warnings={warnings} /> : null}
 
       <Tabs className="gap-4" onValueChange={setView} value={view}>
-        <TabsList aria-label="Review dates" variant="line">
+        <OutlinedTabsList aria-label="Review dates">
           {(
             [
               ["changes", "Changes", changes],
@@ -222,14 +216,17 @@ export function KeyDatesReviewPanel({
             <TabsTrigger key={value} className="gap-2" value={value}>
               {label}
               <Badge
-                className="text-muted-foreground tabular-nums"
-                variant="outline"
+                className={cn(
+                  "tabular-nums",
+                  view !== value && "text-muted-foreground",
+                )}
+                variant={view === value ? "primary-light" : "outline"}
               >
                 {count}
               </Badge>
             </TabsTrigger>
           ))}
-        </TabsList>
+        </OutlinedTabsList>
         <TabsContent className="mt-0" value="changes">
           {changedEvents.length > 0 ? (
             <KeyDatesMonthList

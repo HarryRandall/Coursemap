@@ -23,6 +23,7 @@ import { KeyDateDialog } from "@/ui/admin/key-dates/key-date-dialog";
 import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
 import { KeyDatesSyncButton } from "@/ui/admin/key-dates/key-dates-sync-button";
 import { CalendarIllustration } from "@/ui/key-dates/calendar-illustration";
+import { KeyDatesLoadError } from "@/ui/admin/key-dates/key-dates-load-error";
 import { calendarYearParam } from "./year-param";
 
 export const dynamic = "force-dynamic";
@@ -37,57 +38,54 @@ export default async function AdminKeyDatesPage({
     loadAdminKeyDatesYear(year).catch(() => null),
     canManageCatalogueOperations(),
   ]);
-  // The layout reports a failed load.
-  if (!data) return null;
+  if (!data) return <KeyDatesLoadError year={year} />;
 
   if (data.published.length === 0) {
     return (
-      <div className="workspace-scroll flex flex-col">
-        <Card className="flex-1 justify-center">
-          <Empty className="py-12 sm:py-16">
-            <EmptyHeader className="max-w-md">
-              <EmptyMedia>
-                <CalendarIllustration />
-              </EmptyMedia>
-              <EmptyTitle>No key dates for {year} yet</EmptyTitle>
-              <EmptyDescription>
-                {canManage
-                  ? "Sync the ANU calendar to review every date before students see it, or add dates yourself."
-                  : "An import administrator can sync and publish this year."}
-              </EmptyDescription>
-            </EmptyHeader>
-            {canManage ? (
-              <EmptyContent>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {data.review ? (
-                    <Button asChild>
-                      <Link href={keyDatesPath(year, "sync")}>
-                        Review the sync
-                      </Link>
+      <Card className="flex-1 justify-center md:min-h-0">
+        <Empty className="py-12 sm:py-16">
+          <EmptyHeader className="max-w-md">
+            <EmptyMedia>
+              <CalendarIllustration />
+            </EmptyMedia>
+            <EmptyTitle>No key dates for {year} yet</EmptyTitle>
+            <EmptyDescription>
+              {canManage
+                ? "Sync the ANU calendar to review every date before students see it, or add dates yourself."
+                : "An import administrator can sync and publish this year."}
+            </EmptyDescription>
+          </EmptyHeader>
+          {canManage ? (
+            <EmptyContent>
+              <div className="flex flex-wrap justify-center gap-2">
+                {data.review ? (
+                  <Button asChild>
+                    <Link href={keyDatesPath(year, "sync")}>
+                      Review the sync
+                    </Link>
+                  </Button>
+                ) : (
+                  <KeyDatesSyncButton year={year} />
+                )}
+                <KeyDateDialog
+                  trigger={
+                    <Button type="button" variant="outline">
+                      <Plus aria-hidden="true" size={15} />
+                      Add date
                     </Button>
-                  ) : (
-                    <KeyDatesSyncButton year={year} />
-                  )}
-                  <KeyDateDialog
-                    trigger={
-                      <Button type="button" variant="outline">
-                        <Plus aria-hidden="true" size={15} />
-                        Add date
-                      </Button>
-                    }
-                    year={year}
-                  />
-                </div>
-              </EmptyContent>
-            ) : null}
-          </Empty>
-        </Card>
-      </div>
+                  }
+                  year={year}
+                />
+              </div>
+            </EmptyContent>
+          ) : null}
+        </Empty>
+      </Card>
     );
   }
 
   return (
-    <div className="workspace-scroll space-y-4">
+    <div className="space-y-4">
       {data.review ? (
         <Alert>
           <CircleAlert aria-hidden="true" />
