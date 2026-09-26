@@ -1,11 +1,9 @@
-import {
-  ADMIN_CATALOGUE_OPERATIONS_PATH,
-  adminCatalogueRecordPath,
-} from "@/lib/coursemap/catalogue-kinds";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
+import { CircleAlert, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
   Alert,
+  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@coursemap/ui/components/alert";
@@ -24,6 +22,8 @@ import { badgeVariantForTone } from "@/lib/ui";
 import type { SyncDetail } from "@/lib/coursemap/admin-operations";
 import { DataTableShell } from "@/ui/common/data-table";
 import { ArtefactViewer } from "./artefact-viewer";
+import { SyncDetailSectionOnly } from "./sync-detail-tabs";
+import { SyncRetryButton } from "./sync-retry-button";
 import {
   Facts,
   Measure,
@@ -59,42 +59,60 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
   );
   return (
     <div className="flex w-full min-w-0 flex-col gap-6">
-      <Link
-        className="inline-flex items-center gap-1.5 self-start text-sm text-muted-foreground underline-offset-4 hover:underline"
-        href={ADMIN_CATALOGUE_OPERATIONS_PATH}
-      >
-        <ArrowLeft aria-hidden="true" size={14} />
-        Back to syncs
-      </Link>
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-mono text-2xl font-semibold tracking-tight">
-              {sync.code}
-            </h1>
-            <Badge variant="outline">{sync.academicYear}</Badge>
-            <Badge variant={badgeVariantForTone[syncStatusTone(sync.status)]}>
-              {syncStatusLabel(sync.status)}
-            </Badge>
+      <SyncDetailSectionOnly section="overview">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-mono text-2xl font-semibold tracking-tight">
+                {sync.code}
+              </h1>
+              <Badge variant="outline">{sync.academicYear}</Badge>
+              <Badge variant={badgeVariantForTone[syncStatusTone(sync.status)]}>
+                {syncStatusLabel(sync.status)}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {sync.trigger === "manual" ? "Started by hand" : "Scheduled"} ·{" "}
+              {formatTimestamp(sync.requestedAt)}
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {sync.trigger === "manual" ? "Started by hand" : "Scheduled"} ·{" "}
-            {formatTimestamp(sync.requestedAt)}
-          </p>
-        </div>
-        <Link
-          className="inline-flex items-center gap-1 self-start text-sm underline-offset-4 hover:underline"
-          href={recordPath}
-        >
-          Open the record <ExternalLink aria-hidden="true" size={12} />
-        </Link>
-      </header>
+          <Link
+            className="inline-flex items-center gap-1 self-start text-sm underline-offset-4 hover:underline"
+            href={recordPath}
+          >
+            Open the record <ExternalLink aria-hidden="true" size={12} />
+          </Link>
+        </header>
+      </SyncDetailSectionOnly>
 
+      {/* The artefacts are read for what was captured, not why it stopped. */}
       {sync.errorMessage ? (
-        <Alert variant="destructive">
-          <AlertTitle>{sync.errorCode ?? "The sync failed"}</AlertTitle>
-          <AlertDescription>{sync.errorMessage}</AlertDescription>
-        </Alert>
+        <SyncDetailSectionOnly section={["overview", "stages"]}>
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden="true" />
+            <AlertTitle>
+              This sync failed
+              {sync.errorCode ? (
+                <span className="font-normal text-muted-foreground">
+                  {" "}
+                  · Code <code className="font-mono">{sync.errorCode}</code>
+                </span>
+              ) : null}
+            </AlertTitle>
+            <AlertDescription>
+              <p className="font-mono text-xs break-words">
+                {sync.errorMessage}
+              </p>
+            </AlertDescription>
+            <AlertAction>
+              <SyncRetryButton
+                recordId={sync.recordId}
+                kind={sync.kind}
+                code={sync.code}
+              />
+            </AlertAction>
+          </Alert>
+        </SyncDetailSectionOnly>
       ) : null}
 
       <TabsContent value="overview" className="mt-0">
@@ -232,11 +250,7 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
               </DataTableShell>
             )}
           </Section>
-        </Measure>
-      </TabsContent>
 
-      <TabsContent value="extractions" className="mt-0">
-        <Measure>
           {sync.extractions.length > 0 ? (
             <Section title="Extractions">
               <DataTableShell>
