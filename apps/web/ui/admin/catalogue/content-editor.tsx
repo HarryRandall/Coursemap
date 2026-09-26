@@ -322,7 +322,6 @@ export function CatalogueContentEditor() {
             <Section
               title={FIELD_LABELS["course.tags"] ?? "Tags"}
               count={write.course.tags?.length ?? 0}
-              defaultOpen
             >
               <TagsEditor
                 tags={write.course.tags ?? []}
