@@ -236,7 +236,7 @@ export function KeyDatesReviewPanel({
             />
           ) : (
             <p
-              className="flex items-center gap-2 rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground"
+              className="flex items-center gap-2 rounded-xl border border-border p-6 text-sm text-muted-foreground"
               role="status"
             >
               <CircleCheck
