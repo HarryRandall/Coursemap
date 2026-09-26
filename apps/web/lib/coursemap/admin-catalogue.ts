@@ -299,14 +299,21 @@ export async function loadCatalogueDirectoryPage({
         : null,
     } satisfies CatalogueDirectoryRecord;
   });
-  const needle = query.trim().toUpperCase();
+  // Every word must appear somewhere in the code or title, in any order and
+  // ignoring punctuation, so "Human Centred Computing" finds
+  // "Human-Centred and Creative Computing".
+  const words = query
+    .toUpperCase()
+    .split(/[^A-Z0-9]+/u)
+    .filter(Boolean);
   const filtered = rows
-    .filter(
-      (row) =>
-        !needle ||
-        row.code.includes(needle) ||
-        (row.title ?? "").toUpperCase().includes(needle),
-    )
+    .filter((row) => {
+      if (!words.length) return true;
+      const haystack = `${row.code} ${row.title ?? ""}`
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/gu, " ");
+      return words.every((word) => haystack.includes(word));
+    })
     // The whole year is already in memory, so narrowing by state costs a pass
     // rather than a query, and it agrees with the badge by construction.
     .filter((row) => !state || catalogueRecordState(row) === state)
