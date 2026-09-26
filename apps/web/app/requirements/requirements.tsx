@@ -20,16 +20,9 @@ import type {
 import type { SelectableStructureKind } from "@/lib/coursemap/programme-structure-options";
 import type { Course } from "@/lib/coursemap/types";
 import {
-  allocateRequirements,
-  placementOptions,
-  requirementConditionsByKey,
-  requirementTreeProgress,
-} from "@/lib/coursemap/requirement-progress";
-import {
-  conditionHeading,
-  type RequirementTreeCondition,
-} from "@/ui/requirements/requirement-presentation";
-import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
+  attemptStatusByCode,
+  planTreeContext,
+} from "@/ui/requirements/plan-tree-context";
 import {
   degreeUnitProgress,
   planningCourseForAttempt,
@@ -79,14 +72,7 @@ export function Requirements({
     specialisation: state.profile.specialisationCodes,
   };
   const selectedCodes = new Set(Object.values(selected).flat());
-  const attemptStatuses = new Map(
-    [...new Set(state.attempts.map((attempt) => attempt.courseCode))].flatMap(
-      (code) => {
-        const status = requirementCourseStatus(code, state.attempts);
-        return status ? [[code, status] as const] : [];
-      },
-    ),
-  );
+  const attemptStatuses = attemptStatusByCode(state.attempts);
   const options = {
     major: choices.majors.filter(
       (item) =>
@@ -257,72 +243,22 @@ export function Requirements({
                 kind === "programme"
                   ? (degree?.units ?? null)
                   : (option?.units ?? null);
-              const root = requirements?.root ?? null;
-              const conditions = requirementConditionsByKey(root);
-              const nodeKeyFor = (projectionKey: string) =>
-                [...conditions].find(
-                  ([, condition]) => condition.projectionKey === projectionKey,
-                )?.[0];
-              // A student's choices name rules by their stable key; a choice
-              // for a rule this version no longer has is simply not applied.
-              const pins = new Map(
-                (state.placements ?? []).flatMap((choice) => {
-                  const nodeKey =
-                    choice.structureCode === code
-                      ? nodeKeyFor(choice.requirementKey)
-                      : undefined;
-                  return nodeKey ? [[choice.courseCode, nodeKey] as const] : [];
-                }),
-              );
-              const allocation = allocateRequirements({
-                root,
-                attempts: state.attempts,
+              const context = planTreeContext({
+                structureCode: code,
+                root: requirements?.root ?? null,
                 catalogue,
-                pins,
-              });
-              const treeProgress = requirementTreeProgress({
-                root,
                 attempts: state.attempts,
-                catalogue,
-                allocation,
-              });
-              const labelFor = (nodeKey: string) => {
-                const condition = conditions.get(nodeKey);
-                return condition
-                  ? conditionHeading(condition as RequirementTreeCondition)
-                  : "another requirement";
-              };
-              const placement = {
-                allocation,
-                labelFor,
-                optionsFor: (courseCode: string) => {
-                  const attempt = state.attempts.find(
-                    (candidate) => candidate.courseCode === courseCode,
-                  );
-                  const course = attempt
-                    ? planningCourseForAttempt(attempt, catalogue)
-                    : undefined;
-                  return course
-                    ? placementOptions({ root, course }).map((nodeKey) => ({
-                        nodeKey,
-                        label: labelFor(nodeKey),
-                      }))
-                    : [];
-                },
-                onPlace: (courseCode: string, nodeKey: string | null) => {
-                  const projectionKey = nodeKey
-                    ? conditions.get(nodeKey)?.projectionKey
-                    : undefined;
-                  void setPlacement(
-                    courseCode,
-                    projectionKey
-                      ? { structureCode: code, requirementKey: projectionKey }
-                      : null,
-                  ).then((result) => {
+                placements: state.placements ?? [],
+                statuses: attemptStatuses,
+                selectedStructureCodes: selectedCodes,
+                unitTarget: target,
+                onPlace: (courseCode, placement) => {
+                  void setPlacement(courseCode, placement).then((result) => {
                     if (!result.ok) notify(result.message, "warning");
                   });
                 },
-              };
+                onAddCourse: setAddingCourse,
+              });
               return (
                 <div key={code} className="space-y-5">
                   {kind !== "programme" && (
@@ -338,15 +274,7 @@ export function Requirements({
                   {requirements?.root ? (
                     <RequirementGroupView
                       group={requirements.root}
-                      context={{
-                        catalogue,
-                        progress: treeProgress,
-                        placement,
-                        attemptStatusByCode: attemptStatuses,
-                        selectedStructureCodes: selectedCodes,
-                        unitTarget: target,
-                        onAddCourse: setAddingCourse,
-                      }}
+                      context={context}
                     />
                   ) : (
                     <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">

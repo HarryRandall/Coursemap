@@ -73,6 +73,7 @@ test("course selection persists in an independent student plan", async ({
 }) => {
   await login(page, planner);
   await page.goto("/plan");
+  await page.getByRole("tab", { name: /Later/ }).click();
   await page.getByRole("button", { name: "Add an unscheduled course" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -87,6 +88,7 @@ test("course selection persists in an independent student plan", async ({
   await dialog.getByRole("button", { name: /Add to/ }).click();
   await expect(dialog).not.toBeVisible();
   await page.reload();
+  await page.getByRole("tab", { name: /Later/ }).click();
   await expect(page.getByRole("main")).toContainText("COMP1100");
   await page.goto("/courses/2026/comp1110");
   await page.getByRole("tab", { name: "Requisites", exact: true }).click();

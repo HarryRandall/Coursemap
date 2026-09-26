@@ -26,7 +26,7 @@ vi.mock("@/ui/shell", () => ({
   AppShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
 vi.mock("@/ui/overlays", () => ({
-  CourseDrawer: () => null,
+  CourseDialog: () => null,
   CoursePicker: () => null,
 }));
 const catalogue: PlanCatalogue = {
@@ -52,7 +52,7 @@ const catalogue: PlanCatalogue = {
 test("a programme with units but no duration still offers three planning years without a data warning", () => {
   fixtures.attempts = [];
   render(<PlanBoard catalogue={catalogue} />);
-  expect(screen.getByRole("heading", { name: "Year 3" })).toBeVisible();
+  expect(screen.getAllByRole("tab", { name: /Year 3/ })).toHaveLength(2);
   expect(
     screen.getAllByRole("button", { name: /Add course/ }).length,
   ).toBeGreaterThan(0);

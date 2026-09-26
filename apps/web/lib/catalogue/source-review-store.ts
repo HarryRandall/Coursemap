@@ -219,7 +219,9 @@ export async function generateSourceReview(
 /**
  * Records a record's first reading from ANU for review. The draft already
  * holds the reading, so every row starts equal to the draft; approving one
- * keeps the value, and correcting it in the editor shows as an edit.
+ * keeps the value, and correcting it in the editor shows as an edit. A
+ * reading taken again from the same sync, after its draft was discarded,
+ * reopens that sync's rows rather than adding a second set.
  */
 export async function generateFirstReadReview(
   tx: SyncTransactionSql,
@@ -246,6 +248,18 @@ export async function generateFirstReadReview(
         ${tx.json(item.value as never)}, ${reviewValueHash(item.value)},
         ${position}, ${item.confidence}, ${item.band}, ${item.reason}
       )
+      on conflict (sync_id, field_path) do update set
+        review_unit_kind = excluded.review_unit_kind,
+        classification = excluded.classification,
+        base_source_value = excluded.base_source_value,
+        local_value = excluded.local_value,
+        incoming_source_value = excluded.incoming_source_value,
+        local_value_hash = excluded.local_value_hash,
+        position = excluded.position, confidence = excluded.confidence,
+        review_band = excluded.review_band,
+        review_reason = excluded.review_reason,
+        decision = null, resolved_by = null, resolved_at = null,
+        superseded_at = null
     `;
   }
   return {
