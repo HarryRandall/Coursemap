@@ -12,3 +12,9 @@ export function keyDatesPath(year: number, section: KeyDatesSection) {
     ? `/admin/key-dates/${year}`
     : `/admin/key-dates/${year}/${section}`;
 }
+
+/** The section a key dates path shows; anything unrecognised is the dates. */
+export function keyDatesSectionFromPath(pathname: string): KeyDatesSection {
+  const last = pathname.split("/").filter(Boolean).at(-1);
+  return last === "sync" || last === "changelog" ? last : "dates";
+}

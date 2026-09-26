@@ -63,7 +63,7 @@ export function OptionMenu<T extends string>({
         </div>
       ) : null}
 
-      <ScrollArea className="-mx-1.5 [&_[data-slot=scroll-area-scrollbar]]:w-1 [&_[data-slot=scroll-area-viewport]]:max-h-64 [&_[data-slot=scroll-area-viewport]]:overscroll-contain [&_[data-slot=scroll-area-viewport]]:px-1.5 [&_[data-slot=scroll-area-viewport]>div]:block!">
+      <ScrollArea className="-mx-1.5 [&_[data-slot=scroll-area-scrollbar]]:w-2 [&_[data-slot=scroll-area-viewport]]:max-h-64 [&_[data-slot=scroll-area-viewport]]:overscroll-contain [&_[data-slot=scroll-area-viewport]]:px-1.5 [&_[data-slot=scroll-area-viewport]>div]:block!">
         <div className={cn("flex flex-col", searchPlaceholder && "pt-1.5")}>
           {visible.length === 0 ? (
             <p className="px-2.5 py-3 text-sm text-muted-foreground">

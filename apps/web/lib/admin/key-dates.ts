@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { createClient } from "@/lib/supabase/server";
 
@@ -7,7 +8,8 @@ export type KeyDatesReview = {
   canonicalUrl: string;
   fetchedAt: string;
   requestedAt: string;
-  events: { date: string; title: string }[];
+  /** `manual` marks a date corrected during review. */
+  events: { date: string; title: string; manual?: boolean }[];
   diagnostics: ImportDiagnostic[];
 };
 
@@ -62,14 +64,16 @@ export type AdminKeyDatesYear = {
 
 const CHANGELOG_LIMIT = 50;
 
-function eventList(value: unknown): { date: string; title: string }[] {
+function eventList(
+  value: unknown,
+): { date: string; title: string; manual?: boolean }[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) =>
     item &&
     typeof item === "object" &&
     typeof item.date === "string" &&
     typeof item.title === "string"
-      ? [{ date: item.date, title: item.title }]
+      ? [{ date: item.date, title: item.title, manual: item.manual === true }]
       : [],
   );
 }
@@ -99,7 +103,7 @@ function diagnosticList(value: unknown): ImportDiagnostic[] {
  * dates, any sync waiting for review and the year's changelog. Throws when a
  * read fails so the page reports an outage instead of an empty year.
  */
-export async function loadAdminKeyDatesYear(
+export const loadAdminKeyDatesYear = cache(async function loadAdminKeyDatesYear(
   year: number,
 ): Promise<AdminKeyDatesYear> {
   const supabase = await createClient();
@@ -264,4 +268,4 @@ export async function loadAdminKeyDatesYear(
       : null,
     changelog: changelog.slice(0, CHANGELOG_LIMIT),
   };
-}
+});
