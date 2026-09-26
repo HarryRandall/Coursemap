@@ -2,11 +2,13 @@ import Link from "next/link";
 
 import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
+import { isCertainFirstRead } from "@/lib/catalogue/first-read";
 import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { FirstReadReview } from "./first-read-review";
 import { ModelNotes } from "./model-notes";
+import type { ReviewSubject } from "./review-value";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
 
@@ -77,6 +79,7 @@ export function CatalogueChangesPanel({
   kindLabel,
   latestSync = null,
   notes = null,
+  subject = null,
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -90,9 +93,13 @@ export function CatalogueChangesPanel({
   latestSync?: { id: string; completedAt: string | null } | null;
   /** What the model flagged on the latest ANU version. */
   notes?: ReturnType<typeof summariseReviewNotes> | null;
+  /** The course or structure itself, for drawing requirement rules. */
+  subject?: ReviewSubject | null;
 }) {
   const conflicts = review?.conflicts ?? [];
-  const firstRead = review?.firstRead ?? [];
+  const firstRead = (review?.firstRead ?? []).filter(
+    (change) => !isCertainFirstRead(change),
+  );
   const incoming = review?.incoming ?? [];
   const overrides = review?.overrides ?? [];
   const unpublishedCount = isPublished ? unpublished.length : 0;
@@ -136,6 +143,7 @@ export function CatalogueChangesPanel({
           changes={firstRead}
           path={path}
           recordId={recordId}
+          subject={subject}
         />
       ) : null}
       {isEmpty ? (
@@ -151,6 +159,7 @@ export function CatalogueChangesPanel({
                 key={change.id}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>
@@ -166,6 +175,7 @@ export function CatalogueChangesPanel({
                 key={change.id}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>
@@ -187,6 +197,7 @@ export function CatalogueChangesPanel({
                 key={change.id}
                 path={path}
                 recordId={recordId}
+                subject={subject}
               />
             ))}
           </div>

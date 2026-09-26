@@ -209,6 +209,9 @@ export async function CatalogueRecordPage({
                 path={path}
                 recordId={record.recordId}
                 review={review}
+                subject={
+                  kind === "course" ? { code: record.code, academicYear } : null
+                }
                 unpublished={unpublished}
               />
             </TabsContent>
