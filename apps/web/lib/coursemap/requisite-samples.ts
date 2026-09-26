@@ -4,7 +4,10 @@ import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 export type SampleStudent = "new" | "partway" | "complete";
 
 type Draft = {
-  completed: Map<string, { units: number; mark: number | null }>;
+  completed: Map<
+    string,
+    { units: number; mark: number | null; tags?: string[] }
+  >;
   programmeCodes: Set<string>;
   wam: number | null;
   gpa: number | null;
@@ -32,10 +35,16 @@ function fillerCodes(
   return codes;
 }
 
-function addUnits(draft: Draft, units: number, subject: string, level: number) {
+function addUnits(
+  draft: Draft,
+  units: number,
+  subject: string,
+  level: number,
+  tags: string[] = [],
+) {
   const count = Math.ceil(units / COURSE_UNITS);
   for (const code of fillerCodes(subject, level, count, draft.completed)) {
-    draft.completed.set(code, { units: COURSE_UNITS, mark: 75 });
+    draft.completed.set(code, { units: COURSE_UNITS, mark: 75, tags });
   }
 }
 
@@ -122,8 +131,10 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
         ? Math.max(0, node.minimumGpa - 0.5)
         : Math.min(7, node.minimumGpa + 0.8);
       return;
-    case "incompatible":
     case "tagged_units":
+      addUnits(draft, Math.floor(node.units * share), "ZZTG", 1, [node.tag]);
+      return;
+    case "incompatible":
     case "elective_units":
     case "permission":
     case "other":

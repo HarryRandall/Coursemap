@@ -94,3 +94,40 @@ test("completed courses come first in a choice", () => {
     .map((link) => link.textContent?.replace(/\s*\(done\)/u, ""));
   expect(chips).toEqual(["COMP2300", "COMP2100", "COMP2120"]);
 });
+
+test("a unit requirement links to the courses that count towards it", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "subject_units", subject: "COMP", units: 24 },
+          {
+            ...base,
+            kind: "level_units",
+            minimumLevel: 2000,
+            maximumLevel: null,
+            subject: "COMP",
+            units: 12,
+          },
+          { ...base, kind: "tagged_units", tag: "Science", units: 6 },
+        ],
+      }}
+      student={null}
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: /24 units of COMP courses/u }),
+  ).toHaveAttribute("href", "/courses?year=2026&subject=COMP");
+  expect(
+    screen.getByRole("link", { name: /2000-level or higher COMP/u }),
+  ).toHaveAttribute("href", "/courses?year=2026&level=2%2B&subject=COMP");
+  expect(screen.getByRole("link", { name: /tagged Science/u })).toHaveAttribute(
+    "href",
+    "/courses?year=2026&tag=Science",
+  );
+});
