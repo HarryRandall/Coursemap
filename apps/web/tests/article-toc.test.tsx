@@ -9,10 +9,10 @@ afterEach(() => {
 
 test("selects the final section at the page end and follows earlier sections when scrolling back", () => {
   vi.stubGlobal("innerHeight", 800);
-  vi.stubGlobal("scrollY", 1200);
-  vi.spyOn(document.documentElement, "scrollHeight", "get").mockReturnValue(
-    2000,
-  );
+  const root = document.documentElement;
+  vi.spyOn(root, "scrollHeight", "get").mockReturnValue(2000);
+  vi.spyOn(root, "clientHeight", "get").mockReturnValue(800);
+  const scrollTop = vi.spyOn(root, "scrollTop", "get").mockReturnValue(1200);
   vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
     callback(0);
     return 0;
@@ -41,8 +41,9 @@ test("selects the final section at the page end and follows earlier sections whe
     "aria-current",
     "location",
   );
-  vi.stubGlobal("scrollY", 900);
-  fireEvent.scroll(window);
+  scrollTop.mockReturnValue(900);
+  // The table of contents listens on the document to hear any scroll area.
+  fireEvent.scroll(document);
   expect(screen.getByRole("link", { name: "First" })).toHaveAttribute(
     "aria-current",
     "location",
