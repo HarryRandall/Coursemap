@@ -33,8 +33,9 @@ export type SourceReviewChange = {
   isStale: boolean;
   decision: SourceReviewDecision | null;
   resolvedAt: string | null;
-  /** A first reading's weakest confidence, band and reason; null otherwise. */
+  /** The weakest confidence behind the ANU value, or null with no evidence. */
   confidence: number | null;
+  /** A first reading's band and reason; null otherwise. */
   band: FirstReadBand | null;
   reason: string | null;
 };
@@ -174,6 +175,14 @@ export async function generateSourceReview(
   const changes = classified.filter(
     (change) => change.classification !== "converged",
   );
+  // The same weakest-evidence confidence a first reading shows, so every
+  // change says how sure the model was of the value it read.
+  const confidence = new Map(
+    classifyFirstRead(incomingSource).map((item) => [
+      item.fieldPath,
+      item.confidence,
+    ]),
+  );
   await tx`
     update public.catalogue_sync_changes set superseded_at = now()
     where record_id = ${recordId} and superseded_at is null
@@ -183,13 +192,14 @@ export async function generateSourceReview(
       insert into public.catalogue_sync_changes (
         sync_id, record_id, field_path, review_unit_kind, classification,
         base_source_value, local_value, incoming_source_value, local_value_hash,
-        position
+        position, confidence
       ) values (
         ${syncId}::uuid, ${recordId}, ${change.fieldPath}, ${change.unitKind},
         ${change.classification}, ${tx.json(change.baseSourceValue as never)},
         ${tx.json(change.localValue as never)},
         ${tx.json(change.incomingSourceValue as never)},
-        ${change.localValueHash}, ${change.position}
+        ${change.localValueHash}, ${change.position},
+        ${confidence.get(change.fieldPath) ?? null}
       )
     `;
   }
