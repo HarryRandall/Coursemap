@@ -12,7 +12,7 @@ import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
 import { emptyCatalogueContent } from "@/lib/catalogue/content";
 import { CatalogueEditorProvider } from "@/ui/admin/catalogue/catalogue-editor-context";
-import { CatalogueEditorToolbar } from "@/ui/admin/catalogue/catalogue-editor-toolbar";
+import { RecordActions } from "@/ui/admin/catalogue/record-actions";
 import { CatalogueContentEditor } from "@/ui/admin/catalogue/content-editor";
 
 const actions = vi.hoisted(() => ({
@@ -60,7 +60,7 @@ function renderEditor({ hasDraft = true } = {}) {
         initialHasUnpublishedChanges={hasDraft}
         path="/admin/courses/2026/comp1000"
       >
-        <CatalogueEditorToolbar />
+        <RecordActions canWrite sync={null} />
         <CatalogueContentEditor />
       </CatalogueEditorProvider>
     </TooltipProvider>,
@@ -156,19 +156,26 @@ test("editing opens the draft actions, with nothing yet to publish", async () =>
   renderEditor({ hasDraft: false });
   await user.click(screen.getByRole("button", { name: "Edit" }));
 
-  expect(screen.getByRole("status")).toHaveTextContent("Draft");
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
   expect(
-    screen.getByRole("button", { name: "Discard draft" }),
+    screen.getByRole("menuitem", { name: "Discard draft" }),
   ).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Publish" })).toBeDisabled();
+  expect(screen.getByRole("menuitem", { name: "Publish" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await user.keyboard("{Escape}");
 
   fireEvent.change(screen.getByLabelText("Description"), {
     target: { value: "Worth keeping" },
   });
   await act(async () => vi.advanceTimersByTime(1_000));
 
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
   await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Publish" })).toBeEnabled(),
+    expect(
+      screen.getByRole("menuitem", { name: "Publish" }),
+    ).not.toHaveAttribute("aria-disabled"),
   );
 });
 
@@ -177,27 +184,22 @@ test("discarding a draft leaves the record with nothing to discard", async () =>
   renderEditor();
 
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  await user.click(screen.getByRole("button", { name: "Discard draft" }));
-  const confirm = await screen.findByRole("button", {
-    name: "Discard draft",
-    // The trigger is behind the open dialog, so only the confirmation
-    // inside it is still reachable.
-    hidden: false,
-  });
-  await user.click(confirm);
-  await waitFor(() => expect(actions.discard).toHaveBeenCalled());
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("button", { name: "Discard draft" }),
-    ).not.toBeInTheDocument(),
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  await user.click(screen.getByRole("menuitem", { name: "Discard draft" }));
+  await user.click(
+    await screen.findByRole("button", { name: "Discard draft" }),
   );
+  await waitFor(() => expect(actions.discard).toHaveBeenCalled());
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  expect(
+    screen.queryByRole("menuitem", { name: "Discard draft" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a record without a draft is read until editing is asked for", async () => {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   renderEditor({ hasDraft: false });
 
-  expect(screen.getByRole("status")).toHaveTextContent("Published");
   expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
   // The values are still there to read, just not to change.
   expect(screen.getByText("Test course")).toBeInTheDocument();
@@ -219,14 +221,15 @@ test("backing out of an opened draft discards it, keeping no checkpoint", async 
   renderEditor({ hasDraft: false });
   await user.click(screen.getByRole("button", { name: "Edit" }));
 
-  await user.click(screen.getByRole("button", { name: "Discard draft" }));
+  await user.click(screen.getByRole("button", { name: "Record actions" }));
+  await user.click(screen.getByRole("menuitem", { name: "Discard draft" }));
   expect(
     screen.getByText(
       "The editor goes back to the published version. Nothing has been changed in it, so nothing is kept.",
     ),
   ).toBeInTheDocument();
   await user.click(
-    await screen.findByRole("button", { name: "Discard draft", hidden: false }),
+    await screen.findByRole("button", { name: "Discard draft" }),
   );
 
   await waitFor(() => expect(actions.discard).toHaveBeenCalled());

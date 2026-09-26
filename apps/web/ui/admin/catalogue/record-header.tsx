@@ -7,7 +7,7 @@ import {
   adminCatalogueRecordPath,
 } from "@/lib/coursemap/catalogue-kinds";
 import { anuSourceUrl } from "./anu-source";
-import { CatalogueSyncButton } from "./sync-button";
+import { RecordActions } from "./record-actions";
 
 function formatDate(value: string | null) {
   if (!value) return null;
@@ -21,6 +21,7 @@ export function RecordHeader({
   hasDraft,
   hasUnpublishedChanges,
   canSync,
+  canWrite,
   openChangeCount,
   conflictCount,
 }: {
@@ -28,6 +29,7 @@ export function RecordHeader({
   hasDraft: boolean;
   hasUnpublishedChanges: boolean;
   canSync: boolean;
+  canWrite: boolean;
   openChangeCount: number;
   conflictCount: number;
 }) {
@@ -123,15 +125,20 @@ export function RecordHeader({
         ) : null}
         <span className="sr-only">{labels.singular} record</span>
       </div>
-      {canSync ? (
-        <CatalogueSyncButton
-          recordId={record.recordId}
-          code={record.code}
-          kind={record.kind}
-          latestSync={record.syncs[0] ?? null}
-          hasSynced={record.sourceCheckedAt !== null}
-        />
-      ) : null}
+      <RecordActions
+        canWrite={canWrite}
+        sync={
+          canSync
+            ? {
+                recordId: record.recordId,
+                code: record.code,
+                kind: record.kind,
+                latestSync: record.syncs[0] ?? null,
+                hasSynced: record.sourceCheckedAt !== null,
+              }
+            : null
+        }
+      />
     </header>
   );
 }

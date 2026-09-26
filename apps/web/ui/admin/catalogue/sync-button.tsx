@@ -37,20 +37,26 @@ const SYNC_OUTCOMES = {
   },
 } as const;
 
-export function CatalogueSyncButton({
-  recordId,
-  code,
-  kind,
-  latestSync,
-  hasSynced,
-}: {
+export type CatalogueSyncTarget = {
   recordId: number;
   code: string;
   kind: CatalogueKind;
   latestSync: CatalogueSync | null;
   /** Whether ANU has ever been read for this record, which names the action. */
   hasSynced: boolean;
-}) {
+};
+
+/**
+ * Starts a record's ANU sync and follows it to the end with a toast. Whatever
+ * control starts it shows `busy` while it runs and names itself `label`.
+ */
+export function useCatalogueSync({
+  recordId,
+  code,
+  kind,
+  latestSync,
+  hasSynced,
+}: CatalogueSyncTarget) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [startedSyncId, setStartedSyncId] = useState<string | null>(null);
@@ -155,24 +161,35 @@ export function CatalogueSyncButton({
     task.current = null;
   }, [code, latestSync, retrySync, startedSyncId]);
 
+  return {
+    start: startSync,
+    busy: isPending || isActive,
+    isActive,
+    label:
+      latestSync?.status === "failed" && !isActive
+        ? "Retry sync"
+        : hasSynced
+          ? "Resync"
+          : "Sync",
+  };
+}
+
+export function CatalogueSyncButton(target: CatalogueSyncTarget) {
+  const sync = useCatalogueSync(target);
   return (
     <Button
       type="button"
       variant="outline"
-      onClick={startSync}
-      disabled={isPending || isActive}
-      aria-busy={isPending || isActive}
+      onClick={sync.start}
+      disabled={sync.busy}
+      aria-busy={sync.busy}
     >
-      {isActive ? (
+      {sync.isActive ? (
         <LoaderCircle className="animate-spin" aria-hidden="true" />
       ) : (
         <RefreshCw aria-hidden="true" />
       )}
-      {latestSync?.status === "failed" && !isActive
-        ? "Retry sync"
-        : hasSynced
-          ? "Resync"
-          : "Sync"}
+      {sync.label}
     </Button>
   );
 }

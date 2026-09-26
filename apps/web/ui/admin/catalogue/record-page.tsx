@@ -32,7 +32,6 @@ import { RecordHeader } from "./record-header";
 import { StudentViewPanel } from "./student-view-panel";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
 import { CatalogueEditorProvider } from "./catalogue-editor-context";
-import { CatalogueEditorToolbar } from "./catalogue-editor-toolbar";
 import { CatalogueContentEditor } from "./content-editor";
 
 function FoundationEmpty({
@@ -158,14 +157,6 @@ export async function CatalogueRecordPage({
           path={path}
         >
           <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
-            {/*
-              The toolbar reports the record's state, so it leads the page
-              rather than the fields. It appears only where it can act: the
-              other tabs read the record and do not change it.
-            */}
-            {canWrite && section === "content" ? (
-              <CatalogueEditorToolbar />
-            ) : null}
             {/* The record's summary belongs with its content; the other
                 tabs lead with what they are for. */}
             {section === "content" ? (
@@ -174,6 +165,7 @@ export async function CatalogueRecordPage({
                 hasDraft={hasDraft}
                 hasUnpublishedChanges={hasUnpublishedChanges}
                 canSync={canManageImports}
+                canWrite={canWrite}
                 openChangeCount={openChanges}
                 conflictCount={review?.conflicts.length ?? 0}
               />
