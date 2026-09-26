@@ -1,3 +1,3 @@
 export { CoursePicker } from "./course-picker";
-export { CourseDrawer } from "./course-drawer";
+export { CourseDialog } from "./course-dialog";
 export { TermChooser } from "./term-chooser";
