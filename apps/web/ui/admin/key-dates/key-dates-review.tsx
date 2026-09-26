@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  ChevronDown,
   CircleAlert,
   CircleCheck,
-  Equal,
   ExternalLink,
   Minus,
   Plus,
@@ -20,6 +20,11 @@ import {
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@coursemap/ui/primitives/collapsible";
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -32,6 +37,7 @@ import {
 } from "@/lib/admin/key-dates-actions";
 import type { KeyDatesReview } from "@/lib/admin/key-dates";
 import type { UniversityCalendarReviewDiff } from "@/lib/coursemap/university-calendar-review";
+import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
 
@@ -45,45 +51,79 @@ function plural(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
-function SummaryTile({
-  icon: Icon,
+function DiagnosticList({ items }: { items: ImportDiagnostic[] }) {
+  return (
+    <ul className="list-disc space-y-1 pl-4">
+      {items.map((diagnostic, index) => (
+        <li key={`${diagnostic.code}-${index}`}>{diagnostic.message}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** Parser warnings rarely block publishing, so they start folded away. */
+function WarningsNotice({ warnings }: { warnings: ImportDiagnostic[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible onOpenChange={setOpen} open={open}>
+      <Alert variant="warning">
+        <TriangleAlert aria-hidden="true" />
+        <AlertTitle className="flex items-center justify-between gap-3">
+          {plural(warnings.length, "warning")} from the ANU page
+          <CollapsibleTrigger asChild>
+            <Button className="-my-1 h-7" size="sm" variant="ghost">
+              {open ? "Hide" : "Show"}
+              <ChevronDown
+                aria-hidden="true"
+                className={cn(
+                  "transition-transform motion-reduce:transition-none",
+                  open && "rotate-180",
+                )}
+                size={14}
+              />
+            </Button>
+          </CollapsibleTrigger>
+        </AlertTitle>
+        <CollapsibleContent asChild>
+          <AlertDescription>
+            <DiagnosticList items={warnings} />
+          </AlertDescription>
+        </CollapsibleContent>
+      </Alert>
+    </Collapsible>
+  );
+}
+
+function CountChip({
+  count,
   label,
   tone,
-  value,
 }: {
-  icon: typeof Plus;
+  count: number;
   label: string;
   tone: "added" | "removed" | "unchanged";
-  value: number;
 }) {
+  const Icon = tone === "added" ? Plus : tone === "removed" ? Minus : null;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-lg",
-          tone === "added" &&
-            "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
-          tone === "removed" &&
-            "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
-          tone === "unchanged" && "bg-muted text-muted-foreground",
-        )}
-      >
-        <Icon size={16} />
-      </span>
-      <div>
-        <div className="text-xl leading-tight font-semibold tabular-nums">
-          {value}
-        </div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-      </div>
-    </div>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums",
+        tone === "added" &&
+          "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
+        tone === "removed" &&
+          "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
+        tone === "unchanged" && "bg-muted text-muted-foreground",
+      )}
+    >
+      {Icon ? <Icon aria-hidden="true" size={12} /> : null}
+      {count} {label}
+    </span>
   );
 }
 
 /**
- * A synced year waiting for a decision: what approval would change for
- * students, anything the parser flagged, and the approve and discard actions.
+ * A synced year waiting for a decision. The decision sits at the top beside
+ * what it would change, so a long list never pushes it out of reach.
  */
 export function KeyDatesReviewPanel({
   canManage,
@@ -114,6 +154,7 @@ export function KeyDatesReviewPanel({
     const result = await approveKeyDatesReviewAction(review.id, year);
     if (!result.ok) throw new Error(result.message);
     toast.success(result.message);
+    router.push(`/admin/key-dates/${year}`);
     router.refresh();
   }
 
@@ -125,88 +166,90 @@ export function KeyDatesReviewPanel({
   }
 
   return (
-    <section aria-labelledby="key-dates-review" className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
+    <section aria-labelledby="key-dates-review" className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-2">
           <h2
             id="key-dates-review"
-            className="flex items-center gap-2 text-base font-semibold"
+            className="flex flex-wrap items-center gap-2 text-sm font-semibold"
           >
-            Review the {year} sync
+            Sync ready to review
             <Badge variant="primary-light">Not yet published</Badge>
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Fetched{" "}
-            <time dateTime={review.fetchedAt}>
-              {timestampFormat.format(new Date(review.fetchedAt))}
-            </time>{" "}
-            from{" "}
-            <a
-              className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
-              href={review.canonicalUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              the ANU calendar
-              <ExternalLink aria-hidden="true" size={12} />
-            </a>
-          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <CountChip count={diff.added} label="new" tone="added" />
+            <CountChip count={diff.removed} label="removed" tone="removed" />
+            <CountChip
+              count={diff.unchanged}
+              label="unchanged"
+              tone="unchanged"
+            />
+            <span className="text-xs text-muted-foreground">
+              · Fetched{" "}
+              <time dateTime={review.fetchedAt}>
+                {timestampFormat.format(new Date(review.fetchedAt))}
+              </time>{" "}
+              from{" "}
+              <a
+                className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline"
+                href={review.canonicalUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                the ANU calendar
+                <ExternalLink aria-hidden="true" size={12} />
+              </a>
+            </span>
+          </div>
         </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryTile
-          icon={Plus}
-          label="New dates"
-          tone="added"
-          value={diff.added}
-        />
-        <SummaryTile
-          icon={Minus}
-          label="Removed dates"
-          tone="removed"
-          value={diff.removed}
-        />
-        <SummaryTile
-          icon={Equal}
-          label="Unchanged"
-          tone="unchanged"
-          value={diff.unchanged}
-        />
+        {canManage ? (
+          <div className="flex shrink-0 gap-2">
+            <ConfirmDialog
+              confirmLabel="Discard sync"
+              description={`Students keep seeing the dates already published for ${year}. You can sync again at any time.`}
+              destructive
+              onConfirm={discard}
+              title={`Discard the ${year} sync?`}
+              trigger={
+                <Button type="button" variant="outline">
+                  Discard
+                </Button>
+              }
+            />
+            <ConfirmDialog
+              confirmLabel="Publish"
+              description={
+                changes > 0
+                  ? `${plural(diff.added, "new date")} will appear on Key dates and ${plural(diff.removed, "date")} will be archived. Dates entered by hand stay as they are.`
+                  : `The ${year} key dates stay as they are and this sync is recorded in the changelog.`
+              }
+              onConfirm={approve}
+              title={`Publish the ${year} key dates?`}
+              trigger={
+                <Button disabled={blocked} type="button">
+                  <CircleCheck aria-hidden="true" size={15} />
+                  Approve and publish
+                </Button>
+              }
+            />
+          </div>
+        ) : null}
       </div>
 
       {errors.length > 0 ? (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
           <AlertTitle>
-            {plural(errors.length, "source error")} block publishing
+            {plural(errors.length, "source error")}{" "}
+            {errors.length === 1 ? "blocks" : "block"} publishing. Sync again
+            once the ANU page is fixed.
           </AlertTitle>
           <AlertDescription>
-            <ul className="list-disc space-y-1 pl-4">
-              {errors.map((diagnostic, index) => (
-                <li key={`${diagnostic.code}-${index}`}>
-                  {diagnostic.message}
-                </li>
-              ))}
-            </ul>
+            <DiagnosticList items={errors} />
           </AlertDescription>
         </Alert>
       ) : null}
-      {warnings.length > 0 ? (
-        <Alert variant="warning">
-          <TriangleAlert aria-hidden="true" />
-          <AlertTitle>{plural(warnings.length, "warning")}</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc space-y-1 pl-4">
-              {warnings.map((diagnostic, index) => (
-                <li key={`${diagnostic.code}-${index}`}>
-                  {diagnostic.message}
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {warnings.length > 0 ? <WarningsNotice warnings={warnings} /> : null}
 
       <Tabs className="gap-4" onValueChange={setView} value={view}>
         <TabsList aria-label="Review dates" variant="line">
@@ -251,48 +294,6 @@ export function KeyDatesReviewPanel({
           <KeyDatesMonthList events={diff.events} showChanges />
         </TabsContent>
       </Tabs>
-
-      {canManage ? (
-        <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-sm backdrop-blur supports-backdrop-filter:bg-background/80">
-          <p className="text-sm text-muted-foreground">
-            {blocked
-              ? "Resolve the source errors and sync again before publishing."
-              : changes > 0
-                ? `Publishing adds ${plural(diff.added, "date")} and removes ${plural(diff.removed, "date")} for students.`
-                : "Publishing records this check without changing what students see."}
-          </p>
-          <div className="flex gap-2">
-            <ConfirmDialog
-              confirmLabel="Discard sync"
-              description={`Students keep seeing the dates already published for ${year}. You can sync again at any time.`}
-              destructive
-              onConfirm={discard}
-              title={`Discard the ${year} sync?`}
-              trigger={
-                <Button type="button" variant="outline">
-                  Discard
-                </Button>
-              }
-            />
-            <ConfirmDialog
-              confirmLabel="Publish"
-              description={
-                changes > 0
-                  ? `${plural(diff.added, "new date")} will appear on Key dates and ${plural(diff.removed, "date")} will be archived.`
-                  : `The ${year} key dates stay as they are and this sync is recorded in the publishing history.`
-              }
-              onConfirm={approve}
-              title={`Publish the ${year} key dates?`}
-              trigger={
-                <Button disabled={blocked} type="button">
-                  <CircleCheck aria-hidden="true" size={15} />
-                  Approve and publish
-                </Button>
-              }
-            />
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

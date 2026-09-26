@@ -6,7 +6,8 @@ import { diffUniversityCalendarReview } from "@/lib/coursemap/university-calenda
 import type { KeyDatesReview } from "@/lib/admin/key-dates";
 
 const refresh = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 const approveKeyDatesReviewAction = vi.fn(async () => ({
   ok: true,
@@ -61,9 +62,8 @@ test("the review opens on what approval changes and publishes on confirmation", 
   expect(within(changes).getByText("Examination period begins")).toBeVisible();
   expect(within(changes).getByText("Census date")).toBeVisible();
   expect(within(changes).queryByText("Semester 1 begins")).toBeNull();
-  expect(
-    screen.getByText("Publishing adds 1 date and removes 1 date for students."),
-  ).toBeVisible();
+  expect(screen.getByText("1 new")).toBeVisible();
+  expect(screen.getByText("1 removed")).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "Approve and publish" }));
   await user.click(screen.getByRole("button", { name: "Publish" }));
@@ -72,7 +72,7 @@ test("the review opens on what approval changes and publishes on confirmation", 
     "3f0a5a1e-2c43-4c1f-9d3f-0e0a1b2c3d4e",
     2027,
   );
-  expect(refresh).toHaveBeenCalled();
+  expect(push).toHaveBeenCalledWith("/admin/key-dates/2027");
 });
 
 test("a sync with source errors cannot be published", () => {
@@ -92,4 +92,27 @@ test("a sync with source errors cannot be published", () => {
   expect(
     screen.getByRole("button", { name: "Approve and publish" }),
   ).toBeDisabled();
+});
+
+test("parser warnings start folded away", async () => {
+  const user = userEvent.setup();
+  renderPanel(
+    review({
+      diagnostics: [
+        {
+          code: "CALENDAR_EVENT_DUPLICATE",
+          severity: "warning",
+          message: "The calendar event appears more than once.",
+        },
+      ],
+    }),
+  );
+
+  expect(
+    screen.queryByText("The calendar event appears more than once."),
+  ).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Show" }));
+  expect(
+    screen.getByText("The calendar event appears more than once."),
+  ).toBeVisible();
 });

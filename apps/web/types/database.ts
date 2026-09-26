@@ -3703,6 +3703,53 @@ export type Database = {
           },
         ]
       }
+      university_calendar_event_changes: {
+        Row: {
+          action: string
+          calendar_year: number
+          changed_at: string
+          changed_by: string | null
+          event_date: string
+          event_id: number
+          id: number
+          previous_date: string | null
+          previous_title: string | null
+          title: string
+        }
+        Insert: {
+          action: string
+          calendar_year: number
+          changed_at?: string
+          changed_by?: string | null
+          event_date: string
+          event_id: number
+          id?: never
+          previous_date?: string | null
+          previous_title?: string | null
+          title: string
+        }
+        Update: {
+          action?: string
+          calendar_year?: number
+          changed_at?: string
+          changed_by?: string | null
+          event_date?: string
+          event_id?: number
+          id?: never
+          previous_date?: string | null
+          previous_title?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "university_calendar_event_changes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "university_calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       university_calendar_events: {
         Row: {
           academic_year_id: number
@@ -3710,6 +3757,7 @@ export type Database = {
           created_at: string
           event_date: string
           id: number
+          origin: string
           source_page_id: number | null
           status: string
           title: string
@@ -3721,6 +3769,7 @@ export type Database = {
           created_at?: string
           event_date: string
           id?: never
+          origin?: string
           source_page_id?: number | null
           status?: string
           title: string
@@ -3732,6 +3781,7 @@ export type Database = {
           created_at?: string
           event_date?: string
           id?: never
+          origin?: string
           source_page_id?: number | null
           status?: string
           title?: string
@@ -4223,6 +4273,10 @@ export type Database = {
         Args: { p_plan_item_id: string }
         Returns: boolean
       }
+      remove_university_calendar_event: {
+        Args: { p_event_id: number }
+        Returns: undefined
+      }
       save_current_user_academic_result: {
         Args: {
           p_grade?: string
@@ -4246,6 +4300,15 @@ export type Database = {
           p_study_load: string
         }
         Returns: string
+      }
+      save_university_calendar_event: {
+        Args: {
+          p_calendar_year: number
+          p_event_date: string
+          p_event_id?: number
+          p_title: string
+        }
+        Returns: number
       }
       set_current_user_plan_extension_years: {
         Args: { p_extension_years: number }

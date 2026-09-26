@@ -17,6 +17,10 @@ export type UniversityCalendarReviewEvent = {
   title: string;
   category: UniversityCalendarCategory;
   change: UniversityCalendarChange;
+  /** Added or edited by hand; a sync never removes it. */
+  manual: boolean;
+  /** The published row, when the date is already published. */
+  eventId?: number;
 };
 
 export type UniversityCalendarReviewDiff = {
@@ -28,6 +32,11 @@ export type UniversityCalendarReviewDiff = {
 
 type CalendarEntry = { date: string; title: string };
 
+type PublishedEntry = CalendarEntry & {
+  id?: number;
+  origin?: "anu" | "manual";
+};
+
 function entryKey(entry: CalendarEntry) {
   return `${entry.date}|${entry.title}`;
 }
@@ -35,13 +44,17 @@ function entryKey(entry: CalendarEntry) {
 /**
  * Every synced date plus every published date the sync no longer lists,
  * sorted by date then title. Approval archives the removed dates rather than
- * deleting them, which is what "removed" means to a student.
+ * deleting them, which is what "removed" means to a student. Dates added or
+ * edited by hand stay published whatever the sync says, so they are never
+ * counted as removed.
  */
 export function diffUniversityCalendarReview(
   synced: readonly CalendarEntry[],
-  published: readonly CalendarEntry[],
+  published: readonly PublishedEntry[],
 ): UniversityCalendarReviewDiff {
-  const publishedKeys = new Set(published.map(entryKey));
+  const publishedByKey = new Map(
+    published.map((entry) => [entryKey(entry), entry]),
+  );
   const syncedKeys = new Set<string>();
   const events: UniversityCalendarReviewEvent[] = [];
 
@@ -49,12 +62,15 @@ export function diffUniversityCalendarReview(
     const key = entryKey(entry);
     if (syncedKeys.has(key)) continue;
     syncedKeys.add(key);
+    const match = publishedByKey.get(key);
     events.push({
       key,
       date: entry.date,
       title: entry.title,
       category: categoriseUniversityCalendarEvent(entry.title),
-      change: publishedKeys.has(key) ? "unchanged" : "added",
+      change: match ? "unchanged" : "added",
+      manual: match?.origin === "manual",
+      eventId: match?.id,
     });
   }
 
@@ -62,12 +78,15 @@ export function diffUniversityCalendarReview(
     const key = entryKey(entry);
     if (syncedKeys.has(key)) continue;
     syncedKeys.add(key);
+    const manual = entry.origin === "manual";
     events.push({
       key,
       date: entry.date,
       title: entry.title,
       category: categoriseUniversityCalendarEvent(entry.title),
-      change: "removed",
+      change: manual ? "unchanged" : "removed",
+      manual,
+      eventId: entry.id,
     });
   }
 

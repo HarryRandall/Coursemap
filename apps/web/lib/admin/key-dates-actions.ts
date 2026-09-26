@@ -8,7 +8,12 @@ import {
 } from "@/lib/catalogue-import/anu-university-calendar";
 import { createClient } from "@/lib/supabase/server";
 
-export type KeyDatesActionResult = { ok: boolean; message: string };
+export type KeyDatesActionResult = {
+  ok: boolean;
+  message: string;
+  /** True once a sync is saved for review, even one with source errors. */
+  staged?: boolean;
+};
 
 const FETCH_TIMEOUT_MS = 20_000;
 const PERMISSION_REQUIRED = "Import management permission is required.";
@@ -18,7 +23,7 @@ function isCalendarYear(year: number) {
 }
 
 function refreshKeyDates(year: number) {
-  revalidatePath(`/admin/key-dates/${year}`);
+  revalidatePath(`/admin/key-dates/${year}`, "layout");
   revalidatePath("/key-dates");
 }
 
@@ -66,6 +71,7 @@ export async function syncKeyDatesAction(
   const errors = universityCalendarErrorDiagnostics(manifest).length;
   return {
     ok: errors === 0,
+    staged: true,
     message:
       errors > 0
         ? `The ${year} calendar has ${errors} source ${errors === 1 ? "error" : "errors"} to resolve before it can be published.`
@@ -119,4 +125,70 @@ export async function discardKeyDatesReviewAction(
 
   refreshKeyDates(year);
   return { ok: true, message: `The ${year} sync was discarded.` };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Adds a key date by hand, or edits a published one when `id` is given.
+ * Either way the date is kept through later ANU syncs.
+ */
+export async function saveKeyDateAction(
+  year: number,
+  entry: { id?: number; date: string; title: string },
+): Promise<KeyDatesActionResult> {
+  if (!(await canManageCatalogueOperations()))
+    return { ok: false, message: PERMISSION_REQUIRED };
+  const title = entry.title.trim();
+  if (!title) return { ok: false, message: "Give the date a title." };
+  if (!ISO_DATE.test(entry.date) || !entry.date.startsWith(`${year}-`))
+    return { ok: false, message: `Choose a date in ${year}.` };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("save_university_calendar_event", {
+    p_event_id: entry.id ?? undefined,
+    p_calendar_year: year,
+    p_event_date: entry.date,
+    p_title: title,
+  });
+  if (error)
+    return {
+      ok: false,
+      message:
+        error.code === "23505" ||
+        error.code === "22023" ||
+        error.code === "P0002"
+          ? error.message
+          : "The key date could not be saved. Try again.",
+    };
+
+  refreshKeyDates(year);
+  return {
+    ok: true,
+    message: entry.id ? "The key date was updated." : "The key date was added.",
+  };
+}
+
+export async function removeKeyDateAction(
+  year: number,
+  id: number,
+): Promise<KeyDatesActionResult> {
+  if (!(await canManageCatalogueOperations()))
+    return { ok: false, message: PERMISSION_REQUIRED };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("remove_university_calendar_event", {
+    p_event_id: id,
+  });
+  if (error)
+    return {
+      ok: false,
+      message:
+        error.code === "P0002"
+          ? error.message
+          : "The key date could not be removed. Try again.",
+    };
+
+  refreshKeyDates(year);
+  return { ok: true, message: "The key date was removed." };
 }

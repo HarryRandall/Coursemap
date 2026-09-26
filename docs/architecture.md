@@ -196,6 +196,11 @@ dates with the published ones. `approve_university_calendar_review` then
 publishes and archives exactly as the command-line import below does, under
 the same advisory lock, and records the run. A sync with error diagnostics
 can be discarded but not approved. Students see nothing until approval.
+Administrators can also add, edit and remove dates by hand with
+`save_university_calendar_event` and `remove_university_calendar_event`. Those
+dates are marked `origin = 'manual'`, neither an approved sync nor the
+command-line import archives them, and each change is kept in
+`university_calendar_event_changes` for the year's changelog.
 
 For local work, or where the server cannot reach the ANU site, fetch a
 reviewable manifest from the [ANU university calendar](https://www.anu.edu.au/directories/university-calendar), then import it into local Supabase:

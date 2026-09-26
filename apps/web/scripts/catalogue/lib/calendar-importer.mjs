@@ -179,6 +179,7 @@ async function importManifestInTransaction(tx, manifest) {
           set status = 'archived'
           where calendar_year = ${manifest.calendarYear}
             and status = 'published'
+            and origin = 'anu'
             and not exists (
               select 1
               from unnest(${dates}::date[], ${titles}::text[])
@@ -245,7 +246,8 @@ async function importManifestInTransaction(tx, manifest) {
  * Import a validated university calendar manifest.
  *
  * The import is idempotent: replaying the same manifest is a no-op. Published
- * events absent from a clean manifest are archived rather than deleted, and a
+ * ANU events absent from a clean manifest are archived rather than deleted,
+ * dates added or edited by hand in the admin console are kept, and a
  * manifest carrying error diagnostics records a failed run without touching
  * event rows.
  */
