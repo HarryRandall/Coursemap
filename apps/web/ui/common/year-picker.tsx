@@ -82,7 +82,13 @@ export function YearPicker({
           </Button>
         </PopoverTrigger>
       </MenuHint>
-      <PopoverContent align="start" className="w-40 p-1.5">
+      <PopoverContent
+        align="start"
+        className={cn(
+          "min-w-(--radix-popover-trigger-width) p-1.5",
+          items.length > SEARCHABLE_FROM ? "w-40" : "w-auto",
+        )}
+      >
         <OptionMenu
           emptyLabel="No years match."
           items={items}
