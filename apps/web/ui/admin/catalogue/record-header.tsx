@@ -51,19 +51,18 @@ export function RecordHeader({
         {/*
           Being listed by ANU is the resting state of every record here, so
           saying so on each one said nothing. Only the delisting is worth a
-          line, and the source link belongs beside the title it is a link to.
+          line, and the title itself opens the ANU page.
         */}
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <p className="text-lg text-muted-foreground">{record.title}</p>
-          <Link
-            className="inline-flex items-center gap-1 text-sm underline-offset-4 hover:underline"
-            href={anuSourceUrl(record)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            View on ANU <ExternalLink size={12} aria-hidden="true" />
-          </Link>
-        </div>
+        <Link
+          className="inline-flex w-fit items-center gap-1.5 text-lg text-foreground underline-offset-4 hover:text-primary hover:underline"
+          href={anuSourceUrl(record)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {record.title}
+          <ExternalLink size={14} aria-hidden="true" />
+          <span className="sr-only">(opens on ANU)</span>
+        </Link>
         {record.isListedByAnu === false ? (
           <span
             className="inline-flex items-center gap-1.5 text-sm text-amber-700 dark:text-amber-400"
