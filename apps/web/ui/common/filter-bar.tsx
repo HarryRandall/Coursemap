@@ -64,9 +64,19 @@ export function FilterBar({
   const urlQuery = searchParams.get("q") ?? "";
   const [localQuery, setLocalQuery] = useState(urlQuery);
   const [previousUrlQuery, setPreviousUrlQuery] = useState(urlQuery);
+  // Searches sent to the URL that have not landed yet. An earlier one landing
+  // while the reader keeps typing must not overwrite the box, so only a
+  // change from elsewhere (back, a clear link) resets the input.
+  const [sentQueries, setSentQueries] = useState<string[]>([]);
   if (urlQuery !== previousUrlQuery) {
     setPreviousUrlQuery(urlQuery);
-    setLocalQuery(urlQuery);
+    const sent = sentQueries.indexOf(urlQuery);
+    if (sent >= 0) {
+      setSentQueries(sentQueries.slice(sent + 1));
+    } else {
+      setSentQueries([]);
+      setLocalQuery(urlQuery);
+    }
   }
   const [isPending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,7 +181,11 @@ export function FilterBar({
               }
               setLocalQuery(value);
               if (timeout.current) clearTimeout(timeout.current);
-              timeout.current = setTimeout(() => update("q", value), 250);
+              timeout.current = setTimeout(() => {
+                const sent = value.trim();
+                setSentQueries((current) => [...current, sent]);
+                update("q", sent);
+              }, 250);
             }}
           />
         </label>
