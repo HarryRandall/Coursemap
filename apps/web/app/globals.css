@@ -209,11 +209,15 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.606 0.25 292.717);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: var(--background);
+  /* Muted fills sit one step above the cards so tracks, tiles and chips read
+     on the page and inside a card alike. */
+  --secondary: oklch(0.235 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --muted: var(--background);
+  --muted: oklch(0.235 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  /* Hover and selection overlay whatever surface they sit on, so one value
+     reads on the page, a card and a popover. */
+  --accent: color-mix(in oklab, var(--foreground) 8%, transparent);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: var(--color-red-400);
@@ -227,7 +231,7 @@
   --invert-foreground: var(--color-zinc-900);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.541 0.281 293.009);
+  --ring: var(--primary);
   --surface: oklch(0.205 0 0);
   --code-highlight: oklch(0.269 0 0);
   --code-number: oklch(0.708 0 0);
@@ -246,7 +250,7 @@
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.541 0.281 293.009);
+  --sidebar-ring: var(--primary);
 }
 
 /* ------------------------------------------------------------------ */

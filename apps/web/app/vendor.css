@@ -295,6 +295,15 @@
     background-color: var(--background);
   }
 
+  /* Dark cards sit above the page ground, so fields take the surface they sit
+     on and keep their outline rather than punching a darker hole in a card. */
+  .dark-mode .style-nova .cn-input:not(:disabled),
+  .dark-mode .style-nova .cn-textarea:not(:disabled),
+  .dark-mode .style-nova .cn-input-group,
+  .dark-mode .style-nova .cn-button-variant-outline:not(:disabled) {
+    background-color: transparent;
+  }
+
   .style-nova .cn-skeleton {
     background-color: var(--skeleton);
   }
@@ -310,23 +319,6 @@
     .style-nova .cn-button-variant-outline:not(:disabled):hover {
       background-color: var(--accent);
     }
-  }
-}
-
-/* Nova's dropdown and select content carry its translucent menu preset, which
-   already highlights items with a foreground mix. Command does not, so a
-   command item falls back to --accent - and --accent is mixed against the page
-   ground, landing on oklch(~0.204) in dark while the popover surface a command
-   palette opens on is oklch(0.205). The highlight was invisible there. Mix
-   from the foreground instead: a translucent overlay reads on any ground. */
-@layer base {
-  .style-nova
-    [data-slot="command-item"]:is(
-      :hover,
-      [data-selected="true"],
-      [aria-selected="true"]
-    ) {
-    background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
   }
 }
 
