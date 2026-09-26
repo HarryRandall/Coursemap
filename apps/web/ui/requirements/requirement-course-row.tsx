@@ -91,7 +91,7 @@ export function RequirementCourseRow({
         </Button>
       ) : null}
       {showStatus && placement ? (
-        <div className="relative z-10 w-full max-w-md">{placement}</div>
+        <div className="relative z-10 min-w-0">{placement}</div>
       ) : null}
     </li>
   );
