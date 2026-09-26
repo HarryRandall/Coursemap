@@ -1,6 +1,6 @@
 "use client";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
-import type { PlannedStructure } from "@/ui/plan/term-suggestions";
+import type { PlannedStructure } from "@/ui/plan/plan-suggestions";
 
 /** The student's degree and chosen structures, sorted by what is left. */
 export function PlanRequirements({

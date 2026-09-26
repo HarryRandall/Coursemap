@@ -52,7 +52,7 @@ const catalogue: PlanCatalogue = {
 test("a programme with units but no duration still offers three planning years without a data warning", () => {
   fixtures.attempts = [];
   render(<PlanBoard catalogue={catalogue} />);
-  expect(screen.getAllByRole("tab", { name: /Year 3/ })).toHaveLength(2);
+  expect(screen.getByRole("tab", { name: /Year 3/ })).toBeVisible();
   expect(
     screen.getAllByRole("button", { name: /Add course/ }).length,
   ).toBeGreaterThan(0);
