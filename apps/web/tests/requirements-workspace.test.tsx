@@ -371,7 +371,7 @@ test("alternative groups and upper limits remain explicit after simplifying wrap
   expect(screen.getByText("or")).toBeVisible();
 });
 
-test("unpublished requirement courses are disabled and retain planned status", async () => {
+test("unpublished requirement courses still link and retain planned status", async () => {
   const user = userEvent.setup();
   state.attempts = [
     {
@@ -388,11 +388,8 @@ test("unpublished requirement courses are disabled and retain planned status", a
     />,
   );
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  const course = screen.getByRole("button", {
-    name: "COMP1100: not available",
-  });
-  expect(course).toHaveAttribute("aria-disabled", "true");
-  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  const course = screen.getByRole("link", { name: /COMP1100/ });
+  expect(course).toHaveAttribute("href", "/courses/2026/comp1100");
   const row = course.closest("li")!;
   expect(within(row).getByText("Planned")).toBeVisible();
   expect(

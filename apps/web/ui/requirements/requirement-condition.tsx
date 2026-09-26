@@ -268,7 +268,7 @@ function RuleRow({
       ) : null}
       {expandable ? (
         <div id={panelId} hidden={!expanded} className="relative z-10">
-          {expanded ? <div className="mt-3 pl-7">{children}</div> : null}
+          {expanded ? <div className="mt-3">{children}</div> : null}
         </div>
       ) : null}
     </section>

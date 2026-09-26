@@ -1,11 +1,9 @@
 import { expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import { RequirementCourseRow } from "@/ui/requirements/requirement-course-row";
 
-test("unimported courses explain their availability without linking to a 404", async () => {
-  const user = userEvent.setup();
+test("unimported courses still link to their page and cannot be added", () => {
   const onAdd = vi.fn();
   render(
     <TooltipProvider>
@@ -20,15 +18,12 @@ test("unimported courses explain their availability without linking to a 404", a
       </ul>
     </TooltipProvider>,
   );
-  expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  const course = screen.getByRole("button", {
-    name: "BUSN1001: not available",
-  });
-  expect(course).toHaveAttribute("aria-disabled", "true");
-  await user.tab();
-  expect(course).toHaveFocus();
-  expect(await screen.findByRole("tooltip")).toHaveTextContent("Not available");
-  await user.click(course);
-  expect(onAdd).not.toHaveBeenCalled();
-  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /BUSN1001/ })).toHaveAttribute(
+    "href",
+    "/courses/2026/busn1001",
+  );
+  expect(
+    screen.queryByRole("button", { name: /Add BUSN1001/ }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText("Not planned")).toBeVisible();
 });
