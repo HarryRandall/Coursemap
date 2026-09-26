@@ -185,6 +185,16 @@
   pointer-events: none;
 }
 
+/* Collapsed inset sidebar: the rail already ends 16px past the icons, so the
+   panel drops its extra left margin to match the 16px on the left. */
+@media (width >= 48rem) {
+  .style-nova
+    .peer[data-variant="inset"][data-state="collapsed"]
+    ~ .cn-sidebar-inset {
+    margin-left: 0;
+  }
+}
+
 /* Compact tabs in light keep an outlined track so the white active tab reads
    against the muted fill. */
 :root:not(.dark-mode) .style-nova .cn-tabs-list[data-variant="default"] {

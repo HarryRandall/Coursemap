@@ -43,7 +43,10 @@ export function OptionPicker({
   }
 
   return (
-    <Popover open={open} onOpenChange={changeOpen}>
+    // Modal so the list takes over the scroll lock. Otherwise a picker inside a
+    // dialog cannot be wheel-scrolled, because its portalled list sits outside
+    // the dialog that owns the lock.
+    <Popover modal open={open} onOpenChange={changeOpen}>
       <PopoverTrigger asChild>
         <Button
           {...triggerProps}
