@@ -89,8 +89,10 @@ export function AppShell({
 
       <SidebarInset
         className={cn(
-          "min-w-0",
-          fill && "md:h-full md:min-h-0 md:overflow-hidden",
+          "min-w-0 md:ring-1 md:ring-border",
+          // The inset margins come out of the viewport, so a filled page lets
+          // the wrapper stretch the panel rather than claiming its full height.
+          fill && "md:min-h-0 md:overflow-hidden",
         )}
       >
         <Topbar
@@ -158,7 +160,7 @@ export function AppShell({
         )}
         <div
           className={cn(
-            "w-full max-w-none min-w-0 flex-1 bg-muted/40 dark:bg-transparent",
+            "w-full max-w-none min-w-0 flex-1",
             !fullBleed && "page-padded px-4 py-6 sm:px-6 sm:py-7",
             // Lets a page hand its remaining height to one scrolling child,
             // such as a directory table that should reach the viewport floor.
