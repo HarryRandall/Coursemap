@@ -14,10 +14,13 @@ import {
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
 import ReuiLink from "next/link";
-import { CalendarDays, CircleAlert, ExternalLink } from "lucide-react";
+import { CircleAlert, ExternalLink, RefreshCw } from "lucide-react";
+import { CalendarIllustration } from "@/ui/key-dates/calendar-illustration";
+import { CategoryBadge } from "@/ui/key-dates/category-badge";
 import { UniversityCalendarView } from "@/ui/key-dates/university-calendar-view";
 import { AppShell } from "@/ui/shell/app-shell";
 
+import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { decorateUniversityCalendarEvents } from "@/lib/coursemap/university-calendar";
 import {
   loadPublishedUniversityCalendar,
@@ -33,31 +36,82 @@ function firstParam(value?: string | string[]) {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 }
 
-function EmptyCalendarCard() {
+/** The kinds of dates students can expect, in the colours the list uses. */
+const EXPECTED_CATEGORIES = [
+  "teaching",
+  "enrolment",
+  "examinations",
+  "holiday",
+] as const;
+
+function EmptyCalendarCard({
+  availableYears,
+  canManage,
+  year,
+}: {
+  availableYears: number[];
+  canManage: boolean;
+  year: number;
+}) {
+  const latestYear = availableYears[0];
   return (
-    <Card>
-      <Empty className="py-12 sm:py-16">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <CalendarDays aria-hidden="true" />
+    <Card className="overflow-hidden">
+      <Empty className="relative py-14 sm:py-20">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-linear-to-b from-primary/8 to-transparent"
+        />
+        <EmptyHeader className="relative max-w-lg">
+          <EmptyMedia>
+            <CalendarIllustration />
           </EmptyMedia>
-          <EmptyTitle>No key dates published yet</EmptyTitle>
+          <EmptyTitle className="text-lg">
+            {latestYear
+              ? `The ${year} calendar isn't published yet`
+              : "Key dates are on their way"}
+          </EmptyTitle>
           <EmptyDescription>
-            Key dates are imported from the official ANU university calendar.
-            Once an import is published, semester starts, census dates and
-            examination periods will appear here.
+            {latestYear
+              ? `Dates for ${year} appear here once the official ANU calendar is published. The ${latestYear} calendar is available now.`
+              : "Once the official ANU calendar is published, this is where you'll find every deadline that shapes your semester."}
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent>
-          <a
-            href={ANU_CALENDAR_URL}
-            target="_blank"
-            rel="noreferrer"
-            className={buttonVariants({ variant: "secondary", size: "sm" })}
-          >
-            View the ANU calendar
-            <ExternalLink size={14} aria-hidden="true" />
-          </a>
+        <ul
+          aria-label="Dates you'll find here"
+          className="relative flex flex-wrap justify-center gap-2"
+        >
+          {EXPECTED_CATEGORIES.map((category) => (
+            <li key={category}>
+              <CategoryBadge category={category} />
+            </li>
+          ))}
+        </ul>
+        <EmptyContent className="relative">
+          <div className="flex flex-wrap justify-center gap-2">
+            {latestYear ? (
+              <Button asChild size="sm">
+                <ReuiLink href={`/key-dates?year=${latestYear}`}>
+                  View {latestYear} dates
+                </ReuiLink>
+              </Button>
+            ) : canManage ? (
+              <Button asChild size="sm">
+                <ReuiLink href={`/admin/key-dates/${year}`}>
+                  <RefreshCw size={14} aria-hidden="true" />
+                  Sync key dates
+                </ReuiLink>
+              </Button>
+            ) : null}
+            <a
+              href={ANU_CALENDAR_URL}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" })}
+            >
+              View the ANU calendar
+              <ExternalLink size={14} aria-hidden="true" />
+            </a>
+          </div>
         </EmptyContent>
       </Empty>
     </Card>
@@ -122,6 +176,12 @@ export default async function KeyDatesPage({
     day: "2-digit",
   }).format(new Date());
   const allEvents = decorateUniversityCalendarEvents(data.events);
+  // Only an empty calendar offers the admin shortcut, so only then is the
+  // permission worth a round trip.
+  const canSync =
+    !calendarUnavailable &&
+    data.availableYears.length === 0 &&
+    (await canManageCatalogueOperations());
   const retryHref = requestedYear
     ? `/key-dates?year=${requestedYear}`
     : "/key-dates";
@@ -134,7 +194,13 @@ export default async function KeyDatesPage({
         {calendarUnavailable ? (
           <CalendarLoadError retryHref={retryHref} />
         ) : allEvents.length === 0 || data.year === null ? (
-          <EmptyCalendarCard />
+          <div className="workspace-scroll w-full">
+            <EmptyCalendarCard
+              availableYears={data.availableYears}
+              canManage={canSync}
+              year={data.year ?? Number(todayIso.slice(0, 4))}
+            />
+          </div>
         ) : (
           <UniversityCalendarView
             key={data.year}

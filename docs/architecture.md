@@ -116,8 +116,10 @@ and version model. These concepts are deliberately separate:
   (`published_course_detail`, `published_structure_detail` and this view)
   resolve `published_version_id` and nothing else, and their Next.js cache tags
   are built in `lib/coursemap/published-cache.ts` so publication can drop them
-- `university_calendar_events` keyed by academic year, date and title, and
-  `university_calendar_imports` recording each command-line import
+- `university_calendar_events` keyed by academic year, date and title,
+  `university_calendar_reviews` holding syncs staged from the admin console
+  until they are approved, and `university_calendar_imports` recording each
+  publication from the console or the command line
 
 Published reads resolve through `catalogue_records.published_version_id`
 where `archived_at` is null. Anonymous readers see published versions and
@@ -186,7 +188,17 @@ content and provenance into a new draft without changing the original.
 
 ## University calendar
 
-Fetch a reviewable manifest from the [ANU university calendar](https://www.anu.edu.au/directories/university-calendar), then import it into local Supabase:
+Import administrators (`imports.manage`) sync key dates from
+`/admin/key-dates/<year>`. A sync fetches the ANU page on the server, parses
+it and stages the result with `stage_university_calendar_review`, which
+supersedes any pending review for that year. The page compares the staged
+dates with the published ones. `approve_university_calendar_review` then
+publishes and archives exactly as the command-line import below does, under
+the same advisory lock, and records the run. A sync with error diagnostics
+can be discarded but not approved. Students see nothing until approval.
+
+For local work, or where the server cannot reach the ANU site, fetch a
+reviewable manifest from the [ANU university calendar](https://www.anu.edu.au/directories/university-calendar), then import it into local Supabase:
 
 ```bash
 pnpm calendar:fetch --year 2026 --output .catalogue-cache/anu-calendar-2026.json

@@ -3817,6 +3817,87 @@ export type Database = {
           },
         ]
       }
+      university_calendar_reviews: {
+        Row: {
+          academic_year_id: number
+          calendar_year: number
+          canonical_url: string
+          content_sha256: string
+          decided_at: string | null
+          decided_by: string | null
+          diagnostics: Json
+          events: Json
+          external_key: string
+          fetched_at: string
+          id: string
+          import_id: string | null
+          parser_version: string
+          requested_at: string
+          requested_by: string | null
+          source_base_url: string
+          source_kind: string
+          source_name: string
+          status: string
+        }
+        Insert: {
+          academic_year_id: number
+          calendar_year: number
+          canonical_url: string
+          content_sha256: string
+          decided_at?: string | null
+          decided_by?: string | null
+          diagnostics?: Json
+          events: Json
+          external_key: string
+          fetched_at: string
+          id?: string
+          import_id?: string | null
+          parser_version: string
+          requested_at?: string
+          requested_by?: string | null
+          source_base_url: string
+          source_kind: string
+          source_name: string
+          status?: string
+        }
+        Update: {
+          academic_year_id?: number
+          calendar_year?: number
+          canonical_url?: string
+          content_sha256?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          diagnostics?: Json
+          events?: Json
+          external_key?: string
+          fetched_at?: string
+          id?: string
+          import_id?: string | null
+          parser_version?: string
+          requested_at?: string
+          requested_by?: string | null
+          source_base_url?: string
+          source_kind?: string
+          source_name?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "university_calendar_reviews_academic_year_fkey"
+            columns: ["academic_year_id", "calendar_year"]
+            isOneToOne: false
+            referencedRelation: "academic_years"
+            referencedColumns: ["id", "year"]
+          },
+          {
+            foreignKeyName: "university_calendar_reviews_import_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "university_calendar_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       admin_permissions: {
@@ -4056,6 +4137,10 @@ export type Database = {
         Args: { p_version_id: number }
         Returns: Json
       }
+      approve_university_calendar_review: {
+        Args: { p_review_id: string }
+        Returns: string
+      }
       cancel_catalogue_sync: { Args: { p_sync_id: string }; Returns: boolean }
       catalogue_publish_blockers: {
         Args: { p_record_id: number }
@@ -4071,6 +4156,10 @@ export type Database = {
       current_user_has_permission: {
         Args: { required_permission: string }
         Returns: boolean
+      }
+      discard_university_calendar_review: {
+        Args: { p_review_id: string }
+        Returns: undefined
       }
       mark_notifications_read: {
         Args: { p_notification_ids?: string[] }
@@ -4168,6 +4257,17 @@ export type Database = {
       }
       set_user_role: {
         Args: { p_role_key: string; p_user_id: string }
+        Returns: string
+      }
+      stage_university_calendar_review: {
+        Args: {
+          p_calendar_year: number
+          p_diagnostics: Json
+          p_document: Json
+          p_events: Json
+          p_parser_version: string
+          p_source: Json
+        }
         Returns: string
       }
       start_catalogue_sync: {
