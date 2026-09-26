@@ -70,7 +70,13 @@ export default async function RootLayout({
     (await cookies()).get(SIDEBAR_STATE_COOKIE)?.value !== "false";
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    // The font variables sit on the root element because the theme resolves
+    // --font-sans there; on body they would be undefined where it is read.
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         {/* Apply the theme while parsing HTML, before the Next.js runtime loads. */}
         <script
@@ -81,9 +87,7 @@ export default async function RootLayout({
         />
       </head>
       {/* style-nova activates the vendored ReUI component styles product-wide. */}
-      <body
-        className={`${GeistSans.variable} ${GeistMono.variable} style-nova`}
-      >
+      <body className="style-nova">
         <AppThemeProvider authenticated={Boolean(viewer)}>
           <AppProvider
             viewer={viewer}
