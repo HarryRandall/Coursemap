@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { EllipsisVertical, LogOut, SunMoon, UserRound } from "lucide-react";
+import {
+  EllipsisVertical,
+  GraduationCap,
+  LogOut,
+  MessageCircle,
+  Shield,
+  SunMoon,
+  UserRound,
+} from "lucide-react";
 import styles from "./account-menu.module.css";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
@@ -17,6 +25,16 @@ import {
 import { useCoursemap } from "@/app/providers";
 import { GeneratedAvatar } from "@/ui/common/generated-avatar";
 import { AccountAppearance } from "@/ui/shell/account-appearance";
+
+const accountLinks = [
+  { href: "/profile", label: "Edit details", icon: UserRound },
+  {
+    href: "/profile?tab=study",
+    label: "Update degree plan",
+    icon: GraduationCap,
+  },
+  { href: "/profile?tab=account", label: "Account", icon: Shield },
+];
 
 export function AccountMenu() {
   const { state } = useCoursemap();
@@ -63,9 +81,9 @@ export function AccountMenu() {
         align={collapsed ? "end" : "start"}
         sideOffset={8}
         collisionPadding={12}
-        // Open level with the account row and as wide as it, so the menu reads
-        // as the row expanding rather than a separate panel.
-        className={`${styles.panel} max-h-[var(--radix-popover-content-available-height)] w-(--radix-popover-trigger-width) max-w-[calc(100vw-24px)] min-w-60 gap-0 overflow-y-auto rounded-xl p-0`}
+        // Open level with the account row and exactly as wide, so the menu sits
+        // inside the sidebar. A collapsed sidebar has no row width to match.
+        className={`${styles.panel} max-h-[var(--radix-popover-content-available-height)] ${collapsed ? "w-60" : "w-(--radix-popover-trigger-width)"} max-w-[calc(100vw-24px)] gap-0 overflow-y-auto rounded-xl p-0`}
       >
         <div className="flex items-center gap-3 px-3 py-3">
           <GeneratedAvatar
@@ -81,12 +99,20 @@ export function AccountMenu() {
           </div>
         </div>
         <div className="border-t p-1.5">
-          <Button asChild variant="ghost" className={styles.row}>
-            <Link ref={profileLink} href="/profile" onClick={closeOnNavigate}>
-              <UserRound aria-hidden="true" />
-              Profile
-            </Link>
-          </Button>
+          {accountLinks.map(({ href, label, icon: Icon }) => (
+            <Button key={href} asChild variant="ghost" className={styles.row}>
+              <Link
+                ref={href === "/profile" ? profileLink : undefined}
+                href={href}
+                onClick={closeOnNavigate}
+              >
+                <Icon aria-hidden="true" />
+                {label}
+              </Link>
+            </Button>
+          ))}
+        </div>
+        <div className="border-t p-1.5">
           <div className={styles.themeRow}>
             <span className="flex items-center gap-2.5">
               <SunMoon aria-hidden="true" />
@@ -94,6 +120,12 @@ export function AccountMenu() {
             </span>
             <AccountAppearance />
           </div>
+          <Button asChild variant="ghost" className={styles.row}>
+            <Link href="/help#contact" onClick={closeOnNavigate}>
+              <MessageCircle aria-hidden="true" />
+              Feedback
+            </Link>
+          </Button>
         </div>
         <form action="/auth/logout" method="post" className="border-t p-1.5">
           <Button
