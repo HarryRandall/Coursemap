@@ -3,12 +3,8 @@ import { badgeVariantForTone } from "@/lib/ui";
 
 import { Badge } from "@coursemap/ui/components/badge";
 
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@coursemap/ui/primitives/tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@coursemap/ui/primitives/tabs";
+import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   BookOpen,
@@ -266,7 +262,7 @@ export function UniversityCalendarView({
         onValueChange={(value) => router.push(href(value), { scroll: false })}
         className="gap-4"
       >
-        <TabsList aria-label="Date period" variant="line">
+        <OutlinedTabsList aria-label="Date period">
           {(
             [
               ["upcoming", "Upcoming", futureEvents.length],
@@ -287,7 +283,7 @@ export function UniversityCalendarView({
               </Badge>
             </TabsTrigger>
           ))}
-        </TabsList>
+        </OutlinedTabsList>
         <TabsContent
           key={`${year}-${period}-${category}-${query}`}
           value={period}
