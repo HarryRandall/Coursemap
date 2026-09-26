@@ -12,6 +12,7 @@ import {
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
+import { ResultsEmptyState } from "@/ui/academic/results-empty-state";
 import { PreviewLayout } from "@/ui/academic/previews/preview-layout";
 import { PreviewMarkEntry } from "@/ui/academic/previews/preview-mark-entry";
 import {
@@ -121,7 +122,11 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
           live
           courses={courses}
           placeholder={
-            state.profile.degreeCode ? undefined : <OnboardingPrompt />
+            state.profile.degreeCode ? (
+              <ResultsEmptyState />
+            ) : (
+              <OnboardingPrompt />
+            )
           }
           onSelect={(id) => {
             setSelected(id);

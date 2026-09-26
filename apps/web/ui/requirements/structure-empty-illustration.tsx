@@ -1,7 +1,7 @@
 import styles from "./structure-empty-illustration.module.css";
 
 export type StructureIllustrationKind =
-  "plan" | "major" | "minor" | "specialisation";
+  "plan" | "results" | "major" | "minor" | "specialisation";
 
 export function StructureEmptyIllustration({
   kind,
@@ -41,6 +41,26 @@ export function StructureEmptyIllustration({
         <g className={styles.float}>
           <path className={styles.tint} d="m176 30 32 13-32 13-32-13Z" />
           <path className={styles.accent} d="M160 50v10q16 9 32 0V50m16-7v17" />
+        </g>
+      </g>
+    ),
+    results: (
+      <g key="results">
+        <rect
+          className={styles.surface}
+          x="58"
+          y="32"
+          width="104"
+          height="120"
+          rx="8"
+        />
+        <path className={styles.line} d="M74 52h52M74 64h34" />
+        <path className={styles.dashed} d="M74 136h72" />
+        <path className={styles.line} d="M82 132v-20m18 20V96m18 36v-28" />
+        <path className={styles.accent} d="M136 132V86" />
+        <g className={styles.float}>
+          <circle className={styles.tint} cx="176" cy="46" r="17" />
+          <path className={styles.accent} d="m168 46 6 6 10-12" />
         </g>
       </g>
     ),

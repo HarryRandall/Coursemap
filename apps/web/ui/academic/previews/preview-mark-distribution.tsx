@@ -35,7 +35,7 @@ function MarkDistributionSkeleton() {
         {[0, 25, 50, 75, 100].map((tick) => (
           <div
             key={tick}
-            className="h-full border-l border-dashed border-border"
+            className="h-full border-l border-dashed border-muted-foreground/20"
           />
         ))}
       </div>
@@ -45,7 +45,7 @@ function MarkDistributionSkeleton() {
             {row.map((mark) => (
               <span
                 key={mark}
-                className="absolute size-2.5 -translate-x-1/2 rounded-full bg-muted"
+                className="absolute size-2.5 -translate-x-1/2 rounded-full bg-muted-foreground/15"
                 style={{ left: `${mark}%` }}
               />
             ))}
