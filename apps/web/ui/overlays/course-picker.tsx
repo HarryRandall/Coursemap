@@ -12,22 +12,17 @@ import {
 } from "@coursemap/ui/primitives/command";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@coursemap/ui/primitives/dialog";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@coursemap/ui/primitives/empty";
 import { YearPicker } from "@/ui/common/year-picker";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
-import { ChevronRight, LoaderCircle, Search } from "lucide-react";
+import { ChevronRight, LoaderCircle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCoursemap } from "@/app/providers";
 import type { Course, Term } from "@/lib/coursemap/types";
@@ -114,6 +109,8 @@ export function CoursePicker({
   const searchAreaRef = useRef<HTMLDivElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const trimmedQuery = query.trim();
+  // Under two characters the picker browses the filtered catalogue instead.
+  const searchQuery = trimmedQuery.length >= 2 ? trimmedQuery : "";
   const academicYear =
     term?.id === "unscheduled"
       ? unscheduledAcademicYear
@@ -121,7 +118,7 @@ export function CoursePicker({
   const sessionFilter = term?.id === "unscheduled" ? "" : session;
   const filterKey = `${sessionFilter}|${level ?? ""}`;
   const currentRequestKey = requestKey(
-    trimmedQuery,
+    searchQuery,
     page,
     academicYear,
     filterKey,
@@ -131,7 +128,7 @@ export function CoursePicker({
   const failed = failedKey === currentRequestKey;
 
   useEffect(() => {
-    if (!term || trimmedQuery.length < 2) return;
+    if (!term) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(async () => {
@@ -139,7 +136,8 @@ export function CoursePicker({
       setFailedKey(null);
       try {
         const params = new URLSearchParams({
-          q: trimmedQuery,
+          q: searchQuery,
+          ...(searchQuery ? {} : { browse: "1" }),
           page: String(page),
           pageSize: "10",
           year: String(academicYear),
@@ -160,7 +158,7 @@ export function CoursePicker({
         setResponse((current) => {
           const previous =
             page > 1 &&
-            current?.query === trimmedQuery &&
+            current?.query === searchQuery &&
             current.academicYear === academicYear &&
             current.filters === filterKey
               ? current.courses
@@ -175,7 +173,7 @@ export function CoursePicker({
             academicYear,
             filters: filterKey,
             courses,
-            query: trimmedQuery,
+            query: searchQuery,
           };
         });
       } catch {
@@ -202,7 +200,7 @@ export function CoursePicker({
     retryCount,
     sessionFilter,
     term,
-    trimmedQuery,
+    searchQuery,
   ]);
 
   useEffect(() => {
@@ -242,10 +240,9 @@ export function CoursePicker({
   ]);
 
   const activeResponse =
-    response?.query === trimmedQuery &&
+    response?.query === searchQuery &&
     response.academicYear === academicYear &&
-    response.filters === filterKey &&
-    trimmedQuery.length >= 2
+    response.filters === filterKey
       ? response
       : null;
   const browsing = trimmedQuery.length < 2;
@@ -261,11 +258,16 @@ export function CoursePicker({
             (!level || course.level === level * 1000),
         )
       : [];
-  const courses = browsing ? recommended : (activeResponse?.courses ?? []);
-  const showPrompt =
-    browsing &&
-    !recommendationsLoading &&
-    (recommendations?.courses.length ?? 0) === 0;
+  // Browsing lists the plan's recommendations first, then the rest of the
+  // filtered catalogue; a search lists its matches only.
+  const recommendedShown = browsing ? recommended : [];
+  const recommendedCodeSet = new Set(
+    recommendedShown.map((course) => course.code),
+  );
+  const results = (activeResponse?.courses ?? []).filter(
+    (course) => !recommendedCodeSet.has(course.code),
+  );
+  const courses = [...recommendedShown, ...results];
   const selected =
     courses.find((course) => course.code === selectedCode) ??
     courses[0] ??
@@ -304,10 +306,11 @@ export function CoursePicker({
     activeResponse &&
     activeResponse.page * activeResponse.pageSize < activeResponse.total,
   );
-  const firstPageLoading = browsing
-    ? recommendationsLoading
-    : page === 1 && !activeResponse && !failed;
-  const firstPageFailed = !browsing && failed && page === 1 && !activeResponse;
+  const firstPageLoading =
+    courses.length === 0 &&
+    (recommendationsLoading || (page === 1 && !activeResponse && !failed));
+  const firstPageFailed =
+    courses.length === 0 && failed && page === 1 && !activeResponse;
   const filtersActive = Boolean(sessionFilter || level);
   const changeFilters = (next: () => void) => {
     next();
@@ -344,8 +347,49 @@ export function CoursePicker({
   const loadNextPage = () => {
     if (loading || failed || !hasNextPage) return;
     const nextPage = page + 1;
-    setLoadingKey(requestKey(trimmedQuery, nextPage, academicYear, filterKey));
+    setLoadingKey(requestKey(searchQuery, nextPage, academicYear, filterKey));
     setPage(nextPage);
+  };
+
+  const renderCourse = (course: Course) => {
+    const inPlan = (courseCounts.get(course.code) ?? 0) > 0;
+    const available =
+      course.sessions.includes(term.name) || term.id === "unscheduled";
+
+    return (
+      <CommandItem
+        key={course.code}
+        value={`${course.code} ${course.name} ${course.school}`}
+        data-previewed={selectedCode === course.code}
+        onSelect={() => previewCourse(course.code)}
+        className="data-[previewed=true]:bg-primary/10 data-[previewed=true]:ring-1 data-[previewed=true]:ring-primary/20 data-[previewed=true]:ring-inset"
+      >
+        <CourseToken code={course.code} accent={course.accent} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-medium text-foreground">
+            {course.name}
+          </span>
+          <span className="block truncate text-[11px] text-muted-foreground">
+            <span className="font-mono">{course.code}</span> · {course.school}
+          </span>
+        </span>
+        {inPlan ? (
+          <Badge className="px-2 py-0.5" variant="primary-light">
+            In plan
+          </Badge>
+        ) : !available ? (
+          <Badge className="px-2 py-0.5" variant={badgeVariantForTone.warning}>
+            Not offered in {term.shortName}
+          </Badge>
+        ) : null}
+        <span className="shrink-0 text-[11px] text-muted-foreground">
+          {course.units}u
+        </span>
+        <CommandShortcut aria-hidden="true" className="md:hidden">
+          <ChevronRight size={15} />
+        </CommandShortcut>
+      </CommandItem>
+    );
   };
 
   return (
@@ -357,7 +401,7 @@ export function CoursePicker({
     >
       <DialogContent
         className="max-w-[56rem]"
-        showCloseButton
+        showCloseButton={false}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           openerRef.current?.focus();
@@ -389,7 +433,7 @@ export function CoursePicker({
               field; keys inside the filter menus stay with those menus. */}
           <div
             ref={searchAreaRef}
-            className="flex items-start gap-2 border-b border-border/60 py-3 pr-12 pl-3"
+            className="flex items-start gap-2 border-b border-border/60 p-3"
             onKeyDown={(event) => {
               if (
                 !(event.target instanceof HTMLInputElement) ||
@@ -465,181 +509,124 @@ export function CoursePicker({
                 }}
               />
             ) : null}
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-10 shrink-0"
+                aria-label="Close"
+              >
+                <X aria-hidden="true" size={16} />
+              </Button>
+            </DialogClose>
           </div>
 
           <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            {showPrompt ? (
-              <CommandList
-                label="Course results"
-                className="col-span-full max-h-none overflow-hidden !p-0"
-              >
-                <Empty className="h-full !rounded-none">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <Search />
-                    </EmptyMedia>
-                    <EmptyTitle>Type a course code or name</EmptyTitle>
-                  </EmptyHeader>
-                </Empty>
-              </CommandList>
-            ) : (
-              <section
-                aria-label="Course results"
-                className={cn(
-                  "min-h-0 border-border/60 md:border-r",
-                  mobilePreviewOpen
-                    ? "hidden md:flex md:flex-col"
-                    : "flex flex-col",
+            <section
+              aria-label="Course results"
+              className={cn(
+                "min-h-0 border-border/60 md:border-r",
+                mobilePreviewOpen
+                  ? "hidden md:flex md:flex-col"
+                  : "flex flex-col",
+              )}
+            >
+              <CommandList label="Course results" className="min-h-0 flex-1">
+                {firstPageLoading ? (
+                  <CourseResultSkeleton />
+                ) : firstPageFailed ? (
+                  <SearchFailure />
+                ) : (
+                  <>
+                    <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
+                      {browsing
+                        ? "No courses match these filters."
+                        : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
+                            filtersActive
+                              ? " Try clearing the filters."
+                              : " Try a course code such as COMP1100."
+                          }`}
+                    </CommandEmpty>
+                    {recommendedShown.length > 0 ? (
+                      <CommandGroup heading="Recommended for your plan">
+                        {recommendedShown.map(renderCourse)}
+                      </CommandGroup>
+                    ) : null}
+                    {results.length > 0 ? (
+                      <CommandGroup
+                        heading={
+                          !browsing
+                            ? `${activeResponse?.total ?? results.length} results`
+                            : sessionFilter
+                              ? `Offered in ${term.shortName}`
+                              : "All courses"
+                        }
+                      >
+                        {results.map(renderCourse)}
+                      </CommandGroup>
+                    ) : null}
+                  </>
                 )}
-              >
-                <CommandList label="Course results" className="min-h-0 flex-1">
-                  {firstPageLoading ? (
-                    <CourseResultSkeleton />
-                  ) : firstPageFailed ? (
-                    <SearchFailure />
-                  ) : (
-                    <>
-                      <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
-                        {browsing
-                          ? "No recommended courses match these filters."
-                          : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
-                              filtersActive
-                                ? " Try clearing the filters."
-                                : " Try a course code such as COMP1100."
-                            }`}
-                      </CommandEmpty>
-                      {courses.length > 0 ? (
-                        <CommandGroup
-                          heading={
-                            browsing
-                              ? "Recommended for your plan"
-                              : `${activeResponse?.total ?? courses.length} results`
-                          }
-                        >
-                          {courses.map((course) => {
-                            const inPlan =
-                              (courseCounts.get(course.code) ?? 0) > 0;
-                            const available =
-                              course.sessions.includes(term.name) ||
-                              term.id === "unscheduled";
+              </CommandList>
 
-                            return (
-                              <CommandItem
-                                key={course.code}
-                                value={`${course.code} ${course.name} ${course.school}`}
-                                data-previewed={selectedCode === course.code}
-                                onSelect={() => previewCourse(course.code)}
-                                className="data-[previewed=true]:bg-primary/10 data-[previewed=true]:ring-1 data-[previewed=true]:ring-primary/20 data-[previewed=true]:ring-inset"
-                              >
-                                <CourseToken
-                                  code={course.code}
-                                  accent={course.accent}
-                                  size="sm"
-                                />
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-[13px] font-medium text-foreground">
-                                    {course.name}
-                                  </span>
-                                  <span className="block truncate text-[11px] text-muted-foreground">
-                                    <span className="font-mono">
-                                      {course.code}
-                                    </span>{" "}
-                                    · {course.school}
-                                  </span>
-                                </span>
-                                {inPlan ? (
-                                  <Badge
-                                    className="px-2 py-0.5"
-                                    variant="primary-light"
-                                  >
-                                    In plan
-                                  </Badge>
-                                ) : !available ? (
-                                  <Badge
-                                    className="px-2 py-0.5"
-                                    variant={badgeVariantForTone.warning}
-                                  >
-                                    Not offered in {term.shortName}
-                                  </Badge>
-                                ) : null}
-                                <span className="shrink-0 text-[11px] text-muted-foreground">
-                                  {course.units}u
-                                </span>
-                                <CommandShortcut
-                                  aria-hidden="true"
-                                  className="md:hidden"
-                                >
-                                  <ChevronRight size={15} />
-                                </CommandShortcut>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      ) : null}
-                    </>
-                  )}
-                </CommandList>
-
-                {hasNextPage && !failed ? (
-                  <div
-                    className="shrink-0 border-t border-border/60 p-2"
-                    onKeyDown={(event) => event.stopPropagation()}
+              {hasNextPage && !failed ? (
+                <div
+                  className="shrink-0 border-t border-border/60 p-2"
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={loading}
+                    onClick={loadNextPage}
+                    className="w-full"
+                    type="button"
                   >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={loading}
-                      onClick={loadNextPage}
-                      className="w-full"
-                      type="button"
-                    >
-                      {loading ? (
-                        <LoaderCircle
-                          size={14}
-                          className="animate-spin"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                      {loading ? "Loading courses" : "Load more courses"}
-                    </Button>
-                  </div>
-                ) : null}
+                    {loading ? (
+                      <LoaderCircle
+                        size={14}
+                        className="animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    {loading ? "Loading courses" : "Load more courses"}
+                  </Button>
+                </div>
+              ) : null}
 
-                {firstPageFailed || (failed && page > 1) ? (
-                  <div
-                    className="shrink-0 border-t border-border/60 p-2"
-                    onKeyDown={(event) => event.stopPropagation()}
+              {firstPageFailed || (failed && page > 1) ? (
+                <div
+                  className="shrink-0 border-t border-border/60 p-2"
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={retrySearch}
+                    className="w-full"
+                    type="button"
                   >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={retrySearch}
-                      className="w-full"
-                      type="button"
-                    >
-                      {page > 1 ? "Retry loading results" : "Retry search"}
-                    </Button>
-                  </div>
-                ) : null}
-              </section>
-            )}
+                    {page > 1 ? "Retry loading results" : "Retry search"}
+                  </Button>
+                </div>
+              ) : null}
+            </section>
 
-            {!showPrompt ? (
-              <CoursePreview
-                course={selected}
-                term={term}
-                inPlan={
-                  selected ? (courseCounts.get(selected.code) ?? 0) > 0 : false
-                }
-                adding={addingCode === selected?.code}
-                mobileOpen={mobilePreviewOpen}
-                backButtonRef={backButtonRef}
-                onBack={showResults}
-                onAdd={() => {
-                  if (selected) void choose(selected);
-                }}
-              />
-            ) : null}
+            <CoursePreview
+              course={selected}
+              term={term}
+              inPlan={
+                selected ? (courseCounts.get(selected.code) ?? 0) > 0 : false
+              }
+              adding={addingCode === selected?.code}
+              mobileOpen={mobilePreviewOpen}
+              backButtonRef={backButtonRef}
+              onBack={showResults}
+              onAdd={() => {
+                if (selected) void choose(selected);
+              }}
+            />
           </div>
         </Command>
       </DialogContent>

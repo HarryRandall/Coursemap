@@ -47,7 +47,10 @@ export async function GET(request: Request) {
     .map((code) => code.trim())
     .filter(Boolean)
     .slice(0, 60);
-  if (!query && codes.length === 0) return NextResponse.json({ courses: [] });
+  // Browsing lists the filtered catalogue before anything is typed.
+  const browse = searchParams.get("browse") === "1";
+  if (!query && !browse && codes.length === 0)
+    return NextResponse.json({ courses: [] });
   const academicYear = Number(searchParams.get("year"));
   if (
     !Number.isInteger(academicYear) ||
@@ -61,7 +64,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    if (!query) {
+    if (!query && !browse) {
       const courses = await loadPublishedCoursesByCodes(codes, academicYear);
       return NextResponse.json({
         courses: courses.map(searchCourse),
