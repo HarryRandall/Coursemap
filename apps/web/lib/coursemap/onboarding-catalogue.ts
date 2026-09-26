@@ -84,6 +84,7 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     relationshipsResult,
     requirementConditionsResult,
     requirementOptionsResult,
+    electiveConditionsResult,
   ] = await Promise.all([
     supabase
       .from("academic_years")
@@ -137,6 +138,15 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
         .order("code")
         .range(from, to),
     ),
+    readRowsForIds(versionIds, (batch, from, to) =>
+      supabase
+        .from("requirement_conditions")
+        .select("id,version_id")
+        .in("version_id", batch)
+        .eq("condition_kind", "elective_units")
+        .order("id")
+        .range(from, to),
+    ),
   ]);
   const error = [
     yearsResult.error,
@@ -145,6 +155,7 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     relationshipsResult.error,
     requirementConditionsResult.error,
     requirementOptionsResult.error,
+    electiveConditionsResult.error,
   ].find(Boolean);
   if (error) throw error;
 
@@ -217,13 +228,53 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     }),
   );
 
+  // A degree with elective units lets a student take any minor through them,
+  // though its rules name few or none. Such degrees offer every published
+  // minor for the year, the ones their rules name first. Specialisations stay
+  // limited to those named, since each belongs with a particular major.
+  const electiveVersionIds = new Set(
+    (electiveConditionsResult.data ?? []).map((row) => row.version_id),
+  );
+  const programmeKeysWithElectives = new Set(
+    (versionsResult.data ?? []).flatMap((version) => {
+      const structureYear = publishedYearByVersionId.get(version.version_id);
+      const identity = structureYear
+        ? structureById.get(structureYear.code_id)
+        : null;
+      const academicYear = structureYear
+        ? yearById.get(structureYear.academic_year_id)
+        : null;
+      return identity?.kind === "programme" &&
+        academicYear &&
+        electiveVersionIds.has(version.version_id)
+        ? [`${identity.code}:${academicYear}`]
+        : [];
+    }),
+  );
+  const minors = options("minor");
+  const degrees = options("programme").map((degree) =>
+    programmeKeysWithElectives.has(`${degree.code}:${degree.catalogueYear}`)
+      ? {
+          ...degree,
+          minorCodes: [
+            ...new Set([
+              ...degree.minorCodes,
+              ...minors
+                .filter((minor) => minor.catalogueYear === degree.catalogueYear)
+                .map((minor) => minor.code),
+            ]),
+          ],
+        }
+      : degree,
+  );
+
   return {
     catalogueYears: (yearsResult.data ?? []).filter((year) =>
       programmeYearIds.has(year.id),
     ),
-    degrees: options("programme"),
+    degrees,
     majors: options("major"),
-    minors: options("minor"),
+    minors,
     specialisations: options("specialisation"),
   };
 }
