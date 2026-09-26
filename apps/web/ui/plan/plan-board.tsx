@@ -37,8 +37,7 @@ import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
 import {
   courseForTerm,
-  coursesToPlan,
-  rulesToPlanCount,
+  structuresToPlan,
   type CourseToPlan,
   type PlannedStructure,
 } from "@/ui/plan/plan-suggestions";
@@ -114,7 +113,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     notify,
   } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
@@ -372,7 +370,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       ];
     },
   );
-  const toPlan = coursesToPlan({
+  const toPlan = structuresToPlan({
     structures,
     attempts: state.attempts,
     catalogue: planningCatalogue,
@@ -947,40 +945,22 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           >
             {selectedTerms.map(renderLane)}
           </section>
-          {panelOpen ? (
-            <aside
-              aria-label="Courses to plan"
-              data-drop-remove
-              className={cn(
-                "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[26rem] lg:shrink-0",
-                dragPreview?.termId === REMOVE_DROP &&
-                  "ring-2 ring-destructive/40",
-              )}
-            >
-              <CoursesToPlan
-                required={toPlan.required}
-                suggested={toPlan.suggested}
-                starred={starred}
-                structures={structures}
-                rulesLeft={rulesToPlanCount(structures)}
-                onAdd={addToSelectedYear}
-                onDragStart={startSuggestionDrag}
-                onHide={() => setPanelOpen(false)}
-              />
-            </aside>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-end lg:self-start"
-              onClick={() => setPanelOpen(true)}
-            >
-              Courses to plan
-              <span className="text-muted-foreground tabular-nums">
-                {toPlan.required.length + toPlan.suggested.length}
-              </span>
-            </Button>
-          )}
+          <aside
+            aria-label="Courses to plan"
+            data-drop-remove
+            className={cn(
+              "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[24rem] lg:shrink-0",
+              dragPreview?.termId === REMOVE_DROP &&
+                "ring-2 ring-destructive/40",
+            )}
+          >
+            <CoursesToPlan
+              structures={toPlan}
+              starred={starred}
+              onAdd={addToSelectedYear}
+              onDragStart={startSuggestionDrag}
+            />
+          </aside>
         </div>
       </div>
 
