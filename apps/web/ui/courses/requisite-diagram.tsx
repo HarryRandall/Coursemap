@@ -107,48 +107,34 @@ function CourseCard({
     "flex h-11 items-center justify-between gap-2 rounded-lg border px-3",
     className,
   );
-  if (!available) {
-    return (
-      <span
-        style={style}
-        title={`${code}: course details unavailable`}
-        className={cn(
-          box,
-          met
-            ? "border-success/40 bg-success/5"
-            : "border-border bg-muted/40 text-muted-foreground",
-        )}
-      >
-        <span className="font-mono text-[13px] font-semibold">{code}</span>
-        {met ? (
-          <Met />
-        ) : (
-          <LockKeyhole className="size-3.5" aria-hidden="true" />
-        )}
-      </span>
-    );
-  }
+  // A course without a published page still links through, so it can be
+  // opened as soon as it is published.
   return (
     <Link
       href={courseHref(academicYear, code)}
       prefetch={false}
       style={style}
+      title={available ? undefined : `${code}: course details unavailable`}
       className={cn(
         box,
         "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
         met
           ? "border-success/40 bg-success/5 hover:bg-success/10"
-          : "border-border bg-card hover:border-primary/50",
+          : available
+            ? "border-border bg-card hover:border-primary/50"
+            : "border-border bg-muted/40 text-muted-foreground hover:border-primary/50",
       )}
     >
       <span className="font-mono text-[13px] font-semibold">{code}</span>
       {met ? (
         <Met />
-      ) : (
+      ) : available ? (
         <ArrowUpRight
           className="size-3.5 text-muted-foreground/70"
           aria-hidden="true"
         />
+      ) : (
+        <LockKeyhole className="size-3.5" aria-hidden="true" />
       )}
     </Link>
   );
