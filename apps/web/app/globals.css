@@ -536,25 +536,3 @@ body::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
 }
-
-/* Keep the full calendar reachable when a short window cannot fit both panes. */
-@media (min-width: 48rem) and (max-height: 40rem) {
-  .key-dates-workspace {
-    overflow: auto;
-    display: block;
-    padding: 2px 12px 2px 2px;
-    margin: -2px -20px -2px -2px;
-    scrollbar-gutter: stable;
-  }
-
-  .key-dates-workspace > * + * {
-    margin-top: 1rem;
-  }
-
-  .key-dates-workspace .workspace-scroll {
-    overflow: visible;
-    margin: 0;
-    padding: 0;
-    scrollbar-gutter: auto;
-  }
-}

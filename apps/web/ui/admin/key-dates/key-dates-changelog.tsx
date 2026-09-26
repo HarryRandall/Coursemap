@@ -106,7 +106,7 @@ export function KeyDatesChangelog({
   if (entries.length === 0) {
     const Icon = routeIcons.changelog;
     return (
-      <Empty className="rounded-xl border border-dashed py-14">
+      <Empty className="rounded-xl border py-14">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <Icon aria-hidden="true" />
