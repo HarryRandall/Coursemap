@@ -171,8 +171,6 @@ export async function CatalogueRecordPage({
                 hasUnpublishedChanges={hasUnpublishedChanges}
                 canSync={canManageImports}
                 canWrite={canWrite}
-                openChangeCount={openChanges}
-                conflictCount={review?.conflicts.length ?? 0}
               />
             ) : null}
             <TabsContent value="content" className="mt-0 flex flex-col">

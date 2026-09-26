@@ -2,10 +2,7 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { ExternalLink, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
-import {
-  CATALOGUE_KIND_LABELS,
-  adminCatalogueRecordPath,
-} from "@/lib/coursemap/catalogue-kinds";
+import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { anuSourceUrl } from "./anu-source";
 import { RecordActions } from "./record-actions";
 
@@ -22,16 +19,12 @@ export function RecordHeader({
   hasUnpublishedChanges,
   canSync,
   canWrite,
-  openChangeCount,
-  conflictCount,
 }: {
   record: CatalogueRecord;
   hasDraft: boolean;
   hasUnpublishedChanges: boolean;
   canSync: boolean;
   canWrite: boolean;
-  openChangeCount: number;
-  conflictCount: number;
 }) {
   const labels = CATALOGUE_KIND_LABELS[record.kind];
   const publicationLabel = record.publishedVersionId
@@ -83,16 +76,8 @@ export function RecordHeader({
               : "."}
           </span>
         ) : null}
-        {openChangeCount > 0 ? (
-          <Link
-            className="text-sm font-medium text-amber-700 hover:underline dark:text-amber-400"
-            href={`${adminCatalogueRecordPath(record.kind, record.academicYear, record.code)}/changes`}
-          >
-            {conflictCount > 0
-              ? `${openChangeCount} ANU ${openChangeCount === 1 ? "change" : "changes"} to review, including ${conflictCount} ${conflictCount === 1 ? "conflict" : "conflicts"}.`
-              : `${openChangeCount} ANU ${openChangeCount === 1 ? "change" : "changes"} to review.`}
-          </Link>
-        ) : record.syncs[0]?.status === "unchanged" ? (
+        {/* Open changes are counted on the Changes tab itself. */}
+        {record.syncs[0]?.status === "unchanged" ? (
           <p className="text-sm text-muted-foreground">
             Checked ANU. No changes found.
             {canSync ? (

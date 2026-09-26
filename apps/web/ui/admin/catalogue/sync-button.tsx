@@ -161,8 +161,33 @@ export function useCatalogueSync({
     task.current = null;
   }, [code, latestSync, retrySync, startedSyncId]);
 
+  // A sync whose worker went away, such as a dev server that restarted
+  // mid-read, never finishes on its own, so an active one can be stopped.
+  const cancel = useCallback(() => {
+    const syncId = latestSync?.id ?? startedSyncId;
+    if (!syncId) return;
+    startTransition(async () => {
+      const response = await fetch("/api/admin/catalogue-syncs", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ syncId }),
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        task.current?.fail({
+          title: `Stopping the ${code} sync failed`,
+          detail: result.error ?? "The sync could not be stopped.",
+        });
+        task.current = null;
+      }
+      setStartedSyncId(null);
+      router.refresh();
+    });
+  }, [code, latestSync?.id, router, startedSyncId]);
+
   return {
     start: startSync,
+    cancel,
     busy: isPending || isActive,
     isActive,
     label:

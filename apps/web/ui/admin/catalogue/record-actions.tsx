@@ -10,6 +10,7 @@ import {
 } from "@coursemap/ui/primitives/dropdown-menu";
 import {
   Check,
+  CircleStop,
   Ellipsis,
   EyeOff,
   LoaderCircle,
@@ -53,15 +54,24 @@ type Sync = ReturnType<typeof useCatalogueSync>;
  * unmounts whenever the menu closes and would stop watching the sync.
  */
 function SyncItem({ sync }: { sync: Sync }) {
-  const { start, busy, isActive, label } = sync;
+  const { start, cancel, busy, isActive, label } = sync;
+  if (isActive) {
+    return (
+      <>
+        <DropdownMenuItem disabled>
+          <LoaderCircle className="animate-spin" aria-hidden="true" />
+          Syncing from ANU
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={cancel}>
+          <CircleStop aria-hidden="true" /> Stop sync
+        </DropdownMenuItem>
+      </>
+    );
+  }
   return (
     <DropdownMenuItem disabled={busy} onSelect={start}>
-      {isActive ? (
-        <LoaderCircle className="animate-spin" aria-hidden="true" />
-      ) : (
-        <RefreshCw aria-hidden="true" />
-      )}
-      {isActive ? "Syncing from ANU" : label}
+      <RefreshCw aria-hidden="true" />
+      {label}
     </DropdownMenuItem>
   );
 }
