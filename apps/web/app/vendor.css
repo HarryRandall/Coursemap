@@ -324,3 +324,11 @@
     background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
   }
 }
+
+/* Nova's select content has no inset, so a highlighted option runs to the
+   menu's edge. Match the dropdown menu's padding so options sit inside it. */
+@layer base {
+  .style-nova [data-slot="select-content"] {
+    padding: 0.25rem;
+  }
+}

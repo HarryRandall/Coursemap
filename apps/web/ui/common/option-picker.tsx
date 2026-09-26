@@ -61,7 +61,10 @@ export function OptionPicker({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="w-56 max-w-(--radix-popover-content-available-width) min-w-(--radix-popover-trigger-width) p-1.5"
+        className={cn(
+          "max-w-(--radix-popover-content-available-width) min-w-(--radix-popover-trigger-width) p-1.5",
+          showSearch ? "w-56" : "w-auto",
+        )}
       >
         <OptionMenu
           items={items}
