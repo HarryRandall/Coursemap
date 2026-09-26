@@ -169,54 +169,40 @@ test("kept values stay available without nagging", () => {
   expect(screen.queryByRole("button", { name: "Keep current" })).toBeNull();
 });
 
-test("what the model flagged leads the tab, least certain field first", () => {
+test("the model's notes sit on the change they are about", () => {
   renderPanel({
-    review: review({ incoming: [change()] }),
+    review: review({
+      incoming: [change({ fieldPath: "course.fees", label: "Fees" })],
+    }),
     notes: summariseReviewNotes({
       flags: [
+        {
+          fieldPath: "fees",
+          severity: "warning",
+          code: "EVIDENCE_MISSING",
+          message: "The ANU page does not contain this wording: $5520",
+        },
         {
           fieldPath: "requisites.prerequisiteRule",
           severity: "error",
           code: "INVALID",
           message: "The rule named a course code ANU does not use.",
         },
-        {
-          fieldPath: "requirements.rule.children.3",
-          severity: "warning",
-          code: "AMBIGUOUS",
-          message: "Kept as the page's wording.",
-        },
       ],
-      evidence: [
-        { fieldPath: "fees", confidence: 0.9, excerpt: "$5520" },
-        { fieldPath: "offerings", confidence: 0.55, excerpt: "First Semester" },
-        { fieldPath: "college", confidence: 0.7, excerpt: "ANU College" },
-      ],
+      evidence: [{ fieldPath: "offerings", confidence: 0.55, excerpt: null }],
     }),
-  });
-  expect(
-    screen.getByRole("heading", { name: "What to check" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("1 part could not be read and was left empty"),
-  ).toBeInTheDocument();
-  expect(screen.getByText("Prerequisite rule:")).toBeInTheDocument();
-  expect(screen.getByText("Requirements, branch 4:")).toBeInTheDocument();
-  const uncertain = screen
-    .getAllByText(/% sure$/u)
-    .map((node) => node.textContent);
-  // Fees are sure enough not to be listed.
-  expect(uncertain).toEqual(["55% sure", "70% sure"]);
-});
-
-test("nothing flagged means no notes section", () => {
-  renderPanel({
-    review: review({ incoming: [change()] }),
-    notes: summariseReviewNotes({ flags: [], evidence: [] }),
   });
   expect(
     screen.queryByRole("heading", { name: "What to check" }),
   ).not.toBeInTheDocument();
+  expect(
+    screen.getByText("The ANU page does not contain this wording: $5520"),
+  ).toBeInTheDocument();
+  // No open change carries the prerequisite rule, so it is listed on its own.
+  expect(
+    screen.getByText("1 part could not be read and was left empty"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("55% sure")).not.toBeInTheDocument();
 });
 
 test("a first reading leads with what needs review and folds what was read plainly", () => {

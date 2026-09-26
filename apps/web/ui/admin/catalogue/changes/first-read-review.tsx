@@ -7,11 +7,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
+import type { ReviewNote } from "@/lib/catalogue/review-notes";
 import type { SourceReviewChange } from "@/lib/catalogue/source-review-store";
 import {
   approveFirstReadAction,
   resolveSourceChangeAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
+import { CardNotes } from "./model-notes";
 import { ReviewDiff } from "./review-diff";
 import { type ReviewSubject, ReviewValue } from "./review-value";
 
@@ -62,12 +64,14 @@ function FirstReadCard({
   path,
   canWrite,
   subject,
+  notes,
 }: {
   change: SourceReviewChange;
   recordId: number;
   path: string;
   canWrite: boolean;
   subject: ReviewSubject | null;
+  notes: readonly ReviewNote[];
 }) {
   const { isPending, approve, keepEdit } = useResolve(recordId, path);
   const band = BAND_BADGE[change.band ?? "check"];
@@ -85,6 +89,10 @@ function FirstReadCard({
       {change.reason ? (
         <p className="mt-1 text-sm text-muted-foreground">{change.reason}</p>
       ) : null}
+      {/* The reason may already be one of the notes. */}
+      <CardNotes
+        notes={notes.filter((note) => note.message !== change.reason)}
+      />
       <div className="mt-3">
         {change.isStale ? (
           <>
@@ -187,12 +195,15 @@ export function FirstReadReview({
   path,
   canWrite,
   subject = null,
+  notes = {},
 }: {
   changes: SourceReviewChange[];
   recordId: number;
   path: string;
   canWrite: boolean;
   subject?: ReviewSubject | null;
+  /** The model's notes on each change, by field path. */
+  notes?: Readonly<Record<string, readonly ReviewNote[]>>;
 }) {
   const needsReview = changes.filter(
     (change) => change.band === "needs_review",
@@ -204,6 +215,7 @@ export function FirstReadReview({
       canWrite={canWrite}
       change={change}
       key={change.id}
+      notes={notes[change.fieldPath] ?? []}
       path={path}
       recordId={recordId}
       subject={subject}

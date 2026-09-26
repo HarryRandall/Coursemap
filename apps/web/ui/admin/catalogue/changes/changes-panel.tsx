@@ -1,13 +1,14 @@
-import Link from "next/link";
-
 import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
 import { isCertainFirstRead } from "@/lib/catalogue/first-read";
-import type { summariseReviewNotes } from "@/lib/catalogue/review-notes";
+import {
+  noteBelongsToReviewUnit,
+  type summariseReviewNotes,
+} from "@/lib/catalogue/review-notes";
 import type { SourceReview } from "@/lib/catalogue/source-review-store";
 import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { FirstReadReview } from "./first-read-review";
-import { ModelNotes } from "./model-notes";
+import { UnreadParts } from "./model-notes";
 import type { ReviewSubject } from "./review-value";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
@@ -77,7 +78,6 @@ export function CatalogueChangesPanel({
   hasEverSynced,
   isPublished,
   kindLabel,
-  latestSync = null,
   notes = null,
   subject = null,
 }: {
@@ -89,8 +89,6 @@ export function CatalogueChangesPanel({
   hasEverSynced: boolean;
   isPublished: boolean;
   kindLabel: string;
-  /** The check these changes came out of, for readers allowed to open it. */
-  latestSync?: { id: string; completedAt: string | null } | null;
   /** What the model flagged on the latest ANU version. */
   notes?: ReturnType<typeof summariseReviewNotes> | null;
   /** The course or structure itself, for drawing requirement rules. */
@@ -102,6 +100,20 @@ export function CatalogueChangesPanel({
   );
   const incoming = review?.incoming ?? [];
   const overrides = review?.overrides ?? [];
+  // The model's notes ride on the change they are about and clear with it;
+  // uncertainty already shows as each card's confidence.
+  const flagged = notes ? [...notes.errors, ...notes.warnings] : [];
+  const open = [...firstRead, ...conflicts, ...incoming, ...overrides];
+  const notesFor = (fieldPath: string) =>
+    flagged.filter((note) =>
+      noteBelongsToReviewUnit(fieldPath, note.fieldPath),
+    );
+  const unreadParts = (notes?.errors ?? []).filter(
+    (note) =>
+      !open.some((change) =>
+        noteBelongsToReviewUnit(change.fieldPath, note.fieldPath),
+      ),
+  );
   const unpublishedCount = isPublished ? unpublished.length : 0;
   const empty = reviewEmptyState({
     hasEverSynced,
@@ -116,31 +128,17 @@ export function CatalogueChangesPanel({
 
   return (
     <div className={cn("flex flex-col gap-8", fillsPage && "flex-1")}>
-      {/*
-        Everything on this tab is the output of a sync, so the sync that
-        produced it is named here rather than left to be found in Activity.
-      */}
-      {latestSync ? (
-        <p className="text-sm text-muted-foreground">
-          {latestSync.completedAt
-            ? `Last checked against ANU on ${new Intl.DateTimeFormat("en-AU", {
-                dateStyle: "long",
-                timeStyle: "short",
-              }).format(new Date(latestSync.completedAt))}. `
-            : "A check against ANU is under way. "}
-          <Link
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-            href={`/admin/operations/catalogue/syncs/${latestSync.id}`}
-          >
-            Sync diagnostics
-          </Link>
-        </p>
-      ) : null}
-      {notes ? <ModelNotes {...notes} /> : null}
+      <UnreadParts errors={unreadParts} />
       {firstRead.length ? (
         <FirstReadReview
           canWrite={canWrite}
           changes={firstRead}
+          notes={Object.fromEntries(
+            firstRead.map((change) => [
+              change.fieldPath,
+              notesFor(change.fieldPath),
+            ]),
+          )}
           path={path}
           recordId={recordId}
           subject={subject}
@@ -157,6 +155,7 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
                 subject={subject}
@@ -173,6 +172,7 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
                 subject={subject}
@@ -195,6 +195,7 @@ export function CatalogueChangesPanel({
                 canWrite={canWrite}
                 change={change}
                 key={change.id}
+                notes={notesFor(change.fieldPath)}
                 path={path}
                 recordId={recordId}
                 subject={subject}

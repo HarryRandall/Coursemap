@@ -9,8 +9,10 @@ import type {
   SourceReviewChange,
   SourceReviewDecision,
 } from "@/lib/catalogue/source-review-store";
+import type { ReviewNote } from "@/lib/catalogue/review-notes";
 import { resolveSourceChangeAction } from "@/lib/coursemap/admin-catalogue-actions";
 import { confidenceLabel } from "./first-read-review";
+import { CardNotes } from "./model-notes";
 import { ReviewDiff } from "./review-diff";
 import { type ReviewSubject, ReviewValue } from "./review-value";
 
@@ -51,12 +53,14 @@ export function SourceChangeCard({
   path,
   canWrite,
   subject = null,
+  notes = [],
 }: {
   change: SourceReviewChange;
   recordId: number;
   path: string;
   canWrite: boolean;
   subject?: ReviewSubject | null;
+  notes?: readonly ReviewNote[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -100,6 +104,7 @@ export function SourceChangeCard({
           ) : null}
         </div>
       </div>
+      <CardNotes notes={notes} />
       {change.isStale || change.classification === "conflict" ? (
         <p className="mt-1 text-sm text-muted-foreground">
           {change.isStale

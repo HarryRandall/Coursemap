@@ -202,14 +202,6 @@ export async function CatalogueRecordPage({
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
                 notes={notes}
-                latestSync={
-                  canManageImports && record.syncs[0]
-                    ? {
-                        id: record.syncs[0].id,
-                        completedAt: record.syncs[0].completedAt,
-                      }
-                    : null
-                }
                 path={path}
                 recordId={record.recordId}
                 review={review}
