@@ -2,11 +2,9 @@ import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import {
   isPlanStructureKind,
   loadCurrentUserPlanCatalogue,
-  planCourseFromDetails,
 } from "@/lib/coursemap/plan-catalogue";
 import { loadOnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
-import { loadPublishedCoursesByCodes } from "@/lib/coursemap/published-courses";
-import { requirementCourseCodes } from "@/lib/coursemap/requirement-display";
+import { withRequirementCourses } from "@/lib/coursemap/requirement-courses";
 import { Requirements } from "./requirements";
 
 export const dynamic = "force-dynamic";
@@ -23,28 +21,8 @@ export default async function RequirementsPage({
       loadCurrentUserPlanCatalogue(),
       loadOnboardingCatalogue(),
     ]);
-    const codes = [
-      ...new Set(
-        catalogue.structureRequirements.flatMap((item) =>
-          requirementCourseCodes(item.root),
-        ),
-      ),
-    ].filter(
-      (code) =>
-        !catalogue.courses.some(
-          (course) =>
-            course.code === code && course.year === catalogue.academicYear,
-        ),
-    );
-    const courses =
-      catalogue.academicYear !== null
-        ? await loadPublishedCoursesByCodes(codes, catalogue.academicYear)
-        : [];
     data = {
-      catalogue: {
-        ...catalogue,
-        courses: [...catalogue.courses, ...courses.map(planCourseFromDetails)],
-      },
+      catalogue: await withRequirementCourses(catalogue),
       choices,
     };
   } catch {

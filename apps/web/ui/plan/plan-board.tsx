@@ -19,7 +19,7 @@ import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
-import { CourseDrawer, CoursePicker } from "@/ui/overlays";
+import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 import {
@@ -33,6 +33,19 @@ import {
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
+import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
+import {
+  courseForTerm,
+  ruleSearches,
+  structuresToPlan,
+  type CourseToPlan,
+  type PlannedStructure,
+} from "@/ui/plan/plan-suggestions";
+import {
+  attemptStatusByCode,
+  planTreeContext,
+} from "@/ui/requirements/plan-tree-context";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
 import {
@@ -41,6 +54,8 @@ import {
 } from "@/lib/coursemap/plan-timeline";
 import {
   STANDARD_COURSE_SLOTS,
+  STANDARD_TERM_UNITS,
+  courseIsAvailable,
   effectiveStatus,
   missingPrereqs,
   planningCourseForAttempt,
@@ -67,6 +82,11 @@ export type DragPointer = {
   rowHeight: number;
 };
 export type PickerState = { termId: string; intent: "all" | "recommended" };
+
+/** Drag ids for suggested courses, which have no attempt yet. */
+const SUGGESTION_DRAG = "suggestion:";
+/** Where a planned course dropped on the courses to plan box goes: out of the plan. */
+const REMOVE_DROP = "remove";
 export /** Single muted status mark - the only colour on the board. */
 function StatusMark({
   status,
@@ -85,7 +105,21 @@ function StatusMark({
 }
 export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const overloadFocus = useReturnFocus();
-  const { state, reorderAttempt, notify } = useCoursemap();
+  const {
+    state,
+    reorderAttempt,
+    addCourse,
+    removeAttempt,
+    setPlacement,
+    notify,
+  } = useCoursemap();
+  const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
+  const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
+  const [searched, setSearched] = useState<ReadonlyMap<string, Course[]>>(
+    () => new Map(),
+  );
+  const [draggedSuggestion, setDraggedSuggestion] =
+    useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [overloadTerm, setOverloadTerm] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
@@ -94,8 +128,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const [dragPreview, setDragPreview] = useState<PendingDrop | null>(null);
   const [dragPointer, setDragPointer] = useState<DragPointer | null>(null);
   const dragPreviewRef = useRef<PendingDrop | null>(null);
-  const boardRef = useRef<HTMLElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const floatingCardRef = useRef<HTMLDivElement | null>(null);
+  const draggedSuggestionRef = useRef<CourseToPlan | null>(null);
+  const hoverTabRef = useRef<string | undefined>(undefined);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerCleanupRef = useRef<(() => void) | null>(null);
 
   const degree = catalogue.degrees.find(
@@ -123,23 +160,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     () => ({ ...catalogue, terms: timelineTerms }),
     [catalogue, timelineTerms],
   );
-  const scheduledYears = useMemo(
-    () =>
-      [
-        ...new Set(
-          timelineTerms
-            .filter((term) => term.id !== "unscheduled")
-            .map((term) => term.year),
-        ),
-      ].map((year) => ({
-        year,
-        terms: timelineTerms.filter(
-          (term) => term.year === year && term.id !== "unscheduled",
-        ),
-      })),
-    [timelineTerms],
-  );
-  const unscheduled = timelineTerms.find((term) => term.id === "unscheduled");
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),
     [catalogue, state.profile, state.attempts],
@@ -185,6 +205,261 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           : unitsForAttempt(entry.attempt, entry.course)),
       0,
     );
+
+  const hasRoom = (term: Term) =>
+    term.id === "unscheduled" ||
+    entriesFor(term.id).length < STANDARD_COURSE_SLOTS;
+  const termsFor = (key: string) =>
+    timelineTerms.filter((term) =>
+      key === "later"
+        ? term.id === "unscheduled"
+        : term.id !== "unscheduled" && String(term.year) === key,
+    );
+  const yearTabs: YearTab[] = [
+    ...[
+      ...new Set(
+        timelineTerms
+          .filter((term) => term.id !== "unscheduled")
+          .map((term) => term.year),
+      ),
+    ].map((year) => {
+      const terms = termsFor(String(year));
+      const entries = terms.flatMap((term) => entriesFor(term.id));
+      return {
+        key: String(year),
+        label: `Year ${Math.max(1, year - state.profile.commencementYear + 1)}`,
+        detail: String(year),
+        units: unitsOf(entries),
+        target: terms.length * STANDARD_TERM_UNITS,
+        finished:
+          entries.length > 0 &&
+          entries.every((entry) => entry.attempt.status === "completed"),
+      };
+    }),
+    ...(timelineTerms.some((term) => term.id === "unscheduled")
+      ? [
+          {
+            key: "later",
+            label: "Later",
+            detail: "Not scheduled",
+            units: unitsOf(entriesFor("unscheduled")),
+            target: 0,
+            finished: false,
+          },
+        ]
+      : []),
+  ];
+  // Opens on the first year with room that is not already behind the
+  // student, so the page starts where there is planning to do.
+  const selectedYear =
+    yearTabs.find((year) => year.key === selectedYearKey) ??
+    yearTabs.find(
+      (year) =>
+        year.key !== "later" &&
+        !year.finished &&
+        termsFor(year.key).some(hasRoom),
+    ) ??
+    yearTabs.find((year) => !year.finished) ??
+    yearTabs[0];
+  const selectedTerms = selectedYear ? termsFor(selectedYear.key) : [];
+
+  const requestAddSuggested = async (picked: Course, term: Term) => {
+    const course =
+      courseForTerm(picked.code, term, planningCatalogue) ?? picked;
+    if (
+      term.id !== "unscheduled" &&
+      course.sessions.length > 0 &&
+      !courseIsAvailable(course, term.name)
+    ) {
+      notify(
+        `${course.code} is not offered in ${term.name}. It runs in ${course.sessions.join(" and ")}.`,
+        "warning",
+      );
+      return;
+    }
+    const entries = entriesFor(term.id);
+    if (
+      term.id !== "unscheduled" &&
+      (entries.length >= STANDARD_COURSE_SLOTS ||
+        unitsOf(entries) + course.units > 24)
+    ) {
+      notify(
+        `${term.name} ${term.year} is full. Use Add course on the semester to overload it.`,
+        "warning",
+      );
+      return;
+    }
+    const result = await addCourse(course.code, term.id, course.year);
+    notify(
+      result.ok
+        ? `${course.code} added to ${term.id === "unscheduled" ? "Later" : `${term.name} ${term.year}`}`
+        : result.message,
+      result.ok ? "success" : "warning",
+    );
+  };
+
+  const offeredIn = (picked: Course, term: Term) => {
+    const course =
+      courseForTerm(picked.code, term, planningCatalogue) ?? picked;
+    return (
+      term.id === "unscheduled" ||
+      course.sessions.length === 0 ||
+      courseIsAvailable(course, term.name)
+    );
+  };
+  const addToSelectedYear = (course: Course) => {
+    const term =
+      selectedTerms.find((item) => hasRoom(item) && offeredIn(course, item)) ??
+      selectedTerms.find((item) => offeredIn(course, item));
+    if (!term) {
+      notify(
+        `${course.code} does not run in ${selectedYear?.label ?? "this year"}'s semesters.`,
+        "warning",
+      );
+      return;
+    }
+    void requestAddSuggested(course, term);
+  };
+
+  const statuses = attemptStatusByCode(state.attempts);
+  const selectedStructures = [
+    { code: state.profile.degreeCode, kind: "programme" as const },
+    { code: state.profile.majorCode, kind: "major" as const },
+    ...(state.profile.minorCodes ?? []).map((code) => ({
+      code,
+      kind: "minor" as const,
+    })),
+    ...(state.profile.specialisationCodes ?? []).map((code) => ({
+      code,
+      kind: "specialisation" as const,
+    })),
+  ].filter((item): item is { code: string; kind: typeof item.kind } =>
+    Boolean(item.code),
+  );
+  const selectedStructureCodes = new Set(
+    selectedStructures.map((item) => item.code),
+  );
+  const structures: PlannedStructure[] = selectedStructures.flatMap(
+    ({ code, kind }) => {
+      const requirements = catalogue.structureRequirements.find(
+        (item) => item.structureCode === code && item.structureKind === kind,
+      );
+      if (!requirements?.root) return [];
+      return [
+        {
+          code,
+          kind,
+          name:
+            kind === "programme"
+              ? (degree?.name ?? requirements.structureName)
+              : requirements.structureName,
+          root: requirements.root,
+          context: planTreeContext({
+            structureCode: code,
+            root: requirements.root,
+            catalogue: planningCatalogue,
+            attempts: state.attempts,
+            placements: state.placements ?? [],
+            statuses,
+            selectedStructureCodes,
+            unitTarget: kind === "programme" ? (degree?.units ?? null) : null,
+            onPlace: (courseCode, placement) => {
+              void setPlacement(courseCode, placement).then((result) => {
+                if (!result.ok) notify(result.message, "warning");
+              });
+            },
+            onAddCourse: addToSelectedYear,
+          }),
+        },
+      ];
+    },
+  );
+  // Each open rule's courses come from the course search, so every rule has
+  // something to drag in even when the catalogue has not loaded its courses.
+  const searches = ruleSearches(structures)
+    .filter((params) => !searched.has(params))
+    .join("|");
+  useEffect(() => {
+    if (!searches || catalogue.academicYear === null) return;
+    const controller = new AbortController();
+    const year = String(catalogue.academicYear);
+    void Promise.all(
+      searches.split("|").map((params) =>
+        fetch(
+          `/api/courses/search?browse=1&pageSize=12&year=${year}&${params}`,
+          { signal: controller.signal },
+        )
+          .then((response) => (response.ok ? response.json() : null))
+          .then(
+            (payload: { courses?: Course[] } | null) =>
+              [params, payload?.courses ?? []] as const,
+          )
+          .catch(() => [params, [] as Course[]] as const),
+      ),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      setSearched((current) => new Map([...current, ...results]));
+    });
+    return () => controller.abort();
+  }, [searches, catalogue.academicYear]);
+  const toPlan = structuresToPlan({
+    structures,
+    attempts: state.attempts,
+    catalogue: planningCatalogue,
+    searched,
+  });
+
+  // Starred courses the planner has not loaded are fetched by code.
+  const findCourse = (code: string) =>
+    planningCatalogue.courses.find(
+      (course) =>
+        course.code === code && course.year === catalogue.academicYear,
+    ) ??
+    planningCatalogue.courses.find((course) => course.code === code) ??
+    fetchedCourses.find((course) => course.code === code);
+  const starredCodes = state.starredCourses ?? [];
+  const missingStarred = starredCodes
+    .filter((code) => !findCourse(code))
+    .join(",");
+  useEffect(() => {
+    if (!missingStarred || catalogue.academicYear === null) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      codes: missingStarred,
+      year: String(catalogue.academicYear),
+    });
+    fetch(`/api/courses/search?${params}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { courses?: Course[] } | null) => {
+        const loaded = payload?.courses ?? [];
+        setFetchedCourses((current) => [
+          ...current,
+          ...loaded.filter(
+            (course) => !current.some((item) => item.code === course.code),
+          ),
+        ]);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [missingStarred, catalogue.academicYear]);
+  const inPlan = new Set(
+    state.attempts
+      .filter((attempt) => attempt.status !== "withdrawn")
+      .map((attempt) => attempt.courseCode),
+  );
+  const starred: CourseToPlan[] = starredCodes.flatMap((code) => {
+    const course = inPlan.has(code) ? undefined : findCourse(code);
+    return course
+      ? [
+          {
+            course,
+            required: false,
+            tag: "Starred",
+            structureKind: "programme" as const,
+          },
+        ]
+      : [];
+  });
 
   const issueNote = (entry: Entry) => {
     if (entry.status === "blocked") {
@@ -242,21 +517,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       return;
     }
 
-    const destinationTerm = timelineTerms.find(
-      (term) => term.id === drop.termId,
-    );
-    if (
-      destinationTerm &&
-      destinationTerm.id !== "unscheduled" &&
-      course.year !== destinationTerm.year
-    ) {
-      notify(
-        `${attempt.courseCode} is a ${course.year} course. Remove it and add the ${destinationTerm.year} version instead.`,
-        "warning",
-      );
-      return;
-    }
-
     const destination = entriesFor(drop.termId).filter(
       (entry) => entry.attempt.id !== drop.attemptId,
     );
@@ -308,28 +568,45 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     setDragPointer(null);
     setDragging(null);
     setDragPreview(null);
-    if (!cancelled && drop) requestDrop(drop);
+    const suggestion = draggedSuggestionRef.current;
+    draggedSuggestionRef.current = null;
+    setDraggedSuggestion(null);
+    if (cancelled || !drop) return;
+    if (drop.termId === REMOVE_DROP) {
+      void removeAttempt(drop.attemptId).then((result) =>
+        notify(result.message, result.ok ? "success" : "error"),
+      );
+      return;
+    }
+    if (suggestion && drop.attemptId.startsWith(SUGGESTION_DRAG)) {
+      const term = timelineTerms.find((item) => item.id === drop.termId);
+      if (term) void requestAddSuggested(suggestion.course, term);
+      return;
+    }
+    requestDrop(drop);
   };
 
   const startPointerDrag = (
     event: ReactPointerEvent<HTMLButtonElement>,
-    entry: Entry,
-    term: Term,
+    dragId: string,
+    /** Where the dragged course sits now; none for a suggestion. */
+    termId: string | null,
   ) => {
     if (event.button !== 0 || pointerCleanupRef.current) return;
     event.preventDefault();
     event.stopPropagation();
 
-    const row = event.currentTarget.closest<HTMLElement>("[data-attempt-id]");
+    const row = event.currentTarget.closest<HTMLElement>("[data-drag-row]");
     if (!row) return;
     const rect = row.getBoundingClientRect();
-    const initialDrop = {
-      attemptId: entry.attempt.id,
-      termId: term.id,
-    };
+    const status = state.attempts.find((item) => item.id === dragId)?.status;
+    // Recorded attempts stay in the academic history, so only planned ones
+    // can be dragged back out of the plan.
+    const removable =
+      status !== "completed" && status !== "failed" && status !== "withdrawn";
 
-    setDragging(entry.attempt.id);
-    previewDrop(initialDrop);
+    setDragging(dragId);
+    if (termId) previewDrop({ attemptId: dragId, termId });
     setDragPointer({
       initialX: event.clientX,
       initialY: event.clientY,
@@ -340,6 +617,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     });
 
     const cleanup = () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+      hoverTabRef.current = undefined;
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerCancel);
@@ -368,11 +648,31 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         moveEvent.clientX,
         moveEvent.clientY,
       );
-      const lane = target?.closest<HTMLElement>("[data-drop-term]");
-      const termId = lane?.dataset.dropTerm;
-      if (!lane || !termId) return;
+      // Holding a course over a year tab opens that year to drop it in.
+      const tab =
+        target?.closest<HTMLElement>("[data-year-tab]")?.dataset.yearTab;
+      if (tab !== hoverTabRef.current) {
+        hoverTabRef.current = tab;
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = tab
+          ? setTimeout(() => setSelectedYearKey(tab), 450)
+          : null;
+      }
 
-      previewDrop({ attemptId: entry.attempt.id, termId });
+      // A course lands only where it is let go: off every lane, a planned
+      // course falls back to where it was and a suggestion to nowhere.
+      const lane = target?.closest<HTMLElement>("[data-drop-term]");
+      const over = lane?.dataset.dropTerm;
+      if (over) {
+        previewDrop({ attemptId: dragId, termId: over });
+      } else if (termId && removable && target?.closest("[data-drop-remove]")) {
+        previewDrop({ attemptId: dragId, termId: REMOVE_DROP });
+      } else if (termId) {
+        previewDrop({ attemptId: dragId, termId });
+      } else {
+        dragPreviewRef.current = null;
+        setDragPreview(null);
+      }
     };
 
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -392,27 +692,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     window.addEventListener("keydown", onKeyDown);
   };
 
+  const startSuggestionDrag = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    suggestion: CourseToPlan,
+  ) => {
+    if (event.button !== 0 || pointerCleanupRef.current) return;
+    draggedSuggestionRef.current = suggestion;
+    setDraggedSuggestion(suggestion);
+    startPointerDrag(
+      event,
+      `${SUGGESTION_DRAG}${suggestion.course.code}`,
+      null,
+    );
+  };
+
   const renderLane = (term: Term) => {
     const entries = entriesFor(term.id);
     const units = unitsOf(entries);
-    const previewAttempt = dragging
-      ? state.attempts.find((attempt) => attempt.id === dragging)
-      : undefined;
-    const previewCourse = previewAttempt
-      ? planningCourseForAttempt(previewAttempt, planningCatalogue)
-      : undefined;
-    const previewEntry =
-      previewAttempt && previewCourse
-        ? {
-            attempt: previewAttempt,
-            course: previewCourse,
-            status: effectiveStatus(
-              previewAttempt,
-              state.attempts,
-              planningCatalogue,
-            ),
-          }
-        : undefined;
+    const previewEntry = draggedEntry;
     const previewApplies = Boolean(
       previewEntry && dragPreview?.termId === term.id,
     );
@@ -523,13 +820,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               <div
                 key={entry.attempt.id}
                 data-attempt-id={entry.attempt.id}
+                data-drag-row
                 className="group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition-colors hover:bg-muted/50"
               >
                 <button
                   type="button"
                   aria-label={`Reorder ${entry.course.code}`}
                   onPointerDown={(event) =>
-                    startPointerDrag(event, entry, term)
+                    startPointerDrag(event, entry.attempt.id, term.id)
                   }
                   className="grid cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
                 >
@@ -609,6 +907,25 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const draggedStatus = draggedAttempt
     ? effectiveStatus(draggedAttempt, state.attempts, planningCatalogue)
     : undefined;
+  const draggedEntry: Entry | undefined =
+    draggedSuggestion && dragging?.startsWith(SUGGESTION_DRAG)
+      ? {
+          attempt: {
+            id: dragging,
+            courseCode: draggedSuggestion.course.code,
+            termId: "",
+            status: "planned",
+          },
+          course: draggedSuggestion.course,
+          status: "planned",
+        }
+      : draggedAttempt && draggedCourse && draggedStatus
+        ? {
+            attempt: draggedAttempt,
+            course: draggedCourse,
+            status: draggedStatus,
+          }
+        : undefined;
 
   if (!degree) {
     return (
@@ -646,55 +963,41 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
 
   return (
     <AppShell fill fullWidth>
-      <section
-        aria-label="Course plan"
-        className="workspace-scroll year-board"
-        tabIndex={0}
-        ref={boardRef}
-      >
-        <div data-testid="roadmap-board" className="flex flex-col gap-5">
-          {scheduledYears.map((yearGroup) => {
-            const yearEntries = yearGroup.terms.flatMap((term) =>
-              entriesFor(term.id),
-            );
-            return (
-              <section className="year-row" key={yearGroup.year}>
-                <div className="mb-2 flex items-end justify-between px-1">
-                  <div className="flex items-baseline gap-2">
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Year{" "}
-                      {Math.max(
-                        1,
-                        yearGroup.year - state.profile.commencementYear + 1,
-                      )}
-                    </h2>
-                    <span className="text-xs text-muted-foreground">
-                      {yearGroup.year}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {unitsOf(yearEntries)} units
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {yearGroup.terms.map(renderLane)}
-                </div>
-              </section>
-            );
-          })}
-
-          {unscheduled && (
-            <section>
-              <h2 className="mb-2 px-1 text-sm font-semibold text-foreground">
-                Later
-              </h2>
-              {renderLane(unscheduled)}
-            </section>
-          )}
+      <h1 className="sr-only">Planner</h1>
+      <div className="workspace-scroll flex flex-col gap-4" ref={boardRef}>
+        <YearTabs
+          years={yearTabs}
+          selectedKey={selectedYear?.key ?? ""}
+          onSelect={setSelectedYearKey}
+        />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <section
+            aria-label="Course plan"
+            data-testid="roadmap-board"
+            className="flex min-w-0 flex-1 flex-col gap-3"
+          >
+            {selectedTerms.map(renderLane)}
+          </section>
+          <aside
+            aria-label="Courses to plan"
+            data-drop-remove
+            className={cn(
+              "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[24rem] lg:shrink-0",
+              dragPreview?.termId === REMOVE_DROP &&
+                "ring-2 ring-destructive/40",
+            )}
+          >
+            <CoursesToPlan
+              structures={toPlan}
+              starred={starred}
+              onAdd={addToSelectedYear}
+              onDragStart={startSuggestionDrag}
+            />
+          </aside>
         </div>
-      </section>
+      </div>
 
-      {dragPointer && draggedAttempt && draggedCourse && draggedStatus && (
+      {dragPointer && draggedEntry && (
         <div className="pointer-events-none fixed inset-0 z-[120] cursor-grabbing select-none">
           <div
             ref={floatingCardRef}
@@ -709,15 +1012,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               size={13}
               className="shrink-0 text-muted-foreground"
             />
-            <StatusMark status={draggedStatus} />
+            <StatusMark status={draggedEntry.status} />
             <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
-              {draggedCourse.code}
+              {draggedEntry.course.code}
             </span>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-              {draggedCourse.name}
+              {draggedEntry.course.name}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
-              {unitsForAttempt(draggedAttempt, draggedCourse)}u
+              {unitsForAttempt(draggedEntry.attempt, draggedEntry.course)}u
             </span>
           </div>
         </div>
@@ -793,7 +1096,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         </Dialog>
       )}
       {selectedAttempt && (
-        <CourseDrawer
+        <CourseDialog
           attemptId={selectedAttempt}
           catalogue={planningCatalogue}
           onClose={() => setSelectedAttempt(null)}
