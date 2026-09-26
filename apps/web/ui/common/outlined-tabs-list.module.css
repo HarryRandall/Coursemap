@@ -1,0 +1,51 @@
+.tabs {
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+:global(.style-nova) .tabs [data-slot="tabs-list"][data-variant="line"] {
+  width: 100%;
+}
+
+:global(.style-nova) .tabs [data-slot="tabs-list"][data-variant="line"]::after {
+  content: "";
+  align-self: flex-end;
+  flex: 1;
+  border-bottom: 1px solid var(--border);
+}
+
+:global(.style-nova)
+  .tabs
+  [data-slot="tabs-list"][data-variant="line"]
+  [data-slot="tabs-trigger"] {
+  border: 1px solid transparent;
+  border-radius: 0;
+  transition-property: color;
+}
+
+:global(.style-nova)
+  .tabs
+  [data-slot="tabs-list"][data-variant="line"]
+  [data-slot="tabs-trigger"][data-state="active"] {
+  border-color: var(--border);
+  border-bottom-color: transparent;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+:global(.style-nova)
+  .tabs
+  [data-slot="tabs-list"][data-variant="line"]
+  [data-slot="tabs-trigger"]::after {
+  inset-inline: -1px;
+  bottom: -1px;
+  height: 1px;
+  background-color: var(--border);
+  opacity: 1;
+}
+
+:global(.style-nova)
+  .tabs
+  [data-slot="tabs-list"][data-variant="line"]
+  [data-slot="tabs-trigger"][data-state="active"]::after {
+  display: none;
+}

@@ -4,14 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@coursemap/ui/primitives/tabs";
+import { Tabs, TabsTrigger, TabsContent } from "@coursemap/ui/primitives/tabs";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
+import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import type {
   PlanCatalogue,
@@ -153,11 +149,7 @@ export function Requirements({
             catalogue,
           )}
         />
-        <TabsList
-          className="mb-5"
-          aria-label="Requirement sections"
-          variant="line"
-        >
+        <OutlinedTabsList className="mb-5" aria-label="Requirement sections">
           {sections.map(({ kind, label }) => (
             <TabsTrigger key={kind} value={kind}>
               {label}
@@ -168,7 +160,7 @@ export function Requirements({
               )}
             </TabsTrigger>
           ))}
-        </TabsList>
+        </OutlinedTabsList>
         {sections.map(({ kind, label }) => (
           <TabsContent
             key={kind}
