@@ -202,24 +202,12 @@ export function CatalogueTableLoading({
 export function CatalogueLoading({
   noun,
   layout,
-  hideAcademicYear = false,
 }: {
   noun: string;
   layout: CatalogueLoadingLayout;
-  hideAcademicYear?: boolean;
 }) {
-  const breadcrumbSegmentLabels = hideAcademicYear
-    ? Object.fromEntries(
-        Array.from({ length: 11 }, (_, index) => [String(2020 + index), null]),
-      )
-    : undefined;
   return (
-    <AppShell
-      loading
-      admin={layout !== "public-courses"}
-      fill
-      breadcrumbSegmentLabels={breadcrumbSegmentLabels}
-    >
+    <AppShell loading admin={layout !== "public-courses"} fill>
       <h1 className="sr-only">Loading {noun}</h1>
       <CatalogueTableLoading noun={noun} layout={layout} />
     </AppShell>

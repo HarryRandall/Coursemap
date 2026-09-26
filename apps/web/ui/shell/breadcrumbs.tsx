@@ -43,6 +43,8 @@ const labels: Record<string, string> = {
   discovery: "Discovery",
   sync: "Sync",
   changes: "Changes",
+  changelog: "Changelog",
+  "student-view": "Student view",
 };
 
 /**
@@ -63,7 +65,10 @@ const COURSE_CODE_SEGMENT = /^[A-Z]{4}\d{4}[A-Z]?$/iu;
 const OPAQUE_ID_SEGMENT =
   /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{24,}|\d+)$/iu;
 
-/** An academic year is a number a reader understands, not an identifier. */
+/**
+ * An academic year is a number a reader understands, not an identifier, but
+ * the page already shows it, so the breadcrumb leaves it out.
+ */
 const YEAR_SEGMENT = /^(?:19|20|21)\d{2}$/u;
 
 function isOpaqueId(segment: string) {
@@ -102,7 +107,11 @@ function buildCrumbs(
       href += `/${segment}`;
       return { segment, index, href };
     })
-    .filter(({ segment }) => segmentLabels[segment] !== null);
+    .filter(
+      ({ segment }) =>
+        segmentLabels[segment] !== null &&
+        (segmentLabels[segment] !== undefined || !YEAR_SEGMENT.test(segment)),
+    );
 
   visibleSegments.forEach(({ segment, index, href }, visibleIndex) => {
     const isLast = visibleIndex === visibleSegments.length - 1;
@@ -260,8 +269,11 @@ export function Breadcrumbs({
     );
   }
 
+  // The first crumb and the last two stay visible so the parent is one click
+  // away; anything between them folds into the overflow menu, and a narrow
+  // bar folds the parent as well.
   const collapsed = Math.min(
-    visibleCrumbs.length > 3 ? visibleCrumbs.length - 2 : hiddenCount,
+    Math.max(visibleCrumbs.length - 3, hiddenCount),
     Math.max(0, visibleCrumbs.length - 2),
   );
   return (

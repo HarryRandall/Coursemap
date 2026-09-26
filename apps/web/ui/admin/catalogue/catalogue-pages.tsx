@@ -46,11 +46,7 @@ export async function CatalogueDirectoryPage({
     page: Number(first(params.page)) || 1,
   });
   return (
-    <AppShell
-      admin
-      fill
-      breadcrumbSegmentLabels={{ [String(academicYear)]: null }}
-    >
+    <AppShell admin fill>
       <h1 className="sr-only">{labels.plural}</h1>
       <CatalogueDirectory page={page} />
     </AppShell>

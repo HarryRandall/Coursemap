@@ -56,29 +56,32 @@ function measureAt(initialWidth: number) {
     });
 }
 
-test("caps long trails at three positions even when there is room", () => {
+test("keeps the base, the parent and the current page on long trails", () => {
+  pathname = "/admin/courses/2026/infs1001/changelog";
   const resize = measureAt(600);
-  render(<Breadcrumbs currentLabel="INFS1001" />);
+  render(<Breadcrumbs segmentLabels={{ infs1001: "INFS1001" }} />);
   const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
-  expect(within(trail).getAllByRole("listitem")).toHaveLength(3);
-  expect(
-    within(trail).queryByRole("link", { name: "Courses" }),
-  ).not.toBeInTheDocument();
-  expect(
-    within(trail).queryByRole("link", { name: "2026" }),
-  ).not.toBeInTheDocument();
-
-  resize(220);
+  expect(within(trail).getAllByRole("listitem")).toHaveLength(4);
   expect(within(trail).getByRole("link", { name: "Admin" })).toHaveAttribute(
     "href",
     "/admin/dashboard",
   );
-  expect(within(trail).getByText("INFS1001")).toHaveAttribute(
+  expect(
+    within(trail).queryByRole("link", { name: "Courses" }),
+  ).not.toBeInTheDocument();
+  expect(within(trail).getByRole("link", { name: "INFS1001" })).toHaveAttribute(
+    "href",
+    "/admin/courses/2026/infs1001",
+  );
+  expect(within(trail).getByText("Changelog")).toHaveAttribute(
     "class",
     "truncate",
   );
+  expect(trail).not.toHaveTextContent("2026");
+
+  resize(220);
   expect(
-    within(trail).queryByRole("link", { name: "2026" }),
+    within(trail).queryByRole("link", { name: "INFS1001" }),
   ).not.toBeInTheDocument();
   fireEvent.keyDown(
     within(trail).getByRole("button", { name: "Show hidden breadcrumbs" }),
@@ -88,18 +91,25 @@ test("caps long trails at three positions even when there is room", () => {
     "href",
     "/admin/courses",
   );
-  expect(screen.getByRole("menuitem", { name: "2026" })).toHaveAttribute(
+  expect(screen.getByRole("menuitem", { name: "INFS1001" })).toHaveAttribute(
     "href",
-    "/admin/courses/2026",
+    "/admin/courses/2026/infs1001",
   );
   fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 
   resize(600);
+  expect(within(trail).getAllByRole("listitem")).toHaveLength(4);
+  expect(within(trail).getByRole("link", { name: "INFS1001" })).toBeVisible();
+});
+
+test("leaves academic years out of the trail", () => {
+  measureAt(600);
+  render(<Breadcrumbs currentLabel="INFS1001" />);
+  const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(trail).getAllByRole("listitem")).toHaveLength(3);
-  expect(
-    within(trail).getByRole("button", { name: "Show hidden breadcrumbs" }),
-  ).toBeVisible();
+  expect(within(trail).getByRole("link", { name: "Courses" })).toBeVisible();
+  expect(trail).not.toHaveTextContent("2026");
 });
 
 test("keeps the base and current section when a page has a trailing tab", () => {
@@ -122,8 +132,9 @@ test("keeps the base and current section when a page has a trailing tab", () => 
 });
 
 test("reveals the hidden links on mouse hover", () => {
-  measureAt(220);
-  render(<Breadcrumbs currentLabel="INFS1001" />);
+  pathname = "/admin/courses/2026/infs1001/changelog";
+  measureAt(600);
+  render(<Breadcrumbs segmentLabels={{ infs1001: "INFS1001" }} />);
   const trigger = screen.getByRole("button", {
     name: "Show hidden breadcrumbs",
   });
@@ -131,14 +142,11 @@ test("reveals the hidden links on mouse hover", () => {
   Object.defineProperty(event, "pointerType", { value: "mouse" });
   fireEvent(trigger, event);
   expect(screen.getByRole("menuitem", { name: "Courses" })).toBeVisible();
-  expect(screen.getByRole("menuitem", { name: "2026" })).toBeVisible();
 });
 
 test("shows three short breadcrumbs until width requires collapsing the middle", () => {
   const resize = measureAt(600);
-  render(
-    <Breadcrumbs currentLabel="INFS1001" segmentLabels={{ "2026": null }} />,
-  );
+  render(<Breadcrumbs currentLabel="INFS1001" />);
   const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(trail).getByRole("link", { name: "Courses" })).toBeVisible();
   expect(within(trail).queryByRole("button")).not.toBeInTheDocument();
@@ -155,7 +163,7 @@ test("shows three short breadcrumbs until width requires collapsing the middle",
 
 test("does not repeat a catalogue section on its year directory", () => {
   measureAt(600);
-  render(<Breadcrumbs segmentLabels={{ "2026": null, infs1001: null }} />);
+  render(<Breadcrumbs segmentLabels={{ infs1001: null }} />);
   const trail = screen.getByRole("navigation", { name: "Breadcrumb" });
   expect(within(trail).getAllByRole("listitem")).toHaveLength(2);
   expect(within(trail).getByRole("link", { name: "Admin" })).toBeVisible();
