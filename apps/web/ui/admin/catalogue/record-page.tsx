@@ -16,6 +16,10 @@ import {
   loadVersionReviewNotes,
   loadVersionWrite,
 } from "@/lib/coursemap/admin-catalogue-record";
+import {
+  classifyFirstRead,
+  isCertainFirstRead,
+} from "@/lib/catalogue/first-read";
 import { summariseReviewNotes } from "@/lib/catalogue/review-notes";
 import { courseDetailsFromWrite } from "@/lib/coursemap/course-version-view";
 import {
@@ -32,7 +36,6 @@ import { RecordHeader } from "./record-header";
 import { StudentViewPanel } from "./student-view-panel";
 import { RecordTabList, RecordTabs, type RecordSection } from "./record-tabs";
 import { CatalogueEditorProvider } from "./catalogue-editor-context";
-import { CatalogueEditorToolbar } from "./catalogue-editor-toolbar";
 import { CatalogueContentEditor } from "./content-editor";
 
 function FoundationEmpty({
@@ -128,8 +131,14 @@ export async function CatalogueRecordPage({
       .sort((left, right) => left.id - right.id)
       .map((version, index) => [version.id, index + 1]),
   );
+  // A first reading counts while it is unsure; what was read plainly waits
+  // folded away and does not ask for attention.
   const openChanges =
-    (review?.conflicts.length ?? 0) + (review?.incoming.length ?? 0);
+    (review?.conflicts.length ?? 0) +
+    (review?.incoming.length ?? 0) +
+    (review?.firstRead.filter(
+      (change) => change.band !== "accepted" && !isCertainFirstRead(change),
+    ).length ?? 0);
 
   return (
     <RecordTabs value={section} path={path}>
@@ -153,22 +162,17 @@ export async function CatalogueRecordPage({
           path={path}
         >
           <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
-            {/*
-              The toolbar reports the record's state, so it leads the page
-              rather than the fields. It appears only where it can act: the
-              other tabs read the record and do not change it.
-            */}
-            {canWrite && section === "content" ? (
-              <CatalogueEditorToolbar />
+            {/* The record's summary belongs with its content; the other
+                tabs lead with what they are for. */}
+            {section === "content" ? (
+              <RecordHeader
+                record={record}
+                hasDraft={hasDraft}
+                hasUnpublishedChanges={hasUnpublishedChanges}
+                canSync={canManageImports}
+                canWrite={canWrite}
+              />
             ) : null}
-            <RecordHeader
-              record={record}
-              hasDraft={hasDraft}
-              hasUnpublishedChanges={hasUnpublishedChanges}
-              canSync={canManageImports}
-              openChangeCount={openChanges}
-              conflictCount={review?.conflicts.length ?? 0}
-            />
             <TabsContent value="content" className="mt-0 flex flex-col">
               {canWrite ? (
                 <CatalogueContentEditor />
@@ -193,17 +197,13 @@ export async function CatalogueRecordPage({
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
                 notes={notes}
-                latestSync={
-                  canManageImports && record.syncs[0]
-                    ? {
-                        id: record.syncs[0].id,
-                        completedAt: record.syncs[0].completedAt,
-                      }
-                    : null
-                }
                 path={path}
                 recordId={record.recordId}
                 review={review}
+                allFields={hasDraft ? classifyFirstRead(draft.content) : []}
+                subject={
+                  kind === "course" ? { code: record.code, academicYear } : null
+                }
                 unpublished={unpublished}
               />
             </TabsContent>

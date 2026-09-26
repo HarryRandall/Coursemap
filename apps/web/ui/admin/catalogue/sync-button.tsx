@@ -36,20 +36,26 @@ function syncOutcome(code: string, status: string) {
   return { title: `${code} updated from ANU` };
 }
 
-export function CatalogueSyncButton({
-  recordId,
-  code,
-  kind,
-  latestSync,
-  hasSynced,
-}: {
+export type CatalogueSyncTarget = {
   recordId: number;
   code: string;
   kind: CatalogueKind;
   latestSync: CatalogueSync | null;
   /** Whether ANU has ever been read for this record, which names the action. */
   hasSynced: boolean;
-}) {
+};
+
+/**
+ * Starts a record's ANU sync and follows it to the end with a toast. Whatever
+ * control starts it shows `busy` while it runs and names itself `label`.
+ */
+export function useCatalogueSync({
+  recordId,
+  code,
+  kind,
+  latestSync,
+  hasSynced,
+}: CatalogueSyncTarget) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [startedSyncId, setStartedSyncId] = useState<string | null>(null);
@@ -150,24 +156,60 @@ export function CatalogueSyncButton({
     task.current = null;
   }, [code, latestSync, retrySync, startedSyncId]);
 
+  // A sync whose worker went away, such as a dev server that restarted
+  // mid-read, never finishes on its own, so an active one can be stopped.
+  const cancel = useCallback(() => {
+    const syncId = latestSync?.id ?? startedSyncId;
+    if (!syncId) return;
+    startTransition(async () => {
+      const response = await fetch("/api/admin/catalogue-syncs", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ syncId }),
+      });
+      if (!response.ok) {
+        const result = (await response.json()) as { error?: string };
+        task.current?.fail({
+          title: `Couldn't stop the ${code} sync`,
+          detail: result.error ?? "The sync could not be stopped.",
+        });
+        task.current = null;
+      }
+      setStartedSyncId(null);
+      router.refresh();
+    });
+  }, [code, latestSync?.id, router, startedSyncId]);
+
+  return {
+    start: startSync,
+    cancel,
+    busy: isPending || isActive,
+    isActive,
+    label:
+      latestSync?.status === "failed" && !isActive
+        ? "Retry sync"
+        : hasSynced
+          ? "Resync"
+          : "Sync",
+  };
+}
+
+export function CatalogueSyncButton(target: CatalogueSyncTarget) {
+  const sync = useCatalogueSync(target);
   return (
     <Button
       type="button"
       variant="outline"
-      onClick={startSync}
-      disabled={isPending || isActive}
-      aria-busy={isPending || isActive}
+      onClick={sync.start}
+      disabled={sync.busy}
+      aria-busy={sync.busy}
     >
-      {isActive ? (
+      {sync.isActive ? (
         <LoaderCircle className="animate-spin" aria-hidden="true" />
       ) : (
         <RefreshCw aria-hidden="true" />
       )}
-      {latestSync?.status === "failed" && !isActive
-        ? "Retry sync"
-        : hasSynced
-          ? "Resync"
-          : "Sync"}
+      {sync.label}
     </Button>
   );
 }
