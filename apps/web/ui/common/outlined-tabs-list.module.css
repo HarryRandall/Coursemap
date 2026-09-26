@@ -1,6 +1,10 @@
+/* The active tab's rule sits 1px below the list. The padding keeps it inside
+   the scroll box so the tabs scroll sideways only, never vertically. */
 .tabs {
   flex-shrink: 0;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 1px;
 }
 
 :global(.style-nova) .tabs [data-slot="tabs-list"][data-variant="line"] {

@@ -15,13 +15,7 @@ import {
   TreePalm,
 } from "lucide-react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@coursemap/ui/primitives/select";
+import { YearPicker } from "@/ui/common/year-picker";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { cn } from "@/lib/cn";
 import {
@@ -190,30 +184,21 @@ export function UniversityCalendarView({
         <h2 className="text-xl font-semibold tracking-tight">
           University calendar
         </h2>
-        <Select
-          value={String(year)}
-          onValueChange={(value) => {
-            const nextYear = Number(value);
+        <YearPicker
+          ariaLabel="Calendar year"
+          years={availableYears}
+          value={year}
+          onChange={(value) => {
+            if (value === "all") return;
             router.push(
               href(
-                nextYear < Number(todayIso.slice(0, 4)) ? "past" : "upcoming",
-                nextYear,
+                value < Number(todayIso.slice(0, 4)) ? "past" : "upcoming",
+                value,
               ),
               { scroll: false },
             );
           }}
-        >
-          <SelectTrigger size="sm" aria-label="Calendar year">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="end" className="min-w-0">
-            {availableYears.map((value) => (
-              <SelectItem key={value} value={String(value)}>
-                {value}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
 
       {!query && !category && upcoming.length > 0 && (
