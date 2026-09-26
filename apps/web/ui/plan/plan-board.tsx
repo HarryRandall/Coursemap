@@ -3,6 +3,8 @@ import { useReturnFocus } from "@/hooks/use-return-focus";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   GripVertical,
   Plus,
@@ -19,7 +21,7 @@ import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
-import { CourseDrawer, CoursePicker } from "@/ui/overlays";
+import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 import {
@@ -33,6 +35,19 @@ import {
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import { SemesterStrip } from "@/ui/plan/semester-strip";
+import { TermSuggestionsPanel } from "@/ui/plan/term-suggestions-panel";
+import { PlanRequirements } from "@/ui/plan/plan-requirements";
+import {
+  courseForTerm,
+  termSuggestions,
+  type PlannedStructure,
+  type TermSuggestion,
+} from "@/ui/plan/term-suggestions";
+import {
+  attemptStatusByCode,
+  planTreeContext,
+} from "@/ui/requirements/plan-tree-context";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
 import {
@@ -41,6 +56,7 @@ import {
 } from "@/lib/coursemap/plan-timeline";
 import {
   STANDARD_COURSE_SLOTS,
+  courseIsAvailable,
   effectiveStatus,
   missingPrereqs,
   planningCourseForAttempt,
@@ -67,6 +83,9 @@ export type DragPointer = {
   rowHeight: number;
 };
 export type PickerState = { termId: string; intent: "all" | "recommended" };
+
+/** Drag ids for suggested courses, which have no attempt yet. */
+const SUGGESTION_DRAG = "suggestion:";
 export /** Single muted status mark - the only colour on the board. */
 function StatusMark({
   status,
@@ -85,7 +104,12 @@ function StatusMark({
 }
 export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const overloadFocus = useReturnFocus();
-  const { state, reorderAttempt, notify } = useCoursemap();
+  const { state, reorderAttempt, addCourse, setPlacement, notify } =
+    useCoursemap();
+  const [selectedTermId, setSelectedTermId] = useState<string | null>(null);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const [draggedSuggestion, setDraggedSuggestion] =
+    useState<TermSuggestion | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [overloadTerm, setOverloadTerm] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
@@ -96,6 +120,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const dragPreviewRef = useRef<PendingDrop | null>(null);
   const boardRef = useRef<HTMLElement>(null);
   const floatingCardRef = useRef<HTMLDivElement | null>(null);
+  const draggedSuggestionRef = useRef<TermSuggestion | null>(null);
   const pointerCleanupRef = useRef<(() => void) | null>(null);
 
   const degree = catalogue.degrees.find(
@@ -123,23 +148,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     () => ({ ...catalogue, terms: timelineTerms }),
     [catalogue, timelineTerms],
   );
-  const scheduledYears = useMemo(
-    () =>
-      [
-        ...new Set(
-          timelineTerms
-            .filter((term) => term.id !== "unscheduled")
-            .map((term) => term.year),
-        ),
-      ].map((year) => ({
-        year,
-        terms: timelineTerms.filter(
-          (term) => term.year === year && term.id !== "unscheduled",
-        ),
-      })),
-    [timelineTerms],
-  );
-  const unscheduled = timelineTerms.find((term) => term.id === "unscheduled");
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),
     [catalogue, state.profile, state.attempts],
@@ -185,6 +193,133 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           : unitsForAttempt(entry.attempt, entry.course)),
       0,
     );
+
+  const termSummary = (term: Term) => {
+    const entries = entriesFor(term.id);
+    return {
+      units: unitsOf(entries),
+      courses: entries.length,
+      finished:
+        entries.length > 0 &&
+        entries.every((entry) => entry.attempt.status === "completed"),
+    };
+  };
+  const hasRoom = (term: Term) =>
+    term.id === "unscheduled" ||
+    entriesFor(term.id).length < STANDARD_COURSE_SLOTS;
+  // Opens on the first semester with room that is not already behind the
+  // student, so the page starts where there is planning to do.
+  const selectedTerm =
+    timelineTerms.find((term) => term.id === selectedTermId) ??
+    timelineTerms.find(
+      (term) =>
+        term.id !== "unscheduled" &&
+        hasRoom(term) &&
+        !termSummary(term).finished,
+    ) ??
+    timelineTerms.find((term) => !termSummary(term).finished) ??
+    timelineTerms[0];
+
+  const requestAddSuggested = async (picked: Course, term: Term) => {
+    const course =
+      courseForTerm(picked.code, term, planningCatalogue) ?? picked;
+    if (
+      term.id !== "unscheduled" &&
+      course.sessions.length > 0 &&
+      !courseIsAvailable(course, term.name)
+    ) {
+      notify(
+        `${course.code} is not offered in ${term.name}. It runs in ${course.sessions.join(" and ")}.`,
+        "warning",
+      );
+      return;
+    }
+    const entries = entriesFor(term.id);
+    if (
+      term.id !== "unscheduled" &&
+      (entries.length >= STANDARD_COURSE_SLOTS ||
+        unitsOf(entries) + course.units > 24)
+    ) {
+      notify(
+        `${term.name} ${term.year} is full. Use Add course on the semester to overload it.`,
+        "warning",
+      );
+      return;
+    }
+    const result = await addCourse(course.code, term.id, course.year);
+    notify(
+      result.ok
+        ? `${course.code} added to ${term.id === "unscheduled" ? "Later" : `${term.name} ${term.year}`}`
+        : result.message,
+      result.ok ? "success" : "warning",
+    );
+  };
+
+  const statuses = attemptStatusByCode(state.attempts);
+  const selectedStructures = [
+    { code: state.profile.degreeCode, kind: "programme" as const },
+    { code: state.profile.majorCode, kind: "major" as const },
+    ...(state.profile.minorCodes ?? []).map((code) => ({
+      code,
+      kind: "minor" as const,
+    })),
+    ...(state.profile.specialisationCodes ?? []).map((code) => ({
+      code,
+      kind: "specialisation" as const,
+    })),
+  ].filter((item): item is { code: string; kind: typeof item.kind } =>
+    Boolean(item.code),
+  );
+  const selectedStructureCodes = new Set(
+    selectedStructures.map((item) => item.code),
+  );
+  const structures: PlannedStructure[] = selectedStructures.flatMap(
+    ({ code, kind }) => {
+      const requirements = catalogue.structureRequirements.find(
+        (item) => item.structureCode === code && item.structureKind === kind,
+      );
+      if (!requirements?.root) return [];
+      return [
+        {
+          code,
+          name:
+            kind === "programme"
+              ? (degree?.name ?? requirements.structureName)
+              : requirements.structureName,
+          root: requirements.root,
+          context: planTreeContext({
+            structureCode: code,
+            root: requirements.root,
+            catalogue: planningCatalogue,
+            attempts: state.attempts,
+            placements: state.placements ?? [],
+            statuses,
+            selectedStructureCodes,
+            unitTarget: kind === "programme" ? (degree?.units ?? null) : null,
+            onPlace: (courseCode, placement) => {
+              void setPlacement(courseCode, placement).then((result) => {
+                if (!result.ok) notify(result.message, "warning");
+              });
+            },
+            onAddCourse: (course) => {
+              if (selectedTerm) void requestAddSuggested(course, selectedTerm);
+            },
+          }),
+        },
+      ];
+    },
+  );
+  const selectedSummary = selectedTerm ? termSummary(selectedTerm) : null;
+  const suggestions =
+    selectedTerm && !selectedSummary?.finished && hasRoom(selectedTerm)
+      ? termSuggestions({
+          term: selectedTerm,
+          structures,
+          attempts: state.attempts,
+          catalogue: planningCatalogue,
+        })
+      : [];
+  const selectedIndex = selectedTerm ? timelineTerms.indexOf(selectedTerm) : -1;
 
   const issueNote = (entry: Entry) => {
     if (entry.status === "blocked") {
@@ -307,28 +442,34 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     setDragPointer(null);
     setDragging(null);
     setDragPreview(null);
-    if (!cancelled && drop) requestDrop(drop);
+    const suggestion = draggedSuggestionRef.current;
+    draggedSuggestionRef.current = null;
+    setDraggedSuggestion(null);
+    if (cancelled || !drop) return;
+    if (suggestion && drop.attemptId.startsWith(SUGGESTION_DRAG)) {
+      const term = timelineTerms.find((item) => item.id === drop.termId);
+      if (term) void requestAddSuggested(suggestion.course, term);
+      return;
+    }
+    requestDrop(drop);
   };
 
   const startPointerDrag = (
     event: ReactPointerEvent<HTMLButtonElement>,
-    entry: Entry,
-    term: Term,
+    dragId: string,
+    /** Where the dragged course sits now; none for a suggestion. */
+    termId: string | null,
   ) => {
     if (event.button !== 0 || pointerCleanupRef.current) return;
     event.preventDefault();
     event.stopPropagation();
 
-    const row = event.currentTarget.closest<HTMLElement>("[data-attempt-id]");
+    const row = event.currentTarget.closest<HTMLElement>("[data-drag-row]");
     if (!row) return;
     const rect = row.getBoundingClientRect();
-    const initialDrop = {
-      attemptId: entry.attempt.id,
-      termId: term.id,
-    };
 
-    setDragging(entry.attempt.id);
-    previewDrop(initialDrop);
+    setDragging(dragId);
+    if (termId) previewDrop({ attemptId: dragId, termId });
     setDragPointer({
       initialX: event.clientX,
       initialY: event.clientY,
@@ -371,7 +512,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       const termId = lane?.dataset.dropTerm;
       if (!lane || !termId) return;
 
-      previewDrop({ attemptId: entry.attempt.id, termId });
+      previewDrop({ attemptId: dragId, termId });
     };
 
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -391,27 +532,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     window.addEventListener("keydown", onKeyDown);
   };
 
+  const startSuggestionDrag = (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    suggestion: TermSuggestion,
+  ) => {
+    if (event.button !== 0 || pointerCleanupRef.current) return;
+    draggedSuggestionRef.current = suggestion;
+    setDraggedSuggestion(suggestion);
+    startPointerDrag(
+      event,
+      `${SUGGESTION_DRAG}${suggestion.course.code}`,
+      null,
+    );
+  };
+
   const renderLane = (term: Term) => {
     const entries = entriesFor(term.id);
     const units = unitsOf(entries);
-    const previewAttempt = dragging
-      ? state.attempts.find((attempt) => attempt.id === dragging)
-      : undefined;
-    const previewCourse = previewAttempt
-      ? planningCourseForAttempt(previewAttempt, planningCatalogue)
-      : undefined;
-    const previewEntry =
-      previewAttempt && previewCourse
-        ? {
-            attempt: previewAttempt,
-            course: previewCourse,
-            status: effectiveStatus(
-              previewAttempt,
-              state.attempts,
-              planningCatalogue,
-            ),
-          }
-        : undefined;
+    const previewEntry = draggedEntry;
     const previewApplies = Boolean(
       previewEntry && dragPreview?.termId === term.id,
     );
@@ -522,13 +660,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               <div
                 key={entry.attempt.id}
                 data-attempt-id={entry.attempt.id}
+                data-drag-row
                 className="group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition-colors hover:bg-muted/50"
               >
                 <button
                   type="button"
                   aria-label={`Reorder ${entry.course.code}`}
                   onPointerDown={(event) =>
-                    startPointerDrag(event, entry, term)
+                    startPointerDrag(event, entry.attempt.id, term.id)
                   }
                   className="grid cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
                 >
@@ -608,6 +747,25 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const draggedStatus = draggedAttempt
     ? effectiveStatus(draggedAttempt, state.attempts, planningCatalogue)
     : undefined;
+  const draggedEntry: Entry | undefined =
+    draggedSuggestion && dragging?.startsWith(SUGGESTION_DRAG)
+      ? {
+          attempt: {
+            id: dragging,
+            courseCode: draggedSuggestion.course.code,
+            termId: "",
+            status: "planned",
+          },
+          course: draggedSuggestion.course,
+          status: "planned",
+        }
+      : draggedAttempt && draggedCourse && draggedStatus
+        ? {
+            attempt: draggedAttempt,
+            course: draggedCourse,
+            status: draggedStatus,
+          }
+        : undefined;
 
   if (!degree) {
     return (
@@ -645,55 +803,90 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
 
   return (
     <AppShell fill fullWidth>
-      <section
-        aria-label="Course plan"
-        className="workspace-scroll year-board"
-        tabIndex={0}
-        ref={boardRef}
-      >
-        <div data-testid="roadmap-board" className="flex flex-col gap-5">
-          {scheduledYears.map((yearGroup) => {
-            const yearEntries = yearGroup.terms.flatMap((term) =>
-              entriesFor(term.id),
-            );
-            return (
-              <section className="year-row" key={yearGroup.year}>
-                <div className="mb-2 flex items-end justify-between px-1">
-                  <div className="flex items-baseline gap-2">
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Year{" "}
-                      {Math.max(
-                        1,
-                        yearGroup.year - state.profile.commencementYear + 1,
-                      )}
-                    </h2>
-                    <span className="text-xs text-muted-foreground">
-                      {yearGroup.year}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-muted-foreground">
-                    {unitsOf(yearEntries)} units
-                  </span>
+      <h1 className="sr-only">Planner</h1>
+      <div className="workspace-scroll flex flex-col gap-6 lg:flex-row lg:gap-0 lg:overflow-hidden lg:p-0">
+        <section
+          aria-label="Course plan"
+          className="flex min-w-0 flex-col gap-4 lg:min-h-0 lg:flex-1 lg:basis-0 lg:overflow-y-auto lg:p-0.5 lg:pr-5"
+          tabIndex={0}
+          ref={boardRef}
+        >
+          <SemesterStrip
+            terms={timelineTerms}
+            commencementYear={state.profile.commencementYear}
+            selectedId={selectedTerm?.id ?? ""}
+            dropTargetId={dragging ? (dragPreview?.termId ?? null) : null}
+            summaryFor={termSummary}
+            onSelect={(term) => setSelectedTermId(term.id)}
+          />
+          {selectedTerm && (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={selectedIndex <= 0}
+                  onClick={() =>
+                    setSelectedTermId(timelineTerms[selectedIndex - 1].id)
+                  }
+                  aria-label="Previous semester"
+                >
+                  <ChevronLeft size={16} aria-hidden="true" />
+                </Button>
+                <div className="min-w-0 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTerm.id === "unscheduled"
+                      ? "Not scheduled yet"
+                      : `Year ${Math.max(1, selectedTerm.year - state.profile.commencementYear + 1)} · ${selectedTerm.year}`}
+                  </p>
+                  <h2 className="truncate text-lg font-semibold tracking-tight text-foreground">
+                    {selectedTerm.id === "unscheduled"
+                      ? "Later"
+                      : selectedTerm.name}
+                  </h2>
                 </div>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {yearGroup.terms.map(renderLane)}
-                </div>
-              </section>
-            );
-          })}
-
-          {unscheduled && (
-            <section>
-              <h2 className="mb-2 px-1 text-sm font-semibold text-foreground">
-                Later
-              </h2>
-              {renderLane(unscheduled)}
-            </section>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  disabled={selectedIndex >= timelineTerms.length - 1}
+                  onClick={() =>
+                    setSelectedTermId(timelineTerms[selectedIndex + 1].id)
+                  }
+                  aria-label="Next semester"
+                >
+                  <ChevronRight size={16} aria-hidden="true" />
+                </Button>
+              </div>
+              <div data-testid="roadmap-board">{renderLane(selectedTerm)}</div>
+            </>
           )}
-        </div>
-      </section>
+        </section>
+        <aside
+          aria-label="Suggestions and requirements"
+          className="flex min-w-0 flex-col gap-6 border-border lg:min-h-0 lg:flex-1 lg:basis-0 lg:overflow-y-auto lg:border-l lg:p-0.5 lg:pr-3 lg:pl-5"
+        >
+          {selectedTerm && (
+            <TermSuggestionsPanel
+              term={selectedTerm}
+              suggestions={suggestions}
+              open={suggestionsOpen}
+              onOpenChange={setSuggestionsOpen}
+              emptyMessage={
+                selectedSummary?.finished
+                  ? "This semester is finished."
+                  : !hasRoom(selectedTerm)
+                    ? "This semester is full. Remove a course to see suggestions."
+                    : "Nothing left to suggest here. Use Add course to search every course."
+              }
+              onAdd={(course) => void requestAddSuggested(course, selectedTerm)}
+              onDragStart={startSuggestionDrag}
+            />
+          )}
+          <PlanRequirements structures={structures} />
+        </aside>
+      </div>
 
-      {dragPointer && draggedAttempt && draggedCourse && draggedStatus && (
+      {dragPointer && draggedEntry && (
         <div className="pointer-events-none fixed inset-0 z-[120] cursor-grabbing select-none">
           <div
             ref={floatingCardRef}
@@ -708,15 +901,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               size={13}
               className="shrink-0 text-muted-foreground"
             />
-            <StatusMark status={draggedStatus} />
+            <StatusMark status={draggedEntry.status} />
             <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
-              {draggedCourse.code}
+              {draggedEntry.course.code}
             </span>
             <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-              {draggedCourse.name}
+              {draggedEntry.course.name}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
-              {unitsForAttempt(draggedAttempt, draggedCourse)}u
+              {unitsForAttempt(draggedEntry.attempt, draggedEntry.course)}u
             </span>
           </div>
         </div>
@@ -792,7 +985,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         </Dialog>
       )}
       {selectedAttempt && (
-        <CourseDrawer
+        <CourseDialog
           attemptId={selectedAttempt}
           catalogue={planningCatalogue}
           onClose={() => setSelectedAttempt(null)}
