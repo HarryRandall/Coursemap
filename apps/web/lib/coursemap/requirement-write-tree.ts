@@ -24,6 +24,7 @@ export type RequirementTreeSource = {
     sourceText?: string | null;
     sourceLocator?: string | null;
     position: number;
+    scope?: string | null;
   }>;
   conditions: ReadonlyArray<{
     key: string;
@@ -47,6 +48,8 @@ export type RequirementTreeSource = {
     freeText: string | null;
     sourceText?: string | null;
     sourceLocator?: string | null;
+    scope?: string | null;
+    includesAnyCourse?: boolean | null;
   }>;
   options: ReadonlyArray<{
     conditionKey: string;
@@ -134,6 +137,8 @@ export function requirementTreeFromSource(
       structureKind: condition.structureKind ?? null,
       subjectCode: condition.subjectCode,
       tag: condition.tag,
+      scope: condition.scope === "degree" ? "degree" : "part",
+      includesAnyCourse: condition.includesAnyCourse ?? false,
     };
   }
 
@@ -164,6 +169,7 @@ export function requirementTreeFromSource(
       sourceLocator: group.sourceLocator ?? "",
       sourceText: group.sourceText ?? "",
       title: group.label,
+      scope: group.scope === "degree" ? "degree" : "part",
     };
   }
 

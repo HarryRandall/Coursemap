@@ -81,11 +81,21 @@ export type AcademicStructureRequirementGroup = {
   key: string;
   operator: "all_of" | "any_of" | "minimum_count";
   minimumCount: number | null;
+  /** See {@link AcademicStructureRequirementCondition.scope}. */
+  scope: RequirementScope;
   title: string | null;
   sourceText: string;
   sourceLocator: string;
   children: AcademicStructureRequirementRule[];
 };
+
+/**
+ * `part` fills a share of the degree, and a course counted here counts
+ * nowhere else. `degree` constrains every course the degree counts, such as
+ * "of which a maximum of 60 units from 1000-level courses", without using any
+ * course up.
+ */
+export type RequirementScope = "part" | "degree";
 
 export type AcademicStructureRequirementCondition = {
   type: "condition";
@@ -110,6 +120,9 @@ export type AcademicStructureRequirementCondition = {
   maximumLevel: number | null;
   tag: string | null;
   freeText: string | null;
+  scope: RequirementScope;
+  /** A course list that ends "Any other ANU courses": the list is suggestions. */
+  includesAnyCourse: boolean;
   sourceText: string;
   sourceLocator: string;
 };
@@ -311,6 +324,8 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
       maximumLevel: z.number().int().min(0).max(9999).nullable().default(null),
       tag: nullableString,
       freeText: nullableString,
+      scope: z.enum(["part", "degree"]).default("part"),
+      includesAnyCourse: z.boolean().default(false),
       sourceText: nonEmptyString,
       sourceLocator: nonEmptyString,
     })
@@ -535,6 +550,7 @@ const requirementRuleSchema: z.ZodType<AcademicStructureRequirementRule> =
           key: nonEmptyString,
           operator: z.enum(["all_of", "any_of", "minimum_count"]),
           minimumCount: z.number().int().positive().nullable().default(null),
+          scope: z.enum(["part", "degree"]).default("part"),
           title: nullableString,
           sourceText: nonEmptyString,
           sourceLocator: nonEmptyString,
@@ -987,6 +1003,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         "key",
         "operator",
         "minimumCount",
+        "scope",
         "title",
         "sourceText",
         "sourceLocator",
@@ -997,6 +1014,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         key: { type: "string", minLength: 1 },
         operator: { enum: ["all_of", "any_of", "minimum_count"] },
         minimumCount: { type: ["integer", "null"], minimum: 1 },
+        scope: { enum: ["part", "degree"] },
         title: nullableStringSchema,
         sourceText: { type: "string", minLength: 1 },
         sourceLocator: { type: "string", minLength: 1 },
@@ -1025,6 +1043,8 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         "maximumLevel",
         "tag",
         "freeText",
+        "scope",
+        "includesAnyCourse",
         "sourceText",
         "sourceLocator",
       ],
@@ -1069,6 +1089,8 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         maximumLevel: { type: ["integer", "null"], minimum: 0 },
         tag: nullableStringSchema,
         freeText: nullableStringSchema,
+        scope: { enum: ["part", "degree"] },
+        includesAnyCourse: { type: "boolean" },
         sourceText: { type: "string", minLength: 1 },
         sourceLocator: { type: "string", minLength: 1 },
       },

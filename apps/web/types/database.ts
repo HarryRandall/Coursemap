@@ -3166,6 +3166,47 @@ export type Database = {
           },
         ]
       }
+      plan_requirement_placements: {
+        Row: {
+          course_code: string
+          created_at: string
+          id: string
+          owner_id: string
+          plan_id: string
+          requirement_key: string
+          structure_code: string
+          updated_at: string
+        }
+        Insert: {
+          course_code: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          plan_id: string
+          requirement_key: string
+          structure_code: string
+          updated_at?: string
+        }
+        Update: {
+          course_code?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          plan_id?: string
+          requirement_key?: string
+          structure_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_requirement_placements_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_structures: {
         Row: {
           catalogue_record_id: number
@@ -3352,6 +3393,7 @@ export type Database = {
           group_id: number
           hardness: string
           id: number
+          includes_any_course: boolean
           item_kind: string | null
           maximum_level: number | null
           maximum_units: number | null
@@ -3366,6 +3408,7 @@ export type Database = {
           requirement_mode: string | null
           review_state: string
           rule_id: number
+          scope: string
           source_locator: string | null
           source_text: string | null
           structure_kind: string | null
@@ -3382,6 +3425,7 @@ export type Database = {
           group_id: number
           hardness?: string
           id?: never
+          includes_any_course?: boolean
           item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -3396,6 +3440,7 @@ export type Database = {
           requirement_mode?: string | null
           review_state?: string
           rule_id: number
+          scope?: string
           source_locator?: string | null
           source_text?: string | null
           structure_kind?: string | null
@@ -3412,6 +3457,7 @@ export type Database = {
           group_id?: number
           hardness?: string
           id?: never
+          includes_any_course?: boolean
           item_kind?: string | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -3426,6 +3472,7 @@ export type Database = {
           requirement_mode?: string | null
           review_state?: string
           rule_id?: number
+          scope?: string
           source_locator?: string | null
           source_text?: string | null
           structure_kind?: string | null
@@ -3470,6 +3517,7 @@ export type Database = {
           parent_group_id: number | null
           position: number
           rule_id: number
+          scope: string
           source_locator: string | null
           source_text: string | null
           version_id: number
@@ -3486,6 +3534,7 @@ export type Database = {
           parent_group_id?: number | null
           position?: number
           rule_id: number
+          scope?: string
           source_locator?: string | null
           source_text?: string | null
           version_id: number
@@ -3502,6 +3551,7 @@ export type Database = {
           parent_group_id?: number | null
           position?: number
           rule_id?: number
+          scope?: string
           source_locator?: string | null
           source_text?: string | null
           version_id?: number
@@ -4370,6 +4420,14 @@ export type Database = {
       }
       set_current_user_plan_extension_years: {
         Args: { p_extension_years: number }
+        Returns: undefined
+      }
+      set_current_user_requirement_placement: {
+        Args: {
+          p_course_code: string
+          p_requirement_key?: string
+          p_structure_code?: string
+        }
         Returns: undefined
       }
       set_role_permission: {

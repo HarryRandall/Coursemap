@@ -19,7 +19,17 @@ import type {
 } from "@/lib/coursemap/onboarding-catalogue";
 import type { SelectableStructureKind } from "@/lib/coursemap/programme-structure-options";
 import type { Course } from "@/lib/coursemap/types";
-import { requirementTreeProgress } from "@/lib/coursemap/requirement-progress";
+import {
+  allocateRequirements,
+  placementOptions,
+  requirementConditionsByKey,
+  requirementTreeProgress,
+} from "@/lib/coursemap/requirement-progress";
+import { planningCourseForAttempt } from "@/lib/planner";
+import {
+  conditionHeading,
+  type RequirementTreeCondition,
+} from "@/ui/requirements/requirement-presentation";
 import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
 import { degreeUnitProgress } from "@/lib/planner";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
@@ -42,7 +52,7 @@ export function Requirements({
   catalogue: PlanCatalogue;
   choices: OnboardingCatalogue;
 }) {
-  const { state, updateProfile, notify } = useCoursemap();
+  const { state, updateProfile, notify, setPlacement } = useCoursemap();
   const router = useRouter();
   const [tab, setTab] = useState<PlanStructureKind>("programme");
   const [choosing, setChoosing] = useState(false);
@@ -237,11 +247,72 @@ export function Requirements({
                 kind === "programme"
                   ? (degree?.units ?? null)
                   : (option?.units ?? null);
-              const treeProgress = requirementTreeProgress({
-                root: requirements?.root ?? null,
+              const root = requirements?.root ?? null;
+              const conditions = requirementConditionsByKey(root);
+              const nodeKeyFor = (projectionKey: string) =>
+                [...conditions].find(
+                  ([, condition]) => condition.projectionKey === projectionKey,
+                )?.[0];
+              // A student's choices name rules by their stable key; a choice
+              // for a rule this version no longer has is simply not applied.
+              const pins = new Map(
+                (state.placements ?? []).flatMap((choice) => {
+                  const nodeKey =
+                    choice.structureCode === code
+                      ? nodeKeyFor(choice.requirementKey)
+                      : undefined;
+                  return nodeKey ? [[choice.courseCode, nodeKey] as const] : [];
+                }),
+              );
+              const allocation = allocateRequirements({
+                root,
                 attempts: state.attempts,
                 catalogue,
+                pins,
               });
+              const treeProgress = requirementTreeProgress({
+                root,
+                attempts: state.attempts,
+                catalogue,
+                allocation,
+              });
+              const labelFor = (nodeKey: string) => {
+                const condition = conditions.get(nodeKey);
+                return condition
+                  ? conditionHeading(condition as RequirementTreeCondition)
+                  : "another requirement";
+              };
+              const placement = {
+                allocation,
+                labelFor,
+                optionsFor: (courseCode: string) => {
+                  const attempt = state.attempts.find(
+                    (candidate) => candidate.courseCode === courseCode,
+                  );
+                  const course = attempt
+                    ? planningCourseForAttempt(attempt, catalogue)
+                    : undefined;
+                  return course
+                    ? placementOptions({ root, course }).map((nodeKey) => ({
+                        nodeKey,
+                        label: labelFor(nodeKey),
+                      }))
+                    : [];
+                },
+                onPlace: (courseCode: string, nodeKey: string | null) => {
+                  const projectionKey = nodeKey
+                    ? conditions.get(nodeKey)?.projectionKey
+                    : undefined;
+                  void setPlacement(
+                    courseCode,
+                    projectionKey
+                      ? { structureCode: code, requirementKey: projectionKey }
+                      : null,
+                  ).then((result) => {
+                    if (!result.ok) notify(result.message, "warning");
+                  });
+                },
+              };
               return (
                 <div key={code} className="space-y-5">
                   {kind !== "programme" && (
@@ -260,6 +331,7 @@ export function Requirements({
                       context={{
                         catalogue,
                         progress: treeProgress,
+                        placement,
                         attemptStatusByCode: attemptStatuses,
                         selectedStructureCodes: selectedCodes,
                         unitTarget: target,

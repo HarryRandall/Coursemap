@@ -122,33 +122,42 @@ export async function loadCoursemapState(
     };
     if (!plan) return state;
 
-    const [yearResult, structuresResult, itemsResult, attemptsResult] =
-      await Promise.all([
-        supabase
-          .from("academic_years")
-          .select("year")
-          .eq("id", plan.academic_year_id)
-          .maybeSingle(),
-        supabase
-          .from("plan_structures")
-          .select("role,catalogue_record_id")
-          .eq("plan_id", plan.id)
-          .order("position"),
-        supabase
-          .from("plan_items")
-          .select(
-            "id,catalogue_record_id,planned_calendar_year,planned_period_code,sort_order",
-          )
-          .eq("plan_id", plan.id)
-          .order("sort_order"),
-        supabase
-          .from("course_attempts")
-          .select(
-            "id,catalogue_version_id,academic_period_id,status,mark,grade,units_attempted,units_earned",
-          )
-          .eq("owner_id", viewer.id)
-          .order("created_at"),
-      ]);
+    const [
+      yearResult,
+      structuresResult,
+      itemsResult,
+      attemptsResult,
+      placementsResult,
+    ] = await Promise.all([
+      supabase
+        .from("academic_years")
+        .select("year")
+        .eq("id", plan.academic_year_id)
+        .maybeSingle(),
+      supabase
+        .from("plan_structures")
+        .select("role,catalogue_record_id")
+        .eq("plan_id", plan.id)
+        .order("position"),
+      supabase
+        .from("plan_items")
+        .select(
+          "id,catalogue_record_id,planned_calendar_year,planned_period_code,sort_order",
+        )
+        .eq("plan_id", plan.id)
+        .order("sort_order"),
+      supabase
+        .from("course_attempts")
+        .select(
+          "id,catalogue_version_id,academic_period_id,status,mark,grade,units_attempted,units_earned",
+        )
+        .eq("owner_id", viewer.id)
+        .order("created_at"),
+      supabase
+        .from("plan_requirement_placements")
+        .select("course_code,structure_code,requirement_key")
+        .eq("plan_id", plan.id),
+    ]);
 
     const structures = structuresResult.data ?? [];
     const items = (itemsResult.data ?? []) as unknown as PlanItemRow[];
@@ -307,6 +316,11 @@ export async function loadCoursemapState(
         }),
       },
       attempts: [...plannedAttempts, ...recordedAttempts],
+      placements: (placementsResult.data ?? []).map((row) => ({
+        courseCode: row.course_code,
+        structureCode: row.structure_code,
+        requirementKey: row.requirement_key,
+      })),
     };
   } catch {
     return fallback;

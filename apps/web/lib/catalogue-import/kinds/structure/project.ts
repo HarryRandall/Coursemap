@@ -8,6 +8,7 @@ import {
   type AcademicStructureExtraction,
   type AcademicStructureKind,
   type AcademicStructureRequirementRule,
+  type RequirementScope,
 } from "./contract.ts";
 import { ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION } from "./prompt.ts";
 import { canonicaliseAcademicStructureRelationships } from "./relationship-canonicalisation.ts";
@@ -69,6 +70,7 @@ export type AcademicStructureSnapshotProjection = {
     minimumCount: number | null;
     minimumUnits: number | null;
     maximumUnits: number | null;
+    scope: RequirementScope;
     title: string | null;
     description: string | null;
     sourceText: string;
@@ -96,6 +98,8 @@ export type AcademicStructureSnapshotProjection = {
     maximumLevel: number | null;
     tag: string | null;
     freeText: string | null;
+    scope: RequirementScope;
+    includesAnyCourse: boolean;
     sourceText: string;
     sourceLocator: string;
   }>;
@@ -161,6 +165,8 @@ function flattenRequirementRule(
       maximumLevel: rule.maximumLevel,
       tag: rule.tag,
       freeText: rule.freeText,
+      scope: rule.scope,
+      includesAnyCourse: rule.includesAnyCourse,
       sourceText: rule.sourceText,
       sourceLocator: rule.sourceLocator,
     });
@@ -193,6 +199,7 @@ function flattenRequirementRule(
     minimumCount: rule.minimumCount,
     minimumUnits: null,
     maximumUnits: null,
+    scope: rule.scope,
     title: rule.title,
     description: null,
     sourceText: rule.sourceText,

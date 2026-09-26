@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Pagination } from "@/ui/common/pagination";
+import { PlacementControl } from "./placement-control";
 import { RequirementCourseRow } from "./requirement-course-row";
 import type { TreeContext } from "./requirement-presentation";
 
@@ -36,7 +37,7 @@ export function RequirementCourseOptions({
   return (
     <div className="space-y-4">
       <ul
-        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${hasCourseDetails ? (showStatus ? "auto-rows-[14rem]" : "auto-rows-[11rem]") : "auto-rows-[9rem]"}`}
+        className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${hasCourseDetails ? (showStatus ? "auto-rows-[minmax(14rem,auto)]" : "auto-rows-[11rem]") : "auto-rows-[9rem]"}`}
       >
         {sorted.slice((safePage - 1) * 6, safePage * 6).map((code) => (
           <RequirementCourseRow
@@ -48,6 +49,14 @@ export function RequirementCourseOptions({
             status={context.attemptStatusByCode.get(code) ?? null}
             showStatus={showStatus}
             onAdd={context.onAddCourse}
+            placement={
+              context.placement && context.attemptStatusByCode.has(code) ? (
+                <PlacementControl
+                  courseCode={code}
+                  placement={context.placement}
+                />
+              ) : undefined
+            }
           />
         ))}
         {Array.from(

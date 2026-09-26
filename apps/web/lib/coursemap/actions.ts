@@ -191,3 +191,34 @@ export async function recordCourseAttempt(
     return failure(error);
   }
 }
+
+/**
+ * Counts a course towards a chosen part of the student's degree, or hands the
+ * choice back to Coursemap when no requirement is given.
+ */
+export async function setRequirementPlacement(
+  courseCode: string,
+  placement: { structureCode: string; requirementKey: string } | null,
+): Promise<CoursemapActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc(
+      "set_current_user_requirement_placement",
+      {
+        p_course_code: courseCode,
+        p_structure_code: placement?.structureCode,
+        p_requirement_key: placement?.requirementKey,
+      },
+    );
+    if (error) throw error;
+    revalidatePath("/requirements");
+    return {
+      ok: true,
+      message: placement
+        ? `${courseCode} moved`
+        : `${courseCode} placed automatically`,
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}

@@ -6,7 +6,10 @@ import type {
   RequirementTreeNode,
   RequirementTreeOption,
 } from "@/lib/coursemap/requirement-tree-node";
-import type { RequirementTreeProgress } from "@/lib/coursemap/requirement-progress";
+import type {
+  RequirementAllocation,
+  RequirementTreeProgress,
+} from "@/lib/coursemap/requirement-progress";
 
 export type {
   RequirementTreeCondition,
@@ -336,6 +339,19 @@ export type TreeContext = {
    * report nothing but zero.
    */
   showPlanProgress?: boolean;
+  /**
+   * Where each course in the plan counts, and how to move one. Present only
+   * where a plan sits behind the view.
+   */
+  placement?: {
+    allocation: RequirementAllocation;
+    /** The parts a course may count towards, most specific first. */
+    optionsFor: (
+      courseCode: string,
+    ) => Array<{ nodeKey: string; label: string }>;
+    labelFor: (nodeKey: string) => string;
+    onPlace: (courseCode: string, nodeKey: string | null) => void;
+  };
 };
 
 const NO_PROGRESS: RequirementTreeProgress = new Map();
