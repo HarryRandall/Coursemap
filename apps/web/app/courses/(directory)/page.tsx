@@ -137,7 +137,6 @@ export default async function CoursesPage({
       <h1 className="sr-only">Explore courses</h1>
       <div className="mx-auto flex min-h-0 w-full flex-1 flex-col gap-5">
         <FilterBar
-          key={query}
           searchPlaceholder="Search by course code, name or school"
           filters={[
             {
