@@ -41,8 +41,8 @@ Source rules:
    Requirements, learning outcomes, indicative fees, areas of interest and lists of related degrees, majors, minors or specialisations have fields of their own and are never sections.
 5. Record every key fact as a summary field with its label and value. Also fill the dedicated field a key fact belongs to, such as durationYears from "Length 4 year full-time", college from "offered by the ANU College of ...", selectionRank from "SELECTION RANK 85" and academicCareer from "Academic career".
 6. A relationship needs a literal linked or printed target code. A friendly name without a code is not enough. Record only these three meanings, and nothing that is merely mentioned:
-   - offered_in: a degree (programme) this major, minor or specialisation can be studied in, such as the Relevant Degrees list.
-   - option: a major, minor or specialisation a programme lets students choose.
+   - offered_in: a degree (programme) this major, minor or specialisation can be studied in, such as the Relevant Degrees list. Record one for every degree in that list.
+   - option: a major, minor or specialisation a programme lets students choose. On a programme page, every entry in its Majors, Minors and Specialisations lists is an option, with the code taken from the entry's link, even when the requirements also name it.
    - incompatible: a structure that cannot be taken together with this one.
 7. A structure that must be taken alongside this one ("must be taken in conjunction with", corequisite majors) is a requirement, not a relationship: add a group titled "Taken with" to the requirement tree holding a structure_list condition with those codes and their structureKind.
 8. Extract learning outcomes individually and in source order.
