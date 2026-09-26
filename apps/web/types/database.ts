@@ -1784,6 +1784,7 @@ export type Database = {
         Row: {
           base_source_value: Json | null
           classification: string
+          confidence: number | null
           created_at: string
           decision: string | null
           field_path: string
@@ -1796,6 +1797,8 @@ export type Database = {
           resolution_note: string | null
           resolved_at: string | null
           resolved_by: string | null
+          review_band: string | null
+          review_reason: string | null
           review_unit_kind: string
           superseded_at: string | null
           sync_id: string
@@ -1803,6 +1806,7 @@ export type Database = {
         Insert: {
           base_source_value?: Json | null
           classification: string
+          confidence?: number | null
           created_at?: string
           decision?: string | null
           field_path: string
@@ -1815,6 +1819,8 @@ export type Database = {
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          review_band?: string | null
+          review_reason?: string | null
           review_unit_kind: string
           superseded_at?: string | null
           sync_id: string
@@ -1822,6 +1828,7 @@ export type Database = {
         Update: {
           base_source_value?: Json | null
           classification?: string
+          confidence?: number | null
           created_at?: string
           decision?: string | null
           field_path?: string
@@ -1834,6 +1841,8 @@ export type Database = {
           resolution_note?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
+          review_band?: string | null
+          review_reason?: string | null
           review_unit_kind?: string
           superseded_at?: string | null
           sync_id?: string

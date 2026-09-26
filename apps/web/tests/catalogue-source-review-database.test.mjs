@@ -10,12 +10,14 @@ import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-versi
 import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
 import { loadSourceReview } from "../lib/catalogue/source-review-store.ts";
 import { resolveSourceChange } from "../lib/catalogue/source-review-decisions.ts";
+import { publishCatalogueDraft } from "../lib/catalogue/drafts.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 const YEAR = 2026;
 const CONFLICT_CODE = "TSTC9201";
 const CHANGE_CODE = "TSTC9202";
+const FIRST_READ_CODE = "TSTC9203";
 const ADMIN_ID = "99000000-0000-4000-8000-000000000041";
 
 let sql;
@@ -46,11 +48,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -180,6 +182,7 @@ beforeAll(async () => {
   sourceId = await ensureAnuSourceId(sql);
   await createRecord(CONFLICT_CODE, "Conflict Record");
   await createRecord(CHANGE_CODE, "Change Record");
+  await createRecord(FIRST_READ_CODE, "First Read Record");
 });
 
 afterAll(async () => {
@@ -400,4 +403,71 @@ test("using ANU writes one path, keeps unrelated edits and moves only its proven
   assert.equal(reclassified.conflicts.length, 1);
   assert.equal(reclassified.conflicts[0].isStale, true);
   assert.equal(reclassified.conflicts[0].localValue, "Rewritten locally.");
+});
+
+test("a first reading is rated for review and holds publishing until approved", async () => {
+  const recordId = records.get(FIRST_READ_CODE);
+  const content = sourceContent(
+    FIRST_READ_CODE,
+    "First Read Record",
+    "Read from a page that barely says it.",
+  );
+  content.evidence[0].confidence = 0.4;
+  content.contentHash = contentHashForCatalogueContent(content);
+
+  const first = await observeSource(FIRST_READ_CODE, content);
+  assert.equal(first.populatedDraft, true);
+
+  const review = await currentReview(FIRST_READ_CODE);
+  const description = review.firstRead.find(
+    (change) => change.fieldPath === "course.details.description",
+  );
+  assert.equal(description.band, "needs_review");
+  assert.equal(description.confidence, 0.4);
+  assert.equal(review.firstRead[0].id, description.id, "least certain first");
+  assert.equal(
+    review.firstRead.find(
+      (change) => change.fieldPath === "course.details.title",
+    ).band,
+    "check",
+    "a value with no evidence is worth a look",
+  );
+
+  const [draft] = await sql`
+    select revision from public.catalogue_drafts where record_id = ${recordId}
+  `;
+  await assert.rejects(
+    publishCatalogueDraft({
+      recordId,
+      expectedRevision: Number(draft.revision),
+      userId: ADMIN_ID,
+      editingSessionId: "11111111-1111-4111-8111-111111111111",
+      sql,
+    }),
+    (error) => error.code === "FIRST_READ_REVIEW",
+  );
+
+  await resolveSourceChange({
+    recordId,
+    changeId: description.id,
+    decision: "use_source",
+    userId: ADMIN_ID,
+    sql,
+  });
+  const [unchanged] = await sql`
+    select revision from public.catalogue_drafts where record_id = ${recordId}
+  `;
+  assert.equal(
+    Number(unchanged.revision),
+    Number(draft.revision),
+    "approving a first reading keeps the draft as it is",
+  );
+  const versionId = await publishCatalogueDraft({
+    recordId,
+    expectedRevision: Number(draft.revision),
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  assert.ok(versionId);
 });

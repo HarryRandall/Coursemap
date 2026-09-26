@@ -1,4 +1,7 @@
-import type { SyncTransactionSql } from "../catalogue-sync/sync-store.ts";
+import type {
+  SyncSql,
+  SyncTransactionSql,
+} from "../catalogue-sync/sync-store.ts";
 import { withSyncDatabaseClient } from "../catalogue-sync/sync-store.ts";
 import { fieldLabel } from "../coursemap/catalogue-kinds.ts";
 import type { CatalogueContent } from "./content.ts";
@@ -6,10 +9,12 @@ import {
   type CatalogueReviewUnitKind,
   catalogueReviewUnitMap,
 } from "./review-units.ts";
+import { type FirstReadBand, classifyFirstRead } from "./first-read.ts";
 import {
   type SourceChangeClassification,
   classifySourceReview,
   reclassifyAgainstDraft,
+  reviewValueHash,
 } from "./source-review.ts";
 
 export type SourceReviewDecision = "use_source" | "keep_local";
@@ -28,6 +33,11 @@ export type SourceReviewChange = {
   isStale: boolean;
   decision: SourceReviewDecision | null;
   resolvedAt: string | null;
+  /** The weakest confidence behind the ANU value, or null with no evidence. */
+  confidence: number | null;
+  /** A first reading's band and reason; null otherwise. */
+  band: FirstReadBand | null;
+  reason: string | null;
 };
 
 export type SourceReview = {
@@ -37,6 +47,8 @@ export type SourceReview = {
   conflicts: SourceReviewChange[];
   incoming: SourceReviewChange[];
   overrides: SourceReviewChange[];
+  /** Open parts of a record's first reading from ANU, least certain first. */
+  firstRead: SourceReviewChange[];
   resolved: SourceReviewChange[];
 };
 
@@ -73,8 +85,20 @@ function changeFromRow(
       row.resolved_at === null
         ? null
         : new Date(row.resolved_at as string | Date).toISOString(),
+    confidence: row.confidence === null ? null : Number(row.confidence),
+    band:
+      row.review_band === null
+        ? null
+        : (String(row.review_band) as FirstReadBand),
+    reason: row.review_reason === null ? null : String(row.review_reason),
   };
 }
+
+const BAND_ORDER: Record<FirstReadBand, number> = {
+  needs_review: 0,
+  check: 1,
+  accepted: 2,
+};
 
 /**
  * The record's one current review, reclassified against the draft as it
@@ -110,6 +134,12 @@ export async function loadSourceReview(
       conflicts: open("conflict"),
       incoming: open("source_change"),
       overrides: open("local_override"),
+      firstRead: open("first_read").sort(
+        (left, right) =>
+          BAND_ORDER[left.band ?? "accepted"] -
+            BAND_ORDER[right.band ?? "accepted"] ||
+          (left.confidence ?? 0) - (right.confidence ?? 0),
+      ),
       resolved: changes.filter((change) => change.decision !== null),
     } satisfies SourceReview;
   });
@@ -145,6 +175,14 @@ export async function generateSourceReview(
   const changes = classified.filter(
     (change) => change.classification !== "converged",
   );
+  // The same weakest-evidence confidence a first reading shows, so every
+  // change says how sure the model was of the value it read.
+  const confidence = new Map(
+    classifyFirstRead(incomingSource).map((item) => [
+      item.fieldPath,
+      item.confidence,
+    ]),
+  );
   await tx`
     update public.catalogue_sync_changes set superseded_at = now()
     where record_id = ${recordId} and superseded_at is null
@@ -154,13 +192,14 @@ export async function generateSourceReview(
       insert into public.catalogue_sync_changes (
         sync_id, record_id, field_path, review_unit_kind, classification,
         base_source_value, local_value, incoming_source_value, local_value_hash,
-        position
+        position, confidence
       ) values (
         ${syncId}::uuid, ${recordId}, ${change.fieldPath}, ${change.unitKind},
         ${change.classification}, ${tx.json(change.baseSourceValue as never)},
         ${tx.json(change.localValue as never)},
         ${tx.json(change.incomingSourceValue as never)},
-        ${change.localValueHash}, ${change.position}
+        ${change.localValueHash}, ${change.position},
+        ${confidence.get(change.fieldPath) ?? null}
       )
     `;
   }
@@ -175,4 +214,69 @@ export async function generateSourceReview(
         change.classification === "source_change",
     ).length,
   };
+}
+
+/**
+ * Records a record's first reading from ANU for review. The draft already
+ * holds the reading, so every row starts equal to the draft; approving one
+ * keeps the value, and correcting it in the editor shows as an edit. A
+ * reading taken again from the same sync, after its draft was discarded,
+ * reopens that sync's rows rather than adding a second set.
+ */
+export async function generateFirstReadReview(
+  tx: SyncTransactionSql,
+  {
+    syncId,
+    recordId,
+    content,
+  }: { syncId: string; recordId: number; content: CatalogueContent },
+) {
+  const items = classifyFirstRead(content);
+  await tx`
+    update public.catalogue_sync_changes set superseded_at = now()
+    where record_id = ${recordId} and superseded_at is null
+  `;
+  for (const [position, item] of items.entries()) {
+    await tx`
+      insert into public.catalogue_sync_changes (
+        sync_id, record_id, field_path, review_unit_kind, classification,
+        base_source_value, local_value, incoming_source_value, local_value_hash,
+        position, confidence, review_band, review_reason
+      ) values (
+        ${syncId}::uuid, ${recordId}, ${item.fieldPath}, ${item.unitKind},
+        'first_read', null, ${tx.json(item.value as never)},
+        ${tx.json(item.value as never)}, ${reviewValueHash(item.value)},
+        ${position}, ${item.confidence}, ${item.band}, ${item.reason}
+      )
+      on conflict (sync_id, field_path) do update set
+        review_unit_kind = excluded.review_unit_kind,
+        classification = excluded.classification,
+        base_source_value = excluded.base_source_value,
+        local_value = excluded.local_value,
+        incoming_source_value = excluded.incoming_source_value,
+        local_value_hash = excluded.local_value_hash,
+        position = excluded.position, confidence = excluded.confidence,
+        review_band = excluded.review_band,
+        review_reason = excluded.review_reason,
+        decision = null, resolved_by = null, resolved_at = null,
+        superseded_at = null
+    `;
+  }
+  return {
+    total: items.length,
+    needsReview: items.filter((item) => item.band === "needs_review").length,
+  };
+}
+
+/** How many parts of a first reading still wait on a person before publishing. */
+export async function countBlockingFirstReads(
+  sql: SyncSql | SyncTransactionSql,
+  recordId: number,
+) {
+  const [row] = await sql`
+    select count(*)::int as count from public.catalogue_sync_changes
+    where record_id = ${recordId} and superseded_at is null
+      and decision is null and review_band = 'needs_review'
+  `;
+  return Number(row?.count ?? 0);
 }

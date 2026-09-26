@@ -14,7 +14,10 @@ import {
   contentHashForCatalogueContent,
   readVersionContent,
 } from "../catalogue-import/version-content.ts";
-import { generateSourceReview } from "../catalogue/source-review-store.ts";
+import {
+  generateFirstReadReview,
+  generateSourceReview,
+} from "../catalogue/source-review-store.ts";
 
 export type PersistedSourceVersion = {
   status: "unchanged" | "review_required" | "applied";
@@ -545,16 +548,85 @@ export async function persistSourceVersion(
         populatedDraft: Boolean(draftFromSource),
       };
     }
+    const lockDraft = async () => {
+      const [row] =
+        await tx`select content, content_hash from public.catalogue_drafts
+        where record_id = ${claim.recordId} for update`;
+      return row;
+    };
+    const hasMeaningfulLocalContent = (
+      draft: Record<string, unknown> | undefined,
+    ) => {
+      const empty = emptyCatalogueContent({
+        kind: claim.kind,
+        code: claim.code,
+        academicYear: claim.academicYear,
+        title:
+          record.listing_title === null ? null : String(record.listing_title),
+      });
+      return (
+        record.published_version_id !== null ||
+        (draft !== undefined &&
+          String(draft.content_hash) !== contentHashForCatalogueContent(empty))
+      );
+    };
+    /**
+     * Fills the draft from a source version and queues every part of it for
+     * a person. Review rows belong to the sync that made the version, so
+     * they stay joined to it when this sync found nothing new.
+     */
+    const populateDraft = async (
+      sourceVersionId: number,
+      reviewSyncId: string,
+    ) => {
+      await tx`insert into public.catalogue_drafts (
+        record_id, base_version_id, content, content_hash, content_schema_version,
+        revision, updated_by
+      ) values (${claim.recordId}, ${sourceVersionId}, ${tx.json(write as never)},
+        ${write.contentHash}, ${CATALOGUE_CONTENT_SCHEMA_VERSION}, 0, null)
+      on conflict (record_id) do update set base_version_id = excluded.base_version_id,
+        content = excluded.content, content_hash = excluded.content_hash,
+        content_schema_version = excluded.content_schema_version,
+        revision = public.catalogue_drafts.revision + 1, updated_by = null,
+        updated_at = now()`;
+      await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
+      await tx`insert into public.catalogue_draft_provenance (
+        record_id, field_path, origin, source_version_id, source_evidence_id
+      ) select ${claim.recordId}, field_path, method, ${sourceVersionId}, id
+        from public.catalogue_version_provenance where version_id = ${sourceVersionId}`;
+      await tx`insert into public.catalogue_change_events (
+        record_id, draft_revision, event_kind, origin, version_id
+      ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}
+        from public.catalogue_drafts where record_id = ${claim.recordId}`;
+      // The draft took the model's reading whole, so every part of it is
+      // queued for a person, rated by how sure the reading is.
+      await generateFirstReadReview(tx, {
+        syncId: reviewSyncId,
+        recordId: claim.recordId,
+        content: write,
+      });
+    };
     const previousSourceVersionId =
       record.latest_source_version_id === null
         ? null
         : Number(record.latest_source_version_id);
     const [previous] = previousSourceVersionId
-      ? await tx`select content_hash from public.catalogue_versions where id = ${previousSourceVersionId}`
+      ? await tx`select content_hash, sync_id from public.catalogue_versions where id = ${previousSourceVersionId}`
       : [];
     if (previous && String(previous.content_hash) === write.contentHash) {
       await tx`update public.catalogue_records set source_checked_at = now()
         where id = ${claim.recordId}`;
+      // ANU has not changed, but a record whose draft was discarded still
+      // wants the reading back.
+      const draft = await lockDraft();
+      if (!hasMeaningfulLocalContent(draft) && previous.sync_id !== null) {
+        await populateDraft(previousSourceVersionId!, String(previous.sync_id));
+        return {
+          status: "applied",
+          sourceVersionId: previousSourceVersionId!,
+          populatedDraft: true,
+        };
+      }
       await tx`insert into public.catalogue_change_events (
         record_id, event_kind, origin, actor_id, version_id
       ) values (${claim.recordId}, 'source_checked', 'source', null, ${previousSourceVersionId})`;
@@ -595,42 +667,11 @@ export async function persistSourceVersion(
       latest_source_version_id = ${sourceVersionId}, source_checked_at = now()
       where id = ${claim.recordId}`;
 
-    const [draft] =
-      await tx`select content, content_hash from public.catalogue_drafts
-      where record_id = ${claim.recordId} for update`;
-    const empty = emptyCatalogueContent({
-      kind: claim.kind,
-      code: claim.code,
-      academicYear: claim.academicYear,
-      title:
-        record.listing_title === null ? null : String(record.listing_title),
-    });
-    const hasMeaningfulLocalContent =
-      record.published_version_id !== null ||
-      (draft &&
-        String(draft.content_hash) !== contentHashForCatalogueContent(empty));
-    const populateDraft =
-      previousSourceVersionId === null && !hasMeaningfulLocalContent;
-    if (populateDraft) {
-      await tx`insert into public.catalogue_drafts (
-        record_id, base_version_id, content, content_hash, content_schema_version,
-        revision, updated_by
-      ) values (${claim.recordId}, ${sourceVersionId}, ${tx.json(write as never)},
-        ${write.contentHash}, ${CATALOGUE_CONTENT_SCHEMA_VERSION}, 0, null)
-      on conflict (record_id) do update set base_version_id = excluded.base_version_id,
-        content = excluded.content, content_hash = excluded.content_hash,
-        content_schema_version = excluded.content_schema_version,
-        revision = public.catalogue_drafts.revision + 1, updated_by = null,
-        updated_at = now()`;
-      await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
-      await tx`insert into public.catalogue_draft_provenance (
-        record_id, field_path, origin, source_version_id, source_evidence_id
-      ) select ${claim.recordId}, field_path, method, ${sourceVersionId}, id
-        from public.catalogue_version_provenance where version_id = ${sourceVersionId}`;
-      await tx`insert into public.catalogue_change_events (
-        record_id, draft_revision, event_kind, origin, version_id
-      ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}
-        from public.catalogue_drafts where record_id = ${claim.recordId}`;
+    const draft = await lockDraft();
+    // A record with nothing of its own, never read or discarded since, takes
+    // the reading whole rather than comparing it with nothing.
+    if (!hasMeaningfulLocalContent(draft)) {
+      await populateDraft(sourceVersionId, claim.syncId);
       return { status: "applied", sourceVersionId, populatedDraft: true };
     }
 

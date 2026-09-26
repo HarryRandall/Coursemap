@@ -7,6 +7,7 @@ import type {
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { insertVersionContent } from "@/lib/catalogue-sync/persist-source-version";
+import { countBlockingFirstReads } from "@/lib/catalogue/source-review-store";
 import {
   contentHashForCatalogueContent,
   readVersionContent,
@@ -540,6 +541,14 @@ export async function publishCatalogueDraft({
       const draft = draftFromRow(row);
       if (draft.revision !== expectedRevision)
         throw new CatalogueDraftConflictError(draft.revision);
+      // A first reading from ANU is the model's word until a person has
+      // looked at the parts it was unsure of.
+      const blocking = await countBlockingFirstReads(tx, recordId);
+      if (blocking > 0)
+        throw new CatalogueDraftError(
+          `${blocking} ${blocking === 1 ? "part" : "parts"} of the first ANU reading ${blocking === 1 ? "needs" : "need"} review before publishing. Approve or correct ${blocking === 1 ? "it" : "them"} on the Changes tab.`,
+          "FIRST_READ_REVIEW",
+        );
       const publishedContent = record.published_version_id
         ? await readVersionContent(tx, Number(record.published_version_id))
         : null;
