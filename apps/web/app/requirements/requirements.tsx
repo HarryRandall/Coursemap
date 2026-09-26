@@ -25,7 +25,6 @@ import {
   requirementConditionsByKey,
   requirementTreeProgress,
 } from "@/lib/coursemap/requirement-progress";
-import { planningCourseForAttempt } from "@/lib/planner";
 import {
   conditionHeading,
   type RequirementTreeCondition,
