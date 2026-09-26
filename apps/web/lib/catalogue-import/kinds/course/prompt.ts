@@ -49,7 +49,7 @@ Requisites:
 - Model the whole rule whenever the page's punctuation settles its grouping. Use unmodelledText, with a review item, only for wording you genuinely cannot place in the rule.
 
 Evidence and review:
-- Give evidence for each field you fill. Its fieldKey is the exact field path, such as requisites.prerequisiteRule or offerings.
+- Give evidence for every field you fill, not only tags and requisites: title, description, unit value, offerings, fees, assessment, learning outcomes, areas of interest and the rest each get an entry. Its fieldKey is the exact field path, such as title, requisites.prerequisiteRule or offerings. A field without evidence reaches the reviewer with no confidence.
 - Confidence is how directly the page states the value, from 0 to 1.
 - Add specific review items for ambiguity, unsupported wording or conflicting statements on the page.
 - Do not include chain-of-thought, hidden reasoning, commentary or self-evaluation. Only return the schema fields.`;

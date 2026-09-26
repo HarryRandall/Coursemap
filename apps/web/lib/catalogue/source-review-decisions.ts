@@ -20,6 +20,7 @@ import {
   catalogueRecordForUpdate,
   createDraftInTransaction,
 } from "./drafts";
+import { MARKED_FOR_REVIEW } from "./first-read";
 import { applyReviewUnits, evidenceBelongsToReviewUnit } from "./review-units";
 import type { SourceReviewDecision } from "./source-review-store";
 
@@ -214,4 +215,41 @@ export async function resolveSourceChange({
       };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
+}
+
+/**
+ * Puts one field of the current ANU reading back in front of a person: a
+ * decided change is reopened, and a first reading taken as read is marked for
+ * review so it is listed again.
+ */
+export async function markFieldForReview({
+  recordId,
+  fieldPath,
+}: {
+  recordId: number;
+  fieldPath: string;
+}) {
+  return withSyncDatabaseClient((client) =>
+    client.begin(async (tx) => {
+      const rows = await tx`
+        update public.catalogue_sync_changes
+        set decision = null, resolved_by = null, resolved_at = null,
+          review_band = case
+            when classification = 'first_read' and review_band <> 'needs_review'
+              then 'check' else review_band end,
+          review_reason = case
+            when classification = 'first_read' and review_band <> 'needs_review'
+              then ${MARKED_FOR_REVIEW} else review_reason end
+        where record_id = ${recordId} and field_path = ${fieldPath}
+          and superseded_at is null
+        returning id
+      `;
+      if (rows.length === 0)
+        throw new CatalogueDraftError(
+          "This field has no ANU reading to review.",
+          "NOT_FOUND",
+        );
+      return { label: fieldLabel(fieldPath) };
+    }),
+  );
 }
