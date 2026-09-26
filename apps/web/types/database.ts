@@ -3207,6 +3207,38 @@ export type Database = {
           },
         ]
       }
+      plan_starred_courses: {
+        Row: {
+          course_code: string
+          created_at: string
+          id: string
+          owner_id: string
+          plan_id: string
+        }
+        Insert: {
+          course_code: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          plan_id: string
+        }
+        Update: {
+          course_code?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_starred_courses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_structures: {
         Row: {
           catalogue_record_id: number
@@ -4417,6 +4449,10 @@ export type Database = {
           p_title: string
         }
         Returns: number
+      }
+      set_current_user_course_star: {
+        Args: { p_course_code: string; p_starred: boolean }
+        Returns: undefined
       }
       set_current_user_plan_extension_years: {
         Args: { p_extension_years: number }

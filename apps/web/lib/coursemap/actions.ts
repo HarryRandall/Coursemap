@@ -192,6 +192,27 @@ export async function recordCourseAttempt(
   }
 }
 
+/** Stars a course in the student's plan to consider later, or unstars it. */
+export async function setCourseStar(
+  courseCode: string,
+  starred: boolean,
+): Promise<CoursemapActionResult> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("set_current_user_course_star", {
+      p_course_code: courseCode,
+      p_starred: starred,
+    });
+    if (error) throw error;
+    return {
+      ok: true,
+      message: starred ? `${courseCode} starred` : `${courseCode} unstarred`,
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 /**
  * Counts a course towards a chosen part of the student's degree, or hands the
  * choice back to Coursemap when no requirement is given.
