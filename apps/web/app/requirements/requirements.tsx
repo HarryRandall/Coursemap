@@ -129,7 +129,7 @@ export function Requirements({
     }
   }
   const fillEmpty =
-    tab !== "programme" && selected[tab].length === 0 && !choosing;
+    tab === "programme" ? !degree : selected[tab].length === 0 && !choosing;
   return (
     <Tabs
       value={tab}

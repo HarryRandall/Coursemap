@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 import { PreviewAverageGauge } from "./preview-average-gauge";
 import { PreviewMarkDistribution } from "./preview-mark-distribution";
 import { PreviewTrendChart } from "./preview-trend-chart";
@@ -23,6 +24,7 @@ export function PreviewLayout({
   placeholder?: ReactNode;
 }) {
   const results = courses.filter((course) => course.mark !== undefined);
+  const showPlaceholder = Boolean(placeholder) && !courses.length;
   return (
     <div className={live ? "workspace-stack" : "space-y-4"}>
       {courses.length || live ? (
@@ -53,12 +55,16 @@ export function PreviewLayout({
         </div>
       ) : null}
       <div
-        className={live ? "workspace-scroll" : undefined}
+        className={
+          live
+            ? cn("workspace-scroll", showPlaceholder && "flex flex-col")
+            : undefined
+        }
         role={live ? "region" : undefined}
         aria-label={live ? "Academic results" : undefined}
         tabIndex={live ? 0 : undefined}
       >
-        {placeholder && !courses.length ? (
+        {showPlaceholder ? (
           placeholder
         ) : (
           <PreviewTimeline

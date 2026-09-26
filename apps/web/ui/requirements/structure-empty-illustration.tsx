@@ -1,6 +1,7 @@
 import styles from "./structure-empty-illustration.module.css";
 
-export type StructureIllustrationKind = "major" | "minor" | "specialisation";
+export type StructureIllustrationKind =
+  "plan" | "major" | "minor" | "specialisation";
 
 export function StructureEmptyIllustration({
   kind,
@@ -8,6 +9,41 @@ export function StructureEmptyIllustration({
   kind: StructureIllustrationKind;
 }) {
   const drawings = {
+    plan: (
+      <g key="plan">
+        <rect
+          className={styles.surface}
+          x="40"
+          y="58"
+          width="104"
+          height="24"
+          rx="6"
+        />
+        <rect
+          className={styles.surface}
+          x="40"
+          y="92"
+          width="104"
+          height="24"
+          rx="6"
+        />
+        <rect
+          className={styles.surface}
+          x="40"
+          y="126"
+          width="104"
+          height="24"
+          rx="6"
+        />
+        <path className={styles.accent} d="m50 70 4 4 8-8" />
+        <path className={styles.line} d="M72 70h52M52 104h60M52 138h44" />
+        <path className={styles.dashed} d="M144 104h20q12 0 12-12V76" />
+        <g className={styles.float}>
+          <path className={styles.tint} d="m176 30 32 13-32 13-32-13Z" />
+          <path className={styles.accent} d="M160 50v10q16 9 32 0V50m16-7v17" />
+        </g>
+      </g>
+    ),
     major: (
       <g key="path">
         <path

@@ -608,7 +608,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     return (
       <AppShell fill fullWidth>
         <div className="workspace-scroll flex flex-col gap-5">
-          <OnboardingPrompt />
+          <OnboardingPrompt className="min-h-0 flex-none" />
           <div aria-hidden="true" className="flex flex-col gap-5 opacity-40">
             {[1, 2, 3].map((studyYear) => (
               <section key={studyYear}>
