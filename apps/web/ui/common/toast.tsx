@@ -1,6 +1,7 @@
 "use client";
 
 import { toast, type ExternalToast } from "sonner";
+import { cn } from "@/lib/cn";
 
 export type ToastTone = "success" | "info" | "warning" | "error";
 
@@ -19,9 +20,15 @@ export const TOAST_DURATION: Record<ToastTone, number> = {
  * The line under a toast's title. It is clamped so a toast never grows past
  * two lines of detail, and the whole text is kept in the tooltip.
  */
-export function ToastDetail({ text }: { text: string }) {
+export function ToastDetail({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   return (
-    <span className="line-clamp-2" title={text}>
+    <span className={cn("line-clamp-2", className)} title={text}>
       {text}
     </span>
   );
