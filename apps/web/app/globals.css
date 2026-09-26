@@ -476,6 +476,19 @@
     padding-top: 1.75rem;
   }
 
+  /* A bare scroll area runs through the page's bottom padding to the panel
+     edge, so content scrolls out of view there instead of being clipped
+     above an empty strip. The padding moves inside the scroll area. Carded
+     tables keep the page padding so their bottom border stays visible. */
+  .page-padded:has(.workspace-scroll:not([data-scroll-kind="table"])) {
+    padding-bottom: 0;
+  }
+
+  .page-padded .workspace-scroll:not([data-scroll-kind="table"]) {
+    margin-bottom: 0;
+    padding-bottom: 1.75rem;
+  }
+
   .workspace-scroll[data-scroll-kind="table"] {
     padding: 0;
     margin: 0;
