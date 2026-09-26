@@ -1,16 +1,17 @@
 "use client";
 
 import { Tabs } from "@coursemap/ui/primitives/tabs";
-import { FileCode2, Info, ListChecks, Sparkles } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { FileCode2, Info, ListChecks } from "lucide-react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { SectionTabs } from "@/ui/common/section-tabs";
 
-export type SyncDetailSection =
-  "overview" | "stages" | "extractions" | "artefacts";
+export type SyncDetailSection = "overview" | "stages" | "artefacts";
+
+const SyncDetailSectionContext = createContext<SyncDetailSection>("overview");
 
 /**
  * One sync's diagnostics, split by the question being asked of it: what it
- * was, where it stopped, what the model cost, and what it captured. The whole
+ * was, where it stopped and what the model cost, and what it captured. The whole
  * record used to be a single scroll, so the failing stage sat below several
  * screens of contract versions and the artefact viewer never had the page to
  * itself.
@@ -26,9 +27,29 @@ export function SyncDetailTabs({ children }: { children: ReactNode }) {
       value={section}
       onValueChange={(next) => setSection(next as SyncDetailSection)}
     >
-      {children}
+      <SyncDetailSectionContext.Provider value={section}>
+        {children}
+      </SyncDetailSectionContext.Provider>
     </Tabs>
   );
+}
+
+/**
+ * Content that belongs to one section but sits outside that section's tab
+ * panel, such as the sync's heading, which only the overview carries.
+ */
+export function SyncDetailSectionOnly({
+  section,
+  children,
+}: {
+  section: SyncDetailSection | readonly SyncDetailSection[];
+  children: ReactNode;
+}) {
+  const current = useContext(SyncDetailSectionContext);
+  const shown = Array.isArray(section)
+    ? section.includes(current)
+    : section === current;
+  return shown ? children : null;
 }
 
 export function SyncDetailTabList({
@@ -54,13 +75,7 @@ export function SyncDetailTabList({
           label: "Stages",
           icon: ListChecks,
           count: failedStageCount,
-          disabled: stageCount === 0,
-        },
-        {
-          value: "extractions",
-          label: "Extractions",
-          icon: Sparkles,
-          disabled: extractionCount === 0,
+          disabled: stageCount === 0 && extractionCount === 0,
         },
         {
           value: "artefacts",
