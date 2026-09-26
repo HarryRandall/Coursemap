@@ -39,7 +39,6 @@ function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
     return [
       { label: "Course", kind: "identity" },
       { label: "Year", kind: "text" },
-      { label: "Requisites", kind: "text" },
       { label: "Available", kind: "text" },
       { label: "Units", kind: "text" },
       { label: "Actions", kind: "actions" },
