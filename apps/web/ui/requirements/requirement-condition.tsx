@@ -68,7 +68,7 @@ function CourseChip({
   return (
     <li
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold",
+        "inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium tabular-nums",
         completed
           ? limit
             ? "border-muted-foreground/40"
@@ -428,7 +428,7 @@ function StatedCondition({
       }
     >
       {counted || suggestions ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 pl-7">
           {counted}
           {suggestions}
         </div>
