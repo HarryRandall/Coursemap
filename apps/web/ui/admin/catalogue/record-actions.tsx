@@ -23,7 +23,7 @@ import {
 import { useState } from "react";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { useCatalogueEditor } from "./catalogue-editor-context";
-import { type CatalogueSyncTarget, useCatalogueSync } from "./sync-button";
+import { type RecordSync, useRecordSync } from "./record-sync";
 
 type Confirming = "publish" | "discard" | "unpublish" | null;
 
@@ -33,13 +33,8 @@ type Confirming = "publish" | "discard" | "unpublish" | null;
  * whether it is published or drafted, so only whether the edits are saved is
  * reported here.
  */
-export function RecordActions({
-  sync,
-  canWrite,
-}: {
-  sync: CatalogueSyncTarget | null;
-  canWrite: boolean;
-}) {
+export function RecordActions({ canWrite }: { canWrite: boolean }) {
+  const sync = useRecordSync();
   return canWrite ? (
     <EditableRecordActions sync={sync} />
   ) : sync ? (
@@ -47,13 +42,11 @@ export function RecordActions({
   ) : null;
 }
 
-type Sync = ReturnType<typeof useCatalogueSync>;
-
 /**
- * The sync is followed by the menu's owner, not the item, because the item
+ * The sync is followed above the menu, not by the item, because the item
  * unmounts whenever the menu closes and would stop watching the sync.
  */
-function SyncItem({ sync }: { sync: Sync }) {
+function SyncItem({ sync }: { sync: RecordSync }) {
   const { start, cancel, busy, isActive, label } = sync;
   if (isActive) {
     return (
@@ -86,29 +79,18 @@ function MenuTrigger() {
   );
 }
 
-function SyncOnlyActions({ sync }: { sync: CatalogueSyncTarget }) {
-  const following = useCatalogueSync(sync);
+function SyncOnlyActions({ sync }: { sync: RecordSync }) {
   return (
     <DropdownMenu>
       <MenuTrigger />
       <DropdownMenuContent align="end" className="min-w-44">
-        <SyncItem sync={following} />
+        <SyncItem sync={sync} />
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
 
-function EditableRecordActions({ sync }: { sync: CatalogueSyncTarget | null }) {
-  // Hooks run unconditionally; with no sync target the item is not offered.
-  const following = useCatalogueSync(
-    sync ?? {
-      recordId: 0,
-      code: "",
-      kind: "course",
-      latestSync: null,
-      hasSynced: false,
-    },
-  );
+function EditableRecordActions({ sync }: { sync: RecordSync | null }) {
   const {
     beginEditing,
     cancelEditing,
@@ -186,7 +168,7 @@ function EditableRecordActions({ sync }: { sync: CatalogueSyncTarget | null }) {
               <Send aria-hidden="true" /> Publish
             </DropdownMenuItem>
           ) : null}
-          {sync ? <SyncItem sync={following} /> : null}
+          {sync ? <SyncItem sync={sync} /> : null}
           {drafting || isPublished ? <DropdownMenuSeparator /> : null}
           {drafting ? (
             // A draft not yet opened on the server holds nothing, so backing

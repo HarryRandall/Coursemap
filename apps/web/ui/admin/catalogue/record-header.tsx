@@ -1,15 +1,11 @@
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
-import { CircleAlert, ExternalLink, TriangleAlert } from "lucide-react";
+import { ExternalLink, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import type { CatalogueRecord } from "@/lib/coursemap/admin-catalogue-record";
 import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { anuSourceUrl } from "./anu-source";
 import { RecordActions } from "./record-actions";
+import { FailedSyncAlert, RecordSyncProvider } from "./record-sync";
 
 function formatDate(value: string | null) {
   if (!value) return null;
@@ -41,7 +37,7 @@ export function RecordHeader({
       : "Not published";
   const failedSync =
     record.syncs[0]?.status === "failed" ? record.syncs[0] : null;
-  return (
+  const content = (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-col gap-2">
@@ -91,34 +87,34 @@ export function RecordHeader({
           ) : null}
           <span className="sr-only">{labels.singular} record</span>
         </div>
-        <RecordActions
-          canWrite={canWrite}
-          sync={
-            canSync
-              ? {
-                  recordId: record.recordId,
-                  code: record.code,
-                  kind: record.kind,
-                  latestSync: record.syncs[0] ?? null,
-                  // A record whose draft was discarded holds nothing from ANU
-                  // any more, so reading it again is a first sync.
-                  hasSynced:
-                    record.sourceCheckedAt !== null &&
-                    (hasDraft || record.publishedVersionId !== null),
-                }
-              : null
-          }
-        />
+        <RecordActions canWrite={canWrite} />
       </header>
       {failedSync ? (
-        <Alert variant="destructive">
-          <CircleAlert aria-hidden="true" />
-          <AlertTitle>The last ANU sync failed</AlertTitle>
-          <AlertDescription>
-            {failedSync.errorMessage ?? "It stopped before it finished."}
-          </AlertDescription>
-        </Alert>
+        <FailedSyncAlert
+          errorCode={failedSync.errorCode}
+          errorMessage={failedSync.errorMessage}
+          failedAt={failedSync.completedAt}
+        />
       ) : null}
     </div>
+  );
+  return canSync ? (
+    <RecordSyncProvider
+      target={{
+        recordId: record.recordId,
+        code: record.code,
+        kind: record.kind,
+        latestSync: record.syncs[0] ?? null,
+        // A record whose draft was discarded holds nothing from ANU any more,
+        // so reading it again is a first sync.
+        hasSynced:
+          record.sourceCheckedAt !== null &&
+          (hasDraft || record.publishedVersionId !== null),
+      }}
+    >
+      {content}
+    </RecordSyncProvider>
+  ) : (
+    content
   );
 }

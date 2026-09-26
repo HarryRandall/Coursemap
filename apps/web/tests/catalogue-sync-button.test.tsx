@@ -1,5 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
+import {
+  FailedSyncAlert,
+  RecordSyncProvider,
+} from "@/ui/admin/catalogue/record-sync";
 import { CatalogueSyncButton } from "@/ui/admin/catalogue/sync-button";
 
 const { refresh, progress, success, info, failure } = vi.hoisted(() => ({
@@ -153,4 +157,39 @@ test("offers a retry after a failed sync", () => {
     />,
   );
   expect(screen.getByRole("button", { name: "Retry sync" })).toBeEnabled();
+});
+
+test("a failed sync keeps its error behind Details and can be retried", async () => {
+  const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(JSON.stringify({ syncId: "sync-2", mode: "inline" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  render(
+    <RecordSyncProvider
+      target={{
+        recordId: 42,
+        code: "COMP1100",
+        kind: "course",
+        latestSync: null,
+        hasSynced: true,
+      }}
+    >
+      <FailedSyncAlert
+        errorCode="23505"
+        errorMessage="duplicate key value"
+        failedAt="2026-09-26T06:00:00Z"
+      />
+    </RecordSyncProvider>,
+  );
+
+  expect(screen.getByText("The last ANU sync failed")).toBeInTheDocument();
+  expect(screen.queryByText("duplicate key value")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  expect(screen.getByText("duplicate key value")).toBeInTheDocument();
+  expect(screen.getByText("23505")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry sync" }));
+  await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
 });

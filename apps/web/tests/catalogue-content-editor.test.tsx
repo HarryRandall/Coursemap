@@ -60,7 +60,7 @@ function renderEditor({ hasDraft = true } = {}) {
         initialHasUnpublishedChanges={hasDraft}
         path="/admin/courses/2026/comp1000"
       >
-        <RecordActions canWrite sync={null} />
+        <RecordActions canWrite />
         <CatalogueContentEditor />
       </CatalogueEditorProvider>
     </TooltipProvider>,
