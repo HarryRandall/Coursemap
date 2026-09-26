@@ -266,7 +266,7 @@ export function AppSidebar({ admin }: { admin: boolean }) {
   };
 
   return (
-    <Sidebar collapsible="icon" className="select-none">
+    <Sidebar variant="inset" collapsible="icon" className="select-none">
       <SidebarHeader className="gap-3 px-3 pb-3 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 motion-reduce:transition-none">
         <Link
           href={admin ? "/admin/dashboard" : "/dashboard"}

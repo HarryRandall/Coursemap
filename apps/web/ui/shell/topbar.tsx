@@ -32,7 +32,7 @@ export function Topbar({
       data-loading={loading || undefined}
       className={cn(
         loading && "topbar-loading",
-        "topbar-progress sticky top-0 z-40 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 overflow-visible border-b border-border bg-background px-4 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-0",
+        "topbar-progress sticky top-0 z-40 flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 overflow-visible border-b border-border bg-background px-4 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-0 md:rounded-t-xl",
       )}
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-visible">
