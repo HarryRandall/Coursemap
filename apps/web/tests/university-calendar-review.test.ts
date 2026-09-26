@@ -49,3 +49,20 @@ test("a first sync adds every date", () => {
 
   expect(diff).toMatchObject({ added: 1, removed: 0, unchanged: 0 });
 });
+
+test("dates added by hand survive a sync that does not list them", () => {
+  const diff = diffUniversityCalendarReview(
+    [{ date: "2027-02-22", title: "Semester 1 begins" }],
+    [
+      { id: 1, date: "2027-02-22", title: "Semester 1 begins", origin: "anu" },
+      { id: 2, date: "2027-05-01", title: "Open day", origin: "manual" },
+    ],
+  );
+
+  expect(diff).toMatchObject({ added: 0, removed: 0, unchanged: 2 });
+  expect(diff.events[1]).toMatchObject({
+    title: "Open day",
+    manual: true,
+    eventId: 2,
+  });
+});

@@ -27,6 +27,8 @@ export function KeyDatesSyncButton({
         const result = await syncKeyDatesAction(year);
         if (result.ok) toast.success(result.message);
         else toast.error(result.message);
+        if (result.staged)
+          router.push(`/admin/key-dates/${year}/sync`, { scroll: false });
         router.refresh();
       } catch {
         toast.error(`The ${year} calendar could not be synced. Try again.`);

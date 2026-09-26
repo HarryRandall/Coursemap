@@ -1,4 +1,5 @@
-import { Minus, Plus } from "lucide-react";
+import type { ReactNode } from "react";
+import { Minus, PenLine, Plus } from "lucide-react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { cn } from "@/lib/cn";
 import { groupUniversityCalendarEventsByMonth } from "@/lib/coursemap/university-calendar";
@@ -28,14 +29,26 @@ function ChangeBadge({
   return null;
 }
 
+function ManualBadge() {
+  return (
+    <Badge variant="outline">
+      <PenLine aria-hidden="true" size={12} />
+      Manual
+    </Badge>
+  );
+}
+
 /**
  * Key dates grouped by month, in the same shape students see them. When
- * `showChanges` is set each row also says whether approval adds or removes it.
+ * `showChanges` is set each row also says whether approval adds or removes
+ * it. `actions` renders a control at the end of each row.
  */
 export function KeyDatesMonthList({
+  actions,
   events,
   showChanges = false,
 }: {
+  actions?: (event: UniversityCalendarReviewEvent) => ReactNode;
   events: UniversityCalendarReviewEvent[];
   showChanges?: boolean;
 }) {
@@ -68,7 +81,10 @@ export function KeyDatesMonthList({
                 <li
                   key={event.key}
                   className={cn(
-                    "grid grid-cols-[3rem_minmax(0,1fr)] items-center gap-4 px-4 py-3.5 sm:px-5 md:grid-cols-[3.5rem_minmax(0,1fr)_auto]",
+                    "grid items-center gap-4 px-4 py-3.5 sm:px-5",
+                    actions
+                      ? "grid-cols-[3rem_minmax(0,1fr)_auto] md:grid-cols-[3.5rem_minmax(0,1fr)_auto_auto]"
+                      : "grid-cols-[3rem_minmax(0,1fr)] md:grid-cols-[3.5rem_minmax(0,1fr)_auto]",
                     showChanges &&
                       event.change === "added" &&
                       "bg-emerald-500/4",
@@ -99,13 +115,18 @@ export function KeyDatesMonthList({
                       {showChanges ? (
                         <ChangeBadge change={event.change} />
                       ) : null}
+                      {event.manual ? <ManualBadge /> : null}
                       <CategoryBadge category={event.category} />
                     </div>
                   </div>
                   <div className="hidden items-center gap-1.5 justify-self-end md:flex">
                     {showChanges ? <ChangeBadge change={event.change} /> : null}
+                    {event.manual ? <ManualBadge /> : null}
                     <CategoryBadge category={event.category} />
                   </div>
+                  {actions ? (
+                    <div className="justify-self-end">{actions(event)}</div>
+                  ) : null}
                 </li>
               );
             })}
