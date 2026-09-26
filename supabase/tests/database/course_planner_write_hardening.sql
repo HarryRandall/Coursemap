@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(23);
+select extensions.plan(26);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -46,6 +46,10 @@ values (
 -- null until the university calendar is imported.
 select pg_temp.publish_course(
   'COMP1110', 2030::smallint, 'Structured Programming 2030', 'fixed', 6
+);
+
+select pg_temp.publish_course(
+  'COMP1110', 2029::smallint, 'Structured Programming 2029', 'fixed', 6
 );
 
 select pg_temp.publish_course(
@@ -182,9 +186,44 @@ select extensions.throws_ok(
       null
     )
   $$,
-  '22023',
-  'A planned course cannot be moved outside its selected academic year.',
-  'moving a plan item cannot silently change its selected course year'
+  'P0002',
+  'COMP1110 for 2027 isn''t imported yet.',
+  'moving a plan item into a year without that course version is refused'
+);
+
+select extensions.lives_ok(
+  $$
+    select public.move_current_user_plan_item(
+      (
+        select plan_items.id
+        from public.plan_items
+        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
+        where plan_items.owner_id = (select auth.uid())
+          and courses.code = 'COMP1110'
+      ),
+      2029::smallint,
+      'S1',
+      null
+    )
+  $$,
+  'a planned course can move into another year that has its version imported'
+);
+
+select extensions.ok(
+  exists (
+    select 1
+    from public.plan_items
+    join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = plan_records.code_id
+    join public.academic_years on academic_years.id = plan_records.academic_year_id
+    where plan_items.owner_id = (select auth.uid())
+      and courses.code = 'COMP1110'
+      and academic_years.year = 2029
+      and plan_items.planned_calendar_year = 2029
+      and plan_items.planned_period_code = 'S1'
+  ),
+  'moving into another year swaps the plan item to that year''s course version'
 );
 
 select extensions.throws_ok(
@@ -247,6 +286,17 @@ select extensions.throws_ok(
   '42501',
   null,
   'direct authenticated plan-item deletes are denied'
+);
+
+select extensions.throws_ok(
+  $$
+    select public.add_current_user_plan_item(
+      'COMP1100', 2026::smallint, 2027::smallint, 'S1'
+    )
+  $$,
+  'P0002',
+  'COMP1100 for 2027 isn''t imported yet.',
+  'adding a course into a year without that course version is refused'
 );
 
 select extensions.lives_ok(

@@ -14,6 +14,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthViewer } from "@/lib/auth/viewer";
+import { saveAcademicResult } from "@/lib/academic/actions";
 import type { AppState, AttemptStatus, Profile } from "@/lib/coursemap/types";
 
 export type { AppState, Profile } from "@/lib/coursemap/types";
@@ -24,6 +25,7 @@ import {
   removePlanCourse,
   saveProfileAndPlan,
   setCurrentUserPlanExtensionYears,
+  setCourseStar,
   setRequirementPlacement,
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
@@ -58,6 +60,8 @@ type AppContextValue = {
     courseCode: string,
     placement: { structureCode: string; requirementKey: string } | null,
   ) => Promise<CoursemapActionResult>;
+  /** Stars a course to consider later, or unstars it. */
+  toggleStar: (courseCode: string) => Promise<CoursemapActionResult>;
   togglePermission: (attemptId: string) => void;
   toggleOverloadApproval: (attemptId: string) => void;
   notify: (message: string, tone?: ToastTone) => void;
@@ -84,6 +88,18 @@ function createInitialState(viewer: AuthViewer | null) {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
+
+/**
+ * A scheduled course takes the version for the year it is placed in, so its
+ * academic year follows the term; Later keeps the year it already had.
+ */
+function courseYearForTerm<T extends number | undefined>(
+  termId: string,
+  fallback: T,
+) {
+  const match = /^(\d{4})-/.exec(termId);
+  return match ? Number(match[1]) : fallback;
+}
 
 export function AppProvider({
   children,
@@ -164,7 +180,7 @@ export function AppProvider({
           ...current.attempts,
           {
             id: result.id!,
-            academicYear,
+            academicYear: courseYearForTerm(termId, academicYear),
             courseCode,
             termId,
             status: "planned",
@@ -210,7 +226,11 @@ export function AppProvider({
         const remaining = current.attempts.filter(
           (attempt) => attempt.id !== attemptId,
         );
-        const next = { ...moving, termId };
+        const next = {
+          ...moving,
+          termId,
+          academicYear: courseYearForTerm(termId, moving.academicYear),
+        };
         const beforeIndex = beforeAttemptId
           ? remaining.findIndex((attempt) => attempt.id === beforeAttemptId)
           : -1;
@@ -234,10 +254,21 @@ export function AppProvider({
       const result = await movePlanCourse(attemptId, termId, beforeAttemptId);
       if (!result.ok) {
         setState((current) => ({ ...current, attempts: previousAttempts }));
+        return result;
+      }
+      const moved = previousAttempts.find(
+        (attempt) => attempt.id === attemptId,
+      );
+      // Another year's version may not be in the loaded catalogue yet.
+      if (
+        moved &&
+        moved.academicYear !== courseYearForTerm(termId, moved.academicYear)
+      ) {
+        router.refresh();
       }
       return result;
     },
-    [state.attempts],
+    [router, state.attempts],
   );
 
   const updateAttempt = useCallback(
@@ -316,7 +347,17 @@ export function AppProvider({
       }
       if (!attempt)
         return { ok: false, message: "That course is no longer in your plan" };
-      const result = await removePlanCourse(attemptId);
+      // An enrolment is a recorded attempt rather than a plan item, and has
+      // no result yet, so it is removed from the academic record instead.
+      const result =
+        attempt.status === "enrolled"
+          ? await saveAcademicResult(attemptId, "remove").then((response) => ({
+              ok: response.ok,
+              message: response.ok
+                ? "Course removed from the plan"
+                : response.message,
+            }))
+          : await removePlanCourse(attemptId);
       if (!result.ok) return result;
       setState((current) => ({
         ...current,
@@ -363,6 +404,26 @@ export function AppProvider({
     [state.placements],
   );
 
+  const toggleStar = useCallback(
+    async (courseCode: string) => {
+      const previous = state.starredCourses ?? [];
+      const starred = !previous.includes(courseCode);
+      // The star shows at once; a failed save takes it back.
+      setState((current) => ({
+        ...current,
+        starredCourses: starred
+          ? [...previous, courseCode]
+          : previous.filter((code) => code !== courseCode),
+      }));
+      const result = await setCourseStar(courseCode, starred);
+      if (!result.ok) {
+        setState((current) => ({ ...current, starredCourses: previous }));
+      }
+      return result;
+    },
+    [state.starredCourses],
+  );
+
   const toggleOverloadApproval = useCallback((attemptId: string) => {
     setState((current) => ({
       ...current,
@@ -386,6 +447,7 @@ export function AppProvider({
       updateAttempt,
       removeAttempt,
       setPlacement,
+      toggleStar,
       togglePermission,
       toggleOverloadApproval,
       notify,
@@ -401,6 +463,7 @@ export function AppProvider({
       updateAttempt,
       removeAttempt,
       setPlacement,
+      toggleStar,
       togglePermission,
       toggleOverloadApproval,
       notify,
