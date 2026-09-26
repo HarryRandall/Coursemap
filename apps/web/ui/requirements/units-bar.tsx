@@ -1,48 +1,49 @@
 "use client";
 import { cn } from "@/lib/cn";
-import { type RequirementNodeProgress } from "@/lib/coursemap/requirement-progress";
 
 export /**
- * Completed and planned units stacked against a target so the two kinds of
- * progress read at a glance. Falls back to a plain line when the rule has
- * nothing to measure against.
+ * Completed and planned amounts stacked against a target: completed in green
+ * and planned in purple, as course statuses are everywhere else. A cap draws
+ * its used units in grey, since filling it is not something to work towards.
  */
 function UnitsBar({
-  progress,
+  completed,
+  planned,
+  goal,
+  tone = "progress",
   className,
 }: {
-  progress: RequirementNodeProgress;
+  completed: number;
+  planned: number;
+  goal: number | null;
+  tone?: "progress" | "limit" | "over_limit";
   className?: string;
 }) {
-  const goal = progress.targetUnits ?? progress.maximumUnits;
   if (goal === null || goal <= 0) return null;
-  const completed = Math.min(100, (progress.completedUnits / goal) * 100);
-  const planned = Math.min(
-    100 - completed,
-    (progress.plannedUnits / goal) * 100,
-  );
-  const overLimit = progress.state === "over_limit";
+  const completedShare = Math.min(100, (completed / goal) * 100);
+  const plannedShare = Math.min(100 - completedShare, (planned / goal) * 100);
+  const fill = {
+    progress: "bg-success",
+    limit: "bg-muted-foreground/60",
+    over_limit: "bg-destructive",
+  }[tone];
+  const plannedFill =
+    tone === "over_limit" ? "bg-destructive/40" : "bg-primary";
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "flex h-1.5 w-full overflow-hidden rounded-full bg-muted",
+        "flex h-1 w-full overflow-hidden rounded-full bg-muted",
         className,
       )}
     >
       <span
-        className={cn(
-          "block h-full transition-[width]",
-          overLimit ? "bg-destructive" : "bg-success",
-        )}
-        style={{ width: `${completed}%` }}
+        className={cn("block h-full transition-[width]", fill)}
+        style={{ width: `${completedShare}%` }}
       />
       <span
-        className={cn(
-          "block h-full transition-[width]",
-          overLimit ? "bg-destructive/40" : "bg-primary",
-        )}
-        style={{ width: `${planned}%` }}
+        className={cn("block h-full transition-[width]", plannedFill)}
+        style={{ width: `${plannedShare}%` }}
       />
     </div>
   );

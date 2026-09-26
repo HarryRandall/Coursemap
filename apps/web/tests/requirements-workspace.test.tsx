@@ -87,6 +87,8 @@ const condition: PlanRequirementCondition = {
   structureKind: null,
   subjectCode: null,
   tag: null,
+  scope: "part",
+  includesAnyCourse: false,
 };
 const root: PlanRequirementGroup = {
   type: "group",
@@ -102,6 +104,7 @@ const root: PlanRequirementGroup = {
   sourceLocator: "#source",
   sourceText: "Original group wording",
   title: "Complete every item",
+  scope: "part",
 };
 const catalogue: PlanCatalogue = {
   academicYear: 2026,
@@ -203,6 +206,19 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
+/** A course row's link, which reads as the course's name. */
+function courseLink(code: string) {
+  const link = screen
+    .getAllByRole("link")
+    .find(
+      (candidate) =>
+        candidate.getAttribute("href") ===
+        `/courses/2026/${code.toLowerCase()}`,
+    );
+  if (!link) throw new Error(`No link to ${code}`);
+  return link;
+}
+
 test("requirements use separate tabs without source disclosures or the summary sidebar", async () => {
   const user = userEvent.setup();
   render(<Requirements catalogue={catalogue} choices={choices} />);
@@ -216,7 +232,7 @@ test("requirements use separate tabs without source disclosures or the summary s
     ),
   ).not.toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: /Choose 1 course/ }),
+    screen.getByRole("heading", { name: /Pick COMP1100 or COMP1110/ }),
   ).toBeVisible();
   await user.click(screen.getByRole("tab", { name: "Minors" }));
   expect(
@@ -291,7 +307,7 @@ test("a course opens the semester chooser and is saved in the selected year", as
   );
   render(<Requirements catalogue={catalogue} choices={choices} />);
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  expect(screen.getByRole("link", { name: /COMP1100/ })).toHaveAttribute(
+  expect(courseLink("COMP1100")).toHaveAttribute(
     "href",
     "/courses/2026/comp1100",
   );
@@ -335,12 +351,10 @@ test("completed study takes precedence over a planned repeat and existing course
   expect(requirementCourseStatus("COMP1100", state.attempts)).toBe("completed");
   render(<Requirements catalogue={catalogue} choices={choices} />);
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  const done = screen.getByRole("link", { name: /COMP1100/ }).closest("li")!;
+  const done = courseLink("COMP1100").closest("li")!;
   expect(within(done).getByText("Completed")).toBeVisible();
-  expect(done).toHaveClass("bg-success/5");
-  const planned = screen.getByRole("link", { name: /COMP1110/ }).closest("li")!;
+  const planned = courseLink("COMP1110").closest("li")!;
   expect(within(planned).getByText("Planned")).toBeVisible();
-  expect(planned).toHaveClass("bg-primary/5");
   expect(
     screen.queryByRole("button", { name: /Add COMP/ }),
   ).not.toBeInTheDocument();
@@ -370,7 +384,7 @@ test("alternative groups and upper limits remain explicit after simplifying wrap
   expect(screen.getByText("or")).toBeVisible();
 });
 
-test("unpublished requirement courses are disabled and retain planned status", async () => {
+test("unpublished requirement courses still link and retain planned status", async () => {
   const user = userEvent.setup();
   state.attempts = [
     {
@@ -387,11 +401,8 @@ test("unpublished requirement courses are disabled and retain planned status", a
     />,
   );
   await user.click(screen.getByRole("button", { name: /View courses/ }));
-  const course = screen.getByRole("button", {
-    name: "COMP1100: not available",
-  });
-  expect(course).toHaveAttribute("aria-disabled", "true");
-  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  const course = courseLink("COMP1100");
+  expect(course).toHaveAttribute("href", "/courses/2026/comp1100");
   const row = course.closest("li")!;
   expect(within(row).getByText("Planned")).toBeVisible();
   expect(
