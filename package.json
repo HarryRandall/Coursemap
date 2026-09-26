@@ -29,6 +29,7 @@
     "db:stop": "supabase stop",
     "db:reset": "node apps/web/scripts/local/reset-preview.mjs",
     "db:seed:preview": "node apps/web/scripts/local/seed-preview.mjs",
+    "db:seed:dashboard": "node apps/web/scripts/local/seed-dashboard-states.mjs",
     "db:test": "supabase test db",
     "db:lint": "supabase db lint --local --schema public,private --level warning --fail-on warning",
     "db:types": "supabase gen types typescript --local --schema public > apps/web/types/database.ts",
