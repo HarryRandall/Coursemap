@@ -83,7 +83,7 @@ export function AssistantPanel({
         onKeyDown={(event) => {
           if (event.key === "Escape" && !event.defaultPrevented) onClose();
         }}
-        className="mt-2 h-[calc(100dvh-1rem)] w-96 overflow-hidden rounded-xl bg-background shadow-sm ring-1 ring-border outline-none lg:w-[26rem]"
+        className="mt-2 h-[calc(100dvh-1rem)] w-96 overflow-hidden rounded-xl border border-border bg-background shadow-sm outline-none lg:w-[26rem]"
       >
         {content}
       </aside>
