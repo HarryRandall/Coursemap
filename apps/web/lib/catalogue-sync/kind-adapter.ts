@@ -1,5 +1,11 @@
-import type { ClaimedCatalogueSync } from "./sync-store.ts";
+import type { ClaimedCatalogueSync, SyncSql } from "./sync-store.ts";
 import type { CatalogueKind, CatalogueContent } from "../catalogue/content.ts";
+
+/** Catalogue facts a prompt draws on beyond the page itself. */
+export type PromptContext = {
+  /** Tag names already in use, so the model reuses them rather than coining near-duplicates. */
+  knownTags: string[];
+};
 
 export type FetchedSourcePage = {
   sourceUrl: string;
@@ -50,7 +56,16 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
   /** The whole page as Markdown, which is also the model input. */
   prepareInput(claim: ClaimedCatalogueSync, page: FetchedSourcePage): string;
   buildSystemPrompt(): string;
-  buildUserPrompt(claim: ClaimedCatalogueSync, pageMarkdown: string): string;
+  /** Reads what the prompt needs from the catalogue, once per sync. */
+  loadPromptContext?(
+    sql: SyncSql,
+    claim: ClaimedCatalogueSync,
+  ): Promise<PromptContext>;
+  buildUserPrompt(
+    claim: ClaimedCatalogueSync,
+    pageMarkdown: string,
+    context?: PromptContext,
+  ): string;
   /** Strict validation of raw model output, recorded for the audit trail. */
   validateModelOutput(
     claim: ClaimedCatalogueSync,

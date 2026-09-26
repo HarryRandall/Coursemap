@@ -198,6 +198,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "course.unitOptions": "Unit options",
   "course.fees": "Fees",
   "course.areasOfInterest": "Areas of interest",
+  "course.tags": "Tags",
   "course.attributes": "Attributes",
   "course.relatedCourses": "Related courses",
   "course.offering": "Offering",

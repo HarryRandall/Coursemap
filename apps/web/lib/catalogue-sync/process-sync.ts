@@ -331,7 +331,10 @@ async function processClaimedSync({
     const userPrompt = await runStage(
       "model_input_prepare",
       async (stageId) => {
-        const prompt = adapter.buildUserPrompt(claim, pageMarkdown);
+        const context = adapter.loadPromptContext
+          ? await adapter.loadPromptContext(sql, claim)
+          : undefined;
+        const prompt = adapter.buildUserPrompt(claim, pageMarkdown, context);
         await persistArtifact({
           stageId,
           stageName: "model_input_prepare",

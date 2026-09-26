@@ -25,6 +25,7 @@
   "offeringStatus": "offered",
   "sourceUpdatedAt": null,
   "areasOfInterest": ["Information Technology", "Software Engineering"],
+  "tags": [],
   "fees": [
     {
       "position": 1,
