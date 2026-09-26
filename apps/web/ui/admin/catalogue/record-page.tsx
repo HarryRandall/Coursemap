@@ -128,8 +128,13 @@ export async function CatalogueRecordPage({
       .sort((left, right) => left.id - right.id)
       .map((version, index) => [version.id, index + 1]),
   );
+  // A first reading counts while it is unsure; what was read plainly waits
+  // folded away and does not ask for attention.
   const openChanges =
-    (review?.conflicts.length ?? 0) + (review?.incoming.length ?? 0);
+    (review?.conflicts.length ?? 0) +
+    (review?.incoming.length ?? 0) +
+    (review?.firstRead.filter((change) => change.band !== "accepted").length ??
+      0);
 
   return (
     <RecordTabs value={section} path={path}>

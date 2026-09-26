@@ -304,3 +304,47 @@ export async function resolveSourceChangeAction({
     return draftFailure(error, "The ANU change could not be resolved.");
   }
 }
+
+/**
+ * Approves parts of a record's first ANU reading as read. Each keeps the value
+ * the draft already holds, so approving changes no content; it only clears
+ * the item, and with it any hold on publishing.
+ */
+export async function approveFirstReadAction({
+  recordId,
+  changeIds,
+  path,
+}: {
+  recordId: number;
+  changeIds: number[];
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  let revision: number | undefined;
+  try {
+    for (const changeId of changeIds) {
+      const resolved = await resolveSourceChange({
+        recordId,
+        changeId,
+        decision: "use_source",
+        userId: viewer.id,
+      });
+      revision = resolved.revision;
+    }
+  } catch (error) {
+    revalidateRecord(path);
+    return draftFailure(error, "The ANU reading could not be approved.");
+  }
+  revalidateRecord(path);
+  return {
+    ok: true,
+    revision,
+    message:
+      changeIds.length === 1
+        ? "Approved."
+        : `${changeIds.length} parts approved.`,
+  };
+}

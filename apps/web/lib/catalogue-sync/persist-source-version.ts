@@ -14,7 +14,10 @@ import {
   contentHashForCatalogueContent,
   readVersionContent,
 } from "../catalogue-import/version-content.ts";
-import { generateSourceReview } from "../catalogue/source-review-store.ts";
+import {
+  generateFirstReadReview,
+  generateSourceReview,
+} from "../catalogue/source-review-store.ts";
 
 export type PersistedSourceVersion = {
   status: "unchanged" | "review_required" | "applied";
@@ -631,6 +634,13 @@ export async function persistSourceVersion(
         record_id, draft_revision, event_kind, origin, version_id
       ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}
         from public.catalogue_drafts where record_id = ${claim.recordId}`;
+      // The draft took the model's reading whole, so every part of it is
+      // queued for a person, rated by how sure the reading is.
+      await generateFirstReadReview(tx, {
+        syncId: claim.syncId,
+        recordId: claim.recordId,
+        content: write,
+      });
       return { status: "applied", sourceVersionId, populatedDraft: true };
     }
 
