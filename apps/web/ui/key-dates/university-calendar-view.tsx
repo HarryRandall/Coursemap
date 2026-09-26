@@ -206,7 +206,7 @@ export function UniversityCalendarView({
           <SelectTrigger size="sm" aria-label="Calendar year">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent position="popper" align="end">
+          <SelectContent position="popper" align="end" className="min-w-0 p-1">
             {availableYears.map((value) => (
               <SelectItem key={value} value={String(value)}>
                 {value}
