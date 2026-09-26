@@ -37,8 +37,8 @@ import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
 import {
   courseForTerm,
-  coursesToPlan,
-  rulesToPlanCount,
+  ruleSearches,
+  structuresToPlan,
   type CourseToPlan,
   type PlannedStructure,
 } from "@/ui/plan/plan-suggestions";
@@ -114,8 +114,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     notify,
   } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
-  const [panelOpen, setPanelOpen] = useState(true);
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
+  const [searched, setSearched] = useState<ReadonlyMap<string, Course[]>>(
+    () => new Map(),
+  );
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -372,10 +374,39 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       ];
     },
   );
-  const toPlan = coursesToPlan({
+  // Each open rule's courses come from the course search, so every rule has
+  // something to drag in even when the catalogue has not loaded its courses.
+  const searches = ruleSearches(structures)
+    .filter((params) => !searched.has(params))
+    .join("|");
+  useEffect(() => {
+    if (!searches || catalogue.academicYear === null) return;
+    const controller = new AbortController();
+    const year = String(catalogue.academicYear);
+    void Promise.all(
+      searches.split("|").map((params) =>
+        fetch(
+          `/api/courses/search?browse=1&pageSize=12&year=${year}&${params}`,
+          { signal: controller.signal },
+        )
+          .then((response) => (response.ok ? response.json() : null))
+          .then(
+            (payload: { courses?: Course[] } | null) =>
+              [params, payload?.courses ?? []] as const,
+          )
+          .catch(() => [params, [] as Course[]] as const),
+      ),
+    ).then((results) => {
+      if (controller.signal.aborted) return;
+      setSearched((current) => new Map([...current, ...results]));
+    });
+    return () => controller.abort();
+  }, [searches, catalogue.academicYear]);
+  const toPlan = structuresToPlan({
     structures,
     attempts: state.attempts,
     catalogue: planningCatalogue,
+    searched,
   });
 
   // Starred courses the planner has not loaded are fetched by code.
@@ -947,40 +978,22 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           >
             {selectedTerms.map(renderLane)}
           </section>
-          {panelOpen ? (
-            <aside
-              aria-label="Courses to plan"
-              data-drop-remove
-              className={cn(
-                "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[26rem] lg:shrink-0",
-                dragPreview?.termId === REMOVE_DROP &&
-                  "ring-2 ring-destructive/40",
-              )}
-            >
-              <CoursesToPlan
-                required={toPlan.required}
-                suggested={toPlan.suggested}
-                starred={starred}
-                structures={structures}
-                rulesLeft={rulesToPlanCount(structures)}
-                onAdd={addToSelectedYear}
-                onDragStart={startSuggestionDrag}
-                onHide={() => setPanelOpen(false)}
-              />
-            </aside>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-end lg:self-start"
-              onClick={() => setPanelOpen(true)}
-            >
-              Courses to plan
-              <span className="text-muted-foreground tabular-nums">
-                {toPlan.required.length + toPlan.suggested.length}
-              </span>
-            </Button>
-          )}
+          <aside
+            aria-label="Courses to plan"
+            data-drop-remove
+            className={cn(
+              "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[24rem] lg:shrink-0",
+              dragPreview?.termId === REMOVE_DROP &&
+                "ring-2 ring-destructive/40",
+            )}
+          >
+            <CoursesToPlan
+              structures={toPlan}
+              starred={starred}
+              onAdd={addToSelectedYear}
+              onDragStart={startSuggestionDrag}
+            />
+          </aside>
         </div>
       </div>
 

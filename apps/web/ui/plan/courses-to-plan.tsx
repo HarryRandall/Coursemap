@@ -1,22 +1,25 @@
 "use client";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
-import { GripVertical, Plus } from "lucide-react";
-import { Button } from "@coursemap/ui/primitives/button";
+import { Check, GripVertical, Plus } from "lucide-react";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
-import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
 import type {
   CourseToPlan,
-  PlannedStructure,
+  RuleToPlan,
+  StructureToPlan,
 } from "@/ui/plan/plan-suggestions";
-import { PlanRequirements } from "@/ui/plan/plan-requirements";
 import { StarButton } from "@/ui/common/star-button";
+
+type DragStart = (
+  event: ReactPointerEvent<HTMLButtonElement>,
+  item: CourseToPlan,
+) => void;
 
 /** "First Semester" as S1, so a row can show every session it runs in. */
 function sessionLabel(session: string) {
@@ -25,204 +28,239 @@ function sessionLabel(session: string) {
   return session.split(" ")[0];
 }
 
-function CourseList({
-  label,
-  items,
+function CourseRow({
+  item,
   onAdd,
   onDragStart,
 }: {
-  label: string;
-  items: CourseToPlan[];
+  item: CourseToPlan;
   onAdd: (course: Course) => void;
-  onDragStart: (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    item: CourseToPlan,
-  ) => void;
+  onDragStart: DragStart;
 }) {
-  if (items.length === 0) return null;
   return (
-    <section aria-label={label}>
-      <ul className="space-y-1.5">
-        {items.map((item) => (
-          <li
-            key={item.course.code}
-            data-drag-row
-            className="group flex items-center gap-1 rounded-lg bg-card ring-1 ring-border transition hover:ring-primary/40"
-          >
-            <button
-              type="button"
-              aria-label={`Drag ${item.course.code} ${item.course.name} into a semester`}
-              onPointerDown={(event) => onDragStart(event, item)}
-              className="grid min-w-0 flex-1 cursor-grab touch-none grid-cols-[1rem_4.5rem_minmax(0,1fr)] items-center gap-x-1.5 py-2 pl-2 text-left active:cursor-grabbing"
-            >
-              <GripVertical
-                size={13}
-                aria-hidden="true"
-                className="row-span-2 text-muted-foreground/40 group-hover:text-muted-foreground"
-              />
-              <span className="row-span-2 font-mono text-[11px] text-muted-foreground">
-                {item.course.code}
-              </span>
-              <span className="truncate text-[13px] font-medium text-foreground">
-                {item.course.name}
-              </span>
-              <span className="flex min-w-0 items-center gap-1.5 text-[11px]">
-                <span
-                  className={cn(
-                    "truncate",
-                    item.required
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {item.tag}
-                </span>
-                {[...new Set(item.course.sessions.map(sessionLabel))].map(
-                  (session) => (
-                    <span
-                      key={session}
-                      className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground"
-                    >
-                      {session}
-                    </span>
-                  ),
-                )}
-              </span>
-            </button>
-            <StarButton courseCode={item.course.code} />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="mr-1.5 shrink-0"
-              onClick={() => onAdd(item.course)}
-              aria-label={`Add ${item.course.code} to this year`}
-              title="Add to this year"
-            >
-              <Plus size={14} aria-hidden="true" />
-            </Button>
-          </li>
-        ))}
-      </ul>
+    <li
+      data-drag-row
+      className="group flex items-center gap-1 rounded-lg transition hover:bg-muted/60"
+    >
+      <button
+        type="button"
+        aria-label={`Drag ${item.course.code} ${item.course.name} into a semester`}
+        onPointerDown={(event) => onDragStart(event, item)}
+        className="grid min-w-0 flex-1 cursor-grab touch-none grid-cols-[0.75rem_4.25rem_minmax(0,1fr)_auto] items-center gap-x-1.5 py-1.5 pl-1 text-left active:cursor-grabbing"
+      >
+        <GripVertical
+          size={12}
+          aria-hidden="true"
+          className="text-muted-foreground/30 group-hover:text-muted-foreground"
+        />
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {item.course.code}
+        </span>
+        <span className="truncate text-[13px] text-foreground">
+          {item.course.name}
+        </span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {[...new Set(item.course.sessions.map(sessionLabel))].join(" ")}
+        </span>
+      </button>
+      <span className="flex shrink-0 items-center opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+        <StarButton courseCode={item.course.code} />
+        <button
+          type="button"
+          onClick={() => onAdd(item.course)}
+          aria-label={`Add ${item.course.code} to this year`}
+          title="Add to this year"
+          className="mr-1 grid size-7 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
+      </span>
+    </li>
+  );
+}
+
+const SHOWN = 3;
+
+function RuleSection({
+  rule,
+  onAdd,
+  onDragStart,
+}: {
+  rule: RuleToPlan;
+  onAdd: (course: Course) => void;
+  onDragStart: DragStart;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const shown =
+    rule.compulsory || expanded ? rule.courses : rule.courses.slice(0, SHOWN);
+  const hidden = rule.courses.length - shown.length;
+  return (
+    <section aria-label={rule.detail} className="space-y-1">
+      <div className="px-1" title={rule.detail}>
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="truncate text-xs font-semibold text-foreground">
+            {rule.heading}
+          </h3>
+          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+            {rule.left}
+          </span>
+        </div>
+        <div
+          aria-hidden="true"
+          className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-primary/60"
+            style={{ width: `${rule.progress * 100}%` }}
+          />
+        </div>
+      </div>
+      {shown.length > 0 ? (
+        <ul>
+          {shown.map((item) => (
+            <CourseRow
+              key={item.course.code}
+              item={item}
+              onAdd={onAdd}
+              onDragStart={onDragStart}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="px-1 text-[11px] text-muted-foreground">
+          Search for a course that fits.
+        </p>
+      )}
+      {hidden > 0 ? (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="px-1 text-[11px] font-medium text-primary"
+        >
+          {hidden} more
+        </button>
+      ) : null}
     </section>
   );
 }
 
-const KIND_LABELS: Partial<Record<PlanStructureKind, string>> = {
+const KIND_LABELS: Record<PlanStructureKind, string> = {
+  programme: "Degree",
   major: "Major",
   minor: "Minor",
   specialisation: "Specialisation",
 };
 
 /**
- * What the plan still needs, as courses to drag into a semester, in a box of
- * its own that scrolls. Tabs split compulsory courses from suggestions and
- * each chosen major or minor, and keep the rules behind them one tab away.
+ * What the plan still needs, one tab per part of the degree: each open rule
+ * in a few words with courses under it to drag into a semester, and the
+ * rules already covered folded into one line.
  */
 export function CoursesToPlan({
-  required,
-  suggested,
-  starred,
   structures,
-  rulesLeft,
+  starred,
   onAdd,
   onDragStart,
-  onHide,
 }: {
-  required: CourseToPlan[];
-  suggested: CourseToPlan[];
+  structures: StructureToPlan[];
   starred: CourseToPlan[];
-  structures: PlannedStructure[];
-  rulesLeft: number;
   onAdd: (course: Course) => void;
-  onDragStart: (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    item: CourseToPlan,
-  ) => void;
-  onHide: () => void;
+  onDragStart: DragStart;
 }) {
-  const kinds = [
-    ...new Set(
-      structures
-        .map((structure) => structure.kind)
-        .filter((kind) => kind !== "programme"),
-    ),
-  ];
-  const tabs = [
-    { value: "required", label: "Required", items: required },
-    {
-      value: "suggested",
-      label: "Suggested",
-      items: suggested.filter((item) => item.structureKind === "programme"),
-    },
-    ...kinds.map((kind) => ({
-      value: kind,
-      label: KIND_LABELS[kind] ?? kind,
-      items: [...required, ...suggested].filter(
-        (item) => item.structureKind === kind,
-      ),
-    })),
-    { value: "starred", label: "Starred", items: starred },
-  ];
-  const [tab, setTab] = useState(
-    () => tabs.find((item) => item.items.length > 0)?.value ?? "rules",
-  );
+  const kindCount = (kind: PlanStructureKind) =>
+    structures.filter((item) => item.structure.kind === kind).length;
+  const tabs = structures.map((item) => ({
+    value: item.structure.code,
+    label:
+      kindCount(item.structure.kind) > 1
+        ? item.structure.name
+        : KIND_LABELS[item.structure.kind],
+    item,
+  }));
+  const [tab, setTab] = useState(() => tabs[0]?.value ?? "starred");
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card lg:max-h-[calc(100dvh-12rem)]">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-2">
-        <h2 className="text-sm font-semibold text-foreground">
-          Courses to plan
-        </h2>
-        <Button type="button" variant="ghost" size="sm" onClick={onHide}>
-          Hide
-        </Button>
-      </div>
       <Tabs
         value={tab}
         onValueChange={setTab}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="overflow-x-auto px-3 pb-3">
-          <TabsList aria-label="Courses to plan" className="w-full">
-            {tabs.map((item) => (
-              <TabsTrigger key={item.value} value={item.value}>
-                {item.label}
-                <span className="text-muted-foreground tabular-nums">
-                  {item.items.length}
-                </span>
+        <div className="overflow-x-auto px-3 pt-2">
+          <TabsList variant="line" aria-label="Courses to plan">
+            {tabs.map(({ value, label, item }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                title={item.structure.name}
+                className="max-w-[10rem]"
+              >
+                <span className="truncate">{label}</span>
+                {item.rules.length > 0 ? (
+                  <span className="text-[11px] text-muted-foreground tabular-nums">
+                    {item.rules.length}
+                  </span>
+                ) : (
+                  <Check
+                    size={12}
+                    aria-label="done"
+                    className="text-emerald-600 dark:text-emerald-400"
+                  />
+                )}
               </TabsTrigger>
             ))}
-            <TabsTrigger value="rules">
-              Rules
-              <span className="text-muted-foreground tabular-nums">
-                {rulesLeft}
-              </span>
+            <TabsTrigger value="starred">
+              Starred
+              {starred.length > 0 ? (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {starred.length}
+                </span>
+              ) : null}
             </TabsTrigger>
           </TabsList>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-3 py-3">
-          {tabs.map((item) => (
-            <TabsContent key={item.value} value={item.value} className="mt-0">
-              {item.items.length === 0 ? (
-                <p className="px-1 py-2 text-xs text-muted-foreground">
-                  {item.value === "required"
-                    ? "Every compulsory course is in your plan."
-                    : item.value === "starred"
-                      ? "Star a course in search or in this list to keep it here."
-                      : "Nothing to suggest here right now."}
+          {tabs.map(({ value, item }) => (
+            <TabsContent key={value} value={value} className="mt-0 space-y-4">
+              {item.rules.length === 0 ? (
+                <p className="px-1 py-1 text-xs text-muted-foreground">
+                  Everything for the {item.structure.name} is in your plan.
                 </p>
               ) : (
-                <CourseList
-                  label={item.label}
-                  items={item.items}
-                  onAdd={onAdd}
-                  onDragStart={onDragStart}
-                />
+                item.rules.map((rule) => (
+                  <RuleSection
+                    key={rule.key}
+                    rule={rule}
+                    onAdd={onAdd}
+                    onDragStart={onDragStart}
+                  />
+                ))
               )}
+              {item.doneCount > 0 ? (
+                <p className="flex items-center gap-1.5 border-t border-border px-1 pt-3 text-[11px] text-emerald-700 dark:text-emerald-400">
+                  <Check size={12} aria-hidden="true" />
+                  {item.doneCount} {item.doneCount === 1 ? "rule" : "rules"}{" "}
+                  covered
+                </p>
+              ) : null}
             </TabsContent>
           ))}
-          <TabsContent value="rules" className="mt-0">
-            <PlanRequirements structures={structures} />
+          <TabsContent value="starred" className="mt-0">
+            {starred.length === 0 ? (
+              <p className="px-1 py-1 text-xs text-muted-foreground">
+                Star a course and it waits here.
+              </p>
+            ) : (
+              <ul>
+                {starred.map((item) => (
+                  <CourseRow
+                    key={item.course.code}
+                    item={item}
+                    onAdd={onAdd}
+                    onDragStart={onDragStart}
+                  />
+                ))}
+              </ul>
+            )}
           </TabsContent>
         </div>
       </Tabs>
