@@ -89,7 +89,7 @@ export function AppShell({
 
       <SidebarInset
         className={cn(
-          "min-w-0 bg-canvas md:ring-1 md:ring-border",
+          "min-w-0 md:ring-1 md:ring-border",
           // The inset margins come out of the viewport, so a filled page lets
           // the wrapper stretch the panel rather than claiming its full height.
           fill && "md:min-h-0 md:overflow-hidden",
@@ -146,7 +146,7 @@ export function AppShell({
         {tabs && (
           <div
             className={cn(
-              "sticky top-14 z-30 shrink-0 border-b border-border bg-canvas px-4 sm:px-6",
+              "sticky top-14 z-30 shrink-0 border-b border-border bg-background px-4 sm:px-6",
               fill && "md:shrink-0",
             )}
           >
