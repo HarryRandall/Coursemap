@@ -208,7 +208,7 @@ test("an empty list says what fills it rather than showing an empty table", () =
 test("the sync detail shows the failure, the lease and the attempt that failed", async () => {
   const user = userEvent.setup();
   renderSyncDetail(syncDetail());
-  // The failure and the lease are true of the sync, so they lead every tab.
+  // The failure is true of the sync, so it leads every tab.
   expect(screen.getByText("OPENROUTER_HTTP_500")).toBeTruthy();
   expect(screen.getByText("OpenRouter returned 500.")).toBeTruthy();
   expect(screen.getByText("99999999-9999-4999-8999-999999999999")).toBeTruthy();
@@ -219,7 +219,7 @@ test("the sync detail shows the failure, the lease and the attempt that failed",
   expect(within(stages!).getByText("3")).toBeTruthy();
   expect(within(stages!).getByText("OpenRouter returned 500.")).toBeTruthy();
 
-  await user.click(screen.getByRole("tab", { name: /Extractions/ }));
+  // Extractions share the stages tab, since both say where the run stopped.
   expect(screen.getByText("openai/gpt-5-2026")).toBeTruthy();
   expect(screen.getByText("2 errors")).toBeTruthy();
 
