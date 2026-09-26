@@ -137,7 +137,7 @@ export function UniversityCalendarView({
   }
 
   return (
-    <div className="workspace-scroll w-full space-y-6">
+    <div className="workspace-scroll flex w-full flex-col gap-6">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-4">
         <h2 className="text-xl font-semibold tracking-tight">
           University calendar
@@ -213,7 +213,7 @@ export function UniversityCalendarView({
       <Tabs
         value={period}
         onValueChange={(value) => router.push(href(value), { scroll: false })}
-        className="gap-4"
+        className="flex-1 gap-4"
       >
         <OutlinedTabsList aria-label="Date period">
           {(
@@ -240,14 +240,14 @@ export function UniversityCalendarView({
         <TabsContent
           key={`${year}-${period}-${category}-${query}`}
           value={period}
-          className="mt-0 space-y-4"
+          className="mt-0 flex flex-col gap-4"
           aria-label="Key dates"
           tabIndex={0}
         >
           {months.length === 0 && (
             <p
               role="status"
-              className="rounded-xl border border-border p-8 text-sm text-muted-foreground"
+              className="flex min-h-48 flex-1 items-center justify-center rounded-xl border border-border p-8 text-center text-sm text-muted-foreground"
             >
               {period === "upcoming"
                 ? `No upcoming dates match in ${year}. Select Past dates or All dates to browse earlier events.`

@@ -289,7 +289,7 @@ export function Dashboard({ catalogue }: { catalogue: PlanCatalogue }) {
 
   return (
     <AppShell>
-      <div className="mx-auto flex flex-col gap-6">
+      <div className="mx-auto flex w-full flex-col gap-6">
         <h1 className="sr-only">Dashboard</h1>
 
         <section aria-label="Your metrics" className="flex flex-col gap-4">
