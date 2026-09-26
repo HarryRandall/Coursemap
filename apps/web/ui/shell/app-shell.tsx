@@ -155,11 +155,13 @@ export function AppShell({
         )}
         <div
           className={cn(
-            "w-full max-w-none min-w-0 flex-1",
+            // A flex column lets an empty state claim the height left below
+            // the page's header on any page.
+            "flex w-full max-w-none min-w-0 flex-1 flex-col",
             !fullBleed && "page-padded px-4 py-6 sm:px-6 sm:py-7",
             // Lets a page hand its remaining height to one scrolling child,
             // such as a directory table that should reach the viewport floor.
-            fill && "flex min-h-0 flex-1 flex-col md:overflow-hidden",
+            fill && "min-h-0 md:overflow-hidden",
             // Other pages scroll below the topbar and tabs, so the header
             // never moves and the scrollbar starts under it.
             !fill && "md:min-h-0 md:overflow-y-auto md:overscroll-contain",
@@ -171,8 +173,8 @@ export function AppShell({
             <div
               data-slot="page-content"
               className={cn(
-                "mx-auto w-full max-w-8xl min-w-0",
-                fill && "flex min-h-0 flex-1 flex-col",
+                "mx-auto flex w-full max-w-8xl min-w-0 flex-1 flex-col",
+                fill && "min-h-0",
               )}
             >
               {children}
