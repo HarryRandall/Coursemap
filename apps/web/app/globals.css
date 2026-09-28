@@ -455,11 +455,16 @@
     min-height: 0;
     flex: 1;
     overflow: auto;
-    overscroll-behavior: auto;
+    overscroll-behavior-y: none;
     /* Leave room for card rings and place the track in the page gutter. */
     padding: 2px 12px 2px 2px;
     margin: -2px -20px -2px -2px;
     scrollbar-gutter: stable;
+  }
+
+  /* Ordinary content scrolls vertically; horizontal gestures reach browser history. */
+  .workspace-scroll:not([data-scroll-kind="table"]) {
+    overflow-x: hidden;
   }
 
   /* The initial page inset belongs to the scrollable content, so it can leave view. */
@@ -573,6 +578,18 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--muted-foreground) transparent;
 }
+/* Keep history gestures while suppressing horizontal stretch in supporting browsers. */
+@supports (overscroll-behavior-x: chain) {
+  html,
+  body,
+  [data-slot="sidebar-wrapper"],
+  [data-slot="sidebar-inset"],
+  .page-padded,
+  .workspace-scroll {
+    overscroll-behavior-x: chain;
+  }
+}
+
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   width: 8px;
