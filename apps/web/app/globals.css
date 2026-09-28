@@ -529,6 +529,42 @@
   }
 }
 
+.sidebar-scroll-content {
+  --sidebar-fade-top: 0px;
+  --sidebar-fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    black var(--sidebar-fade-top),
+    black calc(100% - var(--sidebar-fade-bottom)),
+    transparent
+  );
+}
+
+.sidebar-scroll-content [data-slot="scroll-area-scrollbar"] {
+  width: 10px;
+}
+
+.sidebar-scroll-content [data-slot="scroll-area-thumb"] {
+  background: color-mix(in oklab, var(--sidebar-foreground) 25%, transparent);
+}
+
+.sidebar-scroll-content [data-slot="scroll-area-thumb"]:hover {
+  background: color-mix(in oklab, var(--sidebar-foreground) 40%, transparent);
+}
+
+.sidebar-scroll-content[data-scroll-top="true"] {
+  --sidebar-fade-top: 24px;
+}
+
+.sidebar-scroll-content[data-scroll-bottom="true"] {
+  --sidebar-fade-bottom: 24px;
+}
+
+.group[data-collapsible="icon"] .sidebar-scroll-content {
+  mask-image: none;
+}
+
 /* Stop vertical bounce while preserving horizontal browser navigation. */
 html,
 body {

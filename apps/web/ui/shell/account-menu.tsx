@@ -80,10 +80,10 @@ export function AccountMenu() {
         side={collapsed ? "right" : "top"}
         align={collapsed ? "end" : "start"}
         sideOffset={8}
-        collisionPadding={12}
+        collisionPadding={8}
         // Open level with the account row and exactly as wide, so the menu sits
         // inside the sidebar. A collapsed sidebar has no row width to match.
-        className={`${styles.panel} max-h-[var(--radix-popover-content-available-height)] ${collapsed ? "w-60" : "w-(--radix-popover-trigger-width)"} max-w-[calc(100vw-24px)] gap-0 overflow-y-auto rounded-xl p-0`}
+        className={`${styles.panel} max-h-[var(--radix-popover-content-available-height)] ${collapsed ? "w-60" : "w-(--radix-popover-trigger-width)"} max-w-[calc(100vw-16px)] gap-0 overflow-y-auto rounded-xl p-0`}
       >
         <div className="flex items-center gap-3 px-3 py-3">
           <GeneratedAvatar
