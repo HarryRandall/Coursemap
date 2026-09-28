@@ -3,6 +3,16 @@ import { cache } from "react";
 import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { createClient } from "@/lib/supabase/server";
 
+export type KeyDatesPeriodReview = {
+  code: string;
+  name: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  previousStartsOn: string | null;
+  previousEndsOn: string | null;
+  issue: string | null;
+};
+
 export type KeyDatesReview = {
   id: string;
   canonicalUrl: string;
@@ -11,6 +21,7 @@ export type KeyDatesReview = {
   /** `manual` marks a date corrected during review. */
   events: { date: string; title: string; manual?: boolean }[];
   diagnostics: ImportDiagnostic[];
+  periods: KeyDatesPeriodReview[];
 };
 
 export type KeyDatesPublishedEvent = {
@@ -246,6 +257,26 @@ export const loadAdminKeyDatesYear = cache(async function loadAdminKeyDatesYear(
   ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
 
   const pending = reviews.find((review) => review.status === "pending");
+  let periods: KeyDatesPeriodReview[] = [];
+  if (pending) {
+    const { data, error } = await supabase.rpc(
+      "preview_university_calendar_periods",
+      {
+        p_review_id: pending.id,
+      },
+    );
+    if (error)
+      throw new Error("The academic periods review could not be loaded.");
+    periods = data.map((period) => ({
+      code: period.code,
+      name: period.name,
+      startsOn: period.starts_on,
+      endsOn: period.ends_on,
+      previousStartsOn: period.previous_starts_on,
+      previousEndsOn: period.previous_ends_on,
+      issue: period.issue,
+    }));
+  }
   return {
     years,
     year,
@@ -264,6 +295,7 @@ export const loadAdminKeyDatesYear = cache(async function loadAdminKeyDatesYear(
           requestedAt: pending.requested_at,
           events: eventList(pending.events),
           diagnostics: diagnosticList(pending.diagnostics),
+          periods,
         }
       : null,
     changelog: changelog.slice(0, CHANGELOG_LIMIT),

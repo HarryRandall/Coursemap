@@ -34,6 +34,7 @@ function review(overrides: Partial<KeyDatesReview> = {}): KeyDatesReview {
       { date: "2027-06-03", title: "Examination period begins" },
     ],
     diagnostics: [],
+    periods: [],
     ...overrides,
   };
 }
@@ -118,4 +119,30 @@ test("parser warnings start folded away", async () => {
   expect(
     screen.getByText("The calendar event appears more than once."),
   ).toBeVisible();
+});
+
+test("the review shows session dates and retains existing dates for an incomplete pair", () => {
+  renderPanel(
+    review({
+      periods: [
+        {
+          code: "WINTER",
+          name: "Winter Session",
+          startsOn: "2027-07-01",
+          endsOn: "2027-09-30",
+          previousStartsOn: "2027-07-01",
+          previousEndsOn: "2027-09-30",
+          issue: "End date missing. Existing dates are kept.",
+        },
+      ],
+    }),
+  );
+  expect(screen.getByText("Winter Session")).toBeVisible();
+  expect(screen.getByText("1 July to 30 Sept")).toBeVisible();
+  expect(
+    screen.getByText("End date missing. Existing dates are kept."),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Approve and publish" }),
+  ).toBeEnabled();
 });

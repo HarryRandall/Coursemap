@@ -33,6 +33,7 @@ import type { ImportDiagnostic } from "@/lib/catalogue-import/import-source";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { KeyDatesMonthList } from "@/ui/admin/key-dates/key-dates-month-list";
+import { KeyDatesPeriodReviewList } from "@/ui/admin/key-dates/key-dates-period-review-list";
 import { showToast } from "@/ui/common/toast";
 
 const timestampFormat = new Intl.DateTimeFormat("en-AU", {
@@ -173,9 +174,10 @@ export function KeyDatesReviewPanel({
             <ConfirmDialog
               confirmLabel="Publish"
               description={
-                changes > 0
+                (changes > 0
                   ? `${plural(diff.added, "new date")} will appear on Key dates and ${plural(diff.removed, "date")} will be archived. Dates entered by hand stay as they are.`
-                  : `The ${year} key dates stay as they are and this sync is recorded in the changelog.`
+                  : `The ${year} key dates stay as they are and this sync is recorded in the changelog.`) +
+                " Semester and session dates shown below will also be published."
               }
               onConfirm={approve}
               title={`Publish the ${year} key dates?`}
@@ -204,6 +206,8 @@ export function KeyDatesReviewPanel({
         </Alert>
       ) : null}
       {warnings.length > 0 ? <WarningsNotice warnings={warnings} /> : null}
+
+      <KeyDatesPeriodReviewList periods={review.periods} />
 
       <Tabs className="gap-4" onValueChange={setView} value={view}>
         <OutlinedTabsList aria-label="Review dates">

@@ -14,12 +14,14 @@ export type Database = {
           calendar_year: number
           code: string
           created_at: string
-          ends_on: string
+          ends_event_id: number | null
+          ends_on: string | null
           id: number
           name: string
           short_name: string
           sort_order: number
-          starts_on: string
+          starts_event_id: number | null
+          starts_on: string | null
           status: string
           updated_at: string
         }
@@ -27,12 +29,14 @@ export type Database = {
           calendar_year: number
           code: string
           created_at?: string
-          ends_on: string
+          ends_event_id?: number | null
+          ends_on?: string | null
           id?: never
           name: string
           short_name: string
           sort_order: number
-          starts_on: string
+          starts_event_id?: number | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
@@ -40,16 +44,33 @@ export type Database = {
           calendar_year?: number
           code?: string
           created_at?: string
-          ends_on?: string
+          ends_event_id?: number | null
+          ends_on?: string | null
           id?: never
           name?: string
           short_name?: string
           sort_order?: number
-          starts_on?: string
+          starts_event_id?: number | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "academic_periods_ends_event_id_fkey"
+            columns: ["ends_event_id"]
+            isOneToOne: false
+            referencedRelation: "university_calendar_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academic_periods_starts_event_id_fkey"
+            columns: ["starts_event_id"]
+            isOneToOne: false
+            referencedRelation: "university_calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       academic_structure_fees: {
         Row: {
@@ -4484,6 +4505,18 @@ export type Database = {
           p_planned_period_code?: string
         }
         Returns: undefined
+      }
+      preview_university_calendar_periods: {
+        Args: { p_review_id: string }
+        Returns: {
+          code: string
+          ends_on: string
+          issue: string
+          name: string
+          previous_ends_on: string
+          previous_starts_on: string
+          starts_on: string
+        }[]
       }
       published_course_availability: {
         Args: { p_academic_year: number; p_course_code: string }

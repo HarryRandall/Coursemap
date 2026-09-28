@@ -223,8 +223,23 @@ row and leaves published events untouched.
 Review diagnostics and removals before importing. Calendar publication differs
 from the draft-review workflow for course and academic-structure snapshots.
 
-Academic periods inferred from class dates still need verification against the
-official calendar; importing calendar events does not itself reconcile them.
+Calendar publication also reconciles the six standard academic periods: Summer,
+First Semester, Autumn, Winter, Second Semester and Spring. Exact semester and
+session start/end events supply their dates; examination periods remain separate.
+The review previews these dates and reports missing or conflicting boundaries.
+Both console approval and the local manifest importer reconcile periods in the
+same transaction as calendar publication. Manual key date edits also reconcile
+periods.
+
+Every registered academic year has these six period identities. Dates may be
+pending, so planning and recording history do not require invented calendar
+bounds. The planner also displays all six lanes for future degree years that
+have not been registered yet. A course still needs a published catalogue record
+in the attempted year. Complete, unambiguous date pairs update existing periods
+without changing their IDs; incomplete sources retain established dates.
+Calendar bounds reference their published source events. The calendar-period
+migration backfills already published key dates across registered years without
+fetching ANU again. Staged reviews and archived events do not supply dates.
 
 ## Access model
 
