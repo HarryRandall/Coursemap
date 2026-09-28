@@ -50,13 +50,18 @@ export function FilterBar({
   filters = [],
   state,
   autoFocus = false,
+  normaliseParams,
+  hideSearch = false,
 }: {
   searchPlaceholder: string;
+  hideSearch?: boolean;
   /** Focuses the search on mount, for a bar that opens a dialog. */
   autoFocus?: boolean;
   filters?: FilterConfig[];
   /** Keeps small, already-loaded datasets synchronous and client-filtered. */
   state?: ControlledFilterState;
+  /** Clears dependent values that are no longer valid after a filter changes. */
+  normaliseParams?: (params: URLSearchParams) => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -95,6 +100,7 @@ export function FilterBar({
     if (currentQuery) params.set("q", currentQuery);
     else params.delete("q");
     mutate(params);
+    normaliseParams?.(params);
     params.delete("page");
     const next = params.toString();
     paramsRef.current = next;
@@ -160,35 +166,37 @@ export function FilterBar({
   return (
     <div aria-busy={!state && isPending} className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search</span>
-          <Search
-            size={16}
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground/80"
-            aria-hidden="true"
-          />
-          <Input
-            type="search"
-            autoFocus={autoFocus}
-            value={query}
-            placeholder={searchPlaceholder}
-            className="h-10 pl-9"
-            onChange={(event) => {
-              const value = event.target.value;
-              if (state) {
-                state.onQueryChange(value);
-                return;
-              }
-              setLocalQuery(value);
-              if (timeout.current) clearTimeout(timeout.current);
-              timeout.current = setTimeout(() => {
-                const sent = value.trim();
-                setSentQueries((current) => [...current, sent]);
-                update("q", sent);
-              }, 250);
-            }}
-          />
-        </label>
+        {!hideSearch && (
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search</span>
+            <Search
+              size={16}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground/80"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              autoFocus={autoFocus}
+              value={query}
+              placeholder={searchPlaceholder}
+              className="h-10 pl-9"
+              onChange={(event) => {
+                const value = event.target.value;
+                if (state) {
+                  state.onQueryChange(value);
+                  return;
+                }
+                setLocalQuery(value);
+                if (timeout.current) clearTimeout(timeout.current);
+                timeout.current = setTimeout(() => {
+                  const sent = value.trim();
+                  setSentQueries((current) => [...current, sent]);
+                  update("q", sent);
+                }, 250);
+              }}
+            />
+          </label>
+        )}
         {filters.length > 0 ? (
           <Popover onOpenChange={openMenu} open={menuOpen}>
             <MenuHint
@@ -278,7 +286,7 @@ export function FilterBar({
         ) : null}
       </div>
 
-      {active.length > 0 ? (
+      {active.length > 0 && !hideSearch ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {active.map(({ filter, label, value, negated }) => (
             <span

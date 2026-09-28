@@ -45,6 +45,7 @@ export const routeIcons = {
   roadmap: Route,
   rooms: MapPin,
   printing: Printer,
+  societies: UsersRound,
   help: LifeBuoy,
   profile: UserRound,
   admin: Shield,

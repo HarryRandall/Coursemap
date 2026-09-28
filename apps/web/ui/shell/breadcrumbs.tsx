@@ -28,6 +28,8 @@ const labels: Record<string, string> = {
   roadmap: "Product roadmap",
   rooms: "Room finder",
   printing: "Printing",
+  societies: "Societies",
+  events: "Events",
   help: "Help centre",
   timetable: "Timetable",
   profile: "Profile",

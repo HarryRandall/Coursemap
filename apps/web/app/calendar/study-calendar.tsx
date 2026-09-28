@@ -1,11 +1,24 @@
 "use client";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 
+import { useRouter, useSearchParams } from "next/navigation";
+import type { SocietyEvent } from "@/lib/society-events";
 import { CalendarDays } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import {
+  toZoned,
+  zonedStartOfDay,
+} from "@coursemap/ui/components/event-calendar/event-calendar-lib";
 import { EventCalendar } from "@coursemap/ui/components/event-calendar/event-calendar";
 import { EventCalendarContent } from "@coursemap/ui/components/event-calendar/event-calendar-content";
-import { EventCalendarNav } from "@coursemap/ui/components/event-calendar/event-calendar-nav";
+import {
+  EventCalendarNav,
+  EventCalendarNavToday,
+  EventCalendarNavPrev,
+  EventCalendarNavNext,
+  EventCalendarTitle,
+  EventCalendarViewSwitcher,
+} from "@coursemap/ui/components/event-calendar/event-calendar-nav";
 import type { CalendarEvent } from "@coursemap/ui/components/event-calendar/event-calendar-types";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
@@ -17,32 +30,29 @@ import {
 } from "@/lib/coursemap/plan-timeline";
 import {
   decorateUniversityCalendarEvents,
-  UNIVERSITY_CALENDAR_CATEGORIES,
   type UniversityCalendarCategory,
   type UniversityCalendarEventRecord,
 } from "@/lib/coursemap/university-calendar";
-import { cn } from "@/lib/cn";
+import { CalendarFilters } from "@/ui/key-dates/calendar-filters";
 
 const CATEGORY_COLORS: Record<UniversityCalendarCategory, string> = {
-  teaching: "var(--color-sky-500)",
-  examinations: "var(--color-rose-500)",
-  enrolment: "var(--color-amber-500)",
-  graduation: "var(--color-violet-500)",
-  holiday: "var(--color-emerald-500)",
-  campus: "var(--color-zinc-500)",
+  teaching: "var(--primary)",
+  examinations: "var(--destructive)",
+  enrolment: "var(--warning)",
+  graduation: "var(--success)",
+  holiday: "var(--info)",
+  campus: "var(--muted-foreground)",
 };
 
 const PLAN_TERM_FILTER = "plan-terms" as const;
-type CalendarFilter = UniversityCalendarCategory | typeof PLAN_TERM_FILTER;
 
-/** Local midnight for an ISO day; matches the calendar's display time zone. */
+/** Canberra midnight for an ISO day, independent of the browser time zone. */
 function localMidnight(isoDay: string) {
-  const [year, month, day] = isoDay.split("-").map(Number);
-  return new Date(year, month - 1, day);
+  return zonedStartOfDay(new Date(`${isoDay}T12:00:00Z`), "Australia/Sydney");
 }
 
 function addDays(date: Date, days: number) {
-  const next = new Date(date);
+  const next = toZoned(date, "Australia/Sydney");
   next.setDate(next.getDate() + days);
   return next;
 }
@@ -50,12 +60,19 @@ function addDays(date: Date, days: number) {
 export function StudyCalendar({
   catalogue,
   keyDates,
+  societyEvents,
+  societiesUnavailable = false,
 }: {
   catalogue: PlanCatalogue;
   keyDates: UniversityCalendarEventRecord[];
+  societyEvents: SocietyEvent[];
+  societiesUnavailable?: boolean;
 }) {
+  const router = useRouter();
   const { state } = useCoursemap();
-  const [hidden, setHidden] = useState<ReadonlySet<CalendarFilter>>(new Set());
+  const params = useSearchParams();
+  const category = params.get("category") ?? "";
+  const includeSocieties = params.get("societies") === "1";
 
   const degree = catalogue.degrees.find(
     (item) => item.code === state.profile.degreeCode,
@@ -83,33 +100,34 @@ export function StudyCalendar({
   }, [state.attempts]);
 
   const events = useMemo<CalendarEvent[]>(() => {
-    const termEvents: CalendarEvent[] = hidden.has(PLAN_TERM_FILTER)
-      ? []
-      : timelineTerms
-          .filter((term) => term.id !== "unscheduled")
-          .filter((term) => term.startsOn && term.endsOn)
-          .map((term) => {
-            const courses = courseCountByTerm.get(term.id) ?? 0;
-            return {
-              id: `term-${term.id}`,
-              title: `${term.name} ${term.year}${
-                courses > 0
-                  ? ` · ${courses} course${courses === 1 ? "" : "s"}`
-                  : ""
-              }`,
-              start: localMidnight(term.startsOn as string),
-              end: addDays(localMidnight(term.endsOn as string), 1),
-              allDay: true,
-              readOnly: true,
-              color: "var(--primary)",
-              priority: 10,
-            };
-          });
+    const termEvents: CalendarEvent[] =
+      category && category !== PLAN_TERM_FILTER
+        ? []
+        : timelineTerms
+            .filter((term) => term.id !== "unscheduled")
+            .filter((term) => term.startsOn && term.endsOn)
+            .map((term) => {
+              const courses = courseCountByTerm.get(term.id) ?? 0;
+              return {
+                id: `term-${term.id}`,
+                title: `${term.name} ${term.year}${
+                  courses > 0
+                    ? ` · ${courses} course${courses === 1 ? "" : "s"}`
+                    : ""
+                }`,
+                start: localMidnight(term.startsOn as string),
+                end: addDays(localMidnight(term.endsOn as string), 1),
+                allDay: true,
+                readOnly: true,
+                color: "var(--primary)",
+                priority: 10,
+              };
+            });
 
     const keyDateEvents: CalendarEvent[] = decorateUniversityCalendarEvents(
       keyDates,
     )
-      .filter((event) => !hidden.has(event.category))
+      .filter((event) => !category || event.category === category)
       .map((event) => {
         const start = localMidnight(event.date);
         return {
@@ -123,69 +141,47 @@ export function StudyCalendar({
         };
       });
 
-    return [...termEvents, ...keyDateEvents];
-  }, [courseCountByTerm, hidden, keyDates, timelineTerms]);
-
-  const toggleFilter = (filter: CalendarFilter) => {
-    setHidden((current) => {
-      const next = new Set(current);
-      if (next.has(filter)) next.delete(filter);
-      else next.add(filter);
-      return next;
-    });
-  };
-
-  const legend: Array<{ id: CalendarFilter; label: string; color: string }> = [
-    { id: PLAN_TERM_FILTER, label: "Plan terms", color: "var(--primary)" },
-    ...UNIVERSITY_CALENDAR_CATEGORIES.map(({ value, label }) => ({
-      id: value as CalendarFilter,
-      label,
-      color: CATEGORY_COLORS[value],
-    })),
-  ];
+    const clubEvents: CalendarEvent[] =
+      !includeSocieties || (category && category !== "societies")
+        ? []
+        : societyEvents.map((event) => ({
+            id: `society-event-${event.id}`,
+            title: `${event.title} · ${event.host}`,
+            start: new Date(event.startsAt),
+            end: new Date(event.endsAt),
+            allDay: false,
+            readOnly: true,
+            color: "var(--primary)",
+          }));
+    return [...termEvents, ...keyDateEvents, ...clubEvents];
+  }, [
+    courseCountByTerm,
+    category,
+    includeSocieties,
+    keyDates,
+    timelineTerms,
+    societyEvents,
+  ]);
 
   return (
     <AppShell fill>
       <div className="workspace-stack">
         <h1 className="sr-only">Study calendar</h1>
 
-        <div
-          className="flex flex-wrap items-center gap-1.5"
-          role="group"
-          aria-label="Calendar filters"
-        >
-          {legend.map(({ id, label, color }) => {
-            const off = hidden.has(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={!off}
-                onClick={() => toggleFilter(id)}
-                className={cn(
-                  "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  off
-                    ? "bg-transparent text-muted-foreground/70 line-through"
-                    : "bg-card text-foreground/80 shadow-xs hover:bg-accent/50",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn("size-2 rounded-full", off && "opacity-30")}
-                  style={{ backgroundColor: color }}
-                />
-                {label}
-              </button>
-            );
-          })}
-        </div>
-
+        {includeSocieties && societiesUnavailable && (
+          <Alert variant="warning">
+            <AlertDescription>
+              Society events could not be loaded. Please try again shortly.
+            </AlertDescription>
+          </Alert>
+        )}
         {keyDates.length === 0 ? (
           <Alert variant={"default"}>
             <CalendarDays aria-hidden="true" />
             <AlertDescription>
               No published ANU key dates are available yet, so the calendar
-              shows your plan&apos;s study periods only.
+              shows your plan&apos;s study periods. You can also turn on society
+              events in the filters.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -193,6 +189,13 @@ export function StudyCalendar({
         <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs md:flex-1">
           <EventCalendar
             events={events}
+            onEventClick={({ event }) => {
+              if (event.id.startsWith("society-event-"))
+                router.push(
+                  `/societies/events/${event.id.slice("society-event-".length)}`,
+                );
+            }}
+            timeZone="Australia/Sydney"
             defaultView="month"
             views={["month", "agenda"]}
             interactions={{ drag: false, resize: false, selectSlot: false }}
@@ -201,7 +204,18 @@ export function StudyCalendar({
             className="h-[32rem] md:h-full md:min-h-0 md:flex-1"
             classNames={{ nav: "border-b border-border px-3 py-2" }}
           >
-            <EventCalendarNav />
+            <EventCalendarNav className="grid grid-cols-[1fr_auto] gap-2 sm:grid-cols-[1fr_auto_1fr]">
+              <div className="flex items-center gap-1">
+                <EventCalendarNavToday />
+                <EventCalendarNavPrev />
+                <EventCalendarNavNext />
+              </div>
+              <EventCalendarTitle className="col-span-2 row-start-2 text-center sm:col-span-1 sm:row-auto" />
+              <div className="col-start-2 row-start-1 flex items-center justify-end gap-2 sm:col-start-3">
+                <EventCalendarViewSwitcher />
+                <CalendarFilters includePlanTerms hideSearch />
+              </div>
+            </EventCalendarNav>
             <EventCalendarContent />
           </EventCalendar>
         </div>

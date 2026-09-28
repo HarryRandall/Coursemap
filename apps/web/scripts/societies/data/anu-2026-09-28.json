@@ -1,0 +1,877 @@
+{
+  "source": "rubric",
+  "retrievedAt": "2026-09-28T03:39:27.681471+00:00",
+  "directoryUrl": "https://anusa.com.au/clubs/clubs-list/",
+  "eventsUrl": "https://anusa.com.au/clubs/events/",
+  "societies": [
+    {
+      "id": "e46ceecc-1bb6-47e1-9909-5006622190ba",
+      "sourceId": "10335",
+      "slug": "diplomacy-society",
+      "name": "ANU Diplomacy Society",
+      "shortName": "Diplomacy Society",
+      "category": "Hobbies and interests",
+      "summary": "The ANU Diplomacy Society is a student-run society celebrating all things related to the board game Diplomacy. Our Constitution can be found",
+      "overview": "The ANU Diplomacy Society is a student-run society celebrating all things related to the board game Diplomacy. Our Constitution can be found at: https://drive.google.com/file/d/1ZjFBEK1MJN2FGCqIGktWAmToNOKbo723/view?usp=drive_link",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/5a4637c7-b788-4db4-9da3-19f4ed49937d.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=10335",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anudiplomacy/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/profile.php?id=61571727182512"
+        },
+        {
+          "label": "Discord",
+          "url": "https://discord.gg/uNMXFEVYDE"
+        }
+      ],
+      "sourceHash": "52e9a3aac5ba61e82da55d8364e907509f9a37873dd3d6445fba1b94e188625d"
+    },
+    {
+      "id": "8c17bd17-7ce5-4873-9ddd-9f7160a74e4c",
+      "sourceId": "10396",
+      "slug": "african-cultural-society",
+      "name": "ANU African Cultural Society",
+      "shortName": "African Cultural",
+      "category": "Culture and community",
+      "summary": "Explore African cultures and connect with a campus community.",
+      "overview": "A community for students interested in African cultures, shared experiences and connections at ANU.",
+      "interests": ["Culture", "Community", "Connection"],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/a419d35b-5c95-4fc8-a7be-44be4e0c7b3d.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=10396",
+      "links": [],
+      "sourceHash": "6526fa6929c198e8a32b2faa55b587e22e79ec8f253ada3f6a12cac41e67541d"
+    },
+    {
+      "id": "1c650549-a102-40a1-a01e-19b65a444416",
+      "sourceId": "13055",
+      "slug": "music-society",
+      "name": "ANU School of Music Collective",
+      "shortName": "Music",
+      "category": "Arts and performance",
+      "summary": "Meet fellow music lovers and explore ensemble playing.",
+      "overview": "Hey! We're the School of Music Collective. We're here to build and welcome a strong musical community at ANU, so we can keep music thriving. We run social events for students to connect with fellow musicians and provide a voice for the music students at the School of Music. If you're a musician or music lover come jam, join us and be part of our growing music community at ANU!",
+      "interests": ["Music", "Ensembles", "Performance"],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/4187a7eb-5090-4c1d-8cea-538ba4e4acea.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=13055",
+      "links": [
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/profile.php?id=61579988063047"
+        }
+      ],
+      "sourceHash": "1af9a703ca1e3035c750fe0b2ab5553afff9b40f9d37fa499576a57404bea038"
+    },
+    {
+      "id": "85c03b84-911e-4e6a-97d0-e912d3339879",
+      "sourceId": "1418",
+      "slug": "dining-society",
+      "name": "ANU Dining Society",
+      "shortName": "Dining",
+      "category": "Hobbies and interests",
+      "summary": "Connect over food and explore Canberra's dining scene.",
+      "overview": "Share your interest in food with other students and discover more of Canberra's dining scene.",
+      "interests": ["Food", "Canberra", "Social"],
+      "website": null,
+      "logoUrl": "https://portal.getqpay.com/content/logos/logo_societyid_1418.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=1418",
+      "links": [
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUDinSoc/"
+        }
+      ],
+      "sourceHash": "f3fc6030ff8a666d3eed41cfffc8c103f164ca35ef2f05816d55b89da1053983"
+    },
+    {
+      "id": "14712da2-f60a-4e4c-b825-1510417b53df",
+      "sourceId": "1451",
+      "slug": "roleplaying-society",
+      "name": "ANU Roleplaying Society",
+      "shortName": "Roleplaying Society",
+      "category": "Hobbies and interests",
+      "summary": "ANU Roleplaying Society is a club at the Australian National University.",
+      "overview": "ANU Roleplaying Society is a club at the Australian National University.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/65cdc70eae819_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=1451",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anuroleplaying/"
+        },
+        {
+          "label": "Discord",
+          "url": "https://discord.gg/fTckYaEyKv"
+        }
+      ],
+      "sourceHash": "db0da7891ce44c04f55cd4a398c12308e486f3d3a3b88bdd53ac60f0203d79f1"
+    },
+    {
+      "id": "ffdfeab6-c268-4b61-9f3c-503fa86be79c",
+      "sourceId": "14576",
+      "slug": "amnesty-school-group",
+      "name": "Amnesty School Group",
+      "shortName": "Amnesty",
+      "category": "Advocacy",
+      "summary": "Connect with students interested in human rights and advocacy.",
+      "overview": "We are keen amnesty volunteers and activists that gather at ANU to spread awareness for worldwide international human rights issues.",
+      "interests": ["Human rights", "Advocacy", "Community"],
+      "website": null,
+      "logoUrl": null,
+      "directoryUrl": "https://campus.hellorubric.com/?s=14576",
+      "links": [],
+      "sourceHash": "a579376da61bb75a7391e2dc1807b490cb818710c10ae981e106f7513f5b82c0"
+    },
+    {
+      "id": "c947c692-1142-4aa9-b4aa-f234fc18db33",
+      "sourceId": "1540",
+      "slug": "anime-and-gaming-society",
+      "name": "ANU Anime and Gaming Society",
+      "shortName": "Anime and Gaming",
+      "category": "Hobbies and interests",
+      "summary": "We do everything anime & games.",
+      "overview": "We do everything anime & games.",
+      "interests": ["Anime", "Gaming", "Pop culture"],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/images/66ea59668029d_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=1540",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anu_ags"
+        },
+        {
+          "label": "Discord",
+          "url": "https://discord.gg/sSNwy9ZBfN"
+        }
+      ],
+      "sourceHash": "4cd820522c6ec87a7a8f3ef119a16f9d080f5f9c2ac15b8082e391546a9dfc59"
+    },
+    {
+      "id": "66757160-9f80-4f52-a449-adc14bf18b17",
+      "sourceId": "1945",
+      "slug": "intrepid-landcare",
+      "name": "ANU Intrepid Landcare",
+      "shortName": "Intrepid Landcare",
+      "category": "Advocacy",
+      "summary": "Hello from the ANU Intrepid Landcare! Check out our events, merch, and memberships below 🌏🍃🏕️🌳🐛🐦🌱🌊 View our public documents here: https://drive.google.com/drive/folders/1hXcZIUcyFnrmFmMrastPHaeao9WpM41g?usp=drive_link",
+      "overview": "Hello from the ANU Intrepid Landcare! Check out our events, merch, and memberships below 🌏🍃🏕️🌳🐛🐦🌱🌊 View our public documents here: https://drive.google.com/drive/folders/1hXcZIUcyFnrmFmMrastPHaeao9WpM41g?usp=drive_link",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/0ba6861e-8865-4c79-be21-d64d09e7e95d.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=1945",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anuintrepidlandcare/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/anuintrepidlandcare/"
+        }
+      ],
+      "sourceHash": "7a70bff8a782e5f196958821884645943a0d07ba6471f294b0f7fc31e30f79d1"
+    },
+    {
+      "id": "21269c96-4d57-4550-acfd-81bdb4f5f78d",
+      "sourceId": "1973",
+      "slug": "esports",
+      "name": "ANU Esports",
+      "shortName": "Esports",
+      "category": "Hobbies and interests",
+      "summary": "ANU Esports is a club at the Australian National University.",
+      "overview": "ANU Esports is a club at the Australian National University.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://portal.getqpay.com/content/logos/logo_societyid_1973.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=1973",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anuesports"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUEsports"
+        },
+        {
+          "label": "Discord",
+          "url": "https://discord.gg/eSGtzhHeJ"
+        }
+      ],
+      "sourceHash": "280b073fe03bac83a0356fe1cae70fc7fd7f1f30d9fda5340956bc555fdbd911"
+    },
+    {
+      "id": "7b10ca94-e14e-479e-88ce-a7956cd4f194",
+      "sourceId": "22",
+      "slug": "afec-students-society",
+      "name": "ANU AFEC Students' Society",
+      "shortName": "AFEC",
+      "category": "Academic",
+      "summary": "A community around accounting, finance, economics and commerce.",
+      "overview": "Meet students across accounting, finance, economics and commerce, with shared interests in study, business and life at university.",
+      "interests": ["Finance", "Economics", "Commerce"],
+      "website": null,
+      "logoUrl": "https://portal.getqpay.com/content/logos/logo_societyid_22.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=22",
+      "links": [
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUAFEC/"
+        }
+      ],
+      "sourceHash": "98ba88c7e3d13db08ea09158ea324d936bb3f0e7b8f1ec8593acadad28eebd3a"
+    },
+    {
+      "id": "a09df0c7-b528-46e9-99f6-248aa0140b76",
+      "sourceId": "243",
+      "slug": "computer-science-students-association",
+      "name": "ANU Computer Science Students' Association",
+      "shortName": "CSSA",
+      "category": "Academic",
+      "summary": "A community for computing, software engineering and related interests.",
+      "overview": "We run social, networking, and study events, create a positive and collaborative community, and advocate for student needs with ANU CSS.",
+      "interests": ["Computing", "Software", "Technology"],
+      "website": "https://cs.club.anu.edu.au/",
+      "logoUrl": "https://resources.getqpay.com/images/63c28ac2a9c60_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=243",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anucssa/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/groups/anucssa/"
+        },
+        {
+          "label": "Discord",
+          "url": "https://discord.com/invite/UETrGuS"
+        }
+      ],
+      "sourceHash": "256e3295243f096a8e16e9d69b4ded7bf20c2ead3572301e756e6444dd25d6fb"
+    },
+    {
+      "id": "2c6e89bc-3394-47dc-b222-7b60aff3f5d8",
+      "sourceId": "26",
+      "slug": "psychology-society",
+      "name": "ANU Psychology Society",
+      "shortName": "Psychology Society",
+      "category": "Academic",
+      "summary": "Hi! We are the ANU Psychology Society. We host student-focused events to enjoy, learn, comfort, and eat! Grab your membership today and",
+      "overview": "Hi! We are the ANU Psychology Society. We host student-focused events to enjoy, learn, comfort, and eat! Grab your membership today and follow our socials for more details :) Constitution link: https://drive.google.com/file/d/1G2e2PfRjSKPqfopkNV_cBlc2_56Bpp-6/view?usp=drive_link",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/b80c2ee3-bf88-40f6-a2d5-ce0222c1b62c.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=26",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anupsychsoc/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANU.Psychology.Society"
+        }
+      ],
+      "sourceHash": "eddf277635031fd4590cea38fc2031b021f2e9e90e657d6838ad5820a8c1ce3b"
+    },
+    {
+      "id": "5ed979de-256d-4d88-84d2-3aaa76272f39",
+      "sourceId": "305",
+      "slug": "society-for-arts-and-social-sciences",
+      "name": "ANU Society for Arts and Social Sciences",
+      "shortName": "Society for Arts and Social Sciences",
+      "category": "Academic",
+      "summary": "We represent all CASS students at ANU.",
+      "overview": "We represent all CASS students at ANU.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/63da29dfc1a0c_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=305",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://instagram.com/sass_anu/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUSASS/"
+        }
+      ],
+      "sourceHash": "1be231c30e0104ee1c7eb40f2b6673e7ed77cd5b13fa9df704e9af7a318304cd"
+    },
+    {
+      "id": "916afab1-38f0-4402-9700-ab81e5eeb566",
+      "sourceId": "3422",
+      "slug": "actuarial-society",
+      "name": "ANU Actuarial Society",
+      "shortName": "Actuarial",
+      "category": "Academic",
+      "summary": "Meet fellow students interested in actuarial studies and risk.",
+      "overview": "ASOC frequently organises social events, connecting actuarial students of all backgrounds and ages. Students have the opportunity to gain further insight into the industry and network with experienced professionals during our office visits, the annual Actuarial Trip to firms in Sydney, workshops, and the careers fair.",
+      "interests": ["Actuarial studies", "Statistics", "Careers"],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/63f788d52666e_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=3422",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anuasoc/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUASOC"
+        }
+      ],
+      "sourceHash": "a6501fcef4e6d0a471adaacc12bfd42a4453f2cba65bb65f53954ed96869178f"
+    },
+    {
+      "id": "ca3ce7fe-e020-4363-8bca-54ca27a62489",
+      "sourceId": "4660",
+      "slug": "latin-american-students-association",
+      "name": "ANU Latin American Students' Association",
+      "shortName": "Latin American Students' Association",
+      "category": "Culture and community",
+      "summary": "¡Hola from LASA! We're bringing people together through all aspects of latin culture. Everyone is welcome. Check out our events & memberships",
+      "overview": "¡Hola from LASA! We're bringing people together through all aspects of latin culture. Everyone is welcome. Check out our events & memberships below 🌎💫",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/af5c1617-178a-4913-8295-e194601e6962.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=4660",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/lasa_anu/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANU.LASA"
+        }
+      ],
+      "sourceHash": "44ec7ae0e45e2acf9e4793c762dd3266309b4e6f35dd8889f8b251f34bfe2948"
+    },
+    {
+      "id": "af0117d4-b360-4ad9-80ad-a4fb1235b665",
+      "sourceId": "5002",
+      "slug": "chess-society",
+      "name": "ANU Chess Society",
+      "shortName": "Chess",
+      "category": "Hobbies and interests",
+      "summary": "Find other students who enjoy a game of chess.",
+      "overview": "Explore a shared interest in chess, from learning the basics to discussing strategy and meeting other players on campus.",
+      "interests": ["Chess", "Strategy", "Games"],
+      "website": "https://linktr.ee/anuchesssociety",
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/1dc2044c-615e-4f2b-bae4-d031cf7c4fda.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=5002",
+      "links": [
+        {
+          "label": "Discord",
+          "url": "https://discord.gg/4HWcUERAFe"
+        }
+      ],
+      "sourceHash": "14f284d1f4e937e96afdfaa6714e14110aae57e999af666f1386c846ccd6f52a"
+    },
+    {
+      "id": "40bae2ad-eae8-42ef-8031-754e5ca1de1f",
+      "sourceId": "5032",
+      "slug": "korean-student-society",
+      "name": "ANU Korean Student Society",
+      "shortName": "Korean Student Society",
+      "category": "Culture and community",
+      "summary": "ANU Korean Student Society is a club at the Australian National University.",
+      "overview": "ANU Korean Student Society is a club at the Australian National University.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/65b770fc83c0f_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=5032",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anu.kss/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUKSSSINCE2016"
+        }
+      ],
+      "sourceHash": "b1587ca7911f9209b565908a6fca733b481aa4ad7acb283fc01a042b33a21bcc"
+    },
+    {
+      "id": "57af202f-0f85-4bd6-a195-53e9657adcc0",
+      "sourceId": "6329",
+      "slug": "dance-club",
+      "name": "ANU Dance Club",
+      "shortName": "Dance Club",
+      "category": "Arts and performance",
+      "summary": "ANU Dance Club is a club at the Australian National University.",
+      "overview": "ANU Dance Club is a club at the Australian National University.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/e455eb8e-3a98-433d-8749-d7aef6407ca3.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=6329",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/anudanceclub"
+        }
+      ],
+      "sourceHash": "94f11ba5e5b3f0ed0ade94eb7ef732755e6835288b35c0b4371e615fa36f58d0"
+    },
+    {
+      "id": "e1dde57e-72f0-4e94-9abb-116366484e02",
+      "sourceId": "6333",
+      "slug": "german-cultural-society",
+      "name": "ANU German Cultural Society",
+      "shortName": "German Cultural Society",
+      "category": "Culture and community",
+      "summary": "ANU German Cultural Society is a club at the Australian National University.",
+      "overview": "ANU German Cultural Society is a club at the Australian National University.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/a8293ff8-a7cd-4e2d-9e40-be904d6f51c5.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=6333",
+      "links": [],
+      "sourceHash": "f07030fd634fff00ff673597be1bd787176fe7cae63603aa660aef3f032d8ab2"
+    },
+    {
+      "id": "b2f3e5c1-57d6-4101-9a6a-f6e3ef906af1",
+      "sourceId": "6400",
+      "slug": "international-bible-fellowship",
+      "name": "International Bible Fellowship",
+      "shortName": "International Bible Fellowship",
+      "category": "Culture and community",
+      "summary": "International Bible Fellowship meets Friday nights to help international students learn about Jesus. A free, yummy home-cooked dinner box. Then a short",
+      "overview": "International Bible Fellowship meets Friday nights to help international students learn about Jesus. A free, yummy home-cooked dinner box. Then a short Bible talk and Bible study with others. You don't have to be a Christian – just curious and questioning! Every nationality is welcome. Book in for dinner. (Next IBF meeting: July 31 Semester 2)",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/9bb665d0-2e59-4186-8727-045c2629a307.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=6400",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/ibf_bible_anu?igsh=MTJoZW1weHNnNjNhbg%3D%3D&utm_source=qr"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ibfcbr"
+        }
+      ],
+      "sourceHash": "a8e18b28d64cd5dd533a22764b292fd9212cdef2a64c64f189bf9845bba4751e"
+    },
+    {
+      "id": "0cbda760-c628-4cec-b273-a1caccd65726",
+      "sourceId": "669",
+      "slug": "international-law-society",
+      "name": "ANU International Law Society",
+      "shortName": "International Law Society",
+      "category": "Academic",
+      "summary": "The Australian National University International Law Society ('ANU ILS') is the university's second-largest law students' society and its only community for those",
+      "overview": "The Australian National University International Law Society ('ANU ILS') is the university's second-largest law students' society and its only community for those passionate about international law. With more than a decade of experience, we organise an exciting range of academic, career and social events, programs and resources for domestic and international undergraduate and postgraduate students passionate about international law. We are so excited to have you with us in 2026! Sign up for our membership below for full access to our events, resources and career development opportunities in international law!",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/63da718660802_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=669",
+      "links": [
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/ANUILS/"
+        }
+      ],
+      "sourceHash": "8e8e97759e24e34fc86d506069ae8a44b86a8f71b5afe3c598e02c2ab5157ba2"
+    },
+    {
+      "id": "ba780139-b958-4cfc-a269-248201cc1890",
+      "sourceId": "7087",
+      "slug": "agricultural-society",
+      "name": "ANU Agricultural Society",
+      "shortName": "Agricultural",
+      "category": "Hobbies and interests",
+      "summary": "Share an interest in agriculture, food systems and rural life.",
+      "overview": "Connect with other students interested in agriculture, food systems and rural communities, whether it relates to your studies or a personal interest.",
+      "interests": ["Agriculture", "Food systems", "Rural life"],
+      "website": null,
+      "logoUrl": "https://resources.getqpay.com/images/6487e9090a208_.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=7087",
+      "links": [],
+      "sourceHash": "17264901ba65cce8139fc526c9d6e94f98a3de03e148b438dd31b705331cd087"
+    },
+    {
+      "id": "44391c5d-4d3a-4bca-947d-0c70acdfecc4",
+      "sourceId": "8203",
+      "slug": "platypus-affiliated-society-anu",
+      "name": "Platypus Affiliated Society ANU",
+      "shortName": "Platypus Affiliated Society ANU",
+      "category": "Academic",
+      "summary": "Platypus is an organization that seeks to identify and overcome the ideological obstacles on the Left.",
+      "overview": "Platypus is an organization that seeks to identify and overcome the ideological obstacles on the Left.",
+      "interests": [],
+      "website": null,
+      "logoUrl": "https://resources.hellorubric.com/uploaded_assets/6fd36b61-df9a-4529-b0a0-cbdeb970cede.png",
+      "directoryUrl": "https://campus.hellorubric.com/?s=8203",
+      "links": [
+        {
+          "label": "Instagram",
+          "url": "https://www.instagram.com/pas1917anu/"
+        },
+        {
+          "label": "Facebook",
+          "url": "https://www.facebook.com/platypusanu"
+        }
+      ],
+      "sourceHash": "2007b6c2f091d914163cb20da2244c3d2f573639d031c934e1ff29694e525014"
+    }
+  ],
+  "events": [
+    {
+      "id": "773d74b9-dc0f-4c9f-8e34-170dcd16f07c",
+      "sourceId": "81975",
+      "category": "workshop",
+      "title": "Lyrical Foundations Course",
+      "startsAt": "2026-09-25T20:30:00+10:00",
+      "endsAt": "2026-10-09T21:30:00+11:00",
+      "location": "Studio 1, ANU Sport, The Australian National University, North Road, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=81975",
+      "description": "Come join us for a 3-week foundations course in Lyrical style! Are you new to dancing, wanting to try a new style or just wanting to brush up and feel more confident? Grow your confidence as you get the time to work with a teacher over 3 weeks to build skill, learn to pick up choreography, meet other dance enthusiasts and have lots of fun in a safe environment!! This course focuses lyrical/ contemporary styles. An expressive dance form that often focuses on storytelling and draws heavily from jazz and ballet in many aspects. All are welcome from absolute beginners",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/0f7a9183-9aae-4bb3-afd1-3f85453561d2.png",
+      "ticketsUrl": null,
+      "societySlug": "dance-club",
+      "host": "ANU Dance Club",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=6329",
+      "sourceHash": "5641bad7ff05c3723b1be10d0faed481e3aa7a48ea1589b9b786284c5f66cfd5"
+    },
+    {
+      "id": "8130043c-720d-4f8f-b2e1-b697c2b3122c",
+      "sourceId": "68678",
+      "category": "social",
+      "title": "Latin America Week @ ANU! 🌎✨",
+      "startsAt": "2026-09-28T00:00:00+10:00",
+      "endsAt": "2026-10-04T12:00:00+11:00",
+      "location": "The Australian National University, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=68678",
+      "description": "Latin America Week is Back! 🌎 ✨ Get ready for a week packed with the best of Latin America right here at ANU! From Monday 28 September – Sunday 4 October , we're taking over campus with daily events celebrating everything that makes Latin America so vibrant. From food, music and dance to language, culture, history and community. Here's the lineup: 📅 Mon 28 Sept, 7pm , Latin America Trivia 🎶 Tue 29 Sept, 7pm , Bossa Nova Night with Jazz Soc 💃 Wed 30 Sept, 7pm , Free Brazilian Funk Class 🍨 Thu 1 Oct, 6:45pm , Messina Run",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/83867a6f-0b72-43af-9594-0a9aae4f5b8e.png",
+      "ticketsUrl": null,
+      "societySlug": "latin-american-students-association",
+      "host": "ANU Latin American Students' Association",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=4660",
+      "sourceHash": "beecacdad44d63941164aa74a8835156d5db15d3362a65327812bea41c227724"
+    },
+    {
+      "id": "d58573bf-64a1-4b42-bfe9-a84fad9df05e",
+      "sourceId": "83159",
+      "category": "social",
+      "title": "CSS LevelUp - E-sports competition",
+      "startsAt": "2026-09-28T16:30:00+10:00",
+      "endsAt": "2026-09-28T19:00:00+10:00",
+      "location": "Innovation Space, Birch Building #35, Science Road, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83159",
+      "description": "CSS Level-Up x ANU Esports Join the College of Systems & Society (CSS) and ANU Esports for an afternoon of games, food, friendly competition, and community! CSS Level-Up is a casual social event bringing together students from across various degrees and colleges. Whether you're a regular gamer or just looking to meet new people, everyone is welcome. Come along with friends or make some new ones, play a variety of games, grab some free food, and compete for team and individual prizes . Even if you are not a gamer, come along and support your school and club and win",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/3b65fbb2-4662-4861-8c63-70f0b84dc1dd.png",
+      "ticketsUrl": null,
+      "societySlug": "esports",
+      "host": "ANU Esports",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=1973",
+      "sourceHash": "e6186acea8ad3b3ee0efb4586884b76c5f5fd0872ea0ff75846439e8a3575ea8"
+    },
+    {
+      "id": "c4461782-bc36-45b9-9024-4a6aa44737f7",
+      "sourceId": "82838",
+      "category": "social",
+      "title": "Trivia night at Hopscotch",
+      "startsAt": "2026-09-28T18:00:00+10:00",
+      "endsAt": "2026-09-28T22:00:00+10:00",
+      "location": "Kambri at ANU, The Australian National University, University Avenue, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=82838",
+      "description": "Join us on monday night for a walk out to Hopscotch for their trivia night! Socialise with other psychology students, and have a nice night out! There is also a $25 cheap burger and house drink combo! Please get a ticket so we are able to book enough tables!",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/2fd9fc4a-ad8f-4804-b575-e0a7cd9676ff.png",
+      "ticketsUrl": null,
+      "societySlug": "psychology-society",
+      "host": "ANU Psychology Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=26",
+      "sourceHash": "3457ce70271479a1ef82da4a55b08fd1a0f11a172d179580b9f4bd5fe60a8c16"
+    },
+    {
+      "id": "f5bf60e6-87f5-49d7-aa3e-2fdeebfa9388",
+      "sourceId": "83074",
+      "category": "social",
+      "title": "Platypus ANU Coffee Break",
+      "startsAt": "2026-09-28T18:00:00+10:00",
+      "endsAt": "2026-09-28T20:00:00+10:00",
+      "location": "Fellows Bar & Cafe, Balmain Cres, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83074",
+      "description": "Join the Platypus Affiliated Society ANU for a coffee break on 10 Years of Trump. 28th of September Fellow's Bar and Cafe, ANU Monday 6:00 PM Readings: - https://platypus1917.org/2016/09/06/why-not-trump/",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/e4c03b99-6d9c-4356-be14-f6ccdf36bdc4.jpeg",
+      "ticketsUrl": null,
+      "societySlug": "platypus-affiliated-society-anu",
+      "host": "Platypus Affiliated Society ANU",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=8203",
+      "sourceHash": "2fdcdafea77853f875b774fd01a7363690523a53d12bbc1127f34f0819038222"
+    },
+    {
+      "id": "15dbc1fa-6340-4aef-b010-75d67c048177",
+      "sourceId": "83143",
+      "category": "workshop",
+      "title": "Space Law Careers Panel",
+      "startsAt": "2026-09-28T18:30:00+10:00",
+      "endsAt": "2026-09-28T20:30:00+10:00",
+      "location": "Room 3.02, Marie Reay Teaching Centre (Building 155), University Avenue, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83143",
+      "description": "",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/99682e56-953d-437b-b0c3-c2f76f2d8e56.jpeg",
+      "ticketsUrl": null,
+      "societySlug": "international-law-society",
+      "host": "ANU International Law Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=669",
+      "sourceHash": "4ec317afff69e918dab27493cf2646fecf4aed6840024afb47c9c5b218245e97"
+    },
+    {
+      "id": "2a4ab1ef-d4b3-4b49-95b3-f586a5aedefc",
+      "sourceId": "82242",
+      "category": "social",
+      "title": "Latin America Trivia Night 🧠✨",
+      "startsAt": "2026-09-28T19:00:00+10:00",
+      "endsAt": "2026-09-28T21:00:00+10:00",
+      "location": "Badger & Co, The Australian National University, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=82242",
+      "description": "Think you know Latin America? Prove it at our Latin America Trivia Night! ✨🧠 Grab your smartest friends (or just the ones who love a good cocktail) and join us for a night of questions, laughs, and prizes 🇲🇽🇧🇷🇨🇴 📅 Monday 28 September ⏰ 7:00PM 📍 Badger & Co, ANU 🎁 Prizes for the winning team 🎟 Free entry This event is part of ANU Latin America Week – a celebration of culture, creativity, and connection.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/5135672f-325d-4f15-aa9c-770912b4c666.png",
+      "ticketsUrl": null,
+      "societySlug": "latin-american-students-association",
+      "host": "ANU Latin American Students' Association",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=4660",
+      "sourceHash": "deba570289ffe59fefd58fc9102a79e97551aa99e96588b4f77886d0d1532653"
+    },
+    {
+      "id": "d703f8a1-0453-47b4-bdca-d7c1afb29077",
+      "sourceId": "83324",
+      "category": "workshop",
+      "title": "Interview Workshop",
+      "startsAt": "2026-09-29T12:15:00+10:00",
+      "endsAt": "2026-09-30T15:30:00+10:00",
+      "location": "Marie Reay 5.02, Marie Reay Teaching Centre (Building 155), University Avenue, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83324",
+      "description": "An interactive workshop from SASS and ANU Careers and Employability covering interview preparation, etiquette and ways to communicate your experience. Open to members and non-members.",
+      "artworkUrl": null,
+      "ticketsUrl": null,
+      "societySlug": "society-for-arts-and-social-sciences",
+      "host": "ANU Society for Arts and Social Sciences",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=305",
+      "sourceHash": "5c3cea298e3ef8bd10cbe6b0883ff66394ac116518eb4e02852ad1ebf64aa89e"
+    },
+    {
+      "id": "daaec668-870f-4df6-bb4e-294274314b64",
+      "sourceId": "84579",
+      "category": "workshop",
+      "title": "FrogWatch Census Training",
+      "startsAt": "2026-09-29T17:30:00+10:00",
+      "endsAt": "2026-09-29T20:30:00+10:00",
+      "location": "Hancock Library, Acton Campus, Sullivans Creek Road, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=84579",
+      "description": "Spring is here, which means FrogTober is just around the corner! This time, ANU Intrepid Landcare will be joining the Ginninderra Catchment Group for one of their annual FrogWatch Census Training sessions. The training will prepare us to take part in the ACT and region FrogCensus, where citizen scientists head out to local waterways and wetlands to record frog calls and help collect valuable data about local frog populations. During the evening, we'll learn the when, where, how and why of FrogWatching, with a mix of theory, fun frog facts and hands-on frog identification practice. We'll also head out on",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/393f4000-f5c0-4cdc-b1c0-a2d8b6f37a85.png",
+      "ticketsUrl": null,
+      "societySlug": "intrepid-landcare",
+      "host": "ANU Intrepid Landcare",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=1945",
+      "sourceHash": "2bcc4dc90a04092420a3c9e2421f4823ffbf60680c6a6d60f5df9f710586ad64"
+    },
+    {
+      "id": "da49751a-1db8-4ebd-83d1-d9ce43a7e418",
+      "sourceId": "72022",
+      "category": "social",
+      "title": "German Conversation Group",
+      "startsAt": "2026-09-29T17:30:00+10:00",
+      "endsAt": "2026-09-29T20:00:00+10:00",
+      "location": "Badger & Co, The Australian National University, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=72022",
+      "description": "We meet every Tuesday at Badger to share conversation and free snacks! Join us for some German conversation practice or to catch up with friends new and old.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/fa2ddbae-db1a-4ff4-86fd-fdbd1a4e091d.png",
+      "ticketsUrl": null,
+      "societySlug": "german-cultural-society",
+      "host": "ANU German Cultural Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=6333",
+      "sourceHash": "40fc988ad2a369cb8996690f962f3166d87b8a538d6fdb14fed87f2b8ffdc1ef"
+    },
+    {
+      "id": "6fc40105-8a26-4ee2-bb07-434a26fb5c23",
+      "sourceId": "73879",
+      "category": "social",
+      "title": "Team Finding Mixer | ANU CSSA Game Jam 2026",
+      "startsAt": "2026-09-29T18:00:00+10:00",
+      "endsAt": "2026-09-29T20:00:00+10:00",
+      "location": "Birch Innovation Space, 35 Science Road, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=73879",
+      "description": "Meet other students and find a team for the CSSA Game Jam. The optional mixer runs from 6 to 8 pm at Birch Innovation Space, with food and time to get to know potential teammates. The game jam follows on 2 to 4 October.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/ba337b15-32d8-4680-b80c-76392886b360.png",
+      "ticketsUrl": "https://events.humanitix.com/cssa-game-jam-2026",
+      "societySlug": "computer-science-students-association",
+      "host": "ANU Computer Science Students' Association",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=243",
+      "sourceHash": "22abbab1f75c5ab11193a6e84c09b07782e22473d03f06cdf4f179f3105f62dc"
+    },
+    {
+      "id": "606a6e37-7f1f-4807-8626-34fb2517bbc3",
+      "sourceId": "72410",
+      "category": "gaming",
+      "title": "TTRPG Tuesdays",
+      "startsAt": "2026-09-29T18:00:00+10:00",
+      "endsAt": "2026-09-29T22:00:00+10:00",
+      "location": "Room G050, Haydon-Allen Building",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=72410",
+      "description": "An evening of tabletop roleplaying one-shots, including Dungeons & Dragons, Cyberpunk Red, Daggerheart and Vampire: The Masquerade. No sign-up or equipment is needed. The organisers list free pizza.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/36ddb5ac-f40b-4ac2-aa86-05b312ef725d.png",
+      "ticketsUrl": null,
+      "societySlug": "roleplaying-society",
+      "host": "ANU Roleplaying Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=1451",
+      "sourceHash": "6de9bceba52e0824039acba38dfe378627532d95f5285de291d0bab6449b0cc8"
+    },
+    {
+      "id": "a9093b3d-17b8-4281-b67c-ad5d56fdfb83",
+      "sourceId": "72107",
+      "category": "social",
+      "title": "🎉 Korean-English Language Exchange 🗣️✨",
+      "startsAt": "2026-09-29T18:00:00+10:00",
+      "endsAt": "2026-09-29T20:00:00+10:00",
+      "location": "Room 5.06, Marie Reay Teaching Centre (Building 155), University Avenue, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=72107",
+      "description": "🗓️ Join us every Tuesday for a fun language exchange 🇰🇷 🇦🇺 📍 Whether you want to practice your language skills 💬, hang out with new friends 🤝, or just come for the food 🍙😋, everyone is welcome! 🌍 Bring your friends and enjoy a relaxed time. 🙌. We are looking forward to seeing you there! 👀👋🔥",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/92a2a362-9f7c-49d7-9d4d-52359df2514f.jpg",
+      "ticketsUrl": null,
+      "societySlug": "korean-student-society",
+      "host": "ANU Korean Student Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=5032",
+      "sourceHash": "96a5de6e8479e9687e14ff67b4665b57aa8609a171da6a3e6fbe8142ce8d1525"
+    },
+    {
+      "id": "b1c872fc-3284-476b-93cc-1741a9f25bf9",
+      "sourceId": "73060",
+      "category": "gaming",
+      "title": "Diplomacy Weekly Game Night",
+      "startsAt": "2026-09-29T18:00:00+10:00",
+      "endsAt": "2026-09-29T23:00:00+10:00",
+      "location": "Hancock Library West (43), Biology Place, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=73060",
+      "description": "Our weekly game features the board game Diplomacy, a game where you most powerful weapon is your voice. Negotiate, ally, or betray your way to world domination! Play starts at 6pm, but if you're new and need to learn the rules we encourage you to arrive earlier. We also provide free pizza to fuel your gaming needs!",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/c393d537-7531-4a96-9acd-059f08189553.png",
+      "ticketsUrl": null,
+      "societySlug": "diplomacy-society",
+      "host": "ANU Diplomacy Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=10335",
+      "sourceHash": "3bec704d92c06688109064d88a14052a1d4fc46db10752a1fc2b43936c510e81"
+    },
+    {
+      "id": "4dc15190-24ee-43a7-a6a7-7e26f857305a",
+      "sourceId": "83118",
+      "category": "social",
+      "title": "A Night of Bossa Nova",
+      "startsAt": "2026-09-29T19:00:00+10:00",
+      "endsAt": "2026-09-29T21:00:00+10:00",
+      "location": "Badger & Co, The Australian National University, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83118",
+      "description": "A little bossa nova for your Tuesday night? 🎷🌺 We're teaming up with ANU Jazz Society for Bossa Nova Night as part of Latin America Week. Come hang out, catch the live music and spend the evening with us on the outside balcony at Badger & Co 💛 📅 Tuesday 29 September 🕖 7 pm 📍 Badger & Co Bring your friends, see you there!",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/cca7bc2b-9551-46f3-a630-b0644d2f2e7c.png",
+      "ticketsUrl": null,
+      "societySlug": "latin-american-students-association",
+      "host": "ANU Latin American Students' Association",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=4660",
+      "sourceHash": "1129616b5b7c5fba51f341d5763da895ea02ce483ce685964643bd00f78cec00"
+    },
+    {
+      "id": "2e7236b9-ba73-4293-baa7-7b5c97872824",
+      "sourceId": "68367",
+      "category": "social",
+      "title": "Weekly Spanish & Portuguese Conversation Groups",
+      "startsAt": "2026-09-29T19:00:00+10:00",
+      "endsAt": "2026-09-29T21:00:00+10:00",
+      "location": "Badger & Co, The Australian National University, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=68367",
+      "description": "Spice up your Tuesdays with some Spanish & Portuguese! 🌍🗣️ Join us for a weekly language conversation group where you can practice, learn, and connect, all levels welcome! 📍 Badger & Co 📅 Tuesdays, 7PM 🆓 Open to everyone! Come for the languages, stay for the vibes. Nos vemos! Vejo vocês lá! ✨",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/cd7cd943-4e15-494b-924c-be07dc098bd3.png",
+      "ticketsUrl": null,
+      "societySlug": "latin-american-students-association",
+      "host": "ANU Latin American Students' Association",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=4660",
+      "sourceHash": "3ba31b5bb537677758f50117a8e706f8930183d9a5de9b360665c87cf3dc8a94"
+    },
+    {
+      "id": "2a041ec0-b72b-4d73-b5c2-16996baae443",
+      "sourceId": "84408",
+      "category": "social",
+      "title": "Coffee and Chat with Dr Janet Bultitude",
+      "startsAt": "2026-09-30T08:30:00+10:00",
+      "endsAt": "2026-09-30T10:30:00+10:00",
+      "location": "Rex Espresso, University Avenue, Acton ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=84408",
+      "description": "Come grab a coffee/treat, say hi, and meet our special guest, Dr Janet Bultitude. Dr Janet Bultitude is a Senior Lecturer in Psychology and Evaluation at ANU, with over 20 years of experience researching how the brain, body, and environment influence perception and pain. Her work spans psychology, neuroscience, and medicine, with a particular focus on chronic pain, rehabilitation, and applying research to improve health outcomes. Come along for a coffee, a chat, and the chance to learn more about the brain and pain.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/4c35b84a-2d2a-492f-8daf-7fd07320512b.png",
+      "ticketsUrl": null,
+      "societySlug": "psychology-society",
+      "host": "ANU Psychology Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=26",
+      "sourceHash": "2934f96d491a0542e76b39626b1dc4a4344f14d1afb4a49bcfcfef1362d046c7"
+    },
+    {
+      "id": "3ecb2233-8657-4dd5-b2c5-9fbe9537707e",
+      "sourceId": "84207",
+      "category": "social",
+      "title": "IBF Cuppa & Catchup",
+      "startsAt": "2026-09-30T12:00:00+10:00",
+      "endsAt": "2026-09-30T14:00:00+10:00",
+      "location": "The Street Theatre, 15 Childers Street, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=84207",
+      "description": "We've been reading Mark's Gospel and hear about Jesus in the Bible on Fridays at IBF. Dom and Aggie would love to meet any students over at The Street Cafe this Wednesday 30/9 between 12pm to 2pm. Just sit down, enjoy a cuppa or any beverage of your choice (it will be our shout), chatting about faith in Jesus, what really matters, who Jesus is to you.... We look forward to hearing from you!",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/ceecdf51-7c45-4ad9-b15c-f57c49084e56.jpg",
+      "ticketsUrl": null,
+      "societySlug": "international-bible-fellowship",
+      "host": "International Bible Fellowship",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=6400",
+      "sourceHash": "a67fbf7b23efebad430728aba2138dde01ab0a3593c823deb500a47619dfeb18"
+    },
+    {
+      "id": "a4d033a5-43b9-460f-ad20-16613e5f5623",
+      "sourceId": "79671",
+      "category": "workshop",
+      "title": "McGrathNicol Interview Workshop",
+      "startsAt": "2026-09-30T17:00:00+10:00",
+      "endsAt": "2026-09-30T19:00:00+10:00",
+      "location": "60 Marcus Clarke Street, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=79671",
+      "description": "Get interview-ready with McGrathNicol and AFEC 💼✨ Join us for an Interview Workshop at McGrathNicol's Canberra office, where you'll gain practical insights into what employers look for, how to approach common interview questions, and how to present yourself with confidence throughout the recruitment process. Whether you're applying for internships, graduate roles, or simply want to sharpen your interview skills, this is a great opportunity to hear directly from industry professionals and ask your questions.",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/968e594b-e44c-4041-b468-a82cd5256846.png",
+      "ticketsUrl": null,
+      "societySlug": "afec-students-society",
+      "host": "ANU AFEC Students' Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=22",
+      "sourceHash": "fbfd888684781b0ab9e9c2bd81aa6b80abc608c84d2e26a17a7cd16239fb8baf"
+    },
+    {
+      "id": "b2f6c528-88d4-412e-a8cb-954fbcbf4d5f",
+      "sourceId": "83425",
+      "category": "workshop",
+      "title": "Careers Panel",
+      "startsAt": "2026-09-30T18:00:00+10:00",
+      "endsAt": "2026-09-30T20:00:00+10:00",
+      "location": "Marie Reay Teaching Centre (Building 155), University Avenue, Canberra ACT, Australia",
+      "sourceUrl": "https://campus.hellorubric.com/?eid=83425",
+      "description": "Come by to our Careers Panel where we have fabulous panellists here to give insight into what the psychology workforce is like! Stick around after our structured Q&A to ask questions and mingle! Treats will be provided!",
+      "artworkUrl": "https://resources.hellorubric.com/uploaded_assets/95603322-3e52-4b0c-8f38-477601d84903.png",
+      "ticketsUrl": null,
+      "societySlug": "psychology-society",
+      "host": "ANU Psychology Society",
+      "hostProfileUrl": "https://campus.hellorubric.com/?s=26",
+      "sourceHash": "39d9938674f3c8fb5577538b49225126fe164a9c816060e7a640832b928c87f1"
+    }
+  ]
+}

@@ -3717,6 +3717,137 @@ export type Database = {
           },
         ]
       }
+      societies: {
+        Row: {
+          category: string
+          discord_url: string | null
+          facebook_url: string | null
+          fetched_at: string
+          id: string
+          instagram_url: string | null
+          interests: string[]
+          logo_url: string | null
+          name: string
+          overview: string
+          short_name: string
+          slug: string
+          source: string
+          source_hash: string
+          source_id: string
+          source_url: string
+          status: string
+          summary: string
+          website_url: string | null
+        }
+        Insert: {
+          category: string
+          discord_url?: string | null
+          facebook_url?: string | null
+          fetched_at: string
+          id?: string
+          instagram_url?: string | null
+          interests?: string[]
+          logo_url?: string | null
+          name: string
+          overview: string
+          short_name: string
+          slug: string
+          source: string
+          source_hash: string
+          source_id: string
+          source_url: string
+          status?: string
+          summary: string
+          website_url?: string | null
+        }
+        Update: {
+          category?: string
+          discord_url?: string | null
+          facebook_url?: string | null
+          fetched_at?: string
+          id?: string
+          instagram_url?: string | null
+          interests?: string[]
+          logo_url?: string | null
+          name?: string
+          overview?: string
+          short_name?: string
+          slug?: string
+          source?: string
+          source_hash?: string
+          source_id?: string
+          source_url?: string
+          status?: string
+          summary?: string
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      society_events: {
+        Row: {
+          artwork_url: string | null
+          category: string
+          description: string
+          ends_at: string
+          fetched_at: string
+          id: string
+          location: string
+          society_id: string
+          source: string
+          source_hash: string
+          source_id: string
+          source_url: string
+          starts_at: string
+          status: string
+          tickets_url: string | null
+          title: string
+        }
+        Insert: {
+          artwork_url?: string | null
+          category: string
+          description: string
+          ends_at: string
+          fetched_at: string
+          id?: string
+          location: string
+          society_id: string
+          source: string
+          source_hash: string
+          source_id: string
+          source_url: string
+          starts_at: string
+          status?: string
+          tickets_url?: string | null
+          title: string
+        }
+        Update: {
+          artwork_url?: string | null
+          category?: string
+          description?: string
+          ends_at?: string
+          fetched_at?: string
+          id?: string
+          location?: string
+          society_id?: string
+          source?: string
+          source_hash?: string
+          source_id?: string
+          source_url?: string
+          starts_at?: string
+          status?: string
+          tickets_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "society_events_society_id_fkey"
+            columns: ["society_id"]
+            isOneToOne: false
+            referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       structure_snapshot_summary_fields: {
         Row: {
           field_key: string

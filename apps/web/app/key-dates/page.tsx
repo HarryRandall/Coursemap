@@ -13,6 +13,10 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
+import { Suspense } from "react";
+import { loadSocieties } from "@/lib/societies-data";
+import { societyKeyDates } from "@/lib/society-calendar";
+import { CalendarFilters } from "@/ui/key-dates/calendar-filters";
 import ReuiLink from "next/link";
 import { CircleAlert, ExternalLink, RefreshCw } from "lucide-react";
 import { CalendarIllustration } from "@/ui/key-dates/calendar-illustration";
@@ -151,6 +155,7 @@ export default async function KeyDatesPage({
 }: {
   searchParams: Promise<{
     year?: string | string[];
+    societies?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -175,7 +180,28 @@ export default async function KeyDatesPage({
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
-  const allEvents = decorateUniversityCalendarEvents(data.events);
+  const includeSocieties = firstParam(params.societies) === "1";
+  const year = data.year ?? requestedYear ?? Number(todayIso.slice(0, 4));
+  let societyDates: ReturnType<typeof societyKeyDates> = [];
+  let societiesUnavailable = false;
+  if (includeSocieties) {
+    try {
+      const { events } = await loadSocieties();
+      societyDates = societyKeyDates(events, year);
+    } catch {
+      societiesUnavailable = true;
+    }
+  }
+  const allEvents = [
+    ...decorateUniversityCalendarEvents(data.events),
+    ...societyDates,
+  ].sort((a, b) => {
+    const day = a.date.localeCompare(b.date);
+    if (day) return day;
+    const timeA = a.category === "societies" ? Date.parse(a.startsAt) : 0;
+    const timeB = b.category === "societies" ? Date.parse(b.startsAt) : 0;
+    return timeA - timeB || a.title.localeCompare(b.title);
+  });
   // Only an empty calendar offers the admin shortcut, so only then is the
   // permission worth a round trip.
   const canSync =
@@ -191,9 +217,23 @@ export default async function KeyDatesPage({
       <div className="workspace-stack w-full">
         <h1 className="sr-only">Key dates</h1>
 
+        {societiesUnavailable && (
+          <Alert variant="warning">
+            <AlertDescription>
+              Society events could not be loaded. Please try again shortly.
+            </AlertDescription>
+          </Alert>
+        )}
+        {(calendarUnavailable || allEvents.length === 0) && (
+          <div>
+            <Suspense>
+              <CalendarFilters />
+            </Suspense>
+          </div>
+        )}
         {calendarUnavailable ? (
           <CalendarLoadError retryHref={retryHref} />
-        ) : allEvents.length === 0 || data.year === null ? (
+        ) : allEvents.length === 0 ? (
           <div className="workspace-scroll flex w-full flex-col">
             <EmptyCalendarCard
               availableYears={data.availableYears}
@@ -203,11 +243,13 @@ export default async function KeyDatesPage({
           </div>
         ) : (
           <UniversityCalendarView
-            key={data.year}
+            key={year}
             allEvents={allEvents}
-            availableYears={data.availableYears}
+            availableYears={[...new Set([...data.availableYears, year])].sort(
+              (a, b) => b - a,
+            )}
             todayIso={todayIso}
-            year={data.year}
+            year={year}
           />
         )}
       </div>

@@ -6,17 +6,17 @@ import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { YearPicker } from "@/ui/common/year-picker";
-import { FilterBar } from "@/ui/common/filter-bar";
+import { CalendarFilters } from "@/ui/key-dates/calendar-filters";
+import { KeyDateSocietyLogo } from "@/ui/key-dates/key-date-society-logo";
 import {
   CategoryBadge,
   calendarDateLabel as dateLabel,
 } from "@/ui/key-dates/category-badge";
+import Link from "next/link";
+import type { KeyDateEvent } from "@/lib/society-calendar";
+import { formatEventDate } from "@/lib/society-events";
 import { cn } from "@/lib/cn";
-import {
-  UNIVERSITY_CALENDAR_CATEGORIES,
-  groupUniversityCalendarEventsByMonth,
-  type UniversityCalendarEvent,
-} from "@/lib/coursemap/university-calendar";
+import { groupUniversityCalendarEventsByMonth } from "@/lib/coursemap/university-calendar";
 
 function Countdown({ date, today }: { date: string; today: string }) {
   const days = Math.round((Date.parse(date) - Date.parse(today)) / 86400000);
@@ -36,7 +36,7 @@ function EventRows({
   events,
   todayIso,
 }: {
-  events: UniversityCalendarEvent[];
+  events: KeyDateEvent[];
   todayIso: string;
 }) {
   return (
@@ -64,8 +64,23 @@ function EventRows({
           </time>
           <div>
             <p className="text-sm leading-relaxed font-medium text-foreground">
-              {event.title}
+              {event.category === "societies" ? (
+                <Link
+                  href={event.href}
+                  className="flex items-center gap-3 hover:underline focus-visible:underline"
+                >
+                  <KeyDateSocietyLogo society={event.society} />
+                  <span>{event.title}</span>
+                </Link>
+              ) : (
+                event.title
+              )}
             </p>
+            {event.category === "societies" && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {event.host} · {formatEventDate(event.startsAt)}
+              </p>
+            )}
             <div className="mt-1 text-xs text-muted-foreground md:hidden">
               <CategoryBadge category={event.category} />
             </div>
@@ -88,7 +103,7 @@ export function UniversityCalendarView({
   todayIso,
   year,
 }: {
-  allEvents: UniversityCalendarEvent[];
+  allEvents: KeyDateEvent[];
   availableYears: number[];
   todayIso: string;
   year: number;
@@ -107,7 +122,9 @@ export function UniversityCalendarView({
   const events = allEvents.filter(
     (event) =>
       (!category || event.category === category) &&
-      event.title.toLowerCase().includes(query),
+      (event.title + (event.category === "societies" ? ` ${event.host}` : ""))
+        .toLowerCase()
+        .includes(query),
   );
   const futureEvents = events.filter((event) => event.date >= todayIso);
   const pastEvents = events.filter((event) => event.date < todayIso);
@@ -142,21 +159,23 @@ export function UniversityCalendarView({
         <h2 className="text-xl font-semibold tracking-tight">
           University calendar
         </h2>
-        <YearPicker
-          ariaLabel="Calendar year"
-          years={availableYears}
-          value={year}
-          onChange={(value) => {
-            if (value === "all") return;
-            router.push(
-              href(
-                value < Number(todayIso.slice(0, 4)) ? "past" : "upcoming",
-                value,
-              ),
-              { scroll: false },
-            );
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <YearPicker
+            ariaLabel="Calendar year"
+            years={availableYears}
+            value={year}
+            onChange={(value) => {
+              if (value === "all") return;
+              router.push(
+                href(
+                  value < Number(todayIso.slice(0, 4)) ? "past" : "upcoming",
+                  value,
+                ),
+                { scroll: false },
+              );
+            }}
+          />
+        </div>
       </div>
 
       {!query && !category && upcoming.length > 0 && (
@@ -190,7 +209,17 @@ export function UniversityCalendarView({
                   </span>
                 </div>
                 <p className="mt-1.5 text-sm leading-relaxed font-medium">
-                  {event.title}
+                  {event.category === "societies" ? (
+                    <Link
+                      href={event.href}
+                      className="flex items-center gap-2.5 hover:underline focus-visible:underline"
+                    >
+                      <KeyDateSocietyLogo society={event.society} />
+                      <span>{event.title}</span>
+                    </Link>
+                  ) : (
+                    event.title
+                  )}
                 </p>
               </article>
             ))}
@@ -198,17 +227,7 @@ export function UniversityCalendarView({
         </section>
       )}
 
-      <FilterBar
-        searchPlaceholder="Search dates, deadlines and events..."
-        filters={[
-          {
-            key: "category",
-            label: "Category",
-            allLabel: "All categories",
-            options: UNIVERSITY_CALENDAR_CATEGORIES,
-          },
-        ]}
-      />
+      <CalendarFilters />
 
       <Tabs
         value={period}
