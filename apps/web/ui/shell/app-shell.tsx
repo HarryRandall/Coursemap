@@ -164,7 +164,8 @@ export function AppShell({
             fill && "min-h-0 md:overflow-hidden",
             // Other pages scroll below the topbar and tabs, so the header
             // never moves and the scrollbar starts under it.
-            !fill && "md:min-h-0 md:overflow-y-auto md:overscroll-contain",
+            !fill &&
+              "md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-y-none",
           )}
         >
           {fullBleed || fullWidth ? (
