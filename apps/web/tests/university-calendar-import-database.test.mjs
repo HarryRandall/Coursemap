@@ -84,6 +84,32 @@ test("imports, replays and archives university calendar events", async () => {
         `;
           assert.equal(published[0].count, 55);
 
+          const firstPeriods = await tx`
+            select code, starts_on::text, ends_on::text, starts_event_id, ends_event_id
+            from public.academic_periods
+            where calendar_year = ${calendarYear} order by sort_order
+          `;
+          assert.deepEqual(
+            firstPeriods.map(({ code, starts_on, ends_on }) => [
+              code,
+              starts_on,
+              ends_on,
+            ]),
+            [
+              ["SUMMER", "2026-01-01", "2026-03-31"],
+              ["S1", "2026-02-23", "2026-05-29"],
+              ["AUTUMN", "2026-04-01", "2026-06-30"],
+              ["WINTER", "2026-07-01", "2026-09-30"],
+              ["S2", "2026-07-27", "2026-10-30"],
+              ["SPRING", "2026-10-01", "2026-12-31"],
+            ],
+          );
+          assert.ok(
+            firstPeriods.every(
+              (period) => period.starts_event_id && period.ends_event_id,
+            ),
+          );
+
           const replay = await importManifest(buildManifest(events));
           assert.equal(replay.status, "succeeded");
           assert.deepEqual(replay.counts, {
@@ -94,6 +120,13 @@ test("imports, replays and archives university calendar events", async () => {
             failed: 0,
             unchanged: 55,
           });
+
+          const replayPeriods = await tx`
+            select code, starts_on::text, ends_on::text, starts_event_id, ends_event_id
+            from public.academic_periods
+            where calendar_year = ${calendarYear} order by sort_order
+          `;
+          assert.deepEqual(replayPeriods, firstPeriods);
 
           const revised = [
             ...events.slice(1),

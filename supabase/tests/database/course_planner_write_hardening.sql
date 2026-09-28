@@ -42,8 +42,8 @@ values (
 );
 
 -- Publish a 2030 course snapshot without inventing academic period dates. The
--- planner can place it in a synthetic S1/S2 lane while academic_period_id stays
--- null until the university calendar is imported.
+-- planner can place it in a real period whose dates remain pending until
+-- the university calendar is imported.
 select pg_temp.publish_course(
   'COMP1110', 2030::smallint, 'Structured Programming 2030', 'fixed', 6
 );
@@ -114,7 +114,7 @@ select extensions.lives_ok(
       'COMP1110', 2030::smallint, 2030::smallint, 'S1'
     )
   $$,
-  'a future course can be added to a synthetic period lane'
+  'a future course can be added to a period with dates pending'
 );
 
 select extensions.ok(
@@ -129,9 +129,9 @@ select extensions.ok(
       and academic_years.year = 2030
       and plan_items.planned_calendar_year = 2030
       and plan_items.planned_period_code = 'S1'
-      and plan_items.academic_period_id is null
+      and plan_items.academic_period_id is not null
   ),
-  'synthetic scheduling retains the exact year and code with a null period FK'
+  'undated scheduling retains the exact year, code and period FK'
 );
 
 select extensions.lives_ok(
@@ -150,7 +150,7 @@ select extensions.lives_ok(
       null
     )
   $$,
-  'a future course can move between synthetic lanes in its selected year'
+  'a future course can move between undated lanes in its selected year'
 );
 
 select extensions.ok(
@@ -165,7 +165,7 @@ select extensions.ok(
       and academic_years.year = 2030
       and plan_items.planned_calendar_year = 2030
       and plan_items.planned_period_code = 'S2'
-      and plan_items.academic_period_id is null
+      and plan_items.academic_period_id is not null
   ),
   'a synthetic move preserves course academic year lineage'
 );
@@ -226,45 +226,40 @@ select extensions.ok(
   'moving into another year swaps the plan item to that year''s course version'
 );
 
-select extensions.throws_ok(
+select extensions.lives_ok(
   $$
     select public.record_current_user_course_attempt(
       (
         select plan_items.id
         from public.plan_items
-        join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
-    join public.catalogue_codes as courses on courses.id = plan_records.code_id
-        where plan_items.owner_id = (select auth.uid())
-          and courses.code = 'COMP1110'
+        join public.catalogue_records as records on records.id = plan_items.catalogue_record_id
+        join public.catalogue_codes as courses on courses.id = records.code_id
+        where plan_items.owner_id = (select auth.uid()) and courses.code = 'COMP1110'
       ),
       'enrolled',
       75
     )
   $$,
-  'P0002',
-  'The academic period is not available for recorded history.',
-  'a synthetic lane cannot become an attempt without a real academic period'
+  'an undated period can record history without inventing calendar dates'
 );
 
 select extensions.ok(
-  exists (
-    select 1
-    from public.plan_items
-    join public.catalogue_records as plan_records on plan_records.id = plan_items.catalogue_record_id
-    join public.catalogue_codes as courses on courses.id = plan_records.code_id
-    where plan_items.owner_id = (select auth.uid())
-      and courses.code = 'COMP1110'
-  )
-  and not exists (
-    select 1
-    from public.course_attempts
-    join public.catalogue_versions as attempt_versions on attempt_versions.id = course_attempts.catalogue_version_id
-    join public.catalogue_records as attempt_records on attempt_records.id = attempt_versions.record_id
-    join public.catalogue_codes as courses on courses.id = attempt_records.code_id
-    where course_attempts.owner_id = (select auth.uid())
-      and courses.code = 'COMP1110'
+  not exists (
+    select 1 from public.plan_items
+    join public.catalogue_records as records on records.id = plan_items.catalogue_record_id
+    join public.catalogue_codes as courses on courses.id = records.code_id
+    where plan_items.owner_id = (select auth.uid()) and courses.code = 'COMP1110'
+  ) and exists (
+    select 1 from public.course_attempts
+    join public.catalogue_versions as versions on versions.id = course_attempts.catalogue_version_id
+    join public.catalogue_records as records on records.id = versions.record_id
+    join public.catalogue_codes as courses on courses.id = records.code_id
+    join public.academic_periods as periods on periods.id = course_attempts.academic_period_id
+    where course_attempts.owner_id = (select auth.uid()) and courses.code = 'COMP1110'
+      and periods.calendar_year = 2029 and periods.code = 'S1'
+      and periods.starts_on is null and periods.ends_on is null
   ),
-  'a failed synthetic attempt write leaves the plan item intact and creates no history'
+  'recording history retains the year and course version in an undated period'
 );
 
 select extensions.throws_ok(

@@ -1,3 +1,4 @@
+import { STANDARD_ACADEMIC_PERIODS } from "@/lib/coursemap/academic-periods";
 import type { Degree, Term } from "@/lib/coursemap/types";
 
 export const MAX_PLAN_EXTENSION_YEARS = 10;
@@ -48,20 +49,10 @@ export function planTimelineYears({
   }));
 }
 
-function pendingTerm(year: number, code: "S1" | "S2"): Term {
-  const firstSemester = code === "S1";
-  return {
-    id: `${year}-${code.toLowerCase()}`,
-    year,
-    name: firstSemester ? "First Semester" : "Second Semester",
-    shortName: firstSemester ? "Semester 1" : "Semester 2",
-    dates: "Calendar dates pending",
-  };
-}
-
 /**
  * Retains authoritative imported academic periods, while giving every planned
- * degree year usable semester lanes before ANU has published their dates.
+ * degree year usable semester and session lanes before ANU has published
+ * their dates.
  */
 export function planTimelineTerms({
   terms,
@@ -79,15 +70,30 @@ export function planTimelineTerms({
   const byId = new Map(importedTerms.map((term) => [term.id, term]));
 
   years.forEach(({ year }) => {
-    (["S1", "S2"] as const).forEach((code) => {
-      const id = `${year}-${code.toLowerCase()}`;
-      if (!byId.has(id)) byId.set(id, pendingTerm(year, code));
+    STANDARD_ACADEMIC_PERIODS.forEach((period) => {
+      const id = `${year}-${period.code.toLowerCase()}`;
+      if (!byId.has(id)) {
+        byId.set(id, {
+          id,
+          year,
+          name: period.name,
+          shortName: period.shortName,
+          sortOrder: period.sortOrder,
+          dates: "Calendar dates pending",
+        });
+      }
     });
   });
 
   const timelineTerms = [...byId.values()].sort((left, right) => {
     if (left.year !== right.year) return left.year - right.year;
-    return left.id.localeCompare(right.id);
+    const order = (term: Term) =>
+      term.sortOrder ??
+      STANDARD_ACADEMIC_PERIODS.find(
+        (period) => term.id === `${term.year}-${period.code.toLowerCase()}`,
+      )?.sortOrder ??
+      100;
+    return order(left) - order(right) || left.id.localeCompare(right.id);
   });
 
   return unscheduled ? [...timelineTerms, unscheduled] : timelineTerms;

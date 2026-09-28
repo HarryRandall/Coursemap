@@ -1,31 +1,14 @@
 import { NextResponse } from "next/server";
+import { academicPeriodTerm } from "@/lib/coursemap/academic-periods";
 import { createPublicClient } from "@/lib/supabase/public-server";
 
 export const dynamic = "force-dynamic";
-
-type AcademicPeriodRow = {
-  calendar_year: number;
-  code: string;
-  ends_on: string;
-  name: string;
-  short_name: string;
-  starts_on: string;
-};
-
-function formatDateRange(startsOn: string, endsOn: string) {
-  const format = new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-  return `${format.format(new Date(startsOn))} to ${format.format(new Date(endsOn))}`;
-}
 
 export async function GET() {
   const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("academic_periods")
-    .select("calendar_year,code,ends_on,name,short_name,starts_on")
+    .select("calendar_year,code,ends_on,name,short_name,starts_on,sort_order")
     .eq("status", "published")
     .order("calendar_year")
     .order("sort_order");
@@ -36,13 +19,7 @@ export async function GET() {
     );
   }
 
-  const terms = ((data ?? []) as AcademicPeriodRow[]).map((period) => ({
-    id: `${period.calendar_year}-${period.code.toLowerCase()}`,
-    year: period.calendar_year,
-    name: period.name,
-    shortName: period.short_name,
-    dates: formatDateRange(period.starts_on, period.ends_on),
-  }));
+  const terms = (data ?? []).map(academicPeriodTerm);
   terms.push({
     id: "unscheduled",
     year: 9999,

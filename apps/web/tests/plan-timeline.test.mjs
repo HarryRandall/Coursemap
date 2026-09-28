@@ -37,17 +37,18 @@ test("creates each nominal degree year even when future calendar periods are abs
   });
   assert.deepEqual(
     terms.map((term) => term.id),
-    [
-      "2026-s1",
-      "2026-s2",
-      "2027-s1",
-      "2027-s2",
-      "2028-s1",
-      "2028-s2",
-      "unscheduled",
-    ],
+    [2026, 2027, 2028]
+      .flatMap((year) => [
+        `${year}-summer`,
+        `${year}-s1`,
+        `${year}-autumn`,
+        `${year}-winter`,
+        `${year}-s2`,
+        `${year}-spring`,
+      ])
+      .concat("unscheduled"),
   );
-  assert.equal(terms[0].dates, "23 Feb to 29 May");
+  assert.equal(terms[1].dates, "23 Feb to 29 May");
   assert.equal(terms[3].dates, "Calendar dates pending");
 });
 

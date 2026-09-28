@@ -1,4 +1,5 @@
 import "server-only";
+import { academicPeriodTerm } from "@/lib/coursemap/academic-periods";
 import type { Database } from "@/types/database";
 import type { Course, Degree, Major, Term } from "@/lib/coursemap/types";
 import { createPublicClient } from "@/lib/supabase/public-server";
@@ -103,10 +104,11 @@ export type PlanStructureSummary = {
 type AcademicPeriodRow = {
   calendar_year: number;
   code: string;
-  ends_on: string;
+  ends_on: string | null;
   name: string;
   short_name: string;
-  starts_on: string;
+  starts_on: string | null;
+  sort_order: number;
 };
 type StructureSnapshotRow = {
   college: string | null;
@@ -138,15 +140,6 @@ type CatalogueRecordRow = {
 
 export function isPlanStructureKind(value: string): value is PlanStructureKind {
   return ["programme", "major", "minor", "specialisation"].includes(value);
-}
-
-function formatDateRange(startsOn: string, endsOn: string) {
-  const format = new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-  return `${format.format(new Date(startsOn))} to ${format.format(new Date(endsOn))}`;
 }
 
 export function planCourseFromDetails(course: CourseDetails): Course {
@@ -362,7 +355,9 @@ export async function loadPublishedPlanCatalogue(
       loadPublishedCoursesBySelections(courseSelections),
       supabase
         .from("academic_periods")
-        .select("calendar_year,code,ends_on,name,short_name,starts_on")
+        .select(
+          "calendar_year,code,ends_on,name,short_name,starts_on,sort_order",
+        )
         .eq("calendar_year", academicYearRecord.year)
         .eq("status", "published")
         .order("calendar_year")
@@ -578,15 +573,7 @@ export async function loadPublishedPlanCatalogue(
   });
 
   const terms: Term[] = ((periodsResult.data ?? []) as AcademicPeriodRow[]).map(
-    (period) => ({
-      id: `${period.calendar_year}-${period.code.toLowerCase()}`,
-      year: period.calendar_year,
-      name: period.name,
-      shortName: period.short_name,
-      dates: formatDateRange(period.starts_on, period.ends_on),
-      startsOn: period.starts_on,
-      endsOn: period.ends_on,
-    }),
+    academicPeriodTerm,
   );
   terms.push({
     id: "unscheduled",

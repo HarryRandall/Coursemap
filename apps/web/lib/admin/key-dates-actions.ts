@@ -25,6 +25,8 @@ function isCalendarYear(year: number) {
 function refreshKeyDates(year: number) {
   revalidatePath(`/admin/key-dates/${year}`, "layout");
   revalidatePath("/key-dates");
+  revalidatePath("/plan");
+  revalidatePath("/dashboard");
 }
 
 /**
