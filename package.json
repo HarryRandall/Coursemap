@@ -40,7 +40,8 @@
     "rooms:buildings:fetch": "pnpm --filter @coursemap/web rooms:buildings:fetch",
     "rooms:buildings:generate": "pnpm --filter @coursemap/web rooms:buildings:generate",
     "check:repository": "node scripts/check-repository.mjs",
-    "societies:import": "node apps/web/scripts/societies/import.mjs"
+    "societies:import": "node apps/web/scripts/societies/import.mjs",
+    "societies:export": "node apps/web/scripts/societies/export-sql.mjs"
   },
   "devDependencies": {
     "prettier": "catalog:",
