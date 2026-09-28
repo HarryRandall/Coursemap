@@ -4,28 +4,54 @@ import { createPublicClient } from "@/lib/supabase/public-server";
 import { SOCIETY_CATEGORIES, type Society } from "@/lib/societies";
 import type { SocietyEvent } from "@/lib/society-events";
 
+async function loadPublishedRows<Row>(
+  readPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{
+    data: Row[] | null;
+    error: unknown;
+  }>,
+): Promise<Row[]> {
+  const rows: Row[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const page = await readPage(from, from + pageSize - 1);
+    if (page.error)
+      throw new Error(
+        "The society directory could not be loaded. Please try again shortly.",
+      );
+    rows.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < pageSize) return rows;
+  }
+}
+
 /** Public snapshots are read from the database, never the import fixtures. */
 export const loadSocieties = cache(
   async (): Promise<{ societies: Society[]; events: SocietyEvent[] }> => {
     const client = createPublicClient();
     const [clubs, listings] = await Promise.all([
-      client
-        .from("societies")
-        .select("*")
-        .eq("status", "published")
-        .order("name"),
-      client
-        .from("society_events")
-        .select("*")
-        .eq("status", "published")
-        .order("starts_at"),
+      loadPublishedRows((from, to) =>
+        client
+          .from("societies")
+          .select("*")
+          .eq("status", "published")
+          .order("name")
+          .order("id")
+          .range(from, to),
+      ),
+      loadPublishedRows((from, to) =>
+        client
+          .from("society_events")
+          .select("*")
+          .eq("status", "published")
+          .order("starts_at")
+          .order("id")
+          .range(from, to),
+      ),
     ]);
-    if (clubs.error || listings.error)
-      throw new Error(
-        "The society directory could not be loaded. Please try again shortly.",
-      );
     const byId = new Map<string, Society>();
-    for (const row of clubs.data ?? []) {
+    for (const row of clubs) {
       const category = SOCIETY_CATEGORIES.find(
         (value) => value === row.category,
       );
@@ -52,7 +78,7 @@ export const loadSocieties = cache(
       });
     }
     const events: SocietyEvent[] = [];
-    for (const row of listings.data ?? []) {
+    for (const row of listings) {
       const society = byId.get(row.society_id);
       if (!society) continue;
       const category = row.category;
@@ -75,7 +101,7 @@ export const loadSocieties = cache(
         endsAt: row.ends_at,
         location: row.location,
         sourceUrl: row.source_url,
-        description: row.description,
+        description: row.description.trim() || society.summary,
         artworkUrl: row.artwork_url ?? undefined,
         ticketsUrl: row.tickets_url ?? undefined,
       });
