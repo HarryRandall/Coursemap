@@ -2,6 +2,8 @@ import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { loadPublishedUniversityCalendar } from "@/lib/coursemap/university-calendar-data";
 import type { UniversityCalendarEventRecord } from "@/lib/coursemap/university-calendar";
+import { loadSocieties } from "@/lib/societies-data";
+import type { SocietyEvent } from "@/lib/society-events";
 import { StudyCalendar } from "./study-calendar";
 
 export const dynamic = "force-dynamic";
@@ -35,5 +37,19 @@ export default async function CalendarPage() {
     );
   }
   const keyDates = await loadAllPublishedKeyDates();
-  return <StudyCalendar catalogue={catalogue} keyDates={keyDates} />;
+  let societyEvents: SocietyEvent[] = [];
+  let societiesUnavailable = false;
+  try {
+    societyEvents = (await loadSocieties()).events;
+  } catch {
+    societiesUnavailable = true;
+  }
+  return (
+    <StudyCalendar
+      catalogue={catalogue}
+      keyDates={keyDates}
+      societyEvents={societyEvents}
+      societiesUnavailable={societiesUnavailable}
+    />
+  );
 }

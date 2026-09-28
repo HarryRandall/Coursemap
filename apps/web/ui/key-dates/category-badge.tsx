@@ -5,6 +5,7 @@ import {
   MapPin,
   PenLine,
   TreePalm,
+  UsersRound,
 } from "lucide-react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { badgeVariantForTone } from "@/lib/ui";
@@ -20,6 +21,7 @@ export const categoryIcons = {
   graduation: GraduationCap,
   holiday: TreePalm,
   campus: MapPin,
+  societies: UsersRound,
 };
 
 export const categoryTones = {
@@ -29,21 +31,22 @@ export const categoryTones = {
   graduation: "success",
   holiday: "info",
   campus: "neutral",
+  societies: "brand",
 } as const;
 
 export function CategoryBadge({
   category,
 }: {
-  category: UniversityCalendarCategory;
+  category: UniversityCalendarCategory | "societies";
 }) {
   const Icon = categoryIcons[category];
   return (
     <Badge variant={badgeVariantForTone[categoryTones[category]]}>
       <Icon size={12} aria-hidden="true" />
-      {
-        UNIVERSITY_CALENDAR_CATEGORIES.find((item) => item.value === category)
-          ?.label
-      }
+      {category === "societies"
+        ? "Societies"
+        : UNIVERSITY_CALENDAR_CATEGORIES.find((item) => item.value === category)
+            ?.label}
     </Badge>
   );
 }

@@ -74,6 +74,11 @@ const studentNav: NavSection[] = [
         badge: "Preview",
       },
       {
+        href: "/societies",
+        label: "Societies",
+        icon: routeIcons.societies,
+      },
+      {
         href: "/printing",
         label: "Printing",
         icon: routeIcons.printing,

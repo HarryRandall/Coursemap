@@ -39,7 +39,8 @@
     "course-import:benchmark": "pnpm --filter @coursemap/web course-import:benchmark",
     "rooms:buildings:fetch": "pnpm --filter @coursemap/web rooms:buildings:fetch",
     "rooms:buildings:generate": "pnpm --filter @coursemap/web rooms:buildings:generate",
-    "check:repository": "node scripts/check-repository.mjs"
+    "check:repository": "node scripts/check-repository.mjs",
+    "societies:import": "node apps/web/scripts/societies/import.mjs"
   },
   "devDependencies": {
     "prettier": "catalog:",
