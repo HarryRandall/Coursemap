@@ -38,3 +38,16 @@ test("students can still open the local event page when its artwork fails", () =
       .some((image) => image.getAttribute("src") === event.artworkUrl),
   ).toBe(false);
 });
+
+test("event cards offer separate event and society links without nesting them", () => {
+  const event = EXAMPLE_SOCIETY_EVENTS[0]!;
+  render(<SocietyEvents events={[event]} />);
+  const eventLink = screen.getByRole("link", { name: `View ${event.title}` });
+  const societyLink = screen.getByRole("link", { name: `View ${event.host}` });
+  expect(eventLink).toHaveAttribute("href", `/societies/events/${event.id}`);
+  expect(societyLink).toHaveAttribute(
+    "href",
+    `/societies/${event.societySlug}`,
+  );
+  expect(eventLink.contains(societyLink)).toBe(false);
+});

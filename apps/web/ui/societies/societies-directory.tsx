@@ -110,7 +110,7 @@ export function SocietiesDirectory({
                           className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground"
                         />
                       </div>
-                      <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+                      <p className="mb-4 line-clamp-2 text-sm leading-relaxed wrap-anywhere text-muted-foreground">
                         {society.summary}
                       </p>
                       <div className="mt-auto">
