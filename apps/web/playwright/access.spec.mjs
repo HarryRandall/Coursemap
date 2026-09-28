@@ -63,6 +63,7 @@ test("redirects protected routes to the canonical login page", async ({
     "/calendar",
     "/roadmap",
     "/rooms",
+    "/printing",
     "/help",
     "/history",
     "/timetable",

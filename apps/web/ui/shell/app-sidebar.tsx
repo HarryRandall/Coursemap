@@ -6,7 +6,6 @@ import { Fragment } from "react";
 import { ArrowLeft, Orbit, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
-  SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
@@ -23,6 +22,7 @@ import { AccountMenu } from "@/ui/shell/account-menu";
 import { BrandMark } from "@/ui/brand-mark";
 import { CourseFind } from "@/ui/course-find";
 import { routeIcons } from "@/ui/shell/route-icons";
+import { SidebarScrollContent } from "@/ui/shell/sidebar-scroll-content";
 
 type NavItem = {
   href: string;
@@ -62,11 +62,22 @@ const studentNav: NavSection[] = [
       { href: "/courses", label: "Explore courses", icon: routeIcons.courses },
       { href: "/calendar", label: "Calendar", icon: routeIcons.calendar },
       { href: "/key-dates", label: "Key dates", icon: routeIcons["key-dates"] },
+    ],
+  },
+  {
+    label: "Campus",
+    items: [
       {
         href: "/rooms",
         label: "Room finder",
         icon: routeIcons.rooms,
         badge: "Preview",
+      },
+      {
+        href: "/printing",
+        label: "Printing",
+        icon: routeIcons.printing,
+        badge: "Soon",
       },
     ],
   },
@@ -214,7 +225,9 @@ function NavMenuItem({
         </Link>
       </SidebarMenuButton>
       {item.badge ? (
-        <SidebarMenuBadge className="top-1/2! right-3 -translate-y-1/2 rounded-sm bg-primary/10 px-1.5 text-[9px] font-bold text-primary uppercase">
+        <SidebarMenuBadge
+          className={`top-1/2! right-3 -translate-y-1/2 rounded-sm px-1.5 text-[9px] font-bold uppercase ${isActive ? "bg-sidebar-primary-foreground/15 text-sidebar-primary-foreground" : "bg-primary/10 text-primary"}`}
+        >
           {item.badge}
         </SidebarMenuBadge>
       ) : null}
@@ -234,7 +247,7 @@ function NavSections({
       {sections.map((section, index) => (
         <Fragment key={section.label ?? "primary"}>
           {index > 0 ? <SidebarSeparator className="mx-0 w-full" /> : null}
-          <SidebarGroup className="px-3 py-2 group-data-[collapsible=icon]:px-2">
+          <SidebarGroup className="px-0 py-2 group-data-[collapsible=icon]:px-2">
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
                 {section.items.map((item) => (
@@ -267,12 +280,12 @@ export function AppSidebar({ admin }: { admin: boolean }) {
 
   return (
     <Sidebar variant="inset" collapsible="icon" className="select-none">
-      <SidebarHeader className="gap-3 px-3 pb-3 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 motion-reduce:transition-none">
+      <SidebarHeader className="gap-3 pr-3 pb-3 pl-0 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 motion-reduce:transition-none md:pr-1.5">
         <Link
           href={admin ? "/admin/dashboard" : "/dashboard"}
           aria-label="Coursemap home"
           onClick={closeMobileNav}
-          className="flex h-12 items-center gap-2.5 overflow-hidden rounded-md px-1.5 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-0 motion-reduce:transition-none"
+          className="flex h-12 items-center gap-2.5 overflow-hidden rounded-md px-3 transition-[padding,background-color] duration-200 ease-linear group-data-[collapsible=icon]:px-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none motion-reduce:transition-none"
         >
           <BrandMark className="size-8 shrink-0" />
           <strong className="brand-wordmark shrink-0 text-[17px] transition-opacity duration-200 ease-linear group-data-[collapsible=icon]:opacity-0 motion-reduce:transition-none">
@@ -283,7 +296,7 @@ export function AppSidebar({ admin }: { admin: boolean }) {
         <CourseFind admin={admin} onNavigate={closeMobileNav} />
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarScrollContent>
         <nav aria-label={admin ? "Admin navigation" : "Student navigation"}>
           <NavSections
             sections={admin ? adminNavigation(catalogueYear) : studentNav}
@@ -307,9 +320,9 @@ export function AppSidebar({ admin }: { admin: boolean }) {
             />
           </>
         ) : null}
-      </SidebarContent>
+      </SidebarScrollContent>
 
-      <SidebarFooter>
+      <SidebarFooter className="pr-3 pl-0 group-data-[collapsible=icon]:px-2 md:pr-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
             <AccountMenu />

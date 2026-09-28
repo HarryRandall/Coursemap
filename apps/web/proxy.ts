@@ -21,6 +21,7 @@ const PROTECTED_ROUTE_PREFIXES = [
   "/calendar",
   "/roadmap",
   "/rooms",
+  "/printing",
   "/help",
   "/history",
   "/timetable",

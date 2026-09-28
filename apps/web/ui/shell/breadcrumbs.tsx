@@ -27,6 +27,7 @@ const labels: Record<string, string> = {
   "key-dates": "Key dates",
   roadmap: "Product roadmap",
   rooms: "Room finder",
+  printing: "Printing",
   help: "Help centre",
   timetable: "Timetable",
   profile: "Profile",
