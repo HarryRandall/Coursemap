@@ -92,12 +92,16 @@ export function Dashboard({
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
       enrolmentMode: state.profile.enrolmentMode,
+      programmeCodes: state.profile.degreeCode
+        ? [state.profile.degreeCode]
+        : [],
     }),
     [
       catalogue,
       timelineTerms,
       state.profile.commencementYear,
       state.profile.enrolmentMode,
+      state.profile.degreeCode,
     ],
   );
   const unitTarget = degree?.units ?? null;

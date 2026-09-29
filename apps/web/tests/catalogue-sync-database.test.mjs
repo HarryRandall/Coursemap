@@ -899,6 +899,68 @@ test("model projection hashes preserve absent offering summaries independently o
   await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });
 
+test("college eligibility survives persistence and unchanged replay with invalid values rolled back", async () => {
+  const college = "ANU College of Business and Economics";
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "College eligibility persistence",
+  });
+  model.requisites.prerequisiteText = "You must be enrolled in a CBE degree.";
+  model.requisites.prerequisiteRule = { op: "enrolled_in_college", college };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  assert.equal(
+    readProjectionPrerequisiteRule(projection.content).relationalExpression
+      .conditions[0].college,
+    college,
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+  const repeated = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  assert.equal(
+    (
+      await persistSourceVersion(sql, {
+        claim: repeated.claim,
+        sourceDocumentId: repeated.documentId,
+        write: roundtrip,
+      })
+    ).status,
+    "unchanged",
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${repeated.claim.syncId}`;
+  for (const freeText of [null, " "]) {
+    const invalid = structuredClone(content);
+    invalid.requirements.conditions[0].freeText = freeText;
+    invalid.contentHash = contentHashForCatalogueContent(invalid);
+    const attempt = await createSyncFixture(OFFERING_CODE, invalid.contentHash);
+    await assert.rejects(
+      persistSourceVersion(sql, {
+        claim: attempt.claim,
+        sourceDocumentId: attempt.documentId,
+        write: invalid,
+      }),
+      (error) => error.code === "23514",
+    );
+    const [count] =
+      await sql`select count(*)::int as count from public.catalogue_versions where sync_id = ${attempt.claim.syncId}`;
+    assert.equal(count.count, 0);
+    await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${attempt.claim.syncId}`;
+  }
+});
+
 test("conditional enrolment permissions survive persistence, projection and unchanged replay", async () => {
   const model = emptyCourseExtraction({
     code: OFFERING_CODE,

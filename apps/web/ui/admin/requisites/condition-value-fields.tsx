@@ -383,7 +383,11 @@ export function InlineValueFields({
   return (
     <Input
       aria-label={
-        condition.kind === "permission" ? "Who must approve" : "Wording"
+        condition.kind === "permission"
+          ? "Who must approve"
+          : condition.kind === "college_enrolment"
+            ? "Programme college"
+            : "Wording"
       }
       className={cn(
         inlineControl,
@@ -395,7 +399,9 @@ export function InlineValueFields({
       placeholder={
         condition.kind === "permission"
           ? "Course convener"
-          : "Describe the condition"
+          : condition.kind === "college_enrolment"
+            ? "Full college name from the source"
+            : "Describe the condition"
       }
       value={condition.freeText ?? ""}
     />

@@ -2,6 +2,7 @@ import {
   COURSE_EXTRACTION_SCHEMA_VERSION,
   type CourseExtraction,
   type CourseExtractionReviewItem,
+  type CourseRule,
   validateCourseExtraction,
 } from "./contract.ts";
 import {
@@ -29,6 +30,25 @@ const COURSE_IDENTITY_FIELDS = [
   "level",
   "subjectCode",
 ] as const;
+
+/** A college identity must be source-backed, even when the clause abbreviates it. */
+function unsupportedCollegeNames(
+  rule: CourseRule | null,
+  pageMarkdown: string,
+): string[] {
+  if (!rule) return [];
+  if (rule.op === "all_of" || rule.op === "one_of")
+    return rule.rules.flatMap((child) =>
+      unsupportedCollegeNames(child, pageMarkdown),
+    );
+  if (rule.op !== "enrolled_in_college") return [];
+  return unsupportedModelWording(
+    { college: { sourceText: rule.college } },
+    pageMarkdown,
+  ).length
+    ? [rule.college]
+    : [];
+}
 
 /**
  * A valid course extraction that states nothing about the course beyond its
@@ -152,12 +172,30 @@ export function finaliseCourseExtraction({
   });
 
   const unsupported = unsupportedModelWording(extraction, pageMarkdown);
+  const unsupportedColleges = [
+    ...new Set([
+      ...unsupportedCollegeNames(
+        extraction.requisites.prerequisiteRule,
+        pageMarkdown,
+      ),
+      ...unsupportedCollegeNames(
+        extraction.requisites.corequisiteRule,
+        pageMarkdown,
+      ),
+    ]),
+  ];
   const problem = modelResponseProblem({ finishReason, responseError });
   const canonicalised = courseModelCanonicalisationReviewItem(
     canonical.changes,
   );
   const reviewItems: CourseExtractionReviewItem[] = [
     ...extraction.reviewItems,
+    ...unsupportedColleges.map((college) => ({
+      fieldKey: "requisites",
+      kind: "evidence_missing" as const,
+      severity: "error" as const,
+      message: `The ANU page does not contain the required college's name: ${college}. Preserve unresolved college eligibility for review.`,
+    })),
     ...(problem
       ? [
           {
@@ -203,6 +241,7 @@ export function finaliseCourseExtraction({
       canonicalisationChanges: canonical.changes,
       droppedFields: dropped,
       unsupportedWording: unsupported,
+      unsupportedCollegeNames: unsupportedColleges,
     },
   };
 }
