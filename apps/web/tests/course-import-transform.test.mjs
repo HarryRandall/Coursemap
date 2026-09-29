@@ -401,8 +401,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v9");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v12");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v10");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v13");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -610,7 +610,7 @@ test("the user prompt offers the tags already in use", () => {
       academicYear: 2026,
       pageMarkdown: "# COMP2400",
     }),
-    "Expected course: COMP2400\nSelected academic year: 2026\n\n# COMP2400",
+    "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400",
   );
 });
 
@@ -1040,6 +1040,82 @@ test("captured CBEA3070 Spring classes retain their following-year end date", as
     [
       ["2024-10-01", "2025-02-07"],
       ["2024-10-01", "2025-02-07"],
+    ],
+  );
+});
+
+test("offering labels cannot replace supplied academic period identities", () => {
+  const model = structuredClone(extraction);
+  const codes = ["S1", "S2", "SUMMER", "AUTUMN", "WINTER", "SPRING"];
+  assert.equal(
+    validateCourseExtraction(model, { knownPeriodCodes: codes }).success,
+    true,
+  );
+  model.offerings[0].periodCode = "First Semester";
+  const validation = validateCourseExtraction(model, {
+    knownPeriodCodes: codes,
+  });
+  assert.equal(validation.success, false);
+  assert.ok(
+    validation.issues.some(
+      (issue) => issue.path === "$.offerings[0].periodCode",
+    ),
+  );
+  const held = finaliseCourseExtraction({
+    code: "COMP2400",
+    year: 2026,
+    listingTitle: extraction.title,
+    model,
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+    knownPeriodCodes: codes,
+  });
+  assert.deepEqual(held.extraction.offerings, []);
+  assert.ok(
+    held.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey.startsWith("offerings") && item.severity === "error",
+    ),
+  );
+  assert.equal(
+    validateCourseExtraction(extraction, { knownPeriodCodes: [] }).success,
+    false,
+  );
+});
+
+test("captured FINM2002 sessions use calendar codes and preserve ANU labels", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-finm2002-offerings.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "FINM2002",
+    year: 2024,
+    title: "Corporate Finance",
+  });
+  model.offerings = captured.offerings;
+  const knownPeriodCodes = captured.knownAcademicPeriods.map(
+    (period) => period.code,
+  );
+  assert.equal(
+    validateCourseExtraction(model, { knownPeriodCodes }).success,
+    true,
+  );
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.offeringSessions.map((session) => [
+      session.academicPeriodCode,
+      session.academicPeriodName,
+    ]),
+    [
+      ["S1", "First Semester"],
+      ["S2", "Second Semester"],
     ],
   );
 });

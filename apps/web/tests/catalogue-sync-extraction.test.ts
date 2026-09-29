@@ -8,7 +8,9 @@ import {
 } from "@/lib/catalogue-import/kinds/course/prompt";
 
 const mocks = vi.hoisted(() => ({
-  sql: vi.fn(async () => []),
+  sql: vi.fn<(...args: unknown[]) => Promise<Record<string, unknown>[]>>(
+    async () => [],
+  ),
   claim: vi.fn(),
   complete: vi.fn(),
   finish: vi.fn(),
@@ -65,6 +67,16 @@ const extraction = JSON.parse(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.sql.mockImplementation(async (strings) =>
+    Array.from(strings as unknown as readonly string[])
+      .join("")
+      .includes("from public.academic_periods")
+      ? [
+          { code: "S1", name: "First Semester" },
+          { code: "S2", name: "Second Semester" },
+        ]
+      : [],
+  );
   mocks.claim.mockResolvedValue({
     syncId: "sync",
     kind: "course",
@@ -137,5 +149,32 @@ test("a complete response proceeds to source persistence", async () => {
   expect(mocks.finish).toHaveBeenCalledWith(
     expect.anything(),
     expect.objectContaining({ status: "applied", sourceVersionId: 10 }),
+  );
+});
+
+test("the worker gives the model calendar identities and holds unrecognised periods", async () => {
+  const model = structuredClone(extraction);
+  model.offerings[0].periodCode = "First Semester";
+  mocks.extract.mockResolvedValue({
+    parsed: model,
+    responseError: null,
+    finishReason: "stop",
+    responseForAudit: {},
+    usage: {},
+  });
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).toHaveBeenCalledWith(
+    expect.objectContaining({
+      modelInput: expect.stringContaining("S1: First Semester"),
+    }),
+  );
+  expect(mocks.complete).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ domainValid: false }),
+  );
+  const [, input] = mocks.persist.mock.calls[0];
+  expect(input.write.course.sessions).toEqual([]);
+  expect(input.write.flags).toContainEqual(
+    expect.objectContaining({ fieldPath: "offerings[0]", severity: "error" }),
   );
 });

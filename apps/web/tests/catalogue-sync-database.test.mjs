@@ -8,6 +8,7 @@ import {
 } from "../lib/catalogue/content.ts";
 import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content.ts";
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
+import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
 import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
@@ -283,8 +284,11 @@ test("first, unchanged and changed source observations preserve local intent", a
     "Familiarity with matrix algebra is recommended.",
   );
 
+  const knownPeriods = await loadKnownAcademicPeriods(sql, YEAR);
+  assert.ok(knownPeriods.some((period) => period.code === "SPRING"));
   const [persistedSession] =
-    await sql`select starts_on::text, ends_on::text from public.offering_sessions where version_id = ${first.sourceVersionId}`;
+    await sql`select starts_on::text, ends_on::text, academic_period_id from public.offering_sessions where version_id = ${first.sourceVersionId}`;
+  assert.ok(persistedSession.academic_period_id);
   assert.equal(persistedSession.starts_on, "2026-10-01");
   assert.equal(persistedSession.ends_on, "2027-02-07");
 
