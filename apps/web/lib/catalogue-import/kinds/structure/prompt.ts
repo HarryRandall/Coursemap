@@ -6,7 +6,7 @@ import {
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v6";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v8";
+  "coursemap-academic-structure-prompt.v9";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -74,6 +74,8 @@ Requirement interpretation:
   - "The N units must include:" introduces the parts of the degree, such as compulsory lists, "one of the following majors" and elective units. These have scope part: a course counted in one part counts in no other.
   - A group holding only degree-scope rules is itself degree-scope. When a page has no "of which" layer, every rule is a part.
   - "completion of one of the following majors/minors/specialisations" plus literal codes -> structure_list with those structureCodes.
+- The requirement paragraph may print only major names while a later Majors list links those same names to codes. Match each name to its literal code in that list on the same page, then make one structure_list condition with structureKind major, all matched codes and the printed unit amount. This means completion of one major, not enrolment in another programme. If a name cannot be matched uniquely, leave that choice as exact free text and flag it for review; never guess a code.
+- Keep each degree-wide limit alongside the parts it constrains. For example, a maximum of 60 units of 1000-level courses is a degree-scope level condition with maximumUnits 60 and level bounds 1000 to 1999. A minimum of 12 units of courses tagged as Transdisciplinary Problem-Solving is a degree-scope tag condition with minimumUnits 12 and the full printed tag. Neither fills a 144-unit part.
 - Honour an explicit OR between two modelled alternatives, such as a subject condition OR a structure_list of majors, with an any_of group holding both.
 - Represent explicit AND as an all_of group and explicit OR as an any_of group.
 - Use minimum_count only when the source states an exact count such as "one of" or "two of", and set minimumCount to that literal count.
@@ -88,6 +90,7 @@ Requirement interpretation:
 
 Evidence and review:
 - Give evidence for each field you fill. Its fieldKey is the exact field path, such as requirements or fees, and its excerpt occurs verbatim in the input.
+- When requirements are printed, give the requirements field an evidence excerpt from the requirements section and confidence reflecting the extracted rule. Do not return zero confidence for a rule directly stated by the page; lower confidence and add a review item for any ambiguous branch.
 - Set method to model for every evidence item.
 - Confidence is how directly the page states the value, from 0 to 1.
 - Add specific review items for ambiguity, unsupported wording, conflicts, malformed references or missing evidence.
