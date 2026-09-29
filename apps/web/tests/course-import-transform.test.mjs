@@ -1,4 +1,5 @@
 import { unsupportedModelWording } from "../lib/catalogue-import/model-evidence.ts";
+import { rejectedModelValueSummary } from "../lib/catalogue-import/model-extraction.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
@@ -402,8 +403,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v12");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v17");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v13");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v18");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1357,6 +1358,90 @@ test("the captured STAT2014 workload remains a whole-course total", async () => 
   assert.equal(snapshot.workloadText, captured.workloadText);
   assert.equal(snapshot.workloadHours, 130);
   assert.equal(snapshot.workloadHoursBasis, "total");
+});
+
+test("the captured Finance major rejection retains its value and the valid prerequisite tree", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-finm2003-related-reference.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "FINM2003",
+    year: 2024,
+    title: "Investments",
+  });
+  model.relatedCourses = [
+    ...captured.relatedCourses,
+    {
+      position: 2,
+      relationKind: "equivalent",
+      courseCode: "FINM6045",
+      courseTitle: null,
+      sourceText: "Equivalent course: FINM6045",
+    },
+  ];
+  model.requisites.prerequisiteText = captured.prerequisiteText;
+  model.requisites.prerequisiteRule = captured.prerequisiteRule;
+  const before = structuredClone(model);
+  const result = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: captured.sourceExcerpt + "\n" + JSON.stringify(model),
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.equal(result.errorCount, 1);
+  assert.deepEqual(result.extraction.relatedCourses, [model.relatedCourses[1]]);
+  assert.deepEqual(
+    result.extraction.requisites.prerequisiteRule,
+    captured.prerequisiteRule,
+  );
+  assert.deepEqual(
+    result.report.droppedFields[0].value,
+    captured.relatedCourses[0],
+  );
+  assert.match(
+    result.extraction.reviewItems[0].message,
+    /Rejected value:.*FINM-MAJ.*Finance/,
+  );
+  assert.deepEqual(model, before);
+  assert.equal(result.report.droppedFields[0].fieldKey, "relatedCourses[0]");
+});
+
+test("rejected-value display is bounded while the report retains full content", () => {
+  assert.equal(rejectedModelValueSummary(undefined), "");
+  assert.equal(rejectedModelValueSummary(null), " Rejected value: null");
+  const value = "x".repeat(2000);
+  const summary = rejectedModelValueSummary(value);
+  assert.equal(summary.endsWith("..."), true);
+  assert.ok(summary.length < 530);
+  const model = structuredClone(extraction);
+  model.relatedCourses = [
+    {
+      position: 1,
+      relationKind: "other",
+      courseCode: value,
+      courseTitle: null,
+      sourceText: "Rejected reference",
+    },
+  ];
+  const result = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: JSON.stringify(model),
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.equal(result.report.droppedFields[0].value.courseCode, value);
 });
 
 test("workload quantities retain their stated basis without inventing totals", () => {

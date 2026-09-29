@@ -12,6 +12,7 @@ import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
   hasExtractedContent,
   modelResponseProblem,
+  rejectedModelValueSummary,
   salvageModelExtraction,
   withModelEvidenceMethod,
 } from "../../model-extraction.ts";
@@ -163,14 +164,14 @@ export function finaliseCourseExtraction({
         ]
       : []),
     ...(canonicalised ? [canonicalised] : []),
-    ...dropped.map(({ fieldKey, messages }) => ({
+    ...dropped.map(({ fieldKey, messages, value }) => ({
       fieldKey,
       kind: "invalid" as const,
       severity: "error" as const,
       message:
         fieldKey === "modelExtraction"
           ? messages.join(" ")
-          : `The model's ${fieldKey} did not fit the course contract and was left empty: ${messages[0]}`,
+          : `The model's ${fieldKey} did not fit the course contract and was left empty: ${messages[0]}${rejectedModelValueSummary(value)}`,
     })),
     ...unsupported.map(({ fieldKey, wording }) => ({
       fieldKey,

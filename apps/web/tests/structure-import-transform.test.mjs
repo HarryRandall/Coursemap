@@ -69,10 +69,15 @@ test("drops only the item that breaks the contract and flags it", () => {
     position: badIndex + 1,
     audience: "everyone",
   });
-  const { extraction: finalised, errorCount } = finalise(model);
+  const { extraction: finalised, errorCount, report } = finalise(model);
   assert.deepEqual(finalised.fees, extraction.fees);
   assert.deepEqual(finalised.relationships, extraction.relationships);
   assert.equal(errorCount, 1);
+  assert.deepEqual(report.droppedFields[0].value, model.fees[badIndex]);
+  assert.match(
+    finalised.reviewItems.find(({ kind }) => kind === "invalid").message,
+    /Rejected value:.*everyone/,
+  );
   assert.ok(
     finalised.reviewItems.some(
       ({ fieldKey, severity }) =>
@@ -500,7 +505,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v5",
+    "coursemap-academic-structure-parser.v6",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
