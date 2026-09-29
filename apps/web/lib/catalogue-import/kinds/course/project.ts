@@ -286,6 +286,8 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
       return `Enrolment in programme ${rule.programmeCode}`;
     case "enrolled_in_college":
       return `Enrolment in a programme offered by ${rule.college}`;
+    case "equivalent_course":
+      return rule.sourceText;
     case "enrolment_mode":
       return enrolmentModeConditionLabel({
         enrolmentMode: rule.mode,
@@ -554,6 +556,20 @@ function addAtomicRule(
         sourceText,
       });
       condition.freeText = rule.college;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "equivalent_course": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "other",
+        hardness,
+        sourceText,
+      });
+      condition.freeText = rule.sourceText;
       accumulator.ruleConditions.push(condition);
       return;
     }

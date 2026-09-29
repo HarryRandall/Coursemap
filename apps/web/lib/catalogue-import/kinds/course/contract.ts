@@ -99,6 +99,7 @@ export type CourseRule =
     }
   | { op: "enrolled_in"; programmeCode: string }
   | { op: "enrolled_in_college"; college: string }
+  | { op: "equivalent_course"; sourceText: string }
   | { op: "enrolment_mode"; mode: EnrolmentMode; matches: boolean }
   | { op: "year_standing"; minimumYear: number }
   | {
@@ -643,6 +644,9 @@ function validateRule(
   } else if (op === "enrolled_in_college") {
     const record = exactRecord(value, path, ["op", "college"], issues);
     if (record) requireString(record.college, `${path}.college`, issues);
+  } else if (op === "equivalent_course") {
+    const record = exactRecord(value, path, ["op", "sourceText"], issues);
+    if (record) requireString(record.sourceText, `${path}.sourceText`, issues);
   } else if (op === "enrolment_mode") {
     const record = exactRecord(value, path, ["op", "mode", "matches"], issues);
     if (record) {
@@ -1816,6 +1820,15 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in_college" },
             college: { type: "string", minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "sourceText"],
+          properties: {
+            op: { const: "equivalent_course" },
+            sourceText: { type: "string", minLength: 1 },
           },
         },
         {
