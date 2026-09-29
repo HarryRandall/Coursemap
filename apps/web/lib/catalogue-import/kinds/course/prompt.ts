@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v12";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v17";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v13";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v18";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -34,6 +34,7 @@ Source rules:
 8. Separate hard incompatibilities from discretionary or soft incompatibilities.
 9. Every non-null offering date is an ISO calendar date in YYYY-MM-DD form. Convert display dates such as 23 Feb 2026. Keep the printed year: an offering in the selected year can finish in the following year, especially a Spring session. Do not discard that class, shift its end date into the starting year or import classes from another year's offering group. startsOn belongs to calendarYear; endsOn, lastEnrolmentDate and censusDate may belong to calendarYear or the following year.
 10. classSummaryUrl is null or a complete HTTPS URL on programsandcourses.anu.edu.au taken from the page.
+11. relatedCourses contains actual courses only, using a course code of four letters followed by four digits and an optional final letter. A course page's Majors, Minors, Specialisations and Programmes lists describe academic structures, not related courses. For example, Finance (FINM-MAJ) is a major and must never appear in relatedCourses. Do not change its code into a plausible course code. Keep relatedCourses empty when no actual related course is stated. Preserve co-taught and equivalent course references separately from academic-structure links.
 11. Use null or [] when the page does not state something.
 
 Tags:
