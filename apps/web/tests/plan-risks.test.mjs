@@ -115,6 +115,51 @@ test("clears the prerequisite flag once the dependency sits in an earlier term",
   assert.deepEqual(risks, []);
 });
 
+test("distinguishes unmet college eligibility from missing college information", () => {
+  const college = "ANU College of Business and Economics";
+  const scoped = {
+    ...catalogue,
+    courses: [
+      course("CBEA2001", 2000, {
+        prerequisiteRule: {
+          hardness: "hard",
+          reviewState: "verified",
+          relationalExpression: {
+            kind: "college_enrolment",
+            college,
+            hardness: "hard",
+            reviewState: "verified",
+          },
+        },
+      }),
+    ],
+    programmeCodes: ["BCOMP"],
+    programmeColleges: [{ code: "BCOMP", college: "Different college" }],
+  };
+  const attempts = [attempt("CBEA2001", "planned")];
+  const blocked = planRisks({
+    buckets: [],
+    attempts,
+    catalogue: scoped,
+    progress,
+  });
+  assert.equal(
+    blocked[0].detail,
+    "A required eligibility condition is not met.",
+  );
+
+  const review = planRisks({
+    buckets: [],
+    attempts,
+    catalogue: { ...scoped, programmeColleges: [] },
+    progress,
+  });
+  assert.equal(
+    review[0].detail,
+    "Check the course requirements against your record before enrolment.",
+  );
+});
+
 test("reports unplaced units and sorts warnings above information", () => {
   const risks = planRisks({
     buckets: [bucket({ completedUnits: 0, plannedUnits: 0 })],
