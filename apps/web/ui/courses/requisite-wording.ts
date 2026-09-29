@@ -70,6 +70,8 @@ function codes(list: readonly string[]) {
 /** A condition as a short label for a diagram box. */
 export function requisiteNoun(condition: CourseRuleCondition): string {
   switch (condition.kind) {
+    case "college_enrolment":
+      return `Programme offered by ${condition.college}`;
     case "course":
       return condition.code;
     case "incompatible_concurrent":
@@ -117,6 +119,8 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
 /** A condition as the thing a student has to do, for the steps list. */
 export function requisiteSentence(condition: CourseRuleCondition): string {
   switch (condition.kind) {
+    case "college_enrolment":
+      return `Be enrolled in a programme offered by ${condition.college}`;
     case "course": {
       const completed = `Complete ${condition.code}${condition.minimumMark === null ? "" : ` with a mark of ${condition.minimumMark} or more`}`;
       return condition.requirementMode === "completed_or_concurrent"

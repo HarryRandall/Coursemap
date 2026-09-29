@@ -25,6 +25,14 @@ function conditionExpression(
   const text = condition.freeText ?? condition.sourceText ?? "";
   const units = condition.minimumUnits;
   switch (condition.kind) {
+    case "college_enrolment":
+      if (condition.freeText?.trim())
+        return {
+          ...base,
+          kind: "college_enrolment",
+          college: condition.freeText,
+        };
+      break;
     case "course":
       if (condition.itemCode) {
         return {

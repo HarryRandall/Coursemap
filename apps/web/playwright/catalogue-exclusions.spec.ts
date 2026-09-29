@@ -54,6 +54,15 @@ test("enrolment mode scope retains its grouping and authority through editor sav
         },
       ],
     };
+    const college = "ANU College of Business and Economics";
+    model.requisites.prerequisiteText = `Enrolment in a CBE degree. ${model.requisites.prerequisiteText}`;
+    model.requisites.prerequisiteRule = {
+      op: "all_of",
+      rules: [
+        { op: "enrolled_in_college", college },
+        model.requisites.prerequisiteRule,
+      ],
+    };
     const content = courseCatalogueContent({
       projection: projectCourseSnapshot(model),
     });
@@ -62,6 +71,11 @@ test("enrolment mode scope retains its grouping and authority through editor sav
     await login(page, administrator);
     await page.goto(`/admin/courses/2026/${code.toLowerCase()}/student-view`);
     await page.getByRole("tab", { name: "Requisites", exact: true }).click();
+    await expect(
+      page.getByText(`Be enrolled in a programme offered by ${college}`, {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
       page
         .locator("p")
@@ -102,7 +116,14 @@ test("enrolment mode scope retains its grouping and authority through editor sav
       draft.content.requirements.conditions.find(
         (condition: { kind: string }) => condition.kind === "permission",
       ).freeText,
-    ).toBe(model.requisites.prerequisiteText);
+    ).toBe(
+      "Flexible Double Degree students require permission via info.cbe@anu.edu.au.",
+    );
+    expect(
+      draft.content.requirements.conditions.find(
+        (condition: { kind: string }) => condition.kind === "college_enrolment",
+      ).freeText,
+    ).toBe(college);
     expect(
       draft.content.requirements.groups.some(
         (group: { operator: string }) => group.operator === "any_of",

@@ -42,7 +42,7 @@ export type Degree = {
   name: string;
   units: number | null;
   duration: number | null;
-  college: string;
+  college: string | null;
   description: string;
 };
 
