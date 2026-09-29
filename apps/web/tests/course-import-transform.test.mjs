@@ -398,8 +398,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v6");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v8");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v7");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v9");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -802,4 +802,59 @@ test("preserves the captured MATH1116 minimum marks on each alternative", async 
     model.requisites.prerequisiteRule.rules[0].minimumMark = minimumMark;
     assert.equal(validateCourseExtraction(model).success, false);
   }
+});
+
+test("permission projection preserves the stated authority without inventing one", () => {
+  const model = emptyCourseExtraction({
+    code: "BUSN3060",
+    year: 2024,
+    title: "Permission test",
+  });
+  for (const sourceText of [
+    "You must have permission from the Research School of Accounting.",
+    "Permission of the College of Business and Economics is required.",
+    null,
+    undefined,
+  ]) {
+    model.requisites.prerequisiteRule = {
+      op: "permission",
+      ...(sourceText === undefined ? {} : { sourceText }),
+    };
+    assert.equal(validateCourseExtraction(model).success, true);
+    const condition = projectCourseSnapshot(model).ruleConditions[0];
+    assert.equal(condition.conditionKind, "permission");
+    assert.equal(condition.freeText, sourceText ?? "Permission required");
+    assert.equal(condition.sourceText, sourceText ?? "Permission required");
+  }
+  model.requisites.prerequisiteRule = { op: "permission", sourceText: "" };
+  assert.equal(validateCourseExtraction(model).success, false);
+});
+
+test("captured BUSN3060 permission retains its school and is projected once", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-busn3060-requisites.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "BUSN3060",
+    year: 2024,
+    title: "Advanced Accounting",
+  });
+  model.requisites = captured.requisites;
+  assert.equal(validateCourseExtraction(model).success, true);
+  const conditions = projectCourseSnapshot(model).ruleConditions.filter(
+    (item) => item.ruleKey === "prerequisite",
+  );
+  assert.equal(conditions.length, 1);
+  assert.equal(conditions[0].conditionKind, "permission");
+  assert.equal(
+    conditions[0].freeText,
+    "You will need to contact the Research School of Accounting to request a permission code to enrol in this course.",
+  );
+  assert.deepEqual(model.requisites.unmodelledText, []);
 });

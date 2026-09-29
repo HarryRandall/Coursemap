@@ -81,7 +81,7 @@ export type CourseRule =
   | { op: "enrolled_in"; programmeCode: string }
   | { op: "year_standing"; minimumYear: number }
   | { op: "minimum_gpa"; value: number; scale: "anu7" | "wam100" }
-  | { op: "permission" };
+  | { op: "permission"; sourceText?: string | null };
 
 export type CourseRequisites = {
   prerequisiteText: string | null;
@@ -539,7 +539,12 @@ function validateRule(
       requireEnum(record.scale, `${path}.scale`, ["anu7", "wam100"], issues);
     }
   } else if (op === "permission") {
-    exactRecord(value, path, ["op"], issues);
+    const record = exactRecord(value, path, ["op"], issues, ["sourceText"]);
+    if (record?.sourceText !== undefined) {
+      requireString(record.sourceText, `${path}.sourceText`, issues, {
+        nullable: true,
+      });
+    }
   } else {
     issues.push({
       path: `${path}.op`,
@@ -1537,7 +1542,10 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           type: "object",
           additionalProperties: false,
           required: ["op"],
-          properties: { op: { const: "permission" } },
+          properties: {
+            op: { const: "permission" },
+            sourceText: { type: ["string", "null"], minLength: 1 },
+          },
         },
       ],
     },
