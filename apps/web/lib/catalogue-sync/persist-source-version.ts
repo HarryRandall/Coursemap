@@ -101,7 +101,7 @@ async function insertCourseContent(
       version_id, title, unit_value_kind, units, minimum_units, maximum_units, eftsl,
       level, subject_code, subject_name, school, college, academic_career,
       convener_text, delivery_summary, introduction, description, workload_text,
-      workload_hours, inherent_requirements, prescribed_texts, offering_status,
+      workload_hours, workload_hours_basis, inherent_requirements, prescribed_texts, offering_status,
       source_updated_at
     ) values (
       ${snapshotId}, ${details.title}, ${details.unitValueKind}, ${details.units},
@@ -109,7 +109,7 @@ async function insertCourseContent(
       ${details.level}, ${details.subjectCode}, ${details.subjectName}, ${details.school},
       ${details.college}, ${details.academicCareer}, ${details.convenerText},
       ${details.deliverySummary}, ${details.introduction}, ${details.description},
-      ${details.workloadText}, ${details.workloadHours}, ${details.inherentRequirements},
+      ${details.workloadText}, ${details.workloadHours}, ${details.workloadHoursBasis ?? null}, ${details.inherentRequirements},
       ${details.prescribedTexts}, ${details.offeringStatus}, ${details.sourceUpdatedAt}
     )
   `;

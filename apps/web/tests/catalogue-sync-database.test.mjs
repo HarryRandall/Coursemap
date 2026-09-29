@@ -219,6 +219,10 @@ test("first, unchanged and changed source observations preserve local intent", a
   firstContent.requirements = filterContent.requirements;
   firstContent.course.offering = filterContent.course.offering;
   firstContent.course.sessions = filterContent.course.sessions;
+  firstContent.course.details.workloadHours = 10;
+  firstContent.course.details.workloadHoursBasis = "weekly";
+  firstContent.course.details.workloadText =
+    "Students are expected to work 10 hours per week.";
   firstContent.contentHash = contentHashForCatalogueContent(firstContent);
   firstContent.evidence = [0.95, 0.7, 0.7].map((confidence, index) => ({
     fieldPath: "description",
@@ -292,6 +296,38 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.ok(persistedSession.academic_period_id);
   assert.equal(persistedSession.starts_on, "2026-10-01");
   assert.equal(persistedSession.ends_on, "2027-02-07");
+
+  const [persistedWorkload] =
+    await sql`select workload_hours, workload_hours_basis from public.course_version_details where version_id = ${first.sourceVersionId}`;
+  assert.equal(Number(persistedWorkload.workload_hours), 10);
+  assert.equal(persistedWorkload.workload_hours_basis, "weekly");
+  const [projection] =
+    await sql`select private.course_version_projection(${first.sourceVersionId}) as content`;
+  assert.equal(projection.content.snapshot.workloadHoursBasis, "weekly");
+
+  for (const [basis, hours] of [
+    ["daily", 10],
+    ["weekly", null],
+  ]) {
+    const invalidFixture = await createSyncFixture(
+      EMPTY_CODE,
+      basis === "daily" ? "7".repeat(64) : "8".repeat(64),
+    );
+    const invalid = structuredClone(firstContent);
+    invalid.course.details.workloadHoursBasis = basis;
+    invalid.course.details.workloadHours = hours;
+    invalid.contentHash = contentHashForCatalogueContent(invalid);
+    await assert.rejects(
+      persistSourceVersion(sql, {
+        claim: invalidFixture.claim,
+        sourceDocumentId: invalidFixture.documentId,
+        write: invalid,
+      }),
+      { code: "23514" },
+    );
+    await sql`update public.catalogue_syncs set status = 'failed', completed_at = now()
+      where id = ${invalidFixture.claim.syncId}`;
+  }
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

@@ -63,6 +63,7 @@ export function emptyCourseExtraction({
     description: null,
     workloadText: null,
     workloadHours: null,
+    workloadHoursBasis: null,
     inherentRequirements: null,
     prescribedTexts: null,
     offeringStatus: "unknown",
@@ -132,6 +133,7 @@ export function finaliseCourseExtraction({
     value: canonical.value,
     empty,
     fixedKeys: COURSE_IDENTITY_FIELDS,
+    optionalKeys: ["workloadHoursBasis"],
     validate: (candidate) =>
       validateCourseExtraction(candidate, {
         expectedCode: code,

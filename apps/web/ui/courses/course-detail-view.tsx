@@ -1,4 +1,5 @@
 "use client";
+import { workloadHoursLabel } from "@/lib/academic/workload";
 import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
@@ -128,6 +129,10 @@ export function CourseDetailView({
     isAuthenticated: boolean;
   };
 }) {
+  const workloadLabel = workloadHoursLabel(
+    course.workloadHours,
+    course.workloadHoursBasis,
+  );
   const availableCourseCodes = new Set(course.availableCourseCodes);
   const structuredRule = course.prerequisiteRule?.expression ?? null;
   const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
@@ -308,9 +313,7 @@ export function CourseDetailView({
                       </h3>
                       <p className="mt-2 text-xs leading-relaxed whitespace-pre-line text-muted-foreground">
                         {course.workloadText}
-                        {course.workloadHours !== null
-                          ? ` (${course.workloadHours} hours)`
-                          : ""}
+                        {workloadLabel ? ` (${workloadLabel})` : ""}
                       </p>
                     </section>
                   ) : null}

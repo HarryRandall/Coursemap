@@ -64,11 +64,13 @@ export function salvageModelExtraction<
   value,
   empty,
   fixedKeys,
+  optionalKeys = [],
   validate,
 }: {
   value: unknown;
   empty: Extraction;
   fixedKeys: readonly string[];
+  optionalKeys?: readonly string[];
   validate: (candidate: unknown) => ModelExtractionValidation<Extraction>;
 }): { extraction: Extraction; dropped: DroppedModelValue[] } {
   const dropped = new Map<string, string[]>();
@@ -86,7 +88,7 @@ export function salvageModelExtraction<
     for (const key of Object.keys(empty)) {
       if (!fixedKeys.includes(key) && key in value) {
         candidate[key] = structuredClone(value[key]);
-      } else if (!fixedKeys.includes(key)) {
+      } else if (!fixedKeys.includes(key) && !optionalKeys.includes(key)) {
         drop(
           key,
           `The model omitted ${key}; absence from the source could not be established.`,
