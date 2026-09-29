@@ -231,6 +231,122 @@ test("preserves a successful non-JSON provider response for audit", async () => 
   assert.equal(restored.responseError, result.responseError);
 });
 
+for (const location of ["envelope", "choice"]) {
+  test(`preserves interrupted provider output and error metadata from the ${location}`, async () => {
+    let requests = 0;
+    const error = {
+      code: 429,
+      message: `Provider rate limit\n${"x".repeat(500)}`,
+      metadata: {
+        error_type: "rate_limit_exceeded",
+        provider_code: "RESOURCE_EXHAUSTED",
+        provider_name: "Google",
+        raw: "hidden raw provider payload",
+        reasoning: "hidden reasoning",
+      },
+    };
+    const result = await extractWithOpenRouter({
+      model: DEFAULT_OPENROUTER_MODEL,
+      systemPrompt: "Return the course.",
+      modelInput: "COMP1100",
+      schema: TEST_SCHEMA,
+      env: { OPENROUTER_API_KEY: "test-key" },
+      fetchImpl: async () => {
+        requests += 1;
+        return Response.json({
+          id: "generation-interrupted",
+          ...(location === "envelope" ? { error } : {}),
+          choices: [
+            {
+              finish_reason: "error",
+              native_finish_reason: "RESOURCE_EXHAUSTED",
+              ...(location === "choice" ? { error } : {}),
+              message: { content: '{"code":' },
+            },
+          ],
+          usage: { prompt_tokens: 5, completion_tokens: 2, cost: 0.00001 },
+        });
+      },
+    });
+    assert.equal(requests, 1);
+    assert.equal(result.content, '{"code":');
+    assert.equal(result.parsed, null);
+    assert.equal(result.nativeFinishReason, "RESOURCE_EXHAUSTED");
+    assert.equal(result.providerError.code, 429);
+    assert.equal(result.providerError.errorType, "rate_limit_exceeded");
+    assert.equal(result.providerError.providerCode, "RESOURCE_EXHAUSTED");
+    assert.equal(result.providerError.providerName, "Google");
+    assert.equal(result.providerError.message.length, 400);
+    assert.doesNotMatch(result.responseError, /invalid JSON/);
+    assert.match(result.responseError, /provider failed.*429.*rate limit/);
+    assert.doesNotMatch(JSON.stringify(result.responseForAudit), /hidden/);
+    const restored = restoreOpenRouterExtraction(
+      result.responseForAudit,
+      DEFAULT_OPENROUTER_MODEL,
+    );
+    assert.equal(restored.responseError, result.responseError);
+    assert.deepEqual(restored.providerError, result.providerError);
+    assert.equal(restored.nativeFinishReason, result.nativeFinishReason);
+    assert.deepEqual(restored.usage, result.usage);
+  });
+}
+
+test("preserves an HTTP 200 error envelope without choices as an audited model outcome", async () => {
+  const result = await extractWithOpenRouter({
+    model: DEFAULT_OPENROUTER_MODEL,
+    systemPrompt: "Return the course.",
+    modelInput: "COMP1100",
+    schema: TEST_SCHEMA,
+    env: { OPENROUTER_API_KEY: "test-key" },
+    fetchImpl: async () =>
+      Response.json({
+        id: "generation-failed",
+        error: { code: 502, message: "Provider disconnected" },
+      }),
+  });
+  assert.equal(result.generationId, "generation-failed");
+  assert.equal(result.content, null);
+  assert.equal(result.usage.costUsd, null);
+  assert.match(result.responseError, /provider failed.*502.*disconnected/);
+  const restored = restoreOpenRouterExtraction(
+    result.responseForAudit,
+    DEFAULT_OPENROUTER_MODEL,
+  );
+  assert.equal(restored.responseError, result.responseError);
+});
+
+test("flags parseable interrupted output and restores legacy interrupted audits as failures", async () => {
+  const result = await extractWithOpenRouter({
+    model: DEFAULT_OPENROUTER_MODEL,
+    systemPrompt: "Return the course.",
+    modelInput: "COMP1100",
+    schema: TEST_SCHEMA,
+    env: { OPENROUTER_API_KEY: "test-key" },
+    fetchImpl: async () =>
+      Response.json({
+        choices: [
+          {
+            finish_reason: "error",
+            message: { content: '{"code":"COMP1100"}' },
+          },
+        ],
+        usage: { prompt_tokens: 5, completion_tokens: 2, cost: 0.00001 },
+      }),
+  });
+  assert.deepEqual(result.parsed, { code: "COMP1100" });
+  assert.match(result.responseError, /provider failed before finishing/);
+  const legacyAudit = { ...result.responseForAudit, responseError: null };
+  delete legacyAudit.providerError;
+  delete legacyAudit.nativeFinishReason;
+  const restored = restoreOpenRouterExtraction(
+    legacyAudit,
+    DEFAULT_OPENROUTER_MODEL,
+  );
+  assert.match(restored.responseError, /provider failed before finishing/);
+  assert.equal(restored.responseForAudit.responseError, restored.responseError);
+  assert.equal(restored.usage.costUsd, 0.00001);
+});
+
 test("classifies temporary provider failures at the request boundary", async () => {
   await assert.rejects(
     extractWithOpenRouter({

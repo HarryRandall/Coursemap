@@ -337,6 +337,8 @@ test.each([
   { parsed: null, responseError: "Invalid JSON.", finishReason: "stop" },
   { parsed: {}, responseError: null, finishReason: "stop" },
   { parsed: extraction, responseError: null, finishReason: "length" },
+  { parsed: extraction, responseError: null, finishReason: "error" },
+  { parsed: extraction, responseError: null, finishReason: "content_filter" },
 ])(
   "failed or incomplete extraction preserves audit without writing catalogue content: $finishReason",
   async (response) => {

@@ -224,5 +224,14 @@ export function modelResponseProblem({
   if (finishReason === "length") {
     return "The model reached its output limit before finishing, so fields at the end of the response may be missing. Sync again with a larger output allowance or another model.";
   }
+  if (finishReason === "error") {
+    return (
+      responseError ??
+      "The provider failed before finishing the extraction. The response cannot be treated as complete."
+    );
+  }
+  if (finishReason === "content_filter") {
+    return "The provider filtered the extraction before it finished. The response cannot be treated as complete.";
+  }
   return responseError;
 }
