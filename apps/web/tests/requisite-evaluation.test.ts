@@ -197,6 +197,89 @@ test("a later pass cannot supply the missing unit load of an earlier fail", () =
   expect(record.gpa).toBeNull();
 });
 
+test("a career GPA alternative and the most recent 48 graded units keep their own scopes", () => {
+  const grades = [
+    ...Array.from({ length: 3 }, () => ({
+      resultCode: "P",
+      units: 6,
+      periodStartsOn: "2026-02-01",
+    })),
+    ...Array.from({ length: 3 }, () => ({
+      resultCode: "CR",
+      units: 6,
+      periodStartsOn: "2025-07-01",
+    })),
+    ...[7, 6, 4, 0].map((points) => ({
+      resultCode:
+        points === 7 ? "HD" : points === 6 ? "D" : points === 4 ? "P" : "N",
+      units: 6,
+      periodStartsOn: "2025-02-01",
+    })),
+  ];
+  const record: StudentRecord = {
+    ...student,
+    gpa: 4.4,
+    academicResults: grades,
+  };
+  const career = {
+    ...base,
+    kind: "gpa" as const,
+    minimumGpa: 5,
+    recentGradedUnits: null,
+  };
+  const recent = {
+    ...base,
+    kind: "gpa" as const,
+    minimumGpa: 5,
+    recentGradedUnits: 48,
+  };
+  expect(evaluateRule(career, record).status).toBe("unmet");
+  expect(evaluateRule(recent, record)).toMatchObject({
+    status: "met",
+    measure: { value: 5, threshold: 5 },
+  });
+  expect(
+    evaluateRule(
+      {
+        ...base,
+        kind: "group",
+        operator: "any_of",
+        minimumCount: null,
+        conditions: [career, recent],
+      },
+      record,
+    ).status,
+  ).toBe("met");
+  expect(
+    evaluateRule({ ...recent, recentGradedUnits: 66 }, record).status,
+  ).toBe("unknown");
+  expect(
+    evaluateRule(recent, {
+      ...record,
+      academicResults: grades.map((result, index) =>
+        index === 0 ? { ...result, periodStartsOn: null } : result,
+      ),
+    }).status,
+  ).toBe("unknown");
+});
+
+test("recent-unit eligibility stays unknown when the earliest term cannot make the exact window", () => {
+  const record: StudentRecord = {
+    ...student,
+    academicResults: [
+      { resultCode: "HD", units: 12, periodStartsOn: "2026-02-01" },
+      { resultCode: "D", units: 12, periodStartsOn: "2025-07-01" },
+      { resultCode: "HD", units: 18, periodStartsOn: "2025-02-01" },
+    ],
+  };
+  expect(
+    evaluateRule(
+      { ...base, kind: "gpa", minimumGpa: 5, recentGradedUnits: 36 },
+      record,
+    ).status,
+  ).toBe("unknown");
+});
+
 test("unit rules count completed units and report how far along the student is", () => {
   expect(
     evaluateRule(

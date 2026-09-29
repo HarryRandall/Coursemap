@@ -15,8 +15,10 @@ import { minimumMarkStatus } from "@/lib/academic/metrics";
 import {
   academicResultUnits,
   isRecordedAcademicAttempt,
+  recentGradedAverage,
   recordedGradePointAverage,
   recordedWeightedAverageMark,
+  type DatedAcademicResult,
 } from "@/lib/academic/attempt-results";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
@@ -44,6 +46,7 @@ export type StudentRecord = {
   programmeColleges?: readonly ProgrammeCollege[];
   wam: number | null;
   gpa: number | null;
+  academicResults?: readonly DatedAcademicResult[];
   studyYear: number | null;
   commencementYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
@@ -278,9 +281,29 @@ export function evaluateCondition(
       return { status: matched >= needed ? "met" : "unmet" };
     }
     case "wam":
-      return scoreEvaluation(student.wam, condition.minimumWam, "wam");
+      return scoreEvaluation(
+        condition.recentGradedUnits
+          ? recentGradedAverage(
+              student.academicResults ?? [],
+              condition.recentGradedUnits,
+              "wam",
+            )
+          : student.wam,
+        condition.minimumWam,
+        "wam",
+      );
     case "gpa":
-      return scoreEvaluation(student.gpa, condition.minimumGpa, "gpa");
+      return scoreEvaluation(
+        condition.recentGradedUnits
+          ? recentGradedAverage(
+              student.academicResults ?? [],
+              condition.recentGradedUnits,
+              "gpa",
+            )
+          : student.gpa,
+        condition.minimumGpa,
+        "gpa",
+      );
     case "tagged_units": {
       // A tag is one category however it is capitalised.
       const wanted = condition.tag.toLowerCase();
@@ -393,6 +416,7 @@ export function studentRecord({
   const results = attempts.filter(isRecordedAcademicAttempt).map((attempt) => ({
     mark: attempt.mark,
     resultCode: attempt.resultCode,
+    periodStartsOn: attempt.periodStartsOn ?? null,
     units: academicResultUnits(
       attempt,
       attempt.status === "completed"
@@ -411,6 +435,7 @@ export function studentRecord({
     enrolmentMode,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
     programmeColleges,
+    academicResults: results,
     wam: recordedWeightedAverageMark(results),
     gpa: recordedGradePointAverage(results),
     studyYear: commencementYear

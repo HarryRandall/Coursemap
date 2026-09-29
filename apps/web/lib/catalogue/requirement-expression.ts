@@ -150,12 +150,22 @@ function conditionExpression(
       };
     case "gpa":
       if (condition.minimumGpa !== null) {
-        return { ...base, kind: "gpa", minimumGpa: condition.minimumGpa };
+        return {
+          ...base,
+          kind: "gpa",
+          minimumGpa: condition.minimumGpa,
+          recentGradedUnits: condition.minimumCount,
+        };
       }
       break;
     case "wam":
       if (condition.minimumWam !== null) {
-        return { ...base, kind: "wam", minimumWam: condition.minimumWam };
+        return {
+          ...base,
+          kind: "wam",
+          minimumWam: condition.minimumWam,
+          recentGradedUnits: condition.minimumCount,
+        };
       }
       break;
     case "permission":

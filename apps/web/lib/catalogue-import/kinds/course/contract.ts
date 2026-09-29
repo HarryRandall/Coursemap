@@ -106,7 +106,12 @@ export type CourseRule =
       minimumYear: number | null;
       maximumYear: number | null;
     }
-  | { op: "minimum_gpa"; value: number; scale: "anu7" | "wam100" }
+  | {
+      op: "minimum_gpa";
+      value: number;
+      scale: "anu7" | "wam100";
+      recentGradedUnits?: number | null;
+    }
   | { op: "permission"; sourceText?: string | null };
 
 export type CourseIncompatibilityRule =
@@ -680,13 +685,22 @@ function validateRule(
         maximum: 10,
       });
   } else if (op === "minimum_gpa") {
-    const record = exactRecord(value, path, ["op", "value", "scale"], issues);
+    const record = exactRecord(value, path, ["op", "value", "scale"], issues, [
+      "recentGradedUnits",
+    ]);
     if (record) {
       requireNumber(record.value, `${path}.value`, issues, {
         minimum: 0,
         maximum: record.scale === "anu7" ? 7 : 100,
       });
       requireEnum(record.scale, `${path}.scale`, ["anu7", "wam100"], issues);
+      if (record.recentGradedUnits !== undefined)
+        requireNumber(
+          record.recentGradedUnits,
+          `${path}.recentGradedUnits`,
+          issues,
+          { nullable: true, integer: true, minimum: 1, maximum: 300 },
+        );
     }
   } else if (op === "permission") {
     const record = exactRecord(value, path, ["op"], issues, ["sourceText"]);
@@ -1853,6 +1867,11 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             op: { const: "minimum_gpa" },
             value: { type: "number", minimum: 0, maximum: 100 },
             scale: { enum: ["anu7", "wam100"] },
+            recentGradedUnits: {
+              type: ["integer", "null"],
+              minimum: 1,
+              maximum: 300,
+            },
           },
         },
         {
