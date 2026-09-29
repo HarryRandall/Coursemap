@@ -74,6 +74,7 @@ export function emptyCourseExtraction({
     assessmentItems: [],
     offerings: [],
     requisites: {
+      assumedKnowledgeText: null,
       prerequisiteText: null,
       corequisiteText: null,
       incompatibilityText: null,

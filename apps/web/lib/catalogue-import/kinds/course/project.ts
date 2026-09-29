@@ -558,12 +558,14 @@ function addStructuredRule({
   rule,
   sourceText,
   extraText = [],
+  hardness = "hard",
 }: {
   accumulator: RuleProjectionAccumulator;
-  ruleKey: "prerequisite" | "corequisite";
+  ruleKey: "prerequisite" | "corequisite" | "assumed_knowledge";
   rule: CourseRule | null;
   sourceText: string | null;
   extraText?: readonly string[];
+  hardness?: RuleHardness;
 }) {
   if (!rule && !sourceText && extraText.length === 0) return;
 
@@ -572,7 +574,7 @@ function addStructuredRule({
   accumulator.rules.push({
     key: ruleKey,
     ruleKind: ruleKey,
-    hardness: "hard",
+    hardness,
     sourceText: savedSourceText,
   });
   const rootKey = `${ruleKey}:group:root`;
@@ -595,7 +597,7 @@ function addStructuredRule({
         parentGroupKey: rootKey,
         path: String(index),
         position: index,
-        hardness: "hard",
+        hardness,
       }),
     );
     nextRootPosition = rule.rules.length;
@@ -606,7 +608,7 @@ function addStructuredRule({
       groupKey: rootKey,
       path: "0",
       position: 0,
-      hardness: "hard",
+      hardness,
     });
     nextRootPosition = 1;
   } else if (sourceText) {
@@ -616,7 +618,7 @@ function addStructuredRule({
       groupKey: rootKey,
       position: 0,
       conditionKind: "other",
-      hardness: "hard",
+      hardness,
       sourceText,
     });
     condition.freeText = sourceText;
@@ -640,7 +642,7 @@ function addStructuredRule({
         groupKey: rootKey,
         position: nextRootPosition + index,
         conditionKind: "other",
-        hardness: "hard",
+        hardness,
         sourceText: normalised,
       });
       condition.freeText = normalised;
@@ -755,6 +757,15 @@ function projectRules(extraction: CourseExtraction): RuleProjectionAccumulator {
     ruleKey: "corequisite",
     rule: extraction.requisites.corequisiteRule,
     sourceText: nullableText(extraction.requisites.corequisiteText),
+  });
+  addStructuredRule({
+    accumulator,
+    ruleKey: "assumed_knowledge",
+    rule: null,
+    sourceText: nullableText(
+      extraction.requisites.assumedKnowledgeText ?? null,
+    ),
+    hardness: "advisory",
   });
   addIncompatibilityRule(extraction, accumulator);
   accumulator.ruleCourseReferences = accumulator.ruleCourseReferences.filter(

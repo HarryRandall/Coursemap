@@ -84,6 +84,7 @@ export type CourseRule =
   | { op: "permission"; sourceText?: string | null };
 
 export type CourseRequisites = {
+  assumedKnowledgeText?: string | null;
   prerequisiteText: string | null;
   corequisiteText: string | null;
   incompatibilityText: string | null;
@@ -984,8 +985,17 @@ function validateExtractionShape(
       "unmodelledText",
     ],
     issues,
+    ["assumedKnowledgeText"],
   );
   if (requisites) {
+    if (requisites.assumedKnowledgeText !== undefined) {
+      requireString(
+        requisites.assumedKnowledgeText,
+        "$.requisites.assumedKnowledgeText",
+        issues,
+        { nullable: true },
+      );
+    }
     requireString(
       requisites.prerequisiteText,
       "$.requisites.prerequisiteText",
@@ -1553,6 +1563,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
       type: "object",
       additionalProperties: false,
       required: [
+        "assumedKnowledgeText",
         "prerequisiteText",
         "corequisiteText",
         "incompatibilityText",
@@ -1563,6 +1574,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         "unmodelledText",
       ],
       properties: {
+        assumedKnowledgeText: { $ref: "#/$defs/nullableString" },
         prerequisiteText: { $ref: "#/$defs/nullableString" },
         corequisiteText: { $ref: "#/$defs/nullableString" },
         incompatibilityText: { $ref: "#/$defs/nullableString" },

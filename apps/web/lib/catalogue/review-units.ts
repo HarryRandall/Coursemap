@@ -161,6 +161,7 @@ const MODEL_FIELD_UNITS: Record<string, readonly string[]> = {
     "course.unitOptions",
   ],
   offerings: ["course.offering", "course.sessions"],
+  "requisites.assumedKnowledgeText": ["requirements.assumed_knowledge"],
   "requisites.prerequisiteRule": ["requirements.prerequisite"],
   "requisites.prerequisiteText": ["requirements.prerequisite"],
   "requisites.unmodelledText": ["requirements.prerequisite"],
