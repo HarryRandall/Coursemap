@@ -6,7 +6,8 @@ export type CourseModelCanonicalisationChange = {
   rule:
     | "human_date_to_iso"
     | "bare_class_summary_reference_to_null"
-    | "programme_name_to_code";
+    | "programme_name_to_code"
+    | "redundant_unconditional_exclusion_to_array";
   before: string;
   after: string | null;
 };
@@ -139,14 +140,45 @@ export function canonicaliseCourseModelExtraction(
     }
   };
   if (isRecord(canonical.requisites)) {
+    const requisites = canonical.requisites;
     resolveProgramme(
-      canonical.requisites.prerequisiteRule,
+      requisites.prerequisiteRule,
       "$.requisites.prerequisiteRule",
     );
     resolveProgramme(
-      canonical.requisites.corequisiteRule,
+      requisites.corequisiteRule,
       "$.requisites.corequisiteRule",
     );
+    const exclusionRule = requisites.incompatibilityRule;
+    const leaf =
+      isRecord(exclusionRule) &&
+      (exclusionRule.op === "all_of" || exclusionRule.op === "one_of") &&
+      Array.isArray(exclusionRule.rules) &&
+      exclusionRule.rules.length === 1
+        ? exclusionRule.rules[0]
+        : exclusionRule;
+    if (
+      isRecord(leaf) &&
+      (leaf.op === "not_completed" || leaf.op === "not_concurrent") &&
+      typeof leaf.courseCode === "string"
+    ) {
+      const key =
+        leaf.op === "not_completed"
+          ? "incompatibilityCourseCodes"
+          : "concurrentIncompatibilityCourseCodes";
+      if (
+        Array.isArray(requisites[key]) &&
+        requisites[key].includes(leaf.courseCode)
+      ) {
+        requisites.incompatibilityRule = null;
+        changes.push({
+          path: "$.requisites.incompatibilityRule",
+          rule: "redundant_unconditional_exclusion_to_array",
+          before: JSON.stringify(exclusionRule),
+          after: null,
+        });
+      }
+    }
   }
 
   if (!Array.isArray(canonical.offerings)) return { value: canonical, changes };
@@ -190,13 +222,26 @@ export function courseModelCanonicalisationReviewItem(
   changes: readonly CourseModelCanonicalisationChange[],
 ): CourseExtractionReviewItem | null {
   const formatting = changes.filter(
-    (change) => change.rule !== "programme_name_to_code",
+    (change) =>
+      change.rule !== "programme_name_to_code" &&
+      change.rule !== "redundant_unconditional_exclusion_to_array",
   );
-  if (formatting.length === 0) return null;
+  const exclusions = changes.filter(
+    (change) => change.rule === "redundant_unconditional_exclusion_to_array",
+  );
+  if (formatting.length === 0 && exclusions.length === 0) return null;
+  const details = [
+    formatting.length
+      ? `${formatting.length} provider formatting ${formatting.length === 1 ? "value" : "values"}`
+      : null,
+    exclusions.length
+      ? `${exclusions.length} duplicated unconditional ${exclusions.length === 1 ? "exclusion" : "exclusions"}`
+      : null,
+  ].filter(Boolean);
   return {
     fieldKey: "modelExtraction",
     kind: "invalid",
     severity: "warning",
-    message: `Coursemap normalised ${formatting.length} provider formatting ${formatting.length === 1 ? "value" : "values"} before strict validation. Inspect the validation report before accepting this draft.`,
+    message: `Coursemap normalised ${details.join(" and ")} before strict validation. Inspect the validation report before accepting this draft.`,
   };
 }
