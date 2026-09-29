@@ -4,8 +4,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v4";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v6";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v5";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v7";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -44,6 +44,7 @@ Writing the record:
 - Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page.
 
 Requisites:
+- For min_units_at_level, preserve every stated filter on the same rule: level is the lower bound, maximumLevel is the upper bound or null, and subjectCode is the named four-letter subject or null. "6 units of 1000-level COMP courses" means minimumUnits 6, level 1000, maximumLevel 1000 and subjectCode COMP. "1000-level or above" has maximumLevel null. Do not substitute unrelated courses or discard the subject restriction. Leave genuinely ambiguous bounds for review rather than guessing.
 - completed X -> completed; completed or concurrently enrolled in X -> completed_or_concurrent.
 - Explicit AND -> all_of; explicit OR -> one_of.
 - ANU separates the items of a requisite list with semicolons and states the conjunction once, at the last separator. The semicolon binds more loosely than an OR inside an item: "FINM2001; FINM2002; and, FINM2003 or FINM3011" is all_of [FINM2001, FINM2002, one_of [FINM2003, FINM3011]].
