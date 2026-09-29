@@ -33,6 +33,7 @@ export default defineConfig({
               "catalogue-course-count.spec.*",
               "catalogue-exclusions.spec.*",
               "catalogue-usage.spec.*",
+              "catalogue-provider.spec.*",
             ]
           : "access.spec.*",
     },

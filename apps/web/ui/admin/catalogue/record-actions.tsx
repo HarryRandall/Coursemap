@@ -14,6 +14,7 @@ import {
   Ellipsis,
   EyeOff,
   LoaderCircle,
+  Pause,
   Pencil,
   RefreshCw,
   Send,
@@ -47,13 +48,17 @@ export function RecordActions({ canWrite }: { canWrite: boolean }) {
  * unmounts whenever the menu closes and would stop watching the sync.
  */
 function SyncItem({ sync }: { sync: RecordSync }) {
-  const { start, cancel, busy, isActive, label } = sync;
-  if (isActive) {
+  const { start, cancel, busy, isActive, isPaused, label } = sync;
+  if (isActive || isPaused) {
     return (
       <>
         <DropdownMenuItem disabled>
-          <LoaderCircle className="animate-spin" aria-hidden="true" />
-          Syncing from ANU
+          {isPaused ? (
+            <Pause aria-hidden="true" />
+          ) : (
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
+          )}
+          {isPaused ? "Sync paused" : "Syncing from ANU"}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={cancel}>
           <CircleStop aria-hidden="true" /> Stop sync

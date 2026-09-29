@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@coursemap/ui/primitives/button";
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { LoaderCircle, Pause, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CatalogueKind } from "@/lib/catalogue/content";
@@ -67,6 +67,7 @@ export function useCatalogueSync({
     awaitingStartedSync ||
     latestSync?.status === "queued" ||
     latestSync?.status === "running";
+  const isPaused = latestSync?.status === "paused";
 
   useEffect(() => {
     if (!isActive) return;
@@ -146,6 +147,11 @@ export function useCatalogueSync({
         detail: latestSync.errorMessage ?? "The sync did not finish.",
         retry: retrySync,
       });
+    } else if (status === "paused") {
+      task.current?.note({
+        title: `${code} sync paused`,
+        detail: "Resolve the provider issue and resume imports in Activity.",
+      });
     } else if (status === "cancelled") {
       task.current?.note({
         title: `${code} sync cancelled`,
@@ -183,10 +189,12 @@ export function useCatalogueSync({
   return {
     start: startSync,
     cancel,
-    busy: isPending || isActive,
+    busy: isPending || isActive || isPaused,
     isActive,
-    label:
-      latestSync?.status === "failed" && !isActive
+    isPaused,
+    label: isPaused
+      ? "Sync paused"
+      : latestSync?.status === "failed" && !isActive
         ? "Retry sync"
         : hasSynced
           ? "Resync"
@@ -202,9 +210,11 @@ export function CatalogueSyncButton(target: CatalogueSyncTarget) {
       variant="outline"
       onClick={sync.start}
       disabled={sync.busy}
-      aria-busy={sync.busy}
+      aria-busy={sync.isActive}
     >
-      {sync.isActive ? (
+      {sync.isPaused ? (
+        <Pause aria-hidden="true" />
+      ) : sync.isActive ? (
         <LoaderCircle className="animate-spin" aria-hidden="true" />
       ) : (
         <RefreshCw aria-hidden="true" />

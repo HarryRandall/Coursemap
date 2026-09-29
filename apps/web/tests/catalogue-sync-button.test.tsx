@@ -159,6 +159,34 @@ test("offers a retry after a failed sync", () => {
   expect(screen.getByRole("button", { name: "Retry sync" })).toBeEnabled();
 });
 
+test("a paused sync is held without a running progress state or another import action", () => {
+  render(
+    <CatalogueSyncButton
+      recordId={42}
+      code="COMP1100"
+      kind="course"
+      hasSynced
+      latestSync={{
+        id: "paused",
+        status: "paused",
+        trigger: "manual",
+        requestedAt: "2026-09-29T00:00:00Z",
+        checkedAt: null,
+        completedAt: null,
+        previousSourceVersionId: null,
+        sourceVersionId: null,
+        errorCode: "OPENROUTER_HTTP_403",
+        errorMessage: "Key limit exceeded (total limit).",
+      }}
+    />,
+  );
+  const button = screen.getByRole("button", { name: "Sync paused" });
+  expect(button).toBeDisabled();
+  expect(button).toHaveAttribute("aria-busy", "false");
+  expect(progress).not.toHaveBeenCalled();
+  expect(success).not.toHaveBeenCalled();
+});
+
 test("a failed sync keeps its error behind Details and can be retried", async () => {
   const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(JSON.stringify({ syncId: "sync-2", mode: "inline" }), {

@@ -1,7 +1,12 @@
 import type { MessageMetadata, RetryDirective } from "@vercel/queue";
 import { recordSyncDispatch, withSyncDatabaseClient } from "./sync-store.ts";
 import {
+  catalogueSyncDispatchAllowed,
+  holdCatalogueSyncAfterDispatchFailure,
+} from "./provider-store.ts";
+import {
   processCatalogueSync,
+  safeErrorSummary,
   type ProcessCatalogueSyncInput,
 } from "./process-sync.ts";
 
@@ -60,8 +65,14 @@ export function createSyncQueueMessage(syncId: string) {
   });
 }
 
-export function createSyncQueueIdempotencyKey(message: SyncQueueMessage) {
-  return `catalogue-sync:v${message.version}:${message.syncId}`;
+export function createSyncQueueIdempotencyKey(
+  message: SyncQueueMessage,
+  generation = 0,
+) {
+  if (!Number.isInteger(generation) || generation < 0)
+    throw new TypeError("The dispatch generation is invalid.");
+  const key = `catalogue-sync:v${message.version}:${message.syncId}`;
+  return generation === 0 ? key : `${key}:resume:${generation}`;
 }
 
 /** Only the exact value "true" publishes to Vercel Queues. */
@@ -90,23 +101,46 @@ async function sendWithVercelQueue(
 
 export async function dispatchCatalogueSync({
   syncId,
+  generation = 0,
   send = sendWithVercelQueue,
 }: {
   syncId: string;
+  generation?: number;
   send?: SyncQueueSend;
 }) {
+  if (
+    !(await withSyncDatabaseClient((sql) =>
+      catalogueSyncDispatchAllowed(sql, { syncId, generation }),
+    ))
+  ) {
+    return { mode: "held" as const };
+  }
   if (syncQueueEnabled()) {
     const message = createSyncQueueMessage(syncId);
     try {
       const result = await send(SYNC_QUEUE_TOPIC, message, {
-        idempotencyKey: createSyncQueueIdempotencyKey(message),
+        idempotencyKey: createSyncQueueIdempotencyKey(message, generation),
         retentionSeconds: SYNC_QUEUE_RETENTION_SECONDS,
       });
       await withSyncDatabaseClient((sql) =>
-        recordSyncDispatch(sql, { syncId, messageId: result.messageId }),
+        recordSyncDispatch(sql, {
+          syncId,
+          messageId: result.messageId,
+          generation,
+        }),
       );
       return { mode: "queue" as const };
     } catch (error) {
+      if (generation > 0) {
+        await withSyncDatabaseClient((sql) =>
+          holdCatalogueSyncAfterDispatchFailure(sql, {
+            syncId,
+            generation,
+            errorMessage: safeErrorSummary(error),
+          }),
+        );
+        throw error;
+      }
       await withSyncDatabaseClient((sql) =>
         recordSyncDispatch(sql, {
           syncId,
@@ -120,9 +154,12 @@ export async function dispatchCatalogueSync({
       throw error;
     }
   }
-  await withSyncDatabaseClient((sql) =>
-    recordSyncDispatch(sql, { syncId, messageId: null }),
-  );
+  // A resumed inline job stays recoverable until the worker actually claims it.
+  if (generation === 0) {
+    await withSyncDatabaseClient((sql) =>
+      recordSyncDispatch(sql, { syncId, messageId: null, generation }),
+    );
+  }
   return { mode: "inline" as const };
 }
 
