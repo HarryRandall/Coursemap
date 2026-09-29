@@ -426,3 +426,20 @@ test("the worker gives the model calendar identities and holds unrecognised peri
     expect.objectContaining({ fieldPath: "offerings[0]", severity: "error" }),
   );
 });
+
+test("course processing records and sends the same increased reasoning budget", async () => {
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).toHaveBeenCalledWith(
+    expect.objectContaining({
+      reasoningEffort: "low",
+      requestTimeoutMs: 45_000,
+    }),
+  );
+  const request = mocks.store.mock.calls.find(
+    ([input]) => input.kind === "model_request",
+  )?.[0];
+  expect(JSON.parse(request!.body).reasoning).toEqual({
+    effort: "low",
+    exclude: true,
+  });
+});

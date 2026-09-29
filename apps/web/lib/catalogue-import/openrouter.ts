@@ -8,6 +8,7 @@ const OPENROUTER_PROVIDER_DETAIL_MAX_LENGTH = 400;
 const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/;
 
 type JsonSchema = Record<string, unknown>;
+export type OpenRouterReasoningEffort = "minimal" | "low";
 
 export type OpenRouterRequestBody = {
   model: string;
@@ -15,7 +16,7 @@ export type OpenRouterRequestBody = {
   temperature: 0;
   max_tokens: number;
   stream: false;
-  reasoning: { effort: "minimal"; exclude: true };
+  reasoning: { effort: OpenRouterReasoningEffort; exclude: true };
   provider: { require_parameters: true };
   response_format: { type: "json_object" };
 };
@@ -225,6 +226,7 @@ export function buildOpenRouterRequestBody({
   schema,
   schemaName = "course_extraction",
   maxOutputTokens = 12_000,
+  reasoningEffort = "minimal",
 }: {
   model: string;
   systemPrompt: string;
@@ -232,6 +234,7 @@ export function buildOpenRouterRequestBody({
   schema: JsonSchema;
   schemaName?: string;
   maxOutputTokens?: number;
+  reasoningEffort?: OpenRouterReasoningEffort;
   env?: NodeJS.ProcessEnv;
 }): OpenRouterRequestBody {
   const requestedModel = assertOpenRouterModel(model);
@@ -242,6 +245,9 @@ export function buildOpenRouterRequestBody({
   }
   if (!Number.isInteger(maxOutputTokens) || maxOutputTokens < 256) {
     throw new TypeError("maxOutputTokens must be an integer of at least 256.");
+  }
+  if (reasoningEffort !== "minimal" && reasoningEffort !== "low") {
+    throw new TypeError("The extraction reasoning effort is not supported.");
   }
   const schemaJson = JSON.stringify(schema);
   return {
@@ -256,7 +262,7 @@ export function buildOpenRouterRequestBody({
     temperature: 0,
     max_tokens: maxOutputTokens,
     stream: false,
-    reasoning: { effort: "minimal", exclude: true },
+    reasoning: { effort: reasoningEffort, exclude: true },
     provider: { require_parameters: true },
     response_format: { type: "json_object" },
   };
@@ -412,6 +418,7 @@ export async function extractWithOpenRouter({
   schema,
   schemaName = "course_extraction",
   maxOutputTokens = 12_000,
+  reasoningEffort = "minimal",
   requestTimeoutMs = OPENROUTER_REQUEST_TIMEOUT_MS,
   env = process.env,
   fetchImpl = fetch,
@@ -423,6 +430,7 @@ export async function extractWithOpenRouter({
   schema: JsonSchema;
   schemaName?: string;
   maxOutputTokens?: number;
+  reasoningEffort?: OpenRouterReasoningEffort;
   requestTimeoutMs?: number;
   env?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
@@ -435,6 +443,7 @@ export async function extractWithOpenRouter({
     schema,
     schemaName,
     maxOutputTokens,
+    reasoningEffort,
     env,
   });
   const requestedModel = requestBody.model;

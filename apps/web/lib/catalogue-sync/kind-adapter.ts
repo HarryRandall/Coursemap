@@ -1,5 +1,6 @@
 import type { ClaimedCatalogueSync, SyncSql } from "./sync-store.ts";
 import type { CatalogueKind, CatalogueContent } from "../catalogue/content.ts";
+import type { OpenRouterReasoningEffort } from "../catalogue-import/openrouter.ts";
 
 /** Catalogue facts a prompt draws on beyond the page itself. */
 export type PromptContext = {
@@ -51,6 +52,7 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
   schemaVersion: string;
   schemaName: string;
   maxOutputTokens: number;
+  reasoningEffort?: OpenRouterReasoningEffort;
   /** Structure pages produce long outputs; each kind sets its own budget. */
   requestTimeoutMs: number;
   extractionJsonSchema: Record<string, unknown>;

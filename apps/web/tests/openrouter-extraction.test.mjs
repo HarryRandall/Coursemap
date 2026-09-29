@@ -287,3 +287,28 @@ test("preserves bounded single-line provider detail for definitive failures", as
     },
   );
 });
+
+test("a course request can spend more reasoning while retaining hidden-reasoning exclusion", async () => {
+  let sent;
+  await extractWithOpenRouter({
+    model: DEFAULT_OPENROUTER_MODEL,
+    systemPrompt: "Read the course.",
+    modelInput: "Source.",
+    schema: TEST_SCHEMA,
+    reasoningEffort: "low",
+    env: { NODE_ENV: "test", OPENROUTER_API_KEY: "test-key" },
+    fetchImpl: async (_url, options) => {
+      sent = JSON.parse(options.body);
+      return Response.json({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: { content: '{"code":"COMP1100"}' },
+          },
+        ],
+      });
+    },
+  });
+  assert.deepEqual(sent.reasoning, { effort: "low", exclude: true });
+  assert.equal(sent.max_tokens, 12000);
+});
