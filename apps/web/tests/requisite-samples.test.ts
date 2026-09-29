@@ -85,3 +85,21 @@ test("an untouched nested branch adds no course or unit progress", () => {
     "STAT1003",
   ]);
 });
+
+test("subject course count previews show distinct completions", () => {
+  const expression: CourseRuleExpression = {
+    ...base,
+    kind: "subject_courses",
+    subject: "STAT",
+    minimumCount: 2,
+  };
+  expect(
+    evaluateRule(expression, sampleStudent(expression, "complete")),
+  ).toEqual({ status: "met", measure: { kind: "count", value: 2, target: 2 } });
+  expect(
+    evaluateRule(expression, sampleStudent(expression, "partway")).status,
+  ).toBe("partial");
+  expect(
+    evaluateRule(expression, sampleStudent(expression, "new")).status,
+  ).toBe("unmet");
+});

@@ -30,6 +30,7 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
       structure: "Programme",
       units_total: "Total units",
       subject_units: "Subject units",
+      subject_courses: "Subject courses",
       level_units: "Level units",
       course_set_units: "Courses worth units",
       year_standing: "Year standing",

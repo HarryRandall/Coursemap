@@ -48,6 +48,7 @@ const CONDITION_ICONS: Record<ReviewedConditionKind, LucideIcon> = {
   structure: GraduationCap,
   units_total: Layers,
   subject_units: SquareStack,
+  subject_courses: SquareStack,
   level_units: ChartNoAxesColumn,
   course_set_units: SquareStack,
   year_standing: GraduationCap,

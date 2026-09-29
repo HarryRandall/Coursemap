@@ -9,6 +9,11 @@ export type RequisiteCondition =
       units: number;
     }
   | {
+      kind: "subject_courses";
+      subject: string;
+      minimumCount: number;
+    }
+  | {
       kind: "level_units";
       units: number;
       level: number;

@@ -67,6 +67,11 @@ export type CourseRule =
   | { op: "all_of" | "one_of"; rules: CourseRule[] }
   | { op: "min_units_total"; minimumUnits: number }
   | {
+      op: "min_courses_from_subject";
+      minimumCount: number;
+      subjectCode: string;
+    }
+  | {
       op: "min_units_at_level";
       minimumUnits: number;
       level: number;
@@ -265,11 +270,13 @@ function requireNumber(
     integer = false,
     minimum,
     maximum,
+    exclusiveMinimum,
   }: {
     nullable?: boolean;
     integer?: boolean;
     minimum?: number;
     maximum?: number;
+    exclusiveMinimum?: number;
   } = {},
 ) {
   if (nullable && value === null) return;
@@ -290,6 +297,9 @@ function requireNumber(
   }
   if (maximum !== undefined && value > maximum) {
     issues.push({ path, message: `must be at most ${maximum}` });
+  }
+  if (exclusiveMinimum !== undefined && value <= exclusiveMinimum) {
+    issues.push({ path, message: `must be greater than ${exclusiveMinimum}` });
   }
 }
 
@@ -454,7 +464,7 @@ function validateRule(
     const record = exactRecord(value, path, ["op", "minimumUnits"], issues);
     if (record)
       requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
-        minimum: 0,
+        exclusiveMinimum: 0,
       });
   } else if (op === "min_units_at_level") {
     const record = exactRecord(
@@ -466,7 +476,7 @@ function validateRule(
     );
     if (record) {
       requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
-        minimum: 0,
+        exclusiveMinimum: 0,
       });
       requireNumber(record.level, `${path}.level`, issues, {
         integer: true,
@@ -488,6 +498,23 @@ function validateRule(
         });
       }
     }
+  } else if (op === "min_courses_from_subject") {
+    const record = exactRecord(
+      value,
+      path,
+      ["op", "minimumCount", "subjectCode"],
+      issues,
+    );
+    if (record) {
+      requireNumber(record.minimumCount, `${path}.minimumCount`, issues, {
+        integer: true,
+        minimum: 1,
+        maximum: 32767,
+      });
+      requireString(record.subjectCode, `${path}.subjectCode`, issues, {
+        pattern: /^[A-Z]{4}$/,
+      });
+    }
   } else if (op === "min_units_from_subject") {
     const record = exactRecord(
       value,
@@ -497,7 +524,7 @@ function validateRule(
     );
     if (record) {
       requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
-        minimum: 0,
+        exclusiveMinimum: 0,
       });
       requireString(record.subjectCode, `${path}.subjectCode`, issues, {
         pattern: /^[A-Z]{4}$/,
@@ -512,7 +539,7 @@ function validateRule(
     );
     if (record) {
       requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
-        minimum: 0,
+        exclusiveMinimum: 0,
       });
       requireArray(
         record.courseCodes,
@@ -1538,7 +1565,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "minimumUnits"],
           properties: {
             op: { const: "min_units_total" },
-            minimumUnits: { type: "number", minimum: 0 },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
           },
         },
         {
@@ -1547,7 +1574,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "minimumUnits", "level"],
           properties: {
             op: { const: "min_units_at_level" },
-            minimumUnits: { type: "number", minimum: 0 },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
             level: { type: "integer", minimum: 0, maximum: 9999 },
             maximumLevel: {
               type: ["integer", "null"],
@@ -1563,7 +1590,17 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "minimumUnits", "subjectCode"],
           properties: {
             op: { const: "min_units_from_subject" },
-            minimumUnits: { type: "number", minimum: 0 },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
+            subjectCode: { type: "string", pattern: "^[A-Z]{4}$" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "minimumCount", "subjectCode"],
+          properties: {
+            op: { const: "min_courses_from_subject" },
+            minimumCount: { type: "integer", minimum: 1, maximum: 32767 },
             subjectCode: { type: "string", pattern: "^[A-Z]{4}$" },
           },
         },
@@ -1573,7 +1610,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "minimumUnits", "courseCodes"],
           properties: {
             op: { const: "min_units_from_courses" },
-            minimumUnits: { type: "number", minimum: 0 },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
             courseCodes: {
               type: "array",
               items: {

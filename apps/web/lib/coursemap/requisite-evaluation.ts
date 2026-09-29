@@ -158,6 +158,19 @@ export function evaluateCondition(
             condition.units,
           )
         : { status: "unknown" };
+    case "subject_courses": {
+      const count = [...student.completed.keys()].filter(
+        (code) => subjectOf(code) === condition.subject,
+      ).length;
+      return {
+        status: unitsStatus(count, condition.minimumCount),
+        measure: {
+          kind: "count",
+          value: count,
+          target: condition.minimumCount,
+        },
+      };
+    }
     case "level_units":
       return unitsEvaluation(
         unitsWhere(student, (code) => {
