@@ -24,6 +24,7 @@ export type RequirementTreeCondition = Omit<
   /** Catalogue code for course, incompatible and structure conditions. */
   itemCode?: string | null;
   minimumGpa?: number | null;
+  recentGradedUnits?: number | null;
   minimumMark?: number | null;
   minimumWam?: number | null;
   minimumYear?: number | null;

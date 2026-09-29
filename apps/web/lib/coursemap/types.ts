@@ -68,6 +68,8 @@ export type Attempt = {
   unitsAttempted?: number;
   unitsEarned?: number;
   termId: string;
+  /** Start date of the recorded academic period, when known. */
+  periodStartsOn?: string;
   status: AttemptStatus;
   mark?: number;
   resultCode?: string;

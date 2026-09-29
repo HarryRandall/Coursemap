@@ -298,10 +298,14 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
       });
     case "year_standing":
       return `At least year ${rule.minimumYear} standing`;
-    case "minimum_gpa":
+    case "minimum_gpa": {
+      const scope = rule.recentGradedUnits
+        ? ` over the most recent ${rule.recentGradedUnits} graded units`
+        : " across the academic career";
       return rule.scale === "anu7"
-        ? `Minimum ANU GPA of ${rule.value}`
-        : `Minimum WAM of ${rule.value}`;
+        ? `Minimum ANU GPA of ${rule.value}${scope}`
+        : `Minimum WAM of ${rule.value}${scope}`;
+    }
     case "permission":
       return rule.sourceText ?? "Permission required";
   }
@@ -609,6 +613,7 @@ function addAtomicRule(
       });
       if (rule.scale === "anu7") condition.minimumGpa = rule.value;
       else condition.minimumWam = rule.value;
+      condition.minimumCount = rule.recentGradedUnits ?? null;
       accumulator.ruleConditions.push(condition);
       return;
     }

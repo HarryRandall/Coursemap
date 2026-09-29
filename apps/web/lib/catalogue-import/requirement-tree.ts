@@ -113,6 +113,11 @@ export function treeFromRequirementWrite(
               }
             : {}),
           gpa: condition.minimumGpa,
+          ...(condition.kind === "gpa" || condition.kind === "wam"
+            ? condition.minimumCount != null
+              ? { recentGradedUnits: condition.minimumCount }
+              : {}
+            : {}),
           wam: condition.minimumWam,
           mark: condition.minimumMark,
           freeText: EDITABLE_KINDS.has(condition.kind)
@@ -238,7 +243,11 @@ export function requirementWriteWithTree(
           child.kind === "subject_courses" ? null : (child.units ?? null),
         maximumUnits: null,
         minimumCount:
-          child.kind === "subject_courses" ? (child.courseCount ?? null) : null,
+          child.kind === "subject_courses"
+            ? (child.courseCount ?? null)
+            : child.kind === "gpa" || child.kind === "wam"
+              ? (child.recentGradedUnits ?? null)
+              : null,
         subjectCode: child.subjectCode ?? null,
         minimumLevel: child.level ?? null,
         maximumLevel: null,

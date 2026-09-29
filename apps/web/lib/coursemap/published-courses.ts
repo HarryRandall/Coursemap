@@ -575,10 +575,20 @@ function readProjectionCourseRule(
       return { ...base, kind: "elective_units", units: condition.units };
     }
     if (condition.kind === "gpa" && condition.minimumGpa !== null) {
-      return { ...base, kind: "gpa", minimumGpa: condition.minimumGpa };
+      return {
+        ...base,
+        kind: "gpa",
+        minimumGpa: condition.minimumGpa,
+        recentGradedUnits: condition.minimumCount,
+      };
     }
     if (condition.kind === "wam" && condition.minimumWam !== null) {
-      return { ...base, kind: "wam", minimumWam: condition.minimumWam };
+      return {
+        ...base,
+        kind: "wam",
+        minimumWam: condition.minimumWam,
+        recentGradedUnits: condition.minimumCount,
+      };
     }
     if (condition.kind === "permission") {
       return {

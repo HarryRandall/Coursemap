@@ -329,40 +329,79 @@ export function InlineValueFields({
 
   if (condition.kind === "gpa") {
     return (
-      <Input
-        aria-label="Minimum grade average"
-        className={cn(inlineControl, "w-24 min-w-24")}
-        max={7}
-        min={0}
-        onChange={(event) =>
-          onChange({ ...condition, gpa: Number(event.target.value) })
-        }
-        placeholder="5.0"
-        step="0.25"
-        type="number"
-        value={condition.gpa ?? ""}
-      />
+      <span className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label="Minimum grade average"
+          className={cn(inlineControl, "w-24 min-w-24")}
+          max={7}
+          min={0}
+          onChange={(event) =>
+            onChange({ ...condition, gpa: Number(event.target.value) })
+          }
+          placeholder="5.0"
+          step="0.25"
+          type="number"
+          value={condition.gpa ?? ""}
+        />
+        <Input
+          aria-label="Most recent graded units, blank for whole career"
+          className={cn(inlineControl, "w-32 min-w-32")}
+          max={300}
+          min={1}
+          onChange={(event) =>
+            onChange({
+              ...condition,
+              recentGradedUnits:
+                event.target.value === "" ? null : Number(event.target.value),
+            })
+          }
+          placeholder="Whole career"
+          step={1}
+          type="number"
+          value={condition.recentGradedUnits ?? ""}
+        />
+      </span>
     );
   }
 
   if (condition.kind === "wam") {
     return (
-      <Input
-        aria-label="Minimum WAM"
-        className={cn(inlineControl, "w-24 min-w-24")}
-        max={100}
-        min={0}
-        onChange={(event) =>
-          onChange({
-            ...condition,
-            wam: event.target.value === "" ? null : Number(event.target.value),
-          })
-        }
-        placeholder="65"
-        step="0.5"
-        type="number"
-        value={condition.wam ?? ""}
-      />
+      <span className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label="Minimum WAM"
+          className={cn(inlineControl, "w-24 min-w-24")}
+          max={100}
+          min={0}
+          onChange={(event) =>
+            onChange({
+              ...condition,
+              wam:
+                event.target.value === "" ? null : Number(event.target.value),
+            })
+          }
+          placeholder="65"
+          step="0.5"
+          type="number"
+          value={condition.wam ?? ""}
+        />
+        <Input
+          aria-label="Most recent graded units, blank for whole career"
+          className={cn(inlineControl, "w-32 min-w-32")}
+          max={300}
+          min={1}
+          onChange={(event) =>
+            onChange({
+              ...condition,
+              recentGradedUnits:
+                event.target.value === "" ? null : Number(event.target.value),
+            })
+          }
+          placeholder="Whole career"
+          step={1}
+          type="number"
+          value={condition.recentGradedUnits ?? ""}
+        />
+      </span>
     );
   }
 

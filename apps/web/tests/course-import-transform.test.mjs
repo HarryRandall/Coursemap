@@ -35,7 +35,13 @@ import {
 } from "../lib/catalogue/review-units.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 import { requirementSliceExpression } from "../lib/catalogue/requirement-expression.ts";
+import {
+  treeFromRequirementWrite,
+  requirementWriteWithTree,
+} from "../lib/catalogue-import/requirement-tree.ts";
 import { evaluateRule } from "../lib/coursemap/requisite-evaluation.ts";
+import { requirementTreeFromSource } from "../lib/coursemap/requirement-write-tree.ts";
+import { conditionSummary } from "../ui/requirements/requirement-presentation.ts";
 import { programmeCodeForName } from "../lib/catalogue-import/kinds/course/programmes.ts";
 
 // A complete, valid extraction of the reduced COMP2400 page in
@@ -50,6 +56,82 @@ const extraction = JSON.parse(
   ),
 );
 const pageMarkdown = JSON.stringify(extraction);
+
+test("career and recent-unit GPA alternatives survive import projection and reviewer editing", () => {
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "min_units_total", minimumUnits: 72 },
+      {
+        op: "one_of",
+        rules: [
+          {
+            op: "minimum_gpa",
+            value: 5,
+            scale: "anu7",
+            recentGradedUnits: null,
+          },
+          { op: "minimum_gpa", value: 5, scale: "anu7", recentGradedUnits: 48 },
+        ],
+      },
+    ],
+  };
+  model.requisites.unmodelledText = [
+    "A student with a fail grade in the preceding semester is ineligible to apply.",
+  ];
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projection = projectCourseSnapshot(model);
+  const gpaRows = projection.ruleConditions.filter(
+    (row) => row.conditionKind === "gpa",
+  );
+  assert.deepEqual(
+    gpaRows.map((row) => row.minimumCount),
+    [null, 48],
+  );
+  const content = courseCatalogueContent({ projection });
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.prerequisite",
+    )?.band,
+    "needs_review",
+  );
+  const expression = requirementSliceExpression(
+    content.requirements,
+    "prerequisite",
+  );
+  assert.deepEqual(
+    expression.conditions[0].conditions[1].conditions.map(
+      (condition) => condition.recentGradedUnits,
+    ),
+    [null, 48],
+  );
+  const tree = treeFromRequirementWrite(content.requirements, "prerequisite");
+  assert.deepEqual(
+    tree.children[1].children.map((condition) => condition.recentGradedUnits),
+    [undefined, 48],
+  );
+  const edited = requirementWriteWithTree(
+    content.requirements,
+    "prerequisite",
+    tree,
+    "GPA eligibility",
+  );
+  assert.deepEqual(
+    edited.conditions
+      .filter((condition) => condition.kind === "gpa")
+      .map((condition) => condition.minimumCount),
+    [null, 48],
+  );
+  const display = requirementTreeFromSource(
+    content.requirements,
+    "prerequisite",
+  );
+  assert.deepEqual(display.children[1].children.map(conditionSummary), [
+    "A grade point average of at least 5 across the academic career",
+    "A grade point average of at least 5 over the most recent 48 graded units",
+  ]);
+});
 
 test("invalid model course levels are reported rather than silently accepted", () => {
   assert.deepEqual(
@@ -448,8 +530,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v20");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v27");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v21");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v28");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
