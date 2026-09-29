@@ -358,11 +358,11 @@ export async function attachExtractionResponse(
     reused_from_extraction_id = ${input.reusedFromExtractionId as string | null}::uuid,
     provider_request_id = ${input.providerRequestId as string | null},
     finish_reason = ${input.finishReason as string | null},
-    input_tokens = ${input.inputTokens as number},
-    cached_input_tokens = ${input.cachedInputTokens as number},
-    output_tokens = ${input.outputTokens as number},
-    reasoning_tokens = ${input.reasoningTokens as number},
-    cost_usd = ${input.costUsd as number}, cost_source = ${input.costSource as string},
+    input_tokens = ${input.inputTokens as number | null},
+    cached_input_tokens = ${input.cachedInputTokens as number | null},
+    output_tokens = ${input.outputTokens as number | null},
+    reasoning_tokens = ${input.reasoningTokens as number | null},
+    cost_usd = ${input.costUsd as number | null}, cost_source = ${input.costSource as string},
     latency_ms = ${Math.round(input.latencyMs as number)}
     where id = ${input.extractionId}::uuid`;
 }

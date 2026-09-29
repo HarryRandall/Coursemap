@@ -489,7 +489,10 @@ export async function extractWithOpenRouter({
     reasoningTokens: nonNegativeInteger(
       usage?.completion_tokens_details?.reasoning_tokens,
     ),
-    costUsd: finiteNumber(usage?.cost),
+    costUsd:
+      typeof usage?.cost === "number" && usage.cost >= 0
+        ? finiteNumber(usage.cost)
+        : null,
   };
   const resolvedModel =
     typeof parsedResponse.model === "string" && parsedResponse.model.trim()
