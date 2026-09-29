@@ -57,6 +57,42 @@ const extraction = JSON.parse(
 );
 const pageMarkdown = JSON.stringify(extraction);
 
+test("unmodelled eligibility wording creates an explicit blocking review item", () => {
+  // https://programsandcourses.anu.edu.au/2026/course/CBEA3070
+  const wording =
+    "A student with a fail grade (N, NCN, WN) in the preceding semester is ineligible to apply.";
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteText = wording;
+  model.requisites.unmodelledText = [wording];
+  model.reviewItems = [];
+
+  const result = finaliseCourseExtraction({
+    code: "COMP2400",
+    year: 2026,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: `${pageMarkdown}\n${wording}`,
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.deepEqual(result.extraction.requisites.unmodelledText, [wording]);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requisites.unmodelledText" &&
+        item.severity === "error" &&
+        item.message.includes(wording),
+    ),
+  );
+  const content = courseKindAdapter.project(result.extraction);
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.prerequisite",
+    )?.band,
+    "needs_review",
+  );
+});
+
 test("career and recent-unit GPA alternatives survive import projection and reviewer editing", () => {
   const model = structuredClone(extraction);
   model.requisites.prerequisiteRule = {
@@ -289,7 +325,7 @@ test("resolves STAT2001's programme identity without losing its AND/OR tree", ()
     responseError: null,
     knownProgrammes,
   });
-  assert.equal(result.errorCount, 2);
+  assert.equal(result.errorCount, 3);
   assert.ok(
     result.extraction.reviewItems.some(
       (item) => item.fieldKey === "level" && item.severity === "error",
@@ -357,7 +393,7 @@ test("programme resolution requires an exact and unambiguous name", () => {
     responseError: null,
     knownProgrammes: [],
   });
-  assert.equal(result.errorCount, 3);
+  assert.equal(result.errorCount, 4);
   const projection = projectCourseSnapshot(result.extraction);
   assert.equal(
     projection.ruleConditions.filter(
@@ -1977,7 +2013,7 @@ test("the captured MATH1013 response keeps both exclusion scopes while the metad
     knownTags: [],
     knownPeriodCodes: ["S1", "S2"],
   });
-  assert.equal(result.errorCount, 2);
+  assert.equal(result.errorCount, 3);
   assert.ok(
     result.extraction.reviewItems.some(
       (item) => item.fieldKey === "level" && item.severity === "error",
@@ -2044,7 +2080,7 @@ test("the model's unresolved ECON2108 grouping remains a hard unknown with an er
     finishReason: "stop",
     responseError: null,
   });
-  assert.equal(finalised.errorCount, 1);
+  assert.equal(finalised.errorCount, 2);
   assert.equal(finalised.extraction.requisites.prerequisiteRule, null);
   const projection = projectCourseSnapshot(finalised.extraction);
   const conditions = projection.ruleConditions.filter(
