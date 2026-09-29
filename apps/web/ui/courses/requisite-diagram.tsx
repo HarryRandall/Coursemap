@@ -372,7 +372,7 @@ export function RequisiteDiagram({
   unlocks: readonly { code: string; isAvailable: boolean }[];
   unlocksAreKnown: boolean;
 }) {
-  const { requirements, permissions, incompatible } =
+  const { requirements, permissions, incompatible, concurrentIncompatible } =
     splitRequisiteRule(expression);
 
   if (
@@ -590,6 +590,12 @@ export function RequisiteDiagram({
           ))}
         </div>
 
+        {concurrentIncompatible.length ? (
+          <p className="mt-4 text-xs text-muted-foreground">
+            You cannot take this course in the same semester as{" "}
+            {concurrentIncompatible.join(", ")}.
+          </p>
+        ) : null}
         {incompatible.length ? (
           <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
             <CircleAlert

@@ -403,8 +403,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v14");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v19");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v15");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v20");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1630,5 +1630,161 @@ test("the captured MKTG2003 response preserves a STAT course without guessing un
         row.minimumUnits === null &&
         row.subjectCode === "STAT",
     ),
+  );
+});
+
+test("concurrent exclusions retain their scope separately from completion bans and prerequisites", async () => {
+  const { treeFromRequirementWrite, requirementWriteWithTree } =
+    await import("../lib/catalogue-import/requirement-tree.ts");
+  const { validateReviewedTree, courseMatch, applyCourseMatch } =
+    await import("../lib/coursemap/requisite-conditions.ts");
+  const model = structuredClone(extraction);
+  const prerequisite = structuredClone(model.requisites.prerequisiteRule);
+  model.requisites.incompatibilityText =
+    "Cannot concurrently enrol in STAT1003. Previous completion of STAT1008 is incompatible.";
+  model.requisites.incompatibilityCourseCodes = ["STAT1008"];
+  model.requisites.softIncompatibilityCourseCodes = [];
+  model.requisites.concurrentIncompatibilityCourseCodes = ["STAT1003"];
+  model.requisites.softConcurrentIncompatibilityCourseCodes = ["STAT2001"];
+  const finalised = finalise(model, { pageMarkdown: JSON.stringify(model) });
+  assert.equal(finalised.errorCount, 0);
+  assert.deepEqual(
+    finalised.extraction.requisites.prerequisiteRule,
+    prerequisite,
+  );
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(finalised.extraction),
+  });
+  const exclusions = content.requirements.conditions.filter(
+    (condition) => condition.ruleKey === "incompatibility",
+  );
+  assert.deepEqual(
+    exclusions.map((condition) => [
+      condition.kind,
+      condition.itemCode,
+      condition.hardness,
+    ]),
+    [
+      ["incompatible", "STAT1008", "hard"],
+      ["incompatible_concurrent", "STAT1003", "hard"],
+      ["incompatible_concurrent", "STAT2001", "advisory"],
+    ],
+  );
+  const tree = treeFromRequirementWrite(
+    content.requirements,
+    "incompatibility",
+  );
+  const concurrent = tree.children.find(
+    (condition) => condition.courseCode === "STAT1003",
+  );
+  assert.equal(courseMatch(concurrent), "not_concurrent");
+  assert.equal(
+    applyCourseMatch(concurrent, "not_completed").kind,
+    "incompatible",
+  );
+  const validated = validateReviewedTree(tree);
+  assert.ok("tree" in validated);
+  const edited = requirementWriteWithTree(
+    content.requirements,
+    "incompatibility",
+    validated.tree,
+    model.requisites.incompatibilityText,
+  );
+  assert.ok(
+    edited.conditions.some(
+      (condition) =>
+        condition.kind === "incompatible_concurrent" &&
+        condition.itemCode === "STAT1003" &&
+        condition.itemKind === "course",
+    ),
+  );
+  assert.equal(
+    edited.conditions.find((condition) => condition.itemCode === "STAT2001")
+      .hardness,
+    "advisory",
+  );
+});
+
+test("legacy responses retain their previous completion exclusions", () => {
+  const model = structuredClone(extraction);
+  delete model.requisites.concurrentIncompatibilityCourseCodes;
+  delete model.requisites.softConcurrentIncompatibilityCourseCodes;
+  assert.equal(validateCourseExtraction(model).success, true);
+  const result = finalise(model);
+  assert.equal(result.errorCount, 0);
+  assert.equal(
+    projectCourseSnapshot(result.extraction).ruleConditions.some(
+      (condition) => condition.conditionKind === "incompatible_concurrent",
+    ),
+    false,
+  );
+});
+
+test("the captured MATH1013 response keeps both exclusion scopes while the metadata error blocks publication", async () => {
+  const capture = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2026-math1013-concurrent-extraction.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = capture.extraction;
+  assert.equal(
+    capture.source.sourceUrl,
+    "https://programsandcourses.anu.edu.au/2026/course/MATH1013",
+  );
+  const pageMarkdown = await readFile(
+    new URL(
+      "./fixtures/course-import/anu-2026-math1013-concurrent-source.txt",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const result = finaliseCourseExtraction({
+    code: "MATH1013",
+    year: 2026,
+    listingTitle: model.title,
+    model,
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+    knownTags: [],
+    knownPeriodCodes: ["S1", "S2"],
+  });
+  assert.equal(result.errorCount, 1);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "sourceUpdatedAt" && item.severity === "error",
+    ),
+  );
+  assert.deepEqual(result.extraction.requisites.incompatibilityCourseCodes, [
+    "MATH1113",
+    "MATH1115",
+  ]);
+  assert.deepEqual(
+    result.extraction.requisites.concurrentIncompatibilityCourseCodes,
+    ["MATH1113", "MATH1115"],
+  );
+  const projection = projectCourseSnapshot(result.extraction);
+  assert.equal(
+    projection.ruleConditions.filter(
+      (condition) => condition.conditionKind === "incompatible",
+    ).length,
+    2,
+  );
+  assert.equal(
+    projection.ruleConditions.filter(
+      (condition) => condition.conditionKind === "incompatible_concurrent",
+    ).length,
+    2,
+  );
+  assert.equal(
+    projection.ruleCourseReferences.filter(
+      (reference) => reference.ruleKey === "incompatibility",
+    ).length,
+    2,
   );
 });

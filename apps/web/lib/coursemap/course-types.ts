@@ -19,7 +19,7 @@ export type CourseRuleExpression =
       requirementMode: "completed" | "completed_or_concurrent";
     })
   | (CourseRuleConditionBase & {
-      kind: "incompatible";
+      kind: "incompatible" | "incompatible_concurrent";
       code: string;
     })
   | (CourseRuleConditionBase & {
@@ -191,6 +191,7 @@ export type CourseDetails = {
   prerequisiteCodes: string[];
   prerequisiteEdges: CoursePrerequisiteEdge[];
   prerequisiteRule: CourseRequisiteRule | null;
+  incompatibilityRule?: CourseRequisiteRule | null;
   /** Published courses which can be opened from requisite prose. */
   availableCourseCodes: string[];
   incompatibilityText: string;

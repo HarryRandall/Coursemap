@@ -21,6 +21,7 @@ export type Course = {
   prerequisiteText: string;
   prerequisiteCodes: string[];
   prerequisiteRule?: CourseRequisiteRule | null;
+  incompatibilityRule?: CourseRequisiteRule | null;
   corequisiteText?: string;
   incompatibilities: string[];
   permissionText?: string;

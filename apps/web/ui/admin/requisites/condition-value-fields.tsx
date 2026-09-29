@@ -31,7 +31,11 @@ export function InlineValueFields({
 }) {
   const fieldId = useId();
 
-  if (condition.kind === "course" || condition.kind === "incompatible") {
+  if (
+    condition.kind === "course" ||
+    condition.kind === "incompatible" ||
+    condition.kind === "incompatible_concurrent"
+  ) {
     return (
       <SearchPicker
         className={cn(

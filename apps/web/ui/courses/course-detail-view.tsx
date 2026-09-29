@@ -44,7 +44,10 @@ import {
   Plus,
 } from "lucide-react";
 import { Hint } from "@/ui/common/hint";
-import type { CourseDetails } from "@/lib/coursemap/course-types";
+import type {
+  CourseDetails,
+  CourseRuleExpression,
+} from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import {
@@ -136,6 +139,19 @@ export function CourseDetailView({
   const availableCourseCodes = new Set(course.availableCourseCodes);
   const structuredRule = course.prerequisiteRule?.expression ?? null;
   const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
+  const incompatibilityRule =
+    course.incompatibilityRule?.relationalExpression ?? null;
+  const enrolmentRule: CourseRuleExpression | null = incompatibilityRule
+    ? {
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          ...(relationalRule ? [relationalRule] : []),
+          incompatibilityRule,
+        ],
+      }
+    : relationalRule;
   const student =
     previewStudent !== undefined
       ? previewStudent
@@ -537,11 +553,11 @@ export function CourseDetailView({
             </CardTitle>
           </CardHeader>
           <CardContent className="border-t border-border/60 p-0 text-[13px] leading-relaxed text-foreground/80">
-            {relationalRule ? (
+            {enrolmentRule ? (
               <EnrolmentSteps
                 academicYear={course.year}
                 availableCourseCodes={availableCourseCodes}
-                expression={relationalRule}
+                expression={enrolmentRule}
                 student={student}
               />
             ) : structuredRule ? (

@@ -36,10 +36,11 @@ function conditionExpression(
       }
       break;
     case "incompatible":
+    case "incompatible_concurrent":
       if (condition.itemCode) {
         return {
           ...base,
-          kind: "incompatible",
+          kind: condition.kind,
           code: condition.itemCode.toUpperCase(),
         };
       }

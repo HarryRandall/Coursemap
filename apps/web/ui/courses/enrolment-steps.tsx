@@ -32,6 +32,7 @@ type ChipState = "done" | "enrolled" | "todo";
 
 type Step = {
   title: string;
+  advisory?: boolean;
   /** The explorer, filtered to the courses that count towards this step. */
   link?: { href: string; label: string } | null;
   marker: Marker;
@@ -261,8 +262,14 @@ export function EnrolmentSteps({
   /** Null when signed out: the steps show, the progress does not. */
   student: StudentRecord | null;
 }) {
-  const { requirements, permissions, notes, incompatible } =
-    splitRequisiteRule(expression);
+  const {
+    requirements,
+    permissions,
+    notes,
+    incompatible,
+    concurrentIncompatible,
+    advisoryIncompatible,
+  } = splitRequisiteRule(expression);
   const href = (code: string) =>
     availableCourseCodes.has(code)
       ? `/courses/${academicYear}/${code.toLowerCase()}`
@@ -492,6 +499,25 @@ export function EnrolmentSteps({
       counted: false,
       body: <p className="text-muted-foreground">{text}</p>,
     })),
+    ...concurrentIncompatible.map((code): Step => {
+      const clear = student ? !student.enrolled.has(code) : null;
+      return {
+        title: `You can't take this in the same semester as ${code}`,
+        marker: clear === null ? "blocked" : clear ? "met" : "blocked",
+        counted: student !== null,
+        body:
+          clear === null ? null : (
+            <StateLine
+              met={clear}
+              text={
+                clear
+                  ? `You aren't enrolled in ${code}`
+                  : `You are enrolled in ${code}`
+              }
+            />
+          ),
+      };
+    }),
     ...incompatible.map((code): Step => {
       const clear = student ? !student.completed.has(code) : null;
       return {
@@ -511,9 +537,23 @@ export function EnrolmentSteps({
           ),
       };
     }),
+    ...advisoryIncompatible.map((condition): Step => ({
+      title: "Check recommended course combinations",
+      advisory: true,
+      marker: "note",
+      counted: false,
+      body: (
+        <p className="text-muted-foreground">
+          {condition.kind === "incompatible_concurrent"
+            ? `Consider taking ${"code" in condition ? condition.code : "the other course"} in a different semester.`
+            : `Check ANU's advice if you've already completed ${"code" in condition ? condition.code : "the other course"}.`}
+        </p>
+      ),
+    })),
   ];
 
   if (steps.length === 0) return null;
+  const requiredCount = steps.filter((step) => !step.advisory).length;
   const counted = steps.filter((step) => step.counted);
   const met = counted.filter((step) => step.marker === "met").length;
 
@@ -521,17 +561,21 @@ export function EnrolmentSteps({
     <div className="text-[13px]">
       <div className="flex items-center justify-between gap-3 border-b border-border/60 px-6 py-3">
         <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-          {steps.length === 1 ? "Required" : `All ${steps.length} required`}
+          {requiredCount === 0
+            ? "Recommended"
+            : requiredCount === 1
+              ? "Required"
+              : `All ${requiredCount} required`}
         </p>
-        {student ? (
+        {student && counted.length > 0 ? (
           <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground/80 tabular-nums">
             {met} of {counted.length} met
           </span>
-        ) : (
+        ) : !student ? (
           <span className="text-[11px] text-muted-foreground">
             Sign in to see your progress
           </span>
-        )}
+        ) : null}
       </div>
       <ol className="px-6 py-5">
         {steps.map((step, index) => (
