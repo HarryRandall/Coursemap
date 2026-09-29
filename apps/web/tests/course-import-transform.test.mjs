@@ -71,7 +71,13 @@ test("resolves STAT2001's programme identity without losing its AND/OR tree", ()
     responseError: null,
     knownProgrammes,
   });
-  assert.equal(result.errorCount, 0);
+  assert.equal(result.errorCount, 1);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "sourceUpdatedAt" && item.severity === "error",
+    ),
+  );
   assert.equal(result.warningCount, 0);
   const expected = structuredClone(stat2001.requisites.prerequisiteRule);
   expected.rules[0].rules[2].programmeCode = "BADAN";
@@ -128,7 +134,7 @@ test("programme resolution requires an exact and unambiguous name", () => {
     responseError: null,
     knownProgrammes: [],
   });
-  assert.equal(result.errorCount, 1);
+  assert.equal(result.errorCount, 2);
   const projection = projectCourseSnapshot(result.extraction);
   assert.equal(
     projection.ruleConditions.filter(
@@ -290,11 +296,16 @@ test("keeps evidence whatever method the model wrote", () => {
   assert.ok(finalised.evidence.every(({ method }) => method === "model"));
 });
 
-test("stores an empty, flagged record when the response is not JSON", () => {
-  const { extraction: finalised, errorCount } = finalise(null, {
+test("keeps failed response diagnostics without permitting source persistence", () => {
+  const {
+    extraction: finalised,
+    errorCount,
+    canPersist,
+  } = finalise(null, {
     responseError:
       "OpenRouter returned invalid JSON despite structured-output mode.",
   });
+  assert.equal(canPersist, false);
   assert.equal(finalised.title, "Relational Databases");
   assert.deepEqual(finalised.offerings, []);
   assert.ok(errorCount >= 2);
@@ -592,5 +603,26 @@ test("the user prompt offers the tags already in use", () => {
       pageMarkdown: "# COMP2400",
     }),
     "Expected course: COMP2400\nSelected academic year: 2026\n\n# COMP2400",
+  );
+});
+
+test("refuses empty objects and truncated responses even when they parse", () => {
+  assert.equal(finalise({}).canPersist, false);
+  assert.equal(
+    finalise(extraction, { finishReason: "length" }).canPersist,
+    false,
+  );
+  assert.equal(finalise(extraction).canPersist, true);
+});
+
+test("missing model fields remain errors rather than source absences", () => {
+  const model = structuredClone(extraction);
+  delete model.requisites;
+  const result = finalise(model);
+  assert.equal(result.canPersist, true);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) => item.fieldKey === "requisites" && item.severity === "error",
+    ),
   );
 });

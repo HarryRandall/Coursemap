@@ -636,3 +636,13 @@ test("records the majors and minors a programme page lists that the model left o
     ],
   );
 });
+
+test("failed and truncated structure responses remain audit-only", () => {
+  assert.equal(finalise(null).canPersist, false);
+  assert.equal(finalise({}).canPersist, false);
+  assert.equal(
+    finalise(extraction, { finishReason: "length" }).canPersist,
+    false,
+  );
+  assert.equal(finalise(extraction).canPersist, true);
+});

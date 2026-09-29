@@ -13,6 +13,7 @@ import {
 import { withListedStructureOptions } from "./listed-options.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
+  hasExtractedContent,
   modelResponseProblem,
   salvageModelExtraction,
   withModelEvidenceMethod,
@@ -130,14 +131,15 @@ export function finaliseAcademicStructureExtraction({
     candidate = repair.value;
     repairedRequirements.push(...repair.repairedPaths);
   }
+  const empty = emptyAcademicStructureExtraction({
+    kind,
+    code,
+    year,
+    title: listingTitle,
+  });
   const { extraction, dropped } = salvageModelExtraction({
     value: candidate,
-    empty: emptyAcademicStructureExtraction({
-      kind,
-      code,
-      year,
-      title: listingTitle,
-    }),
+    empty,
     fixedKeys: STRUCTURE_IDENTITY_FIELDS,
     validate,
   });
@@ -200,6 +202,10 @@ export function finaliseAcademicStructureExtraction({
   };
   return {
     extraction: finalised,
+    canPersist:
+      !problem &&
+      !dropped.some(({ fieldKey }) => fieldKey === "modelExtraction") &&
+      hasExtractedContent(extraction, empty, STRUCTURE_IDENTITY_FIELDS),
     warningCount: reviewItems.filter(({ severity }) => severity === "warning")
       .length,
     errorCount: reviewItems.filter(({ severity }) => severity === "error")

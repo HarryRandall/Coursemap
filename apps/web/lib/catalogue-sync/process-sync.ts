@@ -85,6 +85,17 @@ export class SyncVersionMismatchError extends TypeError {
   }
 }
 
+export class SyncExtractionInvalidError extends TypeError {
+  readonly code = "MODEL_EXTRACTION_INVALID";
+
+  constructor() {
+    super(
+      "The model response was incomplete or contained no usable catalogue content. Its response and validation report were preserved, but no source version or draft was changed.",
+    );
+    this.name = "SyncExtractionInvalidError";
+  }
+}
+
 function assertCurrentVersions(
   adapter: CatalogueSyncAdapter,
   claim: ClaimedCatalogueSync,
@@ -528,14 +539,16 @@ async function processClaimedSync({
         extractionId: modelResult.extractionId,
         validatedArtifactId: validated.id,
         schemaValid: modelValidation.success,
-        domainValid: outcome.errorCount === 0,
+        domainValid: outcome.canPersist && outcome.errorCount === 0,
         warningCount: outcome.warningCount,
         errorCount: outcome.errorCount,
-        errorSummary:
-          outcome.errorCount === 0
+        errorSummary: !outcome.canPersist
+          ? new SyncExtractionInvalidError().message
+          : outcome.errorCount === 0
             ? null
             : `${outcome.errorCount} part${outcome.errorCount === 1 ? "" : "s"} of the model response could not be used and need review.`,
       });
+      if (!outcome.canPersist) throw new SyncExtractionInvalidError();
       return outcome;
     });
 

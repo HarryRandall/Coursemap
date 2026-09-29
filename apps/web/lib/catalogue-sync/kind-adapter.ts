@@ -29,6 +29,8 @@ export type ValidationOutcome = {
 
 export type FinaliseOutcome<Extraction> = {
   extraction: Extraction;
+  /** False for failed, truncated or content-free responses; keep audit artefacts only. */
+  canPersist: boolean;
   warningCount: number;
   errorCount: number;
   report: unknown;

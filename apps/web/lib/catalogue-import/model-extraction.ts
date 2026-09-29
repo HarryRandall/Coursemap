@@ -11,6 +11,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** A response containing only identity or audit metadata is not catalogue content. */
+export function hasExtractedContent<Extraction extends Record<string, unknown>>(
+  extraction: Extraction,
+  empty: Extraction,
+  fixedKeys: readonly string[],
+) {
+  const metadata = new Set([
+    ...fixedKeys,
+    "title",
+    "evidence",
+    "reviewItems",
+    "overallConfidence",
+  ]);
+  return Object.keys(empty).some(
+    (key) =>
+      !metadata.has(key) &&
+      JSON.stringify(extraction[key]) !== JSON.stringify(empty[key]),
+  );
+}
+
 /**
  * Splits a validator path such as `$.fees[2].amount` or `$.fees.2.amount`
  * into the field and its next segment: an item index for an array, or a
@@ -66,6 +86,11 @@ export function salvageModelExtraction<
     for (const key of Object.keys(empty)) {
       if (!fixedKeys.includes(key) && key in value) {
         candidate[key] = structuredClone(value[key]);
+      } else if (!fixedKeys.includes(key)) {
+        drop(
+          key,
+          `The model omitted ${key}; absence from the source could not be established.`,
+        );
       }
     }
   } else {

@@ -543,6 +543,11 @@ export async function publishCatalogueDraft({
         throw new CatalogueDraftConflictError(draft.revision);
       // A first reading from ANU is the model's word until a person has
       // looked at the parts it was unsure of.
+      if (draft.content.flags.some((flag) => flag.severity === "error"))
+        throw new CatalogueDraftError(
+          "The draft contains extraction errors. Resolve them with a complete ANU reading before publishing.",
+          "INVALID_EXTRACTION",
+        );
       const blocking = await countBlockingFirstReads(tx, recordId);
       if (blocking > 0)
         throw new CatalogueDraftError(
