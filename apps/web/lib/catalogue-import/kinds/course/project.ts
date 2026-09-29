@@ -1,3 +1,7 @@
+import {
+  enrolmentModeConditionLabel,
+  type EnrolmentMode,
+} from "../../../academic/enrolment-mode.ts";
 import { commencementYearLabel } from "../../../academic/commencement-year.ts";
 import type { WorkloadHoursBasis } from "../../../academic/workload.ts";
 import {
@@ -28,6 +32,7 @@ type ConditionKind =
   | "course_set_units"
   | "year_standing"
   | "commencement_year"
+  | "enrolment_mode"
   | "permission"
   | "admission"
   | "gpa"
@@ -92,6 +97,8 @@ export type ProjectedCourseRuleConditionRow = {
   maximumCourseLevel: number | null;
   minimumGpa: number | null;
   minimumYear: number | null;
+  enrolmentMode?: EnrolmentMode | null;
+  matchesEnrolmentMode?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   minimumWam: number | null;
@@ -276,6 +283,11 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
         .join(", ")}`;
     case "enrolled_in":
       return `Enrolment in programme ${rule.programmeCode}`;
+    case "enrolment_mode":
+      return enrolmentModeConditionLabel({
+        enrolmentMode: rule.mode,
+        matchesEnrolmentMode: rule.matches,
+      });
     case "commencement_year":
       return commencementYearLabel({
         minimumCommencementYear: rule.minimumYear,
@@ -521,6 +533,21 @@ function addAtomicRule(
         sourceText,
       });
       condition.requiredStructureCode = rule.programmeCode;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "enrolment_mode": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "enrolment_mode",
+        hardness,
+        sourceText,
+      });
+      condition.enrolmentMode = rule.mode;
+      condition.matchesEnrolmentMode = rule.matches;
       accumulator.ruleConditions.push(condition);
       return;
     }

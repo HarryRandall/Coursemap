@@ -4,12 +4,14 @@ import { expect, test, vi } from "vitest";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
+import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
 import { CourseDialog } from "@/ui/overlays/course-dialog";
 import { courses, terms } from "./fixtures/catalogue";
 
 const fixture = vi.hoisted(() => ({
   attempts: [] as Attempt[],
   commencementYear: 2024,
+  enrolmentMode: null as EnrolmentMode | null,
   togglePermission: vi.fn(),
   notify: vi.fn(),
 }));
@@ -20,6 +22,7 @@ vi.mock("@/app/providers", () => ({
       profile: {
         degreeCode: "BCOMP",
         commencementYear: fixture.commencementYear,
+        enrolmentMode: fixture.enrolmentMode,
       },
     },
     updateAttempt: vi.fn(),
@@ -116,6 +119,82 @@ test("students can record and remove approval for a conditional exclusion in the
   expect(fixture.notify).toHaveBeenLastCalledWith(
     "Permission approval removed",
   );
+});
+
+test("degree mode changes preserve the conditional permission path in the student dialog", async () => {
+  const mode = {
+    ...base,
+    kind: "enrolment_mode" as const,
+    enrolmentMode: "flexible_double_degree" as const,
+    matchesEnrolmentMode: false,
+  };
+  const rule: CourseRuleExpression = {
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [
+      mode,
+      {
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...mode, matchesEnrolmentMode: true },
+          {
+            ...base,
+            kind: "permission",
+            text: "Permission from info.cbe@anu.edu.au",
+          },
+        ],
+      },
+    ],
+  };
+  const scoped = {
+    ...catalogue,
+    courses: catalogue.courses.map((course) =>
+      course.code === "COMP1110"
+        ? {
+            ...course,
+            incompatibilityRule: null,
+            prerequisiteRule: {
+              ...base,
+              expression: null,
+              relationalExpression: rule,
+            },
+          }
+        : course,
+    ),
+  };
+  fixture.attempts = [
+    {
+      id: "target",
+      courseCode: "COMP1110",
+      academicYear: 2026,
+      termId: "2026-s2",
+      status: "planned",
+      permissionApproved: false,
+    },
+  ];
+  fixture.enrolmentMode = "single_degree";
+  const view = render(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Planned", { exact: true })).toBeVisible();
+  fixture.enrolmentMode = "flexible_double_degree";
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  fixture.attempts[0].permissionApproved = true;
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Planned", { exact: true })).toBeVisible();
+  fixture.enrolmentMode = null;
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
 });
 
 test("the plan dialog evaluates a cohort waiver from the saved profile year", async () => {

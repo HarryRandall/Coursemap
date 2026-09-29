@@ -1,3 +1,7 @@
+import {
+  validEnrolmentMode,
+  type EnrolmentMode,
+} from "../academic/enrolment-mode";
 import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
   PUBLISHED_COURSE_DETAIL_TAG,
@@ -276,6 +280,8 @@ type ProjectionCondition = {
   minimumMark: number | null;
   minimumWam: number | null;
   minimumYear: number | null;
+  enrolmentMode: EnrolmentMode | null;
+  matchesEnrolmentMode: boolean | null;
   minimumCommencementYear: number | null;
   maximumCommencementYear: number | null;
   position: number;
@@ -374,6 +380,13 @@ function readProjectionCourseRule(
         minimumMark: readNullableNumber(value.minimumMark),
         minimumWam: readNullableNumber(value.minimumWam),
         minimumYear: readNullableNumber(value.minimumYear),
+        enrolmentMode: validEnrolmentMode(value.enrolmentMode)
+          ? value.enrolmentMode
+          : null,
+        matchesEnrolmentMode:
+          typeof value.matchesEnrolmentMode === "boolean"
+            ? value.matchesEnrolmentMode
+            : null,
         minimumCommencementYear: readNullableNumber(
           value.minimumCommencementYear,
         ),
@@ -496,6 +509,17 @@ function readProjectionCourseRule(
         units: condition.units,
       };
     }
+    if (
+      condition.kind === "enrolment_mode" &&
+      validEnrolmentMode(condition.enrolmentMode) &&
+      typeof condition.matchesEnrolmentMode === "boolean"
+    )
+      return {
+        ...base,
+        kind: "enrolment_mode",
+        enrolmentMode: condition.enrolmentMode,
+        matchesEnrolmentMode: condition.matchesEnrolmentMode,
+      };
     if (condition.kind === "commencement_year") {
       return {
         ...base,

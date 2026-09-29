@@ -1,3 +1,4 @@
+import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type {
   PlanRequirementCondition,
   PlanRequirementGroup,
@@ -26,6 +27,8 @@ export type RequirementTreeCondition = Omit<
   minimumMark?: number | null;
   minimumWam?: number | null;
   minimumYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
+  matchesEnrolmentMode?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   requirementMode?: "completed" | "completed_or_concurrent" | null;

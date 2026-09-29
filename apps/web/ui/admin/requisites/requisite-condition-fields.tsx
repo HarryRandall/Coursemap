@@ -35,6 +35,7 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
       course_set_units: "Courses worth units",
       year_standing: "Year standing",
       commencement_year: "Commencement year",
+      enrolment_mode: "Enrolment mode",
       gpa: "Grade average",
       wam: "WAM",
       permission: "Permission",

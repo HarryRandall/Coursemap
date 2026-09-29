@@ -1,3 +1,4 @@
+import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type { WorkloadHoursBasis } from "@/lib/academic/workload";
 import type { RequisiteExpression } from "./requisite-summary";
 
@@ -43,6 +44,11 @@ export type CourseRuleExpression =
       kind: "course_set_units";
       courseCodes: string[];
       units: number;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "enrolment_mode";
+      enrolmentMode: EnrolmentMode;
+      matchesEnrolmentMode: boolean;
     })
   | (CourseRuleConditionBase & {
       kind: "commencement_year";

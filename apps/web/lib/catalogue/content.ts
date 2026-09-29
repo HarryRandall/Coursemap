@@ -1,3 +1,4 @@
+import type { EnrolmentMode } from "../academic/enrolment-mode.ts";
 import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
 import { evidenceBelongsToReviewUnit } from "./review-units.ts";
@@ -47,6 +48,7 @@ export type RequirementConditionKind =
   | "elective_units"
   | "year_standing"
   | "commencement_year"
+  | "enrolment_mode"
   | "gpa"
   | "wam"
   | "permission"
@@ -102,6 +104,8 @@ export type RequirementWrite = {
     minimumLevel: number | null;
     maximumLevel: number | null;
     minimumYear: number | null;
+    enrolmentMode?: EnrolmentMode | null;
+    matchesEnrolmentMode?: boolean | null;
     minimumCommencementYear?: number | null;
     maximumCommencementYear?: number | null;
     minimumGpa: number | null;
@@ -610,6 +614,12 @@ export function courseCatalogueContent({
           minimumLevel: condition.minimumCourseLevel,
           maximumLevel: condition.maximumCourseLevel,
           minimumYear: condition.minimumYear,
+          ...(kind === "enrolment_mode"
+            ? {
+                enrolmentMode: condition.enrolmentMode ?? null,
+                matchesEnrolmentMode: condition.matchesEnrolmentMode ?? null,
+              }
+            : {}),
           ...(kind === "commencement_year"
             ? {
                 minimumCommencementYear:

@@ -3375,6 +3375,7 @@ export type Database = {
           academic_year_id: number
           commencement_year: number
           created_at: string
+          enrolment_mode: string | null
           extension_years: number
           id: string
           is_primary: boolean
@@ -3388,6 +3389,7 @@ export type Database = {
           academic_year_id: number
           commencement_year: number
           created_at?: string
+          enrolment_mode?: string | null
           extension_years?: number
           id?: string
           is_primary?: boolean
@@ -3401,6 +3403,7 @@ export type Database = {
           academic_year_id?: number
           commencement_year?: number
           created_at?: string
+          enrolment_mode?: string | null
           extension_years?: number
           id?: string
           is_primary?: boolean
@@ -3504,12 +3507,14 @@ export type Database = {
           condition_key: string
           condition_kind: string
           confidence: number
+          enrolment_mode: string | null
           free_text: string | null
           group_id: number
           hardness: string
           id: number
           includes_any_course: boolean
           item_kind: string | null
+          matches_enrolment_mode: boolean | null
           maximum_commencement_year: number | null
           maximum_level: number | null
           maximum_units: number | null
@@ -3538,12 +3543,14 @@ export type Database = {
           condition_key: string
           condition_kind: string
           confidence?: number
+          enrolment_mode?: string | null
           free_text?: string | null
           group_id: number
           hardness?: string
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          matches_enrolment_mode?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -3572,12 +3579,14 @@ export type Database = {
           condition_key?: string
           condition_kind?: string
           confidence?: number
+          enrolment_mode?: string | null
           free_text?: string | null
           group_id?: number
           hardness?: string
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          matches_enrolment_mode?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -4673,6 +4682,21 @@ export type Database = {
           p_academic_year: number
           p_commencement_year: number
           p_display_name: string
+          p_major_code?: string
+          p_minor_codes?: string[]
+          p_programme_code: string
+          p_specialisation_codes?: string[]
+          p_student_number: string
+          p_study_load: string
+        }
+        Returns: string
+      }
+      save_current_user_primary_plan_with_enrolment_mode: {
+        Args: {
+          p_academic_year: number
+          p_commencement_year: number
+          p_display_name: string
+          p_enrolment_mode?: string
           p_major_code?: string
           p_minor_codes?: string[]
           p_programme_code: string

@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v18";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v25";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v19";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v26";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -50,6 +50,7 @@ Writing the record:
 - Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page. For every fee or offering extracted from a Markdown table, sourceText is the exact printed table row, including every cell and pipe separator. Keep the audience heading separately in the fee's sourceLabel, and the session heading separately in the offering's periodName. Do not prepend those headings to the row or turn the row into a sentence. Preserve the original display dates in sourceText while using ISO dates in the date fields. For a table-level evidenceExcerpt, copy the whole source table block or separate independently copied source fragments with a blank line. Check each quote against the input before returning it.
 
 Requisites:
+- Preserve conditional permissions by enrolment mode. Use enrolment_mode with mode single_degree, flexible_double_degree or fixed_double_degree and matches true/false. A requirement applying only to Flexible Double Degree students is one_of [enrolment_mode flexible_double_degree matches false, all_of [enrolment_mode flexible_double_degree matches true, permission with exact authority wording]]. Do not make it unconditional or infer mode from how many programme codes a student has. Keep compulsory units and programme/college eligibility outside that alternative. College-wide eligibility that cannot be resolved to supported programme identities remains in unmodelledText with a hard review item; never invent a programme code for CBE.
 - Read compulsory eligibility across the entire page, including admission restrictions in the introduction and Other Information, not only the Requisite and Incompatibility heading. Include each hard admission requirement once in the appropriate rule and its exact source wording in prerequisiteText. Recommended preparation remains advisory.
 - When compulsory source prose names a course without its code, resolve it from the supplied ANU course identities for the selected year. Use the code only when the name and context identify one course. A generic word such as "Course" following a title is not a different title. Do not use the current extension course in place of the named preceding course, and do not substitute a similarly named award. If the supplied identities cannot resolve it uniquely, preserve the clause in unmodelledText with a review item instead of guessing a code.
 - Copy assumed knowledge and recommended preparation into requisites.assumedKnowledgeText, or null if absent. This is advisory preparation, including prose outside the formal requisite section, not an enrolment gate. Do not place the same advice in prerequisiteRule, prerequisiteText or unmodelledText. Keep genuinely compulsory secondary-school eligibility or conditional admission pathways in formal requisites for review, rather than relabelling them as advice. Give exact-source evidence with fieldKey requisites.assumedKnowledgeText.
