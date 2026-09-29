@@ -1163,10 +1163,10 @@ export type Database = {
       }
       catalogue_extractions: {
         Row: {
-          cached_input_tokens: number
+          cached_input_tokens: number | null
           completed_at: string | null
           cost_source: string
-          cost_usd: number
+          cost_usd: number | null
           domain_valid: boolean | null
           error_count: number
           error_summary: string | null
@@ -1174,12 +1174,12 @@ export type Database = {
           fingerprint: string
           finish_reason: string | null
           id: string
-          input_tokens: number
+          input_tokens: number | null
           latency_ms: number | null
-          output_tokens: number
+          output_tokens: number | null
           prompt_version: string
           provider_request_id: string | null
-          reasoning_tokens: number
+          reasoning_tokens: number | null
           request_artifact_id: string
           requested_model: string
           resolved_model: string | null
@@ -1194,10 +1194,10 @@ export type Database = {
           warning_count: number
         }
         Insert: {
-          cached_input_tokens?: number
+          cached_input_tokens?: number | null
           completed_at?: string | null
           cost_source?: string
-          cost_usd?: number
+          cost_usd?: number | null
           domain_valid?: boolean | null
           error_count?: number
           error_summary?: string | null
@@ -1205,12 +1205,12 @@ export type Database = {
           fingerprint: string
           finish_reason?: string | null
           id?: string
-          input_tokens?: number
+          input_tokens?: number | null
           latency_ms?: number | null
-          output_tokens?: number
+          output_tokens?: number | null
           prompt_version: string
           provider_request_id?: string | null
-          reasoning_tokens?: number
+          reasoning_tokens?: number | null
           request_artifact_id: string
           requested_model: string
           resolved_model?: string | null
@@ -1225,10 +1225,10 @@ export type Database = {
           warning_count?: number
         }
         Update: {
-          cached_input_tokens?: number
+          cached_input_tokens?: number | null
           completed_at?: string | null
           cost_source?: string
-          cost_usd?: number
+          cost_usd?: number | null
           domain_valid?: boolean | null
           error_count?: number
           error_summary?: string | null
@@ -1236,12 +1236,12 @@ export type Database = {
           fingerprint?: string
           finish_reason?: string | null
           id?: string
-          input_tokens?: number
+          input_tokens?: number | null
           latency_ms?: number | null
-          output_tokens?: number
+          output_tokens?: number | null
           prompt_version?: string
           provider_request_id?: string | null
-          reasoning_tokens?: number
+          reasoning_tokens?: number | null
           request_artifact_id?: string
           requested_model?: string
           resolved_model?: string | null

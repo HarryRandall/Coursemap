@@ -117,7 +117,9 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
                   <TableCell className="font-mono text-xs">
                     {row.model ?? "—"}
                   </TableCell>
-                  <TableCell>{formatCost(row.costUsd)}</TableCell>
+                  <TableCell>
+                    {formatCost(row.costUsd, row.knownCostUsd)}
+                  </TableCell>
                 </LinkedTableRow>
               ))}
             </TableBody>

@@ -1,6 +1,10 @@
 import "server-only";
 import type { CatalogueKind } from "@/lib/catalogue/content";
 import { createClient } from "@/lib/supabase/server";
+import {
+  reportedExtractionCost,
+  summariseExtractionCosts,
+} from "@/lib/catalogue-sync/extraction-usage";
 
 export const OPERATIONS_PAGE_SIZE = 25;
 
@@ -17,7 +21,8 @@ export type SyncOperationRow = {
   durationMs: number | null;
   attemptCount: number;
   model: string | null;
-  costUsd: number;
+  costUsd: number | null;
+  knownCostUsd?: number;
   errorCode: string | null;
 };
 
@@ -73,17 +78,27 @@ export async function loadSyncOperationsPage({
   const { data: extractions, error: extractionError } = syncIds.length
     ? await supabase
         .from("catalogue_extractions")
-        .select("sync_id,resolved_model,requested_model,cost_usd")
+        .select("sync_id,resolved_model,requested_model,cost_usd,cost_source")
         .in("sync_id", syncIds)
     : { data: [], error: null };
   if (extractionError) throw extractionError;
-  const costBySync = new Map<string, { cost: number; model: string | null }>();
+  const costBySync = new Map<
+    string,
+    {
+      costs: Array<{ costUsd: number | null; costSource: string }>;
+      model: string | null;
+    }
+  >();
   for (const extraction of extractions ?? []) {
     const current = costBySync.get(extraction.sync_id) ?? {
-      cost: 0,
+      costs: [],
       model: null,
     };
-    current.cost += Number(extraction.cost_usd ?? 0);
+    current.costs.push({
+      costUsd:
+        extraction.cost_usd === null ? null : Number(extraction.cost_usd),
+      costSource: extraction.cost_source,
+    });
     current.model =
       extraction.resolved_model ?? extraction.requested_model ?? current.model;
     costBySync.set(extraction.sync_id, current);
@@ -106,7 +121,7 @@ export async function loadSyncOperationsPage({
         durationMs: durationMs(sync.started_at, sync.completed_at),
         attemptCount: sync.attempt_count,
         model: usage?.model ?? sync.requested_model,
-        costUsd: usage?.cost ?? 0,
+        ...summariseExtractionCosts(usage?.costs ?? []),
         errorCode: sync.error_code,
       } satisfies SyncOperationRow;
     }),
@@ -149,11 +164,11 @@ export type SyncExtraction = {
   domainValid: boolean | null;
   warningCount: number;
   errorCount: number;
-  inputTokens: number;
-  cachedInputTokens: number;
-  outputTokens: number;
-  reasoningTokens: number;
-  costUsd: number;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: number | null;
+  costUsd: number | null;
   costSource: string;
   latencyMs: number | null;
   finishReason: string | null;
@@ -321,7 +336,11 @@ export async function loadSyncDetail(
       cachedInputTokens: extraction.cached_input_tokens,
       outputTokens: extraction.output_tokens,
       reasoningTokens: extraction.reasoning_tokens,
-      costUsd: Number(extraction.cost_usd ?? 0),
+      costUsd: reportedExtractionCost({
+        costUsd:
+          extraction.cost_usd === null ? null : Number(extraction.cost_usd),
+        costSource: extraction.cost_source,
+      }),
       costSource: extraction.cost_source,
       latencyMs: extraction.latency_ms,
       finishReason: extraction.finish_reason,
