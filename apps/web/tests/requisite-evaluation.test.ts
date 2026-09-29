@@ -280,6 +280,40 @@ test("recent-unit eligibility stays unknown when the earliest term cannot make t
   ).toBe("unknown");
 });
 
+test("equally high grades in the earliest semester use the course load that completes the window", () => {
+  const record: StudentRecord = {
+    ...student,
+    academicResults: [
+      { resultCode: "HD", units: 12, periodStartsOn: "2026-02-01" },
+      { resultCode: "D", units: 12, periodStartsOn: "2025-07-01" },
+      { resultCode: "HD", units: 18, periodStartsOn: "2025-02-01" },
+      { resultCode: "HD", units: 12, periodStartsOn: "2025-02-01" },
+      { resultCode: "P", units: 12, periodStartsOn: "2025-02-01" },
+    ],
+  };
+  const condition = {
+    ...base,
+    kind: "gpa" as const,
+    minimumGpa: 6.5,
+    recentGradedUnits: 36,
+  };
+  expect(evaluateRule(condition, record)).toMatchObject({
+    status: "met",
+    measure: { value: 20 / 3, threshold: 6.5 },
+  });
+  expect(
+    evaluateRule(condition, {
+      ...record,
+      academicResults: record.academicResults?.filter(
+        (result) =>
+          result.units !== 12 ||
+          result.resultCode !== "HD" ||
+          result.periodStartsOn !== "2025-02-01",
+      ),
+    }).status,
+  ).toBe("unknown");
+});
+
 test("unit rules count completed units and report how far along the student is", () => {
   expect(
     evaluateRule(
