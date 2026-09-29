@@ -65,6 +65,18 @@ export function normaliseAcademicStructureModelExtraction(value: unknown) {
     }
     if (
       record.type === "condition" &&
+      record.minimumUnits === 0 &&
+      typeof record.maximumUnits === "number" &&
+      Number.isFinite(record.maximumUnits) &&
+      record.maximumUnits > 0
+    ) {
+      record.minimumUnits = null;
+      normalisations.push(
+        `${path}.minimumUnits was cleared because zero adds no lower bound to the maximum-unit condition.`,
+      );
+    }
+    if (
+      record.type === "condition" &&
       record.conditionKind !== "free_text" &&
       typeof record.freeText === "string"
     ) {
