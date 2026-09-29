@@ -190,6 +190,12 @@ export function finaliseCourseExtraction({
   );
   const reviewItems: CourseExtractionReviewItem[] = [
     ...extraction.reviewItems,
+    ...extraction.requisites.unmodelledText.map((wording) => ({
+      fieldKey: "requisites.unmodelledText",
+      kind: "unsupported" as const,
+      severity: "error" as const,
+      message: `The importer could not model this requirement: ${wording}`,
+    })),
     ...unsupportedColleges.map((college) => ({
       fieldKey: "requisites",
       kind: "evidence_missing" as const,
