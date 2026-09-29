@@ -1,3 +1,4 @@
+import type { WorkloadHoursBasis } from "../../../academic/workload.ts";
 import {
   parseCourseExtraction,
   type CourseExtraction,
@@ -47,6 +48,7 @@ export type ProjectedCourseSnapshotRow = {
   description: string | null;
   workloadText: string | null;
   workloadHours: number | null;
+  workloadHoursBasis?: WorkloadHoursBasis | null;
   inherentRequirements: string | null;
   prescribedTexts: string | null;
   offeringStatus: CourseExtraction["offeringStatus"];
@@ -1020,6 +1022,9 @@ export function projectCourseSnapshot(
       description: nullableText(extraction.description),
       workloadText: nullableText(extraction.workloadText),
       workloadHours: extraction.workloadHours,
+      ...(extraction.workloadHoursBasis
+        ? { workloadHoursBasis: extraction.workloadHoursBasis }
+        : {}),
       inherentRequirements: nullableText(extraction.inherentRequirements),
       prescribedTexts: nullableText(extraction.prescribedTexts),
       offeringStatus: extraction.offeringStatus,

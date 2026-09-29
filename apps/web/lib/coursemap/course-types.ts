@@ -1,3 +1,4 @@
+import type { WorkloadHoursBasis } from "@/lib/academic/workload";
 import type { RequisiteExpression } from "./requisite-summary";
 
 export type CourseRuleReviewState = "automatic" | "review" | "verified";
@@ -172,6 +173,7 @@ export type CourseDetails = {
   description: string;
   workloadText: string | null;
   workloadHours: number | null;
+  workloadHoursBasis?: WorkloadHoursBasis | null;
   inherentRequirements: string | null;
   prescribedTexts: string | null;
   fees: CourseFee[];

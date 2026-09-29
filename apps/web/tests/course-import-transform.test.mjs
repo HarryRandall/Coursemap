@@ -402,8 +402,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v10");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v15");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v11");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v16");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1249,5 +1249,80 @@ test("captured FINM3010 named-course eligibility retains its Credit threshold an
       studyYear: null,
     }).status,
     "met",
+  );
+});
+
+test("the captured STAT2014 workload remains a whole-course total", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-stat2014-workload.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = structuredClone(extraction);
+  model.workloadText = captured.workloadText;
+  model.workloadHours = captured.workloadHours;
+  model.workloadHoursBasis = captured.workloadHoursBasis;
+  assert.equal(validateCourseExtraction(model).success, true);
+  const finalised = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: JSON.stringify(model),
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.equal(finalised.extraction.workloadHoursBasis, "total");
+  const { snapshot } = projectCourseSnapshot(finalised.extraction);
+  assert.equal(snapshot.workloadText, captured.workloadText);
+  assert.equal(snapshot.workloadHours, 130);
+  assert.equal(snapshot.workloadHoursBasis, "total");
+});
+
+test("workload quantities retain their stated basis without inventing totals", () => {
+  const model = structuredClone(extraction);
+  model.workloadText = "Students are expected to work 10 hours per week.";
+  model.workloadHours = 10;
+  model.workloadHoursBasis = "weekly";
+  assert.equal(validateCourseExtraction(model).success, true);
+  const finalise = (value) =>
+    finaliseCourseExtraction({
+      code: value.code,
+      year: value.year,
+      listingTitle: value.title,
+      model: value,
+      pageMarkdown: JSON.stringify(value),
+      finishReason: "stop",
+      responseError: null,
+    });
+  const weekly = finalise(model);
+  assert.equal(weekly.extraction.workloadHoursBasis, "weekly");
+  const snapshot = projectCourseSnapshot(weekly.extraction).snapshot;
+  assert.equal(snapshot.workloadHours, 10);
+  assert.equal(snapshot.workloadHoursBasis, "weekly");
+  model.workloadHoursBasis = "total";
+  assert.equal(validateCourseExtraction(model).success, true);
+  model.workloadHoursBasis = "daily";
+  assert.equal(validateCourseExtraction(model).success, false);
+  model.workloadHoursBasis = "weekly";
+  model.workloadHours = null;
+  assert.equal(validateCourseExtraction(model).success, false);
+  const legacy = structuredClone(extraction);
+  assert.equal(validateCourseExtraction(legacy).success, true);
+  const legacyFinalised = finalise(legacy);
+  assert.equal(legacyFinalised.extraction.workloadHoursBasis, null);
+  assert.equal(
+    legacyFinalised.extraction.reviewItems.some(
+      ({ fieldKey }) => fieldKey === "workloadHoursBasis",
+    ),
+    false,
+  );
+  assert.equal(
+    projectCourseSnapshot(legacy).snapshot.workloadHoursBasis,
+    undefined,
   );
 });

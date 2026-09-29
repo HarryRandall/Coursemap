@@ -1,4 +1,5 @@
 import type postgres from "postgres";
+import { workloadHoursBasis } from "../academic/workload.ts";
 import { stableFingerprint } from "./canonical.ts";
 import type {
   SyncSql,
@@ -219,6 +220,13 @@ async function readCourseContent(
       description: str(details.description),
       workloadText: str(details.workload_text),
       workloadHours: num(details.workload_hours),
+      ...(workloadHoursBasis(details.workload_hours_basis)
+        ? {
+            workloadHoursBasis: workloadHoursBasis(
+              details.workload_hours_basis,
+            ),
+          }
+        : {}),
       inherentRequirements: str(details.inherent_requirements),
       prescribedTexts: str(details.prescribed_texts),
       offeringStatus: details.offering_status,

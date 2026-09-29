@@ -305,13 +305,33 @@ export function CatalogueContentEditor() {
           <Section title="Overview" defaultOpen>
             <DetailsEditor
               idPrefix="course-details"
-              value={write.course.details as unknown as Row}
+              value={
+                {
+                  ...write.course.details,
+                  workloadHoursBasis:
+                    write.course.details.workloadHoursBasis ??
+                    (editing ? "unknown" : null),
+                } as unknown as Row
+              }
+              choices={{
+                workloadHoursBasis: [
+                  { value: "unknown", label: "Not stated" },
+                  { value: "weekly", label: "Per week" },
+                  { value: "total", label: "Whole course" },
+                ],
+              }}
               labels={courseLabels}
               readOnly={!editing}
               readOnlyKeys={["subjectCode", "level"]}
               onChange={(details) =>
                 updateCourse({
-                  details: details as unknown as NonNullable<
+                  details: {
+                    ...details,
+                    workloadHoursBasis:
+                      details.workloadHoursBasis === "unknown"
+                        ? null
+                        : details.workloadHoursBasis,
+                  } as unknown as NonNullable<
                     CatalogueContent["course"]
                   >["details"],
                 })
