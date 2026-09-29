@@ -1,0 +1,29 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/STAT2014",
+  "fetchedAt": "2026-09-29T11:02:14.523Z",
+  "contentSha256": "8205611df5a91611e8f5aca89e5a4d9d673c2bab2567257c5c175b43378f94ae",
+  "model": "google/gemini-3.1-flash-lite",
+  "requisites": {
+    "assumedKnowledgeText": "The course uses the R statistical package, which uses matrix algebra to implement the regression modelling techniques. An understanding of matrix algebra (equivalent to an introductory mathematics course such as MATH1113) would be helpful in understanding how the R routines work, but such knowledge is not a required prerequisite.",
+    "prerequisiteText": "To enrol in this course, you must have completed STAT1008 and STAT2013 or be concurrently enrolled in STAT2013.",
+    "corequisiteText": null,
+    "incompatibilityText": "Incompatible with STAT2008 and STAT6014.",
+    "prerequisiteRule": {
+      "op": "all_of",
+      "rules": [
+        {
+          "op": "completed",
+          "courseCode": "STAT1008"
+        },
+        {
+          "op": "completed_or_concurrent",
+          "courseCode": "STAT2013"
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["STAT2008", "STAT6014"],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}

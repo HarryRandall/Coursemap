@@ -192,6 +192,8 @@ test("first, unchanged and changed source observations preserve local intent", a
       },
     ],
   };
+  filterModel.requisites.assumedKnowledgeText =
+    "Familiarity with matrix algebra is recommended.";
   firstContent.requirements = courseCatalogueContent({
     projection: projectCourseSnapshot(filterModel),
   }).requirements;
@@ -251,6 +253,15 @@ test("first, unchanged and changed source observations preserve local intent", a
     "Permission of the College of Business and Economics is required.",
   );
   assert.equal(persistedPermission.source_text, persistedPermission.free_text);
+
+  const [persistedKnowledge] =
+    await sql`select condition.hardness, condition.free_text, rule.hardness as rule_hardness from public.requirement_conditions condition join public.requirement_rules rule on rule.id = condition.rule_id where condition.version_id = ${first.sourceVersionId} and rule.rule_kind = 'assumed_knowledge'`;
+  assert.equal(persistedKnowledge.hardness, "advisory");
+  assert.equal(persistedKnowledge.rule_hardness, "advisory");
+  assert.equal(
+    persistedKnowledge.free_text,
+    "Familiarity with matrix algebra is recommended.",
+  );
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

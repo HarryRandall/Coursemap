@@ -26,7 +26,10 @@ import {
 } from "../lib/catalogue-import/kinds/course/prompt.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { courseCatalogueContent } from "../lib/catalogue/content.ts";
-import { catalogueReviewUnits } from "../lib/catalogue/review-units.ts";
+import {
+  catalogueReviewUnits,
+  reviewUnitEvidence,
+} from "../lib/catalogue/review-units.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 import { requirementSliceExpression } from "../lib/catalogue/requirement-expression.ts";
 import { evaluateRule } from "../lib/coursemap/requisite-evaluation.ts";
@@ -398,8 +401,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v7");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v9");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v8");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v10");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -857,4 +860,74 @@ test("captured BUSN3060 permission retains its school and is projected once", as
     "You will need to contact the Research School of Accounting to request a permission code to enrol in this course.",
   );
   assert.deepEqual(model.requisites.unmodelledText, []);
+});
+
+test("assumed knowledge remains advisory and retains its own provenance", () => {
+  const model = emptyCourseExtraction({
+    code: "STAT2014",
+    year: 2024,
+    title: "Statistics",
+  });
+  const text = "Familiarity with matrix algebra is recommended.";
+  model.requisites.assumedKnowledgeText = text;
+  assert.equal(validateCourseExtraction(model).success, true);
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+    evidence: [
+      {
+        fieldPath: "requisites.assumedKnowledgeText",
+        method: "model",
+        confidence: 0.9,
+        sourceLabel: "Assumed knowledge",
+        sourceText: text,
+      },
+    ],
+  });
+  assert.equal(content.requirements.rules.length, 1);
+  assert.equal(content.requirements.rules[0].key, "assumed_knowledge");
+  assert.equal(content.requirements.rules[0].hardness, "advisory");
+  assert.equal(content.requirements.rules[0].confidence, 0.9);
+  assert.equal(content.requirements.conditions[0].freeText, text);
+  assert.equal(content.requirements.conditions[0].hardness, "advisory");
+  const unit = catalogueReviewUnits(content).find(
+    (item) => item.fieldPath === "requirements.assumed_knowledge",
+  );
+  assert.ok(unit);
+  assert.equal(reviewUnitEvidence(content, unit.fieldPath)[0].confidence, 0.9);
+});
+
+test("captured STAT2014 preparation advice never becomes a compulsory course", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-stat2014-requisites.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "STAT2014",
+    year: 2024,
+    title: "Statistics",
+  });
+  model.requisites = captured.requisites;
+  const projection = projectCourseSnapshot(model);
+  const knowledge = projection.ruleConditions.find(
+    (item) => item.ruleKey === "assumed_knowledge",
+  );
+  assert.equal(knowledge.hardness, "advisory");
+  assert.equal(knowledge.freeText, captured.requisites.assumedKnowledgeText);
+  assert.deepEqual(
+    projection.ruleConditions
+      .filter((item) => item.ruleKey === "prerequisite")
+      .map((item) => item.requiredCourseCode),
+    ["STAT1008", "STAT2013"],
+  );
+  assert.equal(
+    projection.ruleCourseReferences.some(
+      (item) => item.referencedCourseCode === "MATH1113",
+    ),
+    false,
+  );
 });
