@@ -120,6 +120,9 @@ export function requirementTreeFromSource(
       maximumUnits: condition.maximumUnits,
       minimumCourses: condition.minimumCount,
       minimumGpa: condition.minimumGpa ?? null,
+      ...(condition.kind === "gpa" || condition.kind === "wam"
+        ? { recentGradedUnits: condition.minimumCount }
+        : {}),
       minimumLevel: condition.minimumLevel,
       minimumMark: condition.minimumMark ?? null,
       minimumUnits: condition.minimumUnits,

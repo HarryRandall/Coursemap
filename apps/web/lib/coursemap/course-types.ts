@@ -83,10 +83,12 @@ export type CourseRuleExpression =
   | (CourseRuleConditionBase & {
       kind: "gpa";
       minimumGpa: number;
+      recentGradedUnits?: number | null;
     })
   | (CourseRuleConditionBase & {
       kind: "wam";
       minimumWam: number;
+      recentGradedUnits?: number | null;
     })
   | (CourseRuleConditionBase & {
       kind: "permission" | "other";

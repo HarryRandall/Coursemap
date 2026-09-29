@@ -389,6 +389,18 @@ test("first, unchanged and changed source observations preserve local intent", a
       { op: "completed", courseCode: "COMP1100", minimumMark: 60 },
       { op: "min_courses_from_subject", minimumCount: 1, subjectCode: "STAT" },
       {
+        op: "one_of",
+        rules: [
+          {
+            op: "minimum_gpa",
+            value: 5,
+            scale: "anu7",
+            recentGradedUnits: null,
+          },
+          { op: "minimum_gpa", value: 5, scale: "anu7", recentGradedUnits: 48 },
+        ],
+      },
+      {
         op: "permission",
         sourceText:
           "Permission of the College of Business and Economics is required.",
@@ -484,6 +496,22 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(persistedCount.minimum_units, null);
   assert.equal(persistedCount.maximum_units, null);
 
+  const persistedAverages = await sql`
+    select minimum_gpa, minimum_count from public.requirement_conditions
+    where version_id = ${first.sourceVersionId} and condition_kind = 'gpa'
+    order by position
+  `;
+  assert.deepEqual(
+    persistedAverages.map((condition) => [
+      Number(condition.minimum_gpa),
+      condition.minimum_count === null ? null : Number(condition.minimum_count),
+    ]),
+    [
+      [5, null],
+      [5, 48],
+    ],
+  );
+
   const persistedExclusions =
     await sql`select condition_kind, hardness, code.code from public.requirement_conditions condition join public.catalogue_codes code on code.id = condition.code_id where condition.version_id = ${first.sourceVersionId} and condition.condition_kind in ('incompatible', 'incompatible_concurrent') order by condition.position`;
   assert.deepEqual(
@@ -541,6 +569,12 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(projectedCount.minimumCount, 1);
   assert.equal(projectedCount.minimumUnits, null);
   assert.equal(projectedCount.subjectCode, "STAT");
+  assert.deepEqual(
+    projection.content.ruleConditions
+      .filter((condition) => condition.conditionKind === "gpa")
+      .map((condition) => condition.minimumCount),
+    [null, 48],
+  );
   const exclusion = readProjectionIncompatibilityRule(projection.content);
   assert.ok(
     exclusion.relationalExpression.conditions.some(
