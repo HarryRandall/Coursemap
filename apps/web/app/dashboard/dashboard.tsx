@@ -250,7 +250,7 @@ export function Dashboard({
             (termOrder.get(b.termId) ?? Infinity) ||
           a.code.localeCompare(b.code),
       );
-  }, [catalogue, planned, state.attempts, timelineTerms]);
+  }, [planned, planningCatalogue, state.attempts, timelineTerms]);
 
   const risks = useMemo(
     () =>
