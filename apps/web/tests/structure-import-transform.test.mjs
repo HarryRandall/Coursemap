@@ -580,7 +580,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v10",
+    "coursemap-academic-structure-prompt.v11",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
@@ -597,6 +597,8 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   assert.match(systemPrompt, /Never invent/);
   assert.match(systemPrompt, /explicit AND/);
   assert.match(systemPrompt, /free_text/);
+  assert.match(systemPrompt, /linked external course list/);
+  assert.match(systemPrompt, /specially paired course option/);
   assert.match(systemPrompt, /Set freeText to null/);
   assert.match(systemPrompt, /canCombineVertical/);
   assert.match(systemPrompt, /literally states yes, no, true or false/);
