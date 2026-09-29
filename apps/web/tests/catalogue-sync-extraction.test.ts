@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
+import { OpenRouterRequestError } from "@/lib/catalogue-import/openrouter";
 import {
   COURSE_IMPORT_PARSER_VERSION,
   COURSE_IMPORT_PROMPT_VERSION,
@@ -22,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   reuse: vi.fn(),
   attach: vi.fn(),
   read: vi.fn(),
+  reject: vi.fn(),
+  release: vi.fn(),
 }));
 
 vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
@@ -36,6 +39,8 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
   reserveExtraction: mocks.reserve,
   findReusableExtraction: mocks.reuse,
   attachExtractionResponse: mocks.attach,
+  recordExtractionRequestFailure: mocks.reject,
+  releaseCatalogueSyncForRetry: mocks.release,
   completeExtraction: mocks.complete,
   finishCatalogueSync: mocks.finish,
   readListingTitle: vi.fn(async () => "Relational Databases"),
@@ -197,6 +202,79 @@ test("a new extraction reusing another response records zero additional cost", a
   );
   expect(mocks.persist).toHaveBeenCalledTimes(1);
 });
+
+test("a definitive retryable HTTP rejection can recover on the next delivery", async () => {
+  const error = new OpenRouterRequestError(
+    "Provider temporarily unavailable.",
+    503,
+  );
+  mocks.extract.mockRejectedValueOnce(error).mockResolvedValueOnce({
+    parsed: extraction,
+    responseError: null,
+    finishReason: "stop",
+    responseForAudit: {},
+    usage: unknownUsage,
+  });
+  await expect(processCatalogueSync({ syncId: "sync" })).rejects.toBe(error);
+  expect(mocks.reject).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      outcome: "rejected",
+      providerHttpStatus: 503,
+    }),
+  );
+  expect(mocks.release).toHaveBeenCalledTimes(1);
+  expect(mocks.persist).not.toHaveBeenCalled();
+  await processCatalogueSync({ syncId: "sync", deliveryCount: 2 });
+  expect(mocks.extract).toHaveBeenCalledTimes(2);
+  expect(mocks.persist).toHaveBeenCalledTimes(1);
+  expect(mocks.finish).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ status: "applied" }),
+  );
+});
+
+test("a request without a definitive response remains uncertain and is not retried", async () => {
+  mocks.extract.mockRejectedValue(
+    new DOMException("The request timed out.", "TimeoutError"),
+  );
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.reject).not.toHaveBeenCalled();
+  expect(mocks.release).not.toHaveBeenCalled();
+  expect(mocks.persist).not.toHaveBeenCalled();
+  expect(mocks.finish).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      status: "failed",
+      errorCode: "OPENROUTER_OUTCOME_UNCERTAIN",
+    }),
+  );
+});
+
+test.each([400, 401, 402, 403])(
+  "a definitive HTTP %i failure records its rejection without an automatic retry",
+  async (status) => {
+    mocks.extract.mockRejectedValue(
+      new OpenRouterRequestError("The provider rejected the request.", status),
+    );
+    await processCatalogueSync({ syncId: "sync" });
+    expect(mocks.reject).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        outcome: "rejected",
+        providerHttpStatus: status,
+      }),
+    );
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(mocks.finish).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: "failed",
+        errorCode: `OPENROUTER_HTTP_${status}`,
+      }),
+    );
+  },
+);
 
 test.each([
   { parsed: null, responseError: "Invalid JSON.", finishReason: "stop" },

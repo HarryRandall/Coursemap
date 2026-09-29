@@ -25,6 +25,7 @@ import {
   readListingTitle,
   recordSourceDocument,
   recordSyncArtifact,
+  recordExtractionRequestFailure,
   releaseCatalogueSyncForRetry,
   reserveExtraction,
   startSyncStage,
@@ -154,9 +155,6 @@ export function isRetryableSyncError(error: unknown) {
   ) {
     return error.retryable;
   }
-  // A definitive HTTP failure is safe to report, but retrying the same sync
-  // would be misread as an uncertain paid outcome by the reservation check.
-  if (error instanceof OpenRouterRequestError) return false;
   // Constraint and data errors from Postgres repeat identically on retry.
   if (
     typeof error === "object" &&
@@ -473,6 +471,16 @@ async function processClaimedSync({
             error instanceof OpenRouterConfigurationError ||
             error instanceof OpenRouterRequestError
           ) {
+            await recordExtractionRequestFailure(sql, {
+              extractionId: reservation.id,
+              outcome:
+                error instanceof OpenRouterRequestError
+                  ? "rejected"
+                  : "not_sent",
+              providerHttpStatus:
+                error instanceof OpenRouterRequestError ? error.status : null,
+              errorSummary: safeErrorSummary(error),
+            });
             throw error;
           }
           throw new SyncPaidOutcomeUncertainError(error);
