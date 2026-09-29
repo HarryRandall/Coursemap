@@ -7,7 +7,7 @@ import {
 } from "./programmes.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v16";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v21";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v22";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -57,6 +57,8 @@ Requisites:
 - completed X -> completed; completed or concurrently enrolled in X -> completed_or_concurrent.
 - A required number of completed courses from a subject uses min_courses_from_subject, not a unit threshold. "Completed a STAT course" is minimumCount 1 and subjectCode STAT. Preserve the stated number of distinct completed courses; do not guess six units per course, use zero units, enumerate a speculative course list or allow concurrent enrolment when completion is required. Use min_units_from_subject only when the source actually states a positive unit quantity.
 - Explicit AND -> all_of; explicit OR -> one_of.
+- Preserve the scope and order of each alternative. "A and (B or C)" means all_of [A, one_of [B, C]]; "(A and B) or C" means one_of [all_of [A, B], C]. Never move a course between those groups, distribute alternatives across unrelated compulsory clauses or move a required mark out of its own course alternative. A mark attached to one alternative stays compulsory within that alternative, not an extra OR branch.
+- Mixed AND/OR wording without brackets, an explicit "either" scope or list punctuation can be ambiguous. For example, "completed ECON1101 and ECON1102 or ECON1100" does not establish whether ECON1100 replaces the pair or only ECON1102. Do not impose programming-language operator precedence or choose the more likely academic pathway. Preserve the whole unresolved compulsory clause in unmodelledText and add a severity error / kind ambiguous review item under requisites.prerequisiteRule identifying the competing groupings. Do not include an inferred expression for that clause in prerequisiteRule; use null when no independently clear positive clauses remain. Model any independently clear clauses separately. Only express a grouping when the source itself establishes its scope.
 - ANU separates the items of a requisite list with semicolons and states the conjunction once, at the last separator. The semicolon binds more loosely than an OR inside an item: "FINM2001; FINM2002; and, FINM2003 or FINM3011" is all_of [FINM2001, FINM2002, one_of [FINM2003, FINM3011]].
 - A total unit gate with no level -> min_units_total; units at a stated level -> min_units_at_level; units from a stated subject -> min_units_from_subject; units from an explicit course list -> min_units_from_courses.
 - Programme enrolment uses enrolled_in with a literal programme code from a page link or an exact, unique name match in the supplied ANU programme identities. Use the code, never the programme name. Do not substitute an honours degree or another similarly named award. Without a unique match, flag the unresolved programme reference for review.
@@ -69,6 +71,7 @@ Evidence and review:
 - Give evidence for every field you fill, not only tags and requisites: title, description, unit value, offerings, fees, assessment, learning outcomes, areas of interest and the rest each get an entry. Its fieldKey is the exact field path, such as title, requisites.prerequisiteRule or offerings. A field without evidence reaches the reviewer with no confidence.
 - Confidence is how directly the page states the value, from 0 to 1.
 - Add specific review items for ambiguity, unsupported wording or conflicting statements on the page.
+- Before returning, check every mixed AND/OR prerequisite against the exact source. If it says "A and B or C" without an explicit grouping, neither one_of [all_of [A, B], C] nor all_of [A, one_of [B, C]] is established. Both are guesses and must be withheld. Treat this as an unresolved compulsory condition even when one interpretation seems familiar or academically sensible: retain the full clause in unmodelledText and add an ambiguous error review item. An empty reviewItems array is incorrect in that case. Clear "A and either B or C", "either A and B, or C", parentheses and the semicolon list convention can establish scope. Check every alternative's mark threshold too, including thresholds expressed earlier or later in the same sentence.
 - Do not include chain-of-thought, hidden reasoning, commentary or self-evaluation. Only return the schema fields.`;
 }
 
