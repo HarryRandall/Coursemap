@@ -402,8 +402,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v11");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v16");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v12");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v17");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -612,6 +612,82 @@ test("the user prompt offers the tags already in use", () => {
       pageMarkdown: "# COMP2400",
     }),
     "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400",
+  );
+});
+
+test("counting tags use the exact reviewed vocabulary while suggestions stay reviewable", () => {
+  const model = structuredClone(extraction);
+  model.tags = [
+    "Transdisciplinary",
+    "Transdisciplinary Problem-Solving",
+    "Work Integrated Learning",
+  ];
+  const knownTags = ["Transdisciplinary Problem-Solving"];
+  const checked = validateCourseExtraction(model, { knownTags });
+  assert.equal(checked.success, false);
+  assert.deepEqual(
+    checked.issues.map(({ path }) => path),
+    ["$.tags[0]", "$.tags[2]"],
+  );
+  const finalised = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    knownTags,
+    pageMarkdown: JSON.stringify(model),
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.deepEqual(finalised.extraction.tags, knownTags);
+  assert.equal(finalised.errorCount, 2);
+  assert.match(
+    finalised.extraction.reviewItems[0].message,
+    /Transdisciplinary.*recognised tag/,
+  );
+  assert.deepEqual(projectCourseSnapshot(finalised.extraction).tags, [
+    { position: 1, name: knownTags[0] },
+  ]);
+
+  model.tags = [];
+  model.reviewItems = [
+    {
+      fieldKey: "tags",
+      kind: "unsupported",
+      severity: "warning",
+      message:
+        'Suggested category "Applied Statistics"; source: "Students analyse practical data sets".',
+    },
+  ];
+  const suggested = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    knownTags: [],
+    pageMarkdown: JSON.stringify(model),
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.equal(suggested.errorCount, 0);
+  assert.equal(suggested.warningCount, 1);
+  assert.deepEqual(suggested.extraction.tags, []);
+  assert.equal(projectCourseSnapshot(suggested.extraction).tags.length, 0);
+  assert.equal(
+    suggested.extraction.reviewItems[0].message,
+    model.reviewItems[0].message,
+  );
+  assert.equal(
+    validateCourseExtraction({ ...model, tags: ["Science"] }, { knownTags: [] })
+      .success,
+    false,
+  );
+  assert.equal(
+    validateCourseExtraction(
+      { ...model, tags: ["transdisciplinary problem-solving"] },
+      { knownTags },
+    ).success,
+    false,
   );
 });
 
