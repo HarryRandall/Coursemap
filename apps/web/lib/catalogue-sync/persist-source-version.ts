@@ -163,10 +163,11 @@ async function insertCourseContent(
     `;
   }
   const [offering] = await tx`
-    insert into public.course_offerings (version_id, academic_year_id, source_page_id, delivery_mode, location)
+    insert into public.course_offerings (version_id, academic_year_id, source_page_id, delivery_mode, location, has_summary)
     values (
       ${snapshotId}, ${academicYearId}, ${sourcePageId},
-      ${content.offering?.deliveryMode ?? null}, ${content.offering?.location ?? null}
+      ${content.offering?.deliveryMode ?? null}, ${content.offering?.location ?? null},
+      ${content.offering !== null}
     )
     returning id
   `;
