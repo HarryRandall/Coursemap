@@ -1,3 +1,4 @@
+import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 
@@ -235,15 +236,15 @@ function evaluateRelationalPrerequisite(
         eligible.some(
           (candidate) =>
             candidate.status === "completed" &&
-            candidate.mark !== undefined &&
-            candidate.mark >= expression.minimumMark!,
+            minimumMarkStatus(candidate, expression.minimumMark!) === "met",
         )
       ) {
         return { state: "satisfied", missingCodes: [] };
       }
       return eligible.some(
         (candidate) =>
-          candidate.status !== "completed" || candidate.mark === undefined,
+          candidate.status !== "completed" ||
+          minimumMarkStatus(candidate, expression.minimumMark!) === "unknown",
       )
         ? { state: "unknown", missingCodes: [] }
         : { state: "unsatisfied", missingCodes: [expression.code] };

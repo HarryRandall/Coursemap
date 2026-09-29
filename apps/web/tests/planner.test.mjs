@@ -479,3 +479,38 @@ test("groups completed and planned units by calendar year", () => {
   assert.equal(year2026?.planned, 6);
   assert.equal(year2027?.planned, 6);
 });
+
+test("planning preserves minimum marks for completed and concurrent prerequisites", () => {
+  const target = attempt("target-mark", "COMP1110", "2026-s2");
+  const prerequisite = {
+    ...verifiedCourseCondition("COMP1100", "completed_or_concurrent"),
+    minimumMark: 60,
+  };
+  const catalogue = catalogueWithPrerequisiteRule(prerequisite);
+  for (const [result, expected] of [
+    [{ mark: 59 }, "blocked"],
+    [{ mark: 60 }, "planned"],
+    [{ resultCode: "CR" }, "planned"],
+    [{ resultCode: "P" }, "blocked"],
+    [{ resultCode: "PS" }, "approval"],
+  ]) {
+    const completed = {
+      ...attempt("completed-mark", "COMP1100", "2026-s1", "completed"),
+      ...result,
+    };
+    assert.equal(
+      effectiveStatus(target, [completed, target], catalogue),
+      expected,
+    );
+  }
+  const enrolled = attempt(
+    "concurrent-mark",
+    "COMP1100",
+    "2026-s2",
+    "enrolled",
+  );
+  assert.equal(
+    effectiveStatus(target, [enrolled, target], catalogue),
+    "approval",
+  );
+});

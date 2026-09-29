@@ -1,4 +1,8 @@
-import { gradePointAverage, weightedAverageMark } from "@/lib/academic/metrics";
+import {
+  gradePointAverage,
+  minimumMarkStatus,
+  weightedAverageMark,
+} from "@/lib/academic/metrics";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -12,7 +16,12 @@ import type { Attempt } from "@/lib/coursemap/types";
 export type StudentRecord = {
   completed: ReadonlyMap<
     string,
-    { units: number; mark: number | null; tags?: readonly string[] }
+    {
+      units: number;
+      mark: number | null;
+      resultCode?: string;
+      tags?: readonly string[];
+    }
   >;
   /** Courses taken this semester, which satisfy a concurrent requisite. */
   enrolled: ReadonlySet<string>;
@@ -96,7 +105,12 @@ export function evaluateCondition(
       if (result) {
         if (condition.minimumMark === null) return { status: "met" };
         if (result.mark === null)
-          return { status: "unknown", detail: "Your mark is not recorded" };
+          return {
+            status: minimumMarkStatus(result, condition.minimumMark),
+            detail: result.resultCode
+              ? `Your recorded grade is ${result.resultCode}`
+              : "Your mark is not recorded",
+          };
         return {
           status: result.mark >= condition.minimumMark ? "met" : "unmet",
           detail: `You got ${result.mark} in ${condition.code}`,
@@ -106,6 +120,12 @@ export function evaluateCondition(
         condition.requirementMode === "completed_or_concurrent" &&
         student.enrolled.has(condition.code)
       ) {
+        if (condition.minimumMark !== null) {
+          return {
+            status: "unknown",
+            detail: "Your required mark is not yet recorded",
+          };
+        }
         return {
           status: "met",
           detail: "Enrolled this semester, which counts for this course",
@@ -254,12 +274,22 @@ export function studentRecord({
         : [[attempt.courseCode, attempt.mark] as const],
     ),
   );
+  const gradeByCode = new Map(
+    finished.flatMap((attempt) =>
+      attempt.resultCode === undefined
+        ? []
+        : [[attempt.courseCode, attempt.resultCode] as const],
+    ),
+  );
   const completed = new Map(
     completedCourses.map((course) => [
       course.code.toUpperCase(),
       {
         units: course.units,
         mark: markByCode.get(course.code.toUpperCase()) ?? null,
+        ...(gradeByCode.has(course.code.toUpperCase())
+          ? { resultCode: gradeByCode.get(course.code.toUpperCase()) }
+          : {}),
         tags: course.tags ?? [],
       },
     ]),

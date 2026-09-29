@@ -1,0 +1,30 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/MATH1116",
+  "fetchedAt": "2026-09-29T10:56:08.347Z",
+  "contentSha256": "b9bfc3dc3aa643b4d87ab423ed2c6447702da36b60c5ef8c88d68d939f738052",
+  "model": "google/gemini-3.1-flash-lite",
+  "requisites": {
+    "prerequisiteText": "To enrol in this course you must have completed MATH1115 with a mark of 60 or above or MATH1113 with a mark of 80 or above.",
+    "corequisiteText": null,
+    "incompatibilityText": "You may not enrol in MATH1116 if you have previously completed MATH1014.",
+    "prerequisiteRule": {
+      "op": "one_of",
+      "rules": [
+        {
+          "op": "completed",
+          "courseCode": "MATH1115",
+          "minimumMark": 60
+        },
+        {
+          "op": "completed",
+          "courseCode": "MATH1113",
+          "minimumMark": 80
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["MATH1014"],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}
