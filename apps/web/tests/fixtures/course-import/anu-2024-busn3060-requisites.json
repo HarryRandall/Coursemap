@@ -1,0 +1,19 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/BUSN3060",
+  "fetchedAt": "2026-09-29T10:58:47.616Z",
+  "contentSha256": "b917e6546320c0fcdf55b754eaad79779b988484864663ab0dbf2860f6f27b51",
+  "model": "google/gemini-3.1-flash-lite",
+  "requisites": {
+    "prerequisiteText": "You will need to contact the Research School of Accounting to request a permission code to enrol in this course.",
+    "corequisiteText": null,
+    "incompatibilityText": null,
+    "prerequisiteRule": {
+      "op": "permission",
+      "sourceText": "You will need to contact the Research School of Accounting to request a permission code to enrol in this course."
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": [],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}

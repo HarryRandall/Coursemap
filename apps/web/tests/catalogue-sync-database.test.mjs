@@ -185,6 +185,11 @@ test("first, unchanged and changed source observations preserve local intent", a
         subjectCode: "COMP",
       },
       { op: "completed", courseCode: "COMP1100", minimumMark: 60 },
+      {
+        op: "permission",
+        sourceText:
+          "Permission of the College of Business and Economics is required.",
+      },
     ],
   };
   firstContent.requirements = courseCatalogueContent({
@@ -238,6 +243,14 @@ test("first, unchanged and changed source observations preserve local intent", a
   const [persistedMark] =
     await sql`select minimum_mark from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'course'`;
   assert.equal(Number(persistedMark.minimum_mark), 60);
+
+  const [persistedPermission] =
+    await sql`select free_text, source_text from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'permission'`;
+  assert.equal(
+    persistedPermission.free_text,
+    "Permission of the College of Business and Economics is required.",
+  );
+  assert.equal(persistedPermission.source_text, persistedPermission.free_text);
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

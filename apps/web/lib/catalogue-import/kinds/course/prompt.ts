@@ -4,8 +4,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v6";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v8";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v7";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v9";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -51,7 +51,7 @@ Requisites:
 - ANU separates the items of a requisite list with semicolons and states the conjunction once, at the last separator. The semicolon binds more loosely than an OR inside an item: "FINM2001; FINM2002; and, FINM2003 or FINM3011" is all_of [FINM2001, FINM2002, one_of [FINM2003, FINM3011]].
 - A total unit gate with no level -> min_units_total; units at a stated level -> min_units_at_level; units from a stated subject -> min_units_from_subject; units from an explicit course list -> min_units_from_courses.
 - Programme enrolment uses enrolled_in with a literal programme code from a page link or an exact, unique name match in the supplied ANU programme identities. Use the code, never the programme name. Do not substitute an honours degree or another similarly named award. Without a unique match, flag the unresolved programme reference for review.
-- Permission requirements -> permission. Year standing and GPA or WAM gates use their dedicated rule forms.
+- Permission requirements -> permission, with sourceText copied from the exact permission clause, including its named authority and any stated scope. Never replace school, college or programme permission with course-convener permission. A represented permission clause belongs only in the rule, not also in unmodelledText. If permission applies only to a subgroup or is an exception and the rule cannot express that condition, preserve the entire conditional clause in unmodelledText with a review item; do not create unconditional permission. Year standing and GPA or WAM gates use their dedicated rule forms.
 - Model the whole rule whenever the page's punctuation settles its grouping. Use unmodelledText, with a review item, only for wording you genuinely cannot place in the rule.
 - Do not repeat wording in unmodelledText when it is already represented by the rule. In particular, resolving a programme name to its supplied code models that condition completely.
 

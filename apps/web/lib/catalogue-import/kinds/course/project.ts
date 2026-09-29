@@ -267,7 +267,7 @@ function describeRule(rule: CourseRule): string {
         ? `Minimum ANU GPA of ${rule.value}`
         : `Minimum WAM of ${rule.value}`;
     case "permission":
-      return "Permission of the course convener";
+      return rule.sourceText ?? "Permission required";
   }
 }
 
