@@ -2693,6 +2693,7 @@ export type Database = {
           academic_year_id: number
           created_at: string
           delivery_mode: string | null
+          has_summary: boolean | null
           id: number
           location: string | null
           source_page_id: number | null
@@ -2703,6 +2704,7 @@ export type Database = {
           academic_year_id: number
           created_at?: string
           delivery_mode?: string | null
+          has_summary?: boolean | null
           id?: never
           location?: string | null
           source_page_id?: number | null
@@ -2713,6 +2715,7 @@ export type Database = {
           academic_year_id?: number
           created_at?: string
           delivery_mode?: string | null
+          has_summary?: boolean | null
           id?: never
           location?: string | null
           source_page_id?: number | null
