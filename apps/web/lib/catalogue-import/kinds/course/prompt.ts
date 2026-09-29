@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v11";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v16";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v12";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v17";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -37,9 +37,10 @@ Source rules:
 11. Use null or [] when the page does not state something.
 
 Tags:
-- tags are short categories that degree rules count units against, such as "courses tagged as Science" or "from the Engineering list". Tag a course with every category the page supports: the discipline its college or school teaches (Science, Engineering, Business, Arts, Law, Medicine), and course types the page names, such as research project, capstone, internship or work-integrated learning.
-- When a known tag listed with the input fits, use it exactly as written. Coin a new tag only for a category no known tag covers, in title case and at most three words.
-- Give evidence for each tag under fieldKey tags, with confidence below 0.8 when the tag is inferred rather than stated.
+- tags are recognised categories that degree rules count units against. Use only names supplied as Known tags, exactly as written. If none are supplied, return an empty tags array.
+- Add a recognised tag only when the page explicitly classifies the course in that category. Do not infer a counting tag from its college, school, topics, learning outcomes or general collaboration language. In particular, a graduate attribute mentioning transdisciplinary work does not establish Transdisciplinary Problem-Solving, and applied exercises do not establish Work Integrated Learning.
+- Keep descriptive graduate attributes in attributes. Suggest an unrecognised category separately in a warning review item with fieldKey tags, kind unsupported, the proposed name and the exact source fragment. Never put that suggestion in tags or invent a shortened spelling of a recognised category.
+- Give exact-source evidence for each recognised tag under fieldKey tags.
 
 Writing the record:
 - Display text (introduction, description, workload, inherent requirements, prescribed texts, convener, delivery summary, assessment titles and learning outcomes) is copied from the page and tidied, never rewritten. Fix capitalisation, British English spelling, obvious typos and broken Markdown formatting, and drop page furniture such as "Back to the top". Do not summarise, shorten, reorder or add wording. Keep every course code, programme code, number, date, name and email address exactly as printed.

@@ -109,6 +109,7 @@ export function finaliseCourseExtraction({
   responseError,
   knownProgrammes = [],
   knownPeriodCodes,
+  knownTags,
 }: {
   code: string;
   year: number;
@@ -119,6 +120,7 @@ export function finaliseCourseExtraction({
   responseError: string | null;
   knownProgrammes?: readonly KnownProgramme[];
   knownPeriodCodes?: readonly string[];
+  knownTags?: readonly string[];
 }) {
   const canonical = canonicaliseCourseModelExtraction(
     withModelEvidenceMethod(model),
@@ -139,6 +141,7 @@ export function finaliseCourseExtraction({
         expectedCode: code,
         expectedYear: year,
         knownPeriodCodes,
+        knownTags,
       }),
   });
 
