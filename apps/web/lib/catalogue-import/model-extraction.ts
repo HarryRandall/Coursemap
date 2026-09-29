@@ -5,7 +5,20 @@ export type ModelExtractionValidation<Extraction> =
   | { success: false; issues: ModelExtractionIssue[] };
 
 /** A part of the model response the contract refused, and why. */
-export type DroppedModelValue = { fieldKey: string; messages: string[] };
+export type DroppedModelValue = {
+  fieldKey: string;
+  messages: string[];
+  value?: unknown;
+};
+
+/** A bounded display of the rejected value; the report retains it in full. */
+export function rejectedModelValueSummary(value: unknown) {
+  if (value === undefined) return "";
+  const text = JSON.stringify(value);
+  return text
+    ? ` Rejected value: ${text.slice(0, 500)}${text.length > 500 ? "..." : ""}`
+    : "";
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -73,13 +86,23 @@ export function salvageModelExtraction<
   optionalKeys?: readonly string[];
   validate: (candidate: unknown) => ModelExtractionValidation<Extraction>;
 }): { extraction: Extraction; dropped: DroppedModelValue[] } {
-  const dropped = new Map<string, string[]>();
-  const drop = (fieldKey: string, message: string) =>
-    dropped.set(fieldKey, [...(dropped.get(fieldKey) ?? []), message]);
+  const dropped = new Map<string, Omit<DroppedModelValue, "fieldKey">>();
+  const drop = (fieldKey: string, message: string, value?: unknown) => {
+    const previous = dropped.get(fieldKey);
+    dropped.set(fieldKey, {
+      ...previous,
+      ...(!previous || !("value" in previous)
+        ? value === undefined
+          ? {}
+          : { value: structuredClone(value) }
+        : {}),
+      messages: [...(previous?.messages ?? []), message],
+    });
+  };
   const result = () => ({
-    dropped: [...dropped].map(([fieldKey, messages]) => ({
+    dropped: [...dropped].map(([fieldKey, detail]) => ({
       fieldKey,
-      messages,
+      ...detail,
     })),
   });
 
@@ -96,7 +119,7 @@ export function salvageModelExtraction<
       }
     }
   } else {
-    drop("modelExtraction", "The model did not return a JSON object.");
+    drop("modelExtraction", "The model did not return a JSON object.", value);
   }
 
   // Every pass removes at least one refused value and a value is reset only
@@ -110,7 +133,7 @@ export function salvageModelExtraction<
     fieldKey: string,
     message: string,
   ) => {
-    drop(fieldKey, message);
+    drop(fieldKey, message, target[key]);
     if (reset.has(fieldKey)) return false;
     reset.add(fieldKey);
     target[key] = structuredClone(emptyValue);
@@ -131,7 +154,7 @@ export function salvageModelExtraction<
       const emptyField = empty[field];
       if (index !== null && Array.isArray(current)) {
         removals.set(field, (removals.get(field) ?? new Set()).add(index));
-        drop(`${field}[${index}]`, message);
+        drop(`${field}[${index}]`, message, current[index]);
       } else if (
         property !== null &&
         isRecord(current) &&
