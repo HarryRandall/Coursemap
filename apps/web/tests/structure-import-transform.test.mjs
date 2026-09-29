@@ -198,6 +198,39 @@ test("keeps a malformed requirement branch as its wording, not the whole tree", 
   );
 });
 
+test("keeps a maximum-unit level cap when the model gives its absent minimum as zero", () => {
+  const model = structuredClone(extraction);
+  const sourceText =
+    "A maximum of 60 units may come from completion of 1000-level courses";
+  model.requirements.rule = requirementTree([
+    condition("1000-level cap", {
+      conditionKind: "level",
+      minimumUnits: 0,
+      maximumUnits: 60,
+      courseCodes: [],
+      minimumLevel: 1000,
+      maximumLevel: 1999,
+      scope: "degree",
+      sourceText,
+    }),
+  ]);
+  const result = finalise(model, {
+    pageMarkdown: `${pageMarkdown}\n${sourceText}`,
+  });
+  assert.equal(result.errorCount, 0);
+  assert.deepEqual(result.report.repairedRequirements, []);
+  assert.ok(
+    result.report.providerNormalisations.some((message) =>
+      message.includes("minimumUnits was cleared"),
+    ),
+  );
+  const cap = result.extraction.requirements.rule.children[0];
+  assert.equal(cap.conditionKind, "level");
+  assert.equal(cap.minimumUnits, null);
+  assert.equal(cap.maximumUnits, 60);
+  assert.equal(cap.scope, "degree");
+});
+
 test("accepts a section gathered from several places on the page", () => {
   const model = structuredClone(extraction);
   model.sections[0].sourceText = [
