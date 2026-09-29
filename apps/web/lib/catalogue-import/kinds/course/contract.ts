@@ -97,6 +97,11 @@ export type CourseRule =
   | { op: "minimum_gpa"; value: number; scale: "anu7" | "wam100" }
   | { op: "permission"; sourceText?: string | null };
 
+export type CourseIncompatibilityRule =
+  | { op: "not_completed" | "not_concurrent"; courseCode: string }
+  | { op: "all_of" | "one_of"; rules: CourseIncompatibilityRule[] }
+  | { op: "permission"; sourceText: string };
+
 export type CourseRequisites = {
   assumedKnowledgeText?: string | null;
   prerequisiteText: string | null;
@@ -104,6 +109,7 @@ export type CourseRequisites = {
   incompatibilityText: string | null;
   prerequisiteRule: CourseRule | null;
   corequisiteRule: CourseRule | null;
+  incompatibilityRule?: CourseIncompatibilityRule | null;
   incompatibilityCourseCodes: string[];
   softIncompatibilityCourseCodes: string[];
   concurrentIncompatibilityCourseCodes?: string[];
@@ -418,6 +424,60 @@ function validateUnitValue(
     issues.push({
       path: `${path}.kind`,
       message: "must be fixed, range, variable or unknown",
+    });
+  }
+}
+
+function validateIncompatibilityRule(
+  value: unknown,
+  path: string,
+  issues: CourseExtractionValidationIssue[],
+  exclusions: Array<{ op: string; courseCode: string }>,
+  depth = 0,
+) {
+  if (depth > 16) {
+    issues.push({ path, message: "exceeds the maximum rule nesting depth" });
+    return;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    issues.push({ path, message: "must be an incompatibility rule object" });
+    return;
+  }
+  const op = (value as UnknownRecord).op;
+  if (op === "not_completed" || op === "not_concurrent") {
+    const record = exactRecord(value, path, ["op", "courseCode"], issues);
+    if (record) {
+      requireString(record.courseCode, `${path}.courseCode`, issues, {
+        pattern: COURSE_CODE_PATTERN,
+      });
+      if (typeof record.courseCode === "string")
+        exclusions.push({ op, courseCode: record.courseCode });
+    }
+  } else if (op === "permission") {
+    const record = exactRecord(value, path, ["op", "sourceText"], issues);
+    if (record) requireString(record.sourceText, `${path}.sourceText`, issues);
+  } else if (op === "all_of" || op === "one_of") {
+    const record = exactRecord(value, path, ["op", "rules"], issues);
+    if (!record) return;
+    requireArray(record.rules, `${path}.rules`, issues, (child, childPath) =>
+      validateIncompatibilityRule(
+        child,
+        childPath,
+        issues,
+        exclusions,
+        depth + 1,
+      ),
+    );
+    if (Array.isArray(record.rules) && record.rules.length < 2)
+      issues.push({
+        path: `${path}.rules`,
+        message: "must contain at least two rules",
+      });
+  } else {
+    issues.push({
+      path: `${path}.op`,
+      message:
+        "must be not_completed, not_concurrent, permission, all_of or one_of",
     });
   }
 }
@@ -1090,6 +1150,7 @@ function validateExtractionShape(
     issues,
     [
       "assumedKnowledgeText",
+      "incompatibilityRule",
       "concurrentIncompatibilityCourseCodes",
       "softConcurrentIncompatibilityCourseCodes",
     ],
@@ -1133,6 +1194,32 @@ function validateExtractionShape(
         "$.requisites.corequisiteRule",
         issues,
       );
+    if (
+      requisites.incompatibilityRule !== undefined &&
+      requisites.incompatibilityRule !== null
+    ) {
+      const exclusions: Array<{ op: string; courseCode: string }> = [];
+      validateIncompatibilityRule(
+        requisites.incompatibilityRule,
+        "$.requisites.incompatibilityRule",
+        issues,
+        exclusions,
+      );
+      for (const exclusion of exclusions) {
+        const key =
+          exclusion.op === "not_completed"
+            ? "incompatibilityCourseCodes"
+            : "concurrentIncompatibilityCourseCodes";
+        if (
+          Array.isArray(requisites[key]) &&
+          requisites[key].includes(exclusion.courseCode)
+        )
+          issues.push({
+            path: `$.requisites.${key}`,
+            message: `${exclusion.courseCode} is already represented in incompatibilityRule; an unconditional duplicate would lose its scope`,
+          });
+      }
+    }
     for (const key of [
       "incompatibilityCourseCodes",
       "softIncompatibilityCourseCodes",
@@ -1690,6 +1777,41 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         },
       ],
     },
+    incompatibilityRule: {
+      oneOf: [
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "courseCode"],
+          properties: {
+            op: { enum: ["not_completed", "not_concurrent"] },
+            courseCode: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "sourceText"],
+          properties: {
+            op: { const: "permission" },
+            sourceText: { type: "string", minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "rules"],
+          properties: {
+            op: { enum: ["all_of", "one_of"] },
+            rules: {
+              type: "array",
+              minItems: 2,
+              items: { $ref: "#/$defs/incompatibilityRule" },
+            },
+          },
+        },
+      ],
+    },
     requisites: {
       type: "object",
       additionalProperties: false,
@@ -1716,6 +1838,9 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         },
         corequisiteRule: {
           anyOf: [{ $ref: "#/$defs/rule" }, { type: "null" }],
+        },
+        incompatibilityRule: {
+          anyOf: [{ $ref: "#/$defs/incompatibilityRule" }, { type: "null" }],
         },
         incompatibilityCourseCodes: {
           type: "array",

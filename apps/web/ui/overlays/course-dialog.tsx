@@ -38,6 +38,8 @@ import {
   termIndex,
   unitsForAttempt,
 } from "@/lib/planner";
+import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
+import { permissionClauses } from "@/lib/coursemap/requisite-tree";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import {
@@ -106,6 +108,7 @@ function planStudentRecord(
         .map((other) => other.courseCode.toUpperCase()),
     ),
     programmeCodes: degreeCode ? [degreeCode] : [],
+    permissionApproved: attempt.permissionApproved ?? false,
     wam: null,
     gpa: null,
     studyYear: null,
@@ -185,7 +188,23 @@ export function CourseDialog({
   const availableCodes = new Set(
     (catalogue?.courses ?? []).map((item) => item.code),
   );
-  const rule = course.prerequisiteRule?.relationalExpression ?? null;
+  const prerequisite = course.prerequisiteRule?.relationalExpression ?? null;
+  const incompatibility =
+    course.incompatibilityRule?.relationalExpression ?? null;
+  const rule: CourseRuleExpression | null = incompatibility
+    ? {
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [...(prerequisite ? [prerequisite] : []), incompatibility],
+      }
+    : prerequisite;
+  const permissions = [
+    ...new Set([
+      ...(course.permissionText ? [course.permissionText] : []),
+      ...permissionClauses(rule),
+    ]),
+  ];
   const student = rule
     ? planStudentRecord(
         attempt,
@@ -376,7 +395,7 @@ export function CourseDialog({
                 </section>
               )}
 
-              {course.permissionText && (
+              {permissions.length > 0 && (
                 <section>
                   <h3 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
                     <ShieldCheck
@@ -388,10 +407,10 @@ export function CourseDialog({
                           : "text-primary"
                       }
                     />
-                    Permission code
+                    Permission approval
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {course.permissionText}
+                    {permissions.join("\n\n")}
                   </p>
                   <Button
                     size="sm"

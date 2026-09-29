@@ -448,8 +448,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v16");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v23");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v17");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v24");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1999,5 +1999,230 @@ test("an omitted nullable source update field stays invalid until the model expl
       (item) => item.fieldKey === "sourceUpdatedAt",
     ),
     false,
+  );
+});
+
+const conditionalPermissionText =
+  "If you have previously completed MATH1013 or MATH1113 then you can only enrol in MATH1115 with the permission of the course convener.";
+
+function permissionExceptionExtraction() {
+  const model = emptyCourseExtraction({
+    code: "MATH1115",
+    year: 2026,
+    title: "Advanced Mathematics and Applications 1",
+  });
+  model.requisites.incompatibilityText = conditionalPermissionText;
+  model.requisites.incompatibilityRule = {
+    op: "one_of",
+    rules: [
+      {
+        op: "all_of",
+        rules: [
+          { op: "not_completed", courseCode: "MATH1013" },
+          { op: "not_completed", courseCode: "MATH1113" },
+        ],
+      },
+      { op: "permission", sourceText: conditionalPermissionText },
+    ],
+  };
+  return model;
+}
+
+test("permission exceptions retain their nested exclusion pathway and review evidence", () => {
+  const model = permissionExceptionExtraction();
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.ruleGroups.map((group) => group.operator),
+    ["any_of", "all_of"],
+  );
+  assert.deepEqual(
+    projection.ruleConditions.map((condition) => condition.conditionKind),
+    ["incompatible", "incompatible", "permission"],
+  );
+  assert.equal(
+    projection.ruleConditions[2].sourceText,
+    conditionalPermissionText,
+  );
+  assert.equal(
+    projection.ruleConditions[2].freeText,
+    conditionalPermissionText,
+  );
+  assert.deepEqual(
+    projection.ruleCourseReferences.map(
+      (reference) => reference.referencedCourseCode,
+    ),
+    ["MATH1013", "MATH1113"],
+  );
+  const content = courseCatalogueContent({
+    projection,
+    evidence: [
+      {
+        fieldPath: "requisites.incompatibilityRule",
+        method: "model",
+        confidence: 0.95,
+        sourceLabel: "Requisite and Incompatibility",
+        sourceText: conditionalPermissionText,
+      },
+    ],
+  });
+  const unit = catalogueReviewUnits(content).find(
+    (item) => item.fieldPath === "requirements.incompatibility",
+  );
+  assert.ok(unit);
+  assert.equal(
+    reviewUnitEvidence(content, unit.fieldPath)[0].sourceText,
+    conditionalPermissionText,
+  );
+  const expression = requirementSliceExpression({
+    rule: content.requirements.rules[0],
+    groups: content.requirements.groups,
+    conditions: content.requirements.conditions,
+    options: [],
+  });
+  for (const codes of [
+    [],
+    ["MATH1013"],
+    ["MATH1113"],
+    ["MATH1013", "MATH1113"],
+  ]) {
+    assert.equal(
+      evaluateRule(expression, {
+        completed: new Map(codes.map((code) => [code, { units: 6, mark: 70 }])),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      codes.length ? "unknown" : "met",
+    );
+  }
+  assert.deepEqual(
+    unsupportedModelWording(model, conditionalPermissionText),
+    [],
+  );
+});
+
+test("incompatibility trees reject invalid leaves and unconditional duplicates of a waiver", () => {
+  const model = permissionExceptionExtraction();
+  for (const invalid of [
+    { op: "completed", courseCode: "MATH1013" },
+    { op: "permission", sourceText: null },
+    { op: "permission", sourceText: "" },
+    { op: "not_completed", courseCode: "MATH-MAJ" },
+    { op: "one_of", rules: [] },
+    { op: "all_of", rules: [{ op: "not_completed", courseCode: "MATH1013" }] },
+  ]) {
+    model.requisites.incompatibilityRule = invalid;
+    assert.equal(validateCourseExtraction(model).success, false);
+  }
+  model.requisites.incompatibilityRule =
+    permissionExceptionExtraction().requisites.incompatibilityRule;
+  model.requisites.incompatibilityCourseCodes = ["MATH1013"];
+  assert.ok(
+    validateCourseExtraction(model).issues.some(
+      (issue) =>
+        issue.path === "$.requisites.incompatibilityCourseCodes" &&
+        issue.message.includes("scope"),
+    ),
+  );
+  model.requisites.incompatibilityCourseCodes = [];
+  model.requisites.concurrentIncompatibilityCourseCodes = ["MATH1013"];
+  assert.equal(validateCourseExtraction(model).success, true);
+  model.requisites.prerequisiteRule = {
+    op: "not_completed",
+    courseCode: "MATH1013",
+  };
+  assert.equal(validateCourseExtraction(model).success, false);
+  model.requisites.prerequisiteRule = null;
+  let deep = { op: "not_concurrent", courseCode: "MATH1013" };
+  for (let index = 0; index < 18; index++)
+    deep = {
+      op: "one_of",
+      rules: [
+        deep,
+        { op: "permission", sourceText: conditionalPermissionText },
+      ],
+    };
+  model.requisites.incompatibilityRule = deep;
+  assert.ok(
+    validateCourseExtraction(model).issues.some((issue) =>
+      issue.message.includes("nesting depth"),
+    ),
+  );
+});
+
+test("independent unconditional exclusions remain outside the permission exception", () => {
+  const model = permissionExceptionExtraction();
+  model.requisites.concurrentIncompatibilityCourseCodes = ["MATH1013"];
+  model.requisites.incompatibilityCourseCodes = ["MATH1005"];
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.ruleGroups.map((group) => group.operator),
+    ["all_of", "any_of", "all_of"],
+  );
+  const independent = projection.ruleConditions.filter(
+    (condition) => condition.groupKey === "incompatibility:group:root",
+  );
+  assert.deepEqual(
+    independent.map((condition) => condition.requiredCourseCode),
+    ["MATH1005", "MATH1013"],
+  );
+  const legacy = structuredClone(extraction);
+  delete legacy.requisites.incompatibilityRule;
+  assert.equal(validateCourseExtraction(legacy).success, true);
+});
+
+test("the captured MATH1115 model response preserves its permission waiver and unresolved school admission", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-math1115-permission.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    captured.source.sourceUrl,
+    "https://programsandcourses.anu.edu.au/2024/course/MATH1115",
+  );
+  const model = emptyCourseExtraction({
+    code: "MATH1115",
+    year: 2024,
+    title: "Advanced Mathematics and Applications 1",
+  });
+  model.requisites = captured.requisites;
+  model.reviewItems = captured.reviewItems;
+  assert.equal(validateCourseExtraction(model).success, true);
+  assert.deepEqual(
+    model.requisites.incompatibilityRule,
+    permissionExceptionExtraction().requisites.incompatibilityRule,
+  );
+  assert.deepEqual(model.requisites.incompatibilityCourseCodes, []);
+  assert.ok(
+    model.requisites.unmodelledText[0].includes(
+      "Secondary School Prerequisite",
+    ),
+  );
+  const projection = projectCourseSnapshot(model);
+  assert.equal(
+    projection.ruleConditions.filter(
+      (condition) => condition.conditionKind === "permission",
+    ).length,
+    1,
+  );
+  assert.equal(
+    projection.ruleConditions.find(
+      (condition) => condition.conditionKind === "permission",
+    ).ruleKey,
+    "incompatibility",
+  );
+  assert.equal(
+    projection.ruleConditions.find(
+      (condition) => condition.ruleKey === "prerequisite",
+    ).conditionKind,
+    "other",
   );
 });
