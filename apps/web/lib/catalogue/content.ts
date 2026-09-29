@@ -40,6 +40,7 @@ export type RequirementConditionKind =
   | "course_set_units"
   | "units_total"
   | "subject_units"
+  | "subject_courses"
   | "level_units"
   | "tagged_units"
   | "elective_units"
@@ -598,7 +599,7 @@ export function courseCatalogueContent({
           minimumMark: condition.minimumMark,
           minimumUnits: condition.minimumUnits,
           maximumUnits: null,
-          minimumCount: null,
+          minimumCount: condition.minimumCount ?? null,
           subjectCode: condition.subjectCode,
           minimumLevel: condition.minimumCourseLevel,
           maximumLevel: condition.maximumCourseLevel,

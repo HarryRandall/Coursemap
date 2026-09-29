@@ -79,10 +79,37 @@ export function InlineValueFields({
     return <UnitsInput condition={condition} onChange={onChange} />;
   }
 
-  if (condition.kind === "subject_units") {
+  if (
+    condition.kind === "subject_units" ||
+    condition.kind === "subject_courses"
+  ) {
     return (
       <>
-        <UnitsInput condition={condition} onChange={onChange} />
+        {condition.kind === "subject_courses" ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Input
+              aria-label="Course count"
+              className={cn(inlineControl, "w-20 min-w-20")}
+              min={1}
+              max={32767}
+              step="1"
+              type="number"
+              value={condition.courseCount ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  courseCount:
+                    event.target.value === ""
+                      ? null
+                      : Number(event.target.value),
+                })
+              }
+            />
+            <span className="text-xs text-muted-foreground">courses</span>
+          </span>
+        ) : (
+          <UnitsInput condition={condition} onChange={onChange} />
+        )}
         <span
           data-slot="condition-grammar"
           className="text-xs text-muted-foreground"

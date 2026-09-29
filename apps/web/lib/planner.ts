@@ -280,6 +280,17 @@ function evaluateRelationalPrerequisite(
       ? { state: "satisfied", missingCodes: [] }
       : { state: "unsatisfied", missingCodes: [] };
   }
+  if (expression.kind === "subject_courses") {
+    const codes = new Set(
+      earlier.flatMap((candidate) => {
+        const course = planningCourseForAttempt(candidate, catalogue);
+        return course?.subject === expression.subject ? [course.code] : [];
+      }),
+    );
+    return codes.size >= expression.minimumCount
+      ? { state: "satisfied", missingCodes: [] }
+      : { state: "unsatisfied", missingCodes: [] };
+  }
   if (expression.kind === "level_units") {
     return completedUnits(
       (course) =>

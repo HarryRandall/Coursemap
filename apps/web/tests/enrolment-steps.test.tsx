@@ -154,3 +154,27 @@ test("a unit requirement links to the courses that count towards it", () => {
     "/courses?year=2026&tag=Science",
   );
 });
+
+test("subject course counts display course progress and link to their subject", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2024}
+      availableCourseCodes={new Set()}
+      expression={{
+        ...base,
+        kind: "subject_courses",
+        subject: "STAT",
+        minimumCount: 2,
+      }}
+      student={{
+        ...student,
+        completed: new Map([["STAT1003", { units: 12, mark: 75 }]]),
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: /Complete 2 STAT courses/u }),
+  ).toHaveAttribute("href", "/courses?year=2024&subject=STAT");
+  expect(screen.getByText("1 of 2 completed STAT courses")).toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});

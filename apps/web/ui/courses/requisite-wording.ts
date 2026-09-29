@@ -57,6 +57,8 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
       return `Not ${condition.code}`;
     case "units_total":
       return `${condition.units} units in total`;
+    case "subject_courses":
+      return `${condition.minimumCount} completed ${condition.subject} ${condition.minimumCount === 1 ? "course" : "courses"}`;
     case "subject_units":
       return `${condition.units} units of ${condition.subject ?? "subject"} courses`;
     case "level_units":
@@ -100,6 +102,8 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
       return `You can't take this if you've completed ${condition.code}`;
     case "units_total":
       return `Complete ${condition.units} units`;
+    case "subject_courses":
+      return `Complete ${condition.minimumCount} ${condition.subject} ${condition.minimumCount === 1 ? "course" : "courses"}`;
     case "subject_units":
       return `Complete ${condition.units} units of ${condition.subject ?? "subject"} courses`;
     case "level_units":
@@ -167,6 +171,7 @@ export function requisiteExplorerLink(
 ): { href: string; label: string } | null {
   const params = new URLSearchParams({ year: String(academicYear) });
   switch (condition.kind) {
+    case "subject_courses":
     case "subject_units":
       if (!condition.subject) return null;
       params.set("subject", condition.subject);
