@@ -133,6 +133,38 @@ test("career and recent-unit GPA alternatives survive import projection and revi
   ]);
 });
 
+test("a conditional school qualification remains under review rather than requiring MATH1003 for everyone", () => {
+  // https://programsandcourses.anu.edu.au/2024/course/MATH1113
+  const clause =
+    "For students with a level of maths equivalent to ACT Mathematical Methods, MATH1003 is required to be completed before enrolling.";
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteText = clause;
+  model.requisites.prerequisiteRule = null;
+  model.requisites.unmodelledText = [clause];
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projection = projectCourseSnapshot(model);
+  const prerequisiteConditions = projection.ruleConditions.filter(
+    (condition) => condition.ruleKey === "prerequisite",
+  );
+  assert.deepEqual(
+    prerequisiteConditions.map((condition) => condition.conditionKind),
+    ["other"],
+  );
+  assert.equal(
+    prerequisiteConditions.some(
+      (condition) => condition.requiredCourseCode === "MATH1003",
+    ),
+    false,
+  );
+  const content = courseCatalogueContent({ projection });
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.prerequisite",
+    )?.band,
+    "needs_review",
+  );
+});
+
 test("invalid model course levels are reported rather than silently accepted", () => {
   assert.deepEqual(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.level.enum,
@@ -531,8 +563,12 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v21");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v29");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v30");
   assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
+  assert.match(
+    prompt,
+    /do not add completed MATH1003 to prerequisiteRule for everyone/,
+  );
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
