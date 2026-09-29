@@ -35,6 +35,7 @@ export type RequirementRuleKind =
 export type RequirementConditionKind =
   | "course"
   | "incompatible"
+  | "incompatible_concurrent"
   | "structure"
   | "structure_set"
   | "course_set_units"
@@ -576,7 +577,9 @@ export function courseCatalogueContent({
       conditions: projection.ruleConditions.map((condition) => {
         const kind = courseConditionKind(condition.conditionKind);
         const itemCode =
-          kind === "course" || kind === "incompatible"
+          kind === "course" ||
+          kind === "incompatible" ||
+          kind === "incompatible_concurrent"
             ? condition.requiredCourseCode
             : kind === "structure"
               ? condition.requiredStructureCode

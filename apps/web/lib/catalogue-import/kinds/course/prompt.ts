@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v14";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v19";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v15";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v20";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -53,6 +53,7 @@ Requisites:
 - Copy assumed knowledge and recommended preparation into requisites.assumedKnowledgeText, or null if absent. This is advisory preparation, including prose outside the formal requisite section, not an enrolment gate. Do not place the same advice in prerequisiteRule, prerequisiteText or unmodelledText. Keep genuinely compulsory secondary-school eligibility or conditional admission pathways in formal requisites for review, rather than relabelling them as advice. Give exact-source evidence with fieldKey requisites.assumedKnowledgeText.
 - For min_units_at_level, preserve every stated filter on the same rule: level is the lower bound, maximumLevel is the upper bound or null, and subjectCode is the named four-letter subject or null. "6 units of 1000-level COMP courses" means minimumUnits 6, level 1000, maximumLevel 1000 and subjectCode COMP. "1000-level or above" has maximumLevel null. Do not substitute unrelated courses or discard the subject restriction. Leave genuinely ambiguous bounds for review rather than guessing.
 - Preserve individual course mark thresholds as minimumMark on the corresponding completed or completed_or_concurrent rule. A mark of at least 60 is minimumMark 60. ANU grade floors are Pass 50, Credit 60, Distinction 70 and High Distinction 80 (https://www.anu.edu.au/students/program-administration/assessments-exams/grading-scale). Use those floors for an explicitly required grade or better in a named course. Never add a completion-only alternative for the same course that bypasses its threshold. Do not turn an average across courses into a mark requirement on each course; preserve the average scope and leave unsupported scopes for review.
+- Keep exclusions out of positive prerequisite alternatives. incompatibilityCourseCodes excludes previously completed courses; concurrentIncompatibilityCourseCodes excludes simultaneous enrolment only. Put explicitly discretionary exclusions in the corresponding softIncompatibilityCourseCodes or softConcurrentIncompatibilityCourseCodes array. "Previously completed, or attempting to concurrently enrol in, X" belongs in both hard arrays; "cannot concurrently enrol in X" belongs only in the concurrent array and must not bar previous completion. Preserve the exact exclusion clause in incompatibilityText. If a permission exception or conditional scope cannot be represented, retain the whole clause for review rather than making the exclusion unconditional.
 - completed X -> completed; completed or concurrently enrolled in X -> completed_or_concurrent.
 - A required number of completed courses from a subject uses min_courses_from_subject, not a unit threshold. "Completed a STAT course" is minimumCount 1 and subjectCode STAT. Preserve the stated number of distinct completed courses; do not guess six units per course, use zero units, enumerate a speculative course list or allow concurrent enrolment when completion is required. Use min_units_from_subject only when the source actually states a positive unit quantity.
 - Explicit AND -> all_of; explicit OR -> one_of.

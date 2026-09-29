@@ -133,6 +133,10 @@ export function evaluateCondition(
       }
       return { status: "unmet" };
     }
+    case "incompatible_concurrent":
+      return student.enrolled.has(condition.code)
+        ? { status: "unmet", detail: `You are enrolled in ${condition.code}` }
+        : { status: "met", detail: `You aren't enrolled in ${condition.code}` };
     case "incompatible":
       return student.completed.has(condition.code)
         ? {

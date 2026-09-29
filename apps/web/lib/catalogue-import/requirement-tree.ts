@@ -13,6 +13,7 @@ import type {
 const EDITABLE_KINDS = new Set([
   "course",
   "incompatible",
+  "incompatible_concurrent",
   "structure",
   "units_total",
   "subject_units",
@@ -76,10 +77,13 @@ export function treeFromRequirementWrite(
             ? condition.kind
             : "other") as ReviewedConditionNode["kind"],
           courseCode:
-            condition.kind === "course" || condition.kind === "incompatible"
+            condition.kind === "course" ||
+            condition.kind === "incompatible" ||
+            condition.kind === "incompatible_concurrent"
               ? condition.itemCode
               : null,
           courseRequirementMode: condition.requirementMode,
+          hardness: condition.hardness,
           structureCode:
             condition.kind === "structure" ? condition.itemCode : null,
           units: condition.minimumUnits,
@@ -185,8 +189,13 @@ export function requirementWriteWithTree(
         return;
       }
       const conditionKey = `${ruleKey}:condition:${counter++}`;
+      const previous = requirements.conditions.find(
+        (condition) => child.id === `condition-${condition.key}`,
+      );
       const itemKind: CatalogueKind | null =
-        child.kind === "course" || child.kind === "incompatible"
+        child.kind === "course" ||
+        child.kind === "incompatible" ||
+        child.kind === "incompatible_concurrent"
           ? "course"
           : child.kind === "structure" && child.structureCode
             ? "programme"
@@ -221,9 +230,10 @@ export function requirementWriteWithTree(
         minimumWam: child.wam ?? null,
         tag: null,
         freeText: child.freeText ?? null,
-        hardness: "hard",
-        sourceText: child.freeText ?? null,
-        sourceLocator: null,
+        hardness:
+          child.hardness ?? previous?.hardness ?? existing?.hardness ?? "hard",
+        sourceText: child.freeText ?? previous?.sourceText ?? null,
+        sourceLocator: previous?.sourceLocator ?? null,
         reviewState: "verified",
         confidence: 1,
       });
@@ -240,7 +250,12 @@ export function requirementWriteWithTree(
       if (
         itemKind === "course" &&
         child.courseCode &&
-        ruleKey === "prerequisite"
+        (ruleKey === "prerequisite" || ruleKey === "incompatibility") &&
+        !next.references.some(
+          (reference) =>
+            reference.ruleKey === ruleKey &&
+            reference.code === child.courseCode,
+        )
       ) {
         next.references.push({
           ruleKey,
