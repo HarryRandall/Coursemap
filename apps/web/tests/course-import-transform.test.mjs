@@ -449,7 +449,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v16");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v22");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v23");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1972,4 +1972,32 @@ test("the captured clear FINM2002 alternative cannot replace its compulsory fina
       expected,
     );
   }
+});
+
+test("an omitted nullable source update field stays invalid until the model explicitly supplies null", () => {
+  assert.ok(COURSE_EXTRACTION_JSON_SCHEMA.required.includes("sourceUpdatedAt"));
+  const model = structuredClone(extraction);
+  delete model.sourceUpdatedAt;
+  const omitted = finalise(model);
+  assert.ok(
+    omitted.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "sourceUpdatedAt" && item.severity === "error",
+    ),
+  );
+  assert.ok(
+    omitted.report.droppedFields.some(
+      (item) => item.fieldKey === "sourceUpdatedAt",
+    ),
+  );
+  assert.equal("sourceUpdatedAt" in model, false);
+  model.sourceUpdatedAt = null;
+  const explicit = finalise(model);
+  assert.equal(explicit.extraction.sourceUpdatedAt, null);
+  assert.equal(
+    explicit.extraction.reviewItems.some(
+      (item) => item.fieldKey === "sourceUpdatedAt",
+    ),
+    false,
+  );
 });
