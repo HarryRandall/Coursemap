@@ -53,6 +53,7 @@ const CONDITION_ICONS: Record<ReviewedConditionKind, LucideIcon> = {
   level_units: ChartNoAxesColumn,
   course_set_units: SquareStack,
   year_standing: GraduationCap,
+  commencement_year: GraduationCap,
   gpa: Gauge,
   wam: Gauge,
   permission: KeyRound,

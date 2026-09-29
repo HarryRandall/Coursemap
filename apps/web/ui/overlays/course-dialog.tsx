@@ -80,6 +80,7 @@ function planStudentRecord(
   attempt: Attempt,
   attempts: Attempt[],
   degreeCode: string,
+  commencementYear: number | null,
   catalogue?: PlanCatalogue,
 ): StudentRecord {
   const order = termIndex(attempt.termId, catalogue);
@@ -107,6 +108,7 @@ function planStudentRecord(
         .filter((other) => termIndex(other.termId, catalogue) === order)
         .map((other) => other.courseCode.toUpperCase()),
     ),
+    commencementYear,
     programmeCodes: degreeCode ? [degreeCode] : [],
     permissionApproved: attempt.permissionApproved ?? false,
     wam: null,
@@ -122,7 +124,7 @@ function planStudentRecord(
  */
 export function CourseDialog({
   attemptId,
-  catalogue,
+  catalogue: suppliedCatalogue,
   onClose,
 }: {
   attemptId: string;
@@ -132,6 +134,12 @@ export function CourseDialog({
   const restoreFocus = useReturnFocus();
   const { state, updateAttempt, removeAttempt, togglePermission, notify } =
     useCoursemap();
+  const catalogue = suppliedCatalogue
+    ? {
+        ...suppliedCatalogue,
+        commencementYear: state.profile.commencementYear ?? null,
+      }
+    : undefined;
   const attempt = state.attempts.find((item) => item.id === attemptId);
   const course = attempt
     ? planningCourseForAttempt(attempt, catalogue)
@@ -210,6 +218,7 @@ export function CourseDialog({
         attempt,
         state.attempts,
         state.profile.degreeCode,
+        state.profile.commencementYear ?? null,
         catalogue,
       )
     : null;

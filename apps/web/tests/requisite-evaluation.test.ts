@@ -355,3 +355,39 @@ test("an unresolved permission alternative stays unknown when it could satisfy t
     ).status,
   ).toBe("unknown");
 });
+
+test("commencement-year boundaries use the recorded calendar year independently of standing", () => {
+  const condition: CourseRuleExpression = {
+    ...base,
+    kind: "commencement_year",
+    minimumCommencementYear: null,
+    maximumCommencementYear: 2020,
+  };
+  for (const [year, expected] of [
+    [2019, "met"],
+    [2020, "met"],
+    [2021, "unmet"],
+    [null, "unknown"],
+    [0, "unknown"],
+  ] as const)
+    expect(
+      evaluateRule(condition, {
+        ...student,
+        commencementYear: year,
+        studyYear: 1,
+      }).status,
+    ).toBe(expected);
+  expect(evaluateRule(condition, { ...student, studyYear: 2020 }).status).toBe(
+    "unknown",
+  );
+  expect(
+    evaluateRule(
+      {
+        ...condition,
+        minimumCommencementYear: 2020,
+        maximumCommencementYear: 2020,
+      },
+      { ...student, commencementYear: 2020 },
+    ).status,
+  ).toBe("met");
+});

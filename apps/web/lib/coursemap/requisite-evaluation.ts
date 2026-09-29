@@ -1,4 +1,8 @@
 import {
+  validCommencementYear,
+  validCommencementYearBounds,
+} from "../academic/commencement-year.ts";
+import {
   gradePointAverage,
   minimumMarkStatus,
   weightedAverageMark,
@@ -29,6 +33,7 @@ export type StudentRecord = {
   wam: number | null;
   gpa: number | null;
   studyYear: number | null;
+  commencementYear?: number | null;
   /** Approval recorded for this course attempt, when checking a plan. */
   permissionApproved?: boolean;
 };
@@ -193,6 +198,24 @@ export function evaluateCondition(
         unitsWhere(student, (code) => condition.courseCodes.includes(code)),
         condition.units,
       );
+    case "commencement_year": {
+      const year = student.commencementYear;
+      if (
+        !validCommencementYear(year) ||
+        !validCommencementYearBounds(condition)
+      )
+        return { status: "unknown" };
+      return {
+        status:
+          (condition.minimumCommencementYear === null ||
+            year >= condition.minimumCommencementYear) &&
+          (condition.maximumCommencementYear === null ||
+            year <= condition.maximumCommencementYear)
+            ? "met"
+            : "unmet",
+        detail: `You commenced in ${year}`,
+      };
+    }
     case "year_standing":
       if (student.studyYear === null) return { status: "unknown" };
       return {
@@ -339,6 +362,7 @@ export function studentRecord({
         .filter((attempt) => attempt.status === "enrolled")
         .map((attempt) => attempt.courseCode),
     ),
+    commencementYear,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
     wam: weightedAverageMark(results),
     gpa: gradePointAverage(results),

@@ -1,3 +1,4 @@
+import { commencementYearLabel } from "../../../academic/commencement-year.ts";
 import type { WorkloadHoursBasis } from "../../../academic/workload.ts";
 import {
   parseCourseExtraction,
@@ -26,6 +27,7 @@ type ConditionKind =
   | "level_units"
   | "course_set_units"
   | "year_standing"
+  | "commencement_year"
   | "permission"
   | "admission"
   | "gpa"
@@ -90,6 +92,8 @@ export type ProjectedCourseRuleConditionRow = {
   maximumCourseLevel: number | null;
   minimumGpa: number | null;
   minimumYear: number | null;
+  minimumCommencementYear?: number | null;
+  maximumCommencementYear?: number | null;
   minimumWam: number | null;
   freeText: string | null;
   courseRequirementMode: CourseRequirementMode | null;
@@ -272,6 +276,11 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
         .join(", ")}`;
     case "enrolled_in":
       return `Enrolment in programme ${rule.programmeCode}`;
+    case "commencement_year":
+      return commencementYearLabel({
+        minimumCommencementYear: rule.minimumYear,
+        maximumCommencementYear: rule.maximumYear,
+      });
     case "year_standing":
       return `At least year ${rule.minimumYear} standing`;
     case "minimum_gpa":
@@ -512,6 +521,21 @@ function addAtomicRule(
         sourceText,
       });
       condition.requiredStructureCode = rule.programmeCode;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "commencement_year": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "commencement_year",
+        hardness,
+        sourceText,
+      });
+      condition.minimumCommencementYear = rule.minimumYear;
+      condition.maximumCommencementYear = rule.maximumYear;
       accumulator.ruleConditions.push(condition);
       return;
     }

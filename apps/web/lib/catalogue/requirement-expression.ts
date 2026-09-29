@@ -96,6 +96,13 @@ function conditionExpression(
     case "elective_units":
       if (units !== null) return { ...base, kind: "elective_units", units };
       break;
+    case "commencement_year":
+      return {
+        ...base,
+        kind: "commencement_year",
+        minimumCommencementYear: condition.minimumCommencementYear ?? null,
+        maximumCommencementYear: condition.maximumCommencementYear ?? null,
+      };
     case "year_standing":
       if (condition.minimumYear !== null) {
         return {

@@ -42,6 +42,8 @@ export type RequirementTreeSource = {
     minimumLevel: number | null;
     maximumLevel: number | null;
     minimumYear?: number | null;
+    minimumCommencementYear?: number | null;
+    maximumCommencementYear?: number | null;
     minimumGpa?: number | null;
     minimumWam?: number | null;
     tag: string | null;
@@ -120,6 +122,12 @@ export function requirementTreeFromSource(
       minimumUnits: condition.minimumUnits,
       minimumWam: condition.minimumWam ?? null,
       minimumYear: condition.minimumYear ?? null,
+      ...(condition.kind === "commencement_year"
+        ? {
+            minimumCommencementYear: condition.minimumCommencementYear ?? null,
+            maximumCommencementYear: condition.maximumCommencementYear ?? null,
+          }
+        : {}),
       options: (optionsByCondition.get(condition.key) ?? [])
         .toSorted((left, right) => left.position - right.position)
         .map((option) => ({
