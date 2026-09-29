@@ -33,6 +33,7 @@ const STATUS_VARIANT: Record<EffectiveStatus, string> = {
   planned: "secondary",
   blocked: "warning",
   approval: "warning",
+  review: "warning",
   failed: "destructive",
   withdrawn: "outline",
 };
