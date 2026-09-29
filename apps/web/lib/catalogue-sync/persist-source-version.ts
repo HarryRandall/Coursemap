@@ -378,7 +378,7 @@ async function insertRequirements(
       insert into public.requirement_conditions (
         rule_id, version_id, group_id, condition_key, position, condition_kind, code_id,
         item_kind, structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
-        minimum_count, subject_code, minimum_level, maximum_level, minimum_year, minimum_commencement_year, maximum_commencement_year,
+        minimum_count, subject_code, minimum_level, maximum_level, minimum_year, minimum_commencement_year, maximum_commencement_year, enrolment_mode, matches_enrolment_mode,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
         review_state, confidence, scope, includes_any_course
       ) values (
@@ -388,7 +388,7 @@ async function insertRequirements(
         ${condition.structureKind}, ${condition.requirementMode}, ${condition.minimumMark},
         ${condition.minimumUnits}, ${condition.maximumUnits}, ${condition.minimumCount},
         ${condition.subjectCode}, ${condition.minimumLevel}, ${condition.maximumLevel},
-        ${condition.minimumYear}, ${condition.minimumCommencementYear ?? null}, ${condition.maximumCommencementYear ?? null}, ${condition.minimumGpa}, ${condition.minimumWam},
+        ${condition.minimumYear}, ${condition.minimumCommencementYear ?? null}, ${condition.maximumCommencementYear ?? null}, ${condition.enrolmentMode ?? null}, ${condition.matchesEnrolmentMode ?? null}, ${condition.minimumGpa}, ${condition.minimumWam},
         ${condition.tag}, ${condition.freeText}, ${condition.hardness},
         ${condition.sourceText}, ${condition.sourceLocator}, ${condition.reviewState},
         ${condition.confidence}, ${condition.scope ?? "part"},

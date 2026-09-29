@@ -54,6 +54,7 @@ const CONDITION_ICONS: Record<ReviewedConditionKind, LucideIcon> = {
   course_set_units: SquareStack,
   year_standing: GraduationCap,
   commencement_year: GraduationCap,
+  enrolment_mode: GraduationCap,
   gpa: Gauge,
   wam: Gauge,
   permission: KeyRound,

@@ -1,3 +1,4 @@
+import { validEnrolmentMode } from "../academic/enrolment-mode";
 import type { CourseRuleExpression } from "../coursemap/course-types.ts";
 import type { RequirementWrite } from "./content.ts";
 
@@ -95,6 +96,18 @@ function conditionExpression(
       break;
     case "elective_units":
       if (units !== null) return { ...base, kind: "elective_units", units };
+      break;
+    case "enrolment_mode":
+      if (
+        validEnrolmentMode(condition.enrolmentMode) &&
+        typeof condition.matchesEnrolmentMode === "boolean"
+      )
+        return {
+          ...base,
+          kind: "enrolment_mode",
+          enrolmentMode: condition.enrolmentMode,
+          matchesEnrolmentMode: condition.matchesEnrolmentMode,
+        };
       break;
     case "commencement_year":
       return {

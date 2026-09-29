@@ -899,6 +899,122 @@ test("model projection hashes preserve absent offering summaries independently o
   await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });
 
+test("conditional enrolment permissions survive persistence, projection and unchanged replay", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Enrolment scope persistence",
+  });
+  model.requisites.prerequisiteText =
+    "24 units; Flexible Double Degree students need school permission.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "min_units_total", minimumUnits: 24 },
+      {
+        op: "one_of",
+        rules: [
+          {
+            op: "enrolment_mode",
+            mode: "flexible_double_degree",
+            matches: false,
+          },
+          {
+            op: "all_of",
+            rules: [
+              {
+                op: "enrolment_mode",
+                mode: "flexible_double_degree",
+                matches: true,
+              },
+              {
+                op: "permission",
+                sourceText: "Permission from info.cbe@anu.edu.au.",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const stored =
+    await sql`select enrolment_mode, matches_enrolment_mode from public.requirement_conditions where version_id = ${result.sourceVersionId} and condition_kind = 'enrolment_mode' order by position, id`;
+  assert.deepEqual(
+    stored.map((row) => [row.enrolment_mode, row.matches_enrolment_mode]),
+    [
+      ["flexible_double_degree", false],
+      ["flexible_double_degree", true],
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  assert.equal(
+    roundtrip.requirements.conditions
+      .filter((condition) => condition.kind !== "enrolment_mode")
+      .some((condition) => "enrolmentMode" in condition),
+    false,
+  );
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  const rule = readProjectionPrerequisiteRule(projection.content);
+  assert.equal(
+    rule.relationalExpression.conditions.find(
+      (condition) => condition.kind === "group",
+    ).conditions[0].matchesEnrolmentMode,
+    false,
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+  const repeated = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  assert.equal(
+    (
+      await persistSourceVersion(sql, {
+        claim: repeated.claim,
+        sourceDocumentId: repeated.documentId,
+        write: roundtrip,
+      })
+    ).status,
+    "unchanged",
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${repeated.claim.syncId}`;
+  for (const [enrolmentMode, matchesEnrolmentMode] of [
+    [null, true],
+    ["double", false],
+    ["single_degree", null],
+  ]) {
+    const invalid = structuredClone(content);
+    const condition = invalid.requirements.conditions.find(
+      (item) => item.kind === "enrolment_mode",
+    );
+    condition.enrolmentMode = enrolmentMode;
+    condition.matchesEnrolmentMode = matchesEnrolmentMode;
+    invalid.contentHash = contentHashForCatalogueContent(invalid);
+    const attempt = await createSyncFixture(OFFERING_CODE, invalid.contentHash);
+    await assert.rejects(
+      persistSourceVersion(sql, {
+        claim: attempt.claim,
+        sourceDocumentId: attempt.documentId,
+        write: invalid,
+      }),
+      (error) => error.code === "23514",
+    );
+    const [count] =
+      await sql`select count(*)::int as count from public.catalogue_versions where sync_id = ${attempt.claim.syncId}`;
+    assert.equal(count.count, 0);
+    await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${attempt.claim.syncId}`;
+  }
+});
+
 test("cohort bounds survive source import, idempotent replay and published projection without changing legacy hashes", async () => {
   const model = emptyCourseExtraction({
     code: COHORT_CODE,

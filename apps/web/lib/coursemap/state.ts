@@ -1,3 +1,4 @@
+import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
 import type { AppState } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -105,7 +106,7 @@ export async function loadCoursemapState(
       supabase
         .from("plans")
         .select(
-          "academic_year_id,id,commencement_year,study_load,extension_years",
+          "academic_year_id,id,commencement_year,enrolment_mode,study_load,extension_years",
         )
         .eq("owner_id", viewer.id)
         .eq("is_primary", true)
@@ -314,6 +315,9 @@ export async function loadCoursemapState(
       profile: {
         ...state.profile,
         commencementYear: plan.commencement_year,
+        enrolmentMode: validEnrolmentMode(plan.enrolment_mode)
+          ? plan.enrolment_mode
+          : null,
         catalogueYear: yearResult.data?.year ?? state.profile.catalogueYear,
         studyLoad: plan.study_load === "part_time" ? "Part time" : "Full time",
         extensionYears: plan.extension_years,
