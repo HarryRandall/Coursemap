@@ -50,6 +50,44 @@ const extraction = JSON.parse(
 );
 const pageMarkdown = JSON.stringify(extraction);
 
+test("invalid model course levels are reported rather than silently accepted", () => {
+  assert.deepEqual(
+    COURSE_EXTRACTION_JSON_SCHEMA.properties.level.enum,
+    [0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000],
+  );
+  for (const level of [2400, 2, 1000, null, undefined]) {
+    const model = { ...structuredClone(extraction), level };
+    if (level === undefined) delete model.level;
+    const validation = validateCourseExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(validation.issues.some(({ path }) => path === "$.level"));
+    const result = finaliseCourseExtraction({
+      code: "COMP2400",
+      year: 2026,
+      listingTitle: extraction.title,
+      model,
+      pageMarkdown,
+      finishReason: "stop",
+      responseError: null,
+    });
+    assert.equal(result.extraction.level, 2000);
+    assert.ok(
+      result.extraction.reviewItems.some(
+        (item) => item.fieldKey === "level" && item.severity === "error",
+      ),
+    );
+    assert.ok(
+      result.report.droppedFields.some((item) => item.fieldKey === "level"),
+    );
+  }
+  const suffixed = emptyCourseExtraction({
+    code: "COMP2400A",
+    year: 2026,
+    title: extraction.title,
+  });
+  assert.equal(validateCourseExtraction(suffixed).success, true);
+});
+
 // The actual STAT2001 provider response and ANU page captured on 28 September
 // 2026. The programme identity is supplied by ANU's 2026 directory.
 const stat2001 = JSON.parse(
@@ -81,7 +119,12 @@ test("resolves STAT2001's programme identity without losing its AND/OR tree", ()
     responseError: null,
     knownProgrammes,
   });
-  assert.equal(result.errorCount, 1);
+  assert.equal(result.errorCount, 2);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) => item.fieldKey === "level" && item.severity === "error",
+    ),
+  );
   assert.ok(
     result.extraction.reviewItems.some(
       (item) =>
@@ -144,7 +187,7 @@ test("programme resolution requires an exact and unambiguous name", () => {
     responseError: null,
     knownProgrammes: [],
   });
-  assert.equal(result.errorCount, 2);
+  assert.equal(result.errorCount, 3);
   const projection = projectCourseSnapshot(result.extraction);
   assert.equal(
     projection.ruleConditions.filter(
@@ -344,6 +387,7 @@ test("accepts ANU's single-letter course variants throughout the extraction cont
 
   const variant = structuredClone(extraction);
   variant.code = "COMP8900F";
+  variant.level = 8000;
   variant.offerings[0].classSummaryUrl =
     "https://programsandcourses.anu.edu.au/course/COMP8900F/First%20Semester/1234";
   variant.requisites.prerequisiteRule = {
@@ -403,8 +447,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v15");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v20");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v16");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v21");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1613,7 +1657,12 @@ test("the captured MKTG2003 response preserves a STAT course without guessing un
     responseError: null,
     knownTags: [],
   });
-  assert.equal(finalised.errorCount, 0);
+  assert.equal(finalised.errorCount, 1);
+  assert.ok(
+    finalised.extraction.reviewItems.some(
+      (item) => item.fieldKey === "level" && item.severity === "error",
+    ),
+  );
   assert.deepEqual(finalised.extraction.requisites.prerequisiteRule, {
     op: "min_courses_from_subject",
     minimumCount: 1,
@@ -1753,7 +1802,12 @@ test("the captured MATH1013 response keeps both exclusion scopes while the metad
     knownTags: [],
     knownPeriodCodes: ["S1", "S2"],
   });
-  assert.equal(result.errorCount, 1);
+  assert.equal(result.errorCount, 2);
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) => item.fieldKey === "level" && item.severity === "error",
+    ),
+  );
   assert.ok(
     result.extraction.reviewItems.some(
       (item) =>
