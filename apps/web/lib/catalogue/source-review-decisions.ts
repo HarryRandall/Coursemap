@@ -40,8 +40,9 @@ async function moveProvenanceToSource(
   }: { recordId: number; fieldPath: string; sourceVersionId: number },
 ) {
   const evidence = await tx`
-    select id, field_path, method from public.catalogue_version_provenance
+    select distinct on (field_path) id, field_path, method from public.catalogue_version_provenance
     where version_id = ${sourceVersionId}
+    order by field_path, confidence asc nulls last, id
   `;
   const claimed = evidence.filter((row) =>
     evidenceBelongsToReviewUnit(fieldPath, String(row.field_path)),
