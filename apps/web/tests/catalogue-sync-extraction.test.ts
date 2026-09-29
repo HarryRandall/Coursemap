@@ -1,7 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
-import { OpenRouterRequestError } from "@/lib/catalogue-import/openrouter";
+import {
+  OpenRouterRequestError,
+  restoreOpenRouterExtraction,
+  type OpenRouterProviderError,
+} from "@/lib/catalogue-import/openrouter";
 import {
   COURSE_IMPORT_PARSER_VERSION,
   COURSE_IMPORT_PROMPT_VERSION,
@@ -95,6 +99,25 @@ const unknownUsage = {
   costUsd: null,
 };
 
+function failedResponseAudit(error: Partial<OpenRouterProviderError>) {
+  return {
+    model: "google/gemini-3.1-flash-lite",
+    id: "accepted-failure",
+    finishReason: "error",
+    content: JSON.stringify(extraction),
+    providerError: {
+      code: 403,
+      message: "Key limit exceeded (total limit).",
+      providerName: null,
+      providerCode: null,
+      errorType: null,
+      ...error,
+    },
+    latencyMilliseconds: 100,
+    usage: { ...unknownUsage, inputTokens: 12, outputTokens: 3, costUsd: 0.03 },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.reserve.mockResolvedValue({ id: "extraction", created: true });
@@ -166,6 +189,166 @@ test("a queued sync under a provider pause never claims work or calls the model"
   await processCatalogueSync({ syncId: "sync" });
   expect(mocks.claim).not.toHaveBeenCalled();
   expect(mocks.extract).not.toHaveBeenCalled();
+});
+
+test.each([
+  {
+    code: 403,
+    message: "Key limit exceeded (total limit).",
+    reason: "key_limit",
+  },
+  { code: "402", message: "Insufficient credits.", reason: "credits" },
+  { code: 401, message: "Invalid API key.", reason: "authentication" },
+])(
+  "an accepted $reason failure saves its paid outcome before pausing",
+  async ({ reason, ...error }) => {
+    mocks.providerControl.mockResolvedValue({ revision: 4, pause: null });
+    const audit = failedResponseAudit(error);
+    mocks.extract.mockResolvedValue(
+      restoreOpenRouterExtraction(audit, audit.model),
+    );
+    await processCatalogueSync({ syncId: "sync" });
+    expect(mocks.extract).toHaveBeenCalledTimes(1);
+    expect(mocks.store).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "model_response",
+        body: expect.stringContaining("accepted-failure"),
+      }),
+    );
+    expect(mocks.store.mock.calls.map(([input]) => input.kind)).toContain(
+      "validation_report",
+    );
+    expect(mocks.attach).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        providerRequestId: "accepted-failure",
+        inputTokens: 12,
+        outputTokens: 3,
+        costUsd: 0.03,
+        costSource: "provider",
+      }),
+    );
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ domainValid: false }),
+    );
+    expect(mocks.pause).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        expectedProviderRevision: 4,
+        pause: expect.objectContaining({ reason }),
+      }),
+    );
+    expect(mocks.attach.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.complete.mock.invocationCallOrder[0],
+    );
+    expect(mocks.complete.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.pause.mock.invocationCallOrder[0],
+    );
+    expect(mocks.reject).not.toHaveBeenCalled();
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(mocks.finish).not.toHaveBeenCalled();
+    expect(mocks.persist).not.toHaveBeenCalled();
+  },
+);
+
+test.each([
+  { providerName: "Google" },
+  { providerCode: "RESOURCE_EXHAUSTED" },
+  { code: 429, message: "Rate limit exceeded." },
+  { code: 503, message: "Unavailable." },
+  { code: 403, message: "Content blocked by guardrail." },
+])(
+  "an accepted upstream or individual failure does not pause other imports: %j",
+  async (error) => {
+    const audit = failedResponseAudit(error);
+    mocks.extract.mockResolvedValue(
+      restoreOpenRouterExtraction(audit, audit.model),
+    );
+    await processCatalogueSync({ syncId: "sync" });
+    expect(mocks.pause).not.toHaveBeenCalled();
+    expect(mocks.reject).not.toHaveBeenCalled();
+    expect(mocks.release).not.toHaveBeenCalled();
+    expect(mocks.persist).not.toHaveBeenCalled();
+    expect(mocks.finish).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: "failed",
+        errorCode: "MODEL_EXTRACTION_INVALID",
+      }),
+    );
+  },
+);
+
+test("resuming a saved account failure does not reapply its old pause or pay again", async () => {
+  const audit = failedResponseAudit({});
+  mocks.reserve.mockResolvedValue({
+    id: "extraction",
+    created: false,
+    responseArtifactId: "original-response",
+  });
+  mocks.read.mockResolvedValue(JSON.stringify(audit));
+  const defaultSql = mocks.sql.getMockImplementation()!;
+  mocks.sql.mockImplementation(async (...args) => {
+    const query = Array.from(args[0] as readonly string[]).join("");
+    if (query.includes("from public.catalogue_sync_artifacts"))
+      return [
+        {
+          storage_bucket: "test",
+          storage_path: "original-response",
+          media_type: "application/json",
+          content_sha256: "a".repeat(64),
+          byte_size: 2,
+        },
+      ];
+    return defaultSql(...args);
+  });
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.attach).not.toHaveBeenCalled();
+  expect(mocks.reuse).not.toHaveBeenCalled();
+  expect(mocks.pause).not.toHaveBeenCalled();
+  expect(mocks.reject).not.toHaveBeenCalled();
+  expect(mocks.complete).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ domainValid: false }),
+  );
+  expect(mocks.persist).not.toHaveBeenCalled();
+  expect(mocks.finish).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      status: "failed",
+      errorCode: "MODEL_EXTRACTION_INVALID",
+    }),
+  );
+});
+
+test("a failed response audit write retains an uncertain outcome instead of retrying or pausing", async () => {
+  const audit = failedResponseAudit({});
+  mocks.extract.mockResolvedValue(
+    restoreOpenRouterExtraction(audit, audit.model),
+  );
+  const defaultStore = mocks.store.getMockImplementation()!;
+  mocks.store.mockImplementation(async (input) => {
+    if (input.kind === "model_response")
+      throw new Error("Storage unavailable.");
+    return defaultStore(input);
+  });
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).toHaveBeenCalledTimes(1);
+  expect(mocks.attach).not.toHaveBeenCalled();
+  expect(mocks.complete).not.toHaveBeenCalled();
+  expect(mocks.pause).not.toHaveBeenCalled();
+  expect(mocks.reject).not.toHaveBeenCalled();
+  expect(mocks.release).not.toHaveBeenCalled();
+  expect(mocks.persist).not.toHaveBeenCalled();
+  expect(mocks.finish).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      status: "failed",
+      errorCode: "OPENROUTER_OUTCOME_UNCERTAIN",
+    }),
+  );
 });
 
 test("a pause discovered before extraction leaves no paid-call reservation", async () => {

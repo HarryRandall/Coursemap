@@ -1,6 +1,7 @@
 import {
   OpenRouterConfigurationError,
   OpenRouterRequestError,
+  type OpenRouterProviderError,
 } from "../catalogue-import/openrouter.ts";
 
 export type CatalogueProviderPauseReason =
@@ -30,24 +31,46 @@ export function catalogueProviderPauseReason(
   if (!(error instanceof OpenRouterRequestError) || error.providerName !== null)
     return null;
   if (/provider returned error/i.test(error.message)) return null;
+  return sharedAccountPauseReason(error.status, error.message);
+}
+
+/** Classify fresh accepted responses only; replay must not reapply an old pause. */
+export function catalogueProviderResponsePause(
+  error: OpenRouterProviderError | null | undefined,
+): CatalogueProviderPause | null {
   if (
-    error.status === 403 &&
+    !error?.message ||
+    error.providerName !== null ||
+    error.providerCode !== null ||
+    /provider returned error/i.test(error.message)
+  )
+    return null;
+  const reason = sharedAccountPauseReason(Number(error.code), error.message);
+  return reason ? { reason, message: error.message } : null;
+}
+
+function sharedAccountPauseReason(
+  status: number,
+  message: string,
+): CatalogueProviderPauseReason | null {
+  if (
+    status === 403 &&
     /key limit exceeded\s*\((?:total|daily|weekly|monthly) limit\)/i.test(
-      error.message,
+      message,
     )
   )
     return "key_limit";
   if (
-    error.status === 402 &&
+    status === 402 &&
     /insufficient credits|not enough credits|requires more credits|credit balance.*(?:exhausted|insufficient)/i.test(
-      error.message,
+      message,
     )
   )
     return "credits";
   if (
-    error.status === 401 &&
+    status === 401 &&
     /invalid (?:api key|credentials)|missing (?:api key|authentication)|authentication (?:failed|required)/i.test(
-      error.message,
+      message,
     )
   )
     return "authentication";

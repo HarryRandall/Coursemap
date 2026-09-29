@@ -3,6 +3,8 @@ import { extractionUsageForStorage } from "./extraction-usage.ts";
 import {
   CatalogueProviderPausedError,
   catalogueProviderPauseReason,
+  catalogueProviderResponsePause,
+  type CatalogueProviderPause,
 } from "./provider-pause.ts";
 import {
   holdQueuedSyncWhenProviderPaused,
@@ -419,6 +421,7 @@ async function processClaimedSync({
       let result;
       let responseArtifactId: string;
       let reusedFromExtractionId: string | null = null;
+      let responsePause: CatalogueProviderPause | null = null;
 
       if (reusable) {
         // Identical input already produced a validated response; reuse it
@@ -487,6 +490,7 @@ async function processClaimedSync({
             body: stableStringify(result.responseForAudit),
           });
           responseArtifactId = responseArtifact.id;
+          responsePause = catalogueProviderResponsePause(result.providerError);
         } catch (error) {
           if (
             error instanceof OpenRouterConfigurationError ||
@@ -521,7 +525,7 @@ async function processClaimedSync({
           latencyMs: result.latencyMilliseconds,
         });
       }
-      return { result, extractionId: reservation.id };
+      return { result, extractionId: reservation.id, responsePause };
     });
 
     const modelValidation = await runStage("schema_validate", async () =>
@@ -575,7 +579,11 @@ async function processClaimedSync({
             ? null
             : `${outcome.errorCount} part${outcome.errorCount === 1 ? "" : "s"} of the model response could not be used and need review.`,
       });
-      if (!outcome.canPersist) throw new SyncExtractionInvalidError();
+      if (!outcome.canPersist) {
+        if (modelResult.responsePause)
+          throw new CatalogueProviderPausedError(modelResult.responsePause);
+        throw new SyncExtractionInvalidError();
+      }
       return outcome;
     });
 
