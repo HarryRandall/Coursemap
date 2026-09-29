@@ -1,3 +1,4 @@
+import { validCommencementYearBounds } from "../../../academic/commencement-year.ts";
 import {
   WORKLOAD_HOURS_BASES,
   type WorkloadHoursBasis,
@@ -94,6 +95,11 @@ export type CourseRule =
     }
   | { op: "enrolled_in"; programmeCode: string }
   | { op: "year_standing"; minimumYear: number }
+  | {
+      op: "commencement_year";
+      minimumYear: number | null;
+      maximumYear: number | null;
+    }
   | { op: "minimum_gpa"; value: number; scale: "anu7" | "wam100" }
   | { op: "permission"; sourceText?: string | null };
 
@@ -623,6 +629,33 @@ function validateRule(
       requireString(record.programmeCode, `${path}.programmeCode`, issues, {
         pattern: /^[A-Z0-9-]{3,20}$/,
       });
+  } else if (op === "commencement_year") {
+    const record = exactRecord(
+      value,
+      path,
+      ["op", "minimumYear", "maximumYear"],
+      issues,
+    );
+    if (record) {
+      for (const key of ["minimumYear", "maximumYear"] as const)
+        requireNumber(record[key], `${path}.${key}`, issues, {
+          nullable: true,
+          integer: true,
+          minimum: 1900,
+          maximum: 9999,
+        });
+      if (
+        !validCommencementYearBounds({
+          minimumCommencementYear: record.minimumYear as number | null,
+          maximumCommencementYear: record.maximumYear as number | null,
+        })
+      )
+        issues.push({
+          path,
+          message:
+            "must have an ordered commencement-year range with at least one calendar-year bound",
+        });
+    }
   } else if (op === "year_standing") {
     const record = exactRecord(value, path, ["op", "minimumYear"], issues);
     if (record)
@@ -1746,6 +1779,28 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             op: { const: "enrolled_in" },
             programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
           },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "minimumYear", "maximumYear"],
+          properties: {
+            op: { const: "commencement_year" },
+            minimumYear: {
+              type: ["integer", "null"],
+              minimum: 1900,
+              maximum: 9999,
+            },
+            maximumYear: {
+              type: ["integer", "null"],
+              minimum: 1900,
+              maximum: 9999,
+            },
+          },
+          anyOf: [
+            { properties: { minimumYear: { type: "integer" } } },
+            { properties: { maximumYear: { type: "integer" } } },
+          ],
         },
         {
           type: "object",

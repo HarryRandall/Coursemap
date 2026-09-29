@@ -1,3 +1,7 @@
+import {
+  commencementYearLabel,
+  validCommencementYearBounds,
+} from "../academic/commencement-year.ts";
 export const REVIEWED_OPERATORS = ["all_of", "any_of", "at_least"] as const;
 
 export type ReviewedOperator = (typeof REVIEWED_OPERATORS)[number];
@@ -13,6 +17,7 @@ export const REVIEWED_CONDITION_KINDS = [
   "level_units",
   "course_set_units",
   "year_standing",
+  "commencement_year",
   "gpa",
   "wam",
   "permission",
@@ -35,6 +40,8 @@ export type ReviewedConditionInput = {
   subjectCode?: string | null;
   level?: number | null;
   minimumYear?: number | null;
+  minimumCommencementYear?: number | null;
+  maximumCommencementYear?: number | null;
   gpa?: number | null;
   wam?: number | null;
   mark?: number | null;
@@ -97,6 +104,8 @@ export type StoredRuleCondition = {
   level: number | null;
   gpa: number | null;
   minimumYear?: number | null;
+  minimumCommencementYear?: number | null;
+  maximumCommencementYear?: number | null;
   wam?: number | null;
   courseCodes?: string[] | null;
   mark: number | null;
@@ -515,6 +524,14 @@ function storedConditionToView(
             courseCodes: condition.courseCodes,
           }
         : null;
+    case "commencement_year":
+      return validCommencementYearBounds(condition)
+        ? {
+            kind: "commencement_year",
+            minimumCommencementYear: condition.minimumCommencementYear ?? null,
+            maximumCommencementYear: condition.maximumCommencementYear ?? null,
+          }
+        : null;
     case "year_standing":
       return condition.minimumYear != null
         ? { kind: "year_standing", minimumYear: condition.minimumYear }
@@ -759,6 +776,20 @@ function normaliseCondition(
         condition: { kind: "course_set_units", units, courseCodes: codes },
       };
     }
+    case "commencement_year": {
+      if (!validCommencementYearBounds(condition))
+        return {
+          message:
+            "Choose an ordered commencement-year range between 1900 and 9999, with at least one bound.",
+        };
+      return {
+        condition: {
+          kind: "commencement_year",
+          minimumCommencementYear: condition.minimumCommencementYear ?? null,
+          maximumCommencementYear: condition.maximumCommencementYear ?? null,
+        },
+      };
+    }
     case "year_standing": {
       const minimumYear = Number(condition.minimumYear);
       if (
@@ -837,6 +868,8 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       }`;
     case "course_set_units":
       return `${condition.units} units from ${(condition.courseCodes ?? []).join(", ")}`;
+    case "commencement_year":
+      return commencementYearLabel(condition);
     case "year_standing":
       return `At least year ${condition.minimumYear} standing`;
     case "gpa":
@@ -862,6 +895,7 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   level_units: "Units at a level",
   course_set_units: "Units from courses",
   year_standing: "Year standing",
+  commencement_year: "Commencement year",
   gpa: "Grade average",
   wam: "WAM",
   permission: "Permission",
@@ -878,6 +912,7 @@ export const CONDITION_FAMILY_KINDS = [
   "level_units",
   "course_set_units",
   "year_standing",
+  "commencement_year",
   "gpa",
   "wam",
   "permission",
@@ -966,6 +1001,8 @@ export function isConditionComplete(condition: ReviewedConditionView) {
       return condition.units != null && condition.level != null;
     case "course_set_units":
       return condition.units != null && Boolean(condition.courseCodes?.length);
+    case "commencement_year":
+      return validCommencementYearBounds(condition);
     case "year_standing":
       return condition.minimumYear != null;
     case "gpa":
@@ -1031,6 +1068,8 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.units != null && condition.courseCodes?.length
         ? `Completed ${condition.units} units from ${condition.courseCodes.join(", ")}`
         : "Set the units and courses";
+    case "commencement_year":
+      return commencementYearLabel(condition);
     case "year_standing":
       return condition.minimumYear != null
         ? `At least year ${condition.minimumYear} standing`

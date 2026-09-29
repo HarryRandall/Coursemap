@@ -215,3 +215,124 @@ test("a conditional permission exclusion preserves alternatives in desktop and m
     await sql.end();
   }
 });
+
+test("commencement-year waiver bounds render and autosave without losing the school permission", async ({
+  page,
+  administrator,
+}, testInfo) => {
+  const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+    max: 1,
+  });
+  const code = "TSTE9906";
+  let codeId: number | undefined;
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    const [year] =
+      await sql`select id from public.academic_years where year = 2026`;
+    const [identity] =
+      await sql`insert into public.catalogue_codes (kind, code) values ('course', ${code}) returning id`;
+    codeId = identity.id;
+    const [record] =
+      await sql`insert into public.catalogue_records (code_id, kind, academic_year_id) values (${identity.id}, 'course', ${year.id}) returning id`;
+    const title = "Commencement-year waiver browser fixture";
+    await sql`insert into public.catalogue_listings (academic_year_id, kind, code, title, code_id, record_id, is_current) values (${year.id}, 'course', ${code}, ${title}, ${identity.id}, ${record.id}, true)`;
+    const model = emptyCourseExtraction({ code, year: 2026, title });
+    const text = "Request permission from the Research School of Economics.";
+    model.requisites.prerequisiteText =
+      "ECON2101 and either EMET1001 or school permission for students who commenced before 2021.";
+    model.requisites.prerequisiteRule = {
+      op: "all_of",
+      rules: [
+        { op: "completed", courseCode: "ECON2101" },
+        {
+          op: "one_of",
+          rules: [
+            { op: "completed", courseCode: "EMET1001" },
+            {
+              op: "all_of",
+              rules: [
+                {
+                  op: "commencement_year",
+                  minimumYear: null,
+                  maximumYear: 2020,
+                },
+                { op: "permission", sourceText: text },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const content = courseCatalogueContent({
+      projection: projectCourseSnapshot(model),
+    });
+    content.contentHash = contentHashForCatalogueContent(content);
+    await sql`insert into public.catalogue_drafts (record_id, content, content_hash, content_schema_version) values (${record.id}, ${sql.json(content)}, ${content.contentHash}, ${CATALOGUE_CONTENT_SCHEMA_VERSION})`;
+    await login(page, administrator);
+    await page.goto(`/admin/courses/2026/${code.toLowerCase()}/student-view`);
+    await page.getByRole("tab", { name: "Requisites", exact: true }).click();
+    const main = page.getByRole("main");
+    await expect(
+      main
+        .getByRole("paragraph")
+        .filter({ hasText: /^Commenced in or before 2020$/u }),
+    ).toBeVisible();
+    await expect(main.getByText(text, { exact: true }).first()).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      main
+        .getByRole("paragraph")
+        .filter({ hasText: /^Commenced in or before 2020$/u }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("commencement-waiver-mobile.png"),
+      fullPage: true,
+    });
+    await page.getByRole("tab", { name: "Content", exact: true }).click();
+    await page.getByRole("button", { name: /Prerequisit/u }).click();
+    const latest = page.getByRole("spinbutton", {
+      name: "Latest commencement year",
+      exact: true,
+    });
+    await expect(latest).toHaveValue("2020");
+    await latest.fill("2019");
+    await latest.press("Tab");
+    await expect
+      .poll(async () => {
+        const [draft] =
+          await sql`select content from public.catalogue_drafts where record_id = ${record.id}`;
+        return draft.content.requirements.conditions.find(
+          (condition: { kind: string }) =>
+            condition.kind === "commencement_year",
+        ).maximumCommencementYear;
+      })
+      .toBe(2019);
+    const [draft] =
+      await sql`select content from public.catalogue_drafts where record_id = ${record.id}`;
+    expect(
+      draft.content.requirements.groups.map(
+        (group: { operator: string }) => group.operator,
+      ),
+    ).toEqual(["all_of", "any_of", "all_of"]);
+    expect(
+      draft.content.requirements.conditions.find(
+        (condition: { kind: string }) => condition.kind === "permission",
+      ),
+    ).toMatchObject({ freeText: text, sourceText: text });
+    await page.getByRole("tab", { name: "Student view", exact: true }).click();
+    await page.getByRole("tab", { name: "Requisites", exact: true }).click();
+    await expect(
+      main
+        .getByRole("paragraph")
+        .filter({ hasText: /^Commenced in or before 2019$/u }),
+    ).toBeVisible();
+    expect(errors).toEqual([]);
+    await page.goto("/admin/courses");
+  } finally {
+    await sql`delete from public.catalogue_listings where code = ${code}`;
+    if (codeId !== undefined)
+      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+    await sql.end();
+  }
+});

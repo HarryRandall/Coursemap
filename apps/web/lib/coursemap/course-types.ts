@@ -45,6 +45,11 @@ export type CourseRuleExpression =
       units: number;
     })
   | (CourseRuleConditionBase & {
+      kind: "commencement_year";
+      minimumCommencementYear: number | null;
+      maximumCommencementYear: number | null;
+    })
+  | (CourseRuleConditionBase & {
       kind: "year_standing";
       minimumYear: number;
     })

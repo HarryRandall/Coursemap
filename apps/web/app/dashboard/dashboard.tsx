@@ -87,8 +87,12 @@ export function Dashboard({
     [catalogue.terms, timelineYears],
   );
   const planningCatalogue = useMemo(
-    () => ({ ...catalogue, terms: timelineTerms }),
-    [catalogue, timelineTerms],
+    () => ({
+      ...catalogue,
+      terms: timelineTerms,
+      commencementYear: state.profile.commencementYear,
+    }),
+    [catalogue, timelineTerms, state.profile.commencementYear],
   );
   const unitTarget = degree?.units ?? null;
   const progress = degreeUnitProgress(
@@ -214,7 +218,11 @@ export function Dashboard({
     const gradeCodes = new Set<string>(gradeBands.map((band) => band.code));
     return planned
       .map(({ attempt, course }) => {
-        const status = effectiveStatus(attempt, state.attempts, catalogue);
+        const status = effectiveStatus(
+          attempt,
+          state.attempts,
+          planningCatalogue,
+        );
         const code = attempt.resultCode?.toUpperCase();
         return {
           code: course.code,

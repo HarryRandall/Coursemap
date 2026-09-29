@@ -734,3 +734,96 @@ test("permission waives a conditional prior-course exclusion without waiving ind
     "approval",
   );
 });
+
+test("cohort approval can waive one course without waiving the cohort or other compulsory courses", () => {
+  const base = {
+    confidence: 1,
+    hardness: "hard",
+    reviewState: "verified",
+    sourceText:
+      "Pre-2021 entrants may request school permission instead of COMP1100",
+  };
+  const expression = {
+    kind: "group",
+    operator: "all_of",
+    minimumCount: null,
+    conditions: [
+      {
+        ...base,
+        kind: "course",
+        code: "MATH1005",
+        minimumMark: null,
+        requirementMode: "completed",
+      },
+      {
+        kind: "group",
+        operator: "any_of",
+        minimumCount: null,
+        conditions: [
+          {
+            ...base,
+            kind: "course",
+            code: "COMP1100",
+            minimumMark: null,
+            requirementMode: "completed",
+          },
+          {
+            kind: "group",
+            operator: "all_of",
+            minimumCount: null,
+            conditions: [
+              {
+                ...base,
+                kind: "commencement_year",
+                minimumCommencementYear: null,
+                maximumCommencementYear: 2020,
+              },
+              { ...base, kind: "permission", text: base.sourceText },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const catalogue = {
+    ...demoCatalogue,
+    courses: demoCatalogue.courses.map((course) =>
+      course.code === "COMP1110" && course.year === 2026
+        ? {
+            ...course,
+            prerequisiteRule: {
+              ...base,
+              expression: null,
+              relationalExpression: expression,
+            },
+            prerequisiteCodes: [],
+            permissionText: "",
+            incompatibilityRule: null,
+          }
+        : course,
+    ),
+  };
+  for (const [codes, commencementYear, permissionApproved, expected] of [
+    [["MATH1005"], 2020, true, "planned"],
+    [["MATH1005"], 2020, false, "approval"],
+    [["MATH1005"], 2021, true, "approval"],
+    [["MATH1005"], null, true, "approval"],
+    [["MATH1005", "COMP1100"], 2024, false, "planned"],
+    [[], 2020, true, "blocked"],
+  ]) {
+    const target = {
+      ...attempt("target", "COMP1110", "2026-s2"),
+      permissionApproved,
+    };
+    const history = codes.map((code) =>
+      attempt(code, code, "2026-s1", "completed"),
+    );
+    assert.equal(
+      effectiveStatus(target, [...history, target], {
+        ...catalogue,
+        commencementYear,
+      }),
+      expected,
+    );
+  }
+});

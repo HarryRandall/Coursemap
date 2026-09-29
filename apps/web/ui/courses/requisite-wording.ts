@@ -1,3 +1,4 @@
+import { commencementYearLabel } from "@/lib/academic/commencement-year";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
@@ -90,6 +91,8 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
       return `${condition.units} units tagged ${condition.tag}`;
     case "elective_units":
       return `${condition.units} units of electives`;
+    case "commencement_year":
+      return commencementYearLabel(condition);
     case "year_standing":
       return `Year ${condition.minimumYear} or later`;
     case "structure":
@@ -135,6 +138,8 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
       return `Complete ${condition.units} units of courses tagged ${condition.tag}`;
     case "elective_units":
       return `Complete ${condition.units} units of electives`;
+    case "commencement_year":
+      return commencementYearLabel(condition);
     case "year_standing":
       return `Be in year ${condition.minimumYear} or later of your degree`;
     case "structure":
