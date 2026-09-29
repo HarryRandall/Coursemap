@@ -1178,9 +1178,11 @@ export type Database = {
           latency_ms: number | null
           output_tokens: number | null
           prompt_version: string
+          provider_http_status: number | null
           provider_request_id: string | null
           reasoning_tokens: number | null
           request_artifact_id: string
+          request_outcome: string
           requested_model: string
           resolved_model: string | null
           response_artifact_id: string | null
@@ -1209,9 +1211,11 @@ export type Database = {
           latency_ms?: number | null
           output_tokens?: number | null
           prompt_version: string
+          provider_http_status?: number | null
           provider_request_id?: string | null
           reasoning_tokens?: number | null
           request_artifact_id: string
+          request_outcome?: string
           requested_model: string
           resolved_model?: string | null
           response_artifact_id?: string | null
@@ -1240,9 +1244,11 @@ export type Database = {
           latency_ms?: number | null
           output_tokens?: number | null
           prompt_version?: string
+          provider_http_status?: number | null
           provider_request_id?: string | null
           reasoning_tokens?: number | null
           request_artifact_id?: string
+          request_outcome?: string
           requested_model?: string
           resolved_model?: string | null
           response_artifact_id?: string | null

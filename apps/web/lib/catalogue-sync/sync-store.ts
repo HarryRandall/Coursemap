@@ -327,6 +327,7 @@ export async function reserveExtraction(
   const [existing] =
     await sql`select id, response_artifact_id from public.catalogue_extractions
     where sync_id = ${input.syncId}::uuid and fingerprint = ${input.fingerprint}
+      and request_outcome not in ('rejected', 'not_sent')
     order by started_at desc limit 1`;
   if (existing)
     return {
@@ -354,6 +355,7 @@ export async function attachExtractionResponse(
 ) {
   await sql`update public.catalogue_extractions set
     response_artifact_id = ${input.responseArtifactId}::uuid,
+    request_outcome = 'response', provider_http_status = null,
     resolved_model = ${input.resolvedModel as string},
     reused_from_extraction_id = ${input.reusedFromExtractionId as string | null}::uuid,
     provider_request_id = ${input.providerRequestId as string | null},
@@ -365,6 +367,32 @@ export async function attachExtractionResponse(
     cost_usd = ${input.costUsd as number | null}, cost_source = ${input.costSource as string},
     latency_ms = ${Math.round(input.latencyMs as number)}
     where id = ${input.extractionId}::uuid`;
+}
+
+/** Only a definitive rejection or a failure before sending permits a new call. */
+export async function recordExtractionRequestFailure(
+  sql: AnySyncSql,
+  input: {
+    extractionId: string;
+    outcome: "rejected" | "not_sent";
+    providerHttpStatus: number | null;
+    errorSummary: string;
+  },
+) {
+  const rows = await sql`update public.catalogue_extractions
+    set request_outcome = ${input.outcome}, provider_http_status = ${input.providerHttpStatus},
+        finish_reason = ${input.outcome === "rejected" ? "http_error" : "not_sent"},
+        validation_status = 'invalid', schema_valid = false, domain_valid = false,
+        error_count = 1, error_summary = ${input.errorSummary}, completed_at = now()
+    where id = ${input.extractionId}::uuid and request_outcome = 'pending'
+      and response_artifact_id is null
+    returning id`;
+  if (rows.length !== 1) {
+    throw new SyncStoreError(
+      "The extraction request outcome could not be recorded.",
+      "EXTRACTION_OUTCOME_CONFLICT",
+    );
+  }
 }
 
 export async function completeExtraction(
