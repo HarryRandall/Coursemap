@@ -21,7 +21,7 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-/** Identity the record already has; the model never supplies these. */
+/** Known identity fields do not count as extracted course content. */
 const COURSE_IDENTITY_FIELDS = [
   "schemaVersion",
   "code",
@@ -137,7 +137,9 @@ export function finaliseCourseExtraction({
   const { extraction, dropped } = salvageModelExtraction({
     value: canonical.value,
     empty,
-    fixedKeys: COURSE_IDENTITY_FIELDS,
+    // Validate the model's level before falling back to the known identity.
+    // A rejected value remains an extraction error, so it cannot be published.
+    fixedKeys: COURSE_IDENTITY_FIELDS.filter((key) => key !== "level"),
     optionalKeys: ["workloadHoursBasis"],
     validate: (candidate) =>
       validateCourseExtraction(candidate, {

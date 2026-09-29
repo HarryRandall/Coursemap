@@ -1,4 +1,5 @@
 import "server-only";
+import { courseLevelForCode } from "@/lib/academic/course-level";
 
 import type {
   SyncSql,
@@ -544,6 +545,16 @@ export async function publishCatalogueDraft({
       const draft = draftFromRow(row);
       if (draft.revision !== expectedRevision)
         throw new CatalogueDraftConflictError(draft.revision);
+      if (
+        draft.content.kind === "course" &&
+        (courseLevelForCode(draft.content.code) === null ||
+          draft.content.course.details.level !==
+            courseLevelForCode(draft.content.code))
+      )
+        throw new CatalogueDraftError(
+          "The course level does not match its course code. Correct the level before publishing.",
+          "INVALID_COURSE_LEVEL",
+        );
       // A first reading from ANU is the model's word until a person has
       // looked at the parts it was unsure of.
       if (draft.content.flags.some((flag) => flag.severity === "error"))
