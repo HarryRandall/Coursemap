@@ -593,10 +593,12 @@ export async function persistSourceVersion(
         revision = public.catalogue_drafts.revision + 1, updated_by = null,
         updated_at = now()`;
       await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
+      // Preserve every source excerpt while choosing one conservative draft pointer per field.
       await tx`insert into public.catalogue_draft_provenance (
         record_id, field_path, origin, source_version_id, source_evidence_id
-      ) select ${claim.recordId}, field_path, method, ${sourceVersionId}, id
-        from public.catalogue_version_provenance where version_id = ${sourceVersionId}`;
+      ) select distinct on (field_path) ${claim.recordId}, field_path, method, ${sourceVersionId}, id
+        from public.catalogue_version_provenance where version_id = ${sourceVersionId}
+        order by field_path, confidence asc nulls last, id`;
       await tx`insert into public.catalogue_change_events (
         record_id, draft_revision, event_kind, origin, version_id
       ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}

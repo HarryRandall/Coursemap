@@ -10,7 +10,10 @@ import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-versi
 import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
 import { loadSourceReview } from "../lib/catalogue/source-review-store.ts";
 import { resolveSourceChange } from "../lib/catalogue/source-review-decisions.ts";
-import { publishCatalogueDraft } from "../lib/catalogue/drafts.ts";
+import {
+  publishCatalogueDraft,
+  restoreCatalogueVersion,
+} from "../lib/catalogue/drafts.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
@@ -303,10 +306,17 @@ test("using ANU writes one path, keeps unrelated edits and moves only its proven
   const converged = await currentReview(CHANGE_CODE);
   assert.equal(converged, null);
 
-  const changed = await observeSource(
+  const incomingContent = sourceContent(
     CHANGE_CODE,
-    sourceContent(CHANGE_CODE, "Change Record", "Updated ANU wording."),
+    "Change Record",
+    "Updated ANU wording.",
   );
+  incomingContent.evidence.push({
+    ...incomingContent.evidence[0],
+    confidence: 0.75,
+    sourceLocator: "#second-description-excerpt",
+  });
+  const changed = await observeSource(CHANGE_CODE, incomingContent);
   assert.equal(changed.status, "review_required");
   const review = await currentReview(CHANGE_CODE);
   assert.deepEqual(
@@ -363,6 +373,12 @@ test("using ANU writes one path, keeps unrelated edits and moves only its proven
     changed.sourceVersionId,
   );
 
+  const [selected] =
+    await sql`select evidence.confidence from public.catalogue_draft_provenance as draft join public.catalogue_version_provenance as evidence on evidence.id = draft.source_evidence_id where draft.record_id = ${recordId} and draft.field_path = 'description'`;
+  assert.equal(Number(selected.confidence), 0.75);
+  const [excerpts] =
+    await sql`select count(*)::integer as count from public.catalogue_version_provenance where version_id = ${changed.sourceVersionId} and field_path = 'description'`;
+  assert.equal(excerpts.count, 2);
   const [acceptedEvent] = await sql`
     select events.id, events.event_kind, events.draft_revision, events.sync_change_id
     from public.catalogue_change_events as events
@@ -403,6 +419,20 @@ test("using ANU writes one path, keeps unrelated edits and moves only its proven
   assert.equal(reclassified.conflicts.length, 1);
   assert.equal(reclassified.conflicts[0].isStale, true);
   assert.equal(reclassified.conflicts[0].localValue, "Rewritten locally.");
+
+  await restoreCatalogueVersion({
+    recordId,
+    versionId: changed.sourceVersionId,
+    expectedRevision: 4,
+    replaceExistingDraft: true,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  const restoredEvidence =
+    await sql`select evidence.confidence from public.catalogue_draft_provenance as draft join public.catalogue_version_provenance as evidence on evidence.id = draft.source_evidence_id where draft.record_id = ${recordId} and draft.field_path = 'description'`;
+  assert.equal(restoredEvidence.length, 1);
+  assert.equal(Number(restoredEvidence[0].confidence), 0.75);
 });
 
 test("a first reading is rated for review and holds publishing until approved", async () => {

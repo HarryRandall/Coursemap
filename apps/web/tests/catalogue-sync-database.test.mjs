@@ -164,6 +164,13 @@ test("first, unchanged and changed source observations preserve local intent", a
     "Empty Source Record",
     "First ANU description.",
   );
+  firstContent.evidence = [0.95, 0.7, 0.7].map((confidence, index) => ({
+    fieldPath: "description",
+    method: "model",
+    confidence,
+    sourceLocator: `#description-${index}`,
+    sourceExcerpt: "First ANU description.",
+  }));
   const firstFixture = await createSyncFixture(EMPTY_CODE, "1".repeat(64));
   const first = await persistSourceVersion(sql, {
     claim: firstFixture.claim,
@@ -194,6 +201,16 @@ test("first, unchanged and changed source observations preserve local intent", a
   );
   assert.equal(Number(populated.base_version_id), first.sourceVersionId);
 
+  const sourceEvidence =
+    await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;
+  assert.equal(sourceEvidence.length, 3);
+  const draftEvidence =
+    await sql`select source_evidence_id from public.catalogue_draft_provenance where record_id = ${emptyRecordId} and field_path = 'description'`;
+  assert.equal(draftEvidence.length, 1);
+  assert.equal(
+    Number(draftEvidence[0].source_evidence_id),
+    Number(sourceEvidence[1].id),
+  );
   const unchangedFixture = await createSyncFixture(EMPTY_CODE, "1".repeat(64));
   const unchanged = await persistSourceVersion(sql, {
     claim: unchangedFixture.claim,

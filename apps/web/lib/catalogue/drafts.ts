@@ -127,14 +127,17 @@ async function copyVersionProvenance(
   recordId: number,
   versionId: number,
 ) {
+  // Source versions retain every excerpt; a draft has one pointer per field.
+  // Keep the weakest known confidence, with stable IDs resolving ties.
   await sql`
     insert into public.catalogue_draft_provenance (
       record_id, field_path, origin, source_version_id, source_evidence_id
     )
-    select ${recordId}, evidence.field_path, evidence.method,
+    select distinct on (evidence.field_path) ${recordId}, evidence.field_path, evidence.method,
       ${versionId}, evidence.id
     from public.catalogue_version_provenance as evidence
     where evidence.version_id = ${versionId}
+    order by evidence.field_path, evidence.confidence asc nulls last, evidence.id
     on conflict (record_id, field_path) do update set
       origin = excluded.origin,
       source_version_id = excluded.source_version_id,
