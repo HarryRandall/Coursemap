@@ -4,8 +4,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v8";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v11";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v9";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v12";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -30,7 +30,7 @@ Source rules:
 6. Record every printed fee row: the student contribution band, domestic and international fees alike, each with its printed year, audience, basis and source wording. Do not assume the fee year equals the selected year. A student contribution band belongs in its own commonwealth_supported / student_contribution row, with amount null when no amount is printed. Do not attach that band to a domestic or international tuition row.
 7. Record learning outcomes, assessment items, outcome links, workload, inherent requirements, prescribed texts, areas of interest, STEM status and graduate attributes when present.
 8. Separate hard incompatibilities from discretionary or soft incompatibilities.
-9. Every non-null offering date is an ISO calendar date in YYYY-MM-DD form. Convert display dates such as 23 Feb 2026.
+9. Every non-null offering date is an ISO calendar date in YYYY-MM-DD form. Convert display dates such as 23 Feb 2026. Keep the printed year: an offering in the selected year can finish in the following year, especially a Spring session. Do not discard that class, shift its end date into the starting year or import classes from another year's offering group. startsOn belongs to calendarYear; endsOn, lastEnrolmentDate and censusDate may belong to calendarYear or the following year.
 10. classSummaryUrl is null or a complete HTTPS URL on programsandcourses.anu.edu.au taken from the page.
 11. Use null or [] when the page does not state something.
 

@@ -194,9 +194,29 @@ test("first, unchanged and changed source observations preserve local intent", a
   };
   filterModel.requisites.assumedKnowledgeText =
     "Familiarity with matrix algebra is recommended.";
-  firstContent.requirements = courseCatalogueContent({
+  filterModel.offerings = [
+    {
+      position: 1,
+      calendarYear: YEAR,
+      periodCode: "SPRING",
+      periodName: "Spring Session",
+      classNumber: "9504",
+      startsOn: "2026-10-01",
+      endsOn: "2027-02-07",
+      lastEnrolmentDate: "2026-11-01",
+      censusDate: "2026-12-13",
+      deliveryMode: "In Person",
+      location: null,
+      classSummaryUrl: null,
+      sourceText: "Spring Session, 1 Oct 2026 to 7 Feb 2027.",
+    },
+  ];
+  const filterContent = courseCatalogueContent({
     projection: projectCourseSnapshot(filterModel),
-  }).requirements;
+  });
+  firstContent.requirements = filterContent.requirements;
+  firstContent.course.offering = filterContent.course.offering;
+  firstContent.course.sessions = filterContent.course.sessions;
   firstContent.contentHash = contentHashForCatalogueContent(firstContent);
   firstContent.evidence = [0.95, 0.7, 0.7].map((confidence, index) => ({
     fieldPath: "description",
@@ -262,6 +282,11 @@ test("first, unchanged and changed source observations preserve local intent", a
     persistedKnowledge.free_text,
     "Familiarity with matrix algebra is recommended.",
   );
+
+  const [persistedSession] =
+    await sql`select starts_on::text, ends_on::text from public.offering_sessions where version_id = ${first.sourceVersionId}`;
+  assert.equal(persistedSession.starts_on, "2026-10-01");
+  assert.equal(persistedSession.ends_on, "2027-02-07");
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

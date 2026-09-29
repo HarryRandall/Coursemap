@@ -927,13 +927,30 @@ function validateExtractionShape(
         typeof date === "string" &&
         DATE_PATTERN.test(date) &&
         typeof offering.calendarYear === "number" &&
-        Number(date.slice(0, 4)) !== offering.calendarYear
+        (Number(date.slice(0, 4)) < offering.calendarYear ||
+          Number(date.slice(0, 4)) >
+            offering.calendarYear + (field === "startsOn" ? 0 : 1))
       ) {
         issues.push({
           path: `${path}.${field}`,
-          message: "must belong to the offering calendar year",
+          message:
+            field === "startsOn"
+              ? "must belong to the offering calendar year"
+              : "must belong to the offering calendar year or the following year",
         });
       }
+    }
+    if (
+      typeof offering.startsOn === "string" &&
+      typeof offering.endsOn === "string" &&
+      DATE_PATTERN.test(offering.startsOn) &&
+      DATE_PATTERN.test(offering.endsOn) &&
+      offering.endsOn < offering.startsOn
+    ) {
+      issues.push({
+        path: `${path}.endsOn`,
+        message: "must not be before startsOn",
+      });
     }
     requireString(offering.deliveryMode, `${path}.deliveryMode`, issues, {
       nullable: true,
