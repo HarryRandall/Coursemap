@@ -5,6 +5,7 @@ export type ReviewedOperator = (typeof REVIEWED_OPERATORS)[number];
 export const REVIEWED_CONDITION_KINDS = [
   "course",
   "incompatible",
+  "incompatible_concurrent",
   "structure",
   "units_total",
   "subject_units",
@@ -24,6 +25,7 @@ export const MAX_REVIEWED_GROUP_DEPTH = 5;
 
 export type ReviewedConditionInput = {
   kind: ReviewedConditionKind;
+  hardness?: "hard" | "advisory";
   courseCode?: string | null;
   courseRequirementMode?: "completed" | "completed_or_concurrent" | null;
   structureCode?: string | null;
@@ -459,9 +461,10 @@ function storedConditionToView(
           }
         : null;
     case "incompatible":
+    case "incompatible_concurrent":
       return condition.courseCode
         ? {
-            kind: "incompatible",
+            kind: condition.kind,
             courseCode: condition.courseCode,
             courseTitle: condition.courseTitle,
           }
@@ -578,8 +581,17 @@ function validateGroupInput(
     if ("message" in normalised) {
       return { message: `${childLabel}: ${normalised.message}` };
     }
+    if (
+      child.hardness !== undefined &&
+      child.hardness !== "hard" &&
+      child.hardness !== "advisory"
+    )
+      return {
+        message: `${childLabel}: Choose a hard or advisory requirement.`,
+      };
     children.push({
       ...normalised.condition,
+      ...(child.hardness === undefined ? {} : { hardness: child.hardness }),
       type: "condition",
       id: "id" in child && child.id ? child.id : `${fallbackId}-c${index}`,
     });
@@ -647,12 +659,13 @@ function normaliseCondition(
         },
       };
     }
-    case "incompatible": {
+    case "incompatible":
+    case "incompatible_concurrent": {
       const code = (condition.courseCode ?? "").trim().toUpperCase();
       if (!COURSE_CODE_PATTERN.test(code)) {
         return { message: "Choose a course code." };
       }
-      return { condition: { kind: "incompatible", courseCode: code } };
+      return { condition: { kind: condition.kind, courseCode: code } };
     }
     case "structure": {
       const code = (condition.structureCode ?? "").trim().toUpperCase();
@@ -797,6 +810,10 @@ export function conditionSourceText(condition: ReviewedConditionView) {
         : condition.courseRequirementMode === "completed_or_concurrent"
           ? `${condition.courseCode} completed or taken concurrently`
           : (condition.courseCode ?? "");
+    case "incompatible_concurrent":
+      return condition.courseCode
+        ? `Must not concurrently enrol in ${condition.courseCode}`
+        : "Choose a course";
     case "incompatible":
       return condition.courseCode
         ? `Must not have completed ${condition.courseCode}`
@@ -837,6 +854,7 @@ export function conditionSourceText(condition: ReviewedConditionView) {
 export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   course: "Course",
   incompatible: "Course",
+  incompatible_concurrent: "Course",
   structure: "Programme",
   units_total: "Units of study",
   subject_units: "Units in a subject",
@@ -868,16 +886,20 @@ export const CONDITION_FAMILY_KINDS = [
 
 export type ConditionFamilyKind = (typeof CONDITION_FAMILY_KINDS)[number];
 
-export type CourseMatch = "completed" | "concurrent" | "not_completed" | "mark";
+export type CourseMatch =
+  "completed" | "concurrent" | "not_completed" | "not_concurrent" | "mark";
 
 export function conditionFamily(
   kind: ReviewedConditionKind,
 ): ConditionFamilyKind {
-  return kind === "incompatible" ? "course" : kind;
+  return kind === "incompatible" || kind === "incompatible_concurrent"
+    ? "course"
+    : kind;
 }
 
 export function courseMatch(condition: ReviewedConditionView): CourseMatch {
   if (condition.kind === "incompatible") return "not_completed";
+  if (condition.kind === "incompatible_concurrent") return "not_concurrent";
   if (condition.kind === "course" && condition.mark != null) return "mark";
   if (
     condition.kind === "course" &&
@@ -892,17 +914,24 @@ export function applyCourseMatch(
   condition: ReviewedConditionNode,
   match: CourseMatch,
 ): ReviewedConditionNode {
-  if (match === "not_completed") {
+  if (match === "not_completed" || match === "not_concurrent") {
     return {
       type: "condition",
+      ...(condition.hardness === undefined
+        ? {}
+        : { hardness: condition.hardness }),
       id: condition.id,
-      kind: "incompatible",
+      kind:
+        match === "not_concurrent" ? "incompatible_concurrent" : "incompatible",
       courseCode: condition.courseCode,
       courseTitle: condition.courseTitle,
     };
   }
   return {
     type: "condition",
+    ...(condition.hardness === undefined
+      ? {}
+      : { hardness: condition.hardness }),
     id: condition.id,
     kind: "course",
     courseCode: condition.courseCode,
@@ -923,6 +952,7 @@ export function isConditionComplete(condition: ReviewedConditionView) {
     case "course":
       return Boolean(condition.courseCode);
     case "incompatible":
+    case "incompatible_concurrent":
       return Boolean(condition.courseCode);
     case "structure":
       return Boolean(condition.structureCode || condition.freeText?.trim());
@@ -965,6 +995,10 @@ export function conditionSummary(condition: ReviewedConditionView) {
         ? `Completed ${condition.courseCode} with a mark of ${condition.mark}`
         : `Completed ${condition.courseCode}`;
     }
+    case "incompatible_concurrent":
+      return condition.courseCode
+        ? `Must not concurrently enrol in ${condition.courseCode}`
+        : "Choose a course";
     case "incompatible":
       return condition.courseCode
         ? `Must not have completed ${condition.courseCode}`

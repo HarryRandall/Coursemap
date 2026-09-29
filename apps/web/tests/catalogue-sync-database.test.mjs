@@ -10,7 +10,10 @@ import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
 import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
-import { readProjectionPrerequisiteRule } from "../lib/coursemap/published-courses.ts";
+import {
+  readProjectionPrerequisiteRule,
+  readProjectionIncompatibilityRule,
+} from "../lib/coursemap/published-courses.ts";
 import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
@@ -197,6 +200,13 @@ test("first, unchanged and changed source observations preserve local intent", a
       },
     ],
   };
+  filterModel.requisites.incompatibilityText =
+    "Cannot enrol after completing, or concurrently with, MATH1005. Avoid concurrently taking COMP1600.";
+  filterModel.requisites.incompatibilityCourseCodes = ["MATH1005"];
+  filterModel.requisites.concurrentIncompatibilityCourseCodes = ["MATH1005"];
+  filterModel.requisites.softConcurrentIncompatibilityCourseCodes = [
+    "COMP1600",
+  ];
   filterModel.requisites.assumedKnowledgeText =
     "Familiarity with matrix algebra is recommended.";
   filterModel.offerings = [
@@ -279,6 +289,21 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(persistedCount.minimum_units, null);
   assert.equal(persistedCount.maximum_units, null);
 
+  const persistedExclusions =
+    await sql`select condition_kind, hardness, code.code from public.requirement_conditions condition join public.catalogue_codes code on code.id = condition.code_id where condition.version_id = ${first.sourceVersionId} and condition.condition_kind in ('incompatible', 'incompatible_concurrent') order by condition.position`;
+  assert.deepEqual(
+    persistedExclusions.map((condition) => [
+      condition.condition_kind,
+      condition.code,
+      condition.hardness,
+    ]),
+    [
+      ["incompatible", "MATH1005", "hard"],
+      ["incompatible_concurrent", "MATH1005", "hard"],
+      ["incompatible_concurrent", "COMP1600", "advisory"],
+    ],
+  );
+
   const [persistedMark] =
     await sql`select minimum_mark from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'course'`;
   assert.equal(Number(persistedMark.minimum_mark), 60);
@@ -321,6 +346,22 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(projectedCount.minimumCount, 1);
   assert.equal(projectedCount.minimumUnits, null);
   assert.equal(projectedCount.subjectCode, "STAT");
+  const exclusion = readProjectionIncompatibilityRule(projection.content);
+  assert.ok(
+    exclusion.relationalExpression.conditions.some(
+      (condition) =>
+        condition.kind === "incompatible_concurrent" &&
+        condition.code === "MATH1005",
+    ),
+  );
+  assert.ok(
+    exclusion.relationalExpression.conditions.some(
+      (condition) =>
+        condition.kind === "incompatible_concurrent" &&
+        condition.code === "COMP1600" &&
+        condition.hardness === "advisory",
+    ),
+  );
   const prerequisite = readProjectionPrerequisiteRule(projection.content);
   assert.ok(
     prerequisite.relationalExpression.conditions.some(

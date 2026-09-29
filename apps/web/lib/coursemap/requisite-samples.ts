@@ -158,6 +158,7 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       addUnits(draft, Math.floor(node.units * share), "ZZTG", 1, [node.tag]);
       return;
     case "incompatible":
+    case "incompatible_concurrent":
     case "elective_units":
     case "permission":
     case "other":

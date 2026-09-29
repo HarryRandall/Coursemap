@@ -160,6 +160,7 @@ export function planCourseFromDetails(course: CourseDetails): Course {
     prerequisiteText: course.prerequisiteText,
     prerequisiteCodes: course.prerequisiteCodes,
     prerequisiteRule: course.prerequisiteRule,
+    incompatibilityRule: course.incompatibilityRule,
     incompatibilities: course.incompatibilityText
       ? [course.incompatibilityText]
       : [],

@@ -288,3 +288,18 @@ test("subject course counts use distinct completions without inferring units or 
     evaluateRule(condition, { ...record, completed: new Map() }).status,
   ).toBe("unmet");
 });
+
+test("concurrent exclusions reject enrolment but allow previous completion", () => {
+  const concurrent: CourseRuleExpression = {
+    ...base,
+    kind: "incompatible_concurrent",
+    code: "COMP1100",
+  };
+  expect(evaluateRule(concurrent, student).status).toBe("met");
+  expect(
+    evaluateRule({ ...concurrent, code: "COMP2310" }, student),
+  ).toMatchObject({ status: "unmet", detail: "You are enrolled in COMP2310" });
+  expect(
+    evaluateRule({ ...concurrent, kind: "incompatible" }, student).status,
+  ).toBe("unmet");
+});

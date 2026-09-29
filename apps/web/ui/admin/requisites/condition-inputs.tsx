@@ -22,6 +22,7 @@ export const COURSE_MATCH_OPTIONS: Array<{
   { value: "completed", label: "Must be completed" },
   { value: "concurrent", label: "Completed or concurrent" },
   { value: "not_completed", label: "Must not be completed" },
+  { value: "not_concurrent", label: "Must not be concurrent" },
   { value: "mark", label: "Mark of at least" },
 ];
 

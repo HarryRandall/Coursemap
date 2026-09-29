@@ -550,3 +550,119 @@ test("subject course counts require distinct earlier courses and reject failed, 
     );
   }
 });
+
+function catalogueWithExclusion(condition) {
+  return {
+    ...demoCatalogue,
+    courses: demoCatalogue.courses.map((course) =>
+      course.code === "COMP1110" && course.year === 2026
+        ? {
+            ...course,
+            prerequisiteRule: null,
+            prerequisiteCodes: [],
+            prerequisiteText: "",
+            incompatibilityRule: {
+              confidence: 1,
+              expression: null,
+              hardness: "hard",
+              relationalExpression: condition,
+              reviewState: "verified",
+              sourceText: "Cannot concurrently enrol in COMP1100.",
+            },
+          }
+        : course,
+    ),
+  };
+}
+
+test("concurrent planner exclusions reject overlapping active enrolment and allow history", () => {
+  const condition = {
+    kind: "incompatible_concurrent",
+    code: "COMP1100",
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Cannot concurrently enrol in COMP1100.",
+  };
+  const catalogue = catalogueWithExclusion(condition);
+  const target = attempt("target", "COMP1110", "2026-s2");
+  for (const status of ["planned", "enrolled"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", "2026-s2", status), target],
+        catalogue,
+      ),
+      "approval",
+    );
+  }
+  for (const status of ["completed", "failed", "withdrawn"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", "2026-s1", status), target],
+        catalogue,
+      ),
+      "planned",
+    );
+  }
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "COMP1100", "2026-s1"), target],
+      catalogue,
+    ),
+    "planned",
+  );
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "COMP1100", "unscheduled"), target],
+      catalogue,
+    ),
+    "approval",
+  );
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "COMP1100", "2026-s2"), target],
+      catalogueWithExclusion({ ...condition, hardness: "advisory" }),
+    ),
+    "planned",
+  );
+  const overlapping = {
+    ...catalogue,
+    terms: [
+      ...catalogue.terms.map((term) =>
+        term.id === "2026-s2"
+          ? { ...term, startsOn: "2026-07-01", endsOn: "2026-11-30" }
+          : term,
+      ),
+      {
+        id: "2026-spring",
+        year: 2026,
+        name: "Spring Session",
+        shortName: "Spring",
+        dates: "",
+        startsOn: "2026-10-01",
+        endsOn: "2027-02-07",
+      },
+    ],
+  };
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "COMP1100", "2026-spring"), target],
+      overlapping,
+    ),
+    "approval",
+  );
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "COMP1100", "2026-s1", "completed"), target],
+      catalogueWithExclusion({ ...condition, kind: "incompatible" }),
+    ),
+    "approval",
+  );
+});

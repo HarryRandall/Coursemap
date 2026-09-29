@@ -287,8 +287,21 @@ type ProjectionCondition = {
 export function readProjectionPrerequisiteRule(root: {
   [key: string]: Json | undefined;
 }) {
+  return readProjectionCourseRule(root, "prerequisite");
+}
+
+export function readProjectionIncompatibilityRule(root: {
+  [key: string]: Json | undefined;
+}) {
+  return readProjectionCourseRule(root, "incompatibility");
+}
+
+function readProjectionCourseRule(
+  root: { [key: string]: Json | undefined },
+  ruleKind: "prerequisite" | "incompatibility",
+) {
   const rule = readArray(root.rules).find(
-    (value) => isRecord(value) && readString(value.ruleKind) === "prerequisite",
+    (value) => isRecord(value) && readString(value.ruleKind) === ruleKind,
   );
   if (!isRecord(rule)) return null;
   const sourceText = readString(rule.sourceText);
@@ -296,7 +309,7 @@ export function readProjectionPrerequisiteRule(root: {
 
   const groups = readArray(root.ruleGroups).flatMap<ProjectionGroup>(
     (value) => {
-      if (!isRecord(value) || readString(value.ruleKey) !== "prerequisite") {
+      if (!isRecord(value) || readString(value.ruleKey) !== ruleKind) {
         return [];
       }
       const key = readString(value.key);
@@ -332,7 +345,7 @@ export function readProjectionPrerequisiteRule(root: {
   const conditions = readArray(
     root.ruleConditions,
   ).flatMap<ProjectionCondition>((value) => {
-    if (!isRecord(value) || readString(value.ruleKey) !== "prerequisite") {
+    if (!isRecord(value) || readString(value.ruleKey) !== ruleKind) {
       return [];
     }
     const groupKey = readString(value.groupKey);
@@ -410,11 +423,12 @@ export function readProjectionPrerequisiteRule(root: {
       };
     }
     if (
-      condition.kind === "incompatible" &&
+      (condition.kind === "incompatible" ||
+        condition.kind === "incompatible_concurrent") &&
       condition.courseCode &&
       COURSE_CODE_PATTERN.test(condition.courseCode)
     ) {
-      return { ...base, kind: "incompatible", code: condition.courseCode };
+      return { ...base, kind: condition.kind, code: condition.courseCode };
     }
     if (condition.kind === "units_total" && condition.units !== null) {
       return {
@@ -905,6 +919,7 @@ function detailAsCourseDetails(value: Json): CourseDetails | null {
     prerequisiteCodes,
     prerequisiteEdges,
     prerequisiteRule: readProjectionPrerequisiteRule(value),
+    incompatibilityRule: readProjectionIncompatibilityRule(value),
     prerequisiteText,
     publicationStatus: "published",
     relatedCourses,
