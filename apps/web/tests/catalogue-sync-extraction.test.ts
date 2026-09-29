@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
+import {
+  COURSE_IMPORT_PARSER_VERSION,
+  COURSE_IMPORT_PROMPT_VERSION,
+  COURSE_SNAPSHOT_SCHEMA_VERSION,
+} from "@/lib/catalogue-import/kinds/course/prompt";
 
 const mocks = vi.hoisted(() => ({
   sql: vi.fn(async () => []),
@@ -68,9 +73,9 @@ beforeEach(() => {
     requestedModel: "google/gemini-3.1-flash-lite",
     attemptCount: 1,
     lockVersion: 1,
-    parserVersion: "coursemap-course-parser.v4",
-    promptVersion: "coursemap-course-prompt.v6",
-    schemaVersion: "course-snapshot.v1",
+    parserVersion: COURSE_IMPORT_PARSER_VERSION,
+    promptVersion: COURSE_IMPORT_PROMPT_VERSION,
+    schemaVersion: COURSE_SNAPSHOT_SCHEMA_VERSION,
   });
   mocks.store.mockImplementation(async ({ kind }) => ({
     mediaType: "application/json",

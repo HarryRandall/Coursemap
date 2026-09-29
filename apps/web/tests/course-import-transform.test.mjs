@@ -10,7 +10,10 @@ import {
   COURSE_EXTRACTION_JSON_SCHEMA,
   validateCourseExtraction,
 } from "../lib/catalogue-import/kinds/course/contract.ts";
-import { finaliseCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
+import {
+  emptyCourseExtraction,
+  finaliseCourseExtraction,
+} from "../lib/catalogue-import/kinds/course/finalise.ts";
 import {
   canonicaliseCourseModelExtraction,
   courseModelCanonicalisationReviewItem,
@@ -25,6 +28,8 @@ import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/proj
 import { courseCatalogueContent } from "../lib/catalogue/content.ts";
 import { catalogueReviewUnits } from "../lib/catalogue/review-units.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
+import { requirementSliceExpression } from "../lib/catalogue/requirement-expression.ts";
+import { evaluateRule } from "../lib/coursemap/requisite-evaluation.ts";
 import { programmeCodeForName } from "../lib/catalogue-import/kinds/course/programmes.ts";
 
 // A complete, valid extraction of the reduced COMP2400 page in
@@ -393,8 +398,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v4");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v6");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v5");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v7");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -625,4 +630,109 @@ test("missing model fields remain errors rather than source absences", () => {
       (item) => item.fieldKey === "requisites" && item.severity === "error",
     ),
   );
+});
+
+test("level prerequisite filters reject invalid subjects and reversed bounds", () => {
+  for (const rule of [
+    { maximumLevel: 500, subjectCode: "COMP" },
+    { maximumLevel: 1000, subjectCode: "Computer Science" },
+  ]) {
+    const model = structuredClone(extraction);
+    model.requisites.prerequisiteRule = {
+      op: "min_units_at_level",
+      minimumUnits: 6,
+      level: 1000,
+      ...rule,
+    };
+    assert.equal(validateCourseExtraction(model).success, false);
+  }
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteRule = {
+    op: "min_units_at_level",
+    minimumUnits: 6,
+    level: 1000,
+  };
+  assert.equal(validateCourseExtraction(model).success, true);
+  assert.equal(
+    projectCourseSnapshot(model).ruleConditions.find(
+      (item) => item.ruleKey === "prerequisite",
+    ).subjectCode,
+    null,
+  );
+});
+
+test("the captured COMP2410 model response preserves both total units and the subject-level filter", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-comp2410-requisites.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = {
+    ...emptyCourseExtraction({
+      code: "COMP2410",
+      year: 2024,
+      title: "Networked Information Systems",
+    }),
+    requisites: captured.requisites,
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  const conditions = content.requirements.conditions.filter(
+    (item) => item.ruleKey === "prerequisite",
+  );
+  assert.equal(
+    conditions.find((item) => item.kind === "units_total").minimumUnits,
+    48,
+  );
+  const filter = conditions.find((item) => item.kind === "level_units");
+  assert.deepEqual(
+    [
+      filter.minimumUnits,
+      filter.subjectCode,
+      filter.minimumLevel,
+      filter.maximumLevel,
+    ],
+    [6, "COMP", 1000, 1000],
+  );
+  const rule = requirementSliceExpression({
+    rule: content.requirements.rules.find(
+      (item) => item.key === "prerequisite",
+    ),
+    groups: content.requirements.groups.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    conditions,
+    options: [],
+  });
+  const otherCourses = [
+    "FINM1001",
+    "BUSN1001",
+    "ECON1101",
+    "STAT1003",
+    "MATH1013",
+    "MGMT1003",
+    "MKTG2003",
+  ].map((code) => [code, { units: 6, mark: 70 }]);
+  for (const [code, expected] of [
+    ["COMP1100", "met"],
+    ["MATH1005", "partial"],
+    ["COMP2100", "partial"],
+  ]) {
+    assert.equal(
+      evaluateRule(rule, {
+        completed: new Map([...otherCourses, [code, { units: 6, mark: 70 }]]),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      expected,
+    );
+  }
 });

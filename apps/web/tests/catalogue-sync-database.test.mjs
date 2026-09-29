@@ -3,9 +3,12 @@ import { afterAll, beforeAll, test } from "vitest";
 
 import {
   emptyCatalogueContent,
+  courseCatalogueContent,
   CATALOGUE_CONTENT_SCHEMA_VERSION,
 } from "../lib/catalogue/content.ts";
 import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content.ts";
+import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
+import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
 import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
@@ -164,6 +167,24 @@ test("first, unchanged and changed source observations preserve local intent", a
     "Empty Source Record",
     "First ANU description.",
   );
+  const filterModel = emptyCourseExtraction({
+    code: EMPTY_CODE,
+    year: YEAR,
+    title: "Empty Source Record",
+  });
+  filterModel.requisites.prerequisiteText =
+    "6 units of 1000-level COMP courses";
+  filterModel.requisites.prerequisiteRule = {
+    op: "min_units_at_level",
+    minimumUnits: 6,
+    level: 1000,
+    maximumLevel: 1000,
+    subjectCode: "COMP",
+  };
+  firstContent.requirements = courseCatalogueContent({
+    projection: projectCourseSnapshot(filterModel),
+  }).requirements;
+  firstContent.contentHash = contentHashForCatalogueContent(firstContent);
   firstContent.evidence = [0.95, 0.7, 0.7].map((confidence, index) => ({
     fieldPath: "description",
     method: "model",
@@ -200,6 +221,13 @@ test("first, unchanged and changed source observations preserve local intent", a
     "First ANU description.",
   );
   assert.equal(Number(populated.base_version_id), first.sourceVersionId);
+
+  const [persistedFilter] =
+    await sql`select subject_code, minimum_level, maximum_level, minimum_units from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'level_units'`;
+  assert.equal(persistedFilter.subject_code, "COMP");
+  assert.equal(Number(persistedFilter.minimum_level), 1000);
+  assert.equal(Number(persistedFilter.maximum_level), 1000);
+  assert.equal(Number(persistedFilter.minimum_units), 6);
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

@@ -61,6 +61,8 @@ export type CourseRule =
       op: "min_units_at_level";
       minimumUnits: number;
       level: number;
+      maximumLevel?: number | null;
+      subjectCode?: string | null;
     }
   | {
       op: "min_units_from_subject";
@@ -188,6 +190,7 @@ function exactRecord(
   path: string,
   keys: readonly string[],
   issues: CourseExtractionValidationIssue[],
+  optionalKeys: readonly string[] = [],
 ): UnknownRecord | null {
   if (
     typeof value !== "object" ||
@@ -200,7 +203,7 @@ function exactRecord(
   }
 
   const record = value as UnknownRecord;
-  const expected = new Set(keys);
+  const expected = new Set([...keys, ...optionalKeys]);
   // An absent key is normalised to null rather than rejected outright, so the
   // field's own rule decides. Nullable fields then accept the omission and
   // fields that need a value still fail with their own message. Treating
@@ -436,6 +439,7 @@ function validateRule(
       path,
       ["op", "minimumUnits", "level"],
       issues,
+      ["maximumLevel", "subjectCode"],
     );
     if (record) {
       requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
@@ -446,6 +450,20 @@ function validateRule(
         minimum: 0,
         maximum: 9999,
       });
+      if (record.maximumLevel !== undefined) {
+        requireNumber(record.maximumLevel, `${path}.maximumLevel`, issues, {
+          nullable: true,
+          integer: true,
+          minimum: typeof record.level === "number" ? record.level : 0,
+          maximum: 9999,
+        });
+      }
+      if (record.subjectCode !== undefined) {
+        requireString(record.subjectCode, `${path}.subjectCode`, issues, {
+          nullable: true,
+          pattern: /^[A-Z]{4}$/,
+        });
+      }
     }
   } else if (op === "min_units_from_subject") {
     const record = exactRecord(
@@ -1438,6 +1456,12 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             op: { const: "min_units_at_level" },
             minimumUnits: { type: "number", minimum: 0 },
             level: { type: "integer", minimum: 0, maximum: 9999 },
+            maximumLevel: {
+              type: ["integer", "null"],
+              minimum: 0,
+              maximum: 9999,
+            },
+            subjectCode: { type: ["string", "null"], pattern: "^[A-Z]{4}$" },
           },
         },
         {

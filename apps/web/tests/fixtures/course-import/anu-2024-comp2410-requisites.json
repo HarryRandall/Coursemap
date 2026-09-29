@@ -1,0 +1,31 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/COMP2410",
+  "fetchedAt": "2026-09-29T08:55:43.731Z",
+  "contentSha256": "2515d4d3065cd19e0ff2cd95492f558987833d1a6de4da7119212ca6d1829021",
+  "model": "google/gemini-3.1-flash-lite",
+  "requisites": {
+    "prerequisiteText": "To enrol in this course you must have completed at least 48 units of university courses, of which 6 units were 1000 level COMP courses.",
+    "corequisiteText": null,
+    "incompatibilityText": "Incompatible with COMP6340.",
+    "prerequisiteRule": {
+      "op": "all_of",
+      "rules": [
+        {
+          "op": "min_units_total",
+          "minimumUnits": 48
+        },
+        {
+          "op": "min_units_at_level",
+          "minimumUnits": 6,
+          "level": 1000,
+          "maximumLevel": 1000,
+          "subjectCode": "COMP"
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["COMP6340"],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}

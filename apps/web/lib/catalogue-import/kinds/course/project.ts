@@ -241,8 +241,17 @@ function describeRule(rule: CourseRule): string {
       return rule.rules.map(describeRule).join(" or ");
     case "min_units_total":
       return `At least ${rule.minimumUnits} units completed`;
-    case "min_units_at_level":
-      return `At least ${rule.minimumUnits} units at ${rule.level} level`;
+    case "min_units_at_level": {
+      const subject = rule.subjectCode ? ` from ${rule.subjectCode}` : "";
+      const upper = rule.maximumLevel;
+      const levels =
+        upper === rule.level
+          ? `${rule.level}`
+          : upper === null || upper === undefined
+            ? `${rule.level} or higher`
+            : `${rule.level} to ${upper}`;
+      return `At least ${rule.minimumUnits} units${subject} at ${levels} level`;
+    }
     case "min_units_from_subject":
       return `At least ${rule.minimumUnits} units from ${rule.subjectCode}`;
     case "min_units_from_courses":
@@ -394,6 +403,8 @@ function addAtomicRule(
       });
       condition.minimumUnits = rule.minimumUnits;
       condition.minimumCourseLevel = rule.level;
+      condition.maximumCourseLevel = rule.maximumLevel ?? null;
+      condition.subjectCode = rule.subjectCode ?? null;
       accumulator.ruleConditions.push(condition);
       return;
     }
