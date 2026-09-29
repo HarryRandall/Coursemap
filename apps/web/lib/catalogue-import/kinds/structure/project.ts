@@ -238,6 +238,15 @@ export function projectAcademicStructureSnapshot(
       keys,
     );
   }
+  const existingFreeText = new Set(
+    requirementConditions
+      .filter((condition) => condition.conditionKind === "free_text")
+      .map((condition) =>
+        (condition.freeText ?? condition.sourceText)
+          .replace(/\s+/gu, " ")
+          .trim(),
+      ),
+  );
 
   const projection: ProjectionWithoutHash = {
     schemaVersion: ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION,
@@ -303,13 +312,16 @@ export function projectAcademicStructureSnapshot(
     requirementGroups,
     requirementConditions,
     requirementOptions,
-    unmodelledRequirements: extraction.requirements.unmodelledText.map(
-      (sourceText, index) => ({
+    unmodelledRequirements: extraction.requirements.unmodelledText
+      .filter(
+        (sourceText) =>
+          !existingFreeText.has(sourceText.replace(/\s+/gu, " ").trim()),
+      )
+      .map((sourceText, index) => ({
         position: index + 1,
         sourceText,
         sourceLocator: extraction.requirements.sourceLocator,
-      }),
-    ),
+      })),
     evidence: extraction.evidence.map((item, index) => ({
       position: index + 1,
       ...item,
