@@ -1,4 +1,8 @@
 import {
+  collegeEnrolmentStatus,
+  type ProgrammeCollege,
+} from "../academic/college-enrolment.ts";
+import {
   validEnrolmentMode,
   type EnrolmentMode,
   enrolmentModeLabel,
@@ -35,6 +39,7 @@ export type StudentRecord = {
   /** Courses taken this semester, which satisfy a concurrent requisite. */
   enrolled: ReadonlySet<string>;
   programmeCodes: readonly string[];
+  programmeColleges?: readonly ProgrammeCollege[];
   wam: number | null;
   gpa: number | null;
   studyYear: number | null;
@@ -204,6 +209,22 @@ export function evaluateCondition(
         unitsWhere(student, (code) => condition.courseCodes.includes(code)),
         condition.units,
       );
+    case "college_enrolment": {
+      const status = collegeEnrolmentStatus(
+        condition.college,
+        student.programmeCodes,
+        student.programmeColleges,
+      );
+      return {
+        status,
+        detail:
+          status === "met"
+            ? `Your programme is offered by ${condition.college}`
+            : status === "unmet"
+              ? "Your programme is offered by a different college"
+              : "Programme college information is missing or conflicting.",
+      };
+    }
     case "enrolment_mode": {
       const mode = student.enrolmentMode;
       if (!validEnrolmentMode(mode)) return { status: "unknown" };
@@ -330,12 +351,14 @@ export function studentRecord({
   completedCourses,
   enrolmentMode,
   programmeCodes,
+  programmeColleges,
 }: {
   attempts: readonly Attempt[];
   commencementYear: number | null;
   enrolmentMode?: EnrolmentMode | null;
   completedCourses: readonly CompletedRequisiteCourse[];
   programmeCodes: readonly string[];
+  programmeColleges?: readonly ProgrammeCollege[];
 }): StudentRecord {
   const finished = attempts.filter((attempt) => attempt.status === "completed");
   const markByCode = new Map(
@@ -384,6 +407,7 @@ export function studentRecord({
     commencementYear,
     enrolmentMode,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
+    programmeColleges,
     wam: weightedAverageMark(results),
     gpa: gradePointAverage(results),
     studyYear: commencementYear

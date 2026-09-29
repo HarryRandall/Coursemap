@@ -111,6 +111,7 @@ function planStudentRecord(
     commencementYear,
     enrolmentMode: catalogue?.enrolmentMode,
     programmeCodes: degreeCode ? [degreeCode] : [],
+    programmeColleges: catalogue?.programmeColleges,
     permissionApproved: attempt.permissionApproved ?? false,
     wam: null,
     gpa: null,
@@ -140,6 +141,9 @@ export function CourseDialog({
         ...suppliedCatalogue,
         commencementYear: state.profile.commencementYear ?? null,
         enrolmentMode: state.profile.enrolmentMode ?? null,
+        programmeCodes: state.profile.degreeCode
+          ? [state.profile.degreeCode]
+          : [],
       }
     : undefined;
   const attempt = state.attempts.find((item) => item.id === attemptId);

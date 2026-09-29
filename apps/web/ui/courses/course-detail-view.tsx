@@ -49,6 +49,7 @@ import type {
   CourseRuleExpression,
 } from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
+import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import {
   studentRecord,
@@ -129,6 +130,7 @@ export function CourseDetailView({
   requisiteCompletion: {
     completedCourses: CompletedRequisiteCourse[];
     enrolledProgrammeCodes?: string[];
+    programmeColleges?: ProgrammeCollege[];
     isAuthenticated: boolean;
   };
 }) {
@@ -161,6 +163,7 @@ export function CourseDetailView({
             commencementYear,
             completedCourses: requisiteCompletion.completedCourses,
             programmeCodes: requisiteCompletion.enrolledProgrammeCodes ?? [],
+            programmeColleges: requisiteCompletion.programmeColleges,
           })
         : null;
   const hasPrerequisiteWording =

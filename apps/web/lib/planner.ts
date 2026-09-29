@@ -1,4 +1,8 @@
 import {
+  collegeEnrolmentStatus,
+  type ProgrammeCollege,
+} from "@/lib/academic/college-enrolment";
+import {
   validEnrolmentMode,
   type EnrolmentMode,
 } from "@/lib/academic/enrolment-mode";
@@ -16,6 +20,8 @@ export type PlanningCatalogue = {
   terms: readonly Term[];
   commencementYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
+  programmeCodes?: readonly string[];
+  programmeColleges?: readonly ProgrammeCollege[];
 };
 
 export type EffectiveStatus = Attempt["status"] | "blocked" | "approval";
@@ -367,6 +373,22 @@ function evaluateRelationalPrerequisite(
       : { state: "unsatisfied", missingCodes: [] };
   }
 
+  if (expression.kind === "college_enrolment") {
+    const status = collegeEnrolmentStatus(
+      expression.college,
+      catalogue?.programmeCodes ?? [],
+      catalogue?.programmeColleges,
+    );
+    return {
+      state:
+        status === "met"
+          ? "satisfied"
+          : status === "unmet"
+            ? "unsatisfied"
+            : "unknown",
+      missingCodes: [],
+    };
+  }
   if (expression.kind === "enrolment_mode") {
     const mode = catalogue?.enrolmentMode;
     if (!validEnrolmentMode(mode))

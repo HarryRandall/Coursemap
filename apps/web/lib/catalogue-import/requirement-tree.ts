@@ -23,6 +23,7 @@ const EDITABLE_KINDS = new Set([
   "year_standing",
   "commencement_year",
   "enrolment_mode",
+  "college_enrolment",
   "gpa",
   "wam",
   "permission",

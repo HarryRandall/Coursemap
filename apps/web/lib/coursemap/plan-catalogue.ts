@@ -1,3 +1,4 @@
+import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import {
   validEnrolmentMode,
   type EnrolmentMode,
@@ -20,6 +21,7 @@ export type PlanCatalogue = {
   academicYear: number | null;
   commencementYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
+  programmeColleges?: readonly ProgrammeCollege[];
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
@@ -496,7 +498,7 @@ export async function loadPublishedPlanCatalogue(
           snapshot.duration_years === null
             ? null
             : Number(snapshot.duration_years),
-        college: snapshot.college ?? "Not listed",
+        college: snapshot.college,
         description: snapshot.description ?? "",
       } satisfies Degree,
     ];
@@ -595,6 +597,7 @@ export async function loadPublishedPlanCatalogue(
     courses: catalogueCourses.map(planCourseFromDetails),
     terms,
     degrees,
+    programmeColleges: degrees.map(({ code, college }) => ({ code, college })),
     majors,
     structures,
     programmeRequirementsImported: structureRequirements.some(
