@@ -180,7 +180,7 @@ export async function loadCoursemapState(
       periodIds.length
         ? supabase
             .from("academic_periods")
-            .select("id,calendar_year,code")
+            .select("id,calendar_year,code,starts_on")
             .in("id", periodIds)
         : Promise.resolve({ data: [] }),
       snapshotIds.length
@@ -298,6 +298,7 @@ export async function loadCoursemapState(
           courseCode: code,
           snapshotId: attempt.catalogue_version_id,
           termId: `${period.calendar_year}-${period.code.toLowerCase()}`,
+          ...(period.starts_on ? { periodStartsOn: period.starts_on } : {}),
           status: (attempt.status === "credited"
             ? "completed"
             : attempt.status) as

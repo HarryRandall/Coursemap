@@ -88,7 +88,7 @@ test("every part of the rule is a step, with permission and exclusions last", ()
   expect(steps.map((step) => step.querySelector("p")?.textContent)).toEqual([
     "Complete 72 units",
     "Complete any 2 of these courses",
-    "Have a WAM of 70 or more",
+    "Have a WAM of 70 or more across your academic career",
     "Get permission to enrol",
     "You can't take this if you've completed COMP3530",
   ]);

@@ -52,6 +52,7 @@ export type ReviewedConditionInput = {
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   gpa?: number | null;
+  recentGradedUnits?: number | null;
   wam?: number | null;
   mark?: number | null;
   freeText?: string | null;
@@ -112,6 +113,7 @@ export type StoredRuleCondition = {
   subjectCode: string | null;
   level: number | null;
   gpa: number | null;
+  recentGradedUnits?: number | null;
   minimumYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
   matchesEnrolmentMode?: boolean | null;
@@ -561,9 +563,25 @@ function storedConditionToView(
         ? { kind: "year_standing", minimumYear: condition.minimumYear }
         : null;
     case "gpa":
-      return condition.gpa != null ? { kind: "gpa", gpa: condition.gpa } : null;
+      return condition.gpa != null
+        ? {
+            kind: "gpa",
+            gpa: condition.gpa,
+            ...(condition.recentGradedUnits != null
+              ? { recentGradedUnits: condition.recentGradedUnits }
+              : {}),
+          }
+        : null;
     case "wam":
-      return condition.wam != null ? { kind: "wam", wam: condition.wam } : null;
+      return condition.wam != null
+        ? {
+            kind: "wam",
+            wam: condition.wam,
+            ...(condition.recentGradedUnits != null
+              ? { recentGradedUnits: condition.recentGradedUnits }
+              : {}),
+          }
+        : null;
     case "permission":
       return condition.freeText
         ? { kind: "permission", freeText: condition.freeText }
@@ -850,7 +868,21 @@ function normaliseCondition(
       if (!Number.isFinite(gpa) || gpa < 0 || gpa > 7) {
         return { message: "GPA must be between 0 and 7." };
       }
-      return { condition: { kind: "gpa", gpa } };
+      const recentGradedUnits = condition.recentGradedUnits;
+      if (
+        recentGradedUnits != null &&
+        (!Number.isInteger(recentGradedUnits) ||
+          recentGradedUnits < 1 ||
+          recentGradedUnits > 300)
+      )
+        return { message: "Recent graded units must be between 1 and 300." };
+      return {
+        condition: {
+          kind: "gpa",
+          gpa,
+          ...(recentGradedUnits != null ? { recentGradedUnits } : {}),
+        },
+      };
     }
     case "wam": {
       if (condition.wam === null || condition.wam === undefined) {
@@ -860,7 +892,21 @@ function normaliseCondition(
       if (!Number.isFinite(wam) || wam < 0 || wam > 100) {
         return { message: "WAM must be between 0 and 100." };
       }
-      return { condition: { kind: "wam", wam } };
+      const recentGradedUnits = condition.recentGradedUnits;
+      if (
+        recentGradedUnits != null &&
+        (!Number.isInteger(recentGradedUnits) ||
+          recentGradedUnits < 1 ||
+          recentGradedUnits > 300)
+      )
+        return { message: "Recent graded units must be between 1 and 300." };
+      return {
+        condition: {
+          kind: "wam",
+          wam,
+          ...(recentGradedUnits != null ? { recentGradedUnits } : {}),
+        },
+      };
     }
     case "permission": {
       const freeText = (condition.freeText ?? "").trim();
@@ -921,9 +967,9 @@ export function conditionSourceText(condition: ReviewedConditionView) {
     case "year_standing":
       return `At least year ${condition.minimumYear} standing`;
     case "gpa":
-      return `GPA of at least ${condition.gpa}`;
+      return `GPA of at least ${condition.gpa}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`;
     case "wam":
-      return `WAM of at least ${condition.wam}`;
+      return `WAM of at least ${condition.wam}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`;
     case "permission":
     case "other":
       return condition.freeText ?? "";
@@ -1063,9 +1109,21 @@ export function isConditionComplete(condition: ReviewedConditionView) {
     case "year_standing":
       return condition.minimumYear != null;
     case "gpa":
-      return condition.gpa != null;
+      return (
+        condition.gpa != null &&
+        (condition.recentGradedUnits == null ||
+          (Number.isInteger(condition.recentGradedUnits) &&
+            condition.recentGradedUnits >= 1 &&
+            condition.recentGradedUnits <= 300))
+      );
     case "wam":
-      return condition.wam != null;
+      return (
+        condition.wam != null &&
+        (condition.recentGradedUnits == null ||
+          (Number.isInteger(condition.recentGradedUnits) &&
+            condition.recentGradedUnits >= 1 &&
+            condition.recentGradedUnits <= 300))
+      );
     case "permission":
     case "other":
       return Boolean(condition.freeText?.trim());
@@ -1141,11 +1199,11 @@ export function conditionSummary(condition: ReviewedConditionView) {
         : "Set the minimum year standing";
     case "gpa":
       return condition.gpa != null
-        ? `Grade average of at least ${condition.gpa}`
+        ? `Grade average of at least ${condition.gpa}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
         : "Set the grade average";
     case "wam":
       return condition.wam != null
-        ? `WAM of at least ${condition.wam}`
+        ? `WAM of at least ${condition.wam}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
         : "Set the minimum WAM";
     case "permission":
       return condition.freeText?.trim() || "Describe the permission needed";

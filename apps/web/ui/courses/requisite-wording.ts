@@ -107,9 +107,9 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
         ? `Enrolled in ${condition.minimumCount} of ${codes(condition.structureCodes)}`
         : `Enrolled in ${codes(condition.structureCodes)}`;
     case "gpa":
-      return `GPA of ${condition.minimumGpa} or more`;
+      return `GPA of ${condition.minimumGpa} or more${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
     case "wam":
-      return `WAM of ${condition.minimumWam} or more`;
+      return `WAM of ${condition.minimumWam} or more${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
     case "permission":
     case "other":
       return condition.text;
@@ -158,9 +158,9 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
         ? `Be enrolled in ${condition.minimumCount} of these programs`
         : "Be enrolled in one of these programs";
     case "gpa":
-      return `Have a GPA of ${condition.minimumGpa} or more`;
+      return `Have a GPA of ${condition.minimumGpa} or more${condition.recentGradedUnits ? ` over your most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
     case "wam":
-      return `Have a WAM of ${condition.minimumWam} or more`;
+      return `Have a WAM of ${condition.minimumWam} or more${condition.recentGradedUnits ? ` over your most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
     case "permission":
       return "Get permission to enrol";
     case "other":

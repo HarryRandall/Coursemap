@@ -293,13 +293,13 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
   } else if (condition.conditionKind === "gpa") {
     parts.push(
       condition.minimumGpa != null
-        ? `A grade point average of at least ${condition.minimumGpa}`
+        ? `A grade point average of at least ${condition.minimumGpa}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
         : (conditionText(condition) ?? "Grade point average"),
     );
   } else if (condition.conditionKind === "wam") {
     parts.push(
       condition.minimumWam != null
-        ? `A weighted average mark of at least ${condition.minimumWam}`
+        ? `A weighted average mark of at least ${condition.minimumWam}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
         : (conditionText(condition) ?? "Weighted average mark"),
     );
   } else if (conditionText(condition)) {
