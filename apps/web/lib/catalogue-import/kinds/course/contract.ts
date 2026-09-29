@@ -2,6 +2,10 @@ import {
   WORKLOAD_HOURS_BASES,
   type WorkloadHoursBasis,
 } from "../../../academic/workload.ts";
+import {
+  COURSE_LEVELS,
+  courseLevelForCode,
+} from "../../../academic/course-level.ts";
 
 export const COURSE_EXTRACTION_SCHEMA_VERSION = "course-extraction.v2" as const;
 
@@ -732,6 +736,14 @@ function validateExtractionShape(
     minimum: 0,
     maximum: 9999,
   });
+  const expectedLevel =
+    typeof record.code === "string" ? courseLevelForCode(record.code) : null;
+  if (expectedLevel !== null && record.level !== expectedLevel) {
+    issues.push({
+      path: "$.level",
+      message: `must be ${expectedLevel} for ${record.code}, rather than the full course number or another level`,
+    });
+  }
   requireString(record.subjectCode, "$.subjectCode", issues, {
     pattern: /^[A-Z]{4}$/,
   });
@@ -1400,7 +1412,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
       ],
     },
     eftsl: { type: ["number", "null"], minimum: 0 },
-    level: { type: "integer", minimum: 0, maximum: 9999 },
+    level: { type: "integer", enum: [...COURSE_LEVELS] },
     subjectCode: { type: "string", pattern: "^[A-Z]{4}$" },
     subjectName: { type: ["string", "null"] },
     school: { type: ["string", "null"] },
