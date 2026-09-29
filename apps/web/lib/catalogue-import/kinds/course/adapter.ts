@@ -18,6 +18,7 @@ import {
 } from "./prompt.ts";
 import { fetchAnuCoursePage } from "./source.ts";
 import { loadKnownCourseTags } from "./tags.ts";
+import { loadKnownProgrammes } from "./programmes.ts";
 
 export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
   kinds: ["course"],
@@ -46,21 +47,27 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     });
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
-  async loadPromptContext(sql) {
-    return { knownTags: await loadKnownCourseTags(sql) };
+  async loadPromptContext(sql, claim) {
+    const [knownTags, knownProgrammes] = await Promise.all([
+      loadKnownCourseTags(sql),
+      loadKnownProgrammes(sql, claim.academicYearId),
+    ]);
+    return { knownTags, knownProgrammes };
   },
   buildUserPrompt(claim, pageMarkdown, context) {
     return buildCourseExtractionUserPrompt({
       expectedCode: claim.code,
       academicYear: claim.academicYear,
       knownTags: context?.knownTags ?? [],
+      knownProgrammes: context?.knownProgrammes ?? [],
       pageMarkdown,
     });
   },
-  validateModelOutput(claim, value) {
+  validateModelOutput(claim, value, context) {
     const canonical = canonicaliseCourseModelExtraction(value, {
       expectedCode: claim.code,
       expectedYear: claim.academicYear,
+      knownProgrammes: context?.knownProgrammes,
     });
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: claim.code,
@@ -78,6 +85,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     pageMarkdown,
     finishReason,
     responseError,
+    context,
   }) {
     return finaliseCourseExtraction({
       code: claim.code,
@@ -87,6 +95,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       pageMarkdown,
       finishReason,
       responseError,
+      knownProgrammes: context?.knownProgrammes,
     });
   },
   project(extraction) {

@@ -5,6 +5,7 @@ import type { CatalogueKind, CatalogueContent } from "../catalogue/content.ts";
 export type PromptContext = {
   /** Tag names already in use, so the model reuses them rather than coining near-duplicates. */
   knownTags: string[];
+  knownProgrammes?: Array<{ code: string; name: string }>;
 };
 
 export type FetchedSourcePage = {
@@ -70,6 +71,7 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
   validateModelOutput(
     claim: ClaimedCatalogueSync,
     value: unknown,
+    context?: PromptContext,
   ): ValidationOutcome;
   /**
    * The stored extraction: every part of the response that fits the contract,
@@ -84,6 +86,7 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
     responseError: string | null;
     /** The provider's stop reason; `length` means the response was truncated. */
     finishReason: string | null;
+    context?: PromptContext;
   }): FinaliseOutcome<Extraction>;
   project(extraction: Extraction): CatalogueContent;
 };

@@ -1472,7 +1472,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "programmeCode"],
           properties: {
             op: { const: "enrolled_in" },
-            programmeCode: { type: "string", minLength: 1 },
+            programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
           },
         },
         {

@@ -25,8 +25,8 @@ const BAND_BADGE = {
 
 export function confidenceLabel(confidence: number | null) {
   return confidence === null
-    ? "No % given"
-    : `${Math.round(confidence * 100)}% sure`;
+    ? "Confidence not provided"
+    : `${Math.round(confidence * 100)}% source confidence`;
 }
 
 function useResolve(recordId: number, path: string) {

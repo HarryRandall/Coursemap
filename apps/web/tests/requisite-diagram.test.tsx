@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
+import { sampleStudent } from "@/lib/coursemap/requisite-samples";
+import { stat2001Requisites } from "./fixtures/stat2001-requisites";
 
 const base = {
   confidence: 1,
@@ -134,4 +136,19 @@ test("with nothing known to follow, the unlocks column is left out", () => {
   expect(screen.queryByText("Unlocks")).not.toBeInTheDocument();
   expect(screen.queryByText("Not known yet")).not.toBeInTheDocument();
   expect(screen.getByText("This course")).toBeInTheDocument();
+});
+
+test("partway marks the completed alternative and labels concurrent enrolment", () => {
+  renderDiagram({
+    expression: stat2001Requisites,
+    student: sampleStudent(stat2001Requisites, "partway"),
+    availableCourseCodes: new Set(),
+  });
+  expect(
+    screen.getByRole("link", { name: /STAT1003.*Done/u }),
+  ).toBeInTheDocument();
+  expect(screen.getAllByText("Done")).toHaveLength(1);
+  expect(
+    screen.getByRole("link", { name: /MATH1014.*Completed or concurrent/u }),
+  ).toBeInTheDocument();
 });

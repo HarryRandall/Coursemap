@@ -274,7 +274,6 @@ type RequirementRow = {
   depth: number;
   text: string;
   detail: string;
-  confidence: number | null;
 };
 
 function requirementRows(
@@ -283,7 +282,7 @@ function requirementRows(
 ): RequirementRow[] {
   if (node.kind === "group") {
     return [
-      { depth, text: groupSentence(node), detail: "", confidence: null },
+      { depth, text: groupSentence(node), detail: "" },
       ...node.conditions.flatMap((child) => requirementRows(child, depth + 1)),
     ];
   }
@@ -297,7 +296,6 @@ function requirementRows(
       ]
         .filter(Boolean)
         .join(" · "),
-      confidence: node.confidence,
     },
   ];
 }

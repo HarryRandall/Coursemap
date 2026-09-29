@@ -202,7 +202,7 @@ test("the model's notes sit on the change they are about", () => {
   expect(
     screen.getByText("1 part could not be read and was left empty"),
   ).toBeInTheDocument();
-  expect(screen.queryByText("55% sure")).not.toBeInTheDocument();
+  expect(screen.queryByText("55% source confidence")).not.toBeInTheDocument();
 });
 
 test("a first reading leads with what needs review and folds what was read plainly", () => {
@@ -217,7 +217,7 @@ test("a first reading leads with what needs review and folds what was read plain
           unitKind: "requirement_rule",
           confidence: 0.42,
           band: "needs_review",
-          reason: "One sentence was split into several conditions",
+          reason: "The rule contains a duplicated condition",
         }),
         change({
           id: 22,
@@ -241,9 +241,9 @@ test("a first reading leads with what needs review and folds what was read plain
   expect(
     screen.getByText(/1 part needs review before this can be published/u),
   ).toBeTruthy();
-  expect(screen.getByText("42% sure")).toBeTruthy();
+  expect(screen.getByText("42% source confidence")).toBeTruthy();
   expect(
-    screen.getByText("One sentence was split into several conditions"),
+    screen.getByText("The rule contains a duplicated condition"),
   ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Approve all 1" })).toBeTruthy();
   expect(screen.getByText("Stated plainly")).toBeTruthy();

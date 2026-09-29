@@ -1,4 +1,5 @@
 import type { CatalogueContent } from "./content.ts";
+import { stableFingerprint } from "../catalogue-import/canonical.ts";
 import {
   type CatalogueReviewUnit,
   catalogueReviewUnits,
@@ -64,8 +65,8 @@ function isEmpty(value: unknown) {
 
 /**
  * What the model's own confidence cannot show about a requirement rule:
- * wording it could not place, conditions it left for review, and one
- * sentence split into several conditions.
+ * wording it could not place, conditions it left for review, and duplicated
+ * conditions within one group.
  */
 function ruleConcerns(content: CatalogueContent, fieldPath: string) {
   const [root, ruleKey] = fieldPath.split(".");
@@ -81,11 +82,27 @@ function ruleConcerns(content: CatalogueContent, fieldPath: string) {
   if (conditions.some((condition) => condition.reviewState === "review")) {
     concerns.push("The importer marked part of the rule for review");
   }
-  const sentences = conditions
-    .map((condition) => condition.sourceText?.trim())
-    .filter((text): text is string => Boolean(text));
-  if (new Set(sentences).size < sentences.length) {
-    concerns.push("One sentence was split into several conditions");
+  const metadata = new Set([
+    "key",
+    "position",
+    "sourceText",
+    "sourceLocator",
+    "confidence",
+    "reviewState",
+  ]);
+  const identities = conditions.map((condition) =>
+    stableFingerprint({
+      condition: Object.fromEntries(
+        Object.entries(condition).filter(([key]) => !metadata.has(key)),
+      ),
+      options: content.requirements.options
+        .filter((option) => option.conditionKey === condition.key)
+        .map((option) => `${option.kind}:${option.code}`)
+        .sort(),
+    }),
+  );
+  if (new Set(identities).size < identities.length) {
+    concerns.push("The rule contains a duplicated condition");
   }
   const confidences = conditions.map((condition) => condition.confidence);
   return {
@@ -112,7 +129,11 @@ export function classifyFirstRead(content: CatalogueContent): FirstReadItem[] {
     const rule = ruleConcerns(content, unit.fieldPath);
     const candidates = [
       ...confidences,
-      ...(rule.lowest === null ? [] : [rule.lowest]),
+      // Course projections historically defaulted conditions to 100%, even
+      // without model evidence. Only provenance can rate their reading.
+      ...(content.kind === "course" || rule.lowest === null
+        ? []
+        : [rule.lowest]),
     ];
     const confidence = candidates.length ? Math.min(...candidates) : null;
     const error = flags.find((flag) => flag.severity === "error");

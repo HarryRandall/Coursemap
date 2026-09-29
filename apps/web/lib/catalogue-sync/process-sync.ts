@@ -29,7 +29,7 @@ import {
   startSyncStage,
   withSyncDatabaseClient,
 } from "./sync-store.ts";
-import type { CatalogueSyncAdapter } from "./kind-adapter.ts";
+import type { CatalogueSyncAdapter, PromptContext } from "./kind-adapter.ts";
 import { courseKindAdapter } from "../catalogue-import/kinds/course/adapter.ts";
 import { structureKindAdapter } from "../catalogue-import/kinds/structure/adapter.ts";
 import {
@@ -328,13 +328,18 @@ async function processClaimedSync({
       },
     );
 
+    let promptContext: PromptContext | undefined;
     const userPrompt = await runStage(
       "model_input_prepare",
       async (stageId) => {
-        const context = adapter.loadPromptContext
+        promptContext = adapter.loadPromptContext
           ? await adapter.loadPromptContext(sql, claim)
           : undefined;
-        const prompt = adapter.buildUserPrompt(claim, pageMarkdown, context);
+        const prompt = adapter.buildUserPrompt(
+          claim,
+          pageMarkdown,
+          promptContext,
+        );
         await persistArtifact({
           stageId,
           stageName: "model_input_prepare",
@@ -482,7 +487,11 @@ async function processClaimedSync({
     });
 
     const modelValidation = await runStage("schema_validate", async () =>
-      adapter.validateModelOutput(claim, modelResult.result.parsed),
+      adapter.validateModelOutput(
+        claim,
+        modelResult.result.parsed,
+        promptContext,
+      ),
     );
 
     const finalised = await runStage("domain_validate", async (stageId) => {
@@ -493,6 +502,7 @@ async function processClaimedSync({
         pageMarkdown,
         responseError: modelResult.result.responseError,
         finishReason: modelResult.result.finishReason,
+        context: promptContext,
       });
       const validated = await persistArtifact({
         stageId,

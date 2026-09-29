@@ -1,8 +1,12 @@
 import type { CourseExtractionReviewItem } from "./contract.ts";
+import { type KnownProgramme, programmeCodeForName } from "./programmes.ts";
 
 export type CourseModelCanonicalisationChange = {
   path: string;
-  rule: "human_date_to_iso" | "bare_class_summary_reference_to_null";
+  rule:
+    | "human_date_to_iso"
+    | "bare_class_summary_reference_to_null"
+    | "programme_name_to_code";
   before: string;
   after: string | null;
 };
@@ -80,7 +84,7 @@ function isoDateFromHumanDate(value: unknown, expectedYear: number) {
 }
 
 /**
- * Corrects two bounded provider representation errors before strict runtime
+ * Corrects bounded provider representation errors before strict runtime
  * validation. The raw OpenRouter response remains unchanged in its immutable
  * artefact, and unsupported values stay invalid instead of being coerced.
  */
@@ -89,13 +93,54 @@ export function canonicaliseCourseModelExtraction(
   {
     expectedCode,
     expectedYear,
-  }: { expectedCode: string; expectedYear: number },
+    knownProgrammes = [],
+  }: {
+    expectedCode: string;
+    expectedYear: number;
+    knownProgrammes?: readonly KnownProgramme[];
+  },
 ): CourseModelCanonicalisationResult {
   const canonical = structuredClone(value);
   const changes: CourseModelCanonicalisationChange[] = [];
-  if (!isRecord(canonical) || !Array.isArray(canonical.offerings)) {
+  if (!isRecord(canonical)) {
     return { value: canonical, changes };
   }
+
+  const resolveProgramme = (rule: unknown, path: string, depth = 0) => {
+    if (!isRecord(rule) || depth > 16) return;
+    if (rule.op === "enrolled_in" && typeof rule.programmeCode === "string") {
+      const before = rule.programmeCode;
+      const after = programmeCodeForName(before, knownProgrammes);
+      if (after && after !== before) {
+        rule.programmeCode = after;
+        changes.push({
+          path: `${path}.programmeCode`,
+          rule: "programme_name_to_code",
+          before,
+          after,
+        });
+      }
+    } else if (
+      (rule.op === "all_of" || rule.op === "one_of") &&
+      Array.isArray(rule.rules)
+    ) {
+      rule.rules.forEach((child, index) =>
+        resolveProgramme(child, `${path}.rules[${index}]`, depth + 1),
+      );
+    }
+  };
+  if (isRecord(canonical.requisites)) {
+    resolveProgramme(
+      canonical.requisites.prerequisiteRule,
+      "$.requisites.prerequisiteRule",
+    );
+    resolveProgramme(
+      canonical.requisites.corequisiteRule,
+      "$.requisites.corequisiteRule",
+    );
+  }
+
+  if (!Array.isArray(canonical.offerings)) return { value: canonical, changes };
 
   canonical.offerings.forEach((candidate, index) => {
     if (!isRecord(candidate) || candidate.calendarYear !== expectedYear) return;
@@ -131,11 +176,14 @@ export function canonicaliseCourseModelExtraction(
 export function courseModelCanonicalisationReviewItem(
   changes: readonly CourseModelCanonicalisationChange[],
 ): CourseExtractionReviewItem | null {
-  if (changes.length === 0) return null;
+  const formatting = changes.filter(
+    (change) => change.rule !== "programme_name_to_code",
+  );
+  if (formatting.length === 0) return null;
   return {
     fieldKey: "modelExtraction",
     kind: "invalid",
     severity: "warning",
-    message: `Coursemap normalised ${changes.length} provider formatting ${changes.length === 1 ? "value" : "values"} before strict validation. Inspect the validation report before accepting this draft.`,
+    message: `Coursemap normalised ${formatting.length} provider formatting ${formatting.length === 1 ? "value" : "values"} before strict validation. Inspect the validation report before accepting this draft.`,
   };
 }

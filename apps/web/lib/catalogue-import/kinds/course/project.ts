@@ -612,20 +612,28 @@ function addStructuredRule({
     nextRootPosition = 1;
   }
 
-  extraText.forEach((text, index) => {
-    const normalised = cleanText(text);
-    const condition = emptyCondition({
-      key: `${ruleKey}:condition:unmodelled.${index}`,
-      ruleKey,
-      groupKey: rootKey,
-      position: nextRootPosition + index,
-      conditionKind: "other",
-      hardness: "hard",
-      sourceText: normalised,
+  const seenText = new Set(!rule && sourceText ? [cleanText(sourceText)] : []);
+  extraText
+    .filter((text) => {
+      const normalised = cleanText(text);
+      if (seenText.has(normalised)) return false;
+      seenText.add(normalised);
+      return true;
+    })
+    .forEach((text, index) => {
+      const normalised = cleanText(text);
+      const condition = emptyCondition({
+        key: `${ruleKey}:condition:unmodelled.${index}`,
+        ruleKey,
+        groupKey: rootKey,
+        position: nextRootPosition + index,
+        conditionKind: "other",
+        hardness: "hard",
+        sourceText: normalised,
+      });
+      condition.freeText = normalised;
+      accumulator.ruleConditions.push(condition);
     });
-    condition.freeText = normalised;
-    accumulator.ruleConditions.push(condition);
-  });
 }
 
 function addIncompatibilityRule(

@@ -3,6 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
+import { sampleStudent } from "@/lib/coursemap/requisite-samples";
+import { stat2001Requisites } from "./fixtures/stat2001-requisites";
 
 const base = {
   confidence: 1,
@@ -47,6 +49,27 @@ const student: StudentRecord = {
   gpa: 5.8,
   studyYear: 3,
 };
+
+test("mixed alternatives state their actions and preserve concurrent enrolment", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set(["STAT1003"])}
+      expression={stat2001Requisites}
+      student={sampleStudent(stat2001Requisites, "partway")}
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: "Complete STAT1003" }),
+  ).toHaveAttribute("href", "/courses/2026/stat1003");
+  expect(screen.getByText("Be enrolled in BADAN")).toBeInTheDocument();
+  expect(
+    screen.getByText("Complete MATH1014, or take it in the same semester"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Option [A-Z]/u)).not.toBeInTheDocument();
+  expect(screen.getByText("1 of 2 met")).toBeInTheDocument();
+  expect(screen.getAllByText("You meet this")).toHaveLength(1);
+});
 
 function renderSteps(value: StudentRecord | null) {
   return render(
