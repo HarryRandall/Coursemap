@@ -403,7 +403,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v10");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v14");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v15");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1180,3 +1180,74 @@ for (const [code, stem] of [
     assert.equal(result.extraction.fees.length, captured.fees.length);
   });
 }
+
+test("the model receives relevant course identities without resolving ambiguous names in code", () => {
+  const prompt = buildCourseExtractionUserPrompt({
+    expectedCode: "FINM3010",
+    academicYear: 2024,
+    pageMarkdown: "Admission requires the Student Managed Fund Course.",
+    knownCourses: [
+      { code: "FINM3009", name: "Student Managed Fund" },
+      { code: "FINM3999", name: "Student Managed Fund" },
+      { code: "FINM2002", name: "Corporate Finance" },
+    ],
+  });
+  assert.match(prompt, /FINM3009: Student Managed Fund/u);
+  assert.match(prompt, /FINM3999: Student Managed Fund/u);
+  assert.equal(prompt.includes("FINM2002"), false);
+});
+
+test("captured FINM3010 named-course eligibility retains its Credit threshold and unresolved permission", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-finm3010-requisites.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "FINM3010",
+    year: 2024,
+    title: "Student Managed Fund Extension",
+  });
+  model.requisites = captured.requisites;
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  const conditions = content.requirements.conditions.filter(
+    (item) => item.ruleKey === "prerequisite",
+  );
+  const course = conditions.find((condition) => condition.kind === "course");
+  assert.equal(course.itemCode, "FINM3009");
+  assert.equal(course.minimumMark, 60);
+  assert.ok(
+    conditions.some(
+      (condition) =>
+        condition.kind === "other" &&
+        condition.freeText.includes("permission code"),
+    ),
+  );
+  const rule = requirementSliceExpression({
+    rule: content.requirements.rules.find(
+      (item) => item.key === "prerequisite",
+    ),
+    groups: content.requirements.groups.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    conditions,
+    options: [],
+  });
+  assert.notEqual(
+    evaluateRule(rule, {
+      completed: new Map([["FINM3009", { units: 6, mark: 60 }]]),
+      enrolled: new Set(),
+      programmeCodes: [],
+      wam: null,
+      gpa: null,
+      studyYear: null,
+    }).status,
+    "met",
+  );
+});
