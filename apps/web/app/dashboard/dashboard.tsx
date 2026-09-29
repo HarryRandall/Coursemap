@@ -91,8 +91,14 @@ export function Dashboard({
       ...catalogue,
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
+      enrolmentMode: state.profile.enrolmentMode,
     }),
-    [catalogue, timelineTerms, state.profile.commencementYear],
+    [
+      catalogue,
+      timelineTerms,
+      state.profile.commencementYear,
+      state.profile.enrolmentMode,
+    ],
   );
   const unitTarget = degree?.units ?? null;
   const progress = degreeUnitProgress(

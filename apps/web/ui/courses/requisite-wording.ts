@@ -1,3 +1,4 @@
+import { enrolmentModeConditionLabel } from "@/lib/academic/enrolment-mode";
 import { commencementYearLabel } from "@/lib/academic/commencement-year";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -91,6 +92,8 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
       return `${condition.units} units tagged ${condition.tag}`;
     case "elective_units":
       return `${condition.units} units of electives`;
+    case "enrolment_mode":
+      return enrolmentModeConditionLabel(condition);
     case "commencement_year":
       return commencementYearLabel(condition);
     case "year_standing":
@@ -138,6 +141,8 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
       return `Complete ${condition.units} units of courses tagged ${condition.tag}`;
     case "elective_units":
       return `Complete ${condition.units} units of electives`;
+    case "enrolment_mode":
+      return enrolmentModeConditionLabel(condition);
     case "commencement_year":
       return commencementYearLabel(condition);
     case "year_standing":

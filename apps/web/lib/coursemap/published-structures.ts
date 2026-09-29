@@ -1,3 +1,4 @@
+import { validEnrolmentMode } from "../academic/enrolment-mode";
 import {
   PUBLISHED_STRUCTURE_DETAIL_TAG,
   publishedStructureTag,
@@ -107,6 +108,17 @@ function requirementTree(
         minimumLevel: readNullableNumber(condition.minimumCourseLevel),
         maximumLevel: readNullableNumber(condition.maximumCourseLevel),
         minimumYear: readNullableNumber(condition.minimumYear),
+        ...(condition.conditionKind === "enrolment_mode"
+          ? {
+              enrolmentMode: validEnrolmentMode(condition.enrolmentMode)
+                ? condition.enrolmentMode
+                : null,
+              matchesEnrolmentMode:
+                typeof condition.matchesEnrolmentMode === "boolean"
+                  ? condition.matchesEnrolmentMode
+                  : null,
+            }
+          : {}),
         ...(condition.conditionKind === "commencement_year"
           ? {
               minimumCommencementYear: readNullableNumber(

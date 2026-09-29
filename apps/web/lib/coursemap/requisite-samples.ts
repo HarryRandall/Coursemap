@@ -1,3 +1,7 @@
+import {
+  ENROLMENT_MODES,
+  type EnrolmentMode,
+} from "../academic/enrolment-mode";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 
@@ -13,6 +17,7 @@ type Draft = {
   gpa: number | null;
   studyYear: number;
   commencementYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
 };
 
 const COURSE_UNITS = 6;
@@ -131,6 +136,11 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       }
       return;
     }
+    case "enrolment_mode":
+      draft.enrolmentMode = node.matchesEnrolmentMode
+        ? node.enrolmentMode
+        : ENROLMENT_MODES.find((mode) => mode !== node.enrolmentMode);
+      return;
     case "commencement_year":
       draft.commencementYear =
         node.minimumCommencementYear ?? node.maximumCommencementYear;
@@ -190,6 +200,7 @@ export function sampleStudent(
     completed: draft.completed,
     enrolled: new Set(),
     programmeCodes: [...draft.programmeCodes],
+    ...(draft.enrolmentMode ? { enrolmentMode: draft.enrolmentMode } : {}),
     wam: draft.wam,
     gpa: draft.gpa,
     studyYear: draft.studyYear,

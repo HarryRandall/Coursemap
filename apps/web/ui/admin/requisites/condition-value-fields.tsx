@@ -1,4 +1,9 @@
 "use client";
+import {
+  ENROLMENT_MODES,
+  enrolmentModeLabel,
+  validEnrolmentMode,
+} from "@/lib/academic/enrolment-mode";
 import { Input } from "@coursemap/ui/primitives/input";
 import { OptionPicker } from "@/ui/common/option-picker";
 import { Textarea } from "@coursemap/ui/primitives/textarea";
@@ -222,6 +227,40 @@ export function InlineValueFields({
     );
   }
 
+  if (condition.kind === "enrolment_mode") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <OptionPicker
+          aria-label="Enrolment mode"
+          value={condition.enrolmentMode ?? ""}
+          items={ENROLMENT_MODES.map((value) => ({
+            value,
+            label: enrolmentModeLabel(value),
+          }))}
+          onValueChange={(value) => {
+            if (validEnrolmentMode(value))
+              onChange({ ...condition, enrolmentMode: value });
+          }}
+        />
+        <OptionPicker
+          aria-label="Enrolment mode match"
+          value={
+            condition.matchesEnrolmentMode === null ||
+            condition.matchesEnrolmentMode === undefined
+              ? ""
+              : String(condition.matchesEnrolmentMode)
+          }
+          items={[
+            { value: "true", label: "Enrolled in" },
+            { value: "false", label: "Not enrolled in" },
+          ]}
+          onValueChange={(value) =>
+            onChange({ ...condition, matchesEnrolmentMode: value === "true" })
+          }
+        />
+      </span>
+    );
+  }
   if (condition.kind === "commencement_year") {
     return (
       <span className="inline-flex flex-wrap items-center gap-1.5">

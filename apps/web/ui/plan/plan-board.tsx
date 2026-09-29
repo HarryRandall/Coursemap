@@ -161,8 +161,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       ...catalogue,
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
+      enrolmentMode: state.profile.enrolmentMode,
     }),
-    [catalogue, timelineTerms, state.profile.commencementYear],
+    [
+      catalogue,
+      timelineTerms,
+      state.profile.commencementYear,
+      state.profile.enrolmentMode,
+    ],
   );
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),

@@ -1,3 +1,4 @@
+import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type { CourseRequisiteRule, CourseUnitValue } from "./course-types";
 
 export type Accent = "blue" | "violet" | "mint" | "amber" | "rose" | "cyan";
@@ -103,6 +104,7 @@ export type Profile = {
   studentId: string;
   email: string;
   commencementYear: number;
+  enrolmentMode?: EnrolmentMode | null;
   catalogueYear: number;
   degreeCode: string;
   majorCode: string;

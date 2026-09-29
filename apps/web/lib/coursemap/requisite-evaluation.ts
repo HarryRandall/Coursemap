@@ -1,4 +1,9 @@
 import {
+  validEnrolmentMode,
+  type EnrolmentMode,
+  enrolmentModeLabel,
+} from "../academic/enrolment-mode.ts";
+import {
   validCommencementYear,
   validCommencementYearBounds,
 } from "../academic/commencement-year.ts";
@@ -34,6 +39,7 @@ export type StudentRecord = {
   gpa: number | null;
   studyYear: number | null;
   commencementYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
   /** Approval recorded for this course attempt, when checking a plan. */
   permissionApproved?: boolean;
 };
@@ -198,6 +204,17 @@ export function evaluateCondition(
         unitsWhere(student, (code) => condition.courseCodes.includes(code)),
         condition.units,
       );
+    case "enrolment_mode": {
+      const mode = student.enrolmentMode;
+      if (!validEnrolmentMode(mode)) return { status: "unknown" };
+      return {
+        status:
+          (mode === condition.enrolmentMode) === condition.matchesEnrolmentMode
+            ? "met"
+            : "unmet",
+        detail: `Your enrolment is a ${enrolmentModeLabel(mode)}`,
+      };
+    }
     case "commencement_year": {
       const year = student.commencementYear;
       if (
@@ -311,10 +328,12 @@ export function studentRecord({
   attempts,
   commencementYear,
   completedCourses,
+  enrolmentMode,
   programmeCodes,
 }: {
   attempts: readonly Attempt[];
   commencementYear: number | null;
+  enrolmentMode?: EnrolmentMode | null;
   completedCourses: readonly CompletedRequisiteCourse[];
   programmeCodes: readonly string[];
 }): StudentRecord {
@@ -363,6 +382,7 @@ export function studentRecord({
         .map((attempt) => attempt.courseCode),
     ),
     commencementYear,
+    enrolmentMode,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
     wam: weightedAverageMark(results),
     gpa: gradePointAverage(results),

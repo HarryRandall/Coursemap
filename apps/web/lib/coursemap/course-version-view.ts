@@ -110,6 +110,12 @@ function courseProjectionFromWrite(write: CatalogueContent): Json {
       maximumCourseLevel: condition.maximumLevel,
       minimumGpa: condition.minimumGpa,
       minimumYear: condition.minimumYear,
+      ...(condition.kind === "enrolment_mode"
+        ? {
+            enrolmentMode: condition.enrolmentMode ?? null,
+            matchesEnrolmentMode: condition.matchesEnrolmentMode ?? null,
+          }
+        : {}),
       ...(condition.kind === "commencement_year"
         ? {
             minimumCommencementYear: condition.minimumCommencementYear ?? null,

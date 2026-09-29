@@ -1,3 +1,7 @@
+import {
+  ENROLMENT_MODES,
+  type EnrolmentMode,
+} from "../../../academic/enrolment-mode.ts";
 import { validCommencementYearBounds } from "../../../academic/commencement-year.ts";
 import {
   WORKLOAD_HOURS_BASES,
@@ -94,6 +98,7 @@ export type CourseRule =
       courseCodes: string[];
     }
   | { op: "enrolled_in"; programmeCode: string }
+  | { op: "enrolment_mode"; mode: EnrolmentMode; matches: boolean }
   | { op: "year_standing"; minimumYear: number }
   | {
       op: "commencement_year";
@@ -629,6 +634,12 @@ function validateRule(
       requireString(record.programmeCode, `${path}.programmeCode`, issues, {
         pattern: /^[A-Z0-9-]{3,20}$/,
       });
+  } else if (op === "enrolment_mode") {
+    const record = exactRecord(value, path, ["op", "mode", "matches"], issues);
+    if (record) {
+      requireEnum(record.mode, `${path}.mode`, ENROLMENT_MODES, issues);
+      requireBoolean(record.matches, `${path}.matches`, issues);
+    }
   } else if (op === "commencement_year") {
     const record = exactRecord(
       value,
@@ -1778,6 +1789,16 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in" },
             programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "mode", "matches"],
+          properties: {
+            op: { const: "enrolment_mode" },
+            mode: { type: "string", enum: ENROLMENT_MODES },
+            matches: { type: "boolean" },
           },
         },
         {

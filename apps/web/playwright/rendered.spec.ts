@@ -1,6 +1,76 @@
 import assert from "node:assert/strict";
+import postgres from "postgres";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { expectRoundedCorners } from "./rounded-corners";
 import { test, expect, login } from "./fixtures";
+
+test("students save and clear explicit enrolment mode across desktop and mobile", async ({
+  page,
+  planner,
+}) => {
+  const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+    max: 1,
+  });
+  try {
+    await login(page, planner);
+    await page.goto("/profile");
+    const mode = page.getByRole("button", {
+      name: "Enrolment mode",
+      exact: true,
+    });
+    await expect(mode).toContainText("Not specified");
+    await page
+      .getByLabel("Name", { exact: true })
+      .fill("Enrolment browser student");
+    await mode.click();
+    await page
+      .getByRole("button", { name: "Flexible Double Degree", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Save details", exact: true })
+      .click();
+    await expect
+      .poll(async () => {
+        const [plan] =
+          await sql`select enrolment_mode from public.plans where owner_id = ${planner.id}::uuid and is_primary`;
+        return plan.enrolment_mode;
+      })
+      .toBe("flexible_double_degree");
+    await page.reload();
+    await expect(mode).toContainText("Flexible Double Degree");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(mode).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      )
+      .toBe(true);
+    await page.screenshot({
+      path: test.info().outputPath("enrolment-mode-mobile.png"),
+      fullPage: true,
+    });
+    await mode.click();
+    await page
+      .getByRole("button", { name: "Not specified", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Save details", exact: true })
+      .click();
+    await expect
+      .poll(async () => {
+        const [plan] =
+          await sql`select enrolment_mode from public.plans where owner_id = ${planner.id}::uuid and is_primary`;
+        return plan.enrolment_mode;
+      })
+      .toBe(null);
+    await page.reload();
+    await expect(mode).toContainText("Not specified");
+  } finally {
+    await sql.end();
+  }
+});
 
 test("public pages render catalogue data and safe authentication forms", async ({
   page,

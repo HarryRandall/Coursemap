@@ -1,4 +1,8 @@
 import {
+  validEnrolmentMode,
+  type EnrolmentMode,
+} from "@/lib/academic/enrolment-mode";
+import {
   validCommencementYear,
   validCommencementYearBounds,
 } from "@/lib/academic/commencement-year";
@@ -11,6 +15,7 @@ export type PlanningCatalogue = {
   snapshotCourses?: readonly Course[];
   terms: readonly Term[];
   commencementYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
 };
 
 export type EffectiveStatus = Attempt["status"] | "blocked" | "approval";
@@ -362,6 +367,18 @@ function evaluateRelationalPrerequisite(
       : { state: "unsatisfied", missingCodes: [] };
   }
 
+  if (expression.kind === "enrolment_mode") {
+    const mode = catalogue?.enrolmentMode;
+    if (!validEnrolmentMode(mode))
+      return { state: "unknown", missingCodes: [] };
+    return {
+      state:
+        (mode === expression.enrolmentMode) === expression.matchesEnrolmentMode
+          ? "satisfied"
+          : "unsatisfied",
+      missingCodes: [],
+    };
+  }
   if (expression.kind === "commencement_year") {
     const year = catalogue?.commencementYear;
     if (
