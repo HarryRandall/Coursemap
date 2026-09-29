@@ -327,7 +327,7 @@ test("only completed-or-concurrent course conditions accept the same term", () =
   assert.deepEqual(missingPrereqs(target, [sameTerm, target], concurrent), []);
 });
 
-test("keeps unreviewed or non-actionable requirements as manual approval", () => {
+test("keeps unreviewed or non-actionable requirements as manual review", () => {
   const target = attempt("target", "COMP1110", "2026-s2");
   const structuredCatalogue = catalogueWithPrerequisiteRule({
     kind: "group",
@@ -350,7 +350,7 @@ test("keeps unreviewed or non-actionable requirements as manual approval", () =>
   );
   assert.equal(
     effectiveStatus(target, [target], structuredCatalogue),
-    "approval",
+    "review",
   );
 });
 
@@ -492,7 +492,7 @@ test("planning preserves minimum marks for completed and concurrent prerequisite
     [{ mark: 60 }, "planned"],
     [{ resultCode: "CR" }, "planned"],
     [{ resultCode: "P" }, "blocked"],
-    [{ resultCode: "PS" }, "approval"],
+    [{ resultCode: "PS" }, "review"],
   ]) {
     const completed = {
       ...attempt("completed-mark", "COMP1100", "2026-s1", "completed"),
@@ -511,7 +511,7 @@ test("planning preserves minimum marks for completed and concurrent prerequisite
   );
   assert.equal(
     effectiveStatus(target, [enrolled, target], catalogue),
-    "approval",
+    "review",
   );
 });
 
@@ -546,7 +546,7 @@ test("subject course counts require distinct earlier courses and reject failed, 
   ]) {
     assert.equal(
       effectiveStatus(target, [earlier, candidate, target], structured),
-      "approval",
+      "blocked",
     );
   }
 });
@@ -593,7 +593,7 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
         [attempt("other", "COMP1100", "2026-s2", status), target],
         catalogue,
       ),
-      "approval",
+      "blocked",
     );
   }
   for (const status of ["completed", "failed", "withdrawn"]) {
@@ -620,7 +620,7 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
       [attempt("other", "COMP1100", "unscheduled"), target],
       catalogue,
     ),
-    "approval",
+    "review",
   );
   assert.equal(
     effectiveStatus(
@@ -655,7 +655,7 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
       [attempt("other", "COMP1100", "2026-spring"), target],
       overlapping,
     ),
-    "approval",
+    "blocked",
   );
   assert.equal(
     effectiveStatus(
@@ -663,7 +663,7 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
       [attempt("other", "COMP1100", "2026-s1", "completed"), target],
       catalogueWithExclusion({ ...condition, kind: "incompatible" }),
     ),
-    "approval",
+    "blocked",
   );
 });
 
@@ -731,7 +731,7 @@ test("permission waives a conditional prior-course exclusion without waiving ind
       [attempt("other", "MATH1005", "2026-s1", "completed"), target],
       independent,
     ),
-    "approval",
+    "blocked",
   );
 });
 
@@ -806,8 +806,8 @@ test("cohort approval can waive one course without waiving the cohort or other c
   for (const [codes, commencementYear, permissionApproved, expected] of [
     [["MATH1005"], 2020, true, "planned"],
     [["MATH1005"], 2020, false, "approval"],
-    [["MATH1005"], 2021, true, "approval"],
-    [["MATH1005"], null, true, "approval"],
+    [["MATH1005"], 2021, true, "blocked"],
+    [["MATH1005"], null, true, "review"],
     [["MATH1005", "COMP1100"], 2024, false, "planned"],
     [[], 2020, true, "blocked"],
   ]) {

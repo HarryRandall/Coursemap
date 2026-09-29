@@ -49,9 +49,10 @@ export function planRisks({
     ];
   });
 
-  const blocked = attempts.flatMap((attempt) => {
+  const courseIssues = attempts.flatMap((attempt) => {
     const status = effectiveStatus(attempt, attempts, catalogue);
-    if (status !== "blocked" && status !== "approval") return [];
+    if (status !== "blocked" && status !== "approval" && status !== "review")
+      return [];
     const course = planningCourseForAttempt(attempt, catalogue);
     if (!course) return [];
     const missing = missingPrereqs(attempt, attempts, catalogue);
@@ -61,8 +62,12 @@ export function planRisks({
         title: `${course.code} ${course.name}`,
         detail:
           status === "blocked"
-            ? `Prerequisites not met in the plan: ${missing.join(", ")}.`
-            : "Needs permission or a prerequisite check before enrolment.",
+            ? missing.length > 0
+              ? `Prerequisites not met in the plan: ${missing.join(", ")}.`
+              : "A required eligibility condition is not met."
+            : status === "approval"
+              ? "Course permission is required before enrolment."
+              : "Check the course requirements against your record before enrolment.",
         severity:
           status === "blocked" ? ("warning" as const) : ("info" as const),
       },
@@ -81,7 +86,7 @@ export function planRisks({
         ]
       : [];
 
-  return [...shortfalls, ...blocked, ...unallocated].sort((a, b) =>
+  return [...shortfalls, ...courseIssues, ...unallocated].sort((a, b) =>
     a.severity === b.severity ? 0 : a.severity === "warning" ? -1 : 1,
   );
 }

@@ -99,7 +99,7 @@ function StatusMark({
     return <CheckCircle2 size={size} className="shrink-0 text-emerald-500" />;
   if (status === "failed")
     return <XCircle size={size} className="shrink-0 text-rose-500" />;
-  if (status === "blocked" || status === "approval")
+  if (status === "blocked" || status === "approval" || status === "review")
     return <AlertTriangle size={size} className="shrink-0 text-amber-500" />;
   return <Circle size={size} className="shrink-0 text-muted-foreground/40" />;
 }
@@ -482,9 +482,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         state.attempts,
         planningCatalogue,
       );
-      return `Needs ${missing.join(" + ")} completed or scheduled earlier`;
+      return missing.length > 0
+        ? `Needs ${missing.join(" + ")} completed or scheduled earlier`
+        : "A required eligibility condition is not met";
     }
-    if (entry.status === "approval") return "Convener permission is required";
+    if (entry.status === "approval") return "Course permission is required";
+    if (entry.status === "review") return "Check the course requirements";
     if (entry.status === "failed") return "Failed attempt with 0 units earned";
     return null;
   };

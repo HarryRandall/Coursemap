@@ -24,7 +24,8 @@ export type PlanningCatalogue = {
   programmeColleges?: readonly ProgrammeCollege[];
 };
 
-export type EffectiveStatus = Attempt["status"] | "blocked" | "approval";
+export type EffectiveStatus =
+  Attempt["status"] | "blocked" | "approval" | "review";
 
 export const STANDARD_COURSE_SLOTS = 4;
 export const STANDARD_TERM_UNITS = 24;
@@ -151,6 +152,7 @@ export function isActiveAttempt(attempt: Attempt) {
 type PrerequisiteEvaluation = {
   missingCodes: string[];
   state: "satisfied" | "unsatisfied" | "unknown";
+  permissionCanSatisfy?: boolean;
 };
 
 function prerequisiteAttempts(
@@ -185,11 +187,22 @@ function evaluateRelationalPrerequisite(
       evaluateRelationalPrerequisite(condition, attempt, attempts, catalogue),
     );
     if (expression.operator === "all_of") {
-      if (children.some((child) => child.state === "unsatisfied")) {
+      const unsatisfied = children.filter(
+        (child) => child.state === "unsatisfied",
+      );
+      if (unsatisfied.length > 0) {
+        if (
+          children.some((child) => child.state === "unknown") &&
+          unsatisfied.every((child) => child.permissionCanSatisfy)
+        )
+          return { state: "unknown", missingCodes: [] };
         return {
           state: "unsatisfied",
           missingCodes: uniqueCodes(
             children.flatMap((child) => child.missingCodes),
+          ),
+          permissionCanSatisfy: unsatisfied.every(
+            (child) => child.permissionCanSatisfy,
           ),
         };
       }
@@ -213,6 +226,10 @@ function evaluateRelationalPrerequisite(
       return { state: "unknown", missingCodes: [] };
     }
     const needed = required - satisfied;
+    const permissionCanSatisfy =
+      children.filter(
+        (child) => child.state === "unsatisfied" && child.permissionCanSatisfy,
+      ).length >= needed;
     const candidates = children
       .filter((child) => child.state === "unsatisfied")
       .toSorted(
@@ -223,13 +240,18 @@ function evaluateRelationalPrerequisite(
       candidates.length !== needed ||
       candidates.some((candidate) => candidate.missingCodes.length === 0)
     ) {
-      return { state: "unsatisfied", missingCodes: [] };
+      return {
+        state: "unsatisfied",
+        missingCodes: [],
+        permissionCanSatisfy,
+      };
     }
     return {
       state: "unsatisfied",
       missingCodes: uniqueCodes(
         candidates.flatMap((candidate) => candidate.missingCodes),
       ),
+      permissionCanSatisfy,
     };
   }
 
@@ -320,7 +342,11 @@ function evaluateRelationalPrerequisite(
   if (expression.kind === "permission") {
     return attempt.permissionApproved
       ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
+      : {
+          state: "unsatisfied",
+          missingCodes: [],
+          permissionCanSatisfy: true,
+        };
   }
 
   const earlier = prerequisiteAttempts(attempt, attempts, catalogue, false);
@@ -512,14 +538,17 @@ export function effectiveStatus(
     catalogue,
   );
   if (prerequisites.state === "unsatisfied") {
-    return prerequisites.missingCodes.length > 0 ? "blocked" : "approval";
+    return prerequisites.permissionCanSatisfy ? "approval" : "blocked";
   }
-  if (prerequisites.state === "unknown") return "approval";
-  if (
-    evaluateCourseIncompatibilities(attempt, attempts, catalogue).state !==
-    "satisfied"
-  )
-    return "approval";
+  if (prerequisites.state === "unknown") return "review";
+  const incompatibilities = evaluateCourseIncompatibilities(
+    attempt,
+    attempts,
+    catalogue,
+  );
+  if (incompatibilities.state === "unknown") return "review";
+  if (incompatibilities.state === "unsatisfied")
+    return incompatibilities.permissionCanSatisfy ? "approval" : "blocked";
   if (course.permissionText && !attempt.permissionApproved) return "approval";
   return "planned";
 }
@@ -533,6 +562,7 @@ export function statusLabel(status: EffectiveStatus) {
     withdrawn: "Withdrawn",
     blocked: "Blocked",
     approval: "Approval needed",
+    review: "Review needed",
   }[status];
 }
 

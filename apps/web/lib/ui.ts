@@ -62,6 +62,7 @@ export const statusTone: Record<EffectiveStatus, Tone> = {
   withdrawn: "neutral",
   blocked: "warning",
   approval: "warning",
+  review: "warning",
 };
 
 /** Build simple {value,label} options from a list of years. */
