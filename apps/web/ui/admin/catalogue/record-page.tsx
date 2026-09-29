@@ -194,6 +194,7 @@ export async function CatalogueRecordPage({
               <CatalogueChangesPanel
                 canWrite={canWrite}
                 hasEverSynced={record.syncs.length > 0}
+                latestSyncFailed={record.syncs[0]?.status === "failed"}
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
                 notes={notes}

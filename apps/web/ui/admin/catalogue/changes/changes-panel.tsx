@@ -47,11 +47,24 @@ function reviewEmptyState({
   hasEverSynced,
   unpublishedCount,
   kindLabel,
+  hasExtractionErrors,
+  latestSyncFailed,
 }: {
   hasEverSynced: boolean;
   unpublishedCount: number;
   kindLabel: string;
+  hasExtractionErrors: boolean;
+  latestSyncFailed: boolean;
 }) {
+  if (latestSyncFailed || hasExtractionErrors) {
+    return {
+      title: latestSyncFailed
+        ? "The latest ANU sync failed"
+        : "The ANU reading needs correction",
+      description:
+        "A complete comparison with ANU is not available. Resolve the reported errors before publishing imported changes.",
+    };
+  }
   if (!hasEverSynced) {
     return {
       title: "No ANU changes yet",
@@ -91,6 +104,7 @@ export function CatalogueChangesPanel({
   notes = null,
   subject = null,
   allFields = [],
+  latestSyncFailed = false,
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -106,6 +120,7 @@ export function CatalogueChangesPanel({
   subject?: ReviewSubject | null;
   /** Every filled field as the draft holds it, rated like a first reading. */
   allFields?: readonly FirstReadItem[];
+  latestSyncFailed?: boolean;
 }) {
   const conflicts = review?.conflicts ?? [];
   const firstRead = (review?.firstRead ?? []).filter(
@@ -132,6 +147,8 @@ export function CatalogueChangesPanel({
     hasEverSynced,
     unpublishedCount,
     kindLabel,
+    hasExtractionErrors: (notes?.errors.length ?? 0) > 0,
+    latestSyncFailed,
   });
   const showUnpublished = unpublishedCount > 0;
   const isEmpty =

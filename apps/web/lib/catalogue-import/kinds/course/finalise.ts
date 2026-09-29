@@ -10,6 +10,7 @@ import {
 } from "./model-canonical.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
+  hasExtractedContent,
   modelResponseProblem,
   salvageModelExtraction,
   withModelEvidenceMethod,
@@ -123,9 +124,10 @@ export function finaliseCourseExtraction({
       knownProgrammes: programmesMentionedOnPage(pageMarkdown, knownProgrammes),
     },
   );
+  const empty = emptyCourseExtraction({ code, year, title: listingTitle });
   const { extraction, dropped } = salvageModelExtraction({
     value: canonical.value,
-    empty: emptyCourseExtraction({ code, year, title: listingTitle }),
+    empty,
     fixedKeys: COURSE_IDENTITY_FIELDS,
     validate: (candidate) =>
       validateCourseExtraction(candidate, {
@@ -171,6 +173,10 @@ export function finaliseCourseExtraction({
   const finalised: CourseExtraction = { ...extraction, reviewItems };
   return {
     extraction: finalised,
+    canPersist:
+      !problem &&
+      !dropped.some(({ fieldKey }) => fieldKey === "modelExtraction") &&
+      hasExtractedContent(extraction, empty, COURSE_IDENTITY_FIELDS),
     warningCount: reviewItems.filter(({ severity }) => severity === "warning")
       .length,
     errorCount: reviewItems.filter(({ severity }) => severity === "error")

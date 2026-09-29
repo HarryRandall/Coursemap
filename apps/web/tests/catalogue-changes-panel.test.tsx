@@ -268,3 +268,33 @@ test("leaves out first readings taken word for word from the page", () => {
   expect(screen.queryByText("First reading from ANU")).toBeNull();
   expect(screen.getByText("No changes to review")).toBeTruthy();
 });
+
+test("a failed sync cannot be described as matching ANU", () => {
+  renderPanel({ latestSyncFailed: true });
+  expect(screen.getByText("The latest ANU sync failed")).toBeInTheDocument();
+  expect(
+    screen.queryByText("This course matches the latest ANU information."),
+  ).not.toBeInTheDocument();
+});
+
+test("an empty extraction with errors cannot be described as matching ANU", () => {
+  renderPanel({
+    notes: summariseReviewNotes({
+      flags: [
+        {
+          fieldPath: "modelExtraction",
+          severity: "error",
+          code: "INVALID",
+          message: "The model did not return a JSON object.",
+        },
+      ],
+      evidence: [],
+    }),
+  });
+  expect(
+    screen.getByText("The ANU reading needs correction"),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText("This course matches the latest ANU information."),
+  ).not.toBeInTheDocument();
+});

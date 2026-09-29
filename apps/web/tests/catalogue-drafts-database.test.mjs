@@ -166,6 +166,32 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
     { field_path: "course.details.description", origin: "manual" },
   ]);
 
+  const unread = structuredClone(saved.draft.content);
+  unread.flags = [
+    {
+      fieldPath: "modelExtraction",
+      severity: "error",
+      code: "INVALID",
+      message: "The model did not return a JSON object.",
+      sourceExcerpt: null,
+    },
+  ];
+  await sql`update public.catalogue_drafts set content = ${sql.json(unread)} where record_id = ${recordId}`;
+  await assert.rejects(
+    publishCatalogueDraft({
+      recordId,
+      expectedRevision: 1,
+      userId: ADMIN_ID,
+      editingSessionId: SESSION_ID,
+      sql,
+    }),
+    (error) => error.code === "INVALID_EXTRACTION",
+  );
+  const [stillUnpublished] =
+    await sql`select published_version_id from public.catalogue_records where id = ${recordId}`;
+  assert.equal(stillUnpublished.published_version_id, null);
+  await sql`update public.catalogue_drafts set content = ${sql.json(saved.draft.content)} where record_id = ${recordId}`;
+
   const firstPublish = await publishCatalogueDraft({
     recordId,
     expectedRevision: 1,
