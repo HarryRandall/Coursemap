@@ -11,11 +11,13 @@ import {
   validCommencementYear,
   validCommencementYearBounds,
 } from "../academic/commencement-year.ts";
+import { minimumMarkStatus } from "@/lib/academic/metrics";
 import {
-  gradePointAverage,
-  minimumMarkStatus,
-  weightedAverageMark,
-} from "@/lib/academic/metrics";
+  academicResultUnits,
+  isRecordedAcademicAttempt,
+  recordedGradePointAverage,
+  recordedWeightedAverageMark,
+} from "@/lib/academic/attempt-results";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -388,14 +390,15 @@ export function studentRecord({
       },
     ]),
   );
-  const results = finished.map((attempt) => ({
+  const results = attempts.filter(isRecordedAcademicAttempt).map((attempt) => ({
     mark: attempt.mark,
     resultCode: attempt.resultCode,
-    units:
-      attempt.unitsEarned ??
-      attempt.unitsAttempted ??
-      completed.get(attempt.courseCode)?.units ??
-      0,
+    units: academicResultUnits(
+      attempt,
+      attempt.status === "completed"
+        ? completed.get(attempt.courseCode)?.units
+        : undefined,
+    ),
   }));
   return {
     completed,
@@ -408,8 +411,8 @@ export function studentRecord({
     enrolmentMode,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
     programmeColleges,
-    wam: weightedAverageMark(results),
-    gpa: gradePointAverage(results),
+    wam: recordedWeightedAverageMark(results),
+    gpa: recordedGradePointAverage(results),
     studyYear: commencementYear
       ? Math.max(1, new Date().getFullYear() - commencementYear + 1)
       : null,

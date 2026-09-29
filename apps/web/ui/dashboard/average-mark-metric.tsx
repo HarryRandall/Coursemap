@@ -18,7 +18,11 @@ export function AverageMarkMetric({
 }: {
   points: readonly AcademicTermPoint[];
 }) {
-  const semesters = points.filter((point) => point.marks.length > 0);
+  const semesters = points.flatMap((point) =>
+    point.wam !== null && point.marks.length > 0
+      ? [{ ...point, wam: point.wam }]
+      : [],
+  );
   const [picked, setPicked] = useState<number | null>(null);
   const last = semesters.length - 1;
   const index = Math.min(picked ?? last, last);
