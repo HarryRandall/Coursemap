@@ -3,6 +3,7 @@ import {
   parseCourseExtraction,
   type CourseExtraction,
   type CourseRule,
+  type CourseIncompatibilityRule,
 } from "./contract.ts";
 import { stableFingerprint } from "../../canonical.ts";
 
@@ -234,8 +235,12 @@ function assertUniqueStrings(values: readonly string[], label: string) {
   }
 }
 
-function describeRule(rule: CourseRule): string {
+function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
   switch (rule.op) {
+    case "not_completed":
+      return `Must not have completed ${rule.courseCode}`;
+    case "not_concurrent":
+      return `Cannot concurrently enrol in ${rule.courseCode}`;
     case "completed":
       return `Completed ${rule.courseCode}${rule.minimumMark == null ? "" : ` with a mark of at least ${rule.minimumMark}`}`;
     case "completed_or_concurrent":
@@ -341,7 +346,7 @@ function addRuleReference(
 }
 
 function addAtomicRule(
-  rule: CourseRule,
+  rule: CourseRule | CourseIncompatibilityRule,
   context: {
     accumulator: RuleProjectionAccumulator;
     ruleKey: RuleKind;
@@ -379,6 +384,25 @@ function addAtomicRule(
       condition.requiredCourseCode = rule.courseCode;
       condition.courseRequirementMode = rule.op;
       condition.minimumMark = rule.minimumMark ?? null;
+      accumulator.ruleConditions.push(condition);
+      addRuleReference(accumulator, ruleKey, rule.courseCode, sourceText);
+      return;
+    }
+    case "not_completed":
+    case "not_concurrent": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind:
+          rule.op === "not_completed"
+            ? "incompatible"
+            : "incompatible_concurrent",
+        hardness,
+        sourceText,
+      });
+      condition.requiredCourseCode = rule.courseCode;
       accumulator.ruleConditions.push(condition);
       addRuleReference(accumulator, ruleKey, rule.courseCode, sourceText);
       return;
@@ -537,7 +561,7 @@ function addAtomicRule(
 }
 
 function addRuleNode(
-  rule: CourseRule,
+  rule: CourseRule | CourseIncompatibilityRule,
   context: {
     accumulator: RuleProjectionAccumulator;
     ruleKey: RuleKind;
@@ -709,18 +733,22 @@ function addIncompatibilityRule(
     ];
   });
   const rawText = nullableText(extraction.requisites.incompatibilityText);
-  if (!rawText && codes.length === 0) return;
+  const structured = extraction.requisites.incompatibilityRule;
+  if (!rawText && codes.length === 0 && !structured) return;
 
   const ruleKey = "incompatibility" as const;
   accumulator.rules.push({
     key: ruleKey,
     ruleKind: ruleKey,
     hardness:
-      codes.some((code) => code.hardness === "hard") || codes.length === 0
+      structured ||
+      codes.some((code) => code.hardness === "hard") ||
+      codes.length === 0
         ? "hard"
         : "advisory",
     sourceText:
       rawText ??
+      (structured ? describeRule(structured) : null) ??
       codes
         .map(({ courseCode, kind }) =>
           kind === "incompatible_concurrent"
@@ -734,11 +762,31 @@ function addIncompatibilityRule(
     key: rootKey,
     ruleKey,
     parentGroupKey: null,
-    operator: "all_of",
+    operator:
+      structured?.op === "one_of" && codes.length === 0 ? "any_of" : "all_of",
     minimumCount: null,
     position: 0,
   });
 
+  let offset = 0;
+  if (structured) {
+    const children =
+      codes.length === 0 &&
+      (structured.op === "all_of" || structured.op === "one_of")
+        ? structured.rules
+        : [structured];
+    children.forEach((child, position) =>
+      addRuleNode(child, {
+        accumulator,
+        ruleKey,
+        parentGroupKey: rootKey,
+        path: `structured.${position}`,
+        position,
+        hardness: "hard",
+      }),
+    );
+    offset = children.length;
+  }
   codes.forEach(({ courseCode, hardness, kind }, position) => {
     const sourceText =
       rawText ??
@@ -751,7 +799,7 @@ function addIncompatibilityRule(
       key: `${ruleKey}:condition:${position}`,
       ruleKey,
       groupKey: rootKey,
-      position,
+      position: position + offset,
       conditionKind: kind,
       hardness,
       sourceText,
@@ -761,7 +809,7 @@ function addIncompatibilityRule(
     addRuleReference(accumulator, ruleKey, courseCode, sourceText);
   });
 
-  if (codes.length === 0 && rawText) {
+  if (!structured && codes.length === 0 && rawText) {
     const condition = emptyCondition({
       key: `${ruleKey}:condition:raw`,
       ruleKey,

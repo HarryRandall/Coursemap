@@ -29,6 +29,8 @@ export type StudentRecord = {
   wam: number | null;
   gpa: number | null;
   studyYear: number | null;
+  /** Approval recorded for this course attempt, when checking a plan. */
+  permissionApproved?: boolean;
 };
 
 export type RequisiteStatus = "met" | "partial" | "unmet" | "unknown";
@@ -226,8 +228,16 @@ export function evaluateCondition(
         condition.units,
       );
     }
-    case "elective_units":
     case "permission":
+      return {
+        status:
+          student.permissionApproved === undefined
+            ? "unknown"
+            : student.permissionApproved
+              ? "met"
+              : "unmet",
+      };
+    case "elective_units":
     case "other":
       return { status: "unknown" };
   }
@@ -259,8 +269,10 @@ export function evaluateRule(
     target: needed,
   };
   if (met >= needed) return { status: "met", measure };
-  if (results.every((result) => result.status === "unknown"))
-    return { status: "unknown" };
+  const unknown = results.filter(
+    (result) => result.status === "unknown",
+  ).length;
+  if (met + unknown >= needed) return { status: "unknown" };
   const started = results.some(
     (result) => result.status === "met" || result.status === "partial",
   );

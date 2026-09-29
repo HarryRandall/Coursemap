@@ -576,3 +576,91 @@ test("asking to edit a record opens a draft on it, unchanged", async () => {
   assert.equal(discarded.checkpointVersionId, null);
   assert.equal(await draftRowCount(), 0);
 });
+
+test("published permission exceptions retain their nested exclusion groups and exact authority", async () => {
+  const { emptyCourseExtraction } =
+    await import("../lib/catalogue-import/kinds/course/finalise.ts");
+  const { projectCourseSnapshot } =
+    await import("../lib/catalogue-import/kinds/course/project.ts");
+  const { courseCatalogueContent } =
+    await import("../lib/catalogue/content.ts");
+  const { requirementSliceExpression } =
+    await import("../lib/catalogue/requirement-expression.ts");
+  const { evaluateRule } =
+    await import("../lib/coursemap/requisite-evaluation.ts");
+  const model = emptyCourseExtraction({
+    code: CODE,
+    year: YEAR,
+    title: "Permission exception fixture",
+  });
+  const text =
+    "Previous completion of MATH1013 or MATH1113 requires permission from the course convener.";
+  model.requisites.incompatibilityText = text;
+  model.requisites.incompatibilityRule = {
+    op: "one_of",
+    rules: [
+      {
+        op: "all_of",
+        rules: [
+          { op: "not_completed", courseCode: "MATH1013" },
+          { op: "not_completed", courseCode: "MATH1113" },
+        ],
+      },
+      { op: "permission", sourceText: text },
+    ],
+  };
+  const state = await loadCatalogueEditorState(recordId, sql);
+  const content = structuredClone(state.draft.content);
+  content.requirements = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  }).requirements;
+  const saved = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: state.draft.revision,
+    content,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  const published = await publishCatalogueDraft({
+    recordId,
+    expectedRevision: saved.draft.revision,
+    userId: ADMIN_ID,
+    editingSessionId: SESSION_ID,
+    sql,
+  });
+  const read = await readVersionContent(sql, published.versionId);
+  assert.deepEqual(
+    read.requirements.groups.map((group) => group.operator),
+    ["any_of", "all_of"],
+  );
+  const permission = read.requirements.conditions.find(
+    (condition) => condition.kind === "permission",
+  );
+  assert.equal(permission.sourceText, text);
+  assert.equal(permission.freeText, text);
+  const expression = requirementSliceExpression({
+    rule: read.requirements.rules[0],
+    groups: read.requirements.groups,
+    conditions: read.requirements.conditions,
+    options: [],
+  });
+  for (const codes of [
+    [],
+    ["MATH1013"],
+    ["MATH1113"],
+    ["MATH1013", "MATH1113"],
+  ]) {
+    assert.equal(
+      evaluateRule(expression, {
+        completed: new Map(codes.map((code) => [code, { units: 6, mark: 70 }])),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      codes.length ? "unknown" : "met",
+    );
+  }
+});

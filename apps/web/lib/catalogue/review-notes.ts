@@ -37,6 +37,7 @@ const FIELD_NAMES: Record<string, string> = {
   corequisiteRule: "Corequisite rule",
   prerequisiteText: "Prerequisite wording",
   corequisiteText: "Corequisite wording",
+  incompatibilityRule: "Incompatibility rule",
   incompatibilityText: "Incompatibility wording",
   incompatibilityCourseCodes: "Incompatible courses",
   softIncompatibilityCourseCodes: "Advisory incompatibilities",

@@ -303,3 +303,55 @@ test("concurrent exclusions reject enrolment but allow previous completion", () 
     evaluateRule({ ...concurrent, kind: "incompatible" }, student).status,
   ).toBe("unmet");
 });
+
+test("an unresolved permission alternative stays unknown when it could satisfy the group", () => {
+  const permission: CourseRuleExpression = {
+    ...base,
+    kind: "permission",
+    text: "Convener permission",
+  };
+  const group: CourseRuleExpression = {
+    ...base,
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [course("MATH1113"), permission],
+  };
+  expect(evaluateRule(group, student).status).toBe("unknown");
+  expect(
+    evaluateRule(group, { ...student, permissionApproved: true }).status,
+  ).toBe("met");
+  expect(
+    evaluateRule(group, { ...student, permissionApproved: false }).status,
+  ).toBe("unmet");
+  expect(
+    evaluateRule(
+      { ...group, conditions: [course("COMP1100"), permission] },
+      student,
+    ).status,
+  ).toBe("met");
+  expect(evaluateRule({ ...group, operator: "all_of" }, student).status).toBe(
+    "unmet",
+  );
+  expect(
+    evaluateRule(
+      {
+        ...group,
+        operator: "all_of",
+        conditions: [course("COMP1100"), permission],
+      },
+      student,
+    ).status,
+  ).toBe("unknown");
+  expect(
+    evaluateRule(
+      {
+        ...group,
+        operator: "at_least",
+        minimumCount: 2,
+        conditions: [course("COMP1100"), course("MATH1113"), permission],
+      },
+      student,
+    ).status,
+  ).toBe("unknown");
+});
