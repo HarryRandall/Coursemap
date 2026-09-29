@@ -6,6 +6,7 @@ import {
   loadDiscoveryChecks,
   loadSyncDetail,
   loadSyncOperationsPage,
+  loadCatalogueProviderState,
 } from "@/lib/coursemap/admin-operations";
 import { CatalogueTableLoading } from "@/ui/admin/catalogue-table/catalogue-loading";
 import { AccessDeniedError } from "@/ui/errors/access-denied-error";
@@ -20,6 +21,7 @@ import {
 import { SyncDetailView } from "./sync-detail";
 import { SyncDetailTabList, SyncDetailTabs } from "./sync-detail-tabs";
 import { SyncList } from "./sync-list";
+import { ProviderRecovery } from "./provider-recovery";
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -88,7 +90,16 @@ async function SyncsContent({
 }: {
   page: ReturnType<typeof loadSyncOperationsPage>;
 }) {
-  return <SyncList page={await page} />;
+  const [loadedPage, provider] = await Promise.all([
+    page,
+    loadCatalogueProviderState(),
+  ]);
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <ProviderRecovery state={provider} />
+      <SyncList page={loadedPage} />
+    </div>
+  );
 }
 
 async function DiscoveryContent({

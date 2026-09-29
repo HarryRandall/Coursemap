@@ -25,6 +25,18 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   reject: vi.fn(),
   release: vi.fn(),
+  hold: vi.fn(),
+  pause: vi.fn(),
+  providerPause: vi.fn(),
+  providerControl: vi.fn(),
+}));
+
+vi.mock("@/lib/catalogue-sync/provider-store", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  holdQueuedSyncWhenProviderPaused: mocks.hold,
+  pauseCatalogueProviderAndSync: mocks.pause,
+  readCatalogueProviderPause: mocks.providerPause,
+  readCatalogueProviderControl: mocks.providerControl,
 }));
 
 vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
@@ -87,6 +99,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.reserve.mockResolvedValue({ id: "extraction", created: true });
   mocks.reuse.mockResolvedValue(null);
+  mocks.hold.mockResolvedValue(false);
+  mocks.providerPause.mockResolvedValue(null);
+  mocks.providerControl.mockResolvedValue({ revision: 0, pause: null });
   mocks.sql.mockImplementation(async (strings) => {
     const query = Array.from(strings as unknown as readonly string[]).join("");
     if (query.includes("from public.academic_periods")) {
@@ -107,6 +122,8 @@ beforeEach(() => {
     academicYear: 2026,
     requestedModel: "google/gemini-3.1-flash-lite",
     attemptCount: 1,
+    retryCount: 1,
+    providerRevision: 0,
     lockVersion: 1,
     parserVersion: COURSE_IMPORT_PARSER_VERSION,
     promptVersion: COURSE_IMPORT_PROMPT_VERSION,
@@ -120,6 +137,46 @@ beforeEach(() => {
     path: kind,
   }));
   mocks.persist.mockResolvedValue({ status: "applied", sourceVersionId: 10 });
+});
+
+test("a shared key-limit rejection holds work without reporting a failed course", async () => {
+  mocks.providerControl.mockResolvedValue({ revision: 4, pause: null });
+  mocks.extract.mockRejectedValue(
+    new OpenRouterRequestError("Key limit exceeded (total limit).", 403),
+  );
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.reject).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ outcome: "rejected", providerHttpStatus: 403 }),
+  );
+  expect(mocks.pause).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      expectedProviderRevision: 4,
+      pause: expect.objectContaining({ reason: "key_limit" }),
+    }),
+  );
+  expect(mocks.finish).not.toHaveBeenCalled();
+  expect(mocks.release).not.toHaveBeenCalled();
+  expect(mocks.persist).not.toHaveBeenCalled();
+});
+
+test("a queued sync under a provider pause never claims work or calls the model", async () => {
+  mocks.hold.mockResolvedValue(true);
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.claim).not.toHaveBeenCalled();
+  expect(mocks.extract).not.toHaveBeenCalled();
+});
+
+test("a pause discovered before extraction leaves no paid-call reservation", async () => {
+  mocks.providerPause.mockResolvedValue({
+    reason: "key_limit",
+    message: "Key limit exceeded (total limit).",
+  });
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.reserve).not.toHaveBeenCalled();
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.pause).toHaveBeenCalledTimes(1);
 });
 
 test("resuming an existing paid response preserves its original accounting", async () => {
