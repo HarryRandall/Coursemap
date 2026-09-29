@@ -1,0 +1,52 @@
+{
+  "source": {
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/ECON3101",
+    "fetchedAt": "2026-09-29T14:55:21.049Z",
+    "contentSha256": "4620213028a9b814bf3ae93e37461526ec8c65f899ff4a565a30dc93589f63b4"
+  },
+  "requisites": {
+    "assumedKnowledgeText": null,
+    "prerequisiteText": "To enrol in this course you must have completed EMET1001 and ECON2101. Note: Students who have not completed EMET1001 but commenced their program prior to 2021 can enrol by requesting permission from the Research School of Economics (enquiries.rse@anu.edu.au)",
+    "corequisiteText": null,
+    "incompatibilityText": null,
+    "prerequisiteRule": {
+      "op": "all_of",
+      "rules": [
+        {
+          "op": "completed",
+          "courseCode": "ECON2101"
+        },
+        {
+          "op": "one_of",
+          "rules": [
+            {
+              "op": "completed",
+              "courseCode": "EMET1001"
+            },
+            {
+              "op": "all_of",
+              "rules": [
+                {
+                  "op": "commencement_year",
+                  "minimumYear": null,
+                  "maximumYear": 2020
+                },
+                {
+                  "op": "permission",
+                  "sourceText": "requesting permission from the Research School of Economics (enquiries.rse@anu.edu.au)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityRule": null,
+    "incompatibilityCourseCodes": [],
+    "softIncompatibilityCourseCodes": [],
+    "concurrentIncompatibilityCourseCodes": [],
+    "softConcurrentIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}

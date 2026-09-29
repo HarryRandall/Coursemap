@@ -14,6 +14,7 @@ import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
 
 export type PlanCatalogue = {
   academicYear: number | null;
+  commencementYear?: number | null;
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
@@ -608,7 +609,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const supabase = await createClient();
   const { data: plan, error } = await supabase
     .from("plans")
-    .select("academic_year_id,id")
+    .select("academic_year_id,id,commencement_year")
     .eq("owner_id", viewer.id)
     .eq("is_primary", true)
     .maybeSingle();
@@ -724,11 +725,15 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
       return code && academicYear ? [{ code, year: academicYear }] : [];
     }),
   ];
-  const catalogue = await loadPublishedPlanCatalogue(
+  const publishedCatalogue = await loadPublishedPlanCatalogue(
     year.year,
     selections,
     planStructures.map((structure) => structure.catalogue_record_id),
   );
+  const catalogue = {
+    ...publishedCatalogue,
+    commencementYear: plan.commencement_year,
+  };
   const publishedVersionIds = new Set(
     catalogue.courses.flatMap((course) =>
       course.snapshotId === undefined ? [] : [course.snapshotId],

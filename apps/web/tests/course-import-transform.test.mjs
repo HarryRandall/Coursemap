@@ -448,8 +448,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v17");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v24");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v18");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v25");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -2225,4 +2225,166 @@ test("the captured MATH1115 model response preserves its permission waiver and u
     ).conditionKind,
     "other",
   );
+});
+
+function cohortWaiverExtraction() {
+  const model = emptyCourseExtraction({
+    code: "ECON3101",
+    year: 2024,
+    title: "Microeconomics 3",
+  });
+  const permission =
+    "Students who have not completed EMET1001 but commenced their program prior to 2021 can enrol by requesting permission from the Research School of Economics (enquiries.rse@anu.edu.au)";
+  model.requisites.prerequisiteText =
+    "To enrol in this course you must have completed EMET1001 and ECON2101. Note: " +
+    permission;
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "completed", courseCode: "ECON2101" },
+      {
+        op: "one_of",
+        rules: [
+          { op: "completed", courseCode: "EMET1001" },
+          {
+            op: "all_of",
+            rules: [
+              { op: "commencement_year", minimumYear: null, maximumYear: 2020 },
+              { op: "permission", sourceText: permission },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  return model;
+}
+
+test("a commencement-year waiver preserves the compulsory course and exact permission authority", async () => {
+  const { treeFromRequirementWrite, requirementWriteWithTree } =
+    await import("../lib/catalogue-import/requirement-tree.ts");
+  const { validateReviewedTree } =
+    await import("../lib/coursemap/requisite-conditions.ts");
+  const model = cohortWaiverExtraction();
+  assert.equal(validateCourseExtraction(model).success, true);
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  const cohort = content.requirements.conditions.find(
+    (condition) => condition.kind === "commencement_year",
+  );
+  assert.equal(cohort.minimumCommencementYear, null);
+  assert.equal(cohort.maximumCommencementYear, 2020);
+  assert.equal(cohort.minimumYear, null);
+  const tree = treeFromRequirementWrite(content.requirements, "prerequisite");
+  const validated = validateReviewedTree(tree);
+  assert.ok("tree" in validated);
+  const edited = requirementWriteWithTree(
+    content.requirements,
+    "prerequisite",
+    validated.tree,
+    model.requisites.prerequisiteText,
+  );
+  assert.deepEqual(
+    edited.conditions.find(
+      (condition) => condition.kind === "commencement_year",
+    ),
+    {
+      ...cohort,
+      key: edited.conditions.find(
+        (condition) => condition.kind === "commencement_year",
+      ).key,
+      groupKey: edited.conditions.find(
+        (condition) => condition.kind === "commencement_year",
+      ).groupKey,
+      reviewState: "verified",
+      confidence: 1,
+    },
+  );
+  const expression = requirementSliceExpression({
+    rule: content.requirements.rules[0],
+    groups: content.requirements.groups,
+    conditions: content.requirements.conditions,
+    options: [],
+  });
+  for (const [codes, commencementYear, permissionApproved, expected] of [
+    [["ECON2101"], 2020, true, "met"],
+    [["ECON2101"], 2020, false, "partial"],
+    [["ECON2101"], 2021, true, "partial"],
+    [["ECON2101"], null, true, "unknown"],
+    [["ECON2101", "EMET1001"], 2024, false, "met"],
+    [[], 2020, true, "partial"],
+  ]) {
+    assert.equal(
+      evaluateRule(expression, {
+        completed: new Map(codes.map((code) => [code, { units: 6, mark: 70 }])),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: 2024,
+        commencementYear,
+        permissionApproved,
+      }).status,
+      expected,
+    );
+  }
+});
+
+test("commencement rules require ordered inclusive calendar-year bounds", () => {
+  const model = cohortWaiverExtraction();
+  for (const [minimumYear, maximumYear, expected] of [
+    [null, 2020, true],
+    [2021, null, true],
+    [2020, 2020, true],
+    [null, null, false],
+    [2022, 2020, false],
+    [10, null, false],
+    [1900, 10000, false],
+    [2020.5, 2021, false],
+    ["2020", null, false],
+  ]) {
+    model.requisites.prerequisiteRule = {
+      op: "commencement_year",
+      minimumYear,
+      maximumYear,
+    };
+    assert.equal(validateCourseExtraction(model).success, expected);
+  }
+});
+
+test("captured ECON3101 extraction preserves the pre-2021 school-permission waiver without free-text duplication", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-econ3101-cohort.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    captured.source.sourceUrl,
+    "https://programsandcourses.anu.edu.au/2024/course/ECON3101",
+  );
+  const model = emptyCourseExtraction({
+    code: "ECON3101",
+    year: 2024,
+    title: "Microeconomics 3",
+  });
+  model.requisites = captured.requisites;
+  assert.equal(validateCourseExtraction(model).success, true);
+  assert.deepEqual(model.requisites.unmodelledText, []);
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.ruleGroups.map((group) => group.operator),
+    ["all_of", "any_of", "all_of"],
+  );
+  const conditions = projection.ruleConditions;
+  assert.equal(conditions[0].requiredCourseCode, "ECON2101");
+  assert.equal(conditions[1].requiredCourseCode, "EMET1001");
+  assert.equal(conditions[2].conditionKind, "commencement_year");
+  assert.equal(conditions[2].maximumCommencementYear, 2020);
+  assert.equal(conditions[3].conditionKind, "permission");
+  assert.ok(conditions[3].sourceText.includes("Research School of Economics"));
 });

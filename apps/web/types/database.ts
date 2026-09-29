@@ -3507,8 +3507,10 @@ export type Database = {
           id: number
           includes_any_course: boolean
           item_kind: string | null
+          maximum_commencement_year: number | null
           maximum_level: number | null
           maximum_units: number | null
+          minimum_commencement_year: number | null
           minimum_count: number | null
           minimum_gpa: number | null
           minimum_level: number | null
@@ -3539,8 +3541,10 @@ export type Database = {
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
+          minimum_commencement_year?: number | null
           minimum_count?: number | null
           minimum_gpa?: number | null
           minimum_level?: number | null
@@ -3571,8 +3575,10 @@ export type Database = {
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
+          minimum_commencement_year?: number | null
           minimum_count?: number | null
           minimum_gpa?: number | null
           minimum_level?: number | null

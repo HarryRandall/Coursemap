@@ -129,6 +129,12 @@ async function readRequirements(
       minimumLevel: num(condition.minimum_level),
       maximumLevel: num(condition.maximum_level),
       minimumYear: num(condition.minimum_year),
+      ...(condition.condition_kind === "commencement_year"
+        ? {
+            minimumCommencementYear: num(condition.minimum_commencement_year),
+            maximumCommencementYear: num(condition.maximum_commencement_year),
+          }
+        : {}),
       minimumGpa: num(condition.minimum_gpa),
       minimumWam: num(condition.minimum_wam),
       tag: str(condition.tag),

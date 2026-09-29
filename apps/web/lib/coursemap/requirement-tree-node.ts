@@ -26,6 +26,8 @@ export type RequirementTreeCondition = Omit<
   minimumMark?: number | null;
   minimumWam?: number | null;
   minimumYear?: number | null;
+  minimumCommencementYear?: number | null;
+  maximumCommencementYear?: number | null;
   requirementMode?: "completed" | "completed_or_concurrent" | null;
 };
 

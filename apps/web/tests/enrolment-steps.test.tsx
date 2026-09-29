@@ -246,3 +246,41 @@ test("a nested permission alternative shows its authority alongside the exclusio
   expect(screen.getByText(text)).toBeVisible();
   expect(screen.getByText("Get permission to enrol")).toBeVisible();
 });
+
+test("a cohort permission pathway shows the calendar-year boundary rather than year standing", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2024}
+      availableCourseCodes={new Set()}
+      student={null}
+      expression={{
+        kind: "group",
+        operator: "any_of",
+        minimumCount: null,
+        conditions: [
+          course("EMET1001"),
+          {
+            kind: "group",
+            operator: "all_of",
+            minimumCount: null,
+            conditions: [
+              {
+                ...base,
+                kind: "commencement_year",
+                minimumCommencementYear: null,
+                maximumCommencementYear: 2020,
+              },
+              {
+                ...base,
+                kind: "permission",
+                text: "Request Research School permission",
+              },
+            ],
+          },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("Commenced in or before 2020")).toBeVisible();
+  expect(screen.getByText("Request Research School permission")).toBeVisible();
+});

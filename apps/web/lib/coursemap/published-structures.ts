@@ -107,6 +107,16 @@ function requirementTree(
         minimumLevel: readNullableNumber(condition.minimumCourseLevel),
         maximumLevel: readNullableNumber(condition.maximumCourseLevel),
         minimumYear: readNullableNumber(condition.minimumYear),
+        ...(condition.conditionKind === "commencement_year"
+          ? {
+              minimumCommencementYear: readNullableNumber(
+                condition.minimumCommencementYear,
+              ),
+              maximumCommencementYear: readNullableNumber(
+                condition.maximumCommencementYear,
+              ),
+            }
+          : {}),
         minimumGpa: readNullableNumber(condition.minimumGpa),
         minimumWam: readNullableNumber(condition.minimumWam),
         tag: readNullableString(condition.tag),

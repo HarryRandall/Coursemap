@@ -1,3 +1,7 @@
+import {
+  validCommencementYear,
+  validCommencementYearBounds,
+} from "@/lib/academic/commencement-year";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
@@ -6,6 +10,7 @@ export type PlanningCatalogue = {
   courses: readonly Course[];
   snapshotCourses?: readonly Course[];
   terms: readonly Term[];
+  commencementYear?: number | null;
 };
 
 export type EffectiveStatus = Attempt["status"] | "blocked" | "approval";
@@ -355,6 +360,21 @@ function evaluateRelationalPrerequisite(
     ) >= expression.units
       ? { state: "satisfied", missingCodes: [] }
       : { state: "unsatisfied", missingCodes: [] };
+  }
+
+  if (expression.kind === "commencement_year") {
+    const year = catalogue?.commencementYear;
+    if (
+      !validCommencementYear(year) ||
+      !validCommencementYearBounds(expression)
+    )
+      return { state: "unknown", missingCodes: [] };
+    const matches =
+      (expression.minimumCommencementYear === null ||
+        year >= expression.minimumCommencementYear) &&
+      (expression.maximumCommencementYear === null ||
+        year <= expression.maximumCommencementYear);
+    return { state: matches ? "satisfied" : "unsatisfied", missingCodes: [] };
   }
 
   // Admission, standing, GPA, WAM, incompatibility and free-text conditions

@@ -12,6 +12,7 @@ type Draft = {
   wam: number | null;
   gpa: number | null;
   studyYear: number;
+  commencementYear?: number | null;
 };
 
 const COURSE_UNITS = 6;
@@ -130,6 +131,10 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       }
       return;
     }
+    case "commencement_year":
+      draft.commencementYear =
+        node.minimumCommencementYear ?? node.maximumCommencementYear;
+      return;
     case "year_standing":
       draft.studyYear = Math.max(
         draft.studyYear,
@@ -188,5 +193,8 @@ export function sampleStudent(
     wam: draft.wam,
     gpa: draft.gpa,
     studyYear: draft.studyYear,
+    ...(draft.commencementYear == null
+      ? {}
+      : { commencementYear: draft.commencementYear }),
   };
 }

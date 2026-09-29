@@ -222,6 +222,42 @@ export function InlineValueFields({
     );
   }
 
+  if (condition.kind === "commencement_year") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {(["minimumCommencementYear", "maximumCommencementYear"] as const).map(
+          (key) => (
+            <Input
+              key={key}
+              aria-label={
+                key === "minimumCommencementYear"
+                  ? "Earliest commencement year"
+                  : "Latest commencement year"
+              }
+              className={cn(inlineControl, "w-24 min-w-24")}
+              min={1900}
+              max={9999}
+              step={1}
+              type="number"
+              placeholder={
+                key === "minimumCommencementYear" ? "Any start" : "Any end"
+              }
+              value={condition[key] ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  [key]:
+                    event.target.value === ""
+                      ? null
+                      : Number(event.target.value),
+                })
+              }
+            />
+          ),
+        )}
+      </span>
+    );
+  }
   if (condition.kind === "year_standing") {
     return (
       <span className="inline-flex items-center gap-1.5">
