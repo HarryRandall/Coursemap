@@ -83,6 +83,7 @@ export type CatalogueDirectoryRecord = {
   sourceState:
     | "never_synced"
     | "syncing"
+    | "paused"
     | "up_to_date"
     | "changes_available"
     | "sync_failed";
@@ -107,6 +108,7 @@ export type CatalogueDirectoryRecord = {
  */
 export type CatalogueRecordState =
   | "sync_failed"
+  | "paused"
   | "delisted"
   | "syncing"
   | "changes_available"
@@ -116,6 +118,7 @@ export type CatalogueRecordState =
 
 export const CATALOGUE_STATE_LABELS: Record<CatalogueRecordState, string> = {
   sync_failed: "Sync failed",
+  paused: "Sync paused",
   delisted: "No longer listed",
   syncing: "Syncing",
   changes_available: "ANU changes",
@@ -132,6 +135,7 @@ export function catalogueRecordState(
   record: CatalogueDirectoryRecord,
 ): CatalogueRecordState {
   if (record.sourceState === "sync_failed") return "sync_failed";
+  if (record.sourceState === "paused") return "paused";
   if (record.isListedByAnu === false) return "delisted";
   if (record.sourceState === "syncing") return "syncing";
   if (record.sourceState === "changes_available" && record.openChangeCount > 0)

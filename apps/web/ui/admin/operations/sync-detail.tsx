@@ -1,4 +1,7 @@
-import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
+import {
+  adminCatalogueRecordPath,
+  ADMIN_CATALOGUE_OPERATIONS_PATH,
+} from "@/lib/coursemap/catalogue-kinds";
 import { CircleAlert, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import {
@@ -88,10 +91,12 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
       {/* The artefacts are read for what was captured, not why it stopped. */}
       {sync.errorMessage ? (
         <SyncDetailSectionOnly section={["overview", "stages"]}>
-          <Alert variant="destructive">
+          <Alert variant={sync.status === "paused" ? "warning" : "destructive"}>
             <CircleAlert aria-hidden="true" />
             <AlertTitle>
-              This sync failed
+              {sync.status === "paused"
+                ? "This sync is paused"
+                : "This sync failed"}
               {sync.errorCode ? (
                 <span className="font-normal text-muted-foreground">
                   {" "}
@@ -105,11 +110,17 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
               </p>
             </AlertDescription>
             <AlertAction>
-              <SyncRetryButton
-                recordId={sync.recordId}
-                kind={sync.kind}
-                code={sync.code}
-              />
+              {sync.status === "paused" ? (
+                <Link href={ADMIN_CATALOGUE_OPERATIONS_PATH}>
+                  Resume in Activity
+                </Link>
+              ) : (
+                <SyncRetryButton
+                  recordId={sync.recordId}
+                  kind={sync.kind}
+                  code={sync.code}
+                />
+              )}
             </AlertAction>
           </Alert>
         </SyncDetailSectionOnly>

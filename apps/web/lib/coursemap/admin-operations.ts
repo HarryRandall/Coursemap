@@ -8,6 +8,47 @@ import {
 
 export const OPERATIONS_PAGE_SIZE = 25;
 
+export type CatalogueProviderState = {
+  paused: boolean;
+  revision: number;
+  reason: string | null;
+  message: string | null;
+  pausedAt: string | null;
+  heldCount: number;
+};
+
+export async function loadCatalogueProviderState(): Promise<CatalogueProviderState> {
+  const supabase = await createClient();
+  const [control, paused, undispatched] = await Promise.all([
+    supabase
+      .from("catalogue_provider_controls")
+      .select("paused,revision,pause_reason,error_message,paused_at")
+      .eq("provider", "openrouter")
+      .single(),
+    supabase
+      .from("catalogue_syncs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "paused"),
+    supabase
+      .from("catalogue_syncs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "queued")
+      .gt("dispatch_generation", 0)
+      .is("dispatched_at", null),
+  ]);
+  if (control.error) throw control.error;
+  if (paused.error) throw paused.error;
+  if (undispatched.error) throw undispatched.error;
+  return {
+    paused: control.data.paused,
+    revision: control.data.revision,
+    reason: control.data.pause_reason,
+    message: control.data.error_message,
+    pausedAt: control.data.paused_at,
+    heldCount: (paused.count ?? 0) + (undispatched.count ?? 0),
+  };
+}
+
 export type SyncOperationRow = {
   id: string;
   code: string;

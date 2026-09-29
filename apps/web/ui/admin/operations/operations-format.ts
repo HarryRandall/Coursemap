@@ -37,6 +37,7 @@ export function formatBytes(byteSize: number | null) {
 const SYNC_STATUS_TONES = {
   queued: "neutral",
   running: "info",
+  paused: "warning",
   unchanged: "success",
   review_required: "warning",
   applied: "success",

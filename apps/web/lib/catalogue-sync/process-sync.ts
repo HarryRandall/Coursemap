@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { extractionUsageForStorage } from "./extraction-usage.ts";
 import {
+  CatalogueProviderPausedError,
+  catalogueProviderPauseReason,
+} from "./provider-pause.ts";
+import {
+  holdQueuedSyncWhenProviderPaused,
+  readCatalogueProviderPause,
+  readCatalogueProviderControl,
+  pauseCatalogueProviderAndSync,
+} from "./provider-store.ts";
+import {
   SyncArtifactConfigurationError,
   type SyncArtifactKind,
   readSyncArtifact,
@@ -45,6 +55,7 @@ import { persistSourceVersion } from "./persist-source-version.ts";
 import type { CatalogueKind } from "../catalogue/content.ts";
 
 const TERMINAL_SYNC_STATUSES = new Set([
+  "paused",
   "applied",
   "review_required",
   "unchanged",
@@ -196,6 +207,7 @@ export async function processCatalogueSync({
 }: ProcessCatalogueSyncInput): Promise<void> {
   await withSyncDatabaseClient(async (sql) => {
     signal?.throwIfAborted();
+    if (await holdQueuedSyncWhenProviderPaused(sql, syncId)) return;
     const workerId = randomUUID();
     const claim = await claimCatalogueSync(sql, { syncId, workerId });
     if (claim === null) {
@@ -228,6 +240,7 @@ async function processClaimedSync({
 }) {
   const adapter = syncAdapterForKind(claim.kind);
   let sourceDocumentId: number | null = null;
+  let requestProviderRevision = claim.providerRevision;
 
   const runStage = async <T>(
     stageName: SyncStageName,
@@ -379,6 +392,8 @@ async function processClaimedSync({
     });
 
     const modelResult = await runStage("model_extract", async (stageId) => {
+      const pause = await readCatalogueProviderPause(sql);
+      if (pause) throw new CatalogueProviderPausedError(pause);
       const requestArtifact = await persistArtifact({
         stageId,
         stageName: "model_extract",
@@ -448,6 +463,10 @@ async function processClaimedSync({
         );
       } else {
         try {
+          const control = await readCatalogueProviderControl(sql);
+          if (control.pause)
+            throw new CatalogueProviderPausedError(control.pause);
+          requestProviderRevision = control.revision;
           result = await extractWithOpenRouter({
             model: claim.requestedModel,
             systemPrompt,
@@ -469,7 +488,8 @@ async function processClaimedSync({
         } catch (error) {
           if (
             error instanceof OpenRouterConfigurationError ||
-            error instanceof OpenRouterRequestError
+            error instanceof OpenRouterRequestError ||
+            error instanceof CatalogueProviderPausedError
           ) {
             await recordExtractionRequestFailure(sql, {
               extractionId: reservation.id,
@@ -593,10 +613,26 @@ async function processClaimedSync({
   } catch (error) {
     const code = syncErrorCode(error);
     const summary = safeErrorSummary(error);
+    const pauseReason = catalogueProviderPauseReason(error);
+    if (pauseReason) {
+      await pauseCatalogueProviderAndSync(sql, {
+        syncId: claim.syncId,
+        workerId,
+        expectedLockVersion: claim.lockVersion,
+        pause: { reason: pauseReason, message: summary },
+        expectedProviderRevision: requestProviderRevision,
+        errorCode:
+          error instanceof CatalogueProviderPausedError
+            ? "OPENROUTER_PROVIDER_PAUSED"
+            : code,
+        sourceDocumentId,
+      });
+      return;
+    }
     if (
       isRetryableSyncError(error) &&
       !finalDelivery &&
-      claim.attemptCount < 5
+      (claim.retryCount ?? claim.attemptCount) < 5
     ) {
       await releaseCatalogueSyncForRetry(sql, {
         syncId: claim.syncId,

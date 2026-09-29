@@ -1412,6 +1412,50 @@ export type Database = {
           },
         ]
       }
+      catalogue_provider_controls: {
+        Row: {
+          error_message: string | null
+          pause_reason: string | null
+          paused: boolean
+          paused_at: string | null
+          provider: string
+          resumed_at: string | null
+          resumed_by: string | null
+          revision: number
+          source_sync_id: string | null
+        }
+        Insert: {
+          error_message?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          provider: string
+          resumed_at?: string | null
+          resumed_by?: string | null
+          revision?: number
+          source_sync_id?: string | null
+        }
+        Update: {
+          error_message?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          provider?: string
+          resumed_at?: string | null
+          resumed_by?: string | null
+          revision?: number
+          source_sync_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_provider_controls_source_sync_id_fkey"
+            columns: ["source_sync_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogue_publications: {
         Row: {
           id: number
@@ -1948,6 +1992,7 @@ export type Database = {
           checked_at: string | null
           completed_at: string | null
           created_at: string
+          dispatch_generation: number
           dispatched_at: string | null
           error_code: string | null
           error_message: string | null
@@ -1963,6 +2008,7 @@ export type Database = {
           requested_at: string
           requested_by: string | null
           requested_model: string
+          retry_count: number
           schema_version: string
           source_document_id: number | null
           source_version_id: number | null
@@ -1977,6 +2023,7 @@ export type Database = {
           checked_at?: string | null
           completed_at?: string | null
           created_at?: string
+          dispatch_generation?: number
           dispatched_at?: string | null
           error_code?: string | null
           error_message?: string | null
@@ -1992,6 +2039,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_model: string
+          retry_count?: number
           schema_version: string
           source_document_id?: number | null
           source_version_id?: number | null
@@ -2006,6 +2054,7 @@ export type Database = {
           checked_at?: string | null
           completed_at?: string | null
           created_at?: string
+          dispatch_generation?: number
           dispatched_at?: string | null
           error_code?: string | null
           error_message?: string | null
@@ -2021,6 +2070,7 @@ export type Database = {
           requested_at?: string
           requested_by?: string | null
           requested_model?: string
+          retry_count?: number
           schema_version?: string
           source_document_id?: number | null
           source_version_id?: number | null
@@ -4580,6 +4630,14 @@ export type Database = {
       remove_university_calendar_event: {
         Args: { p_event_id: number }
         Returns: undefined
+      }
+      resume_catalogue_provider: {
+        Args: {
+          p_expected_revision: number
+          p_limit: number
+          p_resume: boolean
+        }
+        Returns: Json
       }
       revise_university_calendar_review: {
         Args: {
