@@ -14,6 +14,10 @@ import {
   salvageModelExtraction,
   withModelEvidenceMethod,
 } from "../../model-extraction.ts";
+import {
+  type KnownProgramme,
+  programmesMentionedOnPage,
+} from "./programmes.ts";
 
 /** Identity the record already has; the model never supplies these. */
 const COURSE_IDENTITY_FIELDS = [
@@ -100,6 +104,7 @@ export function finaliseCourseExtraction({
   pageMarkdown,
   finishReason,
   responseError,
+  knownProgrammes = [],
 }: {
   code: string;
   year: number;
@@ -108,12 +113,14 @@ export function finaliseCourseExtraction({
   pageMarkdown: string;
   finishReason: string | null;
   responseError: string | null;
+  knownProgrammes?: readonly KnownProgramme[];
 }) {
   const canonical = canonicaliseCourseModelExtraction(
     withModelEvidenceMethod(model),
     {
       expectedCode: code,
       expectedYear: year,
+      knownProgrammes: programmesMentionedOnPage(pageMarkdown, knownProgrammes),
     },
   );
   const { extraction, dropped } = salvageModelExtraction({

@@ -1,0 +1,197 @@
+{
+  "schemaVersion": "course-extraction.v2",
+  "code": "STAT2001",
+  "year": 2026,
+  "title": "Introductory Mathematical Statistics",
+  "unitValue": { "kind": "fixed", "units": 6 },
+  "eftsl": 0.125,
+  "level": 2001,
+  "subjectCode": "STAT",
+  "subjectName": "Statistics",
+  "school": "Rsch Sch of Finance, Actuarial Studies & App Stats",
+  "college": "ANU College of Business and Economics",
+  "academicCareer": "UGRD",
+  "convenerText": "Dr Ning Wang - Dr William Lim",
+  "deliverySummary": "In Person",
+  "introduction": "A first course in mathematical statistics with emphasis on applications; probability, random variables, moment generating functions and correlation, sampling distributions, estimation of parameters by the methods of moments and maximum likelihood, hypothesis testing, the central limit theorem, and Bayesian statistics.",
+  "description": "A first course in mathematical statistics with emphasis on applications; probability, random variables, moment generating functions and correlation, sampling distributions, estimation of parameters by the methods of moments and maximum likelihood, hypothesis testing, the central limit theorem, and Bayesian statistics.",
+  "workloadText": "Students are expected to commit 130 hours of work in completing this course. This includes time spent in scheduled classes and self-directed study time.",
+  "workloadHours": 130,
+  "inherentRequirements": "Not applicable",
+  "prescribedTexts": "Information about the prescribed textbook will be available via the Class Summary",
+  "offeringStatus": "offered",
+  "areasOfInterest": ["Statistics"],
+  "tags": ["Business"],
+  "fees": [
+    {
+      "position": 1,
+      "feeYear": 2026,
+      "audience": "domestic",
+      "feeType": "tuition",
+      "amount": 4920,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": 1,
+      "sourceLabel": "Course fees",
+      "sourceText": "2026 | $4920"
+    },
+    {
+      "position": 2,
+      "feeYear": 2026,
+      "audience": "international",
+      "feeType": "tuition",
+      "amount": 7020,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "Course fees",
+      "sourceText": "2026 | $7020"
+    }
+  ],
+  "learningOutcomes": [
+    {
+      "position": 1,
+      "text": "Calculate probabilities using set theory and combinatorics;"
+    },
+    {
+      "position": 2,
+      "text": "Use and describe discrete, continuous and multivariate random variables and their probability distributions;"
+    },
+    {
+      "position": 3,
+      "text": "Define sampling distributions and use the central limit theorem;"
+    },
+    {
+      "position": 4,
+      "text": "Use the method of moments and maximum likelihood estimation;"
+    },
+    {
+      "position": 5,
+      "text": "Perform confidence estimation and hypothesis testing; and"
+    },
+    {
+      "position": 6,
+      "text": "Use and describe the fundamental concepts of Bayesian statistics and Bayesian estimators."
+    }
+  ],
+  "assessmentItems": [
+    {
+      "position": 1,
+      "title": "Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate",
+      "weight": 100,
+      "hurdle": null,
+      "dueText": null,
+      "sourceText": "Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate (100) [LO 1,2,3,4,5,6]",
+      "learningOutcomePositions": [1, 2, 3, 4, 5, 6]
+    }
+  ],
+  "offerings": [
+    {
+      "position": 1,
+      "calendarYear": 2026,
+      "periodCode": "S1",
+      "periodName": "First Semester",
+      "classNumber": "3359",
+      "startsOn": "2026-02-23",
+      "endsOn": "2026-05-29",
+      "lastEnrolmentDate": "2026-03-02",
+      "censusDate": "2026-03-31",
+      "deliveryMode": "In Person",
+      "location": null,
+      "classSummaryUrl": "https://programsandcourses.anu.edu.au/2026/course/STAT2001/First%20Semester/3359",
+      "sourceText": "3359 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | View"
+    },
+    {
+      "position": 2,
+      "calendarYear": 2026,
+      "periodCode": "S2",
+      "periodName": "Second Semester",
+      "classNumber": "8362",
+      "startsOn": "2026-07-27",
+      "endsOn": "2026-10-30",
+      "lastEnrolmentDate": "2026-08-03",
+      "censusDate": "2026-08-31",
+      "deliveryMode": "In Person",
+      "location": null,
+      "classSummaryUrl": "https://programsandcourses.anu.edu.au/2026/course/STAT2001/Second%20Semester/8362",
+      "sourceText": "8362 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | View"
+    }
+  ],
+  "requisites": {
+    "prerequisiteText": "To enrol in this course you must have have completed STAT1003 or STAT1008 or be enrolled in the Bachelor of Applied Data Analytics; and have completed MATH1113 or MATH1115 or have completed or be concurrently enrolled in MATH1014.",
+    "corequisiteText": null,
+    "incompatibilityText": "Incompatible with STAT2013 and STAT6013.",
+    "prerequisiteRule": {
+      "op": "all_of",
+      "rules": [
+        {
+          "op": "one_of",
+          "rules": [
+            { "op": "completed", "courseCode": "STAT1003" },
+            { "op": "completed", "courseCode": "STAT1008" },
+            {
+              "op": "enrolled_in",
+              "programmeCode": "Bachelor of Applied Data Analytics"
+            }
+          ]
+        },
+        {
+          "op": "one_of",
+          "rules": [
+            { "op": "completed", "courseCode": "MATH1113" },
+            { "op": "completed", "courseCode": "MATH1115" },
+            { "op": "completed_or_concurrent", "courseCode": "MATH1014" }
+          ]
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["STAT2013", "STAT6013"],
+    "softIncompatibilityCourseCodes": [],
+    "unmodelledText": [
+      "To enrol in this course you must have have completed STAT1003 or STAT1008 or be enrolled in the Bachelor of Applied Data Analytics; and have completed MATH1113 or MATH1115 or have completed or be concurrently enrolled in MATH1014."
+    ]
+  },
+  "relatedCourses": [
+    {
+      "position": 1,
+      "relationKind": "co_taught",
+      "courseCode": "STAT2013",
+      "courseTitle": null,
+      "sourceText": "STAT2013"
+    },
+    {
+      "position": 2,
+      "relationKind": "co_taught",
+      "courseCode": "STAT6013",
+      "courseTitle": null,
+      "sourceText": "STAT6013"
+    }
+  ],
+  "attributes": [],
+  "evidence": [
+    {
+      "fieldKey": "title",
+      "sourceLocator": "Course",
+      "evidenceExcerpt": "Introductory Mathematical Statistics",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "unitValue",
+      "sourceLocator": "Course",
+      "evidenceExcerpt": "Unit Value 6 units",
+      "confidence": 1,
+      "method": "model"
+    },
+    {
+      "fieldKey": "tags",
+      "sourceLocator": "Course",
+      "evidenceExcerpt": "ANU College of Business and Economics",
+      "confidence": 0.7,
+      "method": "model"
+    }
+  ],
+  "overallConfidence": 0.9,
+  "reviewItems": []
+}

@@ -95,6 +95,7 @@ function CourseCard({
   met,
   style,
   className,
+  action,
 }: {
   code: string;
   academicYear: number;
@@ -102,6 +103,7 @@ function CourseCard({
   met: boolean;
   style?: CSSProperties;
   className?: string;
+  action?: string;
 }) {
   const box = cn(
     "flex h-11 items-center justify-between gap-2 rounded-lg border px-3",
@@ -125,7 +127,14 @@ function CourseCard({
             : "border-border bg-muted/40 text-muted-foreground hover:border-primary/50",
       )}
     >
-      <span className="font-mono text-[13px] font-semibold">{code}</span>
+      <span className="min-w-0">
+        <span className="block font-mono text-[13px] font-semibold">
+          {code}
+        </span>
+        {action ? (
+          <span className="block text-[10px] leading-tight">{action}</span>
+        ) : null}
+      </span>
       {met ? (
         <Met />
       ) : available ? (
@@ -163,6 +172,13 @@ function Leaf({
         academicYear={academicYear}
         available={availableCourseCodes.has(node.code)}
         met={met}
+        action={
+          node.requirementMode === "completed_or_concurrent"
+            ? "Completed or concurrent"
+            : node.minimumMark !== null
+              ? `Mark of ${node.minimumMark} or more`
+              : undefined
+        }
         style={style}
         className={className}
       />

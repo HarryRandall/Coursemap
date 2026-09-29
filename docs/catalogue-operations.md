@@ -40,6 +40,17 @@ A first sync does not overwrite meaningful manual or published content. In
 that case it behaves like a later changed sync and leaves the source version
 for review.
 
+Course imports resolve programme names against current ANU directory identities
+for the selected year. Relevant names and codes enter the saved model input.
+An exact name identifying one code can be normalised before validation, with
+the resolution recorded in the validation report. Similar titles and ambiguous
+names are never guessed. Refresh that year's programme listing when a referenced
+programme is missing.
+
+Requirement confidence comes from model evidence, not a default percentage.
+Separate conditions may quote the same sentence without needing review; repeated
+conditions within the same group are flagged instead.
+
 ## Review ANU changes
 
 The **Changes** tab compares three states for every review unit: the previous

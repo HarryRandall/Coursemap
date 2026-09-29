@@ -24,6 +24,8 @@ import {
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { courseCatalogueContent } from "../lib/catalogue/content.ts";
 import { catalogueReviewUnits } from "../lib/catalogue/review-units.ts";
+import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
+import { programmeCodeForName } from "../lib/catalogue-import/kinds/course/programmes.ts";
 
 // A complete, valid extraction of the reduced COMP2400 page in
 // fixtures/course-import, in the shape the model returns.
@@ -37,6 +39,169 @@ const extraction = JSON.parse(
   ),
 );
 const pageMarkdown = JSON.stringify(extraction);
+
+// The actual STAT2001 provider response and ANU page captured on 28 September
+// 2026. The programme identity is supplied by ANU's 2026 directory.
+const stat2001 = JSON.parse(
+  await readFile(
+    new URL(
+      "./fixtures/course-import/anu-2026-stat2001-model.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+);
+const stat2001Markdown = await readFile(
+  new URL("./fixtures/course-import/anu-2026-stat2001.txt", import.meta.url),
+  "utf8",
+);
+const knownProgrammes = [
+  { code: "BADAN", name: "Bachelor of Applied Data Analytics" },
+];
+
+test("resolves STAT2001's programme identity without losing its AND/OR tree", () => {
+  const original = structuredClone(stat2001);
+  const result = finaliseCourseExtraction({
+    code: "STAT2001",
+    year: 2026,
+    listingTitle: stat2001.title,
+    model: stat2001,
+    pageMarkdown: stat2001Markdown,
+    finishReason: "stop",
+    responseError: null,
+    knownProgrammes,
+  });
+  assert.equal(result.errorCount, 0);
+  assert.equal(result.warningCount, 0);
+  const expected = structuredClone(stat2001.requisites.prerequisiteRule);
+  expected.rules[0].rules[2].programmeCode = "BADAN";
+  assert.deepEqual(result.extraction.requisites.prerequisiteRule, expected);
+  assert.deepEqual(stat2001, original);
+  assert.equal(
+    result.report.canonicalisationChanges[0].rule,
+    "programme_name_to_code",
+  );
+  const projection = projectCourseSnapshot(result.extraction);
+  assert.deepEqual(
+    projection.ruleGroups
+      .filter((group) => group.ruleKey === "prerequisite")
+      .map((group) => group.operator),
+    ["all_of", "any_of", "any_of"],
+  );
+  assert.equal(
+    projection.ruleConditions.find(
+      (condition) => condition.conditionKind === "admission",
+    ).requiredStructureCode,
+    "BADAN",
+  );
+});
+
+test("programme resolution requires an exact and unambiguous name", () => {
+  assert.equal(
+    programmeCodeForName(
+      " bachelor of applied data analytics ",
+      knownProgrammes,
+    ),
+    "BADAN",
+  );
+  assert.equal(
+    programmeCodeForName(
+      "Bachelor of Applied Data Analytics (Honours)",
+      knownProgrammes,
+    ),
+    undefined,
+  );
+  assert.equal(
+    programmeCodeForName("Bachelor of Applied Data Analytics", [
+      ...knownProgrammes,
+      { code: "OTHER", name: knownProgrammes[0].name },
+    ]),
+    undefined,
+  );
+  const result = finaliseCourseExtraction({
+    code: "STAT2001",
+    year: 2026,
+    listingTitle: stat2001.title,
+    model: stat2001,
+    pageMarkdown: stat2001Markdown,
+    finishReason: "stop",
+    responseError: null,
+    knownProgrammes: [],
+  });
+  assert.equal(result.errorCount, 1);
+  const projection = projectCourseSnapshot(result.extraction);
+  assert.equal(
+    projection.ruleConditions.filter(
+      (condition) => condition.ruleKey === "prerequisite",
+    ).length,
+    1,
+  );
+});
+
+test("supplies year-specific programme identities in the model prompt", () => {
+  const prompt = buildCourseExtractionUserPrompt({
+    expectedCode: "STAT2001",
+    academicYear: 2026,
+    pageMarkdown: stat2001Markdown,
+    knownProgrammes: [
+      ...knownProgrammes,
+      { code: "BARTS", name: "Bachelor of Arts" },
+    ],
+  });
+  assert.ok(
+    prompt.includes(
+      "ANU programme identities for 2026:\nBADAN: Bachelor of Applied Data Analytics",
+    ),
+  );
+  assert.ok(!prompt.includes("BARTS: Bachelor of Arts"));
+  const ruleSchema = COURSE_EXTRACTION_JSON_SCHEMA.$defs.rule.oneOf.find(
+    (rule) => rule.properties?.op?.const === "enrolled_in",
+  );
+  const pattern = new RegExp(ruleSchema.properties.programmeCode.pattern);
+  assert.ok(pattern.test("BADAN"));
+  assert.ok(!pattern.test(knownProgrammes[0].name));
+});
+
+test("missing confidence stays unknown and distinct incompatibilities need no review", () => {
+  const result = finaliseCourseExtraction({
+    code: "STAT2001",
+    year: 2026,
+    listingTitle: stat2001.title,
+    model: stat2001,
+    pageMarkdown: stat2001Markdown,
+    finishReason: "stop",
+    responseError: null,
+    knownProgrammes,
+  });
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(result.extraction),
+  });
+  const item = classifyFirstRead(content).find(
+    (item) => item.fieldPath === "requirements.incompatibility",
+  );
+  assert.equal(item.confidence, null);
+  assert.equal(item.band, "accepted");
+  assert.ok(
+    content.requirements.conditions.every(
+      (condition) => condition.confidence === 0,
+    ),
+  );
+  content.evidence = [
+    {
+      fieldPath: "requisites.incompatibilityCourseCodes",
+      confidence: 0.8,
+      method: "model",
+      sourceLocator: null,
+      sourceExcerpt: "Incompatible with STAT2013 and STAT6013.",
+    },
+  ];
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.incompatibility",
+    ).confidence,
+    0.8,
+  );
+});
 
 function finalise(model, overrides = {}) {
   return finaliseCourseExtraction({
@@ -217,8 +382,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v3");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v5");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v4");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v6");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",

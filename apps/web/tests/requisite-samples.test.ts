@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import { evaluateRule } from "@/lib/coursemap/requisite-evaluation";
 import { sampleStudent } from "@/lib/coursemap/requisite-samples";
+import { stat2001Requisites } from "./fixtures/stat2001-requisites";
 
 const base = {
   confidence: 1,
@@ -59,4 +60,28 @@ test("the new student has nothing on their record", () => {
   const student = sampleStudent(rule, "new");
   expect(student.completed.size).toBe(0);
   expect(evaluateRule(rule, student).status).toBe("unmet");
+});
+
+test("partway completes one alternative group without completing the next", () => {
+  const student = sampleStudent(stat2001Requisites, "partway");
+  expect([...student.completed.keys()]).toEqual(["STAT1003"]);
+  expect(evaluateRule(stat2001Requisites, student).status).toBe("partial");
+  expect(
+    evaluateRule(
+      stat2001Requisites,
+      sampleStudent(stat2001Requisites, "complete"),
+    ).status,
+  ).toBe("met");
+});
+
+test("an untouched nested branch adds no course or unit progress", () => {
+  const nested: CourseRuleExpression = {
+    kind: "group",
+    operator: "all_of",
+    minimumCount: null,
+    conditions: [course("STAT1003"), rule],
+  };
+  expect([...sampleStudent(nested, "partway").completed.keys()]).toEqual([
+    "STAT1003",
+  ]);
 });

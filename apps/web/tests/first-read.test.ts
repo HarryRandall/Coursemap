@@ -75,7 +75,7 @@ test("a model error puts a part up for review whatever its confidence", () => {
   });
 });
 
-test("a rule split from one sentence needs review, as COMP2710's permission did", () => {
+test("a duplicated permission in one group needs review", () => {
   const content = course();
   const sentence =
     "You will need to contact the School of Computing to request a permission code.";
@@ -122,7 +122,7 @@ test("a rule split from one sentence needs review, as COMP2710's permission did"
   }
   expect(band(content, "requirements.prerequisite")).toMatchObject({
     band: "needs_review",
-    reason: "One sentence was split into several conditions",
+    reason: "The rule contains a duplicated condition",
   });
 });
 

@@ -1,5 +1,6 @@
 import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
+import { evidenceBelongsToReviewUnit } from "./review-units.ts";
 import {
   isStructureRelationshipKind,
   isStructureSectionKey,
@@ -517,6 +518,17 @@ export function courseCatalogueContent({
     "permission",
     "assumed_knowledge",
   ];
+  const ruleConfidence = (ruleKey: RequirementRuleKind) => {
+    const confidences = evidence
+      .filter((entry) =>
+        evidenceBelongsToReviewUnit(`requirements.${ruleKey}`, entry.fieldPath),
+      )
+      .map((entry) => entry.confidence)
+      .filter((confidence): confidence is number => confidence !== null);
+    // The persisted contract requires a number; absence is represented by
+    // zero here and by null in first-read review, which consults provenance.
+    return confidences.length ? Math.min(...confidences) : 0;
+  };
   return {
     kind: "course",
     code: projection.courseCode,
@@ -543,7 +555,7 @@ export function courseCatalogueContent({
         sourceText: rule.sourceText,
         sourceLocator: null,
         reviewState: "automatic",
-        confidence: 1,
+        confidence: ruleConfidence(rule.ruleKind),
         position: Math.max(0, ruleOrder.indexOf(rule.ruleKind)),
       })),
       groups: projection.ruleGroups.map((group) => ({
@@ -599,7 +611,7 @@ export function courseCatalogueContent({
           sourceText: condition.sourceText,
           sourceLocator: null,
           reviewState: "automatic",
-          confidence: 1,
+          confidence: ruleConfidence(condition.ruleKey),
         };
       }),
       options: projection.ruleConditionCourses.map((member) => ({

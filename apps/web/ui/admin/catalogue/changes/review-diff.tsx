@@ -41,12 +41,7 @@ function ruleLines(value: unknown) {
     ...(wording ? [`“${wording}”`] : []),
     ...(expression
       ? ruleRows(expression).map(
-          (row) =>
-            `${"    ".repeat(row.depth)}${row.text}${
-              row.confidence === null
-                ? ""
-                : `  (${Math.round(row.confidence * 100)}%)`
-            }`,
+          (row) => `${"    ".repeat(row.depth)}${row.text}`,
         )
       : []),
   ];

@@ -161,6 +161,14 @@ const MODEL_FIELD_UNITS: Record<string, readonly string[]> = {
     "course.unitOptions",
   ],
   offerings: ["course.offering", "course.sessions"],
+  "requisites.prerequisiteRule": ["requirements.prerequisite"],
+  "requisites.prerequisiteText": ["requirements.prerequisite"],
+  "requisites.unmodelledText": ["requirements.prerequisite"],
+  "requisites.corequisiteRule": ["requirements.corequisite"],
+  "requisites.corequisiteText": ["requirements.corequisite"],
+  "requisites.incompatibilityText": ["requirements.incompatibility"],
+  "requisites.incompatibilityCourseCodes": ["requirements.incompatibility"],
+  "requisites.softIncompatibilityCourseCodes": ["requirements.incompatibility"],
 };
 
 export function evidenceBelongsToReviewUnit(
@@ -169,6 +177,15 @@ export function evidenceBelongsToReviewUnit(
 ) {
   if (!evidencePath) return false;
   const root = evidencePath.split(/[.[]/)[0] ?? evidencePath;
+  for (const [modelPath, units] of Object.entries(MODEL_FIELD_UNITS)) {
+    if (
+      (evidencePath === modelPath ||
+        evidencePath.startsWith(`${modelPath}.`) ||
+        evidencePath.startsWith(`${modelPath}[`)) &&
+      units.includes(fieldPath)
+    )
+      return true;
+  }
   if (MODEL_FIELD_UNITS[root]?.includes(fieldPath)) return true;
   const leaf = fieldPath.split(".").pop() ?? fieldPath;
   return (

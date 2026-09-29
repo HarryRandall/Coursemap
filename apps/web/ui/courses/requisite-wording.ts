@@ -90,12 +90,12 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
 /** A condition as the thing a student has to do, for the steps list. */
 export function requisiteSentence(condition: CourseRuleCondition): string {
   switch (condition.kind) {
-    case "course":
-      if (condition.minimumMark !== null)
-        return `Complete ${condition.code} with a mark of ${condition.minimumMark} or more`;
+    case "course": {
+      const completed = `Complete ${condition.code}${condition.minimumMark === null ? "" : ` with a mark of ${condition.minimumMark} or more`}`;
       return condition.requirementMode === "completed_or_concurrent"
-        ? `Complete ${condition.code}, or take it in the same semester`
-        : `Complete ${condition.code}`;
+        ? `${completed}, or take it in the same semester`
+        : completed;
+    }
     case "incompatible":
       return `You can't take this if you've completed ${condition.code}`;
     case "units_total":
@@ -130,8 +130,25 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
 }
 
 /** A group as the thing a student has to do. */
+export function hasUniformCourseActions(group: Group) {
+  const first = group.conditions[0];
+  return (
+    first?.kind === "course" &&
+    group.conditions.every(
+      (child) =>
+        child.kind === "course" &&
+        child.requirementMode === first.requirementMode &&
+        child.minimumMark === first.minimumMark,
+    )
+  );
+}
+
 export function groupSentence(group: Group) {
-  const allCourses = group.conditions.every((child) => child.kind === "course");
+  const allCourses =
+    hasUniformCourseActions(group) &&
+    group.conditions[0]?.kind === "course" &&
+    group.conditions[0].requirementMode === "completed" &&
+    group.conditions[0].minimumMark === null;
   const noun = allCourses ? "these courses" : "these";
   const verb = allCourses ? "Complete" : "Meet";
   if (group.operator === "all_of") return `${verb} all of ${noun}`;

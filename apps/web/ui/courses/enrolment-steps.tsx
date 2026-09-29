@@ -20,8 +20,8 @@ import {
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 import {
   groupSentence,
+  hasUniformCourseActions,
   requisiteExplorerLink,
-  requisiteNoun,
   requisiteSentence,
   splitRequisiteRule,
 } from "@/ui/courses/requisite-wording";
@@ -358,8 +358,16 @@ export function EnrolmentSteps({
     }
   };
 
-  const groupBody = (group: Group, result: ConditionEvaluation | null) => {
-    if (group.conditions.every((child) => child.kind === "course")) {
+  const groupBody = (
+    group: Group,
+    result: ConditionEvaluation | null,
+  ): ReactNode => {
+    if (
+      hasUniformCourseActions(group) &&
+      group.conditions[0]?.kind === "course" &&
+      group.conditions[0].requirementMode === "completed" &&
+      group.conditions[0].minimumMark === null
+    ) {
       const needed = groupRequiredCount(group);
       return (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -380,15 +388,12 @@ export function EnrolmentSteps({
     return (
       <div className="flex max-w-xl flex-col">
         {group.conditions.map((child, index) => {
-          const met = evaluate(child)?.status === "met";
-          const lines =
+          const childResult = evaluate(child);
+          const met = childResult?.status === "met";
+          const title =
             child.kind === "group"
-              ? child.conditions.map((grandchild, lineIndex) =>
-                  grandchild.kind === "group"
-                    ? groupSentence(grandchild)
-                    : `${lineIndex > 0 ? (child.operator === "all_of" ? "and " : "or ") : ""}${requisiteNoun(grandchild)}`,
-                )
-              : [requisiteNoun(child)];
+              ? groupSentence(child)
+              : requisiteSentence(child);
           return (
             <div key={index}>
               {index > 0 ? (
@@ -413,7 +418,17 @@ export function EnrolmentSteps({
                 )}
               >
                 <p className="flex items-center justify-between gap-2 text-xs font-semibold text-foreground">
-                  Option {String.fromCharCode(65 + index)}
+                  {child.kind === "course" && href(child.code) ? (
+                    <Link
+                      href={href(child.code)!}
+                      prefetch={false}
+                      className="text-primary hover:underline"
+                    >
+                      {title}
+                    </Link>
+                  ) : (
+                    title
+                  )}
                   {met ? (
                     <span className="flex items-center gap-1 text-success">
                       <Check
@@ -425,11 +440,13 @@ export function EnrolmentSteps({
                     </span>
                   ) : null}
                 </p>
-                <ul className="mt-1 flex flex-col gap-0.5 text-xs text-foreground/80">
-                  {lines.map((line, lineIndex) => (
-                    <li key={lineIndex}>{line}</li>
-                  ))}
-                </ul>
+                {child.kind === "group" ? (
+                  <div className="mt-2">{groupBody(child, childResult)}</div>
+                ) : child.kind !== "course" ? (
+                  <div className="mt-1">
+                    {conditionBody(child, childResult)}
+                  </div>
+                ) : null}
               </div>
             </div>
           );

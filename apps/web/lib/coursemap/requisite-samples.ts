@@ -53,6 +53,7 @@ function addUnits(
  * every state a student might be in without touching anyone's record.
  */
 function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
+  if (share === 0) return;
   const partial = share < 1;
   switch (node.kind) {
     case "group": {
@@ -62,12 +63,24 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
           : node.operator === "any_of"
             ? 1
             : (node.minimumCount ?? 1);
-      const target = partial ? Math.floor(needed / 2) : needed;
+      const target = partial ? Math.max(1, Math.floor(needed / 2)) : needed;
       node.conditions
         .slice(0, node.operator === "all_of" ? undefined : target)
         .forEach((child, index) => {
           if (node.operator === "all_of") {
-            satisfy(child, draft, partial && index % 2 === 1 ? 0 : share);
+            // Complete selected branches before entering their alternatives.
+            // Halving an any-one child would otherwise select nothing.
+            satisfy(
+              child,
+              draft,
+              !partial
+                ? 1
+                : node.conditions.length === 1
+                  ? share
+                  : index < target
+                    ? 1
+                    : 0,
+            );
           } else {
             satisfy(child, draft, 1);
           }

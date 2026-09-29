@@ -1,0 +1,186 @@
+---
+kind: "course"
+code: "STAT2001"
+year: 2026
+source_url: "https://programsandcourses.anu.edu.au/2026/course/STAT2001"
+---
+
+Course
+
+# Introductory Mathematical Statistics
+
+An undergraduate course offered by the Rsch Sch of Finance, Actuarial Studies & App Stats .
+
+STAT2001
+
+- Code STAT2001
+- Unit Value 6 units
+
+- Offered by Rsch Sch of Finance, Actuarial Studies & App Stats
+- ANU College ANU College of Business and Economics
+- Course subject Statistics
+- Areas of interest Statistics
+
+- Academic career UGRD
+- Course convener - Dr Ning Wang - Dr William Lim
+- Mode of delivery In Person
+- Co-taught Course - STAT2013 - STAT6013
+- Offered in First Semester 2026 Second Semester 2026 See Future Offerings
+
+[Tweet](https://twitter.com/share)
+
+Share on Facebook
+
+[Wattle Share](https://wattle.anu.edu.au/)
+
+[Canvas](https://canvas.anu.edu.au/)
+
+[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/STAT2001_Time_Series_LRN.pdf)
+
+Introductory Mathematical Statistics (STAT2001)
+
+- Introduction
+- Learning Outcomes
+- Indicative Assessment
+- Workload
+- Inherent Requirements
+- Requisite and Incompatibility
+- Prescribed Texts
+- Assumed Knowledge
+- Other Information
+- Majors
+- Fees
+- Offerings and Dates
+
+A first course in mathematical statistics with emphasis on applications; probability, random variables, moment generating functions and correlation, sampling distributions, estimation of parameters by the methods of moments and maximum likelihood, hypothesis testing, the central limit theorem, and Bayesian statistics.
+
+## Learning Outcomes
+
+Upon successful completion, students will have the knowledge and skills to:
+
+- Calculate probabilities using set theory and combinatorics;
+- Use and describe discrete, continuous and multivariate random variables and their probability distributions;
+- Define sampling distributions and use the central limit theorem;
+- Use the method of moments and maximum likelihood estimation;
+- Perform confidence estimation and hypothesis testing; and
+- Use and describe the fundamental concepts of Bayesian statistics and Bayesian estimators.
+
+## Other Information
+
+Students who commenced enrolment in the Bachelor of Actuarial Studies in 2019 or later, and students considering transferring to the Bachelor of Actuarial Studies, should take STAT2013 rather than STAT2001. Contact the convener of the Bachelor of Actuarial Studies if you unsure whether to enrol in STAT2001 or STAT2013.
+
+## Indicative Assessment
+
+- Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate (100) [LO 1,2,3,4,5,6]
+
+The ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.
+
+## Workload
+
+Students are expected to commit 130 hours of work in completing this course. This includes time spent in scheduled classes and self-directed study time.
+
+## Inherent Requirements
+
+Not applicable
+
+## Requisite and Incompatibility
+
+To enrol in this course you must have have completed STAT1003 or STAT1008 or be enrolled in the Bachelor of Applied Data Analytics; and have completed MATH1113 or MATH1115 or have completed or be concurrently enrolled in MATH1014. Incompatible with STAT2013 and STAT6013.
+
+## Prescribed Texts
+
+Information about the prescribed textbook will be available via the Class Summary
+
+## Assumed Knowledge
+
+Whilst enrollment without completing MATH1116 or concurrent enrollment with MATH1014 is possible, students are recommended to have completed MATH1113, MATH1116 or MATH1014 before this course if their program structure allows it.
+
+## Majors
+
+- [Mathematical Economics](MECO-MAJ)
+
+## Fees
+
+Tuition fees are for the academic year indicated at the top of the page.
+
+**Commonwealth Support (CSP) Students**
+If you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.
+
+- **Student Contribution Band:** [1](https://students.anu.edu.au/fees/domestic/csp.php)
+
+- **Unit value:** 6 units
+
+If you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.
+
+Where there is a unit range displayed for this course, not all unit options below may be available.
+
+| Units | EFTSL   |
+| ----- | ------- |
+| 6.00  | 0.12500 |
+
+## Course fees
+
+Domestic International
+
+- **Domestic fee paying students:**
+
+| Year | Fee   |
+| ---- | ----- |
+| 2026 | $4920 |
+
+- **International fee paying students:**
+
+| Year | Fee   |
+| ---- | ----- |
+| 2026 | $7020 |
+
+**Note:**Please note that fee information is for current year only.
+
+## Offerings, Dates and Class Summary Links
+
+ANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).
+
+The list of offerings for future years is indicative only.
+Class summaries, if available, can be accessed by clicking on the View link for the relevant class number.
+
+### Offerings in 2026
+
+### First Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary                                                                            |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| 3359         | 23 Feb 2026      | 02 Mar 2026       | 31 Mar 2026 | 29 May 2026    | In Person        | [View](https://programsandcourses.anu.edu.au/2026/course/STAT2001/First%20Semester/3359) |
+
+### Second Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary                                                                             |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ----------------------------------------------------------------------------------------- |
+| 8362         | 27 Jul 2026      | 03 Aug 2026       | 31 Aug 2026 | 30 Oct 2026    | In Person        | [View](https://programsandcourses.anu.edu.au/2026/course/STAT2001/Second%20Semester/8362) |
+
+### Offerings in 2027
+
+### First Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ------------- |
+| 4721         | 22 Feb 2027      | 01 Mar 2027       | 31 Mar 2027 | 28 May 2027    | In Person        | N/A           |
+
+### Second Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ------------- |
+| 9742         | 26 Jul 2027      | 02 Aug 2027       | 31 Aug 2027 | 29 Oct 2027    | In Person        | N/A           |
+
+### Offerings in 2028
+
+### First Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ------------- |
+| 6188         | 21 Feb 2028      | 28 Feb 2028       | 31 Mar 2028 | 26 May 2028    | In Person        | N/A           |
+
+### Second Semester
+
+| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |
+| ------------ | ---------------- | ----------------- | ----------- | -------------- | ---------------- | ------------- |
+| 10569        | 24 Jul 2028      | 31 Jul 2028       | 31 Aug 2028 | 27 Oct 2028    | In Person        | N/A           |
