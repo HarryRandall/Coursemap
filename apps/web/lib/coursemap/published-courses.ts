@@ -520,6 +520,13 @@ function readProjectionCourseRule(
         enrolmentMode: condition.enrolmentMode,
         matchesEnrolmentMode: condition.matchesEnrolmentMode,
       };
+    if (condition.kind === "college_enrolment" && condition.freeText?.trim()) {
+      return {
+        ...base,
+        kind: "college_enrolment",
+        college: condition.freeText,
+      };
+    }
     if (condition.kind === "commencement_year") {
       return {
         ...base,

@@ -366,6 +366,14 @@ export function EnrolmentSteps({
             {condition.text}
           </p>
         );
+      case "college_enrolment":
+        return result?.detail ? (
+          result.status === "unknown" ? (
+            <p className="text-xs text-muted-foreground">{result.detail}</p>
+          ) : (
+            <StateLine met={result.status === "met"} text={result.detail} />
+          )
+        ) : null;
       case "elective_units":
         return student ? (
           <p className="text-xs text-muted-foreground">

@@ -33,6 +33,7 @@ type ConditionKind =
   | "year_standing"
   | "commencement_year"
   | "enrolment_mode"
+  | "college_enrolment"
   | "permission"
   | "admission"
   | "gpa"
@@ -283,6 +284,8 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
         .join(", ")}`;
     case "enrolled_in":
       return `Enrolment in programme ${rule.programmeCode}`;
+    case "enrolled_in_college":
+      return `Enrolment in a programme offered by ${rule.college}`;
     case "enrolment_mode":
       return enrolmentModeConditionLabel({
         enrolmentMode: rule.mode,
@@ -533,6 +536,20 @@ function addAtomicRule(
         sourceText,
       });
       condition.requiredStructureCode = rule.programmeCode;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "enrolled_in_college": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "college_enrolment",
+        hardness,
+        sourceText,
+      });
+      condition.freeText = rule.college;
       accumulator.ruleConditions.push(condition);
       return;
     }

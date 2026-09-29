@@ -12,6 +12,7 @@ const fixture = vi.hoisted(() => ({
   attempts: [] as Attempt[],
   commencementYear: 2024,
   enrolmentMode: null as EnrolmentMode | null,
+  degreeCode: "BCOMP",
   togglePermission: vi.fn(),
   notify: vi.fn(),
 }));
@@ -20,7 +21,7 @@ vi.mock("@/app/providers", () => ({
     state: {
       attempts: fixture.attempts,
       profile: {
-        degreeCode: "BCOMP",
+        degreeCode: fixture.degreeCode,
         commencementYear: fixture.commencementYear,
         enrolmentMode: fixture.enrolmentMode,
       },
@@ -119,6 +120,74 @@ test("students can record and remove approval for a conditional exclusion in the
   expect(fixture.notify).toHaveBeenLastCalledWith(
     "Permission approval removed",
   );
+});
+
+test("college eligibility follows the selected programme and stays unknown without published affiliation", async () => {
+  const college = "ANU College of Business and Economics";
+  const scoped = {
+    ...catalogue,
+    programmeColleges: [
+      { code: "BFINN", college },
+      { code: "BCOMP", college: "Different college" },
+    ],
+    courses: catalogue.courses.map((course) =>
+      course.code === "COMP1110"
+        ? {
+            ...course,
+            incompatibilityRule: null,
+            prerequisiteRule: {
+              ...base,
+              expression: null,
+              relationalExpression: {
+                ...base,
+                kind: "college_enrolment" as const,
+                college,
+              },
+            },
+          }
+        : course,
+    ),
+  };
+  fixture.attempts = [
+    {
+      id: "target",
+      courseCode: "COMP1110",
+      academicYear: 2026,
+      termId: "2026-s2",
+      status: "planned",
+      permissionApproved: true,
+    },
+  ];
+  fixture.degreeCode = "BCOMP";
+  const view = render(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  await userEvent
+    .setup()
+    .click(screen.getByRole("tab", { name: "Requisites" }));
+  expect(
+    screen.getByText("Your programme is offered by a different college"),
+  ).toBeVisible();
+  fixture.degreeCode = "BFINN";
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Planned", { exact: true })).toBeVisible();
+  expect(
+    screen.getByText(`Your programme is offered by ${college}`),
+  ).toBeVisible();
+  fixture.degreeCode = "UNKNOWN";
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  expect(
+    screen.getByText(
+      "Programme college information is missing or conflicting.",
+    ),
+  ).toBeVisible();
+  fixture.degreeCode = "BCOMP";
 });
 
 test("degree mode changes preserve the conditional permission path in the student dialog", async () => {

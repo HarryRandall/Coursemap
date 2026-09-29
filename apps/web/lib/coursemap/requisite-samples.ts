@@ -13,6 +13,7 @@ type Draft = {
     { units: number; mark: number | null; tags?: string[] }
   >;
   programmeCodes: Set<string>;
+  programmeColleges: Array<{ code: string; college: string | null }>;
   wam: number | null;
   gpa: number | null;
   studyYear: number;
@@ -136,6 +137,13 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       }
       return;
     }
+    case "college_enrolment":
+      if (!partial) {
+        const code = `SAMPLE${draft.programmeColleges.length + 1}`;
+        draft.programmeCodes.add(code);
+        draft.programmeColleges.push({ code, college: node.college });
+      }
+      return;
     case "enrolment_mode":
       draft.enrolmentMode = node.matchesEnrolmentMode
         ? node.enrolmentMode
@@ -189,6 +197,7 @@ export function sampleStudent(
   const draft: Draft = {
     completed: new Map(),
     programmeCodes: new Set(),
+    programmeColleges: [],
     wam: null,
     gpa: null,
     studyYear: 1,
@@ -200,6 +209,7 @@ export function sampleStudent(
     completed: draft.completed,
     enrolled: new Set(),
     programmeCodes: [...draft.programmeCodes],
+    programmeColleges: draft.programmeColleges,
     ...(draft.enrolmentMode ? { enrolmentMode: draft.enrolmentMode } : {}),
     wam: draft.wam,
     gpa: draft.gpa,

@@ -13,6 +13,7 @@ type CourseRuleConditionBase = {
 };
 
 export type CourseRuleExpression =
+  | (CourseRuleConditionBase & { kind: "college_enrolment"; college: string })
   | (CourseRuleConditionBase & {
       kind: "course";
       code: string;

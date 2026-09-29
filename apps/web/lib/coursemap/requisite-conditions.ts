@@ -24,6 +24,7 @@ export const REVIEWED_CONDITION_KINDS = [
   "year_standing",
   "commencement_year",
   "enrolment_mode",
+  "college_enrolment",
   "gpa",
   "wam",
   "permission",
@@ -534,6 +535,10 @@ function storedConditionToView(
             courseCodes: condition.courseCodes,
           }
         : null;
+    case "college_enrolment":
+      return condition.freeText?.trim()
+        ? { kind: "college_enrolment", freeText: condition.freeText }
+        : null;
     case "enrolment_mode":
       return validEnrolmentMode(condition.enrolmentMode) &&
         typeof condition.matchesEnrolmentMode === "boolean"
@@ -795,6 +800,12 @@ function normaliseCondition(
         condition: { kind: "course_set_units", units, courseCodes: codes },
       };
     }
+    case "college_enrolment": {
+      const freeText = condition.freeText?.trim();
+      if (!freeText)
+        return { message: "Enter the college's full source name." };
+      return { condition: { kind: "college_enrolment", freeText } };
+    }
     case "enrolment_mode": {
       if (
         !validEnrolmentMode(condition.enrolmentMode) ||
@@ -901,6 +912,8 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       }`;
     case "course_set_units":
       return `${condition.units} units from ${(condition.courseCodes ?? []).join(", ")}`;
+    case "college_enrolment":
+      return `Enrolment in a programme offered by ${condition.freeText ?? "the required college"}`;
     case "enrolment_mode":
       return enrolmentModeConditionLabel(condition);
     case "commencement_year":
@@ -932,6 +945,7 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   year_standing: "Year standing",
   commencement_year: "Commencement year",
   enrolment_mode: "Enrolment mode",
+  college_enrolment: "Programme college",
   gpa: "Grade average",
   wam: "WAM",
   permission: "Permission",
@@ -950,6 +964,7 @@ export const CONDITION_FAMILY_KINDS = [
   "year_standing",
   "commencement_year",
   "enrolment_mode",
+  "college_enrolment",
   "gpa",
   "wam",
   "permission",
@@ -1054,6 +1069,8 @@ export function isConditionComplete(condition: ReviewedConditionView) {
     case "permission":
     case "other":
       return Boolean(condition.freeText?.trim());
+    case "college_enrolment":
+      return Boolean(condition.freeText?.trim());
     default:
       return false;
   }
@@ -1110,6 +1127,10 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.units != null && condition.courseCodes?.length
         ? `Completed ${condition.units} units from ${condition.courseCodes.join(", ")}`
         : "Set the units and courses";
+    case "college_enrolment":
+      return condition.freeText?.trim()
+        ? `Enrolled in a programme offered by ${condition.freeText}`
+        : "Set the programme college";
     case "enrolment_mode":
       return enrolmentModeConditionLabel(condition);
     case "commencement_year":
