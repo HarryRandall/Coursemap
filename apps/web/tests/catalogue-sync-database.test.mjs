@@ -401,6 +401,14 @@ test("first, unchanged and changed source observations preserve local intent", a
         ],
       },
       {
+        op: "one_of",
+        rules: [
+          { op: "completed_or_concurrent", courseCode: "ECON2101" },
+          { op: "completed_or_concurrent", courseCode: "ECON2111" },
+          { op: "equivalent_course", sourceText: "or equivalent" },
+        ],
+      },
+      {
         op: "permission",
         sourceText:
           "Permission of the College of Business and Economics is required.",
@@ -512,6 +520,20 @@ test("first, unchanged and changed source observations preserve local intent", a
     ],
   );
 
+  const [persistedEquivalent] = await sql`
+    select condition_kind, free_text, source_text
+    from public.requirement_conditions
+    where version_id = ${first.sourceVersionId} and condition_kind = 'other'
+  `;
+  assert.deepEqual(
+    [
+      persistedEquivalent.condition_kind,
+      persistedEquivalent.free_text,
+      persistedEquivalent.source_text,
+    ],
+    ["other", "or equivalent", "or equivalent"],
+  );
+
   const persistedExclusions =
     await sql`select condition_kind, hardness, code.code from public.requirement_conditions condition join public.catalogue_codes code on code.id = condition.code_id where condition.version_id = ${first.sourceVersionId} and condition.condition_kind in ('incompatible', 'incompatible_concurrent') order by condition.position`;
   assert.deepEqual(
@@ -574,6 +596,14 @@ test("first, unchanged and changed source observations preserve local intent", a
       .filter((condition) => condition.conditionKind === "gpa")
       .map((condition) => condition.minimumCount),
     [null, 48],
+  );
+  assert.equal(
+    projection.content.ruleConditions.find(
+      (condition) =>
+        condition.conditionKind === "other" &&
+        condition.ruleKey === "prerequisite",
+    )?.freeText,
+    "or equivalent",
   );
   const exclusion = readProjectionIncompatibilityRule(projection.content);
   assert.ok(
