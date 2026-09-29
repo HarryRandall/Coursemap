@@ -382,6 +382,7 @@ async function processClaimedSync({
       schema: adapter.extractionJsonSchema,
       schemaName: adapter.schemaName,
       maxOutputTokens: adapter.maxOutputTokens,
+      reasoningEffort: adapter.reasoningEffort,
     });
     const fingerprint = stableFingerprint({
       sourceContentSha256: page.contentSha256,
@@ -474,6 +475,7 @@ async function processClaimedSync({
             schema: adapter.extractionJsonSchema,
             schemaName: adapter.schemaName,
             maxOutputTokens: adapter.maxOutputTokens,
+            reasoningEffort: adapter.reasoningEffort,
             requestTimeoutMs: adapter.requestTimeoutMs,
             signal,
           });

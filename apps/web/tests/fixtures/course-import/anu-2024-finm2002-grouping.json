@@ -1,0 +1,42 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/FINM2002",
+  "fetchedAt": "2026-09-29T14:10:27.142Z",
+  "contentSha256": "53550a17f39b04127d317bad591a3022ec989908989e935634c1edcca37bb8c9",
+  "model": "google/gemini-3.1-flash-lite",
+  "reasoningEffort": "low",
+  "sourceMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have previously completed FINM1001, and either STAT1008 or STAT1003. Incompatible with FINM6041.\n",
+  "requisites": {
+    "assumedKnowledgeText": null,
+    "prerequisiteText": "To enrol in this course you must have previously completed FINM1001, and either STAT1008 or STAT1003.",
+    "corequisiteText": null,
+    "incompatibilityText": "Incompatible with FINM6041.",
+    "prerequisiteRule": {
+      "op": "all_of",
+      "rules": [
+        {
+          "op": "completed",
+          "courseCode": "FINM1001"
+        },
+        {
+          "op": "one_of",
+          "rules": [
+            {
+              "op": "completed",
+              "courseCode": "STAT1008"
+            },
+            {
+              "op": "completed",
+              "courseCode": "STAT1003"
+            }
+          ]
+        }
+      ]
+    },
+    "corequisiteRule": null,
+    "incompatibilityCourseCodes": ["FINM6041"],
+    "softIncompatibilityCourseCodes": [],
+    "concurrentIncompatibilityCourseCodes": [],
+    "softConcurrentIncompatibilityCourseCodes": [],
+    "unmodelledText": []
+  }
+}

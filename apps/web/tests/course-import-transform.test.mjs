@@ -27,6 +27,7 @@ import {
   COURSE_IMPORT_PROMPT_VERSION,
 } from "../lib/catalogue-import/kinds/course/prompt.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
+import { courseKindAdapter } from "../lib/catalogue-import/kinds/course/adapter.ts";
 import { courseCatalogueContent } from "../lib/catalogue/content.ts";
 import {
   catalogueReviewUnits,
@@ -448,7 +449,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v16");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v21");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v22");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1841,4 +1842,134 @@ test("the captured MATH1013 response keeps both exclusion scopes while the metad
     ).length,
     2,
   );
+});
+
+test("the model's unresolved ECON2108 grouping remains a hard unknown with an error flag", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-econ2108-grouping.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "ECON2108",
+    year: 2024,
+    title: "Japanese Economy and Economic Policy",
+  });
+  model.requisites = captured.requisites;
+  model.reviewItems = captured.reviewItems;
+  const finalised = finaliseCourseExtraction({
+    code: "ECON2108",
+    year: 2024,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: captured.sourceMarkdown,
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.equal(finalised.errorCount, 1);
+  assert.equal(finalised.extraction.requisites.prerequisiteRule, null);
+  const projection = projectCourseSnapshot(finalised.extraction);
+  const conditions = projection.ruleConditions.filter(
+    (item) => item.ruleKey === "prerequisite",
+  );
+  assert.equal(conditions.length, 1);
+  assert.equal(conditions[0].conditionKind, "other");
+  assert.equal(conditions[0].hardness, "hard");
+  assert.equal(conditions[0].freeText, captured.requisites.prerequisiteText);
+  const content = courseKindAdapter.project(finalised.extraction);
+  assert.ok(
+    content.flags.some(
+      (flag) =>
+        flag.severity === "error" &&
+        flag.fieldPath === "requisites.prerequisiteRule",
+    ),
+  );
+  const rule = requirementSliceExpression({
+    rule: content.requirements.rules.find(
+      (item) => item.key === "prerequisite",
+    ),
+    groups: content.requirements.groups.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    conditions: content.requirements.conditions.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    options: [],
+  });
+  for (const courseCodes of [
+    [],
+    ["ECON1100"],
+    ["ECON1101", "ECON1102"],
+    ["ECON1101", "ECON1100"],
+  ]) {
+    assert.equal(
+      evaluateRule(rule, {
+        completed: new Map(
+          courseCodes.map((code) => [code, { units: 6, mark: 100 }]),
+        ),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      "unknown",
+    );
+  }
+});
+
+test("the captured clear FINM2002 alternative cannot replace its compulsory finance course", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-finm2002-grouping.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "FINM2002",
+    year: 2024,
+    title: "Corporate Finance",
+  });
+  model.requisites = captured.requisites;
+  const content = courseKindAdapter.project(model);
+  const rule = requirementSliceExpression({
+    rule: content.requirements.rules.find(
+      (item) => item.key === "prerequisite",
+    ),
+    groups: content.requirements.groups.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    conditions: content.requirements.conditions.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    options: [],
+  });
+  for (const [courseCodes, expected] of [
+    [[], "unmet"],
+    [["STAT1008", "STAT1003"], "partial"],
+    [["FINM1001"], "partial"],
+    [["FINM1001", "STAT1008"], "met"],
+    [["FINM1001", "STAT1003"], "met"],
+  ]) {
+    assert.equal(
+      evaluateRule(rule, {
+        completed: new Map(
+          courseCodes.map((code) => [code, { units: 6, mark: 60 }]),
+        ),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      expected,
+    );
+  }
 });
