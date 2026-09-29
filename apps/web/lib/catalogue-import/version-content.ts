@@ -193,7 +193,7 @@ async function readCourseContent(
     sql`select position, name from public.course_areas_of_interest where version_id = ${versionId} order by position`,
     sql`select position, attribute_kind, value, source_text from public.course_attributes where version_id = ${versionId} order by position`,
     sql`select position, relation_kind, source_course_code, source_course_title, source_text from public.course_related_courses where version_id = ${versionId} order by position`,
-    sql`select delivery_mode, location from public.course_offerings where version_id = ${versionId} limit 1`,
+    sql`select delivery_mode, location, has_summary from public.course_offerings where version_id = ${versionId} limit 1`,
     sql`select sessions.*, academic_years.year as calendar_year from public.offering_sessions as sessions join public.academic_years on academic_years.id = sessions.academic_year_id where sessions.version_id = ${versionId} order by sessions.position`,
     sql`select id, position, body from public.course_learning_outcomes where version_id = ${versionId} order by position`,
     sql`select id, position, title, weight, hurdle, due_text, source_text from public.course_assessment_items where version_id = ${versionId} order by position`,
@@ -285,12 +285,13 @@ async function readCourseContent(
       sourceCourseTitle: str(row.source_course_title),
       sourceText: String(row.source_text ?? ""),
     })),
-    offering: offerings[0]
-      ? {
-          deliveryMode: str(offerings[0].delivery_mode),
-          location: str(offerings[0].location),
-        }
-      : null,
+    offering:
+      offerings[0] && offerings[0].has_summary !== false
+        ? {
+            deliveryMode: str(offerings[0].delivery_mode),
+            location: str(offerings[0].location),
+          }
+        : null,
     sessions: sessions.map((row) => ({
       position: Number(row.position),
       calendarYear: Number(row.calendar_year),
@@ -429,11 +430,13 @@ export async function readVersionContent(
   versionId: number,
 ): Promise<CatalogueContent | null> {
   const [version] = await sql`
-    select versions.kind, versions.content_hash, codes.code, academic_years.year
+    select versions.kind, versions.content_hash, codes.code, academic_years.year,
+      offerings.has_summary
     from public.catalogue_versions as versions
     join public.catalogue_records as records on records.id = versions.record_id
     join public.catalogue_codes as codes on codes.id = records.code_id
     join public.academic_years on academic_years.id = versions.academic_year_id
+    left join public.course_offerings as offerings on offerings.version_id = versions.id
     where versions.id = ${versionId}
   `;
   if (!version) return null;
@@ -449,7 +452,27 @@ export async function readVersionContent(
   };
   if (kind === "course") {
     const course = await readCourseContent(sql, versionId);
-    return course ? { ...common, kind, course } : null;
+    if (!course) return null;
+    const content: CatalogueContent = { ...common, kind, course };
+    // Historical offering rows did not distinguish absent and empty summaries.
+    // Restore null only when the recorded hash proves that original shape.
+    if (
+      version.has_summary === null &&
+      course.offering &&
+      course.offering.deliveryMode === null &&
+      course.offering.location === null
+    ) {
+      const withoutSummary: CatalogueContent = {
+        ...content,
+        course: { ...course, offering: null },
+      };
+      if (
+        contentHashForCatalogueContent(withoutSummary) === content.contentHash
+      ) {
+        return withoutSummary;
+      }
+    }
+    return content;
   }
   const structure = await readStructureContent(sql, versionId);
   return structure ? { ...common, kind, structure } : null;

@@ -237,6 +237,11 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
     publishedContent.course.details.description,
     "A manually authored course.",
   );
+  assert.equal(publishedContent.course.offering, null);
+  assert.equal(
+    contentHashForCatalogueContent(publishedContent),
+    saved.draft.contentHash,
+  );
 
   const fromPublished = (await loadCatalogueEditorState(recordId, sql)).draft;
   assert.equal(fromPublished.baseVersionId, firstPublish.versionId);

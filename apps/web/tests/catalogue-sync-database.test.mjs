@@ -6,7 +6,10 @@ import {
   courseCatalogueContent,
   CATALOGUE_CONTENT_SCHEMA_VERSION,
 } from "../lib/catalogue/content.ts";
-import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content.ts";
+import {
+  contentHashForCatalogueContent,
+  readVersionContent,
+} from "../lib/catalogue-import/version-content.ts";
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
 import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
@@ -33,6 +36,7 @@ const YEAR = 2026;
 const EMPTY_CODE = "TSTC9101";
 const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
+const OFFERING_CODE = "TSTC9104";
 
 let sql;
 let yearId;
@@ -52,11 +56,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -155,6 +159,7 @@ beforeAll(async () => {
   await createRecord(EMPTY_CODE, "Empty Source Record");
   await createRecord(MANUAL_CODE, "Manual Source Record");
   await createRecord(COHORT_CODE, "Cohort Exception Record");
+  await createRecord(OFFERING_CODE, "Offering Roundtrip Record");
 });
 
 afterAll(async () => {
@@ -743,9 +748,158 @@ test("course identity context requires a current year-specific source-backed lis
   }
 });
 
+test.each([
+  ["absent", null, false],
+  ["absent with sessions", null, true],
+  ["explicitly empty", { deliveryMode: null, location: null }, false],
+  [
+    "explicitly empty with sessions",
+    { deliveryMode: null, location: null },
+    true,
+  ],
+  ["partial", { deliveryMode: "In Person", location: null }, false],
+  ["partial with sessions", { deliveryMode: null, location: "Acton" }, true],
+])(
+  "%s offering summaries retain their source shape and hash",
+  async (label, offering, hasSessions) => {
+    const content = sourceContent(
+      OFFERING_CODE,
+      `Offering ${label}`,
+      "Offering roundtrip test.",
+    );
+    content.course.offering = offering;
+    if (hasSessions) {
+      content.course.sessions = [
+        {
+          position: 1,
+          calendarYear: YEAR,
+          academicPeriodCode: "SEM1",
+          academicPeriodName: "First Semester",
+          classNumber: "9104",
+          startsOn: null,
+          enrolClosesOn: null,
+          censusOn: null,
+          endsOn: null,
+          deliveryMode: "In Person",
+          location: "Acton",
+          classSummaryUrl: null,
+          sourceText: "First Semester, Acton, In Person.",
+        },
+      ];
+    }
+    content.contentHash = contentHashForCatalogueContent(content);
+    const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+    const first = await persistSourceVersion(sql, {
+      claim: fixture.claim,
+      sourceDocumentId: fixture.documentId,
+      write: content,
+    });
+    const roundtrip = await readVersionContent(sql, first.sourceVersionId);
+    assert.deepEqual(roundtrip.course, content.course);
+    assert.equal(
+      contentHashForCatalogueContent(roundtrip),
+      content.contentHash,
+    );
+    const [stored] =
+      await sql`select content_hash, sealed_at from public.catalogue_versions where id = ${first.sourceVersionId}`;
+    assert.equal(stored.content_hash, content.contentHash);
+    assert.ok(stored.sealed_at);
+    const [row] =
+      await sql`select delivery_mode, location, has_summary from public.course_offerings where version_id = ${first.sourceVersionId}`;
+    assert.deepEqual(row, {
+      delivery_mode: offering?.deliveryMode ?? null,
+      location: offering?.location ?? null,
+      has_summary: offering !== null,
+    });
+    const [projection] =
+      await sql`select private.course_version_projection(${first.sourceVersionId}) as content`;
+    assert.deepEqual(projection.content.courseOffering, offering);
+    await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+    const replay = await createSyncFixture(OFFERING_CODE, content.contentHash);
+    const repeated = await persistSourceVersion(sql, {
+      claim: replay.claim,
+      sourceDocumentId: replay.documentId,
+      write: roundtrip,
+    });
+    assert.equal(repeated.status, "unchanged");
+    assert.equal(repeated.sourceVersionId, first.sourceVersionId);
+    await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${replay.claim.syncId}`;
+  },
+);
+
+test.each([
+  ["absent", null, true],
+  ["explicitly empty", { deliveryMode: null, location: null }, true],
+  ["unrecognised", null, false],
+])(
+  "%s historical offering summaries preserve immutable evidence",
+  async (label, offering, hasRecognisedHash) => {
+    const content = sourceContent(
+      OFFERING_CODE,
+      `Historical ${label} offering hash`,
+      "Historical snapshot test.",
+    );
+    content.course.offering = offering;
+    content.contentHash = hasRecognisedHash
+      ? contentHashForCatalogueContent(content)
+      : "f".repeat(64);
+    const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+    const result = await persistSourceVersion(sql, {
+      claim: fixture.claim,
+      sourceDocumentId: fixture.documentId,
+      write: content,
+    });
+    // Reproduce pre-marker storage without changing the recorded snapshot hash.
+    await sql`alter table public.course_offerings disable trigger course_offerings_guard_sealed`;
+    try {
+      await sql`update public.course_offerings set has_summary = null where version_id = ${result.sourceVersionId}`;
+    } finally {
+      await sql`alter table public.course_offerings enable trigger course_offerings_guard_sealed`;
+    }
+    const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+    assert.deepEqual(
+      roundtrip.course.offering,
+      hasRecognisedHash ? offering : { deliveryMode: null, location: null },
+    );
+    assert.equal(roundtrip.contentHash, content.contentHash);
+    if (hasRecognisedHash)
+      assert.equal(
+        contentHashForCatalogueContent(roundtrip),
+        content.contentHash,
+      );
+    const [stored] =
+      await sql`select versions.content_hash, offerings.has_summary from public.catalogue_versions as versions join public.course_offerings as offerings on offerings.version_id = versions.id where versions.id = ${result.sourceVersionId}`;
+    assert.equal(stored.content_hash, content.contentHash);
+    assert.equal(stored.has_summary, null);
+    await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+  },
+);
+
+test("model projection hashes preserve absent offering summaries independently of draft hashes", async () => {
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(
+      emptyCourseExtraction({
+        code: OFFERING_CODE,
+        year: YEAR,
+        title: "Model offering hash",
+      }),
+    ),
+  });
+  assert.equal(content.course.offering, null);
+  assert.notEqual(content.contentHash, contentHashForCatalogueContent(content));
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.course, content.course);
+  assert.equal(roundtrip.contentHash, content.contentHash);
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+});
+
 test("cohort bounds survive source import, idempotent replay and published projection without changing legacy hashes", async () => {
-  const { readVersionContent } =
-    await import("../lib/catalogue-import/version-content.ts");
   const model = emptyCourseExtraction({
     code: COHORT_CODE,
     year: YEAR,
@@ -769,7 +923,6 @@ test("cohort bounds survive source import, idempotent replay and published proje
   const content = courseCatalogueContent({
     projection: projectCourseSnapshot(model),
   });
-  content.course.offering = { deliveryMode: null, location: null };
   content.contentHash = contentHashForCatalogueContent(content);
   const fixture = await createSyncFixture(COHORT_CODE, "a".repeat(64));
   const first = await persistSourceVersion(sql, {
