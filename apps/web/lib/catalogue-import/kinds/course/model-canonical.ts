@@ -58,7 +58,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function isoDateFromHumanDate(value: unknown, expectedYear: number) {
+function isoDateFromHumanDate(
+  value: unknown,
+  expectedYear: number,
+  allowFollowingYear: boolean,
+) {
   if (typeof value !== "string") return null;
   const match =
     /^(\d{1,2}) (Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?) (\d{4})$/u.exec(
@@ -69,7 +73,12 @@ function isoDateFromHumanDate(value: unknown, expectedYear: number) {
   const day = Number(match[1]);
   const month = MONTHS.get(match[2]);
   const year = Number(match[3]);
-  if (!month || year !== expectedYear) return null;
+  if (
+    !month ||
+    (year !== expectedYear &&
+      !(allowFollowingYear && year === expectedYear + 1))
+  )
+    return null;
 
   const date = new Date(Date.UTC(year, month - 1, day));
   if (
@@ -147,7 +156,11 @@ export function canonicaliseCourseModelExtraction(
 
     for (const field of OFFERING_DATE_FIELDS) {
       const before = candidate[field];
-      const after = isoDateFromHumanDate(before, expectedYear);
+      const after = isoDateFromHumanDate(
+        before,
+        expectedYear,
+        field !== "startsOn",
+      );
       if (typeof before !== "string" || after === null) continue;
       candidate[field] = after;
       changes.push({

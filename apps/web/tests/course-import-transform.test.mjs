@@ -401,8 +401,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v8");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v11");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v9");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v12");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -979,4 +979,67 @@ test("captured STAT2014 fee quotes are supported and keep CSP separate from tuit
   );
   assert.equal(contribution.studentContributionBand, 1);
   assert.equal(contribution.amount, null);
+});
+
+test("cross-year offering dates survive validation without changing their year", () => {
+  const model = structuredClone(extraction);
+  const offering = model.offerings[0];
+  offering.startsOn = "2026-11-25";
+  offering.endsOn = "2027-02-28";
+  offering.lastEnrolmentDate = "2027-01-02";
+  offering.censusDate = "2027-01-12";
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projected = projectCourseSnapshot(model).offeringSessions[0];
+  assert.equal(projected.endsOn, "2027-02-28");
+  const human = structuredClone(model);
+  human.offerings[0].endsOn = "28 Feb 2027";
+  const canonical = canonicaliseCourseModelExtraction(human, {
+    expectedCode: "COMP2400",
+    expectedYear: 2026,
+  });
+  assert.equal(canonical.value.offerings[0].endsOn, "2027-02-28");
+  assert.equal(validateCourseExtraction(canonical.value).success, true);
+  for (const endsOn of ["2028-02-28", "2026-01-01", "2025-12-31"]) {
+    const invalid = structuredClone(model);
+    invalid.offerings[0].endsOn = endsOn;
+    assert.equal(validateCourseExtraction(invalid).success, false);
+  }
+  model.offerings[0].startsOn = "2027-01-01";
+  assert.equal(validateCourseExtraction(model).success, false);
+});
+
+test("captured CBEA3070 Spring classes retain their following-year end date", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-cbea3070-offerings.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "CBEA3070",
+    year: 2024,
+    title: "Business internship",
+  });
+  model.offerings = captured.offerings;
+  assert.equal(
+    validateCourseExtraction(model, {
+      expectedCode: "CBEA3070",
+      expectedYear: 2024,
+    }).success,
+    true,
+  );
+  const sessions = projectCourseSnapshot(model).offeringSessions.filter(
+    (item) => item.academicPeriodName === "Spring Session",
+  );
+  assert.equal(sessions.length, 2);
+  assert.deepEqual(
+    sessions.map((item) => [item.startsOn, item.endsOn]),
+    [
+      ["2024-10-01", "2025-02-07"],
+      ["2024-10-01", "2025-02-07"],
+    ],
+  );
 });
