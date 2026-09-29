@@ -234,6 +234,42 @@ test("the sync detail links back to the record it checked", () => {
   ).toBe("/admin/courses/2027/comp2700");
 });
 
+test("missing usage is visible and a cached response retains its zero cost", async () => {
+  const user = userEvent.setup();
+  const detail = syncDetail();
+  const original = detail.extractions[0]!;
+  detail.extractions = [
+    {
+      ...original,
+      inputTokens: null,
+      cachedInputTokens: null,
+      outputTokens: null,
+      reasoningTokens: null,
+      costUsd: null,
+      costSource: "unknown",
+    },
+    {
+      ...original,
+      id: "cached",
+      extractionNumber: 2,
+      costUsd: 0,
+      costSource: "cache",
+    },
+  ];
+  renderSyncDetail(detail);
+  await user.click(screen.getByRole("tab", { name: /Stages/ }));
+  expect(screen.getAllByText("Unavailable")).toHaveLength(3);
+  expect(screen.getByText("US$0.00 (cached)")).toBeTruthy();
+});
+
+test("the sync list identifies a partial cost total", () => {
+  const page = syncPage();
+  page.rows[0]!.costUsd = null;
+  page.rows[0]!.knownCostUsd = 0.03;
+  renderSyncList(page);
+  expect(screen.getByText("At least US$0.03")).toBeTruthy();
+});
+
 test("an incomplete listing check says so, because it cannot retire anything", () => {
   const checks: DiscoveryCheckRow[] = [
     {

@@ -17,7 +17,14 @@ import {
 import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
-import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
+import {
+  ensureAnuSourceId,
+  startSyncStage,
+  recordSyncArtifact,
+  reserveExtraction,
+  attachExtractionResponse,
+} from "../lib/catalogue-sync/sync-store.ts";
+import { extractionUsageForStorage } from "../lib/catalogue-sync/extraction-usage.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
@@ -151,6 +158,79 @@ afterAll(async () => {
   if (!sql) return;
   await removeFixtures();
   await sql.end({ timeout: 5 });
+});
+
+test("extraction storage distinguishes unavailable metrics from measured and cached zero", async () => {
+  const fixture = await createSyncFixture(EMPTY_CODE, "c".repeat(64));
+  const syncId = fixture.claim.syncId;
+  await sql`update public.catalogue_syncs set status = 'failed' where id = ${syncId}::uuid`;
+  const stageId = await startSyncStage(sql, {
+    syncId,
+    stageName: "model_extract",
+    attemptNumber: 1,
+  });
+  const artifact = await recordSyncArtifact(sql, {
+    syncId,
+    stageId,
+    kind: "model_request",
+    attemptNumber: 1,
+    mediaType: "application/json",
+    contentSha256: "d".repeat(64),
+    byteSize: 2,
+    storageBucket: "course-import-artifacts",
+    storagePath: "test-only/usage.json",
+  });
+  const unknown = {
+    inputTokens: null,
+    cachedInputTokens: null,
+    outputTokens: null,
+    reasoningTokens: null,
+    totalTokens: null,
+    costUsd: null,
+  };
+  let originalExtractionId;
+  for (const [index, usage, reused] of [
+    [1, unknown, false],
+    [2, { ...unknown, inputTokens: 0, outputTokens: 0, costUsd: 0 }, false],
+    [3, unknown, true],
+  ]) {
+    const reserved = await reserveExtraction(sql, {
+      syncId,
+      extractionNumber: index,
+      requestedModel: "test",
+      fingerprint: String(index).repeat(64),
+      promptVersion: "test",
+      schemaVersion: "test",
+      requestArtifactId: artifact.id,
+    });
+    if (index === 1) originalExtractionId = reserved.id;
+    const [pending] =
+      await sql`select input_tokens, cost_usd from public.catalogue_extractions where id = ${reserved.id}::uuid`;
+    assert.equal(pending.input_tokens, null);
+    assert.equal(pending.cost_usd, null);
+    await attachExtractionResponse(sql, {
+      extractionId: reserved.id,
+      responseArtifactId: artifact.id,
+      resolvedModel: "test",
+      reusedFromExtractionId: reused ? originalExtractionId : null,
+      providerRequestId: null,
+      finishReason: "error",
+      latencyMs: 10,
+      ...extractionUsageForStorage(usage, reused),
+    });
+    const [stored] =
+      await sql`select input_tokens, output_tokens, cost_usd, cost_source from public.catalogue_extractions where id = ${reserved.id}::uuid`;
+    assert.equal(stored.input_tokens, usage.inputTokens);
+    assert.equal(stored.output_tokens, usage.outputTokens);
+    assert.equal(
+      stored.cost_usd === null ? null : Number(stored.cost_usd),
+      reused ? 0 : usage.costUsd,
+    );
+    assert.equal(
+      stored.cost_source,
+      reused ? "cache" : usage.costUsd === null ? "unknown" : "provider",
+    );
+  }
 });
 
 test("first, unchanged and changed source observations preserve local intent", async () => {

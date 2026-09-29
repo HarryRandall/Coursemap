@@ -18,6 +18,10 @@ const mocks = vi.hoisted(() => ({
   persist: vi.fn(),
   extract: vi.fn(),
   store: vi.fn(),
+  reserve: vi.fn(),
+  reuse: vi.fn(),
+  attach: vi.fn(),
+  read: vi.fn(),
 }));
 
 vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
@@ -29,9 +33,9 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
   failSyncStage: mocks.failStage,
   recordSourceDocument: vi.fn(async () => 1),
   recordSyncArtifact: vi.fn(async () => ({ id: "artifact" })),
-  reserveExtraction: vi.fn(async () => ({ id: "extraction", created: true })),
-  findReusableExtraction: vi.fn(async () => null),
-  attachExtractionResponse: vi.fn(),
+  reserveExtraction: mocks.reserve,
+  findReusableExtraction: mocks.reuse,
+  attachExtractionResponse: mocks.attach,
   completeExtraction: mocks.complete,
   finishCatalogueSync: mocks.finish,
   readListingTitle: vi.fn(async () => "Relational Databases"),
@@ -39,6 +43,7 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
 vi.mock("@/lib/catalogue-sync/artifact-store", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   storeSyncArtifact: mocks.store,
+  readSyncArtifact: mocks.read,
 }));
 vi.mock("@/lib/catalogue-sync/persist-source-version", () => ({
   persistSourceVersion: mocks.persist,
@@ -64,9 +69,19 @@ const extraction = JSON.parse(
     "utf8",
   ),
 );
+const unknownUsage = {
+  inputTokens: null,
+  outputTokens: null,
+  totalTokens: null,
+  cachedInputTokens: null,
+  reasoningTokens: null,
+  costUsd: null,
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.reserve.mockResolvedValue({ id: "extraction", created: true });
+  mocks.reuse.mockResolvedValue(null);
   mocks.sql.mockImplementation(async (strings) => {
     const query = Array.from(strings as unknown as readonly string[]).join("");
     if (query.includes("from public.academic_periods")) {
@@ -102,6 +117,87 @@ beforeEach(() => {
   mocks.persist.mockResolvedValue({ status: "applied", sourceVersionId: 10 });
 });
 
+test("resuming an existing paid response preserves its original accounting", async () => {
+  mocks.reserve.mockResolvedValue({
+    id: "extraction",
+    created: false,
+    responseArtifactId: "original-response",
+  });
+  mocks.reuse.mockResolvedValue({ id: "extraction" });
+  const audit = {
+    model: "google/gemini-3.1-flash-lite",
+    finishReason: "stop",
+    content: JSON.stringify(extraction),
+    latencyMilliseconds: 100,
+    usage: {
+      inputTokens: 12,
+      outputTokens: 3,
+      totalTokens: 15,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+      costUsd: 0.03,
+    },
+  };
+  mocks.read.mockResolvedValue(JSON.stringify(audit));
+  mocks.sql.mockImplementation(async (strings) => {
+    const query = Array.from(strings as unknown as readonly string[]).join("");
+    if (query.includes("from public.catalogue_sync_artifacts"))
+      return [
+        {
+          storage_bucket: "test",
+          storage_path: "original-response",
+          media_type: "application/json",
+          content_sha256: "a".repeat(64),
+          byte_size: 2,
+        },
+      ];
+    if (query.includes("from public.academic_periods"))
+      return [
+        { code: "S1", name: "First Semester" },
+        { code: "S2", name: "Second Semester" },
+      ];
+    return [];
+  });
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.reuse).not.toHaveBeenCalled();
+  expect(mocks.attach).not.toHaveBeenCalled();
+  expect(mocks.persist).toHaveBeenCalledTimes(1);
+});
+
+test("a new extraction reusing another response records zero additional cost", async () => {
+  mocks.reuse.mockResolvedValue({
+    id: "original-paid-extraction",
+    responseArtifact: {
+      bucket: "test",
+      path: "original",
+      mediaType: "application/json",
+      contentSha256: "a".repeat(64),
+      byteSize: 2,
+    },
+  });
+  mocks.read.mockResolvedValue(
+    JSON.stringify({
+      model: "google/gemini-3.1-flash-lite",
+      finishReason: "stop",
+      content: JSON.stringify(extraction),
+      latencyMilliseconds: 100,
+      usage: { ...unknownUsage, costUsd: 0.03 },
+    }),
+  );
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.attach).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      reusedFromExtractionId: "original-paid-extraction",
+      costUsd: 0,
+      costSource: "cache",
+    }),
+  );
+  expect(mocks.persist).toHaveBeenCalledTimes(1);
+});
+
 test.each([
   { parsed: null, responseError: "Invalid JSON.", finishReason: "stop" },
   { parsed: {}, responseError: null, finishReason: "stop" },
@@ -112,7 +208,7 @@ test.each([
     mocks.extract.mockResolvedValue({
       ...response,
       responseForAudit: response,
-      usage: {},
+      usage: unknownUsage,
       generationId: "paid-response",
     });
     await processCatalogueSync({ syncId: "sync" });
@@ -145,7 +241,7 @@ test("a complete response proceeds to source persistence", async () => {
     responseError: null,
     finishReason: "stop",
     responseForAudit: {},
-    usage: {},
+    usage: unknownUsage,
   });
   await processCatalogueSync({ syncId: "sync" });
   expect(mocks.extract).toHaveBeenCalledWith(
@@ -154,6 +250,15 @@ test("a complete response proceeds to source persistence", async () => {
     }),
   );
   expect(mocks.persist).toHaveBeenCalledTimes(1);
+  expect(mocks.attach).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      inputTokens: null,
+      outputTokens: null,
+      costUsd: null,
+      costSource: "unknown",
+    }),
+  );
   expect(mocks.finish).toHaveBeenCalledWith(
     expect.anything(),
     expect.objectContaining({ status: "applied", sourceVersionId: 10 }),
@@ -168,7 +273,7 @@ test("the worker gives the model calendar identities and holds unrecognised peri
     responseError: null,
     finishReason: "stop",
     responseForAudit: {},
-    usage: {},
+    usage: unknownUsage,
   });
   await processCatalogueSync({ syncId: "sync" });
   expect(mocks.extract).toHaveBeenCalledWith(

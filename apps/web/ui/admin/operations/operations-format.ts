@@ -8,8 +8,12 @@ export function formatDuration(durationMs: number | null) {
   return `${minutes}m ${Math.round(seconds % 60)}s`;
 }
 
-export function formatCost(costUsd: number) {
-  if (costUsd === 0) return "—";
+export function formatCost(costUsd: number | null, knownCostUsd = 0): string {
+  if (costUsd === null)
+    return knownCostUsd > 0
+      ? `At least ${formatCost(knownCostUsd)}`
+      : "Unavailable";
+  if (costUsd === 0) return "US$0.00";
   return costUsd < 0.01
     ? `US$${costUsd.toFixed(4)}`
     : `US$${costUsd.toFixed(2)}`;
