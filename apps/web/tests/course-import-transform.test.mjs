@@ -1,3 +1,4 @@
+import { unsupportedModelWording } from "../lib/catalogue-import/model-evidence.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
@@ -402,7 +403,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v10");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v13");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v14");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1119,3 +1120,63 @@ test("captured FINM2002 sessions use calendar codes and preserve ANU labels", as
     ],
   );
 });
+
+for (const [code, stem] of [
+  ["FINM2002", "finm2002"],
+  ["CBEA3070", "cbea3070"],
+]) {
+  test(`captured ${code} table quotes retain source rows without rewritten headings`, async () => {
+    const captured = JSON.parse(
+      await readFile(
+        new URL(
+          `./fixtures/course-import/anu-2024-${stem}-tables.json`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    assert.ok(
+      unsupportedModelWording(
+        {
+          fees: captured.previousFees,
+          offerings: captured.previousOfferings,
+          evidence: captured.previousEvidence,
+        },
+        captured.sourceMarkdown,
+      ).length > 0,
+    );
+    assert.deepEqual(
+      unsupportedModelWording(
+        {
+          fees: captured.fees,
+          offerings: captured.offerings,
+          evidence: captured.evidence,
+        },
+        captured.sourceMarkdown,
+      ),
+      [],
+    );
+    const model = emptyCourseExtraction({
+      code,
+      year: 2024,
+      title: "Table quotation test",
+    });
+    model.fees = captured.fees;
+    model.offerings = captured.offerings;
+    model.evidence = captured.evidence;
+    const result = finaliseCourseExtraction({
+      code,
+      year: 2024,
+      listingTitle: model.title,
+      model,
+      pageMarkdown: captured.sourceMarkdown,
+      finishReason: "stop",
+      responseError: null,
+      knownPeriodCodes: ["S1", "S2", "SUMMER", "AUTUMN", "WINTER", "SPRING"],
+    });
+    assert.equal(result.warningCount, 0);
+    assert.equal(result.errorCount, 0);
+    assert.equal(result.extraction.offerings.length, captured.offerings.length);
+    assert.equal(result.extraction.fees.length, captured.fees.length);
+  });
+}

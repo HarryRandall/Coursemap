@@ -6,7 +6,7 @@ import {
 } from "./programmes.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v10";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v13";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v14";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -42,7 +42,7 @@ Tags:
 
 Writing the record:
 - Display text (introduction, description, workload, inherent requirements, prescribed texts, convener, delivery summary, assessment titles and learning outcomes) is copied from the page and tidied, never rewritten. Fix capitalisation, British English spelling, obvious typos and broken Markdown formatting, and drop page furniture such as "Back to the top". Do not summarise, shorten, reorder or add wording. Keep every course code, programme code, number, date, name and email address exactly as printed.
-- Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page. For fee tables, copy the relevant audience heading and complete table block, preserving intervening column headers and blank lines. Do not concatenate a heading and a year/amount into a new sentence: "Domestic fee paying students: 2024 $4440" is not a verbatim quote when the source contains a Year/Fee table between those words.
+- Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page. For every fee or offering extracted from a Markdown table, sourceText is the exact printed table row, including every cell and pipe separator. Keep the audience heading separately in the fee's sourceLabel, and the session heading separately in the offering's periodName. Do not prepend those headings to the row or turn the row into a sentence. Preserve the original display dates in sourceText while using ISO dates in the date fields. For a table-level evidenceExcerpt, copy the whole source table block or separate independently copied source fragments with a blank line. Check each quote against the input before returning it.
 
 Requisites:
 - Copy assumed knowledge and recommended preparation into requisites.assumedKnowledgeText, or null if absent. This is advisory preparation, including prose outside the formal requisite section, not an enrolment gate. Do not place the same advice in prerequisiteRule, prerequisiteText or unmodelledText. Keep genuinely compulsory secondary-school eligibility or conditional admission pathways in formal requisites for review, rather than relabelling them as advice. Give exact-source evidence with fieldKey requisites.assumedKnowledgeText.
