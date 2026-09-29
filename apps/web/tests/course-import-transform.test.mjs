@@ -165,6 +165,61 @@ test("a conditional school qualification remains under review rather than requir
   );
 });
 
+test("unnamed equivalent courses remain an alternative requiring review", () => {
+  // https://programsandcourses.anu.edu.au/2024/course/ECON2091
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteText =
+    "To enrol in this course you must have completed or concurrent enrolment in ECON2101/2111 Microeconomics 2 (P or H) or equivalent.";
+  model.requisites.prerequisiteRule = {
+    op: "one_of",
+    rules: [
+      { op: "completed_or_concurrent", courseCode: "ECON2101" },
+      { op: "completed_or_concurrent", courseCode: "ECON2111" },
+      { op: "equivalent_course", sourceText: "or equivalent" },
+    ],
+  };
+  model.requisites.unmodelledText = [];
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.ruleConditions
+      .filter((condition) => condition.ruleKey === "prerequisite")
+      .map((condition) => [condition.conditionKind, condition.freeText]),
+    [
+      ["course", null],
+      ["course", null],
+      ["other", "or equivalent"],
+    ],
+  );
+  const content = courseCatalogueContent({ projection });
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.prerequisite",
+    )?.band,
+    "needs_review",
+  );
+  const expression = requirementSliceExpression(
+    content.requirements,
+    "prerequisite",
+  );
+  const reader = {
+    completed: new Map(),
+    enrolled: new Set(),
+    programmeCodes: [],
+    gpa: null,
+    wam: null,
+    studyYear: null,
+  };
+  assert.equal(evaluateRule(expression, reader).status, "unknown");
+  assert.equal(
+    evaluateRule(expression, {
+      ...reader,
+      enrolled: new Set(["ECON2111"]),
+    }).status,
+    "met",
+  );
+});
+
 test("invalid model course levels are reported rather than silently accepted", () => {
   assert.deepEqual(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.level.enum,
@@ -562,13 +617,14 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v21");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v30");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v22");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v31");
   assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.match(
     prompt,
     /do not add completed MATH1003 to prerequisiteRule for everyone/,
   );
+  assert.match(prompt, /equivalent_course is uncheckable/);
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
