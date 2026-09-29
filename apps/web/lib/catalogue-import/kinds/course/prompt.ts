@@ -7,7 +7,7 @@ import {
 } from "./programmes.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v16";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v22";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v23";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -20,6 +20,8 @@ export function buildCourseExtractionSystemPrompt() {
   return `You turn one ANU Programs and Courses course page into Coursemap's course record.
 
 Return exactly one JSON object matching the supplied ${COURSE_EXTRACTION_SCHEMA_VERSION} JSON Schema. Return no prose or markdown fences.
+
+Include every required property, including nullable properties when the page states no value. An omitted property is an incomplete extraction, not a null value. Check the schema's required lists for the course and every nested object before returning. In particular, always return sourceUpdatedAt: use null unless the page explicitly states when its course information was updated as a complete ISO timestamp. Retrieval time, offering dates, assessment dates, fee years and the selected catalogue year are not a source update instant. Never invent a time or timezone for a printed date. Keep any update wording that cannot be represented in a review item instead.
 
 The input is the whole page as Markdown, in page order. Front matter gives the authoritative code and selected year. Links to other ANU records are written as their codes, for example [Mathematics](MATH-MAJ).
 
