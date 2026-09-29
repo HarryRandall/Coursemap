@@ -5,6 +5,7 @@ import {
   studentRecord,
   type StudentRecord,
 } from "@/lib/coursemap/requisite-evaluation";
+import type { Attempt } from "@/lib/coursemap/types";
 
 const base = {
   confidence: 1,
@@ -40,6 +41,161 @@ const student: StudentRecord = {
   gpa: 5.4,
   studyYear: 2,
 };
+
+test("GPA and WAM gates include failed repeats without awarding completion credit", () => {
+  const attempts: Attempt[] = [
+    {
+      id: "fail",
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "failed",
+      resultCode: "N",
+      mark: 30,
+      unitsAttempted: 12,
+      unitsEarned: 0,
+    },
+    {
+      id: "pass",
+      courseCode: "COMP1100",
+      termId: "2025-s2",
+      status: "completed",
+      resultCode: "HD",
+      mark: 80,
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    },
+    {
+      id: "plan",
+      courseCode: "COMP1100",
+      termId: "2026-s1",
+      status: "planned",
+      mark: 100,
+      unitsAttempted: 6,
+    },
+  ];
+  const record = studentRecord({
+    attempts,
+    commencementYear: null,
+    completedCourses: [{ code: "COMP1100", units: 6 }],
+    programmeCodes: [],
+  });
+  expect(record.gpa).toBe(7 / 3);
+  expect(record.wam).toBe((30 * 12 + 80 * 6) / 18);
+  expect(
+    evaluateRule({ ...base, kind: "gpa", minimumGpa: 5 }, record).status,
+  ).toBe("unmet");
+  expect(
+    evaluateRule({ ...base, kind: "wam", minimumWam: 60 }, record).status,
+  ).toBe("unmet");
+  expect(
+    evaluateRule(
+      { ...base, kind: "units_total", subject: null, units: 12 },
+      record,
+    ).measure,
+  ).toEqual({ kind: "units", value: 6, target: 12 });
+  expect(
+    evaluateRule(course("COMP1100", { minimumMark: 70 }), record).status,
+  ).toBe("met");
+});
+
+test("failed and withdrawn zero-point grades lower GPA without inventing numeric marks", () => {
+  const attempts: Attempt[] = [
+    {
+      id: "pass",
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "completed",
+      resultCode: "HD",
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    },
+    ...["N", "NCN", "WN", "WD", "WL", "CRS", "RP"].map(
+      (resultCode): Attempt => ({
+        id: resultCode,
+        courseCode: "MATH1005",
+        termId: "2025-s1",
+        status: ["WN", "WD", "WL"].includes(resultCode)
+          ? "withdrawn"
+          : "failed",
+        resultCode,
+        unitsAttempted: 6,
+        unitsEarned: 0,
+      }),
+    ),
+  ];
+  const record = studentRecord({
+    attempts,
+    commencementYear: null,
+    completedCourses: [{ code: "COMP1100", units: 6 }],
+    programmeCodes: [],
+  });
+  expect(record.gpa).toBe(7 / 4);
+  expect(record.wam).toBeNull();
+  expect(record.completed.has("MATH1005")).toBe(false);
+});
+
+test("a graded failed attempt with unknown unit load leaves GPA and WAM eligibility unknown", () => {
+  const attempts: Attempt[] = [
+    {
+      id: "pass",
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "completed",
+      mark: 80,
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    },
+    {
+      id: "fail",
+      courseCode: "MATH1005",
+      termId: "2025-s1",
+      status: "failed",
+      mark: 30,
+      resultCode: "N",
+      unitsEarned: 0,
+    },
+  ];
+  const record = studentRecord({
+    attempts,
+    commencementYear: null,
+    completedCourses: [{ code: "COMP1100", units: 6 }],
+    programmeCodes: [],
+  });
+  expect(record.gpa).toBeNull();
+  expect(record.wam).toBeNull();
+  expect(
+    evaluateRule({ ...base, kind: "gpa", minimumGpa: 5 }, record).status,
+  ).toBe("unknown");
+});
+
+test("a later pass cannot supply the missing unit load of an earlier fail", () => {
+  const attempts: Attempt[] = [
+    {
+      id: "fail",
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "failed",
+      resultCode: "N",
+      unitsEarned: 0,
+    },
+    {
+      id: "pass",
+      courseCode: "COMP1100",
+      termId: "2025-s2",
+      status: "completed",
+      resultCode: "HD",
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    },
+  ];
+  const record = studentRecord({
+    attempts,
+    commencementYear: null,
+    completedCourses: [{ code: "COMP1100", units: 6 }],
+    programmeCodes: [],
+  });
+  expect(record.gpa).toBeNull();
+});
 
 test("unit rules count completed units and report how far along the student is", () => {
   expect(

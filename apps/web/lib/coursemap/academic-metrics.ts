@@ -2,18 +2,18 @@ import {
   bandLabelForMark,
   gradeBands,
   gradeForMark,
-  gradePointAverage,
-  weightedAverageMark,
   type GradeCode,
   type MarkedResult,
 } from "@/lib/academic/metrics";
 import { termLabel } from "@/lib/coursemap/dashboard-series";
-import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import {
-  isActiveAttempt,
-  planningCourseForAttempt,
-  unitsForAttempt,
-} from "@/lib/planner";
+  academicResultUnits,
+  isRecordedAcademicAttempt,
+  recordedGradePointAverage,
+  recordedWeightedAverageMark,
+} from "@/lib/academic/attempt-results";
+import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import { isActiveAttempt, planningCourseForAttempt } from "@/lib/planner";
 
 type AcademicCatalogue = {
   courses: readonly Course[];
@@ -23,34 +23,27 @@ type AcademicCatalogue = {
 
 type AcademicInputs = AcademicCatalogue & { attempts: readonly Attempt[] };
 
-type ResultRow = MarkedResult & { termId: string; course: Course };
+type ResultRow = MarkedResult & { termId: string; courseCode: string };
 
-/**
- * Attempts carrying a result, de-duplicated with the same last-record-wins rule
- * as degree progress so a recorded mark supersedes an earlier planned entry.
- */
+/** Each recorded attempt contributes to averages, including earlier failed repeats. */
 function resultRows({
   attempts,
   courses,
   snapshotCourses,
 }: Omit<AcademicInputs, "terms">): ResultRow[] {
   const catalogue = { courses, snapshotCourses, terms: [] };
-  const byCourse = new Map<string, Attempt>();
-  attempts
-    .filter(isActiveAttempt)
-    .forEach((attempt) => byCourse.set(attempt.courseCode, attempt));
-  return [...byCourse.values()].flatMap((attempt) => {
+  return attempts.filter(isRecordedAcademicAttempt).flatMap((attempt) => {
     if (attempt.mark === undefined && attempt.resultCode === undefined)
       return [];
     const course = planningCourseForAttempt(attempt, catalogue);
-    if (!course) return [];
+    const units = academicResultUnits(attempt, course?.units);
     return [
       {
         mark: attempt.mark,
         resultCode: attempt.resultCode,
-        units: unitsForAttempt(attempt, course),
+        units,
         termId: attempt.termId,
-        course,
+        courseCode: attempt.courseCode,
       },
     ];
   });
@@ -64,7 +57,7 @@ export type AcademicTermPoint = {
   id: string;
   label: string;
   year: number;
-  wam: number;
+  wam: number | null;
   /** Null when no result in the period carries grade points. */
   gpa: number | null;
   units: number;
@@ -73,7 +66,7 @@ export type AcademicTermPoint = {
   marks: { code: string; mark: number }[];
 };
 
-/** One point per teaching period that has at least one mark, oldest first. */
+/** One point per teaching period with a WAM or GPA, oldest first. */
 export function academicTermPoints(
   inputs: AcademicInputs,
 ): AcademicTermPoint[] {
@@ -82,22 +75,23 @@ export function academicTermPoints(
     .filter((term) => term.id !== "unscheduled")
     .flatMap((term) => {
       const inTerm = rows.filter((row) => row.termId === term.id);
-      const wam = weightedAverageMark(inTerm);
-      if (wam === null) return [];
+      const wam = recordedWeightedAverageMark(inTerm);
+      const gpa = recordedGradePointAverage(inTerm);
+      if (wam === null && gpa === null) return [];
       return [
         {
           id: term.id,
           label: termLabel(term),
           year: term.year,
           wam,
-          gpa: gradePointAverage(inTerm),
+          gpa,
           units: inTerm.reduce((sum, row) => sum + row.units, 0),
           courses: inTerm.length,
           marks: inTerm
             .flatMap((row) =>
               row.mark === undefined
                 ? []
-                : [{ code: row.course.code, mark: row.mark }],
+                : [{ code: row.courseCode, mark: row.mark }],
             )
             .sort((a, b) => a.code.localeCompare(b.code)),
         },
@@ -122,12 +116,14 @@ export type AcademicSummary = {
 
 export function academicSummary(inputs: AcademicInputs): AcademicSummary {
   const rows = resultRows(inputs);
-  const wam = weightedAverageMark(rows);
-  const points = academicTermPoints(inputs);
+  const wam = recordedWeightedAverageMark(rows);
+  const points = academicTermPoints(inputs).flatMap((point) =>
+    point.wam === null ? [] : [{ ...point, wam: point.wam }],
+  );
   const [previous, latest] = points.slice(-2);
   return {
     wam,
-    gpa: gradePointAverage(rows),
+    gpa: recordedGradePointAverage(rows),
     band: wam === null ? null : bandLabelForMark(wam),
     markedUnits: rows.reduce((sum, row) => sum + row.units, 0),
     markedCourses: rows.length,
