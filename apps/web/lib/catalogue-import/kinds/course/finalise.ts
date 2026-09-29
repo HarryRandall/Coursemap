@@ -107,6 +107,7 @@ export function finaliseCourseExtraction({
   finishReason,
   responseError,
   knownProgrammes = [],
+  knownPeriodCodes,
 }: {
   code: string;
   year: number;
@@ -116,6 +117,7 @@ export function finaliseCourseExtraction({
   finishReason: string | null;
   responseError: string | null;
   knownProgrammes?: readonly KnownProgramme[];
+  knownPeriodCodes?: readonly string[];
 }) {
   const canonical = canonicaliseCourseModelExtraction(
     withModelEvidenceMethod(model),
@@ -134,6 +136,7 @@ export function finaliseCourseExtraction({
       validateCourseExtraction(candidate, {
         expectedCode: code,
         expectedYear: year,
+        knownPeriodCodes,
       }),
   });
 

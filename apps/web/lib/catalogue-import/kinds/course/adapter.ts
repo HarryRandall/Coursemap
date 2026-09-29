@@ -17,6 +17,7 @@ import {
   buildCourseExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuCoursePage } from "./source.ts";
+import { loadKnownAcademicPeriods } from "./periods.ts";
 import { loadKnownCourseTags } from "./tags.ts";
 import { loadKnownProgrammes } from "./programmes.ts";
 
@@ -48,11 +49,13 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
   async loadPromptContext(sql, claim) {
-    const [knownTags, knownProgrammes] = await Promise.all([
-      loadKnownCourseTags(sql),
-      loadKnownProgrammes(sql, claim.academicYearId),
-    ]);
-    return { knownTags, knownProgrammes };
+    const [knownTags, knownProgrammes, knownAcademicPeriods] =
+      await Promise.all([
+        loadKnownCourseTags(sql),
+        loadKnownProgrammes(sql, claim.academicYearId),
+        loadKnownAcademicPeriods(sql, claim.academicYear),
+      ]);
+    return { knownTags, knownProgrammes, knownAcademicPeriods };
   },
   buildUserPrompt(claim, pageMarkdown, context) {
     return buildCourseExtractionUserPrompt({
@@ -60,6 +63,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       academicYear: claim.academicYear,
       knownTags: context?.knownTags ?? [],
       knownProgrammes: context?.knownProgrammes ?? [],
+      knownAcademicPeriods: context?.knownAcademicPeriods ?? [],
       pageMarkdown,
     });
   },
@@ -72,6 +76,9 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: claim.code,
       expectedYear: claim.academicYear,
+      knownPeriodCodes: context?.knownAcademicPeriods?.map(
+        (period) => period.code,
+      ),
     });
     return {
       success: result.success,
@@ -96,6 +103,9 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       finishReason,
       responseError,
       knownProgrammes: context?.knownProgrammes,
+      knownPeriodCodes: context?.knownAcademicPeriods?.map(
+        (period) => period.code,
+      ),
     });
   },
   project(extraction) {

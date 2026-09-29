@@ -186,6 +186,7 @@ export type CourseExtractionValidationResult =
 export type CourseExtractionValidationOptions = {
   expectedCode?: string;
   expectedYear?: number;
+  knownPeriodCodes?: readonly string[];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -904,6 +905,17 @@ function validateExtractionShape(
       maximum: 2200,
     });
     requireString(offering.periodCode, `${path}.periodCode`, issues);
+    if (
+      options.knownPeriodCodes !== undefined &&
+      typeof offering.periodCode === "string" &&
+      !options.knownPeriodCodes.includes(offering.periodCode)
+    ) {
+      issues.push({
+        path: `${path}.periodCode`,
+        message:
+          "must be a recognised academic period code for the selected year",
+      });
+    }
     requireString(offering.periodName, `${path}.periodName`, issues);
     requireString(offering.classNumber, `${path}.classNumber`, issues, {
       nullable: true,
