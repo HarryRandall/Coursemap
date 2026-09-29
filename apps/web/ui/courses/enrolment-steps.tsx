@@ -359,6 +359,13 @@ export function EnrolmentSteps({
             ))}
           </div>
         );
+      case "permission":
+      case "other":
+        return (
+          <p className="text-xs whitespace-pre-line text-muted-foreground">
+            {condition.text}
+          </p>
+        );
       case "elective_units":
         return student ? (
           <p className="text-xs text-muted-foreground">

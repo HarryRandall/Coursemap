@@ -222,3 +222,27 @@ test("concurrent exclusions show enrolment restrictions without banning prior co
   ).toBeInTheDocument();
   expect(screen.queryByText("0 of 0 met")).not.toBeInTheDocument();
 });
+
+test("a nested permission alternative shows its authority alongside the exclusion pathway", () => {
+  const text =
+    "If you completed COMP1100, obtain permission from the course convener.";
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      student={null}
+      expression={{
+        kind: "group",
+        operator: "any_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "incompatible", code: "COMP1100" },
+          { ...base, kind: "permission", text },
+        ],
+      }}
+    />,
+  );
+  expect(screen.getByText("Meet one of these")).toBeVisible();
+  expect(screen.getByText(text)).toBeVisible();
+  expect(screen.getByText("Get permission to enrol")).toBeVisible();
+});

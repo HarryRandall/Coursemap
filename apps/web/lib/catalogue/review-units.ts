@@ -167,6 +167,7 @@ const MODEL_FIELD_UNITS: Record<string, readonly string[]> = {
   "requisites.unmodelledText": ["requirements.prerequisite"],
   "requisites.corequisiteRule": ["requirements.corequisite"],
   "requisites.corequisiteText": ["requirements.corequisite"],
+  "requisites.incompatibilityRule": ["requirements.incompatibility"],
   "requisites.incompatibilityText": ["requirements.incompatibility"],
   "requisites.incompatibilityCourseCodes": ["requirements.incompatibility"],
   "requisites.softIncompatibilityCourseCodes": ["requirements.incompatibility"],

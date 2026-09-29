@@ -666,3 +666,71 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
     "approval",
   );
 });
+
+test("permission waives a conditional prior-course exclusion without waiving independent bans", () => {
+  const base = {
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Permission of the course convener",
+  };
+  const waiver = {
+    ...base,
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [
+      {
+        ...base,
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "incompatible", code: "COMP1100" },
+          { ...base, kind: "incompatible", code: "COMP1140" },
+        ],
+      },
+      { ...base, kind: "permission", text: base.sourceText },
+    ],
+  };
+  const catalogue = catalogueWithExclusion(waiver);
+  for (const codes of [
+    [],
+    ["COMP1100"],
+    ["COMP1140"],
+    ["COMP1100", "COMP1140"],
+  ]) {
+    for (const permissionApproved of [false, true]) {
+      const target = {
+        ...attempt("target", "COMP1110", "2026-s2"),
+        permissionApproved,
+      };
+      const history = codes.map((code) =>
+        attempt(code, code, "2026-s1", "completed"),
+      );
+      assert.equal(
+        effectiveStatus(target, [...history, target], catalogue),
+        codes.length && !permissionApproved ? "approval" : "planned",
+      );
+    }
+  }
+  const target = {
+    ...attempt("target", "COMP1110", "2026-s2"),
+    permissionApproved: true,
+  };
+  const independent = catalogueWithExclusion({
+    ...base,
+    kind: "group",
+    operator: "all_of",
+    minimumCount: null,
+    conditions: [waiver, { ...base, kind: "incompatible", code: "MATH1005" }],
+  });
+  assert.equal(
+    effectiveStatus(
+      target,
+      [attempt("other", "MATH1005", "2026-s1", "completed"), target],
+      independent,
+    ),
+    "approval",
+  );
+});
