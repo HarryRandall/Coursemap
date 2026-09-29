@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v10";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v15";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v11";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v16";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -30,7 +30,7 @@ Source rules:
 4. periodCode must use a recognised academic period code supplied with the input, for example S1 for First Semester or Semester 1 and S2 for Second Semester or Semester 2. periodName preserves the printed label. Never put that label in periodCode. Use the supplied identity for Summer, Autumn, Winter and Spring sessions too. If no supplied identity fits a source session, flag it for review rather than inventing a code. Offering tables are grouped under headings such as "Offerings in 2026". Include offerings and classes only from the selected year's group; the page also shows later years, which Coursemap imports separately.
 5. Preserve variable or ranged unit values. Do not collapse them to one number.
 6. Record every printed fee row: the student contribution band, domestic and international fees alike, each with its printed year, audience, basis and source wording. Do not assume the fee year equals the selected year. A student contribution band belongs in its own commonwealth_supported / student_contribution row, with amount null when no amount is printed. Do not attach that band to a domestic or international tuition row.
-7. Record learning outcomes, assessment items, outcome links, workload, inherent requirements, prescribed texts, areas of interest, STEM status and graduate attributes when present.
+7. workloadHours is an explicitly stated overall workload quantity, and workloadHoursBasis records whether it is weekly or total for the whole course. For "10 hours per week", return workloadHours 10 and workloadHoursBasis weekly. For an explicitly stated whole-course total, use total. Use null when the source gives only contact hours, a range, or no clear overall quantity or basis, preserving all the wording in workloadText. Never multiply weekly hours by teaching weeks, sum contact components into a guessed overall workload or derive hours from course units. Give source evidence for workloadHours and workloadHoursBasis. Record learning outcomes, assessment items, outcome links, workload, inherent requirements, prescribed texts, areas of interest, STEM status and graduate attributes when present.
 8. Separate hard incompatibilities from discretionary or soft incompatibilities.
 9. Every non-null offering date is an ISO calendar date in YYYY-MM-DD form. Convert display dates such as 23 Feb 2026. Keep the printed year: an offering in the selected year can finish in the following year, especially a Spring session. Do not discard that class, shift its end date into the starting year or import classes from another year's offering group. startsOn belongs to calendarYear; endsOn, lastEnrolmentDate and censusDate may belong to calendarYear or the following year.
 10. classSummaryUrl is null or a complete HTTPS URL on programsandcourses.anu.edu.au taken from the page.

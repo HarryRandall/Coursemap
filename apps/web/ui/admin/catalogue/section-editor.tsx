@@ -175,6 +175,7 @@ export function DetailsEditor({
   labels = {},
   readOnlyKeys = [],
   readOnly = false,
+  choices = {},
 }: {
   idPrefix: string;
   value: Row;
@@ -183,6 +184,7 @@ export function DetailsEditor({
   readOnlyKeys?: string[];
   /** Reads the whole form rather than offering it for editing. */
   readOnly?: boolean;
+  choices?: Partial<Record<string, readonly FieldChoice[]>>;
 }) {
   // Reading a record should show what it says, not the shape of the form it
   // was entered through. A page of labels above em dashes told a reader
@@ -206,6 +208,7 @@ export function DetailsEditor({
               label={labels[key] ?? humanise(key)}
               value={fieldValue}
               long={long}
+              choices={choices[key]}
               readOnly={readOnly || readOnlyKeys.includes(key)}
               onChange={(next) => onChange({ ...value, [key]: next })}
             />
