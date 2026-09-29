@@ -1,10 +1,44 @@
 import { expect, test } from "vitest";
-import { catalogueProviderPauseReason } from "../lib/catalogue-sync/provider-pause.ts";
+import {
+  catalogueProviderPauseReason,
+  catalogueProviderResponsePause,
+} from "../lib/catalogue-sync/provider-pause.ts";
 import {
   extractWithOpenRouter,
   OpenRouterRequestError,
   OpenRouterConfigurationError,
+  type OpenRouterProviderError,
 } from "../lib/catalogue-import/openrouter.ts";
+
+test.each([
+  [403, "Key limit exceeded (total limit).", "key_limit"],
+  ["402", "Insufficient credits.", "credits"],
+  [401, "Invalid API key.", "authentication"],
+  [429, "Rate limit exceeded.", null],
+  [503, "Unavailable.", null],
+  [403, "Content blocked by guardrail.", null],
+  [null, "Key limit exceeded (total limit).", null],
+  [402, "Provider returned error: insufficient credits.", null],
+])(
+  "accepted response account classification: %s %s",
+  (code, message, reason) => {
+    const error = {
+      code,
+      message,
+      providerName: null,
+      providerCode: null,
+      errorType: null,
+    } as OpenRouterProviderError;
+    expect(catalogueProviderResponsePause(error)?.reason ?? null).toBe(reason);
+    for (const upstream of [
+      { providerName: "Google" },
+      { providerCode: "RESOURCE_EXHAUSTED" },
+    ])
+      expect(
+        catalogueProviderResponsePause({ ...error, ...upstream }),
+      ).toBeNull();
+  },
+);
 
 test("only explicit shared provider failures pause imports", () => {
   expect(
@@ -72,4 +106,29 @@ test("an upstream provider identity survives HTTP parsing and prevents a global 
     "Upstream provider",
   );
   expect(catalogueProviderPauseReason(caught)).toBeNull();
+});
+
+test("an HTTP 200 account error remains an auditable response and can pause imports", async () => {
+  const result = await extractWithOpenRouter({
+    model: "google/gemini-3.1-flash-lite",
+    systemPrompt: "Return a course.",
+    modelInput: "COMP1100",
+    schema: { type: "object" },
+    env: { NODE_ENV: "test", OPENROUTER_API_KEY: "test-key" },
+    fetchImpl: async () =>
+      Response.json({
+        id: "accepted-failure",
+        model: "google/gemini-3.1-flash-lite",
+        error: { code: 402, message: "Insufficient credits." },
+        usage: { prompt_tokens: 12, completion_tokens: 3, cost: 0.03 },
+      }),
+  });
+  expect(result.generationId).toBe("accepted-failure");
+  expect(result.usage.costUsd).toBe(0.03);
+  expect(result.responseForAudit.providerError?.code).toBe(402);
+  expect(result.responseError).toContain("Insufficient credits.");
+  expect(catalogueProviderResponsePause(result.providerError)).toEqual({
+    reason: "credits",
+    message: "Insufficient credits.",
+  });
 });
