@@ -82,6 +82,7 @@ export function emptyCourseExtraction({
       incompatibilityText: null,
       prerequisiteRule: null,
       corequisiteRule: null,
+      incompatibilityRule: null,
       incompatibilityCourseCodes: [],
       softIncompatibilityCourseCodes: [],
       concurrentIncompatibilityCourseCodes: [],
