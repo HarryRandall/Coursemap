@@ -258,11 +258,13 @@ export async function loadCatalogueDirectoryPage({
       ? "never_synced"
       : sync.status === "queued" || sync.status === "running"
         ? "syncing"
-        : sync.status === "failed"
-          ? "sync_failed"
-          : counts.open > 0
-            ? "changes_available"
-            : "up_to_date";
+        : sync.status === "paused"
+          ? "paused"
+          : sync.status === "failed"
+            ? "sync_failed"
+            : counts.open > 0
+              ? "changes_available"
+              : "up_to_date";
     return {
       code: listing.code,
       title: listing.title,

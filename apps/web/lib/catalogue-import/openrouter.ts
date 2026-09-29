@@ -106,11 +106,17 @@ export class OpenRouterConfigurationError extends Error {
 export class OpenRouterRequestError extends Error {
   readonly status: number;
   readonly retryable: boolean;
+  readonly providerName: string | null;
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    providerName: string | null = null,
+  ) {
     super(message);
     this.name = "OpenRouterRequestError";
     this.status = status;
+    this.providerName = providerName;
     this.retryable =
       status === 408 || status === 409 || status === 429 || status >= 500;
   }
@@ -463,9 +469,23 @@ export async function extractWithOpenRouter({
     responseWasJson = false;
   }
   if (!response.ok) {
+    const providerName =
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "object" &&
+      body.error !== null &&
+      "metadata" in body.error &&
+      typeof body.error.metadata === "object" &&
+      body.error.metadata !== null &&
+      "provider_name" in body.error.metadata &&
+      typeof body.error.metadata.provider_name === "string"
+        ? body.error.metadata.provider_name.trim() || null
+        : null;
     throw new OpenRouterRequestError(
       safeErrorMessage(body, response.status),
       response.status,
+      providerName,
     );
   }
 

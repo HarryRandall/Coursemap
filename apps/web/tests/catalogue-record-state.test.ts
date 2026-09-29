@@ -40,6 +40,9 @@ test("reports the most urgent fact about a record, in that order", () => {
     ),
   ).toBe("sync_failed");
   expect(
+    catalogueRecordState(record({ sourceState: "paused", isPublished: true })),
+  ).toBe("paused");
+  expect(
     catalogueRecordState(
       record({ isListedByAnu: false, hasDraft: true, isPublished: true }),
     ),

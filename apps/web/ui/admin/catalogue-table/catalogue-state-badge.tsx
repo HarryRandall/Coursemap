@@ -1,5 +1,5 @@
 import { Badge } from "@coursemap/ui/components/badge";
-import { CircleX, LoaderCircle, TriangleAlert } from "lucide-react";
+import { CircleX, LoaderCircle, Pause, TriangleAlert } from "lucide-react";
 
 import {
   type CatalogueDirectoryRecord,
@@ -31,6 +31,12 @@ export function CatalogueStateBadge({
         <Badge variant="destructive-light">
           <CircleX aria-hidden="true" />
           Sync failed
+        </Badge>
+      );
+    case "paused":
+      return (
+        <Badge variant="warning-light">
+          <Pause aria-hidden="true" /> Sync paused
         </Badge>
       );
     case "delisted":

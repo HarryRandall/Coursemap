@@ -16,6 +16,7 @@ export type CatalogueSync = {
   status:
     | "queued"
     | "running"
+    | "paused"
     | "unchanged"
     | "review_required"
     | "applied"

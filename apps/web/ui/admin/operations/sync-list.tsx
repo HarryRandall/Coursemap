@@ -31,6 +31,7 @@ import {
 const STATUS_OPTIONS = [
   "queued",
   "running",
+  "paused",
   "unchanged",
   "review_required",
   "applied",

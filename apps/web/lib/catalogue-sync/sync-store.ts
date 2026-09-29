@@ -73,6 +73,8 @@ export type ClaimedCatalogueSync = {
   schemaVersion: string;
   sourceId: number;
   attemptCount: number;
+  retryCount: number;
+  providerRevision: number;
   lockVersion: number;
 };
 
@@ -108,6 +110,7 @@ export async function claimCatalogueSync(
     const [row] = await tx`
       update public.catalogue_syncs as syncs
       set status = 'running', attempt_count = syncs.attempt_count + 1,
+        retry_count = syncs.retry_count + 1,
         lock_version = syncs.lock_version + 1, worker_id = ${workerId}::uuid,
         lease_expires_at = now() + make_interval(secs => ${leaseSeconds}),
         started_at = coalesce(syncs.started_at, now())
@@ -115,14 +118,16 @@ export async function claimCatalogueSync(
       join public.catalogue_codes as codes on codes.id = records.code_id
       join public.academic_years as years on years.id = records.academic_year_id
       where syncs.id = ${syncId}::uuid and records.id = syncs.record_id
-        and syncs.attempt_count < 5
+        and syncs.retry_count < 5
+        and not exists (select 1 from public.catalogue_provider_controls where provider = 'openrouter' and paused)
         and (syncs.status = 'queued'
           or (syncs.status = 'running' and syncs.lease_expires_at < now()))
       returning syncs.id, records.kind, codes.code, years.year as academic_year,
         records.academic_year_id, records.id as record_id,
         syncs.previous_source_version_id, syncs.requested_model,
         syncs.parser_version, syncs.prompt_version, syncs.schema_version,
-        syncs.attempt_count, syncs.lock_version
+        syncs.attempt_count, syncs.retry_count, syncs.lock_version,
+        (select revision from public.catalogue_provider_controls where provider = 'openrouter') as provider_revision
     `;
     if (!row) return null;
     return {
@@ -139,6 +144,8 @@ export async function claimCatalogueSync(
       schemaVersion: String(row.schema_version),
       sourceId,
       attemptCount: Number(row.attempt_count),
+      retryCount: Number(row.retry_count),
+      providerRevision: Number(row.provider_revision),
       lockVersion: Number(row.lock_version),
     };
   });
@@ -477,6 +484,7 @@ export async function recordSyncDispatch(
     syncId: string;
     messageId: string | null;
     errorMessage?: string;
+    generation?: number;
   },
 ) {
   if (input.errorMessage) {
@@ -486,6 +494,7 @@ export async function recordSyncDispatch(
         await tx`update public.catalogue_syncs set status = 'failed',
         error_code = 'QUEUE_DISPATCH_FAILED', error_message = ${errorMessage},
         completed_at = now() where id = ${input.syncId}::uuid and status = 'queued'
+          and dispatch_generation = ${input.generation ?? 0}
         returning record_id, requested_by`;
       if (failed) {
         await tx`insert into public.catalogue_change_events (
@@ -496,6 +505,7 @@ export async function recordSyncDispatch(
   } else {
     await sql`update public.catalogue_syncs set dispatched_at = coalesce(dispatched_at, now()),
       queue_message_id = coalesce(queue_message_id, ${input.messageId})
-      where id = ${input.syncId}::uuid and status = 'queued'`;
+      where id = ${input.syncId}::uuid and status = 'queued'
+        and dispatch_generation = ${input.generation ?? 0}`;
   }
 }
