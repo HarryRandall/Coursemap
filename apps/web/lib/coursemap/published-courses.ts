@@ -276,6 +276,8 @@ type ProjectionCondition = {
   minimumMark: number | null;
   minimumWam: number | null;
   minimumYear: number | null;
+  minimumCommencementYear: number | null;
+  maximumCommencementYear: number | null;
   position: number;
   programmeCode: string | null;
   reviewState: string;
@@ -372,6 +374,12 @@ function readProjectionCourseRule(
         minimumMark: readNullableNumber(value.minimumMark),
         minimumWam: readNullableNumber(value.minimumWam),
         minimumYear: readNullableNumber(value.minimumYear),
+        minimumCommencementYear: readNullableNumber(
+          value.minimumCommencementYear,
+        ),
+        maximumCommencementYear: readNullableNumber(
+          value.maximumCommencementYear,
+        ),
         optionCodes: optionCodesByCondition.get(key) ?? [],
         position,
         programmeCode: readNullableString(value.requiredStructureCode),
@@ -486,6 +494,14 @@ function readProjectionCourseRule(
         kind: "course_set_units",
         courseCodes: condition.courseSetCodes,
         units: condition.units,
+      };
+    }
+    if (condition.kind === "commencement_year") {
+      return {
+        ...base,
+        kind: "commencement_year",
+        minimumCommencementYear: condition.minimumCommencementYear,
+        maximumCommencementYear: condition.maximumCommencementYear,
       };
     }
     if (condition.kind === "year_standing" && condition.minimumYear !== null) {

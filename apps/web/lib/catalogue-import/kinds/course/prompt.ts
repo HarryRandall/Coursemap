@@ -6,8 +6,8 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v17";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v24";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v18";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v25";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -65,6 +65,7 @@ Requisites:
 - A total unit gate with no level -> min_units_total; units at a stated level -> min_units_at_level; units from a stated subject -> min_units_from_subject; units from an explicit course list -> min_units_from_courses.
 - Programme enrolment uses enrolled_in with a literal programme code from a page link or an exact, unique name match in the supplied ANU programme identities. Use the code, never the programme name. Do not substitute an honours degree or another similarly named award. Without a unique match, flag the unresolved programme reference for review.
 - Permission requirements -> permission, with sourceText copied from the exact permission clause, including its named authority and any stated scope. Never replace school, college or programme permission with course-convener permission. A represented permission clause belongs only in the rule, not also in unmodelledText. Prior-course or concurrent-enrolment exclusion exceptions use incompatibilityRule as described above, without duplicating their permission in positive prerequisites or unmodelledText. If permission applies only to another subgroup or is an exception and the rule cannot express that condition, preserve the entire conditional clause in unmodelledText with a review item; do not create unconditional permission. Year standing and GPA or WAM gates use their dedicated rule forms.
+- A student's calendar year of programme commencement uses commencement_year, separate from year_standing. Its minimumYear and maximumYear are inclusive calendar-year bounds; return null for an unstated bound. "Commenced prior to 2021" means minimumYear null and maximumYear 2020, never year_standing 2021 or the selected catalogue year. Preserve a permission waiver as an alternative to only the condition it waives. For "completed EMET1001 and ECON2101; students who have not completed EMET1001 but commenced prior to 2021 can enrol with school permission", return all_of [completed ECON2101, one_of [completed EMET1001, all_of [commencement_year with maximumYear 2020, permission with the exact school clause]]]. ECON2101 remains compulsory on both pathways. Do not AND the waived EMET1001 into the permission pathway or allow approval to waive the commencement bound. Preserve the whole source in prerequisiteText and keep the represented exception out of unmodelledText. Do not infer commencement from course history, year standing or the current date.
 - Combine independently compulsory clauses across page sections with all_of. A prior course with a minimum grade and a separate school permission-code requirement must both appear in the rule. Wording such as "contact the school to request a permission code" is a permission condition with that exact sourceText, not unmodelledText when no conditional scope prevents modelling it.
 - Model the whole rule whenever the page's punctuation settles its grouping. Use unmodelledText, with a review item, only for wording you genuinely cannot place in the rule.
 - Do not repeat wording in unmodelledText when it is already represented by the rule. In particular, resolving a programme name to its supplied code models that condition completely.

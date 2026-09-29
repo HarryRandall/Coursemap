@@ -32,6 +32,7 @@ import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 const YEAR = 2026;
 const EMPTY_CODE = "TSTC9101";
 const MANUAL_CODE = "TSTC9102";
+const COHORT_CODE = "TSTC9103";
 
 let sql;
 let yearId;
@@ -51,11 +52,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -153,6 +154,7 @@ beforeAll(async () => {
   sourceId = await ensureAnuSourceId(sql);
   await createRecord(EMPTY_CODE, "Empty Source Record");
   await createRecord(MANUAL_CODE, "Manual Source Record");
+  await createRecord(COHORT_CODE, "Cohort Exception Record");
 });
 
 afterAll(async () => {
@@ -738,5 +740,121 @@ test("course identity context requires a current year-specific source-backed lis
     });
   } catch (error) {
     if (error !== rollback) throw error;
+  }
+});
+
+test("cohort bounds survive source import, idempotent replay and published projection without changing legacy hashes", async () => {
+  const { readVersionContent } =
+    await import("../lib/catalogue-import/version-content.ts");
+  const model = emptyCourseExtraction({
+    code: COHORT_CODE,
+    year: YEAR,
+    title: "Cohort Exception Record",
+  });
+  model.requisites.prerequisiteText =
+    "COMP1100 or permission for students who commenced before 2021.";
+  model.requisites.prerequisiteRule = {
+    op: "one_of",
+    rules: [
+      { op: "completed", courseCode: "COMP1100" },
+      {
+        op: "all_of",
+        rules: [
+          { op: "commencement_year", minimumYear: null, maximumYear: 2020 },
+          { op: "permission", sourceText: model.requisites.prerequisiteText },
+        ],
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.course.offering = { deliveryMode: null, location: null };
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(COHORT_CODE, "a".repeat(64));
+  const first = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  assert.equal(first.status, "applied");
+  assert.deepEqual(
+    await persistSourceVersion(sql, {
+      claim: fixture.claim,
+      sourceDocumentId: fixture.documentId,
+      write: content,
+    }),
+    first,
+  );
+  const [stored] =
+    await sql`select minimum_commencement_year, maximum_commencement_year, minimum_year from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'commencement_year'`;
+  assert.equal(stored.minimum_commencement_year, null);
+  assert.equal(stored.maximum_commencement_year, 2020);
+  assert.equal(stored.minimum_year, null);
+  const [projection] =
+    await sql`select private.course_version_projection(${first.sourceVersionId}) as content`;
+  const projected = readProjectionPrerequisiteRule(projection.content);
+  const cohort = projected.relationalExpression.conditions
+    .find((condition) => condition.kind === "group")
+    .conditions.find((condition) => condition.kind === "commencement_year");
+  assert.equal(cohort.maximumCommencementYear, 2020);
+  const roundtrip = await readVersionContent(sql, first.sourceVersionId);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+  const legacyContent = courseCatalogueContent({
+    projection: projectCourseSnapshot(
+      emptyCourseExtraction({
+        code: COHORT_CODE,
+        year: YEAR,
+        title: "Legacy-shaped course",
+      }),
+    ),
+  });
+  legacyContent.course.offering = { deliveryMode: "In Person", location: null };
+  legacyContent.contentHash = contentHashForCatalogueContent(legacyContent);
+  const legacyFixture = await createSyncFixture(COHORT_CODE, "c".repeat(64));
+  const legacyResult = await persistSourceVersion(sql, {
+    claim: legacyFixture.claim,
+    sourceDocumentId: legacyFixture.documentId,
+    write: legacyContent,
+  });
+  const legacy = await readVersionContent(sql, legacyResult.sourceVersionId);
+  assert.equal(
+    contentHashForCatalogueContent(legacy),
+    legacyContent.contentHash,
+  );
+  assert.equal(
+    legacy.requirements.conditions.some(
+      (condition) => "minimumCommencementYear" in condition,
+    ),
+    false,
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${legacyFixture.claim.syncId}`;
+  for (const [minimum, maximum] of [
+    [null, null],
+    [2022, 2020],
+    [1899, null],
+    [null, 10000],
+  ]) {
+    const invalid = structuredClone(content);
+    const condition = invalid.requirements.conditions.find(
+      (item) => item.kind === "commencement_year",
+    );
+    condition.minimumCommencementYear = minimum;
+    condition.maximumCommencementYear = maximum;
+    invalid.contentHash = contentHashForCatalogueContent(invalid);
+    const invalidFixture = await createSyncFixture(COHORT_CODE, "b".repeat(64));
+    await assert.rejects(
+      persistSourceVersion(sql, {
+        claim: invalidFixture.claim,
+        sourceDocumentId: invalidFixture.documentId,
+        write: invalid,
+      }),
+      (error) => error.code === "23514",
+    );
+    const [versions] =
+      await sql`select count(*)::integer as count from public.catalogue_versions where sync_id = ${invalidFixture.claim.syncId}`;
+    assert.equal(versions.count, 0);
+    await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${invalidFixture.claim.syncId}`;
   }
 });

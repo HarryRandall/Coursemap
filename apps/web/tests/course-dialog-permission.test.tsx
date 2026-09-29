@@ -9,12 +9,19 @@ import { courses, terms } from "./fixtures/catalogue";
 
 const fixture = vi.hoisted(() => ({
   attempts: [] as Attempt[],
+  commencementYear: 2024,
   togglePermission: vi.fn(),
   notify: vi.fn(),
 }));
 vi.mock("@/app/providers", () => ({
   useCoursemap: () => ({
-    state: { attempts: fixture.attempts, profile: { degreeCode: "BCOMP" } },
+    state: {
+      attempts: fixture.attempts,
+      profile: {
+        degreeCode: "BCOMP",
+        commencementYear: fixture.commencementYear,
+      },
+    },
     updateAttempt: vi.fn(),
     removeAttempt: vi.fn(),
     togglePermission: fixture.togglePermission,
@@ -109,4 +116,75 @@ test("students can record and remove approval for a conditional exclusion in the
   expect(fixture.notify).toHaveBeenLastCalledWith(
     "Permission approval removed",
   );
+});
+
+test("the plan dialog evaluates a cohort waiver from the saved profile year", async () => {
+  const user = userEvent.setup();
+  const cohort: CourseRuleExpression = {
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [
+      {
+        ...base,
+        kind: "course",
+        code: "COMP1100",
+        minimumMark: null,
+        requirementMode: "completed",
+      },
+      {
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          {
+            ...base,
+            kind: "commencement_year",
+            minimumCommencementYear: null,
+            maximumCommencementYear: 2020,
+          },
+          { ...base, kind: "permission", text: "Research School permission" },
+        ],
+      },
+    ],
+  };
+  const scoped = {
+    ...catalogue,
+    courses: catalogue.courses.map((course) =>
+      course.code === "COMP1110"
+        ? {
+            ...course,
+            incompatibilityRule: null,
+            prerequisiteRule: {
+              ...base,
+              expression: null,
+              relationalExpression: cohort,
+            },
+          }
+        : course,
+    ),
+  };
+  fixture.attempts = [
+    {
+      id: "target",
+      courseCode: "COMP1110",
+      termId: "2026-s2",
+      academicYear: 2026,
+      status: "planned",
+      permissionApproved: true,
+    },
+  ];
+  fixture.commencementYear = 2024;
+  const view = render(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByText("Approval needed")).toBeVisible();
+  await user.click(screen.getByRole("tab", { name: "Requisites" }));
+  expect(screen.getByText("You commenced in 2024")).toBeVisible();
+  fixture.commencementYear = 2020;
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.queryByText("Approval needed")).not.toBeInTheDocument();
+  expect(screen.getByText("You commenced in 2020")).toBeVisible();
 });

@@ -157,8 +157,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     [catalogue.terms, degreeYears],
   );
   const planningCatalogue = useMemo(
-    () => ({ ...catalogue, terms: timelineTerms }),
-    [catalogue, timelineTerms],
+    () => ({
+      ...catalogue,
+      terms: timelineTerms,
+      commencementYear: state.profile.commencementYear,
+    }),
+    [catalogue, timelineTerms, state.profile.commencementYear],
   );
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),

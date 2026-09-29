@@ -46,6 +46,7 @@ export type RequirementConditionKind =
   | "tagged_units"
   | "elective_units"
   | "year_standing"
+  | "commencement_year"
   | "gpa"
   | "wam"
   | "permission"
@@ -101,6 +102,8 @@ export type RequirementWrite = {
     minimumLevel: number | null;
     maximumLevel: number | null;
     minimumYear: number | null;
+    minimumCommencementYear?: number | null;
+    maximumCommencementYear?: number | null;
     minimumGpa: number | null;
     minimumWam: number | null;
     tag: string | null;
@@ -607,6 +610,14 @@ export function courseCatalogueContent({
           minimumLevel: condition.minimumCourseLevel,
           maximumLevel: condition.maximumCourseLevel,
           minimumYear: condition.minimumYear,
+          ...(kind === "commencement_year"
+            ? {
+                minimumCommencementYear:
+                  condition.minimumCommencementYear ?? null,
+                maximumCommencementYear:
+                  condition.maximumCommencementYear ?? null,
+              }
+            : {}),
           minimumGpa: condition.minimumGpa,
           minimumWam: condition.minimumWam,
           tag: null,
