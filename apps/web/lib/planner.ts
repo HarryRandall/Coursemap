@@ -254,6 +254,53 @@ function evaluateRelationalPrerequisite(
       : { state: "unsatisfied", missingCodes: [expression.code] };
   }
 
+  if (expression.kind === "incompatible_concurrent") {
+    const targetTerm = termsFor(catalogue).find(
+      (term) => term.id === attempt.termId,
+    );
+    const candidates = attempts.filter(
+      (candidate) =>
+        candidate.id !== attempt.id &&
+        candidate.courseCode === expression.code &&
+        (candidate.status === "planned" || candidate.status === "enrolled"),
+    );
+    let unknown = false;
+    for (const candidate of candidates) {
+      const otherTerm = termsFor(catalogue).find(
+        (term) => term.id === candidate.termId,
+      );
+      if (
+        !targetTerm ||
+        !otherTerm ||
+        attempt.termId === "unscheduled" ||
+        candidate.termId === "unscheduled"
+      ) {
+        unknown = true;
+        continue;
+      }
+      const overlaps =
+        targetTerm.startsOn &&
+        targetTerm.endsOn &&
+        otherTerm.startsOn &&
+        otherTerm.endsOn
+          ? targetTerm.startsOn <= otherTerm.endsOn &&
+            otherTerm.startsOn <= targetTerm.endsOn
+          : candidate.termId === attempt.termId;
+      if (overlaps) return { state: "unsatisfied", missingCodes: [] };
+    }
+    return { state: unknown ? "unknown" : "satisfied", missingCodes: [] };
+  }
+  if (expression.kind === "incompatible") {
+    return prerequisiteAttempts(attempt, attempts, catalogue, false).some(
+      (candidate) =>
+        candidate.id !== attempt.id &&
+        candidate.courseCode === expression.code &&
+        candidate.status === "completed",
+    )
+      ? { state: "unsatisfied", missingCodes: [] }
+      : { state: "satisfied", missingCodes: [] };
+  }
+
   if (expression.kind === "permission") {
     return attempt.permissionApproved
       ? { state: "satisfied", missingCodes: [] }
@@ -358,6 +405,27 @@ export function evaluateCoursePrerequisites(
   );
 }
 
+export function evaluateCourseIncompatibilities(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): PrerequisiteEvaluation {
+  const rule = planningCourseForAttempt(
+    attempt,
+    catalogue,
+  )?.incompatibilityRule;
+  if (!rule || rule.hardness === "advisory")
+    return { state: "satisfied", missingCodes: [] };
+  if (rule.reviewState !== "verified" || !rule.relationalExpression)
+    return { state: "unknown", missingCodes: [] };
+  return evaluateRelationalPrerequisite(
+    rule.relationalExpression,
+    attempt,
+    attempts,
+    catalogue,
+  );
+}
+
 /**
  * Prerequisites that are NOT satisfied for this attempt.
  * Completed requirements must sit in an earlier term. A condition explicitly
@@ -388,6 +456,11 @@ export function effectiveStatus(
     return prerequisites.missingCodes.length > 0 ? "blocked" : "approval";
   }
   if (prerequisites.state === "unknown") return "approval";
+  if (
+    evaluateCourseIncompatibilities(attempt, attempts, catalogue).state !==
+    "satisfied"
+  )
+    return "approval";
   if (course.permissionText && !attempt.permissionApproved) return "approval";
   return "planned";
 }
@@ -575,7 +648,12 @@ export function recommendedCoursesForTerm(
       };
       return (
         evaluateCoursePrerequisites(preview, [...attempts, preview], catalogue)
-          .state === "satisfied"
+          .state === "satisfied" &&
+        evaluateCourseIncompatibilities(
+          preview,
+          [...attempts, preview],
+          catalogue,
+        ).state === "satisfied"
       );
     })
     .sort(

@@ -178,3 +178,47 @@ test("subject course counts display course progress and link to their subject", 
   expect(screen.getByText("1 of 2 completed STAT courses")).toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
+
+test("concurrent exclusions show enrolment restrictions without banning prior completion", () => {
+  const { rerender } = render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        ...base,
+        kind: "incompatible_concurrent",
+        code: "COMP1100",
+      }}
+      student={student}
+    />,
+  );
+  expect(
+    screen.getByText("You can't take this in the same semester as COMP1100"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("You aren't enrolled in COMP1100"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("1 of 1 met")).toBeInTheDocument();
+  expect(
+    screen.queryByText("You can't take this if you've completed COMP1100"),
+  ).not.toBeInTheDocument();
+  rerender(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        ...base,
+        hardness: "advisory",
+        kind: "incompatible_concurrent",
+        code: "COMP1100",
+        sourceText: "Avoid concurrently taking COMP1100.",
+      }}
+      student={{ ...student, enrolled: new Set(["COMP1100"]) }}
+    />,
+  );
+  expect(screen.getByText("Recommended")).toBeInTheDocument();
+  expect(
+    screen.getByText("Consider taking COMP1100 in a different semester."),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("0 of 0 met")).not.toBeInTheDocument();
+});

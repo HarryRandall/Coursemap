@@ -84,6 +84,8 @@ export function emptyCourseExtraction({
       corequisiteRule: null,
       incompatibilityCourseCodes: [],
       softIncompatibilityCourseCodes: [],
+      concurrentIncompatibilityCourseCodes: [],
+      softConcurrentIncompatibilityCourseCodes: [],
       unmodelledText: [],
     },
     relatedCourses: [],

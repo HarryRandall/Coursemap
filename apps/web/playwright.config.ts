@@ -31,6 +31,7 @@ export default defineConfig({
               "catalogue-workspace.spec.*",
               "catalogue-workload.spec.*",
               "catalogue-course-count.spec.*",
+              "catalogue-exclusions.spec.*",
             ]
           : "access.spec.*",
     },

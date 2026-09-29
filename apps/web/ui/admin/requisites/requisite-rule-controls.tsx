@@ -45,6 +45,7 @@ import { ConditionInlineEditor } from "@/ui/admin/requisites/requisite-condition
 const CONDITION_ICONS: Record<ReviewedConditionKind, LucideIcon> = {
   course: BookOpen,
   incompatible: Ban,
+  incompatible_concurrent: Ban,
   structure: GraduationCap,
   units_total: Layers,
   subject_units: SquareStack,

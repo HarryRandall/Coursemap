@@ -102,6 +102,8 @@ export type CourseRequisites = {
   corequisiteRule: CourseRule | null;
   incompatibilityCourseCodes: string[];
   softIncompatibilityCourseCodes: string[];
+  concurrentIncompatibilityCourseCodes?: string[];
+  softConcurrentIncompatibilityCourseCodes?: string[];
   unmodelledText: string[];
 };
 
@@ -1074,7 +1076,11 @@ function validateExtractionShape(
       "unmodelledText",
     ],
     issues,
-    ["assumedKnowledgeText"],
+    [
+      "assumedKnowledgeText",
+      "concurrentIncompatibilityCourseCodes",
+      "softConcurrentIncompatibilityCourseCodes",
+    ],
   );
   if (requisites) {
     if (requisites.assumedKnowledgeText !== undefined) {
@@ -1126,6 +1132,19 @@ function validateExtractionShape(
         (item, path) =>
           requireString(item, path, issues, { pattern: COURSE_CODE_PATTERN }),
       );
+    }
+    for (const key of [
+      "concurrentIncompatibilityCourseCodes",
+      "softConcurrentIncompatibilityCourseCodes",
+    ] as const) {
+      if (requisites[key] !== undefined)
+        requireArray(
+          requisites[key],
+          `$.requisites.${key}`,
+          issues,
+          (item, path) =>
+            requireString(item, path, issues, { pattern: COURSE_CODE_PATTERN }),
+        );
     }
     requireArray(
       requisites.unmodelledText,
@@ -1671,6 +1690,8 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         "corequisiteRule",
         "incompatibilityCourseCodes",
         "softIncompatibilityCourseCodes",
+        "concurrentIncompatibilityCourseCodes",
+        "softConcurrentIncompatibilityCourseCodes",
         "unmodelledText",
       ],
       properties: {
@@ -1697,6 +1718,14 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             type: "string",
             pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
           },
+        },
+        concurrentIncompatibilityCourseCodes: {
+          type: "array",
+          items: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
+        },
+        softConcurrentIncompatibilityCourseCodes: {
+          type: "array",
+          items: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
         },
         unmodelledText: {
           type: "array",

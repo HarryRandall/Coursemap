@@ -18,6 +18,7 @@ type CourseRequirementMode = "completed" | "completed_or_concurrent";
 type ConditionKind =
   | "course"
   | "incompatible"
+  | "incompatible_concurrent"
   | "units_total"
   | "subject_units"
   | "subject_courses"
@@ -675,33 +676,58 @@ function addIncompatibilityRule(
   extraction: CourseExtraction,
   accumulator: RuleProjectionAccumulator,
 ) {
-  const hardCodes = [...extraction.requisites.incompatibilityCourseCodes].sort(
-    (left, right) => left.localeCompare(right),
-  );
-  const advisoryCodes = [
-    ...extraction.requisites.softIncompatibilityCourseCodes,
-  ].sort((left, right) => left.localeCompare(right));
-  assertUniqueStrings(hardCodes, "hard incompatibility codes");
-  assertUniqueStrings(advisoryCodes, "advisory incompatibility codes");
-  const hardSet = new Set(hardCodes);
-  const duplicate = advisoryCodes.find((code) => hardSet.has(code));
-  if (duplicate) {
-    throw new TypeError(
-      `${duplicate} cannot be both a hard and advisory incompatibility.`,
-    );
-  }
+  const scopes = [
+    {
+      kind: "incompatible" as const,
+      hard: extraction.requisites.incompatibilityCourseCodes,
+      advisory: extraction.requisites.softIncompatibilityCourseCodes,
+    },
+    {
+      kind: "incompatible_concurrent" as const,
+      hard: extraction.requisites.concurrentIncompatibilityCourseCodes ?? [],
+      advisory:
+        extraction.requisites.softConcurrentIncompatibilityCourseCodes ?? [],
+    },
+  ];
+  const codes = scopes.flatMap(({ kind, hard, advisory }) => {
+    assertUniqueStrings(hard, `${kind} hard codes`);
+    assertUniqueStrings(advisory, `${kind} advisory codes`);
+    const overlap = advisory.find((code) => hard.includes(code));
+    if (overlap)
+      throw new TypeError(
+        `${overlap} cannot be both a hard and advisory ${kind} condition.`,
+      );
+    return [
+      ...[...hard]
+        .sort()
+        .map((courseCode) => ({ courseCode, hardness: "hard" as const, kind })),
+      ...[...advisory].sort().map((courseCode) => ({
+        courseCode,
+        hardness: "advisory" as const,
+        kind,
+      })),
+    ];
+  });
   const rawText = nullableText(extraction.requisites.incompatibilityText);
-  if (!rawText && hardCodes.length === 0 && advisoryCodes.length === 0) return;
+  if (!rawText && codes.length === 0) return;
 
   const ruleKey = "incompatibility" as const;
   accumulator.rules.push({
     key: ruleKey,
     ruleKind: ruleKey,
     hardness:
-      hardCodes.length > 0 || advisoryCodes.length === 0 ? "hard" : "advisory",
+      codes.some((code) => code.hardness === "hard") || codes.length === 0
+        ? "hard"
+        : "advisory",
     sourceText:
       rawText ??
-      `Incompatible with ${[...hardCodes, ...advisoryCodes].join(", ")}`,
+      codes
+        .map(({ courseCode, kind }) =>
+          kind === "incompatible_concurrent"
+            ? `Cannot concurrently enrol in ${courseCode}`
+            : `Incompatible with ${courseCode}`,
+        )
+        .join("; "),
   });
   const rootKey = `${ruleKey}:group:root`;
   accumulator.ruleGroups.push({
@@ -713,28 +739,20 @@ function addIncompatibilityRule(
     position: 0,
   });
 
-  const codes = [
-    ...hardCodes.map((courseCode) => ({
-      courseCode,
-      hardness: "hard" as const,
-    })),
-    ...advisoryCodes.map((courseCode) => ({
-      courseCode,
-      hardness: "advisory" as const,
-    })),
-  ];
-  codes.forEach(({ courseCode, hardness }, position) => {
+  codes.forEach(({ courseCode, hardness, kind }, position) => {
     const sourceText =
       rawText ??
       (hardness === "advisory"
         ? `Potential incompatibility with ${courseCode}`
-        : `Incompatible with ${courseCode}`);
+        : kind === "incompatible_concurrent"
+          ? `Cannot concurrently enrol in ${courseCode}`
+          : `Incompatible with ${courseCode}`);
     const condition = emptyCondition({
       key: `${ruleKey}:condition:${position}`,
       ruleKey,
       groupKey: rootKey,
       position,
-      conditionKind: "incompatible",
+      conditionKind: kind,
       hardness,
       sourceText,
     });

@@ -13,10 +13,20 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
   const permissions: string[] = [];
   const notes: string[] = [];
   const incompatible: string[] = [];
+  const concurrentIncompatible: string[] = [];
+  const advisoryIncompatible: CourseRuleCondition[] = [];
   const requirements: CourseRuleExpression[] = [];
   const visit = (node: CourseRuleExpression) => {
     if (node.kind === "permission") permissions.push(node.text);
     else if (node.kind === "other") notes.push(node.text);
+    else if (
+      (node.kind === "incompatible" ||
+        node.kind === "incompatible_concurrent") &&
+      node.hardness === "advisory"
+    )
+      advisoryIncompatible.push(node);
+    else if (node.kind === "incompatible_concurrent")
+      concurrentIncompatible.push(node.code);
     else if (node.kind === "incompatible") incompatible.push(node.code);
     else if (node.kind === "group" && node.operator === "all_of")
       node.conditions.forEach(visit);
@@ -25,7 +35,14 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
     else requirements.push(node);
   };
   if (expression) visit(expression);
-  return { requirements, permissions, notes, incompatible };
+  return {
+    requirements,
+    permissions,
+    notes,
+    incompatible,
+    concurrentIncompatible,
+    advisoryIncompatible,
+  };
 }
 
 /** The heading on a group box: how many of its children are needed. */
@@ -53,6 +70,8 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
   switch (condition.kind) {
     case "course":
       return condition.code;
+    case "incompatible_concurrent":
+      return `Not concurrent with ${condition.code}`;
     case "incompatible":
       return `Not ${condition.code}`;
     case "units_total":
@@ -98,6 +117,8 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
         ? `${completed}, or take it in the same semester`
         : completed;
     }
+    case "incompatible_concurrent":
+      return `You can't take this in the same semester as ${condition.code}`;
     case "incompatible":
       return `You can't take this if you've completed ${condition.code}`;
     case "units_total":

@@ -93,7 +93,9 @@ function courseProjectionFromWrite(write: CatalogueContent): Json {
       position: condition.position,
       conditionKind: condition.kind,
       requiredCourseCode:
-        condition.kind === "course" || condition.kind === "incompatible"
+        condition.kind === "course" ||
+        condition.kind === "incompatible" ||
+        condition.kind === "incompatible_concurrent"
           ? condition.itemCode
           : null,
       requiredStructureCode:
