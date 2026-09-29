@@ -6,6 +6,7 @@ export type PromptContext = {
   /** Tag names already in use, so the model reuses them rather than coining near-duplicates. */
   knownTags: string[];
   knownProgrammes?: Array<{ code: string; name: string }>;
+  knownCourses?: Array<{ code: string; name: string }>;
   knownAcademicPeriods?: Array<{ code: string; name: string }>;
 };
 

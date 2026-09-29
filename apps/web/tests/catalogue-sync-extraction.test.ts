@@ -67,16 +67,19 @@ const extraction = JSON.parse(
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.sql.mockImplementation(async (strings) =>
-    Array.from(strings as unknown as readonly string[])
-      .join("")
-      .includes("from public.academic_periods")
-      ? [
-          { code: "S1", name: "First Semester" },
-          { code: "S2", name: "Second Semester" },
-        ]
-      : [],
-  );
+  mocks.sql.mockImplementation(async (strings) => {
+    const query = Array.from(strings as unknown as readonly string[]).join("");
+    if (query.includes("from public.academic_periods")) {
+      return [
+        { code: "S1", name: "First Semester" },
+        { code: "S2", name: "Second Semester" },
+      ];
+    }
+    if (query.includes("listings.kind = 'course'")) {
+      return [{ code: "COMP2400", name: "Relational Databases" }];
+    }
+    return [];
+  });
   mocks.claim.mockResolvedValue({
     syncId: "sync",
     kind: "course",
@@ -145,6 +148,11 @@ test("a complete response proceeds to source persistence", async () => {
     usage: {},
   });
   await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).toHaveBeenCalledWith(
+    expect.objectContaining({
+      modelInput: expect.stringContaining("COMP2400: Relational Databases"),
+    }),
+  );
   expect(mocks.persist).toHaveBeenCalledTimes(1);
   expect(mocks.finish).toHaveBeenCalledWith(
     expect.anything(),
