@@ -1,4 +1,9 @@
 import {
+  type EnrolmentMode,
+  validEnrolmentMode,
+  enrolmentModeConditionLabel,
+} from "../academic/enrolment-mode.ts";
+import {
   commencementYearLabel,
   validCommencementYearBounds,
 } from "../academic/commencement-year.ts";
@@ -18,6 +23,7 @@ export const REVIEWED_CONDITION_KINDS = [
   "course_set_units",
   "year_standing",
   "commencement_year",
+  "enrolment_mode",
   "gpa",
   "wam",
   "permission",
@@ -40,6 +46,8 @@ export type ReviewedConditionInput = {
   subjectCode?: string | null;
   level?: number | null;
   minimumYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
+  matchesEnrolmentMode?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   gpa?: number | null;
@@ -104,6 +112,8 @@ export type StoredRuleCondition = {
   level: number | null;
   gpa: number | null;
   minimumYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
+  matchesEnrolmentMode?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   wam?: number | null;
@@ -524,6 +534,15 @@ function storedConditionToView(
             courseCodes: condition.courseCodes,
           }
         : null;
+    case "enrolment_mode":
+      return validEnrolmentMode(condition.enrolmentMode) &&
+        typeof condition.matchesEnrolmentMode === "boolean"
+        ? {
+            kind: "enrolment_mode",
+            enrolmentMode: condition.enrolmentMode,
+            matchesEnrolmentMode: condition.matchesEnrolmentMode,
+          }
+        : null;
     case "commencement_year":
       return validCommencementYearBounds(condition)
         ? {
@@ -776,6 +795,20 @@ function normaliseCondition(
         condition: { kind: "course_set_units", units, courseCodes: codes },
       };
     }
+    case "enrolment_mode": {
+      if (
+        !validEnrolmentMode(condition.enrolmentMode) ||
+        typeof condition.matchesEnrolmentMode !== "boolean"
+      )
+        return { message: "Choose an enrolment mode and whether it applies." };
+      return {
+        condition: {
+          kind: "enrolment_mode",
+          enrolmentMode: condition.enrolmentMode,
+          matchesEnrolmentMode: condition.matchesEnrolmentMode,
+        },
+      };
+    }
     case "commencement_year": {
       if (!validCommencementYearBounds(condition))
         return {
@@ -868,6 +901,8 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       }`;
     case "course_set_units":
       return `${condition.units} units from ${(condition.courseCodes ?? []).join(", ")}`;
+    case "enrolment_mode":
+      return enrolmentModeConditionLabel(condition);
     case "commencement_year":
       return commencementYearLabel(condition);
     case "year_standing":
@@ -896,6 +931,7 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   course_set_units: "Units from courses",
   year_standing: "Year standing",
   commencement_year: "Commencement year",
+  enrolment_mode: "Enrolment mode",
   gpa: "Grade average",
   wam: "WAM",
   permission: "Permission",
@@ -913,6 +949,7 @@ export const CONDITION_FAMILY_KINDS = [
   "course_set_units",
   "year_standing",
   "commencement_year",
+  "enrolment_mode",
   "gpa",
   "wam",
   "permission",
@@ -1001,6 +1038,11 @@ export function isConditionComplete(condition: ReviewedConditionView) {
       return condition.units != null && condition.level != null;
     case "course_set_units":
       return condition.units != null && Boolean(condition.courseCodes?.length);
+    case "enrolment_mode":
+      return (
+        validEnrolmentMode(condition.enrolmentMode) &&
+        typeof condition.matchesEnrolmentMode === "boolean"
+      );
     case "commencement_year":
       return validCommencementYearBounds(condition);
     case "year_standing":
@@ -1068,6 +1110,8 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.units != null && condition.courseCodes?.length
         ? `Completed ${condition.units} units from ${condition.courseCodes.join(", ")}`
         : "Set the units and courses";
+    case "enrolment_mode":
+      return enrolmentModeConditionLabel(condition);
     case "commencement_year":
       return commencementYearLabel(condition);
     case "year_standing":

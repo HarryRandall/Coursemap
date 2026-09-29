@@ -1,3 +1,4 @@
+import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type {
   RequirementTreeCondition,
   RequirementTreeGroup,
@@ -42,6 +43,8 @@ export type RequirementTreeSource = {
     minimumLevel: number | null;
     maximumLevel: number | null;
     minimumYear?: number | null;
+    enrolmentMode?: EnrolmentMode | null;
+    matchesEnrolmentMode?: boolean | null;
     minimumCommencementYear?: number | null;
     maximumCommencementYear?: number | null;
     minimumGpa?: number | null;
@@ -122,6 +125,12 @@ export function requirementTreeFromSource(
       minimumUnits: condition.minimumUnits,
       minimumWam: condition.minimumWam ?? null,
       minimumYear: condition.minimumYear ?? null,
+      ...(condition.kind === "enrolment_mode"
+        ? {
+            enrolmentMode: condition.enrolmentMode ?? null,
+            matchesEnrolmentMode: condition.matchesEnrolmentMode ?? null,
+          }
+        : {}),
       ...(condition.kind === "commencement_year"
         ? {
             minimumCommencementYear: condition.minimumCommencementYear ?? null,

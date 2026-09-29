@@ -49,12 +49,13 @@ export async function saveProfileAndPlan(
     }
     const supabase = await createClient();
     const { data, error } = await supabase.rpc(
-      "save_current_user_primary_plan",
+      "save_current_user_primary_plan_with_enrolment_mode",
       {
         p_display_name: profile.name,
         p_student_number: studentNumber,
         p_academic_year: profile.catalogueYear,
         p_commencement_year: profile.commencementYear,
+        p_enrolment_mode: profile.enrolmentMode ?? undefined,
         p_study_load:
           profile.studyLoad === "Part time" ? "part_time" : "full_time",
         p_programme_code: profile.degreeCode,

@@ -109,6 +109,7 @@ function planStudentRecord(
         .map((other) => other.courseCode.toUpperCase()),
     ),
     commencementYear,
+    enrolmentMode: catalogue?.enrolmentMode,
     programmeCodes: degreeCode ? [degreeCode] : [],
     permissionApproved: attempt.permissionApproved ?? false,
     wam: null,
@@ -138,6 +139,7 @@ export function CourseDialog({
     ? {
         ...suppliedCatalogue,
         commencementYear: state.profile.commencementYear ?? null,
+        enrolmentMode: state.profile.enrolmentMode ?? null,
       }
     : undefined;
   const attempt = state.attempts.find((item) => item.id === attemptId);

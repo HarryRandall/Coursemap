@@ -1,3 +1,7 @@
+import {
+  validEnrolmentMode,
+  type EnrolmentMode,
+} from "@/lib/academic/enrolment-mode";
 import "server-only";
 import { academicPeriodTerm } from "@/lib/coursemap/academic-periods";
 import type { Database } from "@/types/database";
@@ -15,6 +19,7 @@ import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
 export type PlanCatalogue = {
   academicYear: number | null;
   commencementYear?: number | null;
+  enrolmentMode?: EnrolmentMode | null;
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
@@ -609,7 +614,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const supabase = await createClient();
   const { data: plan, error } = await supabase
     .from("plans")
-    .select("academic_year_id,id,commencement_year")
+    .select("academic_year_id,id,commencement_year,enrolment_mode")
     .eq("owner_id", viewer.id)
     .eq("is_primary", true)
     .maybeSingle();
@@ -733,6 +738,9 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const catalogue = {
     ...publishedCatalogue,
     commencementYear: plan.commencement_year,
+    enrolmentMode: validEnrolmentMode(plan.enrolment_mode)
+      ? plan.enrolment_mode
+      : null,
   };
   const publishedVersionIds = new Set(
     catalogue.courses.flatMap((course) =>

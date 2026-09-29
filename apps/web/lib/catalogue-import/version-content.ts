@@ -1,3 +1,4 @@
+import { validEnrolmentMode } from "../academic/enrolment-mode.ts";
 import type postgres from "postgres";
 import { workloadHoursBasis } from "../academic/workload.ts";
 import { stableFingerprint } from "./canonical.ts";
@@ -129,6 +130,14 @@ async function readRequirements(
       minimumLevel: num(condition.minimum_level),
       maximumLevel: num(condition.maximum_level),
       minimumYear: num(condition.minimum_year),
+      ...(condition.condition_kind === "enrolment_mode"
+        ? {
+            enrolmentMode: validEnrolmentMode(condition.enrolment_mode)
+              ? condition.enrolment_mode
+              : null,
+            matchesEnrolmentMode: condition.matches_enrolment_mode ?? null,
+          }
+        : {}),
       ...(condition.condition_kind === "commencement_year"
         ? {
             minimumCommencementYear: num(condition.minimum_commencement_year),

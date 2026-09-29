@@ -22,6 +22,7 @@ const EDITABLE_KINDS = new Set([
   "course_set_units",
   "year_standing",
   "commencement_year",
+  "enrolment_mode",
   "gpa",
   "wam",
   "permission",
@@ -96,6 +97,12 @@ export function treeFromRequirementWrite(
           subjectCode: condition.subjectCode,
           level: condition.minimumLevel,
           minimumYear: condition.minimumYear,
+          ...(condition.kind === "enrolment_mode"
+            ? {
+                enrolmentMode: condition.enrolmentMode ?? null,
+                matchesEnrolmentMode: condition.matchesEnrolmentMode ?? null,
+              }
+            : {}),
           ...(condition.kind === "commencement_year"
             ? {
                 minimumCommencementYear:
@@ -235,6 +242,12 @@ export function requirementWriteWithTree(
         minimumLevel: child.level ?? null,
         maximumLevel: null,
         minimumYear: child.minimumYear ?? null,
+        ...(child.kind === "enrolment_mode"
+          ? {
+              enrolmentMode: child.enrolmentMode ?? null,
+              matchesEnrolmentMode: child.matchesEnrolmentMode ?? null,
+            }
+          : {}),
         ...(child.kind === "commencement_year"
           ? {
               minimumCommencementYear: child.minimumCommencementYear ?? null,

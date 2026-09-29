@@ -1,4 +1,9 @@
 "use client";
+import {
+  ENROLMENT_MODES,
+  enrolmentModeLabel,
+  validEnrolmentMode,
+} from "@/lib/academic/enrolment-mode";
 
 import {
   useEffect,
@@ -209,7 +214,7 @@ export function ProfileEditor({
         <form className="mx-auto w-full" onSubmit={save} noValidate>
           <h1 className="sr-only">Profile and study details</h1>
 
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
             <div className="min-w-0">
               {/* -------------------------------------------------- */}
               {/* About you                                          */}
@@ -261,6 +266,25 @@ export function ProfileEditor({
                         <FieldDescription>Optional.</FieldDescription>
                       )}
                     </Field>
+                    <SelectField
+                      items={[
+                        { value: "unknown", label: "Not specified" },
+                        ...ENROLMENT_MODES.map((value) => ({
+                          value,
+                          label: enrolmentModeLabel(value),
+                        })),
+                      ]}
+                      label="Enrolment mode"
+                      onValueChange={(value) =>
+                        patch({
+                          enrolmentMode: validEnrolmentMode(value)
+                            ? value
+                            : null,
+                        })
+                      }
+                      searchable={false}
+                      value={draft.enrolmentMode ?? "unknown"}
+                    />
                     <SelectField
                       items={studyLoads}
                       label="Study load"
@@ -436,7 +460,7 @@ export function ProfileEditor({
             {/* ---------------------------------------------------- */}
             <aside
               aria-label="Profile summary"
-              className="space-y-4 lg:sticky lg:top-6"
+              className="min-w-0 space-y-4 lg:sticky lg:top-6"
             >
               <Card>
                 <CardContent className="pt-5">
