@@ -1,3 +1,8 @@
+import {
+  WORKLOAD_HOURS_BASES,
+  type WorkloadHoursBasis,
+} from "../../../academic/workload.ts";
+
 export const COURSE_EXTRACTION_SCHEMA_VERSION = "course-extraction.v2" as const;
 
 export const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/;
@@ -155,6 +160,7 @@ export type CourseExtraction = {
   description: string | null;
   workloadText: string | null;
   workloadHours: number | null;
+  workloadHoursBasis?: WorkloadHoursBasis | null;
   inherentRequirements: string | null;
   prescribedTexts: string | null;
   offeringStatus: "offered" | "not_offered" | "unknown";
@@ -667,6 +673,7 @@ function validateExtractionShape(
       "reviewItems",
     ],
     issues,
+    ["workloadHoursBasis"],
   );
   if (!record) return;
 
@@ -723,6 +730,21 @@ function validateExtractionShape(
     nullable: true,
     minimum: 0,
   });
+  if (record.workloadHoursBasis !== undefined) {
+    requireEnum(
+      record.workloadHoursBasis,
+      "$.workloadHoursBasis",
+      WORKLOAD_HOURS_BASES,
+      issues,
+      true,
+    );
+    if (record.workloadHoursBasis !== null && record.workloadHours === null) {
+      issues.push({
+        path: "$.workloadHoursBasis",
+        message: "requires a stated workloadHours value",
+      });
+    }
+  }
   requireEnum(
     record.offeringStatus,
     "$.offeringStatus",
@@ -1333,6 +1355,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
     description: { type: ["string", "null"] },
     workloadText: { type: ["string", "null"] },
     workloadHours: { type: ["number", "null"], minimum: 0 },
+    workloadHoursBasis: { enum: ["weekly", "total", null] },
     inherentRequirements: { type: ["string", "null"] },
     prescribedTexts: { type: ["string", "null"] },
     offeringStatus: { enum: ["offered", "not_offered", "unknown"] },

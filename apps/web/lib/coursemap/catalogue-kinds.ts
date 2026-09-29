@@ -191,6 +191,7 @@ export const FIELD_LABELS: Record<string, string> = {
   "course.details.description": "Description",
   "course.details.workloadText": "Workload",
   "course.details.workloadHours": "Workload hours",
+  "course.details.workloadHoursBasis": "Workload hours basis",
   "course.details.inherentRequirements": "Inherent requirements",
   "course.details.prescribedTexts": "Prescribed texts",
   "course.details.offeringStatus": "Offering status",

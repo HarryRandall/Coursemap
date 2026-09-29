@@ -2868,6 +2868,7 @@ export type Database = {
           units: number | null
           version_id: number
           workload_hours: number | null
+          workload_hours_basis: string | null
           workload_text: string | null
         }
         Insert: {
@@ -2894,6 +2895,7 @@ export type Database = {
           units?: number | null
           version_id: number
           workload_hours?: number | null
+          workload_hours_basis?: string | null
           workload_text?: string | null
         }
         Update: {
@@ -2920,6 +2922,7 @@ export type Database = {
           units?: number | null
           version_id?: number
           workload_hours?: number | null
+          workload_hours_basis?: string | null
           workload_text?: string | null
         }
         Relationships: [
@@ -4442,6 +4445,7 @@ export type Database = {
           units: number | null
           version_id: number | null
           workload_hours: number | null
+          workload_hours_basis: string | null
           workload_text: string | null
         }
         Relationships: [

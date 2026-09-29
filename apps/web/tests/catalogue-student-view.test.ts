@@ -132,3 +132,14 @@ test("structure content is not mistaken for a course", () => {
   });
   assert.equal(courseDetailsFromWrite(structure), null);
 });
+
+test("draft workload basis reaches the student detail without qualifying legacy figures", () => {
+  const content = draftCourse();
+  content.course!.details.workloadText = "Source workload statement.";
+  content.course!.details.workloadHours = 10;
+  assert.equal(courseDetailsFromWrite(content)?.workloadHoursBasis, null);
+  content.course!.details.workloadHoursBasis = "weekly";
+  assert.equal(courseDetailsFromWrite(content)?.workloadHoursBasis, "weekly");
+  content.course!.details.workloadHoursBasis = "total";
+  assert.equal(courseDetailsFromWrite(content)?.workloadHoursBasis, "total");
+});

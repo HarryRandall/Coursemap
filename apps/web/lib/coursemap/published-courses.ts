@@ -1,3 +1,4 @@
+import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
   PUBLISHED_COURSE_DETAIL_TAG,
   PUBLISHED_COURSE_PAGE_TAG,
@@ -54,6 +55,7 @@ type SnapshotListRow = {
   unit_value_kind: string;
   units: number | null;
   workload_hours: number | null;
+  workload_hours_basis: string | null;
   workload_text: string | null;
 };
 type OfferingRow = {
@@ -95,7 +97,7 @@ type RuleConditionRow = {
 };
 
 const SNAPSHOT_LIST_SELECT =
-  "version_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
+  "version_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,workload_hours_basis,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
 
 export type PublishedCourseFilters = {
   query?: string;
@@ -897,6 +899,7 @@ function detailAsCourseDetails(value: Json): CourseDetails | null {
     unitValue,
     units: displayUnits(unitValue),
     workloadHours: readNullableNumber(snapshot.workloadHours),
+    workloadHoursBasis: workloadHoursBasis(snapshot.workloadHoursBasis),
     workloadText: readNullableString(snapshot.workloadText),
     year: academicYear,
   };
@@ -1350,6 +1353,7 @@ async function loadListRelationships(
         unitValue,
         units: snapshotUnits(snapshot),
         workloadHours: snapshot.workload_hours,
+        workloadHoursBasis: workloadHoursBasis(snapshot.workload_hours_basis),
         workloadText: snapshot.workload_text,
         year: year.year,
       } satisfies CourseDetails,
