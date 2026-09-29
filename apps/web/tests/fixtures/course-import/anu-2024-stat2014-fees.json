@@ -1,0 +1,71 @@
+{
+  "sourceUrl": "https://programsandcourses.anu.edu.au/2024/course/STAT2014",
+  "fetchedAt": "2026-09-29T11:05:00.566Z",
+  "contentSha256": "8205611df5a91611e8f5aca89e5a4d9d673c2bab2567257c5c175b43378f94ae",
+  "model": "google/gemini-3.1-flash-lite",
+  "sourceMarkdown": "## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [1](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2024 | $4440 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2024 | $6360 |\n\n**Note:**Please note that fee information is for current year only.\n\n",
+  "fees": [
+    {
+      "position": 1,
+      "feeYear": null,
+      "audience": "commonwealth_supported",
+      "feeType": "student_contribution",
+      "amount": null,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": 1,
+      "sourceLabel": "Commonwealth Support (CSP) Students",
+      "sourceText": "Commonwealth Support (CSP) Students\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at Fees.\n\n- Student Contribution Band: 1\n\n- Unit value: 6 units"
+    },
+    {
+      "position": 2,
+      "feeYear": 2024,
+      "audience": "domestic",
+      "feeType": "tuition",
+      "amount": 4440,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "Domestic fee paying students",
+      "sourceText": "Domestic fee paying students:\n\n| Year | Fee |\n| --- | --- |\n| 2024 | $4440 |"
+    },
+    {
+      "position": 3,
+      "feeYear": 2024,
+      "audience": "international",
+      "feeType": "tuition",
+      "amount": 6360,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "International fee paying students",
+      "sourceText": "International fee paying students:\n\n| Year | Fee |\n| --- | --- |\n| 2024 | $6360 |"
+    }
+  ],
+  "previousFees": [
+    {
+      "position": 1,
+      "feeYear": 2024,
+      "audience": "domestic",
+      "feeType": "tuition",
+      "amount": 4440,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": 1,
+      "sourceLabel": "Course fees",
+      "sourceText": "Domestic fee paying students: 2024 $4440"
+    },
+    {
+      "position": 2,
+      "feeYear": 2024,
+      "audience": "international",
+      "feeType": "tuition",
+      "amount": 6360,
+      "currency": "AUD",
+      "basis": "course",
+      "studentContributionBand": null,
+      "sourceLabel": "Course fees",
+      "sourceText": "International fee paying students: 2024 $6360"
+    }
+  ]
+}

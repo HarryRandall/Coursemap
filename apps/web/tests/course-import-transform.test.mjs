@@ -402,7 +402,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v8");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v10");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v11");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -930,4 +930,53 @@ test("captured STAT2014 preparation advice never becomes a compulsory course", a
     ),
     false,
   );
+});
+
+test("captured STAT2014 fee quotes are supported and keep CSP separate from tuition", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-stat2014-fees.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  function feeResult(fees) {
+    const model = emptyCourseExtraction({
+      code: "STAT2014",
+      year: 2024,
+      title: "Statistics",
+    });
+    model.fees = fees;
+    return finaliseCourseExtraction({
+      code: "STAT2014",
+      year: 2024,
+      listingTitle: "Statistics",
+      model,
+      pageMarkdown: captured.sourceMarkdown,
+      finishReason: "stop",
+      responseError: null,
+    });
+  }
+  assert.equal(feeResult(captured.previousFees).warningCount, 2);
+  const result = feeResult(captured.fees);
+  assert.equal(result.warningCount, 0);
+  assert.equal(result.errorCount, 0);
+  const fees = projectCourseSnapshot(result.extraction).fees;
+  assert.equal(fees.length, 3);
+  assert.deepEqual(
+    fees
+      .filter((fee) => fee.feeType === "tuition")
+      .map((fee) => [fee.audience, fee.amount, fee.studentContributionBand]),
+    [
+      ["domestic", 4440, null],
+      ["international", 6360, null],
+    ],
+  );
+  const contribution = fees.find(
+    (fee) => fee.audience === "commonwealth_supported",
+  );
+  assert.equal(contribution.studentContributionBand, 1);
+  assert.equal(contribution.amount, null);
 });

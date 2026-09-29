@@ -5,7 +5,7 @@ import {
 } from "./programmes.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v8";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v10";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v11";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -27,7 +27,7 @@ Source rules:
 3. Course level comes from the numeric part of the course code.
 4. Offering tables are grouped under headings such as "Offerings in 2026". Include offerings and classes only from the selected year's group; the page also shows later years, which Coursemap imports separately.
 5. Preserve variable or ranged unit values. Do not collapse them to one number.
-6. Record every printed fee row: the student contribution band, domestic and international fees alike, each with its printed year, audience, basis and source wording. Do not assume the fee year equals the selected year.
+6. Record every printed fee row: the student contribution band, domestic and international fees alike, each with its printed year, audience, basis and source wording. Do not assume the fee year equals the selected year. A student contribution band belongs in its own commonwealth_supported / student_contribution row, with amount null when no amount is printed. Do not attach that band to a domestic or international tuition row.
 7. Record learning outcomes, assessment items, outcome links, workload, inherent requirements, prescribed texts, areas of interest, STEM status and graduate attributes when present.
 8. Separate hard incompatibilities from discretionary or soft incompatibilities.
 9. Every non-null offering date is an ISO calendar date in YYYY-MM-DD form. Convert display dates such as 23 Feb 2026.
@@ -41,7 +41,7 @@ Tags:
 
 Writing the record:
 - Display text (introduction, description, workload, inherent requirements, prescribed texts, convener, delivery summary, assessment titles and learning outcomes) is copied from the page and tidied, never rewritten. Fix capitalisation, British English spelling, obvious typos and broken Markdown formatting, and drop page furniture such as "Back to the top". Do not summarise, shorten, reorder or add wording. Keep every course code, programme code, number, date, name and email address exactly as printed.
-- Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page.
+- Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page. For fee tables, copy the relevant audience heading and complete table block, preserving intervening column headers and blank lines. Do not concatenate a heading and a year/amount into a new sentence: "Domestic fee paying students: 2024 $4440" is not a verbatim quote when the source contains a Year/Fee table between those words.
 
 Requisites:
 - Copy assumed knowledge and recommended preparation into requisites.assumedKnowledgeText, or null if absent. This is advisory preparation, including prose outside the formal requisite section, not an enrolment gate. Do not place the same advice in prerequisiteRule, prerequisiteText or unmodelledText. Keep genuinely compulsory secondary-school eligibility or conditional admission pathways in formal requisites for review, rather than relabelling them as advice. Give exact-source evidence with fieldKey requisites.assumedKnowledgeText.
