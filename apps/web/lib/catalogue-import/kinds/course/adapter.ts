@@ -79,6 +79,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
     const result = validateCourseExtraction(canonical.value, {
       expectedCode: claim.code,
       expectedYear: claim.academicYear,
+      knownTags: context?.knownTags ?? [],
       knownPeriodCodes: context?.knownAcademicPeriods?.map(
         (period) => period.code,
       ),
@@ -106,6 +107,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       finishReason,
       responseError,
       knownProgrammes: context?.knownProgrammes,
+      knownTags: context?.knownTags ?? [],
       knownPeriodCodes: context?.knownAcademicPeriods?.map(
         (period) => period.code,
       ),

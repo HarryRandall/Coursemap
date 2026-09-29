@@ -166,7 +166,7 @@ export type CourseExtraction = {
   offeringStatus: "offered" | "not_offered" | "unknown";
   sourceUpdatedAt: string | null;
   areasOfInterest: string[];
-  /** Free-form categories degree rules can count units against. */
+  /** Recognised categories degree rules can count units against. */
   tags: string[];
   fees: CourseFee[];
   learningOutcomes: CourseLearningOutcome[];
@@ -193,6 +193,7 @@ export type CourseExtractionValidationOptions = {
   expectedCode?: string;
   expectedYear?: number;
   knownPeriodCodes?: readonly string[];
+  knownTags?: readonly string[];
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -762,9 +763,19 @@ function validateExtractionShape(
     issues,
     (item, path) => requireString(item, path, issues),
   );
-  requireArray(record.tags, "$.tags", issues, (item, path) =>
-    requireString(item, path, issues),
-  );
+  requireArray(record.tags, "$.tags", issues, (item, path) => {
+    requireString(item, path, issues);
+    if (
+      typeof item === "string" &&
+      options.knownTags !== undefined &&
+      !options.knownTags.includes(item)
+    ) {
+      issues.push({
+        path,
+        message: `tag ${JSON.stringify(item)} must exactly match a recognised tag supplied with the input; suggest new categories in reviewItems instead`,
+      });
+    }
+  });
   requireArray(record.fees, "$.fees", issues, (item, path) => {
     const fee = exactRecord(
       item,

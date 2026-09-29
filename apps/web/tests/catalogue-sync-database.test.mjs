@@ -10,6 +10,7 @@ import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
 import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
+import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
 import { ensureAnuSourceId } from "../lib/catalogue-sync/sync-store.ts";
@@ -218,6 +219,7 @@ test("first, unchanged and changed source observations preserve local intent", a
   });
   firstContent.requirements = filterContent.requirements;
   firstContent.course.offering = filterContent.course.offering;
+  firstContent.course.tags = [{ position: 1, name: "Reviewed Test Category" }];
   firstContent.course.sessions = filterContent.course.sessions;
   firstContent.course.details.workloadHours = 10;
   firstContent.course.details.workloadHoursBasis = "weekly";
@@ -304,6 +306,31 @@ test("first, unchanged and changed source observations preserve local intent", a
   const [projection] =
     await sql`select private.course_version_projection(${first.sourceVersionId}) as content`;
   assert.equal(projection.content.snapshot.workloadHoursBasis, "weekly");
+  assert.equal(
+    (await loadKnownCourseTags(sql)).includes("Reviewed Test Category"),
+    false,
+  );
+  await sql
+    .begin(async (transaction) => {
+      await transaction`update public.catalogue_records set published_version_id = ${first.sourceVersionId} where id = ${emptyRecordId}`;
+      assert.equal(
+        (await loadKnownCourseTags(transaction)).includes(
+          "Reviewed Test Category",
+        ),
+        true,
+      );
+      await transaction`update public.catalogue_records set archived_at = now() where id = ${emptyRecordId}`;
+      assert.equal(
+        (await loadKnownCourseTags(transaction)).includes(
+          "Reviewed Test Category",
+        ),
+        false,
+      );
+      throw new Error("Rollback tag vocabulary fixture");
+    })
+    .catch((error) => {
+      assert.equal(error.message, "Rollback tag vocabulary fixture");
+    });
 
   for (const [basis, hours] of [
     ["daily", 10],
