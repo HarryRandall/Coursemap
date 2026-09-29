@@ -26,6 +26,14 @@ export function RequisiteConditionText({
       </>
     );
   }
+  if (condition.kind === "subject_courses") {
+    return (
+      <>
+        Complete at least {condition.minimumCount} {condition.subject}{" "}
+        {condition.minimumCount === 1 ? "course" : "courses"}
+      </>
+    );
+  }
   if (condition.kind === "level_units") {
     return (
       <>

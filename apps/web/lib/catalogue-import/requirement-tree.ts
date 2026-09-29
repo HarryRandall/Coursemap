@@ -16,6 +16,7 @@ const EDITABLE_KINDS = new Set([
   "structure",
   "units_total",
   "subject_units",
+  "subject_courses",
   "level_units",
   "course_set_units",
   "year_standing",
@@ -82,6 +83,7 @@ export function treeFromRequirementWrite(
           structureCode:
             condition.kind === "structure" ? condition.itemCode : null,
           units: condition.minimumUnits,
+          courseCount: condition.minimumCount,
           courseCodes:
             condition.kind === "course_set_units"
               ? optionsFor(condition.key)
@@ -206,9 +208,11 @@ export function requirementWriteWithTree(
             ? (child.courseRequirementMode ?? "completed")
             : null,
         minimumMark: child.mark ?? null,
-        minimumUnits: child.units ?? null,
+        minimumUnits:
+          child.kind === "subject_courses" ? null : (child.units ?? null),
         maximumUnits: null,
-        minimumCount: null,
+        minimumCount:
+          child.kind === "subject_courses" ? (child.courseCount ?? null) : null,
         subjectCode: child.subjectCode ?? null,
         minimumLevel: child.level ?? null,
         maximumLevel: null,

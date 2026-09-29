@@ -35,6 +35,11 @@ export type CourseRuleExpression =
       units: number;
     })
   | (CourseRuleConditionBase & {
+      kind: "subject_courses";
+      subject: string;
+      minimumCount: number;
+    })
+  | (CourseRuleConditionBase & {
       kind: "course_set_units";
       courseCodes: string[];
       units: number;

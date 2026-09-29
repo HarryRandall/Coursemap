@@ -316,6 +316,13 @@ export function EnrolmentSteps({
         return measure?.kind === "units" ? (
           <UnitsBar value={measure.value} target={measure.target} />
         ) : null;
+      case "subject_courses":
+        return measure?.kind === "count" ? (
+          <StateLine
+            met={result?.status === "met"}
+            text={`${measure.value} of ${measure.target} completed ${condition.subject} ${measure.target === 1 ? "course" : "courses"}`}
+          />
+        ) : null;
       case "wam":
       case "gpa":
         return measure?.kind === "score" ? (

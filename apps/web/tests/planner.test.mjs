@@ -514,3 +514,39 @@ test("planning preserves minimum marks for completed and concurrent prerequisite
     "approval",
   );
 });
+
+test("subject course counts require distinct earlier courses and reject failed, concurrent and future attempts", () => {
+  const target = attempt("target", "COMP1110", "2026-s2");
+  const structured = catalogueWithPrerequisiteRule({
+    kind: "subject_courses",
+    subject: "COMP",
+    minimumCount: 2,
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Two COMP courses",
+  });
+  structured.courses = structured.courses.map((course) => ({
+    ...course,
+    subject: course.code.slice(0, 4),
+  }));
+  const earlier = attempt("earlier", "COMP1100", "2026-s1", "completed");
+  const other = attempt("other", "COMP1600", "2026-s1", "completed");
+  assert.equal(
+    effectiveStatus(target, [earlier, other, target], structured),
+    "planned",
+  );
+  for (const candidate of [
+    attempt("repeat", "COMP1100", "2026-s1", "completed"),
+    { ...other, status: "failed" },
+    { ...other, status: "withdrawn" },
+    { ...other, termId: "2026-s2" },
+    { ...other, termId: "2027-s1" },
+    attempt("unrelated", "MATH1005", "2026-s1", "completed"),
+  ]) {
+    assert.equal(
+      effectiveStatus(target, [earlier, candidate, target], structured),
+      "approval",
+    );
+  }
+});

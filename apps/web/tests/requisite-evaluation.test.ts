@@ -252,3 +252,39 @@ test("grade-only results settle thresholds only when their band proves them", ()
     }).status,
   ).toBe("unknown");
 });
+
+test("subject course counts use distinct completions without inferring units or accepting enrolment", () => {
+  const condition: CourseRuleExpression = {
+    ...base,
+    kind: "subject_courses",
+    subject: "STAT",
+    minimumCount: 2,
+  };
+  const record: StudentRecord = {
+    ...student,
+    completed: new Map([
+      ["STAT1003", { units: 0, mark: null }],
+      ["MATH1005", { units: 24, mark: 80 }],
+    ]),
+    enrolled: new Set(["STAT2001"]),
+  };
+  expect(evaluateRule(condition, record)).toEqual({
+    status: "partial",
+    measure: { kind: "count", value: 1, target: 2 },
+  });
+  expect(evaluateRule({ ...condition, minimumCount: 1 }, record).status).toBe(
+    "met",
+  );
+  expect(
+    evaluateRule(condition, {
+      ...record,
+      completed: new Map([
+        ...record.completed,
+        ["STAT2001", { units: 12, mark: 80 }],
+      ]),
+    }).status,
+  ).toBe("met");
+  expect(
+    evaluateRule(condition, { ...record, completed: new Map() }).status,
+  ).toBe("unmet");
+});

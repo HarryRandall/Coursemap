@@ -105,6 +105,16 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
         1,
       );
       return;
+    case "subject_courses":
+      for (const code of fillerCodes(
+        node.subject,
+        1,
+        Math.floor(node.minimumCount * share),
+        draft.completed,
+      )) {
+        draft.completed.set(code, { units: COURSE_UNITS, mark: 75 });
+      }
+      return;
     case "level_units":
       addUnits(
         draft,
