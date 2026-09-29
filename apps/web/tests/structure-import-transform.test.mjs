@@ -15,6 +15,8 @@ import {
   buildAcademicStructureExtractionUserPrompt,
 } from "../lib/catalogue-import/kinds/structure/prompt.ts";
 import { projectAcademicStructureSnapshot } from "../lib/catalogue-import/kinds/structure/project.ts";
+import { structureCatalogueContent } from "../lib/catalogue/content.ts";
+import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 
 // A complete, valid extraction of the reduced Bachelor of Computing page, in
 // the shape the model returns.
@@ -59,6 +61,42 @@ test("keeps every field the model returns, including sections and outcomes", () 
   assert.deepEqual(finalised.sections, extraction.sections);
   assert.deepEqual(finalised.learningOutcomes, extraction.learningOutcomes);
   assert.deepEqual(finalised.summaryFields, extraction.summaryFields);
+});
+
+test("does not add unresolved wording twice when it is already a free-text condition", () => {
+  const model = structuredClone(extraction);
+  const distinct =
+    "24 units equivalent to 3000-level units from an approved university exchange partner in Asia.";
+  model.requirements.unmodelledText.push(distinct);
+
+  const projection = projectAcademicStructureSnapshot(model);
+  assert.equal(
+    projection.requirementConditions.filter(
+      (condition) => condition.conditionKind === "free_text",
+    ).length,
+    1,
+  );
+  assert.deepEqual(projection.unmodelledRequirements, [
+    {
+      position: 1,
+      sourceText: distinct,
+      sourceLocator: model.requirements.sourceLocator,
+    },
+  ]);
+  const content = structureCatalogueContent({ projection });
+  assert.equal(
+    content.requirements.conditions.filter(
+      (condition) =>
+        condition.freeText === model.requirements.unmodelledText[0],
+    ).length,
+    1,
+  );
+  assert.equal(
+    classifyFirstRead(content).find(
+      (item) => item.fieldPath === "requirements.structure",
+    )?.band,
+    "needs_review",
+  );
 });
 
 test("drops only the item that breaks the contract and flags it", () => {
