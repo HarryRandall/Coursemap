@@ -398,8 +398,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v5");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v7");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v6");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v8");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -734,5 +734,72 @@ test("the captured COMP2410 model response preserves both total units and the su
       }).status,
       expected,
     );
+  }
+});
+
+test("preserves the captured MATH1116 minimum marks on each alternative", async () => {
+  const captured = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-math1116-requisites.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  const model = emptyCourseExtraction({
+    code: "MATH1116",
+    year: 2024,
+    title: "Advanced Mathematics",
+  });
+  model.requisites = captured.requisites;
+  assert.equal(validateCourseExtraction(model).success, true);
+  const projection = projectCourseSnapshot(model);
+  assert.deepEqual(
+    projection.ruleConditions
+      .filter((item) => item.ruleKey === "prerequisite")
+      .map(({ requiredCourseCode, minimumMark }) => ({
+        requiredCourseCode,
+        minimumMark,
+      })),
+    [
+      { requiredCourseCode: "MATH1115", minimumMark: 60 },
+      { requiredCourseCode: "MATH1113", minimumMark: 80 },
+    ],
+  );
+  const content = courseCatalogueContent({ projection });
+  const rule = requirementSliceExpression({
+    rule: content.requirements.rules.find(
+      (item) => item.key === "prerequisite",
+    ),
+    groups: content.requirements.groups.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    conditions: content.requirements.conditions.filter(
+      (item) => item.ruleKey === "prerequisite",
+    ),
+    options: [],
+  });
+  for (const [code, mark, expected] of [
+    ["MATH1115", 59, "unmet"],
+    ["MATH1115", 60, "met"],
+    ["MATH1113", 79, "unmet"],
+    ["MATH1113", 80, "met"],
+  ]) {
+    assert.equal(
+      evaluateRule(rule, {
+        completed: new Map([[code, { units: 6, mark }]]),
+        enrolled: new Set(),
+        programmeCodes: [],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }).status,
+      expected,
+    );
+  }
+  for (const minimumMark of [-1, 101, "60"]) {
+    model.requisites.prerequisiteRule.rules[0].minimumMark = minimumMark;
+    assert.equal(validateCourseExtraction(model).success, false);
   }
 });

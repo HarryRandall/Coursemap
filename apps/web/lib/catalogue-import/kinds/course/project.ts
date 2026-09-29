@@ -232,9 +232,9 @@ function assertUniqueStrings(values: readonly string[], label: string) {
 function describeRule(rule: CourseRule): string {
   switch (rule.op) {
     case "completed":
-      return `Completed ${rule.courseCode}`;
+      return `Completed ${rule.courseCode}${rule.minimumMark == null ? "" : ` with a mark of at least ${rule.minimumMark}`}`;
     case "completed_or_concurrent":
-      return `Completed or concurrently enrolled in ${rule.courseCode}`;
+      return `Completed or concurrently enrolled in ${rule.courseCode}${rule.minimumMark == null ? "" : ` with a mark of at least ${rule.minimumMark}`}`;
     case "all_of":
       return rule.rules.map(describeRule).join(" and ");
     case "one_of":
@@ -371,6 +371,7 @@ function addAtomicRule(
       });
       condition.requiredCourseCode = rule.courseCode;
       condition.courseRequirementMode = rule.op;
+      condition.minimumMark = rule.minimumMark ?? null;
       accumulator.ruleConditions.push(condition);
       addRuleReference(accumulator, ruleKey, rule.courseCode, sourceText);
       return;

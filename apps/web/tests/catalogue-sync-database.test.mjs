@@ -175,11 +175,17 @@ test("first, unchanged and changed source observations preserve local intent", a
   filterModel.requisites.prerequisiteText =
     "6 units of 1000-level COMP courses";
   filterModel.requisites.prerequisiteRule = {
-    op: "min_units_at_level",
-    minimumUnits: 6,
-    level: 1000,
-    maximumLevel: 1000,
-    subjectCode: "COMP",
+    op: "all_of",
+    rules: [
+      {
+        op: "min_units_at_level",
+        minimumUnits: 6,
+        level: 1000,
+        maximumLevel: 1000,
+        subjectCode: "COMP",
+      },
+      { op: "completed", courseCode: "COMP1100", minimumMark: 60 },
+    ],
   };
   firstContent.requirements = courseCatalogueContent({
     projection: projectCourseSnapshot(filterModel),
@@ -228,6 +234,10 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(Number(persistedFilter.minimum_level), 1000);
   assert.equal(Number(persistedFilter.maximum_level), 1000);
   assert.equal(Number(persistedFilter.minimum_units), 6);
+
+  const [persistedMark] =
+    await sql`select minimum_mark from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'course'`;
+  assert.equal(Number(persistedMark.minimum_mark), 60);
 
   const sourceEvidence =
     await sql`select id, confidence from public.catalogue_version_provenance where version_id = ${first.sourceVersionId} order by id`;

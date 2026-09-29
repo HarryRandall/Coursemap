@@ -53,8 +53,12 @@ export type CourseOfferingClass = {
 };
 
 export type CourseRule =
-  | { op: "completed"; courseCode: string }
-  | { op: "completed_or_concurrent"; courseCode: string }
+  | { op: "completed"; courseCode: string; minimumMark?: number | null }
+  | {
+      op: "completed_or_concurrent";
+      courseCode: string;
+      minimumMark?: number | null;
+    }
   | { op: "all_of" | "one_of"; rules: CourseRule[] }
   | { op: "min_units_total"; minimumUnits: number }
   | {
@@ -409,11 +413,21 @@ function validateRule(
   }
   const op = (value as UnknownRecord).op;
   if (op === "completed" || op === "completed_or_concurrent") {
-    const record = exactRecord(value, path, ["op", "courseCode"], issues);
-    if (record)
+    const record = exactRecord(value, path, ["op", "courseCode"], issues, [
+      "minimumMark",
+    ]);
+    if (record) {
+      if (record.minimumMark !== undefined) {
+        requireNumber(record.minimumMark, `${path}.minimumMark`, issues, {
+          nullable: true,
+          minimum: 0,
+          maximum: 100,
+        });
+      }
       requireString(record.courseCode, `${path}.courseCode`, issues, {
         pattern: COURSE_CODE_PATTERN,
       });
+    }
   } else if (op === "all_of" || op === "one_of") {
     const record = exactRecord(value, path, ["op", "rules"], issues);
     if (record) {
@@ -1420,6 +1434,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           required: ["op", "courseCode"],
           properties: {
             op: { enum: ["completed", "completed_or_concurrent"] },
+            minimumMark: { type: ["number", "null"], minimum: 0, maximum: 100 },
             courseCode: {
               type: "string",
               pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",

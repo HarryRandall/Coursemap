@@ -204,3 +204,51 @@ test("tagged units count completed courses carrying the tag, however it is cased
     measure: { kind: "units", value: 12, target: 18 },
   });
 });
+
+test("concurrent enrolment cannot satisfy a required mark", () => {
+  expect(
+    evaluateRule(
+      course("COMP2310", {
+        requirementMode: "completed_or_concurrent",
+        minimumMark: 60,
+      }),
+      student,
+    ).status,
+  ).toBe("unknown");
+});
+
+test("grade-only results settle thresholds only when their band proves them", () => {
+  const record = studentRecord({
+    attempts: [
+      {
+        id: "grade",
+        courseCode: "FINM3009",
+        termId: "t1",
+        status: "completed",
+        resultCode: "CR",
+        unitsEarned: 6,
+      },
+    ],
+    commencementYear: null,
+    completedCourses: [{ code: "FINM3009", units: 6 }],
+    programmeCodes: [],
+  });
+  for (const [minimumMark, status] of [
+    [60, "met"],
+    [65, "unknown"],
+    [70, "unmet"],
+  ] as const) {
+    expect(
+      evaluateRule(course("FINM3009", { minimumMark }), record).status,
+    ).toBe(status);
+  }
+  expect(record.completed.get("FINM3009")?.mark).toBeNull();
+  expect(
+    evaluateRule(course("FINM3009", { minimumMark: 60 }), {
+      ...record,
+      completed: new Map([
+        ["FINM3009", { units: 6, mark: null, resultCode: "PS" }],
+      ]),
+    }).status,
+  ).toBe("unknown");
+});

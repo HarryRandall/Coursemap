@@ -23,6 +23,23 @@ export type GradeCode = GradeBand["code"];
 
 export const gradeBands: readonly GradeBand[] = GRADE_BANDS;
 
+/** A grade can settle a threshold outside its band without inventing a mark. */
+export function minimumMarkStatus(
+  result: { mark?: number | null; resultCode?: string | null },
+  minimumMark: number,
+): "met" | "unmet" | "unknown" {
+  if (result.mark !== undefined && result.mark !== null) {
+    return result.mark >= minimumMark ? "met" : "unmet";
+  }
+  const index = GRADE_BANDS.findIndex(
+    (band) => band.code === result.resultCode?.toUpperCase(),
+  );
+  if (index < 0) return "unknown";
+  if (GRADE_BANDS[index].floor >= minimumMark) return "met";
+  if (index > 0 && GRADE_BANDS[index - 1].floor <= minimumMark) return "unmet";
+  return "unknown";
+}
+
 function bandForMark(mark: number): GradeBand {
   return (
     GRADE_BANDS.find((band) => mark >= band.floor) ??
