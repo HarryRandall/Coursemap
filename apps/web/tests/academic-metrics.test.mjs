@@ -173,6 +173,174 @@ test("a mark decides grade points even when a grade code is stored", () => {
   assert.equal(gpa, 6);
 });
 
+test("averages retain a failed attempt when the same course is repeated or planned again", () => {
+  const attempts = [
+    attempt({
+      id: "failed",
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "failed",
+      mark: 30,
+      resultCode: "N",
+      unitsAttempted: 12,
+      unitsEarned: 0,
+    }),
+    attempt({
+      id: "passed",
+      courseCode: "COMP1100",
+      termId: "2025-s2",
+      mark: 80,
+      resultCode: "HD",
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    }),
+    attempt({
+      id: "future",
+      courseCode: "COMP1100",
+      termId: "unscheduled",
+      status: "planned",
+      mark: 100,
+    }),
+  ];
+  const summary = academicSummary({ courses, terms, attempts });
+  assert.equal(summary.wam, (30 * 12 + 80 * 6) / 18);
+  assert.equal(summary.gpa, (7 * 6) / 18);
+  assert.equal(summary.markedCourses, 2);
+  assert.equal(summary.markedUnits, 18);
+  const points = academicTermPoints({ courses, terms, attempts });
+  assert.deepEqual(
+    points.map(({ gpa, units }) => ({ gpa, units })),
+    [
+      { gpa: 0, units: 12 },
+      { gpa: 7, units: 6 },
+    ],
+  );
+  const grades = gradeDistribution({ courses, terms, attempts });
+  assert.equal(grades.find(({ code }) => code === "N").count, 1);
+  assert.equal(grades.find(({ code }) => code === "HD").count, 1);
+});
+
+test("zero-point fail grades count attempted load while non-failure withdrawals stay outside GPA", () => {
+  const attempts = [
+    attempt({
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      resultCode: "HD",
+      unitsAttempted: 6,
+    }),
+    ...["N", "NCN", "WN", "WD", "WL", "CRS", "RP"].map((resultCode) =>
+      attempt({
+        id: resultCode,
+        courseCode: "MATH1005",
+        termId: "2025-s1",
+        status: ["WN", "WD", "WL"].includes(resultCode)
+          ? "withdrawn"
+          : "failed",
+        resultCode,
+        unitsAttempted: 6,
+        unitsEarned: 0,
+      }),
+    ),
+  ];
+  assert.equal(academicSummary({ courses, terms, attempts }).gpa, 7 / 4);
+});
+
+test("academic weighting prefers attempted load over earned credit and later catalogue units", () => {
+  const attempts = [
+    attempt({
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      mark: 80,
+      unitsAttempted: 12,
+      unitsEarned: 6,
+    }),
+    attempt({
+      courseCode: "MATH1005",
+      termId: "2025-s1",
+      mark: 50,
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    }),
+  ];
+  const summary = academicSummary({ courses, terms, attempts });
+  assert.equal(summary.wam, 70);
+  assert.equal(summary.gpa, 6);
+});
+
+test("saved academic results remain counted when their catalogue course is unavailable", () => {
+  const attempts = [
+    attempt({
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      mark: 80,
+      unitsAttempted: 6,
+      unitsEarned: 6,
+    }),
+    attempt({
+      courseCode: "HIST1001",
+      termId: "2025-s1",
+      status: "failed",
+      mark: 30,
+      resultCode: "N",
+      unitsAttempted: 12,
+      unitsEarned: 0,
+    }),
+  ];
+  const summary = academicSummary({ courses, terms, attempts });
+  assert.equal(summary.gpa, 7 / 3);
+  assert.equal(summary.wam, (80 * 6 + 30 * 12) / 18);
+  assert.equal(summary.markedCourses, 2);
+  assert.deepEqual(academicTermPoints({ courses, terms, attempts })[0].marks, [
+    { code: "COMP1100", mark: 80 },
+    { code: "HIST1001", mark: 30 },
+  ]);
+});
+
+test("a graded result without an attempted load does not produce a misleading average", () => {
+  const attempts = [
+    attempt({
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      mark: 80,
+      unitsAttempted: 6,
+    }),
+    attempt({
+      courseCode: "HIST1001",
+      termId: "2025-s1",
+      status: "failed",
+      mark: 30,
+      resultCode: "N",
+      unitsEarned: 0,
+    }),
+  ];
+  const summary = academicSummary({ courses, terms, attempts });
+  assert.equal(summary.gpa, null);
+  assert.equal(summary.wam, null);
+  assert.deepEqual(academicTermPoints({ courses, terms, attempts }), []);
+});
+
+test("a grade-only fail gives the GPA chart a zero without inventing a WAM", () => {
+  const attempts = [
+    attempt({
+      courseCode: "COMP1100",
+      termId: "2025-s1",
+      status: "failed",
+      resultCode: "NCN",
+      unitsAttempted: 12,
+      unitsEarned: 0,
+    }),
+  ];
+  const summary = academicSummary({ courses, terms, attempts });
+  assert.equal(summary.gpa, 0);
+  assert.equal(summary.wam, null);
+  assert.deepEqual(
+    academicTermPoints({ courses, terms, attempts }).map(
+      ({ gpa, wam, units }) => ({ gpa, wam, units }),
+    ),
+    [{ gpa: 0, wam: null, units: 12 }],
+  );
+});
+
 test("sums each course's raw domestic fee by study year", () => {
   const estimate = tuitionEstimate({
     courses,
