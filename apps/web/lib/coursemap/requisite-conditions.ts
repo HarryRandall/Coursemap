@@ -8,6 +8,7 @@ export const REVIEWED_CONDITION_KINDS = [
   "structure",
   "units_total",
   "subject_units",
+  "subject_courses",
   "level_units",
   "course_set_units",
   "year_standing",
@@ -27,6 +28,7 @@ export type ReviewedConditionInput = {
   courseRequirementMode?: "completed" | "completed_or_concurrent" | null;
   structureCode?: string | null;
   units?: number | null;
+  courseCount?: number | null;
   courseCodes?: string[] | null;
   subjectCode?: string | null;
   level?: number | null;
@@ -88,6 +90,7 @@ export type StoredRuleCondition = {
   structureCode: string | null;
   structureName: string | null;
   units: number | null;
+  courseCount?: number | null;
   subjectCode: string | null;
   level: number | null;
   gpa: number | null;
@@ -484,6 +487,14 @@ function storedConditionToView(
             subjectCode: condition.subjectCode,
           }
         : null;
+    case "subject_courses":
+      return condition.courseCount != null && condition.subjectCode
+        ? {
+            kind: "subject_courses",
+            courseCount: condition.courseCount,
+            subjectCode: condition.subjectCode,
+          }
+        : null;
     case "level_units":
       return condition.units != null && condition.level != null
         ? {
@@ -675,6 +686,23 @@ function normaliseCondition(
         condition: { kind: "subject_units", units, subjectCode: subject },
       };
     }
+    case "subject_courses": {
+      const count = Number(condition.courseCount);
+      const subject = (condition.subjectCode ?? "").trim().toUpperCase();
+      if (!Number.isInteger(count) || count < 1 || count > 32767)
+        return {
+          message: "Course count must be a whole number between 1 and 32767.",
+        };
+      if (!SUBJECT_CODE_PATTERN.test(subject))
+        return { message: "Subject must be a four-letter code." };
+      return {
+        condition: {
+          kind: "subject_courses",
+          courseCount: count,
+          subjectCode: subject,
+        },
+      };
+    }
     case "level_units": {
       const units = Number(condition.units);
       const level = Number(condition.level);
@@ -784,6 +812,8 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       return `${condition.units} units of tertiary study`;
     case "subject_units":
       return `${condition.units} units of ${condition.subjectCode}`;
+    case "subject_courses":
+      return `${condition.courseCount} completed ${condition.subjectCode} ${condition.courseCount === 1 ? "course" : "courses"}`;
     case "level_units":
       return `${condition.units} units at ${condition.level}-level${
         condition.subjectCode ? ` in ${condition.subjectCode}` : ""
@@ -810,6 +840,7 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   structure: "Programme",
   units_total: "Units of study",
   subject_units: "Units in a subject",
+  subject_courses: "Courses in a subject",
   level_units: "Units at a level",
   course_set_units: "Units from courses",
   year_standing: "Year standing",
@@ -825,6 +856,7 @@ export const CONDITION_FAMILY_KINDS = [
   "structure",
   "units_total",
   "subject_units",
+  "subject_courses",
   "level_units",
   "course_set_units",
   "year_standing",
@@ -898,6 +930,8 @@ export function isConditionComplete(condition: ReviewedConditionView) {
       return condition.units != null;
     case "subject_units":
       return condition.units != null && Boolean(condition.subjectCode);
+    case "subject_courses":
+      return condition.courseCount != null && Boolean(condition.subjectCode);
     case "level_units":
       return condition.units != null && condition.level != null;
     case "course_set_units":
@@ -949,6 +983,10 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.units != null && condition.subjectCode
         ? `Completed ${condition.units} units of ${condition.subjectCode}`
         : "Set the units and subject";
+    case "subject_courses":
+      return condition.courseCount != null && condition.subjectCode
+        ? `Completed ${condition.courseCount} ${condition.subjectCode} ${condition.courseCount === 1 ? "course" : "courses"}`
+        : "Set the course count and subject";
     case "level_units":
       return condition.units != null && condition.level != null
         ? `Completed ${condition.units} units at ${condition.level} level${

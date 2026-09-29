@@ -20,6 +20,7 @@ type ConditionKind =
   | "incompatible"
   | "units_total"
   | "subject_units"
+  | "subject_courses"
   | "level_units"
   | "course_set_units"
   | "year_standing"
@@ -81,6 +82,7 @@ export type ProjectedCourseRuleConditionRow = {
   requiredStructureCode: string | null;
   minimumUnits: number | null;
   minimumMark: number | null;
+  minimumCount?: number | null;
   subjectCode: string | null;
   minimumCourseLevel: number | null;
   maximumCourseLevel: number | null;
@@ -256,6 +258,8 @@ function describeRule(rule: CourseRule): string {
     }
     case "min_units_from_subject":
       return `At least ${rule.minimumUnits} units from ${rule.subjectCode}`;
+    case "min_courses_from_subject":
+      return `At least ${rule.minimumCount} completed ${rule.subjectCode} ${rule.minimumCount === 1 ? "course" : "courses"}`;
     case "min_units_from_courses":
       return `At least ${rule.minimumUnits} units from ${[...rule.courseCodes]
         .sort((left, right) => left.localeCompare(right))
@@ -408,6 +412,21 @@ function addAtomicRule(
       condition.minimumCourseLevel = rule.level;
       condition.maximumCourseLevel = rule.maximumLevel ?? null;
       condition.subjectCode = rule.subjectCode ?? null;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "min_courses_from_subject": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "subject_courses",
+        hardness,
+        sourceText,
+      });
+      condition.minimumCount = rule.minimumCount;
+      condition.subjectCode = rule.subjectCode;
       accumulator.ruleConditions.push(condition);
       return;
     }

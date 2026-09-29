@@ -403,8 +403,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v13");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v18");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v14");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v19");
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -1485,5 +1485,150 @@ test("workload quantities retain their stated basis without inventing totals", (
   assert.equal(
     projectCourseSnapshot(legacy).snapshot.workloadHoursBasis,
     undefined,
+  );
+});
+
+test("preserves completed subject course counts through finalisation, storage and editor changes", async () => {
+  const { treeFromRequirementWrite, requirementWriteWithTree } =
+    await import("../lib/catalogue-import/requirement-tree.ts");
+  const { validateReviewedTree } =
+    await import("../lib/coursemap/requisite-conditions.ts");
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteText =
+    "You must have completed COMP1100 and a STAT course.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "completed", courseCode: "COMP1100", minimumMark: null },
+      { op: "min_courses_from_subject", minimumCount: 1, subjectCode: "STAT" },
+    ],
+  };
+  const finalised = finalise(model, { pageMarkdown: JSON.stringify(model) });
+  assert.equal(finalised.errorCount, 0);
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(finalised.extraction),
+  });
+  const condition = content.requirements.conditions.find(
+    (row) => row.kind === "subject_courses",
+  );
+  assert.equal(condition.minimumCount, 1);
+  assert.equal(condition.minimumUnits, null);
+  assert.equal(condition.maximumUnits, null);
+  assert.equal(condition.subjectCode, "STAT");
+  const tree = treeFromRequirementWrite(content.requirements, "prerequisite");
+  const count = tree.children.find((row) => row.kind === "subject_courses");
+  assert.equal(count.courseCount, 1);
+  count.courseCount = 2;
+  const validated = validateReviewedTree(tree);
+  assert.ok("tree" in validated);
+  const edited = requirementWriteWithTree(
+    content.requirements,
+    "prerequisite",
+    validated.tree,
+    model.requisites.prerequisiteText,
+  );
+  const persisted = edited.conditions.find(
+    (row) => row.kind === "subject_courses",
+  );
+  assert.equal(persisted.minimumCount, 2);
+  assert.equal(persisted.minimumUnits, null);
+  const expression = requirementSliceExpression({
+    groups: edited.groups.filter((row) => row.ruleKey === "prerequisite"),
+    conditions: edited.conditions.filter(
+      (row) => row.ruleKey === "prerequisite",
+    ),
+    options: edited.options,
+  });
+  assert.equal(
+    expression.conditions.find((row) => row.kind === "subject_courses")
+      .minimumCount,
+    2,
+  );
+  assert.equal(
+    expression.conditions.find((row) => row.kind === "course").code,
+    "COMP1100",
+  );
+});
+
+test("rejects invalid course counts and zero-unit placeholders before projection", () => {
+  for (const minimumCount of [0, -1, 1.5, 32768, null]) {
+    const model = structuredClone(extraction);
+    model.requisites.prerequisiteRule = {
+      op: "min_courses_from_subject",
+      minimumCount,
+      subjectCode: "STAT",
+    };
+    assert.equal(validateCourseExtraction(model).success, false);
+    assert.ok(finalise(model).errorCount > 0);
+  }
+  for (const op of [
+    "min_units_total",
+    "min_units_from_subject",
+    "min_units_at_level",
+    "min_units_from_courses",
+  ]) {
+    const model = structuredClone(extraction);
+    const rule = { op, minimumUnits: 0 };
+    if (op === "min_units_from_subject") rule.subjectCode = "STAT";
+    if (op === "min_units_at_level")
+      Object.assign(rule, {
+        level: 1000,
+        maximumLevel: null,
+        subjectCode: null,
+      });
+    if (op === "min_units_from_courses") rule.courseCodes = ["STAT1003"];
+    model.requisites.prerequisiteRule = rule;
+    assert.equal(validateCourseExtraction(model).success, false);
+    assert.ok(finalise(model).errorCount > 0);
+  }
+});
+
+test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {
+  const fixture = JSON.parse(
+    await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-mktg2003-course-count.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(
+    fixture.extraction.requisites.prerequisiteText,
+    fixture.sourceExcerpt,
+  );
+  const finalised = finaliseCourseExtraction({
+    code: "MKTG2003",
+    year: 2024,
+    listingTitle: fixture.extraction.title,
+    model: fixture.extraction,
+    pageMarkdown: await readFile(
+      new URL(
+        "./fixtures/course-import/anu-2024-mktg2003-course-count.txt",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    finishReason: "stop",
+    responseError: null,
+    knownTags: [],
+  });
+  assert.equal(finalised.errorCount, 0);
+  assert.deepEqual(finalised.extraction.requisites.prerequisiteRule, {
+    op: "min_courses_from_subject",
+    minimumCount: 1,
+    subjectCode: "STAT",
+  });
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(finalised.extraction),
+  });
+  assert.ok(
+    content.requirements.conditions.some(
+      (row) =>
+        row.kind === "subject_courses" &&
+        row.minimumCount === 1 &&
+        row.minimumUnits === null &&
+        row.subjectCode === "STAT",
+    ),
   );
 });

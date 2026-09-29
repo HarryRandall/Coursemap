@@ -55,6 +55,16 @@ function conditionExpression(
         };
       }
       break;
+    case "subject_courses":
+      if (condition.minimumCount !== null && condition.subjectCode) {
+        return {
+          ...base,
+          kind: "subject_courses",
+          subject: condition.subjectCode,
+          minimumCount: condition.minimumCount,
+        };
+      }
+      break;
     case "level_units":
       if (units !== null && condition.minimumLevel !== null) {
         return {

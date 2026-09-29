@@ -10,6 +10,7 @@ import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
 import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
+import { readProjectionPrerequisiteRule } from "../lib/coursemap/published-courses.ts";
 import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
@@ -188,6 +189,7 @@ test("first, unchanged and changed source observations preserve local intent", a
         subjectCode: "COMP",
       },
       { op: "completed", courseCode: "COMP1100", minimumMark: 60 },
+      { op: "min_courses_from_subject", minimumCount: 1, subjectCode: "STAT" },
       {
         op: "permission",
         sourceText:
@@ -270,6 +272,13 @@ test("first, unchanged and changed source observations preserve local intent", a
   assert.equal(Number(persistedFilter.maximum_level), 1000);
   assert.equal(Number(persistedFilter.minimum_units), 6);
 
+  const [persistedCount] =
+    await sql`select subject_code, minimum_count, minimum_units, maximum_units from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'subject_courses'`;
+  assert.equal(persistedCount.subject_code, "STAT");
+  assert.equal(Number(persistedCount.minimum_count), 1);
+  assert.equal(persistedCount.minimum_units, null);
+  assert.equal(persistedCount.maximum_units, null);
+
   const [persistedMark] =
     await sql`select minimum_mark from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'course'`;
   assert.equal(Number(persistedMark.minimum_mark), 60);
@@ -306,6 +315,21 @@ test("first, unchanged and changed source observations preserve local intent", a
   const [projection] =
     await sql`select private.course_version_projection(${first.sourceVersionId}) as content`;
   assert.equal(projection.content.snapshot.workloadHoursBasis, "weekly");
+  const projectedCount = projection.content.ruleConditions.find(
+    (condition) => condition.conditionKind === "subject_courses",
+  );
+  assert.equal(projectedCount.minimumCount, 1);
+  assert.equal(projectedCount.minimumUnits, null);
+  assert.equal(projectedCount.subjectCode, "STAT");
+  const prerequisite = readProjectionPrerequisiteRule(projection.content);
+  assert.ok(
+    prerequisite.relationalExpression.conditions.some(
+      (condition) =>
+        condition.kind === "subject_courses" &&
+        condition.minimumCount === 1 &&
+        condition.subject === "STAT",
+    ),
+  );
   assert.equal(
     (await loadKnownCourseTags(sql)).includes("Reviewed Test Category"),
     false,
@@ -354,6 +378,35 @@ test("first, unchanged and changed source observations preserve local intent", a
     );
     await sql`update public.catalogue_syncs set status = 'failed', completed_at = now()
       where id = ${invalidFixture.claim.syncId}`;
+  }
+
+  for (const [index, values] of [
+    { minimumCount: null },
+    { minimumCount: 0 },
+    { minimumUnits: 6 },
+    { subjectCode: "ST" },
+  ].entries()) {
+    const fixture = await createSyncFixture(
+      EMPTY_CODE,
+      String(index + 2).repeat(64),
+    );
+    const invalid = structuredClone(firstContent);
+    Object.assign(
+      invalid.requirements.conditions.find(
+        (condition) => condition.kind === "subject_courses",
+      ),
+      values,
+    );
+    invalid.contentHash = contentHashForCatalogueContent(invalid);
+    await assert.rejects(
+      persistSourceVersion(sql, {
+        claim: fixture.claim,
+        sourceDocumentId: fixture.documentId,
+        write: invalid,
+      }),
+      { code: "23514" },
+    );
+    await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${fixture.claim.syncId}`;
   }
 
   const sourceEvidence =

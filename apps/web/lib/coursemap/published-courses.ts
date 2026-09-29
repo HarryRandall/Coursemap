@@ -437,6 +437,18 @@ export function readProjectionPrerequisiteRule(root: {
       };
     }
     if (
+      condition.kind === "subject_courses" &&
+      condition.subject &&
+      condition.minimumCount !== null
+    ) {
+      return {
+        ...base,
+        kind: "subject_courses",
+        subject: condition.subject,
+        minimumCount: condition.minimumCount,
+      };
+    }
+    if (
       condition.kind === "level_units" &&
       condition.level !== null &&
       condition.units !== null
@@ -620,6 +632,16 @@ export function readProjectionPrerequisiteRule(root: {
           kind: "subject_units",
           subject: condition.subject,
           units: condition.units,
+        });
+      } else if (
+        condition.kind === "subject_courses" &&
+        condition.subject &&
+        condition.minimumCount !== null
+      ) {
+        expressions.push({
+          kind: "subject_courses",
+          subject: condition.subject,
+          minimumCount: condition.minimumCount,
         });
       } else if (
         condition.kind === "level_units" &&
