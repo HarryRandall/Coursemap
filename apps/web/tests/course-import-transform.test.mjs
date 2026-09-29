@@ -531,7 +531,8 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v21");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v28");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v29");
+  assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.equal(
     COURSE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     "course-extraction.v2",
@@ -2232,6 +2233,52 @@ test("incompatibility trees reject invalid leaves and unconditional duplicates o
       issue.message.includes("nesting depth"),
     ),
   );
+});
+
+test("normalises only an equivalent duplicate of a single unconditional exclusion", () => {
+  for (const rule of [
+    { op: "not_concurrent", courseCode: "CBEA3001" },
+    {
+      op: "all_of",
+      rules: [{ op: "not_concurrent", courseCode: "CBEA3001" }],
+    },
+  ]) {
+    const model = structuredClone(extraction);
+    model.requisites.incompatibilityRule = rule;
+    model.requisites.concurrentIncompatibilityCourseCodes = ["CBEA3001"];
+    assert.equal(validateCourseExtraction(model).success, false);
+    const normalised = canonicaliseCourseModelExtraction(model, {
+      expectedCode: model.code,
+      expectedYear: model.year,
+    });
+    assert.equal(normalised.value.requisites.incompatibilityRule, null);
+    assert.deepEqual(
+      normalised.value.requisites.concurrentIncompatibilityCourseCodes,
+      ["CBEA3001"],
+    );
+    assert.equal(validateCourseExtraction(normalised.value).success, true);
+    assert.ok(
+      normalised.changes.some(
+        (change) =>
+          change.rule === "redundant_unconditional_exclusion_to_array",
+      ),
+    );
+    assert.match(
+      courseModelCanonicalisationReviewItem(normalised.changes)?.message ?? "",
+      /duplicated unconditional exclusion/,
+    );
+  }
+  const conditional = permissionExceptionExtraction();
+  conditional.requisites.incompatibilityCourseCodes = ["MATH1013"];
+  const unchanged = canonicaliseCourseModelExtraction(conditional, {
+    expectedCode: conditional.code,
+    expectedYear: conditional.year,
+  });
+  assert.deepEqual(
+    unchanged.value.requisites.incompatibilityRule,
+    conditional.requisites.incompatibilityRule,
+  );
+  assert.equal(validateCourseExtraction(unchanged.value).success, false);
 });
 
 test("independent unconditional exclusions remain outside the permission exception", () => {
