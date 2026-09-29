@@ -192,6 +192,26 @@ test("mutable drafts autosave, audit, publish, discard and restore safely", asyn
   assert.equal(stillUnpublished.published_version_id, null);
   await sql`update public.catalogue_drafts set content = ${sql.json(saved.draft.content)} where record_id = ${recordId}`;
 
+  for (const level of [9001, 9, 1000, null]) {
+    const invalidLevel = structuredClone(saved.draft.content);
+    invalidLevel.course.details.level = level;
+    await sql`update public.catalogue_drafts set content = ${sql.json(invalidLevel)} where record_id = ${recordId}`;
+    await assert.rejects(
+      publishCatalogueDraft({
+        recordId,
+        expectedRevision: 1,
+        userId: ADMIN_ID,
+        editingSessionId: SESSION_ID,
+        sql,
+      }),
+      (error) => error.code === "INVALID_COURSE_LEVEL",
+    );
+    const [held] =
+      await sql`select published_version_id from public.catalogue_records where id = ${recordId}`;
+    assert.equal(held.published_version_id, null);
+  }
+  await sql`update public.catalogue_drafts set content = ${sql.json(saved.draft.content)} where record_id = ${recordId}`;
+
   const firstPublish = await publishCatalogueDraft({
     recordId,
     expectedRevision: 1,
