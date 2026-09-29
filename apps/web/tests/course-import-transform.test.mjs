@@ -739,10 +739,9 @@ test("counting tags use the exact reviewed vocabulary while suggestions stay rev
 
 test("refuses empty objects and truncated responses even when they parse", () => {
   assert.equal(finalise({}).canPersist, false);
-  assert.equal(
-    finalise(extraction, { finishReason: "length" }).canPersist,
-    false,
-  );
+  for (const finishReason of ["length", "error", "content_filter"]) {
+    assert.equal(finalise(extraction, { finishReason }).canPersist, false);
+  }
   assert.equal(finalise(extraction).canPersist, true);
 });
 
