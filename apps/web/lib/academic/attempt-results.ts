@@ -53,6 +53,26 @@ export type DatedAcademicResult = MarkedResult & {
   periodStartsOn: string | null;
 };
 
+/** A tied grade may have several course loads; choose one exact unit total. */
+function equalGradeUnitSubset(
+  results: readonly DatedAcademicResult[],
+  targetUnits: number,
+): DatedAcademicResult[] | null {
+  const scaledTarget = Math.round(targetUnits * 100);
+  if (Math.abs(scaledTarget - targetUnits * 100) > 0.000001) return null;
+  const byUnits = new Map<number, DatedAcademicResult[]>([[0, []]]);
+  for (const result of results) {
+    const scaledUnits = Math.round(result.units * 100);
+    if (Math.abs(scaledUnits - result.units * 100) > 0.000001) return null;
+    for (const [units, subset] of [...byUnits]) {
+      const total = units + scaledUnits;
+      if (total <= scaledTarget && !byUnits.has(total))
+        byUnits.set(total, [...subset, result]);
+    }
+  }
+  return byUnits.get(scaledTarget) ?? null;
+}
+
 /** Returns null when the specified graded-unit window cannot be established. */
 export function recentGradedAverage(
   results: readonly DatedAcademicResult[],
@@ -97,10 +117,27 @@ export function recentGradedAverage(
       inPeriod.sort(
         (a, b) => score([{ ...b, units: 1 }])! - score([{ ...a, units: 1 }])!,
       );
-      for (const result of inPeriod) {
-        if (selectedUnits + result.units > targetUnits) return null;
-        selected.push(result);
-        selectedUnits += result.units;
+      for (let offset = 0; offset < inPeriod.length;) {
+        const grade = score([{ ...inPeriod[offset], units: 1 }])!;
+        const tied: DatedAcademicResult[] = [];
+        while (
+          offset < inPeriod.length &&
+          score([{ ...inPeriod[offset], units: 1 }]) === grade
+        )
+          tied.push(inPeriod[offset++]);
+        const tiedUnits = tied.reduce((sum, result) => sum + result.units, 0);
+        if (selectedUnits + tiedUnits <= targetUnits) {
+          selected.push(...tied);
+          selectedUnits += tiedUnits;
+        } else {
+          const subset = equalGradeUnitSubset(
+            tied,
+            targetUnits - selectedUnits,
+          );
+          if (!subset) return null;
+          selected.push(...subset);
+          selectedUnits = targetUnits;
+        }
         if (selectedUnits === targetUnits) break;
       }
     }
