@@ -22,6 +22,10 @@ published while newer ANU changes are waiting for review.
 
 ## Discover and sync a record
 
+The admin year picker offers all registered years from 2020 to 2030, including
+years whose ANU listing has not been refreshed yet. Choose a year and use
+**Refresh ANU listing** to discover its records.
+
 1. Open the catalogue kind under **Admin**, choose the academic year and use
    **Refresh ANU listing**. Discovery creates immediately openable records but
    does not fetch their detailed content.

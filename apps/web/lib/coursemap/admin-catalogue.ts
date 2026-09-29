@@ -17,25 +17,13 @@ const PAGE_SIZE = 50;
 
 export async function loadCatalogueYears() {
   const supabase = await createClient();
-  const [years, statuses] = await Promise.all([
-    supabase
-      .from("academic_years")
-      .select("id,year")
-      .gte("year", 2020)
-      .lte("year", 2030),
-    supabase.from("catalogue_discovery_statuses").select("academic_year_id"),
-  ]);
-  if (years.error) throw years.error;
-  if (statuses.error) throw statuses.error;
-  const current = new Date().getFullYear();
-  const fetched = new Set(
-    (statuses.data ?? []).map((row) => row.academic_year_id),
-  );
-  return (years.data ?? [])
-    .filter(
-      (row) =>
-        fetched.has(row.id) || row.year === current || row.year === current + 1,
-    )
+  const { data, error } = await supabase
+    .from("academic_years")
+    .select("year")
+    .gte("year", 2020)
+    .lte("year", 2030);
+  if (error) throw error;
+  return (data ?? [])
     .map((row) => row.year)
     .sort((left, right) => right - left);
 }
