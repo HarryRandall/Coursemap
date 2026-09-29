@@ -23,6 +23,7 @@ import {
   recordSyncArtifact,
   reserveExtraction,
   attachExtractionResponse,
+  recordExtractionRequestFailure,
 } from "../lib/catalogue-sync/sync-store.ts";
 import { extractionUsageForStorage } from "../lib/catalogue-sync/extraction-usage.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
@@ -231,6 +232,113 @@ test("extraction storage distinguishes unavailable metrics from measured and cac
       reused ? "cache" : usage.costUsd === null ? "unknown" : "provider",
     );
   }
+});
+
+test("only definitive request failures permit a new reservation for identical input", async () => {
+  const fixture = await createSyncFixture(EMPTY_CODE, "e".repeat(64));
+  const syncId = fixture.claim.syncId;
+  await sql`update public.catalogue_syncs set status = 'failed' where id = ${syncId}::uuid`;
+  const stageId = await startSyncStage(sql, {
+    syncId,
+    stageName: "model_extract",
+    attemptNumber: 1,
+  });
+  const artifact = await recordSyncArtifact(sql, {
+    syncId,
+    stageId,
+    kind: "model_request",
+    attemptNumber: 1,
+    mediaType: "application/json",
+    contentSha256: "f".repeat(64),
+    byteSize: 2,
+    storageBucket: "course-import-artifacts",
+    storagePath: "test-only/outcome.json",
+  });
+  const request = {
+    syncId,
+    requestedModel: "test",
+    fingerprint: "e".repeat(64),
+    promptVersion: "test",
+    schemaVersion: "test",
+    requestArtifactId: artifact.id,
+  };
+  const first = await reserveExtraction(sql, {
+    ...request,
+    extractionNumber: 1,
+  });
+  const uncertain = await reserveExtraction(sql, {
+    ...request,
+    extractionNumber: 2,
+  });
+  assert.equal(uncertain.created, false);
+  assert.equal(uncertain.id, first.id);
+  assert.equal(uncertain.responseArtifactId, null);
+  await recordExtractionRequestFailure(sql, {
+    extractionId: first.id,
+    outcome: "rejected",
+    providerHttpStatus: 503,
+    errorSummary: "Provider temporarily unavailable.",
+  });
+  const [rejected] =
+    await sql`select request_outcome, provider_http_status, validation_status, cost_usd from public.catalogue_extractions where id = ${first.id}::uuid`;
+  assert.equal(rejected.request_outcome, "rejected");
+  assert.equal(rejected.provider_http_status, 503);
+  assert.equal(rejected.validation_status, "invalid");
+  assert.equal(rejected.cost_usd, null);
+  const second = await reserveExtraction(sql, {
+    ...request,
+    extractionNumber: 2,
+  });
+  assert.equal(second.created, true);
+  assert.notEqual(second.id, first.id);
+  await recordExtractionRequestFailure(sql, {
+    extractionId: second.id,
+    outcome: "not_sent",
+    providerHttpStatus: null,
+    errorSummary: "No provider key was configured.",
+  });
+  const third = await reserveExtraction(sql, {
+    ...request,
+    extractionNumber: 3,
+  });
+  assert.equal(third.created, true);
+  assert.notEqual(third.id, second.id);
+  await attachExtractionResponse(sql, {
+    extractionId: third.id,
+    responseArtifactId: artifact.id,
+    resolvedModel: "test",
+    reusedFromExtractionId: null,
+    providerRequestId: "reported-response",
+    finishReason: "stop",
+    latencyMs: 10,
+    ...extractionUsageForStorage(
+      {
+        inputTokens: null,
+        cachedInputTokens: null,
+        outputTokens: null,
+        reasoningTokens: null,
+        totalTokens: null,
+        costUsd: null,
+      },
+      false,
+    ),
+  });
+  const restored = await reserveExtraction(sql, {
+    ...request,
+    extractionNumber: 4,
+  });
+  assert.equal(restored.created, false);
+  assert.equal(restored.id, third.id);
+  assert.equal(restored.responseArtifactId, artifact.id);
+  await assert.rejects(
+    recordExtractionRequestFailure(sql, {
+      extractionId: third.id,
+      outcome: "rejected",
+      providerHttpStatus: 503,
+      errorSummary: "A response must not be overwritten.",
+    }),
+    (error) => error.code === "EXTRACTION_OUTCOME_CONFLICT",
+  );
 });
 
 test("first, unchanged and changed source observations preserve local intent", async () => {
