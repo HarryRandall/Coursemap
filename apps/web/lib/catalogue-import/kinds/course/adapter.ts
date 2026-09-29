@@ -17,6 +17,7 @@ import {
   buildCourseExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuCoursePage } from "./source.ts";
+import { loadKnownCourseIdentities } from "./courses.ts";
 import { loadKnownAcademicPeriods } from "./periods.ts";
 import { loadKnownCourseTags } from "./tags.ts";
 import { loadKnownProgrammes } from "./programmes.ts";
@@ -49,13 +50,14 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
   },
   buildSystemPrompt: buildCourseExtractionSystemPrompt,
   async loadPromptContext(sql, claim) {
-    const [knownTags, knownProgrammes, knownAcademicPeriods] =
+    const [knownTags, knownProgrammes, knownAcademicPeriods, knownCourses] =
       await Promise.all([
         loadKnownCourseTags(sql),
         loadKnownProgrammes(sql, claim.academicYearId),
         loadKnownAcademicPeriods(sql, claim.academicYear),
+        loadKnownCourseIdentities(sql, claim.academicYearId),
       ]);
-    return { knownTags, knownProgrammes, knownAcademicPeriods };
+    return { knownTags, knownProgrammes, knownAcademicPeriods, knownCourses };
   },
   buildUserPrompt(claim, pageMarkdown, context) {
     return buildCourseExtractionUserPrompt({
@@ -64,6 +66,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       knownTags: context?.knownTags ?? [],
       knownProgrammes: context?.knownProgrammes ?? [],
       knownAcademicPeriods: context?.knownAcademicPeriods ?? [],
+      knownCourses: context?.knownCourses ?? [],
       pageMarkdown,
     });
   },

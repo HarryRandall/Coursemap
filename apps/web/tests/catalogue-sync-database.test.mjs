@@ -8,6 +8,7 @@ import {
 } from "../lib/catalogue/content.ts";
 import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content.ts";
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
+import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
@@ -364,4 +365,33 @@ test("first, unchanged and changed source observations preserve local intent", a
     manualStillLocal.content.course.details.description,
     "Locally authored description.",
   );
+});
+
+test("course identity context requires a current year-specific source-backed listing", async () => {
+  const rollback = new Error("Roll back course identity fixtures.");
+  try {
+    await sql.begin(async (tx) => {
+      const [page] =
+        await tx`insert into public.catalogue_source_pages (source_id, academic_year_id, kind, external_key, canonical_url, content_sha256) values (${sourceId}, ${yearId}, 'directory', 'test-course-identity-context', 'https://programsandcourses.anu.edu.au/2026/CourseSearch', ${"9".repeat(64)}) returning id`;
+      await tx`update public.catalogue_listings set source_page_id = ${page.id} where code = ${MANUAL_CODE} and academic_year_id = ${yearId}`;
+      const identities = await loadKnownCourseIdentities(tx, Number(yearId));
+      assert.deepEqual(
+        identities.filter(({ code }) =>
+          [EMPTY_CODE, MANUAL_CODE].includes(code),
+        ),
+        [{ code: MANUAL_CODE, name: "Manual Source Record" }],
+      );
+      assert.equal((await loadKnownCourseIdentities(tx, -1)).length, 0);
+      await tx`update public.catalogue_listings set is_current = false where code = ${MANUAL_CODE} and academic_year_id = ${yearId}`;
+      assert.equal(
+        (await loadKnownCourseIdentities(tx, Number(yearId))).some(
+          ({ code }) => code === MANUAL_CODE,
+        ),
+        false,
+      );
+      throw rollback;
+    });
+  } catch (error) {
+    if (error !== rollback) throw error;
+  }
 });
