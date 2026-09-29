@@ -305,21 +305,24 @@ export function SyncDetailView({ sync }: { sync: SyncDetail }) {
                           ) : null}
                         </TableCell>
                         <TableCell>
-                          {extraction.inputTokens}
-                          {extraction.cachedInputTokens > 0
+                          {extraction.inputTokens ?? "Unavailable"}
+                          {(extraction.cachedInputTokens ?? 0) > 0
                             ? ` (${extraction.cachedInputTokens} cached)`
                             : ""}
                         </TableCell>
                         <TableCell>
-                          {extraction.outputTokens}
-                          {extraction.reasoningTokens > 0
+                          {extraction.outputTokens ?? "Unavailable"}
+                          {(extraction.reasoningTokens ?? 0) > 0
                             ? ` (${extraction.reasoningTokens} reasoning)`
                             : ""}
                         </TableCell>
                         <TableCell>
                           {formatDuration(extraction.latencyMs)}
                         </TableCell>
-                        <TableCell>{formatCost(extraction.costUsd)}</TableCell>
+                        <TableCell>
+                          {formatCost(extraction.costUsd)}
+                          {extraction.costSource === "cache" ? " (cached)" : ""}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

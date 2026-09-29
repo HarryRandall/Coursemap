@@ -17,7 +17,9 @@ test("durations read at the scale they happened on", () => {
 });
 
 test("a fraction of a cent is still reported, because budgets are the point", () => {
-  assert.equal(formatCost(0), "—");
+  assert.equal(formatCost(null), "Unavailable");
+  assert.equal(formatCost(null, 0.02), "At least US$0.02");
+  assert.equal(formatCost(0), "US$0.00");
   assert.equal(formatCost(0.0031), "US$0.0031");
   assert.equal(formatCost(1.5), "US$1.50");
 });

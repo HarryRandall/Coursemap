@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { extractionUsageForStorage } from "./extraction-usage.ts";
 import {
   SyncArtifactConfigurationError,
   type SyncArtifactKind,
@@ -396,7 +397,10 @@ async function processClaimedSync({
         schemaVersion: claim.schemaVersion,
         requestArtifactId: requestArtifact.id,
       });
-      const reusable = await findReusableExtraction(sql, fingerprint);
+      // A resumed reservation retains its own paid outcome and accounting.
+      const reusable = reservation.created
+        ? await findReusableExtraction(sql, fingerprint)
+        : null;
 
       let result;
       let responseArtifactId: string;
@@ -475,25 +479,18 @@ async function processClaimedSync({
         }
       }
 
-      await attachExtractionResponse(sql, {
-        extractionId: reservation.id,
-        responseArtifactId,
-        resolvedModel: result.resolvedModel,
-        reusedFromExtractionId,
-        providerRequestId: result.generationId,
-        finishReason: result.finishReason,
-        inputTokens: result.usage.inputTokens ?? 0,
-        cachedInputTokens: result.usage.cachedInputTokens ?? 0,
-        outputTokens: result.usage.outputTokens ?? 0,
-        reasoningTokens: result.usage.reasoningTokens ?? 0,
-        costUsd: reusable ? 0 : (result.usage.costUsd ?? 0),
-        costSource: reusable
-          ? "cache"
-          : result.usage.costUsd === null
-            ? "unknown"
-            : "provider",
-        latencyMs: result.latencyMilliseconds,
-      });
+      if (reservation.created) {
+        await attachExtractionResponse(sql, {
+          extractionId: reservation.id,
+          responseArtifactId,
+          resolvedModel: result.resolvedModel,
+          reusedFromExtractionId,
+          providerRequestId: result.generationId,
+          finishReason: result.finishReason,
+          ...extractionUsageForStorage(result.usage, Boolean(reusable)),
+          latencyMs: result.latencyMilliseconds,
+        });
+      }
       return { result, extractionId: reservation.id };
     });
 
