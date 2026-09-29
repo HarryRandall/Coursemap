@@ -38,9 +38,12 @@ type OpenRouterResponse = {
   id?: unknown;
   model?: unknown;
   created?: unknown;
+  error?: unknown;
   openrouter_metadata?: unknown;
   choices?: Array<{
     finish_reason?: unknown;
+    native_finish_reason?: unknown;
+    error?: unknown;
     message?: {
       content?: unknown;
     };
@@ -68,6 +71,8 @@ export type OpenRouterExtraction = {
   requestedModel: string;
   resolvedModel: string;
   finishReason: string | null;
+  nativeFinishReason: string | null;
+  providerError: OpenRouterProviderError | null;
   content: string | null;
   parsed: unknown;
   responseError: string | null;
@@ -86,6 +91,8 @@ export type OpenRouterExtraction = {
     model: string;
     created: number | null;
     finishReason: string | null;
+    nativeFinishReason: string | null;
+    providerError: OpenRouterProviderError | null;
     content: string | null;
     responseError: string | null;
     rawResponseText: string | null;
@@ -93,6 +100,14 @@ export type OpenRouterExtraction = {
     usage: OpenRouterExtraction["usage"];
     latencyMilliseconds: number;
   };
+};
+
+export type OpenRouterProviderError = {
+  code: number | string | null;
+  message: string | null;
+  errorType: string | null;
+  providerCode: string | null;
+  providerName: string | null;
 };
 
 export class OpenRouterConfigurationError extends Error {
@@ -138,6 +153,50 @@ function boundedMetadataText(value: unknown, maximumLength = 500) {
   if (typeof value !== "string") return null;
   const text = value.replace(/\s+/gu, " ").trim();
   return text ? text.slice(0, maximumLength) : null;
+}
+
+/** Retains diagnostic fields without raw provider payloads or reasoning. */
+function providerError(value: unknown): OpenRouterProviderError | null {
+  if (value === undefined || value === null) return null;
+  const error =
+    typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const metadata =
+    typeof error.metadata === "object" &&
+    error.metadata !== null &&
+    !Array.isArray(error.metadata)
+      ? (error.metadata as Record<string, unknown>)
+      : {};
+  return {
+    code:
+      nonNegativeInteger(error.code) ?? boundedMetadataText(error.code, 120),
+    message: boundedMetadataText(error.message, 400),
+    errorType: boundedMetadataText(metadata.error_type ?? error.errorType, 120),
+    providerCode: boundedMetadataText(
+      metadata.provider_code ?? error.providerCode,
+      120,
+    ),
+    providerName: boundedMetadataText(
+      metadata.provider_name ?? error.providerName,
+      120,
+    ),
+  };
+}
+
+function providerResponseProblem(
+  error: OpenRouterProviderError | null,
+  finishReason: string | null,
+) {
+  if (error !== null) {
+    const code = error.code === null ? "" : ` (${error.code})`;
+    const detail = error.message ? `: ${error.message}` : ".";
+    return `OpenRouter provider failed during generation${code}${detail} The extraction cannot be treated as complete.`;
+  }
+  if (finishReason === "error") {
+    return "OpenRouter provider failed before finishing the extraction. The response cannot be treated as complete.";
+  }
+  return null;
 }
 
 function routerMetadata(value: unknown): OpenRouterRouterMetadata | null {
@@ -322,13 +381,16 @@ export function restoreOpenRouterExtraction(
     throw new TypeError("Stored OpenRouter response is incomplete.");
   }
   const usage = audit.usage as Record<string, unknown>;
-  const responseError =
+  const savedResponseError =
     typeof audit.responseError === "string" && audit.responseError.trim()
       ? audit.responseError
       : null;
   const rawResponseText =
     typeof audit.rawResponseText === "string" ? audit.rawResponseText : null;
   const restoredRouterMetadata = routerMetadata(audit.routerMetadata);
+  const finishReason = boundedMetadataText(audit.finishReason, 120);
+  const nativeFinishReason = boundedMetadataText(audit.nativeFinishReason, 120);
+  const restoredProviderError = providerError(audit.providerError);
   const latencyMilliseconds = auditNullableNumber(
     audit.latencyMilliseconds,
     "latency",
@@ -338,15 +400,20 @@ export function restoreOpenRouterExtraction(
   }
 
   const structured = parseStructuredContent(audit.content as string | null);
+  const responseError =
+    providerResponseProblem(restoredProviderError, finishReason) ??
+    savedResponseError ??
+    structured.responseError;
   return {
     generationId: typeof audit.id === "string" ? audit.id : null,
     requestedModel: assertOpenRouterModel(requestedModel),
     resolvedModel: audit.model,
-    finishReason:
-      typeof audit.finishReason === "string" ? audit.finishReason : null,
+    finishReason,
+    nativeFinishReason,
+    providerError: restoredProviderError,
     content: audit.content as string | null,
     parsed: structured.parsed,
-    responseError: responseError ?? structured.responseError,
+    responseError,
     latencyMilliseconds,
     routerMetadata: restoredRouterMetadata,
     usage: {
@@ -365,6 +432,10 @@ export function restoreOpenRouterExtraction(
     },
     responseForAudit: {
       ...(audit as OpenRouterExtraction["responseForAudit"]),
+      finishReason,
+      nativeFinishReason,
+      providerError: restoredProviderError,
+      responseError,
       rawResponseText,
       routerMetadata: restoredRouterMetadata,
     },
@@ -504,9 +575,6 @@ export async function extractWithOpenRouter({
       : {};
   const content = responseContent(parsedResponse);
   const structured = parseStructuredContent(content);
-  const responseError = responseWasJson
-    ? structured.responseError
-    : "OpenRouter returned a non-JSON HTTP response.";
   const usage = parsedResponse.usage;
   const resultUsage = {
     inputTokens: nonNegativeInteger(usage?.prompt_tokens),
@@ -527,10 +595,20 @@ export async function extractWithOpenRouter({
     typeof parsedResponse.model === "string" && parsedResponse.model.trim()
       ? parsedResponse.model.trim()
       : requestedModel;
-  const finishReason =
-    typeof parsedResponse.choices?.[0]?.finish_reason === "string"
-      ? parsedResponse.choices[0].finish_reason
-      : null;
+  const choice = parsedResponse.choices?.[0];
+  const finishReason = boundedMetadataText(choice?.finish_reason, 120);
+  const nativeFinishReason = boundedMetadataText(
+    choice?.native_finish_reason,
+    120,
+  );
+  const parsedProviderError = providerError(
+    parsedResponse.error ?? choice?.error,
+  );
+  const responseError =
+    providerResponseProblem(parsedProviderError, finishReason) ??
+    (responseWasJson
+      ? structured.responseError
+      : "OpenRouter returned a non-JSON HTTP response.");
   const generationId =
     typeof parsedResponse.id === "string" && parsedResponse.id.trim()
       ? parsedResponse.id.trim()
@@ -549,6 +627,8 @@ export async function extractWithOpenRouter({
     requestedModel,
     resolvedModel,
     finishReason,
+    nativeFinishReason,
+    providerError: parsedProviderError,
     content,
     parsed: structured.parsed,
     responseError,
@@ -560,6 +640,8 @@ export async function extractWithOpenRouter({
       model: resolvedModel,
       created,
       finishReason,
+      nativeFinishReason,
+      providerError: parsedProviderError,
       content,
       responseError,
       rawResponseText: responseWasJson ? null : responseText.slice(0, 16_000),
