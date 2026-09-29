@@ -162,7 +162,7 @@ test("college eligibility follows the selected programme and stays unknown witho
   const view = render(
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
-  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  expect(screen.getByText("Blocked", { exact: true })).toBeVisible();
   await userEvent
     .setup()
     .click(screen.getByRole("tab", { name: "Requisites" }));
@@ -181,7 +181,7 @@ test("college eligibility follows the selected programme and stays unknown witho
   view.rerender(
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
-  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  expect(screen.getByText("Review needed", { exact: true })).toBeVisible();
   expect(
     screen.getByText(
       "Programme college information is missing or conflicting.",
@@ -263,7 +263,7 @@ test("degree mode changes preserve the conditional permission path in the studen
   view.rerender(
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
-  expect(screen.getByText("Approval needed", { exact: true })).toBeVisible();
+  expect(screen.getByText("Review needed", { exact: true })).toBeVisible();
 });
 
 test("the plan dialog evaluates a cohort waiver from the saved profile year", async () => {
@@ -326,7 +326,7 @@ test("the plan dialog evaluates a cohort waiver from the saved profile year", as
   const view = render(
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
-  expect(screen.getByText("Approval needed")).toBeVisible();
+  expect(screen.getByText("Blocked")).toBeVisible();
   await user.click(screen.getByRole("tab", { name: "Requisites" }));
   expect(screen.getByText("You commenced in 2024")).toBeVisible();
   fixture.commencementYear = 2020;
