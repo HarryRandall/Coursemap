@@ -3,6 +3,7 @@ import { textFingerprint } from "../../canonical.ts";
 import {
   assertImportYear,
   ANU_PROGRAMS_AND_COURSES_ORIGIN,
+  parseAnuCatalogueYear,
 } from "../course/source.ts";
 import {
   ACADEMIC_STRUCTURE_KINDS,
@@ -259,7 +260,7 @@ export function validateAnuAcademicStructurePage({
   const metadata = (name: string) =>
     normaliseText($(`meta[name="${metadataPrefix}-${name}"]`).attr("content"));
   const metaCode = metadata("code")?.toUpperCase() ?? null;
-  const parsedYear = Number(metadata("year"));
+  const parsedYear = parseAnuCatalogueYear(metadata("year"));
   const title = metadata("name");
 
   if (!metaCode) {
@@ -274,7 +275,7 @@ export function validateAnuAcademicStructurePage({
       message: `Expected ${code}, but ANU identified the page as ${metaCode}.`,
     });
   }
-  if (!Number.isInteger(parsedYear)) {
+  if (parsedYear === null) {
     issues.push({
       code: "MISSING_STRUCTURE_YEAR",
       message:
@@ -312,7 +313,14 @@ export function validateAnuAcademicStructurePage({
     });
   }
 
-  if (issues.length > 0 || !pageKind || !metaCode || !title || !canonicalUrl) {
+  if (
+    issues.length > 0 ||
+    !pageKind ||
+    !metaCode ||
+    parsedYear === null ||
+    !title ||
+    !canonicalUrl
+  ) {
     return { valid: false, page: null, issues };
   }
 
