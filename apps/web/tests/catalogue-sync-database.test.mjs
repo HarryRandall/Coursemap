@@ -11,6 +11,7 @@ import {
   readVersionContent,
 } from "../lib/catalogue-import/version-content.ts";
 import { emptyCourseExtraction } from "../lib/catalogue-import/kinds/course/finalise.ts";
+import { CBE_LIST_ONE_2024_URL } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
 import { loadKnownCourseIdentities } from "../lib/catalogue-import/kinds/course/courses.ts";
 import { loadKnownAcademicPeriods } from "../lib/catalogue-import/kinds/course/periods.ts";
 import {
@@ -37,6 +38,7 @@ const EMPTY_CODE = "TSTC9101";
 const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
 const OFFERING_CODE = "TSTC9104";
+const EVIDENCE_CODE = "TSTC9105";
 
 let sql;
 let yearId;
@@ -56,11 +58,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${EVIDENCE_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${EVIDENCE_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -160,12 +162,94 @@ beforeAll(async () => {
   await createRecord(MANUAL_CODE, "Manual Source Record");
   await createRecord(COHORT_CODE, "Cohort Exception Record");
   await createRecord(OFFERING_CODE, "Offering Roundtrip Record");
+  await createRecord(EVIDENCE_CODE, "Supporting Evidence Record");
 });
 
 afterAll(async () => {
   if (!sql) return;
   await removeFixtures();
   await sql.end({ timeout: 5 });
+});
+
+test("source evidence can point to a separately recorded supporting document", async () => {
+  const content = sourceContent(
+    EVIDENCE_CODE,
+    "Supporting Evidence Record",
+    "A requirement with two sources.",
+  );
+  content.evidence = [
+    {
+      fieldPath: "description",
+      method: "model",
+      confidence: 1,
+      sourceLocator: "ANU course page",
+      sourceExcerpt: "A requirement with two sources.",
+    },
+    {
+      fieldPath: "requirements.structure",
+      method: "model",
+      confidence: 1,
+      sourceLocator: "CBE List 1",
+      sourceExcerpt: "BUSN1001 is listed.",
+      sourceUrl: CBE_LIST_ONE_2024_URL,
+    },
+  ];
+  const fixture = await createSyncFixture(EVIDENCE_CODE, "d".repeat(64));
+  const [source] = await sql`
+    insert into public.catalogue_sources (name, kind, base_url)
+    values ('CBE List 1 test', 'linked_course_list', 'https://cbe.anu.edu.au')
+    on conflict (kind, base_url) do update set name = excluded.name
+    returning id
+  `;
+  const [supporting] = await sql`
+    insert into public.catalogue_source_documents (
+      source_id, record_id, academic_year_id, kind, external_key,
+      canonical_url, content_sha256, http_status, fetched_at
+    ) values (
+      ${source.id}, ${fixture.claim.recordId}, ${yearId}, 'course', 'cbe-list-1-2024',
+      ${CBE_LIST_ONE_2024_URL}, ${"e".repeat(64)}, 200, now()
+    ) on conflict (source_id, record_id, content_sha256) do nothing
+    returning id
+  `;
+  const [document] = supporting
+    ? [supporting]
+    : await sql`
+        select id from public.catalogue_source_documents
+        where source_id = ${source.id} and record_id = ${fixture.claim.recordId}
+          and content_sha256 = ${"e".repeat(64)}
+      `;
+  const sourceDocumentIdsByUrl = new Map([
+    [CBE_LIST_ONE_2024_URL, Number(document.id)],
+  ]);
+  await assert.rejects(
+    persistSourceVersion(sql, {
+      claim: fixture.claim,
+      sourceDocumentId: fixture.documentId,
+      sourceDocumentIdsByUrl: new Map([
+        [CBE_LIST_ONE_2024_URL, fixture.documentId],
+      ]),
+      write: content,
+    }),
+    /does not belong to this catalogue record/u,
+  );
+  const saved = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    sourceDocumentIdsByUrl,
+    write: content,
+  });
+  const evidence = await sql`
+    select field_path, source_document_id from public.catalogue_version_provenance
+    where version_id = ${saved.sourceVersionId} order by id
+  `;
+  assert.deepEqual(
+    evidence.map((row) => [row.field_path, Number(row.source_document_id)]),
+    [
+      ["description", fixture.documentId],
+      ["requirements.structure", Number(document.id)],
+    ],
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });
 
 test("extraction storage distinguishes unavailable metrics from measured and cached zero", async () => {
@@ -524,6 +608,7 @@ test("first, unchanged and changed source observations preserve local intent", a
     select condition_kind, free_text, source_text
     from public.requirement_conditions
     where version_id = ${first.sourceVersionId} and condition_kind = 'other'
+      and free_text = 'or equivalent'
   `;
   assert.deepEqual(
     [
