@@ -411,7 +411,7 @@ test("first, unchanged and changed source observations preserve local intent", a
       {
         op: "permission",
         sourceText:
-          "Permission of the College of Business and Economics is required.",
+          "Permission of the College of Arts and Social Sciences is required.",
       },
     ],
   };
@@ -558,7 +558,7 @@ test("first, unchanged and changed source observations preserve local intent", a
     await sql`select free_text, source_text from public.requirement_conditions where version_id = ${first.sourceVersionId} and condition_kind = 'permission'`;
   assert.equal(
     persistedPermission.free_text,
-    "Permission of the College of Business and Economics is required.",
+    "Permission of the College of Arts and Social Sciences is required.",
   );
   assert.equal(persistedPermission.source_text, persistedPermission.free_text);
 
@@ -965,13 +965,13 @@ test("model projection hashes preserve absent offering summaries independently o
 });
 
 test("college eligibility survives persistence and unchanged replay with invalid values rolled back", async () => {
-  const college = "ANU College of Business and Economics";
+  const college = "ANU College of Arts and Social Sciences";
   const model = emptyCourseExtraction({
     code: OFFERING_CODE,
     year: YEAR,
     title: "College eligibility persistence",
   });
-  model.requisites.prerequisiteText = "You must be enrolled in a CBE degree.";
+  model.requisites.prerequisiteText = "You must be enrolled in a CASS degree.";
   model.requisites.prerequisiteRule = { op: "enrolled_in_college", college };
   const content = courseCatalogueContent({
     projection: projectCourseSnapshot(model),

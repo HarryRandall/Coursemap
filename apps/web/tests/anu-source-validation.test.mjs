@@ -7,7 +7,7 @@ import { validateAnuAcademicStructurePage } from "../lib/catalogue-import/kinds/
 const sources = [
   {
     label: "course",
-    code: "FINM3009",
+    code: "TSTF3009",
     prefix: "course",
     missingCode: "MISSING_COURSE_YEAR",
     mismatchCode: "COURSE_YEAR_MISMATCH",
@@ -21,7 +21,7 @@ const sources = [
   },
   {
     label: "programme",
-    code: "BFINN",
+    code: "BTEST",
     prefix: "program",
     missingCode: "MISSING_STRUCTURE_YEAR",
     mismatchCode: "STRUCTURE_YEAR_MISMATCH",
@@ -40,9 +40,9 @@ for (const source of sources) {
   test(`${source.label} source year metadata distinguishes missing from mismatch`, () => {
     const page = (year) => `<html><head>
       <meta name="${source.prefix}-code" content="${source.code}">
-      <meta name="${source.prefix}-name" content="Finance">
+      <meta name="${source.prefix}-name" content="Test Studies">
       ${year === null ? "" : `<meta name="${source.prefix}-year" content="${year}">`}
-    </head><body><h1>Finance</h1></body></html>`;
+    </head><body><h1>Test Studies</h1></body></html>`;
 
     for (const year of [null, "2024.0"]) {
       const result = source.validate(page(year));
@@ -61,10 +61,10 @@ for (const source of sources) {
   test(`${source.label} source reports malformed canonical links`, () => {
     const html = `<html><head>
       <meta name="${source.prefix}-code" content="${source.code}">
-      <meta name="${source.prefix}-name" content="Finance">
+      <meta name="${source.prefix}-name" content="Test Studies">
       <meta name="${source.prefix}-year" content="2024">
       <link rel="canonical" href="http://[">
-    </head><body><h1>Finance</h1></body></html>`;
+    </head><body><h1>Test Studies</h1></body></html>`;
 
     const result = source.validate(html);
     assert.equal(result.valid, false);

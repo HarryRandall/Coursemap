@@ -116,11 +116,11 @@ test("clears the prerequisite flag once the dependency sits in an earlier term",
 });
 
 test("distinguishes unmet college eligibility from missing college information", () => {
-  const college = "ANU College of Business and Economics";
+  const college = "ANU College of Arts and Social Sciences";
   const scoped = {
     ...catalogue,
     courses: [
-      course("CBEA2001", 2000, {
+      course("TSTA2001", 2000, {
         prerequisiteRule: {
           hardness: "hard",
           reviewState: "verified",
@@ -136,7 +136,7 @@ test("distinguishes unmet college eligibility from missing college information",
     programmeCodes: ["BCOMP"],
     programmeColleges: [{ code: "BCOMP", college: "Different college" }],
   };
-  const attempts = [attempt("CBEA2001", "planned")];
+  const attempts = [attempt("TSTA2001", "planned")];
   const blocked = planRisks({
     buckets: [],
     attempts,

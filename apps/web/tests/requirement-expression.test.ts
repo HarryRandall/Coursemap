@@ -47,7 +47,7 @@ function course(key: string, groupKey: string, position: number, code: string) {
     tag: null,
     freeText: null,
     hardness: "hard",
-    sourceText: "FINM2001; and, FINM2003 or FINM3011.",
+    sourceText: "TSTF2001; and, TSTF2003 or TSTF3011.",
     sourceLocator: null,
     reviewState: "automatic",
     confidence: 1,
@@ -66,22 +66,22 @@ test("builds a rule's groups and conditions into the course page's tree", () => 
       }),
     ],
     conditions: [
-      course("a", "root", 0, "finm2001"),
-      course("b", "either", 0, "FINM2003"),
-      course("c", "either", 1, "FINM3011"),
+      course("a", "root", 0, "tstf2001"),
+      course("b", "either", 0, "TSTF2003"),
+      course("c", "either", 1, "TSTF3011"),
     ],
   });
   expect(expression).toMatchObject({
     kind: "group",
     operator: "all_of",
     conditions: [
-      { kind: "course", code: "FINM2001" },
+      { kind: "course", code: "TSTF2001" },
       {
         kind: "group",
         operator: "any_of",
         conditions: [
-          { kind: "course", code: "FINM2003" },
-          { kind: "course", code: "FINM3011" },
+          { kind: "course", code: "TSTF2003" },
+          { kind: "course", code: "TSTF3011" },
         ],
       },
     ],
