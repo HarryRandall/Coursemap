@@ -2,7 +2,7 @@ import { type CheerioAPI, load } from "cheerio";
 import type { AnyNode } from "domhandler";
 import { ANU_PROGRAMS_AND_COURSES_SOURCE } from "./import-source.ts";
 
-export const ANU_PAGE_MARKDOWN_VERSION = "anu-page-markdown.v1" as const;
+export const ANU_PAGE_MARKDOWN_VERSION = "anu-page-markdown.v2" as const;
 
 const ANU_ORIGIN = ANU_PROGRAMS_AND_COURSES_SOURCE.baseUrl;
 
@@ -95,7 +95,8 @@ function linkMarkdown(text: string, href: string | undefined) {
     return text;
   }
   if (url.protocol === "mailto:") {
-    const address = url.pathname;
+    // Some ANU pages put paragraph markup inside a mailto target.
+    const address = url.pathname.replace(/^<p>\s*([^<>]+?)\s*<\/p>$/iu, "$1");
     return text && text !== address ? `${text} (${address})` : address;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return text;

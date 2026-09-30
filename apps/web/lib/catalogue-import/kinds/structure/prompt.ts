@@ -5,7 +5,7 @@ import {
 import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.ts";
 
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
-  "coursemap-academic-structure-parser.v11";
+  "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
   "coursemap-academic-structure-prompt.v19";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
