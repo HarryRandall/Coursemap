@@ -653,8 +653,21 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v23");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v34");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v36");
+  assert.match(
+    prompt,
+    /requires both min_units_total 24 and enrolled_in_college/u,
+  );
+  assert.match(
+    buildCourseExtractionUserPrompt({
+      expectedCode: "CBEA2001",
+      academicYear: 2026,
+      pageMarkdown:
+        "## Requisite and Incompatibility\nMust be enrolled in a CBE degree.",
+    }),
+    /Final requisite check:[\s\S]*separate all_of requirement/u,
+  );
   assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.match(
     prompt,
@@ -677,6 +690,84 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
     COURSE_EXTRACTION_JSON_SCHEMA.$defs.offering.properties.classSummaryUrl
       .$ref,
     "#/$defs/nullableAnuClassSummaryUrl",
+  );
+});
+
+test("blocks a college-degree prerequisite omitted behind conditional permission", () => {
+  const model = emptyCourseExtraction({
+    code: "CBEA2001",
+    year: 2026,
+    title: "Australian Indigenous Perspectives in Business and Economics",
+  });
+  const clause =
+    "24 units of study and must be enrolled in a CBE degree. Please note if you're in a Flexible Double Degree with a CBE program, you will need a permission code to enrol into this course";
+  const pageMarkdown = `# ${model.title}\n\nOffered by the ANU College of Business and Economics\n\n## Requisite and Incompatibility\n\n${clause}\n\n## Prescribed Texts\n`;
+  model.requisites.prerequisiteText = clause;
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "min_units_total", minimumUnits: 24 },
+      {
+        op: "one_of",
+        rules: [
+          {
+            op: "enrolment_mode",
+            mode: "flexible_double_degree",
+            matches: false,
+          },
+          {
+            op: "all_of",
+            rules: [
+              {
+                op: "enrolment_mode",
+                mode: "flexible_double_degree",
+                matches: true,
+              },
+              { op: "permission", sourceText: clause },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const finaliseModel = () =>
+    finaliseCourseExtraction({
+      code: model.code,
+      year: model.year,
+      listingTitle: model.title,
+      model,
+      pageMarkdown,
+      finishReason: "stop",
+      responseError: null,
+    });
+  const omitted = finaliseModel();
+  assert.equal(omitted.report.missingCollegeEnrolment, true);
+  assert.equal(omitted.errorCount, 1);
+  assert.ok(
+    omitted.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requisites.prerequisiteRule" &&
+        item.severity === "error" &&
+        item.message.includes("college degree"),
+    ),
+  );
+  assert.equal(
+    classifyFirstRead(courseKindAdapter.project(omitted.extraction)).find(
+      (item) => item.fieldPath === "requirements.prerequisite",
+    )?.band,
+    "needs_review",
+  );
+  model.requisites.prerequisiteRule.rules.push({
+    op: "enrolled_in_college",
+    college: "ANU College of Business and Economics",
+  });
+  const complete = finaliseModel();
+  assert.equal(complete.report.missingCollegeEnrolment, false);
+  assert.equal(
+    complete.extraction.reviewItems.some((item) =>
+      item.message.includes("modelled rule omits"),
+    ),
+    false,
   );
 });
 
@@ -862,13 +953,14 @@ test("the user prompt offers the tags already in use", () => {
     pageMarkdown: "# COMP2400",
   });
   assert.match(prompt, /Known tags: Science; Engineering\n/u);
-  assert.equal(
+  assert.ok(
     buildCourseExtractionUserPrompt({
       expectedCode: "comp2400",
       academicYear: 2026,
       pageMarkdown: "# COMP2400",
-    }),
-    "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400",
+    }).startsWith(
+      "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400\n",
+    ),
   );
 });
 

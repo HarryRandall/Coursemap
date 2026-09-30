@@ -50,6 +50,30 @@ function unsupportedCollegeNames(
     : [];
 }
 
+function hasCollegeEnrolment(rule: CourseRule | null): boolean {
+  if (!rule) return false;
+  if (rule.op === "enrolled_in_college") return true;
+  if (rule.op === "all_of" || rule.op === "one_of")
+    return rule.rules.some(hasCollegeEnrolment);
+  return false;
+}
+
+/** A printed college-degree gate must not disappear behind a mode-specific permission. */
+function missingCollegeEnrolment(
+  rule: CourseRule | null,
+  pageMarkdown: string,
+) {
+  const requisiteSection =
+    pageMarkdown
+      .split(/^## Requisite and Incompatibility\s*$/mu)[1]
+      ?.split(/^## /mu)[0] ?? "";
+  return (
+    /\bmust be enrolled in (?:an? )?[A-Z]{2,} degree\b/u.test(
+      requisiteSection,
+    ) && !hasCollegeEnrolment(rule)
+  );
+}
+
 /**
  * A valid course extraction that states nothing about the course beyond its
  * identity, used for every field the model leaves out or gets wrong. The
@@ -184,6 +208,10 @@ export function finaliseCourseExtraction({
       ),
     ]),
   ];
+  const missingCollege = missingCollegeEnrolment(
+    extraction.requisites.prerequisiteRule,
+    pageMarkdown,
+  );
   const problem = modelResponseProblem({ finishReason, responseError });
   const canonicalised = courseModelCanonicalisationReviewItem(
     canonical.changes,
@@ -202,6 +230,17 @@ export function finaliseCourseExtraction({
       severity: "error" as const,
       message: `The ANU page does not contain the required college's name: ${college}. Preserve unresolved college eligibility for review.`,
     })),
+    ...(missingCollege
+      ? [
+          {
+            fieldKey: "requisites.prerequisiteRule",
+            kind: "missing" as const,
+            severity: "error" as const,
+            message:
+              "The ANU prerequisite requires enrolment in a college degree, but the modelled rule omits that eligibility. Review it before publication.",
+          },
+        ]
+      : []),
     ...(problem
       ? [
           {
@@ -248,6 +287,7 @@ export function finaliseCourseExtraction({
       droppedFields: dropped,
       unsupportedWording: unsupported,
       unsupportedCollegeNames: unsupportedColleges,
+      missingCollegeEnrolment: missingCollege,
     },
   };
 }
