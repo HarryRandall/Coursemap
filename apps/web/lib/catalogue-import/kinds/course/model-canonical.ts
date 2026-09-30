@@ -150,34 +150,51 @@ export function canonicaliseCourseModelExtraction(
       "$.requisites.corequisiteRule",
     );
     const exclusionRule = requisites.incompatibilityRule;
-    const leaf =
+    const leaves =
       isRecord(exclusionRule) &&
       (exclusionRule.op === "all_of" || exclusionRule.op === "one_of") &&
-      Array.isArray(exclusionRule.rules) &&
-      exclusionRule.rules.length === 1
-        ? exclusionRule.rules[0]
-        : exclusionRule;
+      Array.isArray(exclusionRule.rules)
+        ? exclusionRule.rules
+        : [exclusionRule];
+    const exclusionText = requisites.incompatibilityText;
+    const lacksUnconditionalSource =
+      typeof exclusionText !== "string" ||
+      !/\b(?:cannot|not able to)\s+enrol\b|\bincompatible with\b/iu.test(
+        exclusionText,
+      ) ||
+      /\b(?:permission|consent|normally|unless|except)\b/iu.test(exclusionText);
     if (
-      isRecord(leaf) &&
-      (leaf.op === "not_completed" || leaf.op === "not_concurrent") &&
-      typeof leaf.courseCode === "string"
+      !lacksUnconditionalSource &&
+      leaves.length > 0 &&
+      leaves.every((leaf) => {
+        if (
+          !isRecord(leaf) ||
+          (leaf.op !== "not_completed" && leaf.op !== "not_concurrent") ||
+          typeof leaf.courseCode !== "string"
+        )
+          return false;
+        if (
+          typeof exclusionText !== "string" ||
+          !exclusionText.includes(leaf.courseCode)
+        )
+          return false;
+        const key =
+          leaf.op === "not_completed"
+            ? "incompatibilityCourseCodes"
+            : "concurrentIncompatibilityCourseCodes";
+        return (
+          Array.isArray(requisites[key]) &&
+          requisites[key].includes(leaf.courseCode)
+        );
+      })
     ) {
-      const key =
-        leaf.op === "not_completed"
-          ? "incompatibilityCourseCodes"
-          : "concurrentIncompatibilityCourseCodes";
-      if (
-        Array.isArray(requisites[key]) &&
-        requisites[key].includes(leaf.courseCode)
-      ) {
-        requisites.incompatibilityRule = null;
-        changes.push({
-          path: "$.requisites.incompatibilityRule",
-          rule: "redundant_unconditional_exclusion_to_array",
-          before: JSON.stringify(exclusionRule),
-          after: null,
-        });
-      }
+      requisites.incompatibilityRule = null;
+      changes.push({
+        path: "$.requisites.incompatibilityRule",
+        rule: "redundant_unconditional_exclusion_to_array",
+        before: JSON.stringify(exclusionRule),
+        after: null,
+      });
     }
   }
 

@@ -735,6 +735,82 @@ test("blocks a college-degree prerequisite omitted behind conditional permission
   );
 });
 
+test("flags a minimum GPA mentioned outside the requisite heading when the model omits it", () => {
+  const model = emptyCourseExtraction({
+    code: "FINM3009",
+    year: 2025,
+    title: "Test Finance Course",
+  });
+  const wording =
+    "A minimum GPA of 5.5 is required to be eligible for an admission interview.";
+  const pageMarkdown = `# ${model.title}\n\n## Other Information\n\n${wording}`;
+  const finaliseModel = () =>
+    finaliseCourseExtraction({
+      code: model.code,
+      year: model.year,
+      listingTitle: model.title,
+      model,
+      pageMarkdown,
+      finishReason: "stop",
+      responseError: null,
+    });
+
+  const missing = finaliseModel();
+  assert.ok(
+    missing.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requisites.prerequisiteRule" &&
+        item.severity === "error" &&
+        item.message.includes("minimum GPA"),
+    ),
+  );
+
+  model.requisites.unmodelledText = [wording];
+  const preserved = finaliseModel();
+  assert.equal(
+    preserved.extraction.reviewItems.some((item) =>
+      item.message.includes("extracted prerequisites omit"),
+    ),
+    false,
+  );
+});
+
+test("flags ungrouped and/or course prerequisites instead of trusting the model's grouping", () => {
+  const model = structuredClone(extraction);
+  model.requisites.prerequisiteText =
+    "To enrol you must have completed ECON2101 and ECON2102 or ECON2016.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "completed", courseCode: "ECON2101" },
+      {
+        op: "one_of",
+        rules: [
+          { op: "completed", courseCode: "ECON2102" },
+          { op: "completed", courseCode: "ECON2016" },
+        ],
+      },
+    ],
+  };
+  const result = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: `${pageMarkdown}\n${model.requisites.prerequisiteText}`,
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.ok(
+    result.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requisites.prerequisiteRule" &&
+        item.kind === "ambiguous" &&
+        item.severity === "error",
+    ),
+  );
+});
+
 test("canonicalises bounded provider formats without changing the raw response", () => {
   const raw = structuredClone(extraction);
   raw.evidence = [];
@@ -2245,6 +2321,8 @@ test("normalises only an equivalent duplicate of a single unconditional exclusio
     },
   ]) {
     const model = structuredClone(extraction);
+    model.requisites.incompatibilityText =
+      "You cannot enrol if you are concurrently enrolled in LAWS3001.";
     model.requisites.incompatibilityRule = rule;
     model.requisites.concurrentIncompatibilityCourseCodes = ["LAWS3001"];
     assert.equal(validateCourseExtraction(model).success, false);
@@ -2280,6 +2358,59 @@ test("normalises only an equivalent duplicate of a single unconditional exclusio
     conditional.requisites.incompatibilityRule,
   );
   assert.equal(validateCourseExtraction(unchanged.value).success, false);
+});
+
+test("normalises duplicated unconditional exclusion groups without keeping the model's join", () => {
+  for (const [operator, wording] of [
+    ["all_of", "You cannot enrol if you have completed MATH1005 or MATH1013."],
+    ["one_of", "You cannot enrol if you have completed MATH1005 or MATH1013."],
+  ]) {
+    const model = structuredClone(extraction);
+    model.requisites.incompatibilityText = wording;
+    model.requisites.incompatibilityCourseCodes = ["MATH1005", "MATH1013"];
+    model.requisites.incompatibilityRule = {
+      op: operator,
+      rules: [
+        { op: "not_completed", courseCode: "MATH1005" },
+        { op: "not_completed", courseCode: "MATH1013" },
+      ],
+    };
+
+    const normalised = canonicaliseCourseModelExtraction(model, {
+      expectedCode: model.code,
+      expectedYear: model.year,
+    });
+    assert.equal(normalised.value.requisites.incompatibilityRule, null);
+    assert.deepEqual(normalised.value.requisites.incompatibilityCourseCodes, [
+      "MATH1005",
+      "MATH1013",
+    ]);
+    assert.equal(validateCourseExtraction(normalised.value).success, true);
+  }
+});
+
+test("keeps discretionary exclusions for review rather than turning them into hard bans", () => {
+  const model = structuredClone(extraction);
+  model.requisites.incompatibilityText =
+    "Consent is not normally granted if you have completed MATH1005 or MATH1013.";
+  model.requisites.incompatibilityCourseCodes = ["MATH1005", "MATH1013"];
+  model.requisites.incompatibilityRule = {
+    op: "one_of",
+    rules: [
+      { op: "not_completed", courseCode: "MATH1005" },
+      { op: "not_completed", courseCode: "MATH1013" },
+    ],
+  };
+
+  const normalised = canonicaliseCourseModelExtraction(model, {
+    expectedCode: model.code,
+    expectedYear: model.year,
+  });
+  assert.deepEqual(
+    normalised.value.requisites.incompatibilityRule,
+    model.requisites.incompatibilityRule,
+  );
+  assert.equal(validateCourseExtraction(normalised.value).success, false);
 });
 
 test("independent unconditional exclusions remain outside the permission exception", () => {
