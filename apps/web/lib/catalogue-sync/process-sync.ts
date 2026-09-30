@@ -36,7 +36,6 @@ import {
   getCatalogueSyncStatus,
   readListingTitle,
   recordSourceDocument,
-  ensureSupportingSourceId,
   recordSyncArtifact,
   recordExtractionRequestFailure,
   releaseCatalogueSyncForRetry,
@@ -243,7 +242,6 @@ async function processClaimedSync({
 }) {
   const adapter = syncAdapterForKind(claim.kind);
   let sourceDocumentId: number | null = null;
-  const sourceDocumentIdsByUrl = new Map<string, number>();
   let requestProviderRevision = claim.providerRevision;
 
   const runStage = async <T>(
@@ -338,36 +336,6 @@ async function processClaimedSync({
         storagePath: raw.path,
       });
       if (page.sourceError) throw page.sourceError;
-      for (const supporting of page.supportingSources ?? []) {
-        const stored = await persistArtifact({
-          stageId,
-          stageName: "html_capture",
-          kind: "raw_html",
-          mediaType: "text/html",
-          body: supporting.html,
-        });
-        const supportingSourceId = await ensureSupportingSourceId(
-          sql,
-          supporting,
-        );
-        const supportingDocumentId = await recordSourceDocument(sql, {
-          sourceId: supportingSourceId,
-          recordId: claim.recordId,
-          academicYearId: claim.academicYearId,
-          kind: claim.kind,
-          externalKey: supporting.externalKey,
-          canonicalUrl: supporting.sourceUrl,
-          contentSha256: supporting.contentSha256,
-          httpStatus: supporting.httpStatus,
-          httpEtag: supporting.httpEtag,
-          sourceLastModified: supporting.sourceLastModified,
-          fetchedAt: supporting.fetchedAt,
-          byteSize: supporting.byteSize,
-          storageBucket: stored.bucket,
-          storagePath: stored.path,
-        });
-        sourceDocumentIdsByUrl.set(supporting.sourceUrl, supportingDocumentId);
-      }
     });
 
     const pageMarkdown = await runStage(
@@ -396,7 +364,6 @@ async function processClaimedSync({
           claim,
           pageMarkdown,
           promptContext,
-          page.supportingSources,
         );
         await persistArtifact({
           stageId,
@@ -581,7 +548,6 @@ async function processClaimedSync({
         responseRepair: modelResult.result.responseRepair,
         finishReason: modelResult.result.finishReason,
         context: promptContext,
-        supportingSources: page.supportingSources,
       });
       const validated = await persistArtifact({
         stageId,
@@ -625,10 +591,7 @@ async function processClaimedSync({
     });
 
     const write = await runStage("content_project", async (stageId) => {
-      const result = adapter.project(
-        finalised.extraction,
-        page.supportingSources,
-      );
+      const result = adapter.project(finalised.extraction);
       await persistArtifact({
         stageId,
         stageName: "content_project",
@@ -646,7 +609,6 @@ async function processClaimedSync({
       return persistSourceVersion(sql, {
         claim,
         sourceDocumentId,
-        sourceDocumentIdsByUrl,
         write,
       });
     });

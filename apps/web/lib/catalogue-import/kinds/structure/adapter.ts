@@ -8,10 +8,6 @@ import {
 } from "./contract.ts";
 import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "./schema.ts";
 import { finaliseAcademicStructureExtraction } from "./finalise.ts";
-import {
-  financeSourceReviewItems,
-  financeSupportingSource,
-} from "./finance-source.ts";
 import { normaliseAcademicStructureModelExtraction } from "./model-canonical.ts";
 import { projectAcademicStructureSnapshot } from "./project.ts";
 import {
@@ -41,20 +37,13 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       string,
       unknown
     >,
-    async fetchSource(claim, { signal }) {
-      const page = await fetchAnuAcademicStructurePage(
+    fetchSource(claim, { signal }) {
+      return fetchAnuAcademicStructurePage(
         claim.academicYear,
         structureKind(claim.kind),
         claim.code,
         { signal },
       );
-      if (page.sourceError) return page;
-      const supporting = await financeSupportingSource(
-        claim,
-        page.html,
-        signal,
-      );
-      return supporting ? { ...page, supportingSources: [supporting] } : page;
     },
     prepareInput(claim, page) {
       return convertAnuPageToMarkdown({
@@ -68,13 +57,12 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       });
     },
     buildSystemPrompt: buildAcademicStructureExtractionSystemPrompt,
-    buildUserPrompt(claim, pageMarkdown, _context, supportingSources) {
+    buildUserPrompt(claim, pageMarkdown) {
       return buildAcademicStructureExtractionUserPrompt({
         expectedKind: structureKind(claim.kind),
         expectedCode: claim.code,
         academicYear: claim.academicYear,
         pageMarkdown,
-        supportingSources,
       });
     },
     validateModelOutput(claim, value) {
@@ -97,9 +85,8 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       finishReason,
       responseError,
       responseRepair,
-      supportingSources,
     }) {
-      const outcome = finaliseAcademicStructureExtraction({
+      return finaliseAcademicStructureExtraction({
         kind: structureKind(claim.kind),
         code: claim.code,
         year: claim.academicYear,
@@ -110,67 +97,24 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         responseError,
         responseRepair,
       });
-      const sourceReviewItems = financeSourceReviewItems({
-        claim,
-        pageMarkdown,
-        requirements: outcome.extraction.requirements,
-        supportingSources,
-      });
-      if (sourceReviewItems.length === 0) return outcome;
-      return {
-        ...outcome,
-        extraction: {
-          ...outcome.extraction,
-          reviewItems: [
-            ...outcome.extraction.reviewItems,
-            ...sourceReviewItems,
-          ],
-        },
-        errorCount: outcome.errorCount + sourceReviewItems.length,
-      };
     },
-    project(extraction, supportingSources) {
+    project(extraction) {
       return structureCatalogueContent({
         projection: projectAcademicStructureSnapshot(extraction),
-        evidence: [
-          ...extraction.evidence.map((item) => ({
-            fieldPath: item.fieldKey,
-            method: item.method,
-            confidence: item.confidence,
-            sourceLocator: item.sourceLocator,
-            sourceExcerpt: item.evidenceExcerpt,
-          })),
-          ...(supportingSources ?? []).map((source) => ({
-            fieldPath: "requirements.structure",
-            method: "deterministic" as const,
-            confidence: 1,
-            sourceLocator: source.sourceUrl,
-            sourceExcerpt: "List 1: CBE Courses 2024 and 2023",
-            sourceUrl: source.sourceUrl,
-          })),
-        ],
-        flags: [
-          ...extraction.reviewItems.map((item) => ({
-            fieldPath: item.fieldKey,
-            severity: item.severity,
-            code: item.kind.toUpperCase(),
-            message: item.message,
-            sourceExcerpt: null,
-          })),
-          ...(supportingSources ?? []).flatMap((source) =>
-            source.duplicateCodes.length
-              ? [
-                  {
-                    fieldPath: "requirements.structure",
-                    severity: "warning" as const,
-                    code: "SOURCE_DUPLICATE_COURSE",
-                    message: `The linked course list repeats ${source.duplicateCodes.join(", ")}; each code was supplied once for review.`,
-                    sourceExcerpt: null,
-                  },
-                ]
-              : [],
-          ),
-        ],
+        evidence: extraction.evidence.map((item) => ({
+          fieldPath: item.fieldKey,
+          method: item.method,
+          confidence: item.confidence,
+          sourceLocator: item.sourceLocator,
+          sourceExcerpt: item.evidenceExcerpt,
+        })),
+        flags: extraction.reviewItems.map((item) => ({
+          fieldPath: item.fieldKey,
+          severity: item.severity,
+          code: item.kind.toUpperCase(),
+          message: item.message,
+          sourceExcerpt: null,
+        })),
       });
     },
   };
