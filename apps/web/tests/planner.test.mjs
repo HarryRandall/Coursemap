@@ -526,10 +526,7 @@ test("subject course counts require distinct earlier courses and reject failed, 
     confidence: 1,
     sourceText: "Two COMP courses",
   });
-  structured.courses = structured.courses.map((course) => ({
-    ...course,
-    subject: course.code.slice(0, 4),
-  }));
+  withSubjectCodes(structured);
   const earlier = attempt("earlier", "COMP1100", "2026-s1", "completed");
   const other = attempt("other", "COMP1600", "2026-s1", "completed");
   assert.equal(
@@ -549,6 +546,61 @@ test("subject course counts require distinct earlier courses and reject failed, 
       "blocked",
     );
   }
+});
+
+function withSubjectCodes(structured) {
+  structured.courses = structured.courses.map((course) => ({
+    ...course,
+    subject: course.code.slice(0, 4),
+  }));
+  return structured;
+}
+
+test("uncatalogued earlier courses count by code, and unknown units need review", () => {
+  const target = attempt("target", "COMP1110", "2026-s2");
+  const earlier = attempt("earlier", "COMP1100", "2026-s1", "completed");
+  const uncatalogued = attempt("old", "COMP1999", "2026-s1", "completed");
+  const countRule = withSubjectCodes(
+    catalogueWithPrerequisiteRule({
+      kind: "subject_courses",
+      subject: "COMP",
+      minimumCount: 2,
+      hardness: "hard",
+      reviewState: "verified",
+      confidence: 1,
+      sourceText: "Two COMP courses",
+    }),
+  );
+  assert.equal(
+    effectiveStatus(target, [earlier, uncatalogued, target], countRule),
+    "planned",
+  );
+
+  const unitRule = withSubjectCodes(
+    catalogueWithPrerequisiteRule({
+      kind: "level_units",
+      minimumLevel: 1000,
+      maximumLevel: 1000,
+      subject: "COMP",
+      units: 12,
+      hardness: "hard",
+      reviewState: "verified",
+      confidence: 1,
+      sourceText: "12 units of 1000-level COMP courses",
+    }),
+  );
+  assert.equal(
+    effectiveStatus(target, [earlier, uncatalogued, target], unitRule),
+    "review",
+  );
+  assert.equal(
+    effectiveStatus(
+      target,
+      [earlier, { ...uncatalogued, unitsEarned: 6 }, target],
+      unitRule,
+    ),
+    "planned",
+  );
 });
 
 function catalogueWithExclusion(condition) {

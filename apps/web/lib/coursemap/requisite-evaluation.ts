@@ -24,6 +24,10 @@ import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 import type { Attempt } from "@/lib/coursemap/types";
+import {
+  courseLevelForCode,
+  courseSubjectForCode,
+} from "@/lib/academic/course-code";
 
 /**
  * What a student has done, in the terms a requisite rule asks about. Every
@@ -67,17 +71,6 @@ export type ConditionEvaluation = {
   /** One line about the student's side of the condition. */
   detail?: string;
 };
-
-const COURSE_CODE = /^([A-Z]{4})(\d)\d{3}[A-Z]?$/u;
-
-function courseLevel(code: string) {
-  const match = COURSE_CODE.exec(code);
-  return match ? Number(match[2]) * 1000 : null;
-}
-
-function subjectOf(code: string) {
-  return COURSE_CODE.exec(code)?.[1] ?? null;
-}
 
 function unitsWhere(
   student: StudentRecord,
@@ -180,14 +173,14 @@ export function evaluateCondition(
         ? unitsEvaluation(
             unitsWhere(
               student,
-              (code) => subjectOf(code) === condition.subject,
+              (code) => courseSubjectForCode(code) === condition.subject,
             ),
             condition.units,
           )
         : { status: "unknown" };
     case "subject_courses": {
       const count = [...student.completed.keys()].filter(
-        (code) => subjectOf(code) === condition.subject,
+        (code) => courseSubjectForCode(code) === condition.subject,
       ).length;
       return {
         status: unitsStatus(count, condition.minimumCount),
@@ -201,11 +194,14 @@ export function evaluateCondition(
     case "level_units":
       return unitsEvaluation(
         unitsWhere(student, (code) => {
-          const level = courseLevel(code);
+          const level = courseLevelForCode(code);
           if (level === null || level < condition.minimumLevel) return false;
           if (condition.maximumLevel !== null && level > condition.maximumLevel)
             return false;
-          return !condition.subject || subjectOf(code) === condition.subject;
+          return (
+            !condition.subject ||
+            courseSubjectForCode(code) === condition.subject
+          );
         }),
         condition.units,
       );

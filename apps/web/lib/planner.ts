@@ -10,6 +10,10 @@ import {
   validCommencementYear,
   validCommencementYearBounds,
 } from "@/lib/academic/commencement-year";
+import {
+  courseLevelForCode,
+  courseSubjectForCode,
+} from "@/lib/academic/course-code";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
@@ -350,53 +354,72 @@ function evaluateRelationalPrerequisite(
   }
 
   const earlier = prerequisiteAttempts(attempt, attempts, catalogue, false);
-  const completedUnits = (predicate: (course: Course) => boolean) =>
-    earlier.reduce((total, candidate) => {
-      const course = planningCourseForAttempt(candidate, catalogue);
-      return course && predicate(course)
-        ? total + unitsForAttempt(candidate, course)
-        : total;
-    }, 0);
+  // A course missing from the catalogue still has a subject and level in its
+  // code. Only its units can be unknown, and then only an unmet target is.
+  const earlierCourses = earlier.map((candidate) => {
+    const course = planningCourseForAttempt(candidate, catalogue);
+    const units = unitsForAttempt(candidate, course);
+    return {
+      code: candidate.courseCode,
+      subject: course?.subject ?? courseSubjectForCode(candidate.courseCode),
+      level: course?.level ?? courseLevelForCode(candidate.courseCode),
+      units: course || units > 0 ? units : null,
+    };
+  });
+  type EarlierCourse = (typeof earlierCourses)[number];
+  const unitsState = (
+    include: (course: EarlierCourse) => boolean,
+    target: number,
+  ): PrerequisiteEvaluation => {
+    const matching = earlierCourses.filter(include);
+    const units = matching.reduce(
+      (total, course) => total + (course.units ?? 0),
+      0,
+    );
+    if (units >= target) return { state: "satisfied", missingCodes: [] };
+    return {
+      state: matching.some((course) => course.units === null)
+        ? "unknown"
+        : "unsatisfied",
+      missingCodes: [],
+    };
+  };
 
   if (expression.kind === "units_total") {
-    return completedUnits(() => true) >= expression.units
-      ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
+    return unitsState(() => true, expression.units);
   }
   if (expression.kind === "subject_units") {
-    return completedUnits((course) => course.subject === expression.subject) >=
-      expression.units
-      ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
+    return unitsState(
+      (course) => course.subject === expression.subject,
+      expression.units,
+    );
   }
   if (expression.kind === "subject_courses") {
     const codes = new Set(
-      earlier.flatMap((candidate) => {
-        const course = planningCourseForAttempt(candidate, catalogue);
-        return course?.subject === expression.subject ? [course.code] : [];
-      }),
+      earlierCourses
+        .filter((course) => course.subject === expression.subject)
+        .map((course) => course.code),
     );
     return codes.size >= expression.minimumCount
       ? { state: "satisfied", missingCodes: [] }
       : { state: "unsatisfied", missingCodes: [] };
   }
   if (expression.kind === "level_units") {
-    return completedUnits(
+    return unitsState(
       (course) =>
+        course.level !== null &&
         course.level >= expression.minimumLevel &&
         (expression.maximumLevel === null ||
           course.level <= expression.maximumLevel) &&
         (expression.subject === null || course.subject === expression.subject),
-    ) >= expression.units
-      ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
+      expression.units,
+    );
   }
   if (expression.kind === "course_set_units") {
-    return completedUnits((course) =>
-      expression.courseCodes.includes(course.code),
-    ) >= expression.units
-      ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
+    return unitsState(
+      (course) => expression.courseCodes.includes(course.code),
+      expression.units,
+    );
   }
 
   if (expression.kind === "college_enrolment") {

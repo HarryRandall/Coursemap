@@ -3,7 +3,7 @@ import {
   WORKLOAD_HOURS_BASES,
   type WorkloadHoursBasis,
 } from "../../../academic/workload.ts";
-import { courseLevelForCode } from "../../../academic/course-level.ts";
+import { courseLevelForCode } from "../../../academic/course-code.ts";
 import {
   type UnknownRecord,
   COURSE_CODE_PATTERN,
