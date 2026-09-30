@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v39");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v40");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -2031,6 +2031,34 @@ test("rejects repeated and conflicting exclusion codes before projection", () =>
         .uniqueItems,
       true,
     );
+  }
+});
+
+test("keeps the first row when modelled positions repeat", () => {
+  for (const field of [
+    "fees",
+    "learningOutcomes",
+    "assessmentItems",
+    "offerings",
+    "attributes",
+    "relatedCourses",
+  ]) {
+    const model = structuredClone(extraction);
+    const duplicate = structuredClone(model[field][0]);
+    model[field].push(duplicate);
+
+    const validation = validateCourseExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(
+      validation.issues.some(
+        ({ path }) =>
+          path === `$.${field}[${model[field].length - 1}].position`,
+      ),
+    );
+    const result = finalise(model);
+    assert.equal(result.extraction[field].length, model[field].length - 1);
+    assert.ok(result.errorCount > 0);
+    assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
   }
 });
 
