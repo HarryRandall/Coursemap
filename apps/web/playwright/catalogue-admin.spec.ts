@@ -15,7 +15,8 @@ test("administrators browse year-first catalogue records", async ({
   // Local databases can hold hundreds of real listings, so find the fixture
   // rather than expecting it on the first page.
   await page
-    .getByPlaceholder("Search programmes by code or title")
+    .getByRole("main")
+    .getByRole("searchbox", { name: "Search" })
     .fill("LOCAL-PROGRAMME");
   const programmeRow = page.getByRole("row", { name: /LOCAL-PROGRAMME/ });
   await expect(programmeRow).toBeVisible();
