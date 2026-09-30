@@ -872,6 +872,8 @@ test("leaves untrusted class summary references invalid", () => {
     "data:text/plain,COMP2400",
     "https://evil.example/course/COMP2400/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/course/COMP2500/First%20Semester/1234",
+    "https://programsandcourses.anu.edu.au/2025/course/COMP2400/First%20Semester/1234",
+    "https://programsandcourses.anu.edu.au/2026/course/COMP2400/First%20Semester/5678",
     "https://programsandcourses.anu.edu.au.evil.example/course/COMP2400/First%20Semester/1234",
     "https://user@programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/not-a-class",
@@ -903,6 +905,11 @@ test("leaves untrusted class summary references invalid", () => {
   });
   assert.deepEqual(valid.changes, []);
   assert.equal(validateCourseExtraction(valid.value).success, true);
+
+  const yearSpecific = structuredClone(extraction);
+  yearSpecific.offerings[0].classSummaryUrl =
+    "https://programsandcourses.anu.edu.au/2026/course/COMP2400/First%20Semester/1234";
+  assert.equal(validateCourseExtraction(yearSpecific).success, true);
 });
 
 test("stable serialisation and fingerprints ignore object key insertion order", () => {
