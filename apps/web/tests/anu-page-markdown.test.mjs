@@ -49,6 +49,17 @@ test("writes ANU record links as their codes", async () => {
   assert.match(markdown, /\[Quantitative Biology\]\(QBIO-MAJ\)/);
 });
 
+test("keeps course codes embedded in ANU custom links", () => {
+  const markdown = convertAnuPageToMarkdown({
+    html: `<main class="main"><p>Knowledge to the level of <linked-co data-code="BUSI2025" data-name="International Business" data-type="Course"></linked-co> and <linked-co data-code="MKTG2004" data-name="Introduction to Marketing" data-type="Course"></linked-co> is recommended.</p></main>`,
+    frontMatter: { code: "BUSI3029", year: 2025 },
+  });
+  assert.match(
+    markdown,
+    /Knowledge to the level of \[International Business\]\(BUSI2025\) and \[Introduction to Marketing\]\(MKTG2004\) is recommended\./u,
+  );
+});
+
 test("labels each offering tab with its year", () => {
   const markdown = convertAnuPageToMarkdown({
     html: `<main class="main">
