@@ -15,6 +15,9 @@ import type { PlanningCatalogue } from "@/lib/planner";
 /** Most ANU courses are worth 6 units, so empty space is shown in 6-unit slots. */
 export const COMPOSITION_SLOT_UNITS = 6;
 
+/** Unused elective room is only offered once it could hold several courses. */
+export const ELECTIVE_SUGGESTION_UNITS = 24;
+
 export type CompositionKind = "core" | "major" | "minor" | "electives";
 
 export type CompositionCourse = {
@@ -216,8 +219,11 @@ export function degreeComposition({
     });
   });
 
+  // Empty elective room is a suggestion, so a remainder of a course or two is
+  // left out rather than drawn as a sliver beside the sections that matter.
   const showElectives =
-    (electives.targetUnits ?? 0) > 0 || electives.courses.length > 0;
+    electives.courses.length > 0 ||
+    (electives.targetUnits ?? 0) >= ELECTIVE_SUGGESTION_UNITS;
   return showElectives ? [...sections, electives] : sections;
 }
 

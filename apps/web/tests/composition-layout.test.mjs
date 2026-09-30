@@ -19,3 +19,17 @@ test("with four sections the two largest each get a column", () => {
   assert.equal(rects[1].height, 480);
   assert.equal(rects[2].x, rects[3].x);
 });
+
+test("a small section keeps a minimum share of its column", () => {
+  const [core, major, electives] = compositionLayout(
+    [90, 48, 6],
+    100,
+    100,
+    0.28,
+  );
+  assert.equal(core.height, 100);
+  assert.equal(major.x, electives.x);
+  assert.ok(Math.abs(electives.height - 28) < 1e-9);
+  assert.ok(Math.abs(major.height + electives.height - 100) < 1e-9);
+  assert.ok(major.width >= 28);
+});
