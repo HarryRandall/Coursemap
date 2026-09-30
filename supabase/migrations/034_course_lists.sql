@@ -88,11 +88,11 @@ grant execute on function private.require_catalogue_write() to authenticated, se
 -- Creates a list when p_list_id is null, otherwise replaces its name, source
 -- and draft membership. Published membership is untouched until publication.
 create or replace function public.save_course_list(
-    p_list_id bigint,
     p_academic_year integer,
     p_name text,
-    p_source_url text,
-    p_codes text[]
+    p_codes text[],
+    p_source_url text default null,
+    p_list_id bigint default null
 ) returns bigint
     language plpgsql security definer
     set search_path to ''
@@ -185,17 +185,17 @@ create or replace function public.published_course_list_tags(
   order by years.year, members.code, lower(lists.name);
 $$;
 
-comment on function public.save_course_list(bigint, integer, text, text, text[]) is 'Creates or updates a course list draft.';
+comment on function public.save_course_list(integer, text, text[], text, bigint) is 'Creates or updates a course list draft.';
 comment on function public.publish_course_list(bigint) is 'Publishes a course list draft as the membership degree rules count.';
 comment on function public.delete_course_list(bigint) is 'Deletes a course list and its membership.';
 comment on function public.published_course_list_tags(integer[], text[]) is 'Published course list names for the requested courses and years.';
 
-revoke all on function public.save_course_list(bigint, integer, text, text, text[]) from public, anon;
+revoke all on function public.save_course_list(integer, text, text[], text, bigint) from public, anon;
 revoke all on function public.publish_course_list(bigint) from public, anon;
 revoke all on function public.delete_course_list(bigint) from public, anon;
 revoke all on function public.published_course_list_tags(integer[], text[]) from public;
 
-grant execute on function public.save_course_list(bigint, integer, text, text, text[])
+grant execute on function public.save_course_list(integer, text, text[], text, bigint)
   to authenticated, service_role;
 grant execute on function public.publish_course_list(bigint) to authenticated, service_role;
 grant execute on function public.delete_course_list(bigint) to authenticated, service_role;

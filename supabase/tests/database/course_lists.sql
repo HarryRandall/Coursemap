@@ -38,7 +38,7 @@ select set_config(
 );
 
 select extensions.throws_ok(
-  $$ select public.save_course_list(null, 2026, 'List A', null, array['TSTL1001']) $$,
+  $$ select public.save_course_list(2026, 'List A', array['TSTL1001']) $$,
   '42501', null, 'a student cannot create a course list'
 );
 
@@ -50,8 +50,8 @@ select set_config(
 
 create temporary table list_fixture as
 select public.save_course_list(
-  null, 2026, 'List A', 'https://example.edu/list-a',
-  array['tstl1001', 'TSTL1002', ' TSTL1002 ', '']
+  2026, 'List A', array['tstl1001', 'TSTL1002', ' TSTL1002 ', ''],
+  'https://example.edu/list-a'
 ) as id;
 
 select extensions.results_eq(
@@ -76,7 +76,7 @@ select extensions.results_eq(
 );
 
 select public.save_course_list(
-  (select id from list_fixture), 2026, 'List A', null, array['TSTL1003']
+  2026, 'List A', array['TSTL1003'], null, (select id from list_fixture)
 );
 
 select extensions.results_eq(
@@ -87,17 +87,17 @@ select extensions.results_eq(
 );
 
 select extensions.throws_ok(
-  $$ select public.save_course_list(null, 2026, 'list a', null, array[]::text[]) $$,
+  $$ select public.save_course_list(2026, 'list a', array[]::text[]) $$,
   '23505', null, 'a list name is unique in its year whatever its case'
 );
 
 select extensions.throws_ok(
-  $$ select public.save_course_list(null, 2026, 'List B', null, array['NOT A CODE']) $$,
+  $$ select public.save_course_list(2026, 'List B', array['NOT A CODE']) $$,
   '23514', null, 'members must be course codes'
 );
 
 select extensions.throws_ok(
-  $$ select public.save_course_list(null, 2026, 'List C', 'http://example.edu', array[]::text[]) $$,
+  $$ select public.save_course_list(2026, 'List C', array[]::text[], 'http://example.edu') $$,
   '23514', null, 'a source link must use HTTPS'
 );
 

@@ -4745,9 +4745,9 @@ export type Database = {
         Args: {
           p_academic_year: number
           p_codes: string[]
-          p_list_id: number
+          p_list_id?: number
           p_name: string
-          p_source_url: string
+          p_source_url?: string
         }
         Returns: number
       }
