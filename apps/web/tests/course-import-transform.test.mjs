@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v38");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v39");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -1981,6 +1981,57 @@ test("rejects zero and repeated variable unit options before projection", () => 
     ).properties.unitsOptions.items.exclusiveMinimum,
     0,
   );
+});
+
+test("rejects repeated and conflicting exclusion codes before projection", () => {
+  for (const [field, codes] of [
+    ["incompatibilityCourseCodes", ["MATH1013", "MATH1013"]],
+    ["softIncompatibilityCourseCodes", ["MATH1013", "MATH1013"]],
+    ["concurrentIncompatibilityCourseCodes", ["MATH1013", "MATH1013"]],
+    ["softConcurrentIncompatibilityCourseCodes", ["MATH1013", "MATH1013"]],
+  ]) {
+    const model = structuredClone(extraction);
+    model.requisites[field] = codes;
+    const result = validateCourseExtraction(model);
+    assert.equal(result.success, false);
+    assert.ok(
+      result.issues.some(({ path }) => path === `$.requisites.${field}`),
+    );
+    const finalised = finalise(model);
+    assert.ok(finalised.errorCount > 0);
+    assert.doesNotThrow(() => projectCourseSnapshot(finalised.extraction));
+  }
+  for (const [hard, advisory] of [
+    ["incompatibilityCourseCodes", "softIncompatibilityCourseCodes"],
+    [
+      "concurrentIncompatibilityCourseCodes",
+      "softConcurrentIncompatibilityCourseCodes",
+    ],
+  ]) {
+    const model = structuredClone(extraction);
+    model.requisites[hard] = ["MATH1013"];
+    model.requisites[advisory] = ["MATH1013"];
+    const result = validateCourseExtraction(model);
+    assert.equal(result.success, false);
+    assert.ok(
+      result.issues.some(({ path }) => path === `$.requisites.${advisory}`),
+    );
+    const finalised = finalise(model);
+    assert.ok(finalised.errorCount > 0);
+    assert.doesNotThrow(() => projectCourseSnapshot(finalised.extraction));
+  }
+  for (const key of [
+    "incompatibilityCourseCodes",
+    "softIncompatibilityCourseCodes",
+    "concurrentIncompatibilityCourseCodes",
+    "softConcurrentIncompatibilityCourseCodes",
+  ]) {
+    assert.equal(
+      COURSE_EXTRACTION_JSON_SCHEMA.$defs.requisites.properties[key]
+        .uniqueItems,
+      true,
+    );
+  }
 });
 
 test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {
