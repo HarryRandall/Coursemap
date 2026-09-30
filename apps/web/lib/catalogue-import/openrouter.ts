@@ -1,4 +1,8 @@
 import { getCanonicalSiteOrigin } from "../supabase/config.ts";
+import {
+  repairStructuredResponse,
+  type StructuredResponseRepair,
+} from "./response-repair.ts";
 
 export const DEFAULT_OPENROUTER_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -76,7 +80,7 @@ export type OpenRouterExtraction = {
   content: string | null;
   parsed: unknown;
   responseError: string | null;
-  responseRepair: "extra_requirement_closing_brace" | null;
+  responseRepair: StructuredResponseRepair;
   latencyMilliseconds: number;
   routerMetadata: OpenRouterRouterMetadata | null;
   usage: {
@@ -336,7 +340,7 @@ function responseContent(response: unknown) {
   return typeof content === "string" && content.trim() ? content : null;
 }
 
-function parseStructuredContent(content: string | null) {
+function parseStructuredContent(content: string | null, schemaName: string) {
   if (content === null) {
     return {
       parsed: null,
@@ -351,31 +355,13 @@ function parseStructuredContent(content: string | null) {
       responseRepair: null,
     };
   } catch {
-    const extraBrace = '}]}},"unmodelledText":';
-    if (content.split(extraBrace).length === 2) {
-      try {
-        const corrected = content.replace(extraBrace, '}]},"unmodelledText":');
-        const parsed = JSON.parse(corrected) as unknown;
-        if (
-          typeof parsed === "object" &&
-          parsed !== null &&
-          !Array.isArray(parsed) &&
-          "requirements" in parsed &&
-          typeof parsed.requirements === "object" &&
-          parsed.requirements !== null &&
-          "unmodelledText" in parsed.requirements &&
-          Array.isArray(parsed.requirements.unmodelledText)
-        ) {
-          return {
-            parsed,
-            responseError: null,
-            responseRepair: "extra_requirement_closing_brace" as const,
-          };
-        }
-      } catch {
-        // The original response remains invalid when this exact repair fails.
-      }
-    }
+    const repaired = repairStructuredResponse(content, schemaName);
+    if (repaired)
+      return {
+        parsed: repaired.parsed,
+        responseError: null,
+        responseRepair: repaired.repair,
+      };
     return {
       parsed: null,
       responseError:
@@ -398,6 +384,7 @@ function auditNullableNumber(value: unknown, field: string) {
 export function restoreOpenRouterExtraction(
   value: unknown,
   requestedModel: string,
+  schemaName = "course_extraction",
 ): OpenRouterExtraction {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TypeError("Stored OpenRouter response is invalid.");
@@ -432,7 +419,10 @@ export function restoreOpenRouterExtraction(
     throw new TypeError("Stored OpenRouter latency is missing.");
   }
 
-  const structured = parseStructuredContent(audit.content as string | null);
+  const structured = parseStructuredContent(
+    audit.content as string | null,
+    schemaName,
+  );
   const obsoleteParseError =
     structured.responseRepair !== null &&
     savedResponseError ===
@@ -613,7 +603,7 @@ export async function extractWithOpenRouter({
       ? (body as OpenRouterResponse)
       : {};
   const content = responseContent(parsedResponse);
-  const structured = parseStructuredContent(content);
+  const structured = parseStructuredContent(content, schemaName);
   const usage = parsedResponse.usage;
   const resultUsage = {
     inputTokens: nonNegativeInteger(usage?.prompt_tokens),

@@ -188,6 +188,7 @@ test("recovers one redundant requirement brace while retaining the original paid
     systemPrompt: "Return the structure.",
     modelInput: "ACMK-MAJ",
     schema: TEST_SCHEMA,
+    schemaName: "academic_structure_extraction",
     env: { OPENROUTER_API_KEY: "test-key" },
     fetchImpl: async () =>
       Response.json({
@@ -207,11 +208,20 @@ test("recovers one redundant requirement brace while retaining the original paid
         "OpenRouter returned invalid JSON despite structured-output mode.",
     },
     DEFAULT_OPENROUTER_MODEL,
+    "academic_structure_extraction",
   );
   assert.deepEqual(restored.parsed, expected);
   assert.equal(restored.responseError, null);
   assert.equal(restored.responseRepair, "extra_requirement_closing_brace");
   assert.equal(restored.responseForAudit.content, original);
+
+  const courseRestoration = restoreOpenRouterExtraction(
+    result.responseForAudit,
+    DEFAULT_OPENROUTER_MODEL,
+  );
+  assert.equal(courseRestoration.parsed, null);
+  assert.match(courseRestoration.responseError, /invalid JSON/);
+  assert.equal(courseRestoration.responseRepair, null);
 });
 
 test("never starts an extraction without the dedicated key", async () => {

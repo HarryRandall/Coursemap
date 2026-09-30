@@ -465,6 +465,7 @@ async function processClaimedSync({
         result = restoreOpenRouterExtraction(
           JSON.parse(body) as unknown,
           claim.requestedModel,
+          adapter.schemaName,
         );
         const responseArtifact = await persistArtifact({
           stageId,
@@ -497,6 +498,7 @@ async function processClaimedSync({
         result = restoreOpenRouterExtraction(
           JSON.parse(body) as unknown,
           claim.requestedModel,
+          adapter.schemaName,
         );
       } else {
         try {
