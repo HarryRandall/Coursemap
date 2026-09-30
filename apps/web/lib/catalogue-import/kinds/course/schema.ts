@@ -325,6 +325,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             minimumUnits: { type: "number", exclusiveMinimum: 0 },
             courseCodes: {
               type: "array",
+              minItems: 1,
               items: {
                 type: "string",
                 pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
