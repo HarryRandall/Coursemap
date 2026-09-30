@@ -80,7 +80,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
             unitsOptions: {
               type: "array",
               minItems: 2,
-              items: { type: "number", minimum: 0 },
+              items: { type: "number", exclusiveMinimum: 0 },
             },
           },
         },
