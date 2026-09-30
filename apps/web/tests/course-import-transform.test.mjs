@@ -653,7 +653,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   );
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v22");
+  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v23");
   assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v34");
   assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.match(
