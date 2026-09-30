@@ -60,7 +60,10 @@ test("catalogue content autosaves and remains separate from student view", async
 
   await page.getByRole("tab", { name: "Changelog" }).click();
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1100\/changelog$/);
-  await expect(page.getByRole("list", { name: "Changelog" })).toBeVisible();
+  // Entries are grouped by day, one list each.
+  await expect(
+    page.getByRole("list", { name: /^Changelog for / }).first(),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Draft discarded" }).first(),
   ).toBeVisible();
