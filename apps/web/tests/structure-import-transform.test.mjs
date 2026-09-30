@@ -977,3 +977,54 @@ test("failed and truncated structure responses remain audit-only", () => {
   }
   assert.equal(finalise(extraction).canPersist, true);
 });
+
+test("a tag no course carries becomes wording students check themselves", () => {
+  const model = structuredClone(extraction);
+  model.requirements.rule.children.push({
+    ...model.requirements.rule.children[0],
+    key: "list-rule",
+    conditionKind: "tag",
+    tag: "Elective List A",
+    minimumUnits: 6,
+    freeText: null,
+  });
+  const listRule = (knownTags) => {
+    const result = finalise(model, { knownTags }).extraction;
+    return {
+      condition: result.requirements.rule.children.find(
+        (child) => child.key === "list-rule",
+      ),
+      flagged: result.reviewItems.some((item) =>
+        item.message.includes("Elective List A"),
+      ),
+    };
+  };
+  const uncounted = listRule(["Science"]);
+  assert.equal(uncounted.condition.conditionKind, "free_text");
+  assert.equal(uncounted.condition.tag, null);
+  assert.equal(uncounted.condition.freeText, uncounted.condition.sourceText);
+  assert.equal(uncounted.condition.minimumUnits, 6);
+  assert.equal(uncounted.flagged, true);
+  assert.equal(
+    validateAcademicStructureExtraction(
+      finalise(model, { knownTags: ["Science"] }).extraction,
+    ).success,
+    true,
+  );
+
+  const counted = listRule(["elective list a"]);
+  assert.equal(counted.condition.conditionKind, "tag");
+  assert.equal(counted.flagged, false);
+  assert.equal(listRule(undefined).condition.conditionKind, "tag");
+
+  assert.match(
+    buildAcademicStructureExtractionUserPrompt({
+      expectedKind: "programme",
+      expectedCode: "tstp",
+      academicYear: 2026,
+      knownTags: ["Elective List A", "Science"],
+      pageMarkdown: "# Programme",
+    }),
+    /Selected academic year: 2026\nKnown tags: Elective List A; Science\n\n# Programme$/u,
+  );
+});
