@@ -19,6 +19,7 @@ import { projectAcademicStructureSnapshot } from "../lib/catalogue-import/kinds/
 import { structureCatalogueContent } from "../lib/catalogue/content.ts";
 import { structureKindAdapter } from "../lib/catalogue-import/kinds/structure/adapter.ts";
 import { CBE_LIST_ONE_2024_URL } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
+import { convertAnuPageToMarkdown } from "../lib/catalogue-import/anu-page-markdown.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 
 // A complete, valid extraction of the reduced Bachelor of Computing page, in
@@ -1061,6 +1062,7 @@ test("listed structure options ignore codes mentioned only in prose", () => {
 - [Capital Markets](CAPM-MAJ)
 - QFIN-MAJ
 Students who completed HIST-MAJ may seek advice about credit.
+Students should not count [Honours](HONR-MAJ) towards this degree.
 
 ## Minors
 
@@ -1069,6 +1071,21 @@ The course CBEA1001 does not count towards ARCH-MIN.`);
   assert.deepEqual(
     options.map(({ targetCode }) => targetCode),
     ["CAPM-MAJ", "QFIN-MAJ", "BESS-MIN"],
+  );
+});
+
+test("listed structure options retain ANU's programme option list", async () => {
+  const html = await readFile(
+    new URL("./fixtures/catalogue/anu-2026-aacom.html", import.meta.url),
+    "utf8",
+  );
+  const markdown = convertAnuPageToMarkdown({ html, frontMatter: {} });
+  const options = listedStructureOptions(markdown);
+  assert.deepEqual(
+    options
+      .filter(({ targetKind }) => targetKind === "specialisation")
+      .map(({ targetCode }) => targetCode),
+    ["ARIN-SPEC", "HCCC-SPEC", "MACL-SPEC", "SYAR-SPEC", "THCS-SPEC"],
   );
 });
 
