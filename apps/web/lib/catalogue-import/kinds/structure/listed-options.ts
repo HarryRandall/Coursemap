@@ -34,15 +34,12 @@ export function listedStructureOptions(
   pageMarkdown: string,
 ): Omit<AcademicStructureRelationship, "position">[] {
   const options: Omit<AcademicStructureRelationship, "position">[] = [];
-  let listing: { kind: OptionKind; heading: string; level: number } | null =
-    null;
+  let listing: { kind: OptionKind; heading: string } | null = null;
   for (const line of pageMarkdown.split("\n")) {
     const heading = /^(#{1,4})\s+(.+?)\s*$/u.exec(line);
     if (heading) {
-      const level = heading[1].length;
-      if (listing && level > listing.level) continue;
       const kind = LIST_HEADINGS[heading[2].toLowerCase()];
-      listing = kind ? { kind, heading: heading[2], level } : null;
+      listing = kind ? { kind, heading: heading[2] } : null;
       continue;
     }
     if (!listing) continue;
