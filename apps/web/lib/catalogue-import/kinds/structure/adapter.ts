@@ -1,8 +1,4 @@
-import type {
-  CatalogueSyncAdapter,
-  SupportingSourcePage,
-} from "../../../catalogue-sync/kind-adapter.ts";
-import { load } from "cheerio";
+import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { structureCatalogueContent } from "../../../catalogue/content.ts";
 import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
 import {
@@ -12,6 +8,10 @@ import {
   validateAcademicStructureExtraction,
 } from "./contract.ts";
 import { finaliseAcademicStructureExtraction } from "./finalise.ts";
+import {
+  financeSourceReviewItems,
+  financeSupportingSource,
+} from "./finance-source.ts";
 import { normaliseAcademicStructureModelExtraction } from "./model-canonical.ts";
 import { projectAcademicStructureSnapshot } from "./project.ts";
 import {
@@ -23,36 +23,9 @@ import {
   buildAcademicStructureExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuAcademicStructurePage } from "./source.ts";
-import { preservesStudentManagedFundChoice } from "./smf-choice.ts";
-import {
-  fetchCbeListOneMembership,
-  modelsCbeListOneMembership,
-} from "./cbe-list-one.ts";
 
 function structureKind(kind: string): AcademicStructureKind {
   return kind as AcademicStructureKind;
-}
-
-function linksToCbeListOne(html: string) {
-  const $ = load(html);
-  return $("a[href]")
-    .toArray()
-    .some((link) => {
-      const label = $(link).text().replace(/\s+/gu, " ").trim();
-      if (!/\bList 1\b/iu.test(label)) return false;
-      try {
-        const url = new URL(
-          $(link).attr("href") ?? "",
-          "https://programsandcourses.anu.edu.au",
-        );
-        return (
-          url.origin === "https://cbe.anu.edu.au" &&
-          /\/list-1\/?/iu.test(url.pathname)
-        );
-      } catch {
-        return false;
-      }
-    });
 }
 
 export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtraction> =
@@ -75,24 +48,13 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         claim.code,
         { signal },
       );
-      if (
-        page.sourceError ||
-        claim.kind !== "programme" ||
-        claim.code !== "BFINN" ||
-        claim.academicYear !== 2024 ||
-        !linksToCbeListOne(page.html)
-      )
-        return page;
-      const list = await fetchCbeListOneMembership({ signal });
-      const supporting: SupportingSourcePage = {
-        ...list,
-        sourceName: "ANU College of Business and Economics List 1",
-        sourceKind: "linked_course_list",
-        sourceBaseUrl: "https://cbe.anu.edu.au",
-        externalKey: "CBE-LIST-1-2024",
-        httpStatus: 200,
-      };
-      return { ...page, supportingSources: [supporting] };
+      if (page.sourceError) return page;
+      const supporting = await financeSupportingSource(
+        claim,
+        page.html,
+        signal,
+      );
+      return supporting ? { ...page, supportingSources: [supporting] } : page;
     },
     prepareInput(claim, page) {
       return convertAnuPageToMarkdown({
@@ -148,71 +110,23 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         responseError,
         responseRepair,
       });
-      const incompleteList = supportingSources?.some(
-        (source) =>
-          !modelsCbeListOneMembership(
-            outcome.extraction.requirements.rule,
-            source.courseCodes,
-          ),
-      );
-      const mismatchedCourseLinks = (supportingSources ?? []).flatMap(
-        (source) => source.mismatchedCourseLinks,
-      );
-      const unsafeSmfChoice =
-        claim.kind === "programme" &&
-        claim.code === "BFINN" &&
-        claim.academicYear === 2024 &&
-        /FINM3009[\s\S]*FINM3010[\s\S]*consecutive semesters/iu.test(
-          pageMarkdown,
-        ) &&
-        !preservesStudentManagedFundChoice(outcome.extraction.requirements);
-      if (
-        !incompleteList &&
-        !unsafeSmfChoice &&
-        mismatchedCourseLinks.length === 0
-      )
-        return outcome;
+      const sourceReviewItems = financeSourceReviewItems({
+        claim,
+        pageMarkdown,
+        requirements: outcome.extraction.requirements,
+        supportingSources,
+      });
+      if (sourceReviewItems.length === 0) return outcome;
       return {
         ...outcome,
         extraction: {
           ...outcome.extraction,
           reviewItems: [
             ...outcome.extraction.reviewItems,
-            ...(incompleteList
-              ? [
-                  {
-                    fieldKey: "requirements.rule",
-                    kind: "invalid" as const,
-                    severity: "error" as const,
-                    message:
-                      "The linked List 1 requirement does not contain the full verified 2024 course membership. Review it before publication.",
-                  },
-                ]
-              : []),
-            ...(unsafeSmfChoice
-              ? [
-                  {
-                    fieldKey: "requirements.rule",
-                    kind: "invalid" as const,
-                    severity: "error" as const,
-                    message:
-                      "The Student Managed Fund option must retain the ordered courses and timing in a consecutive-semester pair. Review it before publication.",
-                  },
-                ]
-              : []),
-            ...mismatchedCourseLinks.map(({ listedCode, linkedCode }) => ({
-              fieldKey: "requirements.rule",
-              kind: "conflict" as const,
-              severity: "error" as const,
-              message: `The linked CBE List 1 prints ${listedCode} but its ANU course link points to ${linkedCode}. Resolve the source discrepancy before publication.`,
-            })),
+            ...sourceReviewItems,
           ],
         },
-        errorCount:
-          outcome.errorCount +
-          Number(Boolean(incompleteList)) +
-          Number(unsafeSmfChoice) +
-          mismatchedCourseLinks.length,
+        errorCount: outcome.errorCount + sourceReviewItems.length,
       };
     },
     project(extraction, supportingSources) {
