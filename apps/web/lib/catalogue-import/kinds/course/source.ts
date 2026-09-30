@@ -121,6 +121,10 @@ export function assertImportYear(year: number) {
   return year;
 }
 
+export function parseAnuCatalogueYear(value: string | null) {
+  return value !== null && /^\d{4}$/u.test(value) ? Number(value) : null;
+}
+
 export function createAnuCourseUrl(year: number, courseCode: string) {
   const selectedYear = assertImportYear(year);
   const code = normaliseAnuCourseCode(courseCode);
@@ -210,7 +214,7 @@ export function validateAnuCoursePage({
   }
 
   const metaCode = metadata(html, "course-code")?.toUpperCase() ?? null;
-  const parsedYear = Number(metadata(html, "course-year"));
+  const parsedYear = parseAnuCatalogueYear(metadata(html, "course-year"));
   const title = metadata(html, "course-name");
 
   if (!metaCode || !COURSE_CODE_PATTERN.test(metaCode)) {
@@ -224,7 +228,7 @@ export function validateAnuCoursePage({
       message: `Expected ${code}, but ANU identified the page as ${metaCode}.`,
     });
   }
-  if (!Number.isInteger(parsedYear)) {
+  if (parsedYear === null) {
     issues.push({
       code: "MISSING_COURSE_YEAR",
       message: "The page does not contain authoritative course-year metadata.",
@@ -260,7 +264,13 @@ export function validateAnuCoursePage({
     });
   }
 
-  if (issues.length > 0 || !metaCode || !title || !resolvedCanonical) {
+  if (
+    issues.length > 0 ||
+    !metaCode ||
+    parsedYear === null ||
+    !title ||
+    !resolvedCanonical
+  ) {
     return { valid: false, page: null, issues };
   }
   return {
