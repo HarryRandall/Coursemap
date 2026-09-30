@@ -98,6 +98,7 @@ export function finaliseAcademicStructureExtraction({
   pageMarkdown,
   finishReason,
   responseError,
+  responseRepair,
 }: {
   kind: AcademicStructureKind;
   code: string;
@@ -107,6 +108,7 @@ export function finaliseAcademicStructureExtraction({
   pageMarkdown: string;
   finishReason: string | null;
   responseError: string | null;
+  responseRepair?: string | null;
 }) {
   const normalised = normaliseAcademicStructureModelExtraction(
     withModelEvidenceMethod(model),
@@ -149,6 +151,17 @@ export function finaliseAcademicStructureExtraction({
   const problem = modelResponseProblem({ finishReason, responseError });
   const reviewItems: AcademicStructureExtractionReviewItem[] = [
     ...extraction.reviewItems,
+    ...(responseRepair
+      ? [
+          {
+            fieldKey: "requirements.rule",
+            kind: "model_repair" as const,
+            severity: "warning" as const,
+            message:
+              "The provider returned one extra closing brace in the requirement JSON. Coursemap recovered the rule; review it before publication.",
+          },
+        ]
+      : []),
     ...(problem
       ? [
           {
@@ -214,6 +227,7 @@ export function finaliseAcademicStructureExtraction({
     report: {
       finishReason,
       responseError,
+      responseRepair,
       responseProblem: problem,
       providerNormalisations: normalised.normalisations,
       repairedRequirements,
