@@ -1,4 +1,8 @@
-import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
+import type {
+  CatalogueSyncAdapter,
+  SupportingSourcePage,
+} from "../../../catalogue-sync/kind-adapter.ts";
+import { load } from "cheerio";
 import { structureCatalogueContent } from "../../../catalogue/content.ts";
 import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
 import {
@@ -19,9 +23,35 @@ import {
   buildAcademicStructureExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuAcademicStructurePage } from "./source.ts";
+import {
+  fetchCbeListOneMembership,
+  modelsCbeListOneMembership,
+} from "./cbe-list-one.ts";
 
 function structureKind(kind: string): AcademicStructureKind {
   return kind as AcademicStructureKind;
+}
+
+function linksToCbeListOne(html: string) {
+  const $ = load(html);
+  return $("a[href]")
+    .toArray()
+    .some((link) => {
+      const label = $(link).text().replace(/\s+/gu, " ").trim();
+      if (!/\bList 1\b/iu.test(label)) return false;
+      try {
+        const url = new URL(
+          $(link).attr("href") ?? "",
+          "https://programsandcourses.anu.edu.au",
+        );
+        return (
+          url.origin === "https://cbe.anu.edu.au" &&
+          /\/list-1\/?/iu.test(url.pathname)
+        );
+      } catch {
+        return false;
+      }
+    });
 }
 
 export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtraction> =
@@ -38,12 +68,30 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       unknown
     >,
     async fetchSource(claim, { signal }) {
-      return fetchAnuAcademicStructurePage(
+      const page = await fetchAnuAcademicStructurePage(
         claim.academicYear,
         structureKind(claim.kind),
         claim.code,
         { signal },
       );
+      if (
+        page.sourceError ||
+        claim.kind !== "programme" ||
+        claim.code !== "BFINN" ||
+        claim.academicYear !== 2024 ||
+        !linksToCbeListOne(page.html)
+      )
+        return page;
+      const list = await fetchCbeListOneMembership({ signal });
+      const supporting: SupportingSourcePage = {
+        ...list,
+        sourceName: "ANU College of Business and Economics List 1",
+        sourceKind: "linked_course_list",
+        sourceBaseUrl: "https://cbe.anu.edu.au",
+        externalKey: "CBE-LIST-1-2024",
+        httpStatus: 200,
+      };
+      return { ...page, supportingSources: [supporting] };
     },
     prepareInput(claim, page) {
       return convertAnuPageToMarkdown({
@@ -57,12 +105,13 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       });
     },
     buildSystemPrompt: buildAcademicStructureExtractionSystemPrompt,
-    buildUserPrompt(claim, pageMarkdown) {
+    buildUserPrompt(claim, pageMarkdown, _context, supportingSources) {
       return buildAcademicStructureExtractionUserPrompt({
         expectedKind: structureKind(claim.kind),
         expectedCode: claim.code,
         academicYear: claim.academicYear,
         pageMarkdown,
+        supportingSources,
       });
     },
     validateModelOutput(claim, value) {
@@ -84,8 +133,9 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       pageMarkdown,
       finishReason,
       responseError,
+      supportingSources,
     }) {
-      return finaliseAcademicStructureExtraction({
+      const outcome = finaliseAcademicStructureExtraction({
         kind: structureKind(claim.kind),
         code: claim.code,
         year: claim.academicYear,
@@ -95,24 +145,74 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         finishReason,
         responseError,
       });
+      const incompleteList = supportingSources?.some(
+        (source) =>
+          !modelsCbeListOneMembership(
+            outcome.extraction.requirements.rule,
+            source.courseCodes,
+          ),
+      );
+      if (!incompleteList) return outcome;
+      return {
+        ...outcome,
+        extraction: {
+          ...outcome.extraction,
+          reviewItems: [
+            ...outcome.extraction.reviewItems,
+            {
+              fieldKey: "requirements.rule",
+              kind: "invalid" as const,
+              severity: "error" as const,
+              message:
+                "The linked List 1 requirement does not contain the full verified 2024 course membership. Review it before publication.",
+            },
+          ],
+        },
+        errorCount: outcome.errorCount + 1,
+      };
     },
-    project(extraction) {
+    project(extraction, supportingSources) {
       return structureCatalogueContent({
         projection: projectAcademicStructureSnapshot(extraction),
-        evidence: extraction.evidence.map((item) => ({
-          fieldPath: item.fieldKey,
-          method: item.method,
-          confidence: item.confidence,
-          sourceLocator: item.sourceLocator,
-          sourceExcerpt: item.evidenceExcerpt,
-        })),
-        flags: extraction.reviewItems.map((item) => ({
-          fieldPath: item.fieldKey,
-          severity: item.severity,
-          code: item.kind.toUpperCase(),
-          message: item.message,
-          sourceExcerpt: null,
-        })),
+        evidence: [
+          ...extraction.evidence.map((item) => ({
+            fieldPath: item.fieldKey,
+            method: item.method,
+            confidence: item.confidence,
+            sourceLocator: item.sourceLocator,
+            sourceExcerpt: item.evidenceExcerpt,
+          })),
+          ...(supportingSources ?? []).map((source) => ({
+            fieldPath: "requirements.structure",
+            method: "deterministic" as const,
+            confidence: 1,
+            sourceLocator: source.sourceUrl,
+            sourceExcerpt: "List 1: CBE Courses 2024 and 2023",
+            sourceUrl: source.sourceUrl,
+          })),
+        ],
+        flags: [
+          ...extraction.reviewItems.map((item) => ({
+            fieldPath: item.fieldKey,
+            severity: item.severity,
+            code: item.kind.toUpperCase(),
+            message: item.message,
+            sourceExcerpt: null,
+          })),
+          ...(supportingSources ?? []).flatMap((source) =>
+            source.duplicateCodes.length
+              ? [
+                  {
+                    fieldPath: "requirements.structure",
+                    severity: "warning" as const,
+                    code: "SOURCE_DUPLICATE_COURSE",
+                    message: `The linked course list repeats ${source.duplicateCodes.join(", ")}; each code was supplied once for review.`,
+                    sourceExcerpt: null,
+                  },
+                ]
+              : [],
+          ),
+        ],
       });
     },
   };
