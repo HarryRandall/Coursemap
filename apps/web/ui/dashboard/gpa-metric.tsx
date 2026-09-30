@@ -45,58 +45,97 @@ export function GpaMetric({
         </>
       }
     >
-      <div
-        className="enter-chart-line h-24"
-        role="img"
-        aria-label={`GPA by semester: ${series
-          .map((point) => `${point.term} ${point.value.toFixed(1)}`)
-          .join(", ")}`}
-      >
-        <ResponsiveContainer
-          width="100%"
-          height={76}
-          initialDimension={{ width: 240, height: 76 }}
-        >
-          <AreaChart
-            data={series}
-            margin={{ top: 6, right: 3, bottom: 0, left: 3 }}
-            accessibilityLayer
-          >
-            <defs>
-              <linearGradient id="dashboard-gpa" x1="0" y1="0" x2="0" y2="1">
-                <stop stopColor={LINE} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={LINE} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <YAxis hide domain={[0, 7]} />
-            <XAxis dataKey="term" hide />
-            <Tooltip
-              content={<ChartTip format={(value) => value.toFixed(1)} />}
-              wrapperStyle={{ zIndex: 200 }}
-              cursor={{ stroke: "var(--color-border)" }}
-            />
-            <Area
-              name="GPA"
-              activeDot={{
-                r: 4,
-                stroke: "var(--color-background)",
-                strokeWidth: 2,
-              }}
-              dataKey="value"
-              stroke={LINE}
-              strokeWidth={2}
-              fill="url(#dashboard-gpa)"
-              dot={{ r: 2, fill: LINE }}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-          {series.map((point) => (
-            <span key={point.term}>{point.term}</span>
-          ))}
-        </div>
-      </div>
+      {series.length === 1 ? (
+        <SingleTermGpa term={series[0].term} value={series[0].value} />
+      ) : (
+        <GpaTrend series={series} />
+      )}
     </AcademicMetricCard>
+  );
+}
+
+/** One semester has no trend to draw, so its GPA is placed on the 7-point scale. */
+function SingleTermGpa({ term, value }: { term: string; value: number }) {
+  return (
+    <div
+      className="flex h-24 flex-col justify-center gap-2"
+      role="img"
+      aria-label={`GPA ${value.toFixed(1)} of 7 in ${term}`}
+    >
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full"
+          style={{
+            width: `${(Math.min(Math.max(value, 0), 7) / 7) * 100}%`,
+            backgroundColor: LINE,
+          }}
+        />
+      </div>
+      <div className="flex justify-between gap-2 text-[10px] text-muted-foreground">
+        <span>{term}</span>
+        <span>Trend shows after your next semester</span>
+      </div>
+    </div>
+  );
+}
+
+function GpaTrend({
+  series,
+}: {
+  series: readonly { term: string; value: number }[];
+}) {
+  return (
+    <div
+      className="enter-chart-line h-24"
+      role="img"
+      aria-label={`GPA by semester: ${series
+        .map((point) => `${point.term} ${point.value.toFixed(1)}`)
+        .join(", ")}`}
+    >
+      <ResponsiveContainer
+        width="100%"
+        height={76}
+        initialDimension={{ width: 240, height: 76 }}
+      >
+        <AreaChart
+          data={series}
+          margin={{ top: 6, right: 3, bottom: 0, left: 3 }}
+          accessibilityLayer
+        >
+          <defs>
+            <linearGradient id="dashboard-gpa" x1="0" y1="0" x2="0" y2="1">
+              <stop stopColor={LINE} stopOpacity={0.35} />
+              <stop offset="100%" stopColor={LINE} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <YAxis hide domain={[0, 7]} />
+          <XAxis dataKey="term" hide />
+          <Tooltip
+            content={<ChartTip format={(value) => value.toFixed(1)} />}
+            wrapperStyle={{ zIndex: 200 }}
+            cursor={{ stroke: "var(--color-border)" }}
+          />
+          <Area
+            name="GPA"
+            activeDot={{
+              r: 4,
+              stroke: "var(--color-background)",
+              strokeWidth: 2,
+            }}
+            dataKey="value"
+            stroke={LINE}
+            strokeWidth={2}
+            fill="url(#dashboard-gpa)"
+            dot={{ r: 2, fill: LINE }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+        {series.map((point) => (
+          <span key={point.term}>{point.term}</span>
+        ))}
+      </div>
+    </div>
   );
 }
