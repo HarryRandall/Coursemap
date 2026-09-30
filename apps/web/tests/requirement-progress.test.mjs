@@ -228,6 +228,53 @@ test("any_of groups are satisfied by one alternative and count shared courses on
   assert.deepEqual(rootProgress.matchedCourseCodes, ["COMP1100"]);
 });
 
+test("named courses can satisfy a major's alternative to unverified exchange", () => {
+  const exchange = condition(1, {
+    conditionKind: "other",
+    freeText: "24 units from an approved university exchange partner in Asia",
+    minimumUnits: 24,
+  });
+  const courses = condition(2, {
+    minimumUnits: 24,
+    options: [
+      option("FINM3005"),
+      option("FINM3006"),
+      option("FINM3008"),
+      option("FINM3045"),
+    ],
+  });
+  const root = group(10, "any_of", [exchange, courses]);
+  const financeCatalogue = {
+    courses: [
+      course("FINM3005", 3000),
+      course("FINM3006", 3000),
+      course("FINM3008", 3000),
+      course("FINM3045", 3000),
+    ],
+    terms,
+  };
+  const incomplete = requirementTreeProgress({
+    root,
+    attempts: [],
+    catalogue: financeCatalogue,
+  });
+  assert.equal(incomplete.get(requirementNodeKey(root)).state, "unmeasured");
+
+  const completed = requirementTreeProgress({
+    root,
+    attempts: [
+      attempt("a", "FINM3005", "completed"),
+      attempt("b", "FINM3006", "completed"),
+      attempt("c", "FINM3008", "completed"),
+      attempt("d", "FINM3045", "completed"),
+    ],
+    catalogue: financeCatalogue,
+  });
+  assert.equal(completed.get(requirementNodeKey(exchange)).state, "unmeasured");
+  assert.equal(completed.get(requirementNodeKey(courses)).state, "satisfied");
+  assert.equal(completed.get(requirementNodeKey(root)).state, "satisfied");
+});
+
 test("a group with its own unit total needs both the children and the total", () => {
   const rule = condition(1, {
     minimumUnits: 6,
