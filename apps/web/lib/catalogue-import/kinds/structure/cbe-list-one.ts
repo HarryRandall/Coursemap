@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { load } from "cheerio";
+import type { AcademicStructureRequirementRule } from "./contract.ts";
 
 const COURSE_CODE = /^[A-Z]{4}\d{4}[A-Z]?$/u;
 const ANU_COURSE_ORIGIN = "https://programsandcourses.anu.edu.au";
@@ -22,6 +23,30 @@ export type FetchedCbeListOneMembership = CbeListOneMembership & {
   httpEtag: string | null;
   sourceLastModified: string | null;
 };
+
+/** A linked-list branch must contain exactly the verified membership. */
+export function modelsCbeListOneMembership(
+  rule: AcademicStructureRequirementRule | null,
+  courseCodes: readonly string[],
+): boolean {
+  if (!rule) return false;
+  if (rule.type === "group")
+    return rule.children.some((child) =>
+      modelsCbeListOneMembership(child, courseCodes),
+    );
+  if (
+    rule.conditionKind !== "course_list" ||
+    !/\bList 1\b/iu.test(rule.sourceText) ||
+    rule.minimumUnits !== 6 ||
+    rule.includesAnyCourse
+  )
+    return false;
+  const actual = new Set(rule.courseCodes);
+  return (
+    actual.size === courseCodes.length &&
+    courseCodes.every((code) => actual.has(code))
+  );
+}
 
 const MAX_SOURCE_BYTES = 1_000_000;
 

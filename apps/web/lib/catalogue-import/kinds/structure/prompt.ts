@@ -2,11 +2,12 @@ import {
   ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
   type AcademicStructureKind,
 } from "./contract.ts";
+import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.ts";
 
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v6";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v12";
+  "coursemap-academic-structure-prompt.v13";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -85,6 +86,7 @@ Requirement interpretation:
 - A finite linked programme, major, minor or specialisation list may be a structure_list condition only when every option has a literal code. Preserve literal unit limits on that condition.
 - When one requirement paragraph mixes an ordinary finite course choice with a specially paired course option, retain the ordinary choice as a typed branch and isolate the paired option as its own branch. Preserve any consecutive-semester or other timing constraint as exact unresolved wording with a review item. Never let a course_list containing the paired codes imply that either course alone can satisfy the option.
 - A linked external course list is a separate requirement from an adjacent finite course list, even when the page indents them alike. If the supplied page does not enumerate that external list's members, preserve the exact linked-list clause as unresolved wording and flag the missing, year-specific membership for review. Do not model it as unrestricted electives, invent members or treat a generic tag as verified membership.
+- When a separately labelled supporting source supplies the linked list's verified course codes for the selected year, use all its unique codes in one course_list condition for that linked-list clause. Take the unit requirement and exact condition sourceText only from the primary programme page. The supporting source establishes membership, not course unit values, degree structure, prerequisites or other programme requirements. Do not use it if the primary programme page no longer requires that linked list.
 - Preserve independently modelled requirements when a neighbouring clause is unresolved. Do not move the entire surrounding block into unmodelledText because one linked list, footnote or paired option needs review.
 - Set freeText to null for every typed condition. Use it only when conditionKind is free_text.
 - Use unit_total, level, subject, tag or unrestricted only when the source states that constraint explicitly.
@@ -108,11 +110,19 @@ export function buildAcademicStructureExtractionUserPrompt({
   expectedCode,
   academicYear,
   pageMarkdown,
+  supportingSources = [],
 }: {
   expectedKind: AcademicStructureKind;
   expectedCode: string;
   academicYear: number;
   pageMarkdown: string;
+  supportingSources?: readonly SupportingSourcePage[];
 }) {
-  return `Expected structure kind: ${expectedKind}\nExpected structure code: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n\n${pageMarkdown}`;
+  const linkedLists = supportingSources
+    .map(
+      (source) =>
+        `Supporting source for linked course-list membership: ${source.sourceUrl}\nValidated course codes for ${academicYear}, one per course:\n${source.courseCodes.join("\n")}`,
+    )
+    .join("\n\n");
+  return `Expected structure kind: ${expectedKind}\nExpected structure code: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n\n${pageMarkdown}${linkedLists ? `\n\n${linkedLists}` : ""}`;
 }
