@@ -7,6 +7,7 @@ import {
 } from "../lib/catalogue-import/kinds/structure/contract.ts";
 import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "../lib/catalogue-import/kinds/structure/schema.ts";
 import { finaliseAcademicStructureExtraction } from "../lib/catalogue-import/kinds/structure/finalise.ts";
+import { listedStructureOptions } from "../lib/catalogue-import/kinds/structure/listed-options.ts";
 import {
   ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
   ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
@@ -1051,6 +1052,23 @@ test("records the majors and minors a programme page lists that the model left o
         sourceLocator: "Minors",
       },
     ],
+  );
+});
+
+test("listed structure options ignore codes mentioned only in prose", () => {
+  const options = listedStructureOptions(`## Majors
+
+- [Capital Markets](CAPM-MAJ)
+- QFIN-MAJ
+Students who completed HIST-MAJ may seek advice about credit.
+
+## Minors
+
+- [Business Essentials](BESS-MIN)
+The course CBEA1001 does not count towards ARCH-MIN.`);
+  assert.deepEqual(
+    options.map(({ targetCode }) => targetCode),
+    ["CAPM-MAJ", "QFIN-MAJ", "BESS-MIN"],
   );
 });
 
