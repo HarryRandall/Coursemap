@@ -936,7 +936,7 @@ test("the user prompt offers the tags already in use", () => {
       academicYear: 2026,
       pageMarkdown: "# COMP2400",
     }).startsWith(
-      "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400\n",
+      "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400",
     ),
   );
 });
@@ -1387,18 +1387,18 @@ test("offering labels cannot replace supplied academic period identities", () =>
 
 test("the model receives relevant course identities without resolving ambiguous names in code", () => {
   const prompt = buildCourseExtractionUserPrompt({
-    expectedCode: "FINM3010",
-    academicYear: 2024,
-    pageMarkdown: "Admission requires the Student Managed Fund Course.",
+    expectedCode: "TSTC3010",
+    academicYear: 2026,
+    pageMarkdown: "Admission requires the Research Practicum Course.",
     knownCourses: [
-      { code: "FINM3009", name: "Student Managed Fund" },
-      { code: "FINM3999", name: "Student Managed Fund" },
-      { code: "FINM2002", name: "Corporate Finance" },
+      { code: "TSTC3009", name: "Research Practicum" },
+      { code: "TSTC3999", name: "Research Practicum" },
+      { code: "TSTC2002", name: "Research Methods" },
     ],
   });
-  assert.match(prompt, /FINM3009: Student Managed Fund/u);
-  assert.match(prompt, /FINM3999: Student Managed Fund/u);
-  assert.equal(prompt.includes("FINM2002"), false);
+  assert.match(prompt, /TSTC3009: Research Practicum/u);
+  assert.match(prompt, /TSTC3999: Research Practicum/u);
+  assert.equal(prompt.includes("TSTC2002"), false);
 });
 
 test("a structure link in related courses is rejected without losing the prerequisite tree", () => {
