@@ -12,6 +12,7 @@ import {
 } from "./model-canonical.ts";
 import { withListedStructureOptions } from "./listed-options.ts";
 import { consecutiveSemesterReviewItems } from "./semester-pairs.ts";
+import { unknownTagReviewItems } from "./known-tags.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
   hasExtractedContent,
@@ -100,6 +101,7 @@ export function finaliseAcademicStructureExtraction({
   finishReason,
   responseError,
   responseRepair,
+  knownTags,
 }: {
   kind: AcademicStructureKind;
   code: string;
@@ -110,6 +112,8 @@ export function finaliseAcademicStructureExtraction({
   finishReason: string | null;
   responseError: string | null;
   responseRepair?: string | null;
+  /** Tags the year recognises; unknown tag conditions are flagged when given. */
+  knownTags?: readonly string[];
 }) {
   const normalised = normaliseAcademicStructureModelExtraction(
     withModelEvidenceMethod(model),
@@ -208,6 +212,9 @@ export function finaliseAcademicStructureExtraction({
       message: `The ANU page does not contain this wording: ${wording.slice(0, 160)}`,
     })),
     ...consecutiveSemesterReviewItems(extraction.requirements),
+    ...(knownTags
+      ? unknownTagReviewItems(extraction.requirements.rule, knownTags)
+      : []),
   ];
   // The page often opens with a paragraph the model reads as both the
   // introduction and the description; printed twice it doubles the page.

@@ -816,7 +816,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   assert.match(systemPrompt, /Never invent/);
   assert.match(systemPrompt, /explicit AND/);
   assert.match(systemPrompt, /free_text/);
-  assert.match(systemPrompt, /linked external course list/);
+  assert.match(systemPrompt, /named course list whose members/);
   assert.match(systemPrompt, /specially paired course option/);
   assert.match(systemPrompt, /Every section object must include sourceLocator/);
   assert.match(systemPrompt, /approved exchange credit/);
@@ -994,4 +994,34 @@ test("failed and truncated structure responses remain audit-only", () => {
     assert.equal(finalise(extraction, { finishReason }).canPersist, false);
   }
   assert.equal(finalise(extraction).canPersist, true);
+});
+
+test("tag rules name a known list or tag, or are raised for review", () => {
+  const model = structuredClone(extraction);
+  model.requirements.rule.children.push({
+    ...model.requirements.rule.children[0],
+    key: "list-rule",
+    conditionKind: "tag",
+    tag: "Elective List A",
+    minimumUnits: 6,
+    freeText: null,
+  });
+  const flagged = (knownTags) =>
+    finalise(model, { knownTags }).extraction.reviewItems.filter((item) =>
+      item.message.includes("Elective List A"),
+    );
+  assert.equal(flagged(["Science"]).length, 1);
+  assert.equal(flagged(["elective list a"]).length, 0);
+  assert.equal(flagged(undefined).length, 0);
+
+  assert.match(
+    buildAcademicStructureExtractionUserPrompt({
+      expectedKind: "programme",
+      expectedCode: "tstp",
+      academicYear: 2026,
+      knownTags: ["Elective List A", "Science"],
+      pageMarkdown: "# Programme",
+    }),
+    /Selected academic year: 2026\nKnown tags: Elective List A; Science\n\n# Programme$/u,
+  );
 });
