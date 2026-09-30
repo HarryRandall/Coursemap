@@ -14,7 +14,17 @@ import {
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const ANU_PROGRAMS_AND_COURSES_ORIGIN = "https://programsandcourses.anu.edu.au";
 const CLASS_SUMMARY_PATH =
-  /^\/(?:(\d{4})\/)?course\/([A-Z]{4}\d{4}[A-Z]?)\/[^/]+\/(\d+)\/?$/iu;
+  /^\/(?:(\d{4})\/)?course\/([A-Z]{4}\d{4}[A-Z]?)\/([^/]+)\/(\d+)\/?$/iu;
+const CLASS_SUMMARY_PERIOD_CODES: Record<string, string> = {
+  "first semester": "S1",
+  "semester 1": "S1",
+  "second semester": "S2",
+  "semester 2": "S2",
+  "summer session": "SUMMER",
+  "autumn session": "AUTUMN",
+  "winter session": "WINTER",
+  "spring session": "SPRING",
+};
 
 function isRealIsoDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(value);
@@ -37,11 +47,13 @@ export function normaliseAnuClassSummaryUrl(
     expectedCourseCode,
     expectedCalendarYear,
     expectedClassNumber,
+    expectedPeriodCode,
   }: {
     baseUrl?: string;
     expectedCourseCode?: string;
     expectedCalendarYear?: number;
     expectedClassNumber?: string;
+    expectedPeriodCode?: string;
   } = {},
 ) {
   if (!value) return null;
@@ -58,12 +70,22 @@ export function normaliseAnuClassSummaryUrl(
     const match = CLASS_SUMMARY_PATH.exec(url.pathname);
     if (!match) return null;
     const courseCode = match[2].toUpperCase();
+    const periodName = decodeURIComponent(match[3])
+      .replace(/\s+/gu, " ")
+      .trim()
+      .toLowerCase();
+    const periodCode = CLASS_SUMMARY_PERIOD_CODES[periodName];
     if (
       (expectedCourseCode && courseCode !== expectedCourseCode.toUpperCase()) ||
       (expectedCalendarYear !== undefined &&
         match[1] !== undefined &&
         Number(match[1]) !== expectedCalendarYear) ||
-      (expectedClassNumber !== undefined && match[3] !== expectedClassNumber)
+      (expectedClassNumber !== undefined && match[4] !== expectedClassNumber) ||
+      (expectedPeriodCode !== undefined &&
+        Object.values(CLASS_SUMMARY_PERIOD_CODES).includes(
+          expectedPeriodCode,
+        ) &&
+        periodCode !== expectedPeriodCode)
     ) {
       return null;
     }
@@ -206,12 +228,16 @@ export function validateCourseOfferings(
             typeof offering.classNumber === "string"
               ? offering.classNumber
               : undefined,
+          expectedPeriodCode:
+            typeof offering.periodCode === "string"
+              ? offering.periodCode
+              : undefined,
         }) === null
       ) {
         issues.push({
           path: `${path}.classSummaryUrl`,
           message:
-            "must be a complete ANU Programs and Courses class summary URL matching the course, class number and any stated year",
+            "must be a complete ANU Programs and Courses class summary URL matching the course, period, class number and any stated year",
         });
       }
     }

@@ -874,6 +874,8 @@ test("leaves untrusted class summary references invalid", () => {
     "https://programsandcourses.anu.edu.au/course/COMP2500/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/2025/course/COMP2400/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/2026/course/COMP2400/First%20Semester/5678",
+    "https://programsandcourses.anu.edu.au/2026/course/COMP2400/Second%20Semester/1234",
+    "https://programsandcourses.anu.edu.au/2026/course/COMP2400/Unknown%20Session/1234",
     "https://programsandcourses.anu.edu.au.evil.example/course/COMP2400/First%20Semester/1234",
     "https://user@programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/1234",
     "https://programsandcourses.anu.edu.au/course/COMP2400/First%20Semester/not-a-class",
@@ -909,6 +911,10 @@ test("leaves untrusted class summary references invalid", () => {
   const yearSpecific = structuredClone(extraction);
   yearSpecific.offerings[0].classSummaryUrl =
     "https://programsandcourses.anu.edu.au/2026/course/COMP2400/First%20Semester/1234";
+  assert.equal(validateCourseExtraction(yearSpecific).success, true);
+
+  yearSpecific.offerings[0].classSummaryUrl =
+    "https://programsandcourses.anu.edu.au/2026/course/COMP2400/Semester%201/1234";
   assert.equal(validateCourseExtraction(yearSpecific).success, true);
 });
 
