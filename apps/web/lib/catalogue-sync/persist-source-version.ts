@@ -443,7 +443,6 @@ export async function insertVersionContent(
     academicYearId,
     sourcePageId,
     sourceDocumentId = null,
-    sourceDocumentIdsByUrl,
     write,
   }: {
     snapshotId: number;
@@ -451,7 +450,6 @@ export async function insertVersionContent(
     academicYearId: number;
     sourcePageId: number | null;
     sourceDocumentId?: number | null;
-    sourceDocumentIdsByUrl?: ReadonlyMap<string, number>;
     write: CatalogueContent;
   },
 ) {
@@ -478,13 +476,6 @@ export async function insertVersionContent(
     write.requirements,
   );
   for (const evidence of write.evidence) {
-    const evidenceSourceDocumentId = evidence.sourceUrl
-      ? sourceDocumentIdsByUrl?.get(evidence.sourceUrl)
-      : sourceDocumentId;
-    if (evidenceSourceDocumentId === undefined)
-      throw new TypeError(
-        `The source document for ${evidence.sourceUrl} was not recorded.`,
-      );
     await tx`
       insert into public.catalogue_version_provenance (
         version_id, academic_year_id, source_page_id, field_path, method, confidence,
@@ -492,7 +483,7 @@ export async function insertVersionContent(
       ) values (
         ${snapshotId}, ${academicYearId}, ${sourcePageId}, ${evidence.fieldPath},
         ${evidence.method}, ${evidence.confidence}, ${evidence.sourceLocator},
-        ${evidence.sourceExcerpt}, ${evidenceSourceDocumentId}
+        ${evidence.sourceExcerpt}, ${sourceDocumentId}
       )
     `;
   }
@@ -514,12 +505,10 @@ export async function persistSourceVersion(
   {
     claim,
     sourceDocumentId,
-    sourceDocumentIdsByUrl,
     write,
   }: {
     claim: ClaimedCatalogueSync;
     sourceDocumentId: number;
-    sourceDocumentIdsByUrl?: ReadonlyMap<string, number>;
     write: CatalogueContent;
   },
 ): Promise<PersistedSourceVersion> {
@@ -534,18 +523,6 @@ export async function persistSourceVersion(
   }
 
   return sql.begin(async (tx) => {
-    for (const [sourceUrl, documentId] of sourceDocumentIdsByUrl ?? []) {
-      const [document] = await tx`
-        select 1 from public.catalogue_source_documents
-        where id = ${documentId} and record_id = ${claim.recordId}
-          and academic_year_id = ${claim.academicYearId}
-          and canonical_url = ${sourceUrl}
-      `;
-      if (!document)
-        throw new TypeError(
-          `The supporting source document for ${sourceUrl} does not belong to this catalogue record.`,
-        );
-    }
     const [record] = await tx`
       select records.id, records.published_version_id, records.latest_source_version_id,
         codes.code, years.year, listings.title as listing_title
@@ -685,7 +662,6 @@ export async function persistSourceVersion(
       academicYearId: claim.academicYearId,
       sourcePageId: null,
       sourceDocumentId,
-      sourceDocumentIdsByUrl,
       write,
     });
     await tx`

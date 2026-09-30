@@ -2,12 +2,11 @@ import {
   ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
   type AcademicStructureKind,
 } from "./contract.ts";
-import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.ts";
 
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v22";
+  "coursemap-academic-structure-prompt.v23";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -89,9 +88,7 @@ Requirement interpretation:
 - A finite linked programme, major, minor or specialisation list may be a structure_list condition only when every option has a literal code. Preserve literal unit limits on that condition.
 - When one requirement paragraph mixes an ordinary finite course choice with a specially paired course option, retain the ordinary choice as a course_list branch and isolate the paired option as its own branch. Never let a course_list containing the paired codes imply that either course alone can satisfy the option.
 - When two distinct named courses must both be completed in the printed order in consecutive semesters, use consecutive_semester_pair with those two courseCodes in order, the printed minimumUnits, and the exact timing sentence in freeText. Keep the paired course clause as exact sourceText and the timing sentence as exact freeText, even when a footnote separates them on the page. This is one measurable route, not two independent course choices. Do not add the same timing sentence to unmodelledText.
-- In the 2024 Bachelor of Finance example, the asterisk footnote immediately after the linked List 1 clause defines the FINM3009 and FINM3010 route above it. Include that footnote in requirements.sourceText even though it appears after List 1. FINM3009 followed by FINM3010 forms one 12-unit Student Managed Fund route over consecutive semesters. Exclude both codes from the ordinary course_list. Place a consecutive_semester_pair condition under an any_of group with the ordinary course_list. Set its courseCodes to ["FINM3009", "FINM3010"], minimumUnits to 12, maximumUnits to 12 because the source prints an exact 12-unit option, sourceText to the exact paired-course line and freeText to the exact footnote sentence ending "two consecutive semesters.". Never use free_text for this route.
 - A linked external course list is a separate requirement from an adjacent finite course list, even when the page indents them alike. If the supplied page does not enumerate that external list's members, preserve the exact linked-list clause as unresolved wording and flag the missing, year-specific membership for review. Do not model it as unrestricted electives, invent members or treat a generic tag as verified membership.
-- When a separately labelled supporting source supplies the linked list's verified course codes for the selected year, use all its unique codes in one course_list condition for that linked-list clause. Take the unit requirement and exact condition sourceText only from the primary programme page. The supporting source establishes membership, not course unit values, degree structure, prerequisites or other programme requirements. Do not use it if the primary programme page no longer requires that linked list.
 - Preserve independently modelled requirements when a neighbouring clause is unresolved. Do not move the entire surrounding block into unmodelledText because one linked list, footnote or paired option needs review.
 - Set freeText to null for typed conditions except consecutive_semester_pair, which must retain its exact timing sentence. Use it for free_text when wording cannot be modelled.
 - Use unit_total, level, subject, tag or unrestricted only when the source states that constraint explicitly.
@@ -115,19 +112,11 @@ export function buildAcademicStructureExtractionUserPrompt({
   expectedCode,
   academicYear,
   pageMarkdown,
-  supportingSources = [],
 }: {
   expectedKind: AcademicStructureKind;
   expectedCode: string;
   academicYear: number;
   pageMarkdown: string;
-  supportingSources?: readonly SupportingSourcePage[];
 }) {
-  const linkedLists = supportingSources
-    .map(
-      (source) =>
-        `Supporting source for linked course-list membership: ${source.sourceUrl}\nValidated course codes for ${academicYear}, one per course:\n${source.courseCodes.join("\n")}`,
-    )
-    .join("\n\n");
-  return `Expected structure kind: ${expectedKind}\nExpected structure code: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n\n${pageMarkdown}${linkedLists ? `\n\n${linkedLists}` : ""}`;
+  return `Expected structure kind: ${expectedKind}\nExpected structure code: ${expectedCode.toUpperCase()}\nSelected academic year: ${academicYear}\n\n${pageMarkdown}`;
 }

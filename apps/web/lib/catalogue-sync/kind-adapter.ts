@@ -23,29 +23,6 @@ export type FetchedSourcePage = {
   fetchedAt: string;
   /** A page that loaded but does not describe the expected record. */
   sourceError: (Error & { code: string; retryable: boolean }) | null;
-  supportingSources?: readonly SupportingSourcePage[];
-};
-
-export type SupportingSourcePage = {
-  sourceUrl: string;
-  sourceName: string;
-  sourceKind: string;
-  sourceBaseUrl: string;
-  externalKey: string;
-  html: string;
-  contentSha256: string;
-  byteSize: number;
-  httpStatus: number;
-  httpEtag: string | null;
-  sourceLastModified: string | null;
-  fetchedAt: string;
-  /** Validated facts made available to the model, without unrelated page prose. */
-  courseCodes: readonly string[];
-  duplicateCodes: readonly string[];
-  mismatchedCourseLinks: readonly {
-    listedCode: string;
-    linkedCode: string;
-  }[];
 };
 
 export type ValidationOutcome = {
@@ -95,7 +72,6 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
     claim: ClaimedCatalogueSync,
     pageMarkdown: string,
     context?: PromptContext,
-    supportingSources?: readonly SupportingSourcePage[],
   ): string;
   /** Strict validation of raw model output, recorded for the audit trail. */
   validateModelOutput(
@@ -119,10 +95,6 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
     /** The provider's stop reason; `length` means the response was truncated. */
     finishReason: string | null;
     context?: PromptContext;
-    supportingSources?: readonly SupportingSourcePage[];
   }): FinaliseOutcome<Extraction>;
-  project(
-    extraction: Extraction,
-    supportingSources?: readonly SupportingSourcePage[],
-  ): CatalogueContent;
+  project(extraction: Extraction): CatalogueContent;
 };
