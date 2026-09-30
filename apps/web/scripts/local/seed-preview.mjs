@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 import { createLocalDatabaseClient } from "../catalogue/lib/local-database.mjs";
+import { readRealCatalogue, seedRealCatalogue } from "./real-catalogue.mjs";
 
 const PREVIEW_SEED_PATH = new URL(
   "../fixtures/local-preview.sql",
@@ -19,6 +20,7 @@ export async function seedLocalPreview({
   try {
     const seed = await readSeed(PREVIEW_SEED_PATH, "utf8");
     await sql.unsafe(seed);
+    await seedRealCatalogue(sql, await readRealCatalogue(readSeed));
   } finally {
     await sql.end({ timeout: 5 });
   }
