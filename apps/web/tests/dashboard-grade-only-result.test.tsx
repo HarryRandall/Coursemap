@@ -35,7 +35,7 @@ test("a grade-only failed term appears as GPA zero without an invented average m
     </>,
   );
   expect(
-    screen.getByRole("img", { name: "GPA by semester: S1 '25 0.0" }),
+    screen.getByRole("img", { name: "GPA 0.0 of 7 in S1 '25" }),
   ).toBeInTheDocument();
   expect(screen.getByText("0.0")).toBeInTheDocument();
   expect(screen.getByText("No marks yet")).toBeInTheDocument();
