@@ -317,6 +317,27 @@ function validateUnitValue(
 
 const INSTANT_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/;
 
+function validateDistinctPositions(
+  value: unknown,
+  path: string,
+  issues: CourseExtractionValidationIssue[],
+) {
+  if (!Array.isArray(value)) return;
+  const positions = new Set<number>();
+  value.forEach((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item))
+      return;
+    const position = (item as UnknownRecord).position;
+    if (typeof position !== "number" || !Number.isInteger(position)) return;
+    if (positions.has(position))
+      issues.push({
+        path: `${path}[${index}].position`,
+        message: `duplicates position ${position}`,
+      });
+    positions.add(position);
+  });
+}
+
 function validateExtractionShape(
   value: unknown,
   issues: CourseExtractionValidationIssue[],
@@ -714,6 +735,16 @@ function validateExtractionShape(
     );
     requireString(review.message, `${path}.message`, issues);
   });
+
+  for (const key of [
+    "fees",
+    "learningOutcomes",
+    "assessmentItems",
+    "offerings",
+    "attributes",
+    "relatedCourses",
+  ] as const)
+    validateDistinctPositions(record[key], `$.${key}`, issues);
 
   if (
     options.expectedCode &&
