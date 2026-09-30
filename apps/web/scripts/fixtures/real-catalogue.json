@@ -1,0 +1,2192 @@
+[
+  {
+    "code": "BCOMP",
+    "academicYear": 2026,
+    "contentHash": "5e97ad0bd330e892eb0717f02dce382602aab379bac3d8d705281aade7fe1786",
+    "requirements": {
+      "rules": [
+        {
+          "key": "structure",
+          "hardness": "hard",
+          "sourceText": "The Bachelor of Computing requires completion of 144 units",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1,
+          "position": 0
+        }
+      ],
+      "groups": [
+        {
+          "key": "degree_requirements",
+          "ruleKey": "structure",
+          "parentKey": null,
+          "label": "Bachelor of Computing Requirements",
+          "description": null,
+          "operator": "all_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "scope": "degree",
+          "sourceText": "The Bachelor of Computing requires completion of 144 units",
+          "sourceLocator": "Program Requirements",
+          "position": 1
+        },
+        {
+          "key": "part_requirements",
+          "ruleKey": "structure",
+          "parentKey": "degree_requirements",
+          "label": "Part Requirements",
+          "description": null,
+          "operator": "all_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "sourceText": "A minimum of 96 units from completion of courses from the following lists",
+          "sourceLocator": "Program Requirements",
+          "position": 5
+        },
+        {
+          "key": "comp_major_or_subject",
+          "ruleKey": "structure",
+          "parentKey": "part_requirements",
+          "label": "Computing Major or Subject",
+          "description": null,
+          "operator": "any_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "sourceText": "48 units from completion of courses from the subject area COMP Computer Science OR completion of one of the following computing majors",
+          "sourceLocator": "Program Requirements",
+          "position": 5
+        }
+      ],
+      "conditions": [
+        {
+          "key": "unit_total",
+          "ruleKey": "structure",
+          "groupKey": "degree_requirements",
+          "position": 1,
+          "kind": "units_total",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 144,
+          "maximumUnits": 144,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "The Bachelor of Computing requires completion of 144 units",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "comp_prog_1",
+          "ruleKey": "structure",
+          "groupKey": "part_requirements",
+          "position": 1,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 6,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "6 units from completion of a course from the following list: COMP1100, COMP1130",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "comp_subject",
+          "ruleKey": "structure",
+          "groupKey": "comp_major_or_subject",
+          "position": 1,
+          "kind": "subject_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 48,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": "COMP",
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "48 units from completion of courses from the subject area COMP Computer Science",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "td_tag",
+          "ruleKey": "structure",
+          "groupKey": "degree_requirements",
+          "position": 2,
+          "kind": "tagged_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 12,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": "Transdisciplinary Problem-Solving",
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A minimum of 12 units must come from completion of courses tagged as Transdisciplinary Problem-Solving",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "comp_prog_2",
+          "ruleKey": "structure",
+          "groupKey": "part_requirements",
+          "position": 2,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 6,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "6 units from completion of a course from the following list: COMP1110, COMP1140",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "comp_major",
+          "ruleKey": "structure",
+          "groupKey": "comp_major_or_subject",
+          "position": 2,
+          "kind": "structure_set",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": "major",
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 48,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "completion of one of the following computing majors: COMS-MAJ, CSEC-MAJ, DTSC-MAJ, HCCC-MAJ, INFS-MAJ, INSY-MAJ, SOFT-MAJ",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "comp_3000_4000",
+          "ruleKey": "structure",
+          "groupKey": "degree_requirements",
+          "position": 3,
+          "kind": "subject_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 24,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": "COMP",
+          "minimumLevel": 3000,
+          "maximumLevel": 4000,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A minimum of 24 units must come from completion of 3000 and 4000-level COMP courses",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "math_list",
+          "ruleKey": "structure",
+          "groupKey": "part_requirements",
+          "position": 3,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 6,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "6 units from completion of a course from the following list: MATH1005, MATH2222",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "max_1000",
+          "ruleKey": "structure",
+          "groupKey": "degree_requirements",
+          "position": 4,
+          "kind": "level_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": 60,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": 1000,
+          "maximumLevel": 1000,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A maximum of 60 units may come from completion of 1000-level courses",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "comp_compulsory",
+          "ruleKey": "structure",
+          "groupKey": "part_requirements",
+          "position": 4,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 24,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "24 units from the completion of the following compulsory courses: COMP1600, COMP2100, COMP2300, COMP2400",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "ict_list",
+          "ruleKey": "structure",
+          "groupKey": "part_requirements",
+          "position": 6,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 6,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "6 units from completion of Information and Communications Technology-related courses from the following list",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "unrestricted_electives",
+          "ruleKey": "structure",
+          "groupKey": "degree_requirements",
+          "position": 6,
+          "kind": "elective_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 48,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A minimum of 48 units from completion of elective courses offered by ANU",
+          "sourceLocator": "Program Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        }
+      ],
+      "options": [
+        {
+          "conditionKey": "comp_prog_1",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP1100",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_prog_1",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP1130",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_prog_2",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP1110",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_prog_2",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP1140",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 1,
+          "kind": "major",
+          "code": "COMS-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 2,
+          "kind": "major",
+          "code": "CSEC-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 3,
+          "kind": "major",
+          "code": "DTSC-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 4,
+          "kind": "major",
+          "code": "HCCC-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 5,
+          "kind": "major",
+          "code": "INFS-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 6,
+          "kind": "major",
+          "code": "INSY-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_major",
+          "position": 7,
+          "kind": "major",
+          "code": "SOFT-MAJ",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "math_list",
+          "position": 1,
+          "kind": "course",
+          "code": "MATH1005",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "math_list",
+          "position": 2,
+          "kind": "course",
+          "code": "MATH2222",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_compulsory",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP1600",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_compulsory",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP2100",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_compulsory",
+          "position": 3,
+          "kind": "course",
+          "code": "COMP2300",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "comp_compulsory",
+          "position": 4,
+          "kind": "course",
+          "code": "COMP2400",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 1,
+          "kind": "course",
+          "code": "ARTH2181",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 2,
+          "kind": "course",
+          "code": "ASIA3032",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 3,
+          "kind": "course",
+          "code": "DESN2010",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 4,
+          "kind": "course",
+          "code": "ENGN1211",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 5,
+          "kind": "course",
+          "code": "ENVS2015",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 6,
+          "kind": "course",
+          "code": "INFS2024",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 7,
+          "kind": "course",
+          "code": "INFS3002",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 8,
+          "kind": "course",
+          "code": "INFS3024",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 9,
+          "kind": "course",
+          "code": "MATH1013",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 10,
+          "kind": "course",
+          "code": "MATH1115",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 11,
+          "kind": "course",
+          "code": "MATH2301",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 12,
+          "kind": "course",
+          "code": "MATH2307",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 13,
+          "kind": "course",
+          "code": "MGMT2009",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 14,
+          "kind": "course",
+          "code": "MUSI3309",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 15,
+          "kind": "course",
+          "code": "SCOM3029",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 16,
+          "kind": "course",
+          "code": "SOCY2038",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 17,
+          "kind": "course",
+          "code": "SOCY2166",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 18,
+          "kind": "course",
+          "code": "STAT1003",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "ict_list",
+          "position": 19,
+          "kind": "course",
+          "code": "STAT1008",
+          "title": null,
+          "sourceText": null
+        }
+      ],
+      "references": []
+    },
+    "evidence": [],
+    "flags": [],
+    "kind": "programme",
+    "structure": {
+      "details": {
+        "name": "Bachelor of Computing",
+        "acronym": "BCOMP",
+        "shortName": "Bachelor of Computing",
+        "introduction": "A single three year undergraduate award offered by the ANU College of Systems and Society",
+        "description": "The Bachelor of Computing program allows students to approach computer science from either a technical, constructive angle, starting with courses in programming, or from a conceptual, critical or information and organisational management angle. It widens the approach to computing to include the creative and conceptual touch, starting by applying scripting to the application area of new media (video and audio), rather than from learning traditional general-purpose programming languages applied to algorithms. The technically oriented student can major in Software Development; whereas the more conceptually oriented student can major in Information Systems.",
+        "units": 144,
+        "durationYears": 3,
+        "academicCareer": "Undergraduate",
+        "college": "ANU College of Systems and Society",
+        "modeOfDelivery": "In Person",
+        "selectionRank": 80,
+        "atar": 80,
+        "canCombine": true,
+        "canCombineVertical": null,
+        "studyAs": null,
+        "contactText": "Academic contact - Felipe Werndl Trevizan (BCOMP.convener.comp@anu.edu.au)"
+      },
+      "summaryFields": [
+        {
+          "position": 1,
+          "valuePosition": 1,
+          "fieldKey": "length",
+          "label": "Length",
+          "fieldValue": "3 year full-time (6 years part-time for domestic students only)",
+          "sourceText": "Length 3 year full-time (6 years part-time for domestic students only)"
+        },
+        {
+          "position": 2,
+          "valuePosition": 1,
+          "fieldKey": "units",
+          "label": "Minimum Units",
+          "fieldValue": "144",
+          "sourceText": "Minimum 144 Units"
+        },
+        {
+          "position": 3,
+          "valuePosition": 1,
+          "fieldKey": "selection_rank",
+          "label": "SELECTION RANK",
+          "fieldValue": "80",
+          "sourceText": "SELECTION RANK 80"
+        }
+      ],
+      "sections": [
+        {
+          "position": 1,
+          "sectionKey": "study_options",
+          "heading": "Study options",
+          "markdown": "While it is possible to enrol in fewer courses per semester, which is called studying part-time, it will take you longer to finish your program and get your degree. If you are an international student you must always be full-time.",
+          "sourceText": "While it is possible to enrol in fewer courses per semester, which is called studying part-time, it will take you longer to finish your program and get your degree. If you are an international student you must always be full-time.",
+          "sourceLocator": "Enrolment Status"
+        },
+        {
+          "position": 2,
+          "sectionKey": "admission",
+          "heading": "Admission",
+          "markdown": "Applicants with recent secondary education are assessed on: completion of the Australian Senior Secondary Certificate of Education (AQF) or equivalent and the minimum Selection Rank (from their academic qualifications, plus any adjustment factors) requirement for this program; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with higher education study are assessed on: previous higher education studies; or secondary education results if the applicant has completed less than one year full-time equivalent (1.0 FTE) of higher education; or the results from a tertiary preparation program; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with vocational education and training (VET) study are assessed on: previously completed VET qualifications at AQF level 5 or higher (i.e. a Diploma or above); or secondary education results if the VET qualification is not completed; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with work and life experience are assessed on: secondary education if the Australian Senior Secondary Certificate of Education (AQF) or equivalent was completed; or the Work and Life Experience Based entry scheme; and English language proficiency; and any program-specific requirements listed below.",
+          "sourceText": "Applicants with recent secondary education are assessed on: completion of the Australian Senior Secondary Certificate of Education (AQF) or equivalent and the minimum Selection Rank (from their academic qualifications, plus any adjustment factors) requirement for this program; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with higher education study are assessed on: previous higher education studies; or secondary education results if the applicant has completed less than one year full-time equivalent (1.0 FTE) of higher education; or the results from a tertiary preparation program; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with vocational education and training (VET) study are assessed on: previously completed VET qualifications at AQF level 5 or higher (i.e. a Diploma or above); or secondary education results if the VET qualification is not completed; and English language proficiency; and any program-specific requirements listed below.\n\nApplicants with work and life experience are assessed on: secondary education if the Australian Senior Secondary Certificate of Education (AQF) or equivalent was completed; or the Work and Life Experience Based entry scheme; and English language proficiency; and any program-specific requirements listed below.",
+          "sourceLocator": "Admission Requirements"
+        },
+        {
+          "position": 3,
+          "sectionKey": "careers",
+          "heading": "Careers",
+          "markdown": "Computing students typically work as programmers, network administrators/managers, systems or business analysts, and web designers/developers. Rewarding career opportunities in technology and management are available to students with this degree plus 3 - 5 years of work experience.",
+          "sourceText": "Computing students typically work as programmers, network administrators/managers, systems or business analysts, and web designers/developers. Rewarding career opportunities in technology and management are available to students with this degree plus 3 - 5 years of work experience.",
+          "sourceLocator": "Employment Opportunities"
+        },
+        {
+          "position": 4,
+          "sectionKey": "first_year_advice",
+          "heading": "First-year advice",
+          "markdown": "- COMP1100 Programming as Problem Solving\n- COMP1130 Programming as Problem Solving (Advanced)\n- COMP1110 Structured Programming\n- COMP1140 Structured Programming (Advanced)",
+          "sourceText": "For your first year programming courses you have a choice of COMP1100 or COMP1130 in Semester 1, followed by, COMP1110 or COMP1140 in Semester 2.",
+          "sourceLocator": "Important things to keep in mind when choosing your 1000-level courses"
+        },
+        {
+          "position": 5,
+          "sectionKey": "advice",
+          "heading": "Advice",
+          "markdown": "You do not need to declare your Major until your second or third year. You must complete the requirements of your nominated Major, if you need help to fit the courses into a study plan please contact College Student Services for advice.",
+          "sourceText": "You do not need to declare your Major until your second or third year. You must complete the requirements of your nominated Major, if you need help to fit the courses into a study plan please contact College Student Services for advice.",
+          "sourceLocator": "Majors and Minors"
+        },
+        {
+          "position": 6,
+          "sectionKey": "contacts",
+          "heading": "Contacts",
+          "markdown": "For assistance, please check College Enrolment and program management webpage and if you then want to talk to someone before enrolling or have your study plan reviewed contact Student Enquiries at student.css@anu.edu.au.",
+          "sourceText": "For assistance, please check College Enrolment and program management webpage and if you then want to talk to someone before enrolling or have your study plan reviewed contact Student Enquiries at student.css@anu.edu.au.",
+          "sourceLocator": "Academic Advice"
+        }
+      ],
+      "learningOutcomes": [
+        {
+          "position": 1,
+          "outcomeText": "Analyse well defined problems, and design, implement and evaluate solutions that demonstrate an understanding of the systems context in which software is developed and operated including economic, social, historical, sustainability and ethical aspects.",
+          "sourceText": "Analyse well defined problems, and design, implement and evaluate solutions that demonstrate an understanding of the systems context in which software is developed and operated including economic, social, historical, sustainability and ethical aspects.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 2,
+          "outcomeText": "Recognise connections and recurring themes, including abstraction and complexity, across the discipline.",
+          "sourceText": "Recognise connections and recurring themes, including abstraction and complexity, across the discipline.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 3,
+          "outcomeText": "Adapt to new environments and technologies, and to innovate.",
+          "sourceText": "Adapt to new environments and technologies, and to innovate.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 4,
+          "outcomeText": "Demonstrate an operational understanding of the foundations of computing including programming, algorithms, logic, architectures and data structures.",
+          "sourceText": "Demonstrate an operational understanding of the foundations of computing including programming, algorithms, logic, architectures and data structures.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 5,
+          "outcomeText": "Communicate complex concepts effectively with diverse audiences using a range of modalities.",
+          "sourceText": "Communicate complex concepts effectively with diverse audiences using a range of modalities.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 6,
+          "outcomeText": "Work effectively within a team in order to achieve a common goal.",
+          "sourceText": "Work effectively within a team in order to achieve a common goal.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 7,
+          "outcomeText": "Demonstrate commitment to professional conduct and development that recognises the social, legal and ethical implications of their work, to work independently, and to self- and peer-assess performance.",
+          "sourceText": "Demonstrate commitment to professional conduct and development that recognises the social, legal and ethical implications of their work, to work independently, and to self- and peer-assess performance.",
+          "sourceLocator": "Learning Outcomes"
+        }
+      ],
+      "fees": [
+        {
+          "position": 1,
+          "feeYear": null,
+          "audience": "international",
+          "feeType": "indicative",
+          "amount": 56120,
+          "currency": "AUD",
+          "basis": "annual",
+          "sourceLabel": "Annual indicative fee for international students",
+          "sourceText": "Annual indicative fee for international students: $56,120.00",
+          "sourceLocator": "Indicative fees"
+        }
+      ],
+      "relationships": [
+        {
+          "position": 1,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "COMS-MAJ",
+          "targetTitle": "Computer systems",
+          "sourceText": "COMS-MAJ Computer systems",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 2,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "CSEC-MAJ",
+          "targetTitle": "Cyber Security",
+          "sourceText": "CSEC-MAJ Cyber Security",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 3,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "DTSC-MAJ",
+          "targetTitle": "Data Science",
+          "sourceText": "DTSC-MAJ Data Science",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 4,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "HCCC-MAJ",
+          "targetTitle": "Human-Centred and Creative Computing",
+          "sourceText": "HCCC-MAJ Human-Centred and Creative Computing",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 5,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "INFS-MAJ",
+          "targetTitle": "Information Systems",
+          "sourceText": "INFS-MAJ Information Systems",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 6,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "INSY-MAJ",
+          "targetTitle": "Intelligent Systems",
+          "sourceText": "INSY-MAJ Intelligent Systems",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 7,
+          "relationshipKind": "option",
+          "targetKind": "major",
+          "targetCode": "SOFT-MAJ",
+          "targetTitle": "Software Development",
+          "sourceText": "SOFT-MAJ Software Development",
+          "sourceLocator": "Program Requirements"
+        },
+        {
+          "position": 8,
+          "relationshipKind": "option",
+          "targetKind": "minor",
+          "targetCode": "HCCC-MIN",
+          "targetTitle": "Human-Centred and Creative Computing",
+          "sourceText": "Human-Centred and Creative Computing",
+          "sourceLocator": "Minors"
+        }
+      ]
+    }
+  },
+  {
+    "code": "SOFT-MAJ",
+    "academicYear": 2026,
+    "contentHash": "0e4843f243c1706587e532a8b6455b98e77a8537b628c5abeec993e88e5df774",
+    "requirements": {
+      "rules": [
+        {
+          "key": "structure",
+          "hardness": "hard",
+          "sourceText": "The SOFT major requires the completion of 48 units, which must consist of:\n\nA maximum of 18 units may come from completion of 1000-level courses\n\nA minimum of 18 units must come from completion of 3000 and 4000-level courses\n\n24 units from the completion of the following compulsory courses:\n\nCOMP2120 Software Engineering (6 units)\n\nCOMP3500 Software Engineering Project (6+6 units)\n\nCOMP4130 Managing Software Quality and Process (6 units)\n\nA minimum of 12 units from the following list:\n\nCOMP3600 Algorithms (6 units)\n\nCOMP3610 Principles of Programming Languages (6 units)\n\nCOMP3900 Human-Computer Interaction (6 units)\n\nINFS3024 Information Systems Management (6 units)\n\nINFS3059 Project Management and Information Systems (6 units)\n\nA maximum of 12 units from the following list:\n\nASIA3032 Technology and Society in Asia (6 units)\n\nCOMP2700 Cyber Security Foundations (6 units)\n\nENGN1211 Engineering Design 1: Discovering Engineering\n\nENGN2300 Engineering Design 2: Systems Approaches for Design\n\nINFS3002 Enterprise Systems in Business (6 units)\n\nMGMT2009 Design Thinking: Human-Centred Innovation (6 units)\n\nSCOM3029 Science Communication and Planetary Crises (6 units)",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1,
+          "position": 0
+        }
+      ],
+      "groups": [
+        {
+          "key": "root",
+          "ruleKey": "structure",
+          "parentKey": null,
+          "label": null,
+          "description": null,
+          "operator": "all_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "scope": "degree",
+          "sourceText": "The SOFT major requires the completion of 48 units, which must consist of:\n\nA maximum of 18 units may come from completion of 1000-level courses\n\nA minimum of 18 units must come from completion of 3000 and 4000-level courses\n\n24 units from the completion of the following compulsory courses:\n\nCOMP2120 Software Engineering (6 units)\n\nCOMP3500 Software Engineering Project (6+6 units)\n\nCOMP4130 Managing Software Quality and Process (6 units)\n\nA minimum of 12 units from the following list:\n\nCOMP3600 Algorithms (6 units)\n\nCOMP3610 Principles of Programming Languages (6 units)\n\nCOMP3900 Human-Computer Interaction (6 units)\n\nINFS3024 Information Systems Management (6 units)\n\nINFS3059 Project Management and Information Systems (6 units)\n\nA maximum of 12 units from the following list:\n\nASIA3032 Technology and Society in Asia (6 units)\n\nCOMP2700 Cyber Security Foundations (6 units)\n\nENGN1211 Engineering Design 1: Discovering Engineering\n\nENGN2300 Engineering Design 2: Systems Approaches for Design\n\nINFS3002 Enterprise Systems in Business (6 units)\n\nMGMT2009 Design Thinking: Human-Centred Innovation (6 units)\n\nSCOM3029 Science Communication and Planetary Crises (6 units)",
+          "sourceLocator": "Requirements",
+          "position": 1
+        }
+      ],
+      "conditions": [
+        {
+          "key": "max_1000",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 1,
+          "kind": "level_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": 18,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": 1000,
+          "maximumLevel": 1000,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A maximum of 18 units may come from completion of 1000-level courses",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "min_3000_4000",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 2,
+          "kind": "level_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 18,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": 3000,
+          "maximumLevel": 4000,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A minimum of 18 units must come from completion of 3000 and 4000-level courses",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1,
+          "scope": "degree"
+        },
+        {
+          "key": "compulsory",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 3,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 24,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "24 units from the completion of the following compulsory courses:\n\nCOMP2120 Software Engineering (6 units)\n\nCOMP3500 Software Engineering Project (6+6 units)\n\nCOMP4130 Managing Software Quality and Process (6 units)",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "list_1",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 4,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 12,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A minimum of 12 units from the following list:\n\nCOMP3600 Algorithms (6 units)\n\nCOMP3610 Principles of Programming Languages (6 units)\n\nCOMP3900 Human-Computer Interaction (6 units)\n\nINFS3024 Information Systems Management (6 units)\n\nINFS3059 Project Management and Information Systems (6 units)",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "list_2",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 5,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": 12,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "A maximum of 12 units from the following list:\n\nASIA3032 Technology and Society in Asia (6 units)\n\nCOMP2700 Cyber Security Foundations (6 units)\n\nENGN1211 Engineering Design 1: Discovering Engineering\n\nENGN2300 Engineering Design 2: Systems Approaches for Design\n\nINFS3002 Enterprise Systems in Business (6 units)\n\nMGMT2009 Design Thinking: Human-Centred Innovation (6 units)\n\nSCOM3029 Science Communication and Planetary Crises (6 units)",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        }
+      ],
+      "options": [
+        {
+          "conditionKey": "compulsory",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP2120",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "compulsory",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP3500",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "compulsory",
+          "position": 3,
+          "kind": "course",
+          "code": "COMP4130",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_1",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP3600",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_1",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP3610",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_1",
+          "position": 3,
+          "kind": "course",
+          "code": "COMP3900",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_1",
+          "position": 4,
+          "kind": "course",
+          "code": "INFS3024",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_1",
+          "position": 5,
+          "kind": "course",
+          "code": "INFS3059",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 1,
+          "kind": "course",
+          "code": "ASIA3032",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP2700",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 3,
+          "kind": "course",
+          "code": "ENGN1211",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 4,
+          "kind": "course",
+          "code": "ENGN2300",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 5,
+          "kind": "course",
+          "code": "INFS3002",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 6,
+          "kind": "course",
+          "code": "MGMT2009",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "list_2",
+          "position": 7,
+          "kind": "course",
+          "code": "SCOM3029",
+          "title": null,
+          "sourceText": null
+        }
+      ],
+      "references": []
+    },
+    "evidence": [],
+    "flags": [],
+    "kind": "major",
+    "structure": {
+      "details": {
+        "name": "Software Development",
+        "acronym": "SOFT",
+        "shortName": null,
+        "introduction": "The Software Development major integrates the conceptual and practical skills related to the technology of computer systems used in the creation of high-quality software. Students develop the knowledge and skills needed to build software based solutions to complex problems in Information and Communications Technology (ICT), as well as understanding the systems context within which software is developed and operated, preparing them for a professional career in the ICT industry.",
+        "description": "The Bachelor of Computing with a Software Development major is accredited by the Australian Computer Society (ACS).",
+        "units": 48,
+        "durationYears": null,
+        "academicCareer": "Undergraduate",
+        "college": "ANU College of Systems and Society",
+        "modeOfDelivery": null,
+        "selectionRank": null,
+        "atar": null,
+        "canCombine": null,
+        "canCombineVertical": null,
+        "studyAs": null,
+        "contactText": "Assoc Prof Alex Potanin (BSENG.convener.comp@anu.edu.au)"
+      },
+      "summaryFields": [
+        {
+          "position": 1,
+          "valuePosition": 1,
+          "fieldKey": "total_units",
+          "label": "Total units",
+          "fieldValue": "48 Units",
+          "sourceText": "Total units 48 Units"
+        },
+        {
+          "position": 2,
+          "valuePosition": 1,
+          "fieldKey": "major_code",
+          "label": "Major code",
+          "fieldValue": "SOFT-MAJ",
+          "sourceText": "Major code SOFT-MAJ"
+        }
+      ],
+      "sections": [],
+      "learningOutcomes": [
+        {
+          "position": 1,
+          "outcomeText": "Formulate and evaluate solutions to software engineering problems by selecting and applying theoretical principles and methods from the underpinning mathematical, information, and computer sciences.",
+          "sourceText": "Formulate and evaluate solutions to software engineering problems by selecting and applying theoretical principles and methods from the underpinning mathematical, information, and computer sciences.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 2,
+          "outcomeText": "Proficiently apply advanced technical knowledge and appropriate tools in software engineering practices.",
+          "sourceText": "Proficiently apply advanced technical knowledge and appropriate tools in software engineering practices.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 3,
+          "outcomeText": "Identify and critically evaluate current developments and emerging trends in the software engineering discipline.",
+          "sourceText": "Identify and critically evaluate current developments and emerging trends in the software engineering discipline.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 4,
+          "outcomeText": "Communicate effectively with colleagues, other professionals and the broader community by employing a range of communication media and tools.",
+          "sourceText": "Communicate effectively with colleagues, other professionals and the broader community by employing a range of communication media and tools.",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 5,
+          "outcomeText": "Apply theoretical frameworks and research techniques to evaluate and critique human-centred and creative computing systems.",
+          "sourceText": "Apply theoretical frameworks and research techniques to evaluate and critique human-centred and creative computing systems.",
+          "sourceLocator": "Learning Outcomes"
+        }
+      ],
+      "fees": [],
+      "relationships": [
+        {
+          "position": 1,
+          "relationshipKind": "offered_in",
+          "targetKind": "programme",
+          "targetCode": "BCOMP",
+          "targetTitle": "Bachelor of Computing",
+          "sourceText": "Bachelor of Computing (BCOMP)",
+          "sourceLocator": "Relevant Degrees"
+        }
+      ]
+    }
+  },
+  {
+    "code": "HCCC-MIN",
+    "academicYear": 2026,
+    "contentHash": "9c024451a28e2006ae4d61d7d97909293c8b874a64959a07b4084d47031090ca",
+    "requirements": {
+      "rules": [
+        {
+          "key": "structure",
+          "hardness": "hard",
+          "sourceText": "This minor requires the completion of 24 units, which must include:\n\n12 units from completion of the following compulsory courses:\n\nCOMP1720 Art and Interaction Computing\n\nCOMP3900 Human Computer Interaction\n\n12 units from completion of courses from the following list:.\n\nARTH2181 Digital Approaches to Art History and Curatorship\n\nCOMP1710 Web Development and Design\n\nCOMP3540 Game Development\n\nCOMP4350 Sound and Music Computing\n\nCOMP4610 Computer Graphics\n\nDESN2004 Autonomous Agents: Natural and Algorithmic Systems in Art and Design\n\nDESN2010 Making Creative and Critical Technologies Physical Computing for Design and Art\n\nMGMT2009 Design Thinking: Human-Centred Innovation\n\nMUSI1110 Introduction to Music Technology\n\nMUSI3309 Digital Music: Platforms, Content and AI\n\nSOCY2166 Social Science of the Internet\n\nSOCY2038 Introduction to Quantitative Research Methods\n\nSOCR3001 Data for Decision Making",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1,
+          "position": 0
+        }
+      ],
+      "groups": [
+        {
+          "key": "root",
+          "ruleKey": "structure",
+          "parentKey": null,
+          "label": null,
+          "description": null,
+          "operator": "all_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "sourceText": "This minor requires the completion of 24 units, which must include:\n\n12 units from completion of the following compulsory courses:\n\nCOMP1720 Art and Interaction Computing\n\nCOMP3900 Human Computer Interaction\n\n12 units from completion of courses from the following list:.\n\nARTH2181 Digital Approaches to Art History and Curatorship\n\nCOMP1710 Web Development and Design\n\nCOMP3540 Game Development\n\nCOMP4350 Sound and Music Computing\n\nCOMP4610 Computer Graphics\n\nDESN2004 Autonomous Agents: Natural and Algorithmic Systems in Art and Design\n\nDESN2010 Making Creative and Critical Technologies Physical Computing for Design and Art\n\nMGMT2009 Design Thinking: Human-Centred Innovation\n\nMUSI1110 Introduction to Music Technology\n\nMUSI3309 Digital Music: Platforms, Content and AI\n\nSOCY2166 Social Science of the Internet\n\nSOCY2038 Introduction to Quantitative Research Methods\n\nSOCR3001 Data for Decision Making",
+          "sourceLocator": "Requirements",
+          "position": 1
+        }
+      ],
+      "conditions": [
+        {
+          "key": "compulsory",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 1,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 12,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "12 units from completion of the following compulsory courses:\n\nCOMP1720 Art and Interaction Computing\n\nCOMP3900 Human Computer Interaction",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "electives",
+          "ruleKey": "structure",
+          "groupKey": "root",
+          "position": 2,
+          "kind": "course_set_units",
+          "itemCode": null,
+          "itemKind": null,
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": 12,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "12 units from completion of courses from the following list:.\n\nARTH2181 Digital Approaches to Art History and Curatorship\n\nCOMP1710 Web Development and Design\n\nCOMP3540 Game Development\n\nCOMP4350 Sound and Music Computing\n\nCOMP4610 Computer Graphics\n\nDESN2004 Autonomous Agents: Natural and Algorithmic Systems in Art and Design\n\nDESN2010 Making Creative and Critical Technologies Physical Computing for Design and Art\n\nMGMT2009 Design Thinking: Human-Centred Innovation\n\nMUSI1110 Introduction to Music Technology\n\nMUSI3309 Digital Music: Platforms, Content and AI\n\nSOCY2166 Social Science of the Internet\n\nSOCY2038 Introduction to Quantitative Research Methods\n\nSOCR3001 Data for Decision Making",
+          "sourceLocator": "Requirements",
+          "reviewState": "automatic",
+          "confidence": 1
+        }
+      ],
+      "options": [
+        {
+          "conditionKey": "compulsory",
+          "position": 1,
+          "kind": "course",
+          "code": "COMP1720",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "compulsory",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP3900",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 1,
+          "kind": "course",
+          "code": "ARTH2181",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 2,
+          "kind": "course",
+          "code": "COMP1710",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 3,
+          "kind": "course",
+          "code": "COMP3540",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 4,
+          "kind": "course",
+          "code": "COMP4350",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 5,
+          "kind": "course",
+          "code": "COMP4610",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 6,
+          "kind": "course",
+          "code": "DESN2004",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 7,
+          "kind": "course",
+          "code": "DESN2010",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 8,
+          "kind": "course",
+          "code": "MGMT2009",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 9,
+          "kind": "course",
+          "code": "MUSI1110",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 10,
+          "kind": "course",
+          "code": "MUSI3309",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 11,
+          "kind": "course",
+          "code": "SOCY2166",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 12,
+          "kind": "course",
+          "code": "SOCY2038",
+          "title": null,
+          "sourceText": null
+        },
+        {
+          "conditionKey": "electives",
+          "position": 13,
+          "kind": "course",
+          "code": "SOCR3001",
+          "title": null,
+          "sourceText": null
+        }
+      ],
+      "references": []
+    },
+    "evidence": [],
+    "flags": [],
+    "kind": "minor",
+    "structure": {
+      "details": {
+        "name": "Human-Centred and Creative Computing",
+        "acronym": "HCCC",
+        "shortName": "Human-Centred and Creative Computing",
+        "introduction": "The Human-Centred and Creative Computing minor offers an interdisciplinary grounding in human-computer interaction, humanities-centred computing, and creative computing. This minor is where computing meets a complex world with unique and varied social contexts to create impacts that change and enrich our lives. Students will gain insight and skills in designing and developing human-centred and creative applications.",
+        "description": null,
+        "units": 24,
+        "durationYears": null,
+        "academicCareer": "Undergraduate",
+        "college": "ANU College of Systems and Society",
+        "modeOfDelivery": null,
+        "selectionRank": null,
+        "atar": null,
+        "canCombine": null,
+        "canCombineVertical": null,
+        "studyAs": null,
+        "contactText": "Charles Martin (u4110680@anu.edu.au)"
+      },
+      "summaryFields": [
+        {
+          "position": 1,
+          "valuePosition": 1,
+          "fieldKey": "total_units",
+          "label": "Total units",
+          "fieldValue": "24 Units",
+          "sourceText": "Total units 24 Units"
+        },
+        {
+          "position": 2,
+          "valuePosition": 1,
+          "fieldKey": "areas_of_interest",
+          "label": "Areas of interest",
+          "fieldValue": "Computer Science",
+          "sourceText": "Areas of interest Computer Science, Human Centred Computing, Creative Arts"
+        },
+        {
+          "position": 2,
+          "valuePosition": 2,
+          "fieldKey": "areas_of_interest",
+          "label": "Areas of interest",
+          "fieldValue": "Human Centred Computing",
+          "sourceText": "Areas of interest Computer Science, Human Centred Computing, Creative Arts"
+        },
+        {
+          "position": 2,
+          "valuePosition": 3,
+          "fieldKey": "areas_of_interest",
+          "label": "Areas of interest",
+          "fieldValue": "Creative Arts",
+          "sourceText": "Areas of interest Computer Science, Human Centred Computing, Creative Arts"
+        },
+        {
+          "position": 3,
+          "valuePosition": 1,
+          "fieldKey": "minor_code",
+          "label": "Minor code",
+          "fieldValue": "HCCC-MIN",
+          "sourceText": "Minor code HCCC-MIN"
+        }
+      ],
+      "sections": [],
+      "learningOutcomes": [
+        {
+          "position": 1,
+          "outcomeText": "Identify and describe contemporary issues and challenges in human-centred and creative computing",
+          "sourceText": "Identify and describe contemporary issues and challenges in human-centred and creative computing",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 2,
+          "outcomeText": "Synthesise knowledge of human-centred and creative computing systems and their social context to address problems",
+          "sourceText": "Synthesise knowledge of human-centred and creative computing systems and their social context to address problems",
+          "sourceLocator": "Learning Outcomes"
+        },
+        {
+          "position": 3,
+          "outcomeText": "Design and develop human-centred and creative technologies",
+          "sourceText": "Design and develop human-centred and creative technologies",
+          "sourceLocator": "Learning Outcomes"
+        }
+      ],
+      "fees": [],
+      "relationships": [
+        {
+          "position": 1,
+          "relationshipKind": "incompatible",
+          "targetKind": "specialisation",
+          "targetCode": "HCCC-SPEC",
+          "targetTitle": "Human-Centred and Creative Computing Specialisation",
+          "sourceText": "This Minor is incompatible with the Human-Centred and Creative Computing Specialisation (HCCC-SPEC) and the Human-Centred and Creative Computing Major (HCCC-MAJ).",
+          "sourceLocator": "Other Information"
+        },
+        {
+          "position": 2,
+          "relationshipKind": "incompatible",
+          "targetKind": "major",
+          "targetCode": "HCCC-MAJ",
+          "targetTitle": "Human-Centred and Creative Computing Major",
+          "sourceText": "This Minor is incompatible with the Human-Centred and Creative Computing Specialisation (HCCC-SPEC) and the Human-Centred and Creative Computing Major (HCCC-MAJ).",
+          "sourceLocator": "Other Information"
+        },
+        {
+          "position": 3,
+          "relationshipKind": "offered_in",
+          "targetKind": "programme",
+          "targetCode": "BCOMP",
+          "targetTitle": "Bachelor of Computing (BCOMP)",
+          "sourceText": "Bachelor of Computing (BCOMP)",
+          "sourceLocator": "Relevant Degrees"
+        }
+      ]
+    }
+  },
+  {
+    "code": "COMP4528",
+    "academicYear": 2026,
+    "contentHash": "22355b56eac4b5c786f051b60b5f35922d0b3335fa7986fc014a1ff2c568ba1d",
+    "requirements": {
+      "rules": [
+        {
+          "key": "prerequisite",
+          "hardness": "hard",
+          "sourceText": "To enrol in this course you must have completed either ENGN2228 or COMP2120 or COMP3600 or COMP3670.",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1,
+          "position": 0
+        },
+        {
+          "key": "incompatibility",
+          "hardness": "hard",
+          "sourceText": "Incompatible with ENGN6528 and ENGN4528.",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1,
+          "position": 2
+        }
+      ],
+      "groups": [
+        {
+          "key": "prerequisite:group:root",
+          "ruleKey": "prerequisite",
+          "parentKey": null,
+          "label": null,
+          "description": null,
+          "operator": "any_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "sourceText": null,
+          "sourceLocator": null,
+          "position": 0
+        },
+        {
+          "key": "incompatibility:group:root",
+          "ruleKey": "incompatibility",
+          "parentKey": null,
+          "label": null,
+          "description": null,
+          "operator": "all_of",
+          "minimumCount": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "sourceText": null,
+          "sourceLocator": null,
+          "position": 0
+        }
+      ],
+      "conditions": [
+        {
+          "key": "prerequisite:condition:0",
+          "ruleKey": "prerequisite",
+          "groupKey": "prerequisite:group:root",
+          "position": 0,
+          "kind": "course",
+          "itemCode": "ENGN2228",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": "completed",
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Completed ENGN2228",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "prerequisite:condition:1",
+          "ruleKey": "prerequisite",
+          "groupKey": "prerequisite:group:root",
+          "position": 1,
+          "kind": "course",
+          "itemCode": "COMP2120",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": "completed",
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Completed COMP2120",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "prerequisite:condition:2",
+          "ruleKey": "prerequisite",
+          "groupKey": "prerequisite:group:root",
+          "position": 2,
+          "kind": "course",
+          "itemCode": "COMP3600",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": "completed",
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Completed COMP3600",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "prerequisite:condition:3",
+          "ruleKey": "prerequisite",
+          "groupKey": "prerequisite:group:root",
+          "position": 3,
+          "kind": "course",
+          "itemCode": "COMP3670",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": "completed",
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Completed COMP3670",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "incompatibility:condition:0",
+          "ruleKey": "incompatibility",
+          "groupKey": "incompatibility:group:root",
+          "position": 0,
+          "kind": "incompatible",
+          "itemCode": "ENGN4528",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Incompatible with ENGN6528 and ENGN4528.",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        },
+        {
+          "key": "incompatibility:condition:1",
+          "ruleKey": "incompatibility",
+          "groupKey": "incompatibility:group:root",
+          "position": 1,
+          "kind": "incompatible",
+          "itemCode": "ENGN6528",
+          "itemKind": "course",
+          "structureKind": null,
+          "requirementMode": null,
+          "minimumMark": null,
+          "minimumUnits": null,
+          "maximumUnits": null,
+          "minimumCount": null,
+          "subjectCode": null,
+          "minimumLevel": null,
+          "maximumLevel": null,
+          "minimumYear": null,
+          "minimumGpa": null,
+          "minimumWam": null,
+          "tag": null,
+          "freeText": null,
+          "hardness": "hard",
+          "sourceText": "Incompatible with ENGN6528 and ENGN4528.",
+          "sourceLocator": null,
+          "reviewState": "automatic",
+          "confidence": 1
+        }
+      ],
+      "options": [],
+      "references": [
+        {
+          "ruleKey": "prerequisite",
+          "code": "COMP2120",
+          "sourceText": "Completed COMP2120",
+          "confidence": 0,
+          "reviewState": "review"
+        },
+        {
+          "ruleKey": "prerequisite",
+          "code": "COMP3600",
+          "sourceText": "Completed COMP3600",
+          "confidence": 0,
+          "reviewState": "review"
+        },
+        {
+          "ruleKey": "prerequisite",
+          "code": "COMP3670",
+          "sourceText": "Completed COMP3670",
+          "confidence": 0,
+          "reviewState": "review"
+        },
+        {
+          "ruleKey": "prerequisite",
+          "code": "ENGN2228",
+          "sourceText": "Completed ENGN2228",
+          "confidence": 0,
+          "reviewState": "review"
+        },
+        {
+          "ruleKey": "incompatibility",
+          "code": "ENGN4528",
+          "sourceText": "Incompatible with ENGN6528 and ENGN4528.",
+          "confidence": 0,
+          "reviewState": "review"
+        },
+        {
+          "ruleKey": "incompatibility",
+          "code": "ENGN6528",
+          "sourceText": "Incompatible with ENGN6528 and ENGN4528.",
+          "confidence": 0,
+          "reviewState": "review"
+        }
+      ]
+    },
+    "evidence": [],
+    "flags": [],
+    "kind": "course",
+    "course": {
+      "details": {
+        "title": "Computer Vision",
+        "unitValueKind": "fixed",
+        "units": 6,
+        "minimumUnits": null,
+        "maximumUnits": null,
+        "eftsl": 0.125,
+        "level": 4000,
+        "subjectCode": "COMP",
+        "subjectName": "Computer Science",
+        "school": "School of Computing",
+        "college": "ANU College of Systems and Society",
+        "academicCareer": "UGRD",
+        "convenerText": "Dr Jing Zhang",
+        "deliverySummary": "In Person",
+        "introduction": "Computer Vision is an important field of Artificial Intelligence concerned with automatically extracting useful information from images or videos. The explosive growth in digital imaging technologies, vision datasets and deep learning makes the problems of automated image interpretation even more exciting and more relevant than ever. This course introduces students to fundamental problems in computer vision and foundational techniques for solving them. Topics covered in detail include: image formation, image filtering, camera geometry, thresholding and image segmentation, edge, point and feature detection, geometric frameworks for vision, single view and two views geometry, 3D visual reconstruction, camera calibration, stereo vision, image classification, object recognition, deep learning and neural networks. The course features extensive practical components including computer labs that provide students with the opportunity to practice and refine their skills in computer vision.",
+        "description": "Computer Vision is an important field of Artificial Intelligence concerned with automatically extracting useful information from images or videos. The explosive growth in digital imaging technologies, vision datasets and deep learning makes the problems of automated image interpretation even more exciting and more relevant than ever. This course introduces students to fundamental problems in computer vision and foundational techniques for solving them. Topics covered in detail include: image formation, image filtering, camera geometry, thresholding and image segmentation, edge, point and feature detection, geometric frameworks for vision, single view and two views geometry, 3D visual reconstruction, camera calibration, stereo vision, image classification, object recognition, deep learning and neural networks. The course features extensive practical components including computer labs that provide students with the opportunity to practice and refine their skills in computer vision.",
+        "workloadText": "130 hours consisting of lectures, tutorials, labs, and self-directed study.",
+        "workloadHours": 130,
+        "inherentRequirements": null,
+        "prescribedTexts": "No prescribed textbook is needed.",
+        "offeringStatus": "offered",
+        "sourceUpdatedAt": null
+      },
+      "unitOptions": [],
+      "fees": [
+        {
+          "position": 1,
+          "feeYear": 2026,
+          "audience": "domestic",
+          "feeType": "tuition",
+          "amount": 5520,
+          "currency": "AUD",
+          "basis": "course",
+          "studentContributionBand": 2,
+          "sourceLabel": "Domestic fee paying students",
+          "sourceText": "Year 2026 Fee $5520"
+        },
+        {
+          "position": 2,
+          "feeYear": 2026,
+          "audience": "international",
+          "feeType": "tuition",
+          "amount": 7020,
+          "currency": "AUD",
+          "basis": "course",
+          "studentContributionBand": null,
+          "sourceLabel": "International fee paying students",
+          "sourceText": "Year 2026 Fee $7020"
+        }
+      ],
+      "areasOfInterest": [
+        {
+          "position": 1,
+          "name": "Computer Science"
+        },
+        {
+          "position": 2,
+          "name": "Engineering"
+        },
+        {
+          "position": 3,
+          "name": "Mechatronics"
+        },
+        {
+          "position": 4,
+          "name": "Advanced Computing"
+        },
+        {
+          "position": 5,
+          "name": "Information Systems"
+        }
+      ],
+      "tags": [
+        {
+          "position": 1,
+          "name": "Computer Science"
+        }
+      ],
+      "attributes": [
+        {
+          "position": 1,
+          "attributeKind": "stem",
+          "value": "STEM Course",
+          "sourceText": "STEM Course"
+        },
+        {
+          "position": 2,
+          "attributeKind": "graduate_attribute",
+          "value": "Critical Thinking",
+          "sourceText": "Graduate Attributes - Critical Thinking"
+        }
+      ],
+      "relatedCourses": [
+        {
+          "position": 1,
+          "relationKind": "co_taught",
+          "sourceCourseCode": "COMP6528",
+          "sourceCourseTitle": null,
+          "sourceText": "COMP6528"
+        },
+        {
+          "position": 2,
+          "relationKind": "co_taught",
+          "sourceCourseCode": "ENGN4528",
+          "sourceCourseTitle": null,
+          "sourceText": "ENGN4528"
+        },
+        {
+          "position": 3,
+          "relationKind": "co_taught",
+          "sourceCourseCode": "ENGN6528",
+          "sourceCourseTitle": null,
+          "sourceText": "ENGN6528"
+        }
+      ],
+      "offering": {
+        "deliveryMode": null,
+        "location": null
+      },
+      "sessions": [
+        {
+          "position": 1,
+          "calendarYear": 2026,
+          "academicPeriodCode": "S1",
+          "academicPeriodName": "First Semester",
+          "classNumber": "3714",
+          "startsOn": "2026-02-23",
+          "enrolClosesOn": "2026-03-02",
+          "censusOn": "2026-03-31",
+          "endsOn": "2026-05-29",
+          "deliveryMode": "In Person",
+          "location": null,
+          "classSummaryUrl": "https://programsandcourses.anu.edu.au/2026/course/COMP4528/First%20Semester/3714",
+          "sourceText": "3714 23 Feb 2026 02 Mar 2026 31 Mar 2026 29 May 2026 In Person View"
+        }
+      ],
+      "learningOutcomes": [
+        {
+          "position": 1,
+          "body": "Understand and apply basic knowledge, methods and skills in image processing and computer vision."
+        },
+        {
+          "position": 2,
+          "body": "Identify, formulate and solve problems in image processing and computer vision."
+        },
+        {
+          "position": 3,
+          "body": "Analyse, evaluate and examine existing practical computer vision algorithms."
+        },
+        {
+          "position": 4,
+          "body": "Design and develop practical and innovative image processing and computer vision applications or systems."
+        },
+        {
+          "position": 5,
+          "body": "Communicate effectively to both specialist and non-specialist audiences, explaining concepts related to visual information processing systems."
+        },
+        {
+          "position": 6,
+          "body": "Conduct themselves professionally and responsibly in the areas of computer vision, image processing and deep learning."
+        }
+      ],
+      "assessmentItems": [
+        {
+          "position": 1,
+          "title": "Assignment 1",
+          "weight": 15,
+          "hurdle": null,
+          "dueText": null,
+          "sourceText": "Assignment 1 (15) [LO 1,2,5,6]"
+        },
+        {
+          "position": 2,
+          "title": "Assignment 2",
+          "weight": 15,
+          "hurdle": null,
+          "dueText": null,
+          "sourceText": "Assignment 2 (15) [LO 1,2,3,5]"
+        },
+        {
+          "position": 3,
+          "title": "Assignment 3",
+          "weight": 15,
+          "hurdle": null,
+          "dueText": null,
+          "sourceText": "Assignment 3 (15) [LO 1,2,5,6]"
+        },
+        {
+          "position": 4,
+          "title": "Final Exam",
+          "weight": 55,
+          "hurdle": null,
+          "dueText": null,
+          "sourceText": "Final Exam (55) [LO 1,2,3,4,5]"
+        }
+      ],
+      "assessmentOutcomes": [
+        {
+          "assessmentPosition": 1,
+          "learningOutcomePosition": 1
+        },
+        {
+          "assessmentPosition": 1,
+          "learningOutcomePosition": 2
+        },
+        {
+          "assessmentPosition": 1,
+          "learningOutcomePosition": 5
+        },
+        {
+          "assessmentPosition": 1,
+          "learningOutcomePosition": 6
+        },
+        {
+          "assessmentPosition": 2,
+          "learningOutcomePosition": 1
+        },
+        {
+          "assessmentPosition": 2,
+          "learningOutcomePosition": 2
+        },
+        {
+          "assessmentPosition": 2,
+          "learningOutcomePosition": 3
+        },
+        {
+          "assessmentPosition": 2,
+          "learningOutcomePosition": 5
+        },
+        {
+          "assessmentPosition": 3,
+          "learningOutcomePosition": 1
+        },
+        {
+          "assessmentPosition": 3,
+          "learningOutcomePosition": 2
+        },
+        {
+          "assessmentPosition": 3,
+          "learningOutcomePosition": 5
+        },
+        {
+          "assessmentPosition": 3,
+          "learningOutcomePosition": 6
+        },
+        {
+          "assessmentPosition": 4,
+          "learningOutcomePosition": 1
+        },
+        {
+          "assessmentPosition": 4,
+          "learningOutcomePosition": 2
+        },
+        {
+          "assessmentPosition": 4,
+          "learningOutcomePosition": 3
+        },
+        {
+          "assessmentPosition": 4,
+          "learningOutcomePosition": 4
+        },
+        {
+          "assessmentPosition": 4,
+          "learningOutcomePosition": 5
+        }
+      ]
+    }
+  }
+]
