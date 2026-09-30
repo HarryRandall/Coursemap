@@ -80,10 +80,7 @@ export function CourseDirectory({
                     />
                   </TableCell>
                   <TableCell>
-                    <CourseAvailability
-                      courseCode={course.code}
-                      sessions={course.sessions}
-                    />
+                    <CourseAvailability sessions={course.sessions} />
                   </TableCell>
                   <TableCell>{course.units}</TableCell>
                   <TableCell className="text-right">

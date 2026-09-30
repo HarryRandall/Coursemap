@@ -29,6 +29,7 @@ import {
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   BookOpen,
   Banknote,
@@ -113,6 +114,7 @@ export function CourseDetailView({
   commencementYear = null,
   course,
   onAddToPlan,
+  yearPicker,
   previewStudent,
   requisiteCompletion,
 }: {
@@ -122,6 +124,7 @@ export function CourseDetailView({
   commencementYear?: number | null;
   course: CourseDetails;
   onAddToPlan?: () => void;
+  yearPicker?: ReactNode;
   /**
    * A sample student for the admin preview. When given, it replaces the
    * reader's own record, and null previews a signed-out reader.
@@ -178,7 +181,9 @@ export function CourseDetailView({
             {course.name}
           </h1>
           <div className="mt-3 flex flex-wrap gap-1.5">
-            <Badge variant={"outline"}>{course.year}</Badge>
+            {!yearPicker ? (
+              <Badge variant="outline">{course.year}</Badge>
+            ) : null}
             <Badge variant={"outline"}>{unitValueLabel(course)}</Badge>
             {Array.from(new Set(course.sessions)).map((session) => (
               <Hint key={session} label={session}>
@@ -202,16 +207,19 @@ export function CourseDetailView({
             ).join(" · ")}
           </p>
         </div>
-        <Button
-          className="w-full shrink-0 sm:w-auto"
-          disabled={!onAddToPlan}
-          onClick={onAddToPlan}
-          variant="default"
-          type="button"
-        >
-          <Plus size={16} aria-hidden="true" />
-          Add to plan
-        </Button>
+        <div className="flex w-full flex-col items-end gap-2 sm:w-auto">
+          {yearPicker}
+          <Button
+            className="w-full shrink-0 sm:w-auto"
+            disabled={!onAddToPlan}
+            onClick={onAddToPlan}
+            variant="default"
+            type="button"
+          >
+            <Plus size={16} aria-hidden="true" />
+            Add to plan
+          </Button>
+        </div>
       </header>
 
       <TabsContent value="overview">

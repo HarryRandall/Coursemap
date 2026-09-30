@@ -71,9 +71,8 @@ function SingleTermGpa({ term, value }: { term: string; value: number }) {
           }}
         />
       </div>
-      <div className="flex justify-between gap-2 text-[10px] text-muted-foreground">
+      <div className="text-[10px] text-muted-foreground">
         <span>{term}</span>
-        <span>Trend shows after your next semester</span>
       </div>
     </div>
   );
