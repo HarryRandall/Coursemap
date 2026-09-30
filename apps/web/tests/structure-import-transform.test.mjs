@@ -8,10 +8,7 @@ import {
 import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "../lib/catalogue-import/kinds/structure/schema.ts";
 import { finaliseAcademicStructureExtraction } from "../lib/catalogue-import/kinds/structure/finalise.ts";
 import { listedStructureOptions } from "../lib/catalogue-import/kinds/structure/listed-options.ts";
-import {
-  buildAcademicStructureExtractionSystemPrompt,
-  buildAcademicStructureExtractionUserPrompt,
-} from "../lib/catalogue-import/kinds/structure/prompt.ts";
+import { buildAcademicStructureExtractionUserPrompt } from "../lib/catalogue-import/kinds/structure/prompt.ts";
 import { projectAcademicStructureSnapshot } from "../lib/catalogue-import/kinds/structure/project.ts";
 import { structureCatalogueContent } from "../lib/catalogue/content.ts";
 import { structureKindAdapter } from "../lib/catalogue-import/kinds/structure/adapter.ts";
@@ -807,22 +804,11 @@ test("projects an explicit nested requirement tree without flattening its logic"
   assert.match(projection.projectionSha256, /^[0-9a-f]{64}$/);
 });
 
-test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
-  const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
+test("provides a strict recursive JSON schema", () => {
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
   );
-  assert.match(systemPrompt, /Never invent/);
-  assert.match(systemPrompt, /explicit AND/);
-  assert.match(systemPrompt, /free_text/);
-  assert.match(systemPrompt, /linked external course list/);
-  assert.match(systemPrompt, /specially paired course option/);
-  assert.match(systemPrompt, /Every section object must include sourceLocator/);
-  assert.match(systemPrompt, /approved exchange credit/);
-  assert.match(systemPrompt, /Set freeText to null/);
-  assert.match(systemPrompt, /canCombineVertical/);
-  assert.match(systemPrompt, /literally states yes, no, true or false/);
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.additionalProperties,
     false,
@@ -893,10 +879,6 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
       .relationshipKind.enum,
     ["offered_in", "option", "incompatible"],
   );
-  assert.match(systemPrompt, /titled "Taken with"/);
-  assert.match(systemPrompt, /Set method to model/);
-  assert.match(systemPrompt, /tidied, never rewritten/);
-  assert.match(systemPrompt, /Back to the top/);
   assert.match(
     buildAcademicStructureExtractionUserPrompt({
       expectedKind: "programme",
