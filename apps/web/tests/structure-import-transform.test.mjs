@@ -250,6 +250,48 @@ test("reviews repeated structure row positions before persistence", () => {
   }
 });
 
+test("keeps typed requirements when the model repeats a list option", () => {
+  for (const variant of [
+    {
+      conditionKind: "course_list",
+      field: "courseCodes",
+      codes: ["COMP1100", "COMP1100"],
+      structureKind: null,
+    },
+    {
+      conditionKind: "structure_list",
+      field: "structureCodes",
+      codes: ["SOFT-MAJ", "SOFT-MAJ"],
+      structureKind: "major",
+    },
+  ]) {
+    const model = structuredClone(extraction);
+    const condition = model.requirements.rule.children[0];
+    condition.conditionKind = variant.conditionKind;
+    condition.minimumUnits = 12;
+    condition.freeText = null;
+    condition.structureKind = variant.structureKind;
+    condition[variant.field] = variant.codes;
+
+    assert.equal(validateAcademicStructureExtraction(model).success, false);
+    const result = finalise(model);
+    const rule = result.extraction.requirements.rule.children[0];
+    assert.equal(rule.conditionKind, variant.conditionKind);
+    assert.deepEqual(rule[variant.field], [variant.codes[0]]);
+    assert.ok(
+      result.extraction.reviewItems.some(
+        (item) =>
+          item.kind === "model_repair" &&
+          item.message.includes("repeated list option"),
+      ),
+    );
+    const options = projectAcademicStructureSnapshot(
+      result.extraction,
+    ).requirementOptions;
+    assert.equal(options.length, 1);
+  }
+});
+
 test("marks a recovered provider response for requirement review", () => {
   const outcome = finalise(structuredClone(extraction), {
     responseRepair: "extra_requirement_closing_brace",
@@ -874,7 +916,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v21",
+    "coursemap-academic-structure-prompt.v22",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,

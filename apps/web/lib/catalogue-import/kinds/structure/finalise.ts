@@ -152,7 +152,11 @@ export function finaliseAcademicStructureExtraction({
   const reviewItems: AcademicStructureExtractionReviewItem[] = [
     ...extraction.reviewItems,
     ...normalised.normalisations
-      .filter((message) => message.includes("duplicate requirement key"))
+      .filter(
+        (message) =>
+          message.includes("duplicate requirement key") ||
+          message.includes("repeated list option"),
+      )
       .map((message) => ({
         fieldKey: "requirements.rule",
         kind: "model_repair" as const,

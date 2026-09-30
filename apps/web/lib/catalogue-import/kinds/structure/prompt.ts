@@ -7,7 +7,7 @@ import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v21";
+  "coursemap-academic-structure-prompt.v22";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -73,6 +73,7 @@ Requirement interpretation:
   - "courses tagged as <TAG>" or "from the <TAG> list" -> tag with that literal tag and its unit bounds.
   - "N units of electives", "unrestricted electives" or "N units from completion of elective courses offered by ANU" -> unrestricted with minimumUnits N.
   - A course list that ends "Any other ANU courses" (or "any other course") -> course_list with the printed courses and includesAnyCourse true: the list only suggests courses, and any course counts. Every other condition has includesAnyCourse false.
+- In each course_list or structure_list condition, include each literal option code once. Repeated source rows do not make the same course or structure count twice.
 - Every group and condition has a scope. ANU writes a degree's requirements in two layers:
   - "requires completion of N units, of which:" introduces rules across the whole degree, such as "A maximum of 60 units may come from completion of 1000-level courses", "A minimum of 48 units ... from 4000-level courses" or "A minimum of 12 units of courses tagged as X". These have scope degree: they constrain every course the degree counts and never use a course up.
   - "The N units must include:" introduces the parts of the degree, such as compulsory lists, "one of the following majors" and elective units. These have scope part: a course counted in one part counts in no other.
