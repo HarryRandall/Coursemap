@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { validateAnuCoursePage } from "../lib/catalogue-import/kinds/course/source.ts";
+import {
+  fetchAnuCoursePage,
+  validateAnuCoursePage,
+} from "../lib/catalogue-import/kinds/course/source.ts";
 import { validateAnuAcademicStructurePage } from "../lib/catalogue-import/kinds/structure/source.ts";
 
 const sources = [
@@ -73,3 +76,40 @@ for (const source of sources) {
     );
   });
 }
+
+test("course fetch follows only redirects to the selected ANU course", async () => {
+  const html = `<html><head>
+    <meta name="course-code" content="MGMT2007">
+    <meta name="course-name" content="Organisational Behaviour">
+    <meta name="course-year" content="2025">
+  </head><body><h1>Organisational Behaviour</h1></body></html>`;
+  const sourceUrl =
+    "https://programsandcourses.anu.edu.au/2025/course/MGMT2007";
+  const calls = [];
+  const fetchImpl = async (url, options) => {
+    calls.push({ url, redirect: options.redirect });
+    return {
+      url: `${sourceUrl}/`,
+      status: 200,
+      ok: true,
+      headers: new Headers({ "content-type": "text/html" }),
+      text: async () => html,
+    };
+  };
+  const page = await fetchAnuCoursePage(2025, "MGMT2007", { fetchImpl });
+  assert.equal(page.validation.valid, true);
+  assert.deepEqual(calls, [{ url: sourceUrl, redirect: "follow" }]);
+
+  await assert.rejects(
+    fetchAnuCoursePage(2025, "MGMT2007", {
+      fetchImpl: async () => ({
+        url: "https://programsandcourses.anu.edu.au/2025/course/MGMT2008",
+        status: 200,
+        ok: true,
+        headers: new Headers({ "content-type": "text/html" }),
+        text: async () => html,
+      }),
+    }),
+    { code: "SOURCE_REDIRECT_MISMATCH" },
+  );
+});
