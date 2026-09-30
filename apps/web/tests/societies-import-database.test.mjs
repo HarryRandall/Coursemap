@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { importSocieties } from "../scripts/societies/import.mjs";
 
 const original = JSON.parse(
@@ -12,7 +13,7 @@ const original = JSON.parse(
 );
 
 test("the importer replays without changes, preserves UUIDs on updates and rolls back invalid snapshots", async () => {
-  const sql = await createLocalDatabaseClient();
+  const sql = await createLocalDatabaseClient({ env: localTestEnvironment() });
   const prefix = `test-${randomUUID()}`;
   const snapshot = structuredClone(original);
   for (const club of snapshot.societies) {

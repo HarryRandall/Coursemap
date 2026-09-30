@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, test } from "vitest";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { importSocieties } from "../scripts/societies/import.mjs";
 import { renderSocietiesSql } from "../scripts/societies/export-sql.mjs";
 
@@ -13,7 +14,7 @@ const original = JSON.parse(
 );
 
 test("portable SQL previews, replays, preserves archives and rolls back conflicts", async () => {
-  const sql = await createLocalDatabaseClient();
+  const sql = await createLocalDatabaseClient({ env: localTestEnvironment() });
   const prefix = `sql-test-${randomUUID()}`;
   const snapshot = structuredClone(original);
   for (const club of snapshot.societies) {
