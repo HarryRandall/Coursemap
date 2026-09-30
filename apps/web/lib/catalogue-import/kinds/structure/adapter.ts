@@ -23,6 +23,7 @@ import {
   buildAcademicStructureExtractionUserPrompt,
 } from "./prompt.ts";
 import { fetchAnuAcademicStructurePage } from "./source.ts";
+import { preservesStudentManagedFundChoice } from "./smf-choice.ts";
 import {
   fetchCbeListOneMembership,
   modelsCbeListOneMembership,
@@ -152,23 +153,64 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
             source.courseCodes,
           ),
       );
-      if (!incompleteList) return outcome;
+      const mismatchedCourseLinks = (supportingSources ?? []).flatMap(
+        (source) => source.mismatchedCourseLinks,
+      );
+      const unsafeSmfChoice =
+        claim.kind === "programme" &&
+        claim.code === "BFINN" &&
+        claim.academicYear === 2024 &&
+        /FINM3009[\s\S]*FINM3010[\s\S]*consecutive semesters/iu.test(
+          pageMarkdown,
+        ) &&
+        !preservesStudentManagedFundChoice(outcome.extraction.requirements);
+      if (
+        !incompleteList &&
+        !unsafeSmfChoice &&
+        mismatchedCourseLinks.length === 0
+      )
+        return outcome;
       return {
         ...outcome,
         extraction: {
           ...outcome.extraction,
           reviewItems: [
             ...outcome.extraction.reviewItems,
-            {
+            ...(incompleteList
+              ? [
+                  {
+                    fieldKey: "requirements.rule",
+                    kind: "invalid" as const,
+                    severity: "error" as const,
+                    message:
+                      "The linked List 1 requirement does not contain the full verified 2024 course membership. Review it before publication.",
+                  },
+                ]
+              : []),
+            ...(unsafeSmfChoice
+              ? [
+                  {
+                    fieldKey: "requirements.rule",
+                    kind: "invalid" as const,
+                    severity: "error" as const,
+                    message:
+                      "The Student Managed Fund option must retain both paired courses and its consecutive-semester timing as unresolved wording. Review it before publication.",
+                  },
+                ]
+              : []),
+            ...mismatchedCourseLinks.map(({ listedCode, linkedCode }) => ({
               fieldKey: "requirements.rule",
-              kind: "invalid" as const,
+              kind: "conflict" as const,
               severity: "error" as const,
-              message:
-                "The linked List 1 requirement does not contain the full verified 2024 course membership. Review it before publication.",
-            },
+              message: `The linked CBE List 1 prints ${listedCode} but its ANU course link points to ${linkedCode}. Resolve the source discrepancy before publication.`,
+            })),
           ],
         },
-        errorCount: outcome.errorCount + 1,
+        errorCount:
+          outcome.errorCount +
+          Number(Boolean(incompleteList)) +
+          Number(unsafeSmfChoice) +
+          mismatchedCourseLinks.length,
       };
     },
     project(extraction, supportingSources) {
