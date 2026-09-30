@@ -809,7 +809,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v11",
+    "coursemap-academic-structure-parser.v12",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,

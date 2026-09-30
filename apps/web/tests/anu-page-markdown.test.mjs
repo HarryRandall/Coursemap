@@ -60,3 +60,15 @@ test("labels each offering tab with its year", async () => {
     /To enrol in this course, you must have completed: FINM2001; FINM2002; and, FINM2003 or FINM3011\./,
   );
 });
+
+test("removes paragraph markup embedded in an ANU contact address", () => {
+  const markdown = convertAnuPageToMarkdown({
+    html: `<main class="main"><p>Academic contact - <a href="mailto:&lt;p&gt;info.cbe@anu.edu.au&lt;/p&gt;">Dr Alexander Vadilyev</a></p></main>`,
+    frontMatter: { code: "BFINN", year: 2024 },
+  });
+  assert.match(
+    markdown,
+    /Academic contact - Dr Alexander Vadilyev \(info\.cbe@anu\.edu\.au\)/u,
+  );
+  assert.doesNotMatch(markdown, /<p>|<\/p>/u);
+});
