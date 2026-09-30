@@ -249,11 +249,24 @@ on conflict (kind, code) do nothing;
 -- MATH1005 deliberately remains an identity only. It is visible as a
 -- prerequisite placeholder without pretending its full 2026 course page has
 -- been imported.
+create temporary table local_preview_codes on commit drop as
+select items.id, items.kind, items.code
+from public.catalogue_codes as items
+join (values
+  ('programme', 'LOCAL-PROGRAMME'),
+  ('major', 'LOCAL-MAJ'),
+  ('minor', 'LOCALA-MIN'),
+  ('minor', 'LOCALB-MIN'),
+  ('specialisation', 'LOCAL-SPEC'),
+  ('course', 'COMP1100'),
+  ('course', 'COMP1110')
+) as fixture(kind, code)
+  on fixture.kind = items.kind::text and fixture.code = items.code;
+
 insert into public.catalogue_records (code_id, kind, academic_year_id)
 select items.id, items.kind, years.id
-from public.catalogue_codes as items
+from pg_temp.local_preview_codes as items
 join public.academic_years as years on years.year = 2026
-where items.code <> 'MATH1005'
 on conflict (code_id, academic_year_id) do nothing;
 
 insert into public.catalogue_source_pages (
@@ -285,24 +298,33 @@ where sources.kind = 'local_mock'
 on conflict (source_id, academic_year_id, kind, external_key, content_sha256) do nothing;
 
 -- One manual version per annual record for the local preview.
-insert into public.catalogue_versions (
-  record_id,
-  kind,
-  academic_year_id,
-  origin,
-  content_hash,
-  created_by
+create temporary table local_preview_versions on commit drop as
+select id from public.catalogue_versions where false;
+
+with inserted as (
+  insert into public.catalogue_versions (
+    record_id,
+    kind,
+    academic_year_id,
+    origin,
+    content_hash,
+    created_by
+  )
+  select
+    item_years.id,
+    item_years.kind,
+    item_years.academic_year_id,
+    'manual',
+    md5(items.code || ':2026:local-preview') || md5('published:' || items.code),
+    '90000000-0000-4000-8000-000000000001'::uuid
+  from public.catalogue_records as item_years
+  join pg_temp.local_preview_codes as items on items.id = item_years.code_id
+  join public.academic_years as years on years.id = item_years.academic_year_id
+  where years.year = 2026 and item_years.published_version_id is null
+  returning id
 )
-select
-  item_years.id,
-  item_years.kind,
-  item_years.academic_year_id,
-  'manual',
-  md5(items.code || ':2026:local-preview') || md5('published:' || items.code),
-  '90000000-0000-4000-8000-000000000001'::uuid
-from public.catalogue_records as item_years
-join public.catalogue_codes as items on items.id = item_years.code_id
-;
+insert into pg_temp.local_preview_versions (id)
+select id from inserted;
 
 insert into public.structure_version_details (
   version_id,
@@ -330,6 +352,7 @@ select
   end,
   case when snapshots.kind = 'programme' then 3 else null end
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
 where snapshots.kind <> 'course';
@@ -354,6 +377,7 @@ select
   options.source_text,
   '#local-structure-options'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
 cross join (
@@ -378,6 +402,7 @@ select
   'Complete all published requirements for ' || details.name || '.',
   'verified'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.structure_version_details as details on details.version_id = snapshots.id;
 
 insert into public.requirement_groups (
@@ -393,6 +418,7 @@ select
   '#local-requirements',
   0
 from public.requirement_rules as rules
+join pg_temp.local_preview_versions as preview on preview.id = rules.version_id
 join public.structure_version_details as details on details.version_id = rules.version_id
 where rules.rule_kind = 'structure';
 
@@ -415,6 +441,7 @@ select
   '#local-requirements',
   'verified'
 from public.requirement_groups as groups
+join pg_temp.local_preview_versions as preview on preview.id = groups.version_id
 join public.requirement_rules as rules on rules.id = groups.rule_id
 join public.catalogue_versions as snapshots on snapshots.id = groups.version_id
 where rules.rule_kind = 'structure';
@@ -430,6 +457,7 @@ select
   selected.code,
   selected.id
 from public.requirement_conditions as conditions
+join pg_temp.local_preview_versions as preview on preview.id = conditions.version_id
 join public.catalogue_versions as snapshots on snapshots.id = conditions.version_id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
@@ -497,6 +525,7 @@ select
   'offered',
   '2026-08-01 00:00:00+10'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
 where snapshots.kind = 'course';
@@ -528,11 +557,13 @@ select
   'Indicative domestic fee',
   'Indicative domestic fee: $1,110'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.course_areas_of_interest (version_id, position, name)
 select snapshots.id, 1, 'Computer Science'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.course_attributes (
@@ -544,6 +575,7 @@ insert into public.course_attributes (
 )
 select snapshots.id, 1, 'stem', 'STEM', 'STEM course'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.course_offerings (
@@ -560,6 +592,7 @@ select
   'In person',
   'Acton'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.offering_sessions (
@@ -600,6 +633,7 @@ select
   'https://coursemap.local.test/2026/classes/' || lower(items.code),
   'Semester 1, in person at Acton'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
 join public.course_offerings as offerings on offerings.version_id = snapshots.id
@@ -611,6 +645,7 @@ where snapshots.kind = 'course';
 insert into public.course_learning_outcomes (version_id, position, body)
 select snapshots.id, 1, 'Apply foundational programming concepts.'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.course_assessment_items (
@@ -631,6 +666,7 @@ select
   'Week 8',
   'Programming assignment (40%)'
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.kind = 'course';
 
 insert into public.course_assessment_outcomes (
@@ -640,6 +676,7 @@ insert into public.course_assessment_outcomes (
 )
 select snapshots.id, assessments.id, outcomes.id
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.course_assessment_items as assessments
   on assessments.version_id = snapshots.id
 join public.course_learning_outcomes as outcomes
@@ -667,6 +704,7 @@ select
   'h1',
   details.title
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.course_version_details as details on details.version_id = snapshots.id;
 
 insert into public.requirement_rules (
@@ -683,6 +721,7 @@ select
   'verified',
   0.99
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 join public.catalogue_records as item_years on item_years.id = snapshots.record_id
 join public.catalogue_codes as items on items.id = item_years.code_id
 where items.code = 'COMP1110';
@@ -692,6 +731,7 @@ insert into public.requirement_groups (
 )
 select rules.id, rules.version_id, 'prerequisite:group:root', 'all_of', 0
 from public.requirement_rules as rules
+join pg_temp.local_preview_versions as preview on preview.id = rules.version_id
 where rules.rule_kind = 'prerequisite';
 
 insert into public.requirement_conditions (
@@ -713,6 +753,7 @@ select
   0.99,
   'verified'
 from public.requirement_rules as rules
+join pg_temp.local_preview_versions as preview on preview.id = rules.version_id
 join public.requirement_groups as groups on groups.rule_id = rules.id
 join public.catalogue_codes as prerequisite
   on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005'
@@ -723,6 +764,7 @@ insert into public.requirement_item_references (
 )
 select rules.id, rules.version_id, prerequisite.id, 'MATH1005', 0.99, 'verified'
 from public.requirement_rules as rules
+join pg_temp.local_preview_versions as preview on preview.id = rules.version_id
 join public.catalogue_codes as prerequisite
   on prerequisite.kind = 'course' and prerequisite.code = 'MATH1005'
 where rules.rule_kind = 'prerequisite';
@@ -732,6 +774,7 @@ where rules.rule_kind = 'prerequisite';
 update public.catalogue_records as item_years
 set published_version_id = snapshots.id
 from public.catalogue_versions as snapshots
+join pg_temp.local_preview_versions as preview on preview.id = snapshots.id
 where snapshots.record_id = item_years.id;
 
 commit;
