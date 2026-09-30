@@ -808,6 +808,18 @@ export function validateAcademicStructureExtraction(
     seenSections.add(section.key);
   }
 
+  for (const field of ["summaryFields", "learningOutcomes", "fees"] as const) {
+    const positions = new Set<number>();
+    extraction[field].forEach((row, index) => {
+      if (positions.has(row.position))
+        issues.push({
+          path: `$.${field}.${index}.position`,
+          message: `duplicates position ${row.position}`,
+        });
+      positions.add(row.position);
+    });
+  }
+
   const requirementKeys = new Set<string>();
   const visitRequirement = (
     rule: AcademicStructureRequirementRule,

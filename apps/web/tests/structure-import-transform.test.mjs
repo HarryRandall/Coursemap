@@ -220,6 +220,36 @@ test("repairs repeated requirement keys without losing either branch", () => {
   );
 });
 
+test("reviews repeated structure row positions before persistence", () => {
+  for (const field of ["summaryFields", "learningOutcomes", "fees"]) {
+    const model = structuredClone(extraction);
+    model[field].push(structuredClone(model[field][0]));
+
+    const validation = validateAcademicStructureExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(
+      validation.issues.some(
+        ({ path }) => path === `$.${field}.${model[field].length - 1}.position`,
+      ),
+    );
+
+    const result = finalise(model);
+    assert.equal(result.extraction[field].length, extraction[field].length);
+    assert.ok(result.errorCount > 0);
+    const projected = projectAcademicStructureSnapshot(result.extraction);
+    assert.equal(
+      new Set(
+        projected[field].map((item) =>
+          field === "summaryFields"
+            ? `${item.position}:${item.valuePosition}`
+            : item.position,
+        ),
+      ).size,
+      projected[field].length,
+    );
+  }
+});
+
 test("marks a recovered provider response for requirement review", () => {
   const outcome = finalise(structuredClone(extraction), {
     responseRepair: "extra_requirement_closing_brace",
@@ -844,7 +874,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v20",
+    "coursemap-academic-structure-prompt.v21",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,

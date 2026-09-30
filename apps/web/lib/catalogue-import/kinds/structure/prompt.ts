@@ -7,7 +7,7 @@ import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v20";
+  "coursemap-academic-structure-prompt.v21";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -40,7 +40,7 @@ Source rules:
    - further_information: Further Information and anything else a student should know that has no other home.
    - contacts: who to contact for academic or enrolment advice, with names and email addresses.
    Requirements, learning outcomes, indicative fees, areas of interest and lists of related degrees, majors, minors or specialisations have fields of their own and are never sections.
-5. Record every key fact as a summary field with its label and value. Also fill the dedicated field a key fact belongs to, such as durationYears from "Length 4 year full-time", college from "offered by the ANU College of ...", selectionRank from "SELECTION RANK 85" and academicCareer from "Academic career".
+5. Record every key fact as a summary field with its label and value. Give each summary field, learning outcome and fee row a distinct position within its own list. Also fill the dedicated field a key fact belongs to, such as durationYears from "Length 4 year full-time", college from "offered by the ANU College of ...", selectionRank from "SELECTION RANK 85" and academicCareer from "Academic career".
 6. A relationship needs a literal linked or printed target code. A friendly name without a code is not enough. Record only these three meanings, and nothing that is merely mentioned:
    - offered_in: a degree (programme) this major, minor or specialisation can be studied in, such as the Relevant Degrees list. Record one for every degree in that list.
    - option: a major, minor or specialisation a programme lets students choose. On a programme page, every entry in its Majors, Minors and Specialisations lists is an option, with the code taken from the entry's link, even when the requirements also name it.
