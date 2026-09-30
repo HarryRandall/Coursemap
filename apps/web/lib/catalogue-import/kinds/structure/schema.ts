@@ -281,6 +281,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         minimumCourses: { type: ["integer", "null"], minimum: 1 },
         courseCodes: {
           type: "array",
+          uniqueItems: true,
           items: {
             type: "string",
             pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
@@ -289,6 +290,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         structureKind: { enum: [...ACADEMIC_STRUCTURE_KINDS, null] },
         structureCodes: {
           type: "array",
+          uniqueItems: true,
           items: {
             type: "string",
             pattern: "^[A-Z0-9][A-Z0-9-]{1,31}$",
