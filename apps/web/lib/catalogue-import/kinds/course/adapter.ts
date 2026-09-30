@@ -1,11 +1,8 @@
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { courseCatalogueContent } from "../../../catalogue/content.ts";
 import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
-import {
-  COURSE_EXTRACTION_JSON_SCHEMA,
-  type CourseExtraction,
-  validateCourseExtraction,
-} from "./contract.ts";
+import { type CourseExtraction, validateCourseExtraction } from "./contract.ts";
+import { COURSE_EXTRACTION_JSON_SCHEMA } from "./schema.ts";
 import { finaliseCourseExtraction } from "./finalise.ts";
 import { canonicaliseCourseModelExtraction } from "./model-canonical.ts";
 import { projectCourseSnapshot } from "./project.ts";
