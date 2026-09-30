@@ -17,7 +17,6 @@ import { CourseAvailability } from "@/ui/courses/course-availability";
 import { CourseRowActions } from "./course-row-actions";
 
 export function CourseDirectory({
-  academicYear,
   courses,
   page,
   pageSize,
@@ -25,7 +24,6 @@ export function CourseDirectory({
   filtered = false,
   searchParams,
 }: {
-  academicYear: number;
   courses: CourseDetails[];
   page: number;
   pageSize: number;
@@ -52,9 +50,9 @@ export function CourseDirectory({
       {courses.length === 0 ? (
         <CatalogueEmpty
           filtered={filtered}
-          title={`No published courses for ${academicYear}`}
+          title="No published courses"
           description="Published courses will appear here when the catalogue is ready."
-          clearHref={`/courses/${academicYear}`}
+          clearHref="/courses"
         />
       ) : (
         <Table>
@@ -62,7 +60,6 @@ export function CourseDirectory({
           <TableHeader>
             <TableRow className="hover:bg-transparent">
               <TableHead>Course</TableHead>
-              <TableHead>Year</TableHead>
               <TableHead>Available</TableHead>
               <TableHead>Units</TableHead>
               <TableHead>
@@ -72,7 +69,7 @@ export function CourseDirectory({
           </TableHeader>
           <TableBody>
             {courses.map((course) => {
-              const href = `/courses/${academicYear}/${course.code.toLowerCase()}`;
+              const href = `/courses/${course.year}/${course.code.toLowerCase()}`;
               return (
                 <LinkedTableRow key={course.code} className="group">
                   <TableCell>
@@ -82,7 +79,6 @@ export function CourseDirectory({
                       href={href}
                     />
                   </TableCell>
-                  <TableCell>{academicYear}</TableCell>
                   <TableCell>
                     <CourseAvailability
                       courseCode={course.code}
@@ -98,7 +94,7 @@ export function CourseDirectory({
                           name: course.name,
                           sessions: course.sessions,
                           sourceUrl: course.sourceUrl,
-                          year: academicYear,
+                          year: course.year,
                         }}
                       />
                     </div>

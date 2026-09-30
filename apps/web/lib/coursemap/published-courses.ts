@@ -28,6 +28,7 @@ import type {
   CourseUnitValue,
 } from "./course-types";
 import { accentFor } from "@/lib/coursemap/course-accent";
+import { selectPreferredCourseYears } from "./published-directory-selection";
 import type { RequisiteExpression } from "./requisite-summary";
 
 const ANU_SOURCE_BASE_URL = "https://programsandcourses.anu.edu.au";
@@ -132,6 +133,257 @@ export type AcademicYearOption = {
   hasPublishedCourses: boolean;
   year: number;
 };
+
+type DirectoryRow = {
+  academic_year: number;
+  academic_year_id: number;
+  code: string;
+  college: string | null;
+  convener_text: string | null;
+  level: number | null;
+  school: string | null;
+  subject_code: string | null;
+  subject_name: string | null;
+  title: string;
+  version_id: number;
+};
+
+const DIRECTORY_SELECT =
+  "academic_year,academic_year_id,code,college,convener_text,level,school,subject_code,subject_name,title,version_id";
+
+async function directoryRows(): Promise<DirectoryRow[]> {
+  const supabase = createPublicClient();
+  const rows: DirectoryRow[] = [];
+  // PostgREST limits a response to 1,000 rows. Read every published year before
+  // choosing one version per code, so pagination never drops older-only courses.
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
+      .from("published_course_summaries")
+      .select(DIRECTORY_SELECT)
+      .order("code")
+      .order("academic_year", { ascending: false })
+      .range(start, start + 999);
+    if (error) throw error;
+    rows.push(...((data ?? []) as DirectoryRow[]));
+    if ((data ?? []).length < 1000) break;
+  }
+  return rows;
+}
+
+const cachedDirectoryRows = unstable_cache(
+  directoryRows,
+  ["published-course-directory-rows"],
+  { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
+);
+
+async function directoryNames(
+  table: "course_areas_of_interest" | "course_tags",
+): Promise<Array<{ name: string; version_id: number }>> {
+  const supabase = createPublicClient();
+  const rows: Array<{ name: string; version_id: number }> = [];
+  for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("name,version_id")
+      .order("id")
+      .range(start, start + 999);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < 1000) break;
+  }
+  return rows;
+}
+
+const cachedDirectoryNames = unstable_cache(
+  async () =>
+    Promise.all([
+      directoryNames("course_areas_of_interest"),
+      directoryNames("course_tags"),
+    ]),
+  ["published-course-directory-names"],
+  { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
+);
+
+export async function loadPublishedCourseYears(
+  code: string,
+): Promise<number[]> {
+  const normalisedCode = code.trim().toUpperCase();
+  if (!COURSE_CODE_PATTERN.test(normalisedCode)) return [];
+  const rows = await cachedDirectoryRows();
+  return rows
+    .filter((row) => row.code === normalisedCode)
+    .map((row) => row.academic_year)
+    .sort((left, right) => right - left);
+}
+
+export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOptions> {
+  const [rows, [areas, tags]] = await Promise.all([
+    cachedDirectoryRows(),
+    cachedDirectoryNames(),
+  ]);
+  const versions = new Set(rows.map((row) => row.version_id));
+  const names = (items: Array<{ name: string; version_id: number }>) =>
+    [
+      ...new Map(
+        items
+          .filter((item) => versions.has(item.version_id))
+          .map((item) => [item.name.toLocaleLowerCase(), item.name]),
+      ).values(),
+    ].sort((left, right) => left.localeCompare(right));
+  const subjects = new Map<string, string | null>();
+  const colleges = new Set<string>();
+  for (const row of rows) {
+    if (row.subject_code && !subjects.has(row.subject_code)) {
+      subjects.set(row.subject_code, row.subject_name);
+    }
+    if (row.college) colleges.add(row.college);
+  }
+  return {
+    subjects: [...subjects]
+      .map(([code, name]) => ({ code, name }))
+      .sort((left, right) => left.code.localeCompare(right.code)),
+    colleges: [...colleges].sort((left, right) => left.localeCompare(right)),
+    areas: names(areas),
+    tags: names(tags),
+  };
+}
+
+export async function loadPublishedCourseDirectoryPage({
+  filters = {},
+  page = 1,
+  pageSize = 24,
+}: {
+  filters?: PublishedCourseFilters;
+  page?: number;
+  pageSize?: number;
+}): Promise<PublishedCoursePage> {
+  const safePage = Math.max(1, Math.floor(page));
+  const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+  const query = firstFilterValue(filters.query).toLocaleLowerCase();
+  const subject = firstFilterValue(filters.subject).toUpperCase();
+  const level = levelFilter(firstFilterValue(filters.level));
+  const college = firstFilterValue(filters.college);
+  const session = firstFilterValue(filters.session);
+  const area = firstFilterValue(filters.area);
+  const tag = firstFilterValue(filters.tag);
+  const supabase = createPublicClient();
+  const versionsFor = async (
+    table: "course_areas_of_interest" | "course_tags" | "offering_sessions",
+    value: string,
+  ) => {
+    const ids = new Set<number>();
+    for (let start = 0; ; start += 1000) {
+      const result =
+        table === "offering_sessions"
+          ? await supabase
+              .from(table)
+              .select("version_id")
+              .eq("academic_period_name", value)
+              .order("id")
+              .range(start, start + 999)
+          : await supabase
+              .from(table)
+              .select("version_id")
+              .ilike(
+                "name",
+                value.replace(/[\\%_]/gu, (character) => `\\${character}`),
+              )
+              .order("id")
+              .range(start, start + 999);
+      if (result.error) throw result.error;
+      for (const row of result.data ?? []) {
+        if (row.version_id !== null) ids.add(row.version_id);
+      }
+      if ((result.data ?? []).length < 1000) break;
+    }
+    return ids;
+  };
+  const [sessionVersions, areaVersions, tagVersions] = await Promise.all([
+    session ? versionsFor("offering_sessions", session) : null,
+    area ? versionsFor("course_areas_of_interest", area) : null,
+    tag ? versionsFor("course_tags", tag) : null,
+  ]);
+  const matches = selectPreferredCourseYears(
+    await cachedDirectoryRows(),
+  ).filter((row) => {
+    if (subject && row.subject_code !== subject) return false;
+    if (
+      level &&
+      (level.orHigher
+        ? (row.level ?? 0) < level.level
+        : row.level !== level.level)
+    )
+      return false;
+    if (college && row.college !== college) return false;
+    if (sessionVersions && !sessionVersions.has(row.version_id)) return false;
+    if (areaVersions && !areaVersions.has(row.version_id)) return false;
+    if (tagVersions && !tagVersions.has(row.version_id)) return false;
+    return (
+      !query ||
+      [
+        row.code,
+        row.title,
+        row.subject_code,
+        row.school,
+        row.convener_text,
+      ].some((value) => value?.toLocaleLowerCase().includes(query))
+    );
+  });
+  const selected = matches
+    .sort((left, right) => left.code.localeCompare(right.code))
+    .slice((safePage - 1) * safePageSize, safePage * safePageSize);
+  if (selected.length === 0) {
+    return {
+      courses: [],
+      page: safePage,
+      pageSize: safePageSize,
+      total: matches.length,
+    };
+  }
+  const { data, error } = await supabase
+    .from("published_course_summaries")
+    .select(SNAPSHOT_LIST_SELECT)
+    .in(
+      "version_id",
+      selected.map((row) => row.version_id),
+    );
+  if (error) throw error;
+  const snapshots = (data ?? []) as SnapshotListRow[];
+  const years = new Map<number, AcademicYearRow>();
+  for (const row of selected) {
+    years.set(row.academic_year_id, {
+      id: row.academic_year_id,
+      year: row.academic_year,
+    });
+  }
+  const loaded = await Promise.all(
+    [...years.values()].map((year) =>
+      loadListRelationships(
+        supabase,
+        snapshots.filter((snapshot) =>
+          selected.some(
+            (row) =>
+              row.version_id === snapshot.version_id &&
+              row.academic_year_id === year.id,
+          ),
+        ),
+        year,
+      ),
+    ),
+  );
+  const courseByCode = new Map(
+    loaded.flat().map((course) => [course.code, course]),
+  );
+  return {
+    courses: selected.flatMap((row) => {
+      const course = courseByCode.get(row.code);
+      return course ? [course] : [];
+    }),
+    page: safePage,
+    pageSize: safePageSize,
+    total: matches.length,
+  };
+}
 
 function sourceUrl(year: number, code: string) {
   return `${ANU_SOURCE_BASE_URL}/${year}/course/${code}`;

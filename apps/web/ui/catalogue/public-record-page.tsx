@@ -4,6 +4,7 @@ import { requirementCourseCodes } from "@/lib/coursemap/requirement-display";
 import { planCourseFromDetails } from "@/lib/coursemap/plan-catalogue";
 import {
   loadPublishedCourse,
+  loadPublishedCourseYears,
   loadPublishedCoursesByCodes,
 } from "@/lib/coursemap/published-courses";
 import { loadPublishedStructure } from "@/lib/coursemap/published-structures";
@@ -35,10 +36,12 @@ export async function PublicCatalogueRecordPage({
   if (kind === "course") {
     let course;
     let requisiteCompletion;
+    let availableYears;
     try {
-      [course, requisiteCompletion] = await Promise.all([
+      [course, requisiteCompletion, availableYears] = await Promise.all([
         loadPublishedCourse(code, academicYear),
         loadCurrentUserRequisiteCompletion(),
+        loadPublishedCourseYears(code),
       ]);
     } catch {
       return <PublicRecordError kind={kind} retryHref={retryHref} />;
@@ -47,6 +50,7 @@ export async function PublicCatalogueRecordPage({
     return (
       <CourseDetailClient
         course={course}
+        availableYears={availableYears}
         requisiteCompletion={requisiteCompletion}
       />
     );
