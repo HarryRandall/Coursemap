@@ -77,7 +77,7 @@ for (const source of sources) {
   });
 }
 
-test("course fetch follows only redirects to the selected ANU course", async () => {
+test("course fetch requests HTML and follows only redirects to the selected ANU course", async () => {
   const html = `<html><head>
     <meta name="course-code" content="MGMT2007">
     <meta name="course-name" content="Organisational Behaviour">
@@ -87,7 +87,11 @@ test("course fetch follows only redirects to the selected ANU course", async () 
     "https://programsandcourses.anu.edu.au/2025/course/MGMT2007";
   const calls = [];
   const fetchImpl = async (url, options) => {
-    calls.push({ url, redirect: options.redirect });
+    calls.push({
+      url,
+      accept: new Headers(options.headers).get("Accept"),
+      redirect: options.redirect,
+    });
     return {
       url: `${sourceUrl}/`,
       status: 200,
@@ -98,7 +102,9 @@ test("course fetch follows only redirects to the selected ANU course", async () 
   };
   const page = await fetchAnuCoursePage(2025, "MGMT2007", { fetchImpl });
   assert.equal(page.validation.valid, true);
-  assert.deepEqual(calls, [{ url: sourceUrl, redirect: "follow" }]);
+  assert.deepEqual(calls, [
+    { url: sourceUrl, accept: "text/html", redirect: "follow" },
+  ]);
 
   await assert.rejects(
     fetchAnuCoursePage(2025, "MGMT2007", {
