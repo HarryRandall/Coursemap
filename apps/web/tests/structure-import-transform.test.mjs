@@ -16,6 +16,8 @@ import {
 } from "../lib/catalogue-import/kinds/structure/prompt.ts";
 import { projectAcademicStructureSnapshot } from "../lib/catalogue-import/kinds/structure/project.ts";
 import { structureCatalogueContent } from "../lib/catalogue/content.ts";
+import { structureKindAdapter } from "../lib/catalogue-import/kinds/structure/adapter.ts";
+import { CBE_LIST_ONE_2024_URL } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 
 // A complete, valid extraction of the reduced Bachelor of Computing page, in
@@ -37,6 +39,86 @@ const pageMarkdown = [
   extraction.requirements.sourceText,
   ...extraction.evidence.map(({ evidenceExcerpt }) => evidenceExcerpt),
 ].join("\n\n");
+
+test("a verified 2024 CBE list is model input with separately attributed evidence", () => {
+  const supporting = {
+    sourceUrl: CBE_LIST_ONE_2024_URL,
+    sourceName: "ANU College of Business and Economics List 1",
+    sourceKind: "linked_course_list",
+    sourceBaseUrl: "https://cbe.anu.edu.au",
+    externalKey: "CBE-LIST-1-2024",
+    html: "<h1>List 1: CBE Courses 2024 and 2023</h1>",
+    contentSha256: "a".repeat(64),
+    byteSize: 44,
+    httpStatus: 200,
+    httpEtag: null,
+    sourceLastModified: null,
+    fetchedAt: "2026-09-30T00:00:00Z",
+    courseCodes: ["BUSN1001", "ECHI2119"],
+    duplicateCodes: ["ECHI2119"],
+  };
+  const prompt = buildAcademicStructureExtractionUserPrompt({
+    expectedKind: "programme",
+    expectedCode: "BFINN",
+    academicYear: 2024,
+    pageMarkdown: "6 units from completion of courses from List 1.",
+    supportingSources: [supporting],
+  });
+  assert.match(prompt, /Supporting source for linked course-list membership/u);
+  assert.match(prompt, /BUSN1001\nECHI2119/u);
+  const content = structureKindAdapter.project(extraction, [supporting]);
+  assert.ok(
+    content.evidence.some(
+      (item) =>
+        item.sourceUrl === CBE_LIST_ONE_2024_URL &&
+        item.method === "deterministic" &&
+        item.fieldPath === "requirements.structure",
+    ),
+  );
+  assert.ok(
+    content.flags.some(
+      (flag) =>
+        flag.code === "SOURCE_DUPLICATE_COURSE" &&
+        flag.message.includes("ECHI2119"),
+    ),
+  );
+});
+
+test("an incomplete linked list becomes a publication-blocking extraction error", () => {
+  const input = {
+    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
+    listingTitle: "Bachelor of Finance",
+    model: structuredClone(extraction),
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+  };
+  const baseline = structureKindAdapter.finalise(input);
+  const outcome = structureKindAdapter.finalise({
+    ...input,
+    supportingSources: [
+      {
+        courseCodes: ["BUSN1001", "ECHI2119"],
+      },
+    ],
+  });
+  assert.equal(outcome.errorCount, baseline.errorCount + 1);
+  assert.ok(
+    outcome.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requirements.rule" &&
+        item.severity === "error" &&
+        item.message.includes("full verified 2024 course membership"),
+    ),
+  );
+  const content = structureKindAdapter.project(outcome.extraction);
+  assert.ok(
+    content.flags.some(
+      (flag) =>
+        flag.fieldPath === "requirements.rule" && flag.severity === "error",
+    ),
+  );
+});
 
 function finalise(model, overrides = {}) {
   return finaliseAcademicStructureExtraction({
@@ -580,7 +662,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v12",
+    "coursemap-academic-structure-prompt.v13",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
