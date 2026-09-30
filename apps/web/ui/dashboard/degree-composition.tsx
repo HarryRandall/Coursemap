@@ -35,6 +35,9 @@ const emptyHrefs: Record<Exclude<CompositionKind, "electives">, string> = {
 /** Space given to an optional major or minor, which states no unit size. */
 const OPTIONAL_LAYOUT_UNITS = 24;
 
+/** Every block keeps enough of its column to show its title and units. */
+const MINIMUM_BLOCK_SHARE = 0.28;
+
 /** Half the gap between blocks, in pixels. */
 const HALF_GAP = 3;
 
@@ -59,6 +62,7 @@ export function DegreeComposition({
     ),
     100,
     100,
+    MINIMUM_BLOCK_SHARE,
   );
   const minorIndex = new Map(
     sections

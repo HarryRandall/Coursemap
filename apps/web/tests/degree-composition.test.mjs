@@ -118,9 +118,10 @@ function compose(
   profile,
   attempts,
   offered = { majorCodes: [], minorCodes: [] },
+  degreeUnits = 144,
 ) {
   return degreeComposition({
-    degreeUnits: 144,
+    degreeUnits,
     profile: { degreeCode: "BCOMP", majorCode: "", minorCodes: [], ...profile },
     programme: offered,
     structureOptions: [
@@ -179,4 +180,17 @@ test("an optional minor is offered without taking units from electives", () => {
   assert.equal(minor.unchosen, true);
   assert.equal(minor.targetUnits, null);
   assert.equal(sections.at(-1).targetUnits, 84);
+});
+
+test("a small elective remainder is only shown once it holds a course", () => {
+  const kinds = (attempts) =>
+    compose({ majorCode: "COMP-MAJ" }, attempts, undefined, 66).map(
+      (section) => section.kind,
+    );
+  assert.deepEqual(kinds([]), ["core", "major"]);
+  assert.deepEqual(kinds([attempt("ARTH1006", "planned")]), [
+    "core",
+    "major",
+    "electives",
+  ]);
 });
