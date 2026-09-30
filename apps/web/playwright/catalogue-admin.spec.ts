@@ -12,6 +12,11 @@ test("administrators browse year-first catalogue records", async ({
     page.getByRole("heading", { name: "Programmes", level: 1, exact: true }),
   ).toBeAttached();
 
+  // Local databases can hold hundreds of real listings, so find the fixture
+  // rather than expecting it on the first page.
+  await page
+    .getByPlaceholder("Search programmes by code or title")
+    .fill("LOCAL-PROGRAMME");
   const programmeRow = page.getByRole("row", { name: /LOCAL-PROGRAMME/ });
   await expect(programmeRow).toBeVisible();
   await expect(
