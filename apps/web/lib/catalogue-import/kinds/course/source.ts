@@ -325,7 +325,7 @@ export async function fetchAnuCoursePage(
   {
     fetchImpl = fetch,
     signal,
-    requestTimeoutMs = 10_000,
+    requestTimeoutMs = 30_000,
     retryAttempts = 1,
     retryDelayMs = 500,
     now = () => new Date(),
@@ -357,9 +357,18 @@ export async function fetchAnuCoursePage(
           Accept: "text/html,application/xhtml+xml",
           "User-Agent": "Coursemap course importer",
         },
-        redirect: "error",
+        redirect: "follow",
         signal: combineSignal(requestTimeoutMs, signal),
       });
+      if (
+        normaliseOfficialUrl(response.url)?.toLowerCase() !==
+        sourceUrl.toLowerCase()
+      ) {
+        throw new CourseSourceError(
+          "SOURCE_REDIRECT_MISMATCH",
+          "ANU redirected to a different course page.",
+        );
+      }
 
       if (
         RETRYABLE_STATUS_CODES.has(response.status) &&
