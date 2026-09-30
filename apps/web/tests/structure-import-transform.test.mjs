@@ -56,6 +56,7 @@ test("a verified 2024 CBE list is model input with separately attributed evidenc
     fetchedAt: "2026-09-30T00:00:00Z",
     courseCodes: ["BUSN1001", "ECHI2119"],
     duplicateCodes: ["ECHI2119"],
+    mismatchedCourseLinks: [],
   };
   const prompt = buildAcademicStructureExtractionUserPrompt({
     expectedKind: "programme",
@@ -99,6 +100,7 @@ test("an incomplete linked list becomes a publication-blocking extraction error"
     supportingSources: [
       {
         courseCodes: ["BUSN1001", "ECHI2119"],
+        mismatchedCourseLinks: [],
       },
     ],
   });
@@ -117,6 +119,59 @@ test("an incomplete linked list becomes a publication-blocking extraction error"
       (flag) =>
         flag.fieldPath === "requirements.rule" && flag.severity === "error",
     ),
+  );
+});
+
+test("a printed List 1 code that disagrees with its ANU link blocks publication", () => {
+  const outcome = structureKindAdapter.finalise({
+    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
+    listingTitle: "Bachelor of Finance",
+    model: structuredClone(extraction),
+    pageMarkdown,
+    finishReason: "stop",
+    responseError: null,
+    supportingSources: [
+      {
+        courseCodes: ["ECON2900P"],
+        mismatchedCourseLinks: [
+          { listedCode: "ECON2900P", linkedCode: "ECON2900" },
+        ],
+      },
+    ],
+  });
+  assert.ok(
+    outcome.extraction.reviewItems.some(
+      (item) =>
+        item.severity === "error" &&
+        item.message.includes("prints ECON2900P") &&
+        item.message.includes("points to ECON2900"),
+    ),
+  );
+});
+
+test("2024 Finance cannot publish a model response that drops the SMF timing", () => {
+  const outcome = structureKindAdapter.finalise({
+    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
+    listingTitle: "Bachelor of Finance",
+    model: structuredClone(extraction),
+    pageMarkdown: `${pageMarkdown}\nFINM3009 Student Managed Fund and FINM3010 Student Managed Fund Extension (12 units*)\nEnrolment in the Student Managed Fund courses requires 12 units over two consecutive semesters.`,
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.ok(
+    outcome.extraction.reviewItems.some(
+      (item) =>
+        item.severity === "error" &&
+        item.message.includes("consecutive-semester timing"),
+    ),
+  );
+  assert.ok(
+    structureKindAdapter
+      .project(outcome.extraction)
+      .flags.some(
+        (flag) =>
+          flag.severity === "error" && flag.fieldPath === "requirements.rule",
+      ),
   );
 });
 
@@ -662,7 +717,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v13",
+    "coursemap-academic-structure-prompt.v14",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
@@ -681,6 +736,8 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   assert.match(systemPrompt, /free_text/);
   assert.match(systemPrompt, /linked external course list/);
   assert.match(systemPrompt, /specially paired course option/);
+  assert.match(systemPrompt, /FINM3009 and FINM3010 together/);
+  assert.match(systemPrompt, /Every section object must include sourceLocator/);
   assert.match(systemPrompt, /approved exchange credit/);
   assert.match(systemPrompt, /Set freeText to null/);
   assert.match(systemPrompt, /canCombineVertical/);

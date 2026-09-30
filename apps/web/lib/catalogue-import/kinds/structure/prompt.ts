@@ -7,7 +7,7 @@ import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v6";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v13";
+  "coursemap-academic-structure-prompt.v14";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -55,6 +55,7 @@ Source rules:
 Writing the record:
 - Display text (introduction, description, section markdown, learning outcomes, contact text) is copied from the page and tidied, never rewritten. Fix capitalisation, British English spelling, obvious typos and broken Markdown formatting, and drop page furniture such as "Back to the top", share links and navigation lists. Do not summarise, shorten, reorder or add wording. Keep every course code, structure code, number, name and email address exactly as printed.
 - Every sourceText and evidence excerpt is the page's exact wording, untidied, so a reviewer can find it on the page.
+- Every section object must include sourceLocator as a string. Use the printed heading or nearest labelled part of the primary page; do not omit a schema-required key.
 
 Requirement interpretation:
 - requirements.sourceText copies the full Requirements or Program Requirements section verbatim, including its line breaks, course names, footnotes and intervening prose, through the next heading. Do not shorten it to selected clauses or collapse its paragraphs into a sentence.
@@ -85,6 +86,7 @@ Requirement interpretation:
 - A finite linked course list may be a course_list condition. Keep the printed minimum or maximum units when present.
 - A finite linked programme, major, minor or specialisation list may be a structure_list condition only when every option has a literal code. Preserve literal unit limits on that condition.
 - When one requirement paragraph mixes an ordinary finite course choice with a specially paired course option, retain the ordinary choice as a typed branch and isolate the paired option as its own branch. Preserve any consecutive-semester or other timing constraint as exact unresolved wording with a review item. Never let a course_list containing the paired codes imply that either course alone can satisfy the option.
+- In the 2024 Bachelor of Finance example, FINM3009 and FINM3010 together form one 12-unit Student Managed Fund route, not two options in the ordinary course list. Exclude both codes from that ordinary course_list. Place the paired route in its own free_text condition under an any_of group, copy the consecutive-semester footnote into unmodelledText, and flag that timing for review.
 - A linked external course list is a separate requirement from an adjacent finite course list, even when the page indents them alike. If the supplied page does not enumerate that external list's members, preserve the exact linked-list clause as unresolved wording and flag the missing, year-specific membership for review. Do not model it as unrestricted electives, invent members or treat a generic tag as verified membership.
 - When a separately labelled supporting source supplies the linked list's verified course codes for the selected year, use all its unique codes in one course_list condition for that linked-list clause. Take the unit requirement and exact condition sourceText only from the primary programme page. The supporting source establishes membership, not course unit values, degree structure, prerequisites or other programme requirements. Do not use it if the primary programme page no longer requires that linked list.
 - Preserve independently modelled requirements when a neighbouring clause is unresolved. Do not move the entire surrounding block into unmodelledText because one linked list, footnote or paired option needs review.

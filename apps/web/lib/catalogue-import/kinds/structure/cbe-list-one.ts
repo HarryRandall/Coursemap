@@ -13,6 +13,7 @@ export type CbeListOneMembership = {
   sourceUrl: string;
   courseCodes: string[];
   duplicateCodes: string[];
+  mismatchedCourseLinks: Array<{ listedCode: string; linkedCode: string }>;
 };
 
 export type FetchedCbeListOneMembership = CbeListOneMembership & {
@@ -123,6 +124,8 @@ export function parseCbeListOneMembership({
 
   const courseCodes = new Set<string>();
   const duplicateCodes = new Set<string>();
+  const mismatchedCourseLinks: CbeListOneMembership["mismatchedCourseLinks"] =
+    [];
   let courseTables = 0;
   $("table").each((_, table) => {
     const headers = $(table)
@@ -159,11 +162,13 @@ export function parseCbeListOneMembership({
           Boolean(
             target.username || target.password || target.search || target.hash,
           ) ||
-          linkedCode !== code
+          !linkedCode
         )
           throw new TypeError(
             `The CBE List 1 course ${code} has a mismatched ANU link.`,
           );
+        if (linkedCode !== code)
+          mismatchedCourseLinks.push({ listedCode: code, linkedCode });
         if (courseCodes.has(code)) duplicateCodes.add(code);
         courseCodes.add(code);
       });
@@ -176,5 +181,6 @@ export function parseCbeListOneMembership({
     sourceUrl,
     courseCodes: [...courseCodes],
     duplicateCodes: [...duplicateCodes],
+    mismatchedCourseLinks,
   };
 }
