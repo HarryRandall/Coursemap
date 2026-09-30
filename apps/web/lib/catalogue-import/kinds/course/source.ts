@@ -325,7 +325,7 @@ export async function fetchAnuCoursePage(
   {
     fetchImpl = fetch,
     signal,
-    requestTimeoutMs = 10_000,
+    requestTimeoutMs = 30_000,
     retryAttempts = 1,
     retryDelayMs = 500,
     now = () => new Date(),
