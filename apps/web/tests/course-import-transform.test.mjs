@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v40");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v41");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -2060,6 +2060,24 @@ test("keeps the first row when modelled positions repeat", () => {
     assert.ok(result.errorCount > 0);
     assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
   }
+});
+
+test("reviews repeated offering identities before projection", () => {
+  const model = structuredClone(extraction);
+  const duplicate = structuredClone(model.offerings[0]);
+  duplicate.position = 2;
+  duplicate.periodCode = ` ${duplicate.periodCode} `;
+  model.offerings.push(duplicate);
+
+  const validation = validateCourseExtraction(model);
+  assert.equal(validation.success, false);
+  assert.ok(
+    validation.issues.some(({ path }) => path === "$.offerings[1].periodCode"),
+  );
+  const result = finalise(model);
+  assert.equal(result.extraction.offerings.length, 1);
+  assert.ok(result.errorCount > 0);
+  assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
 });
 
 test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {
