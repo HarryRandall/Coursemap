@@ -7,6 +7,7 @@ import { courseLevelForCode } from "../../../academic/course-level.ts";
 import {
   type UnknownRecord,
   COURSE_CODE_PATTERN,
+  cleanText,
   exactRecord,
   requireArray,
   requireBoolean,
@@ -335,6 +336,27 @@ function validateDistinctPositions(
         message: `duplicates position ${position}`,
       });
     positions.add(position);
+  });
+}
+
+function validateDistinctValues(
+  value: unknown,
+  path: string,
+  field: string,
+  identity: (item: unknown) => string | null,
+  issues: CourseExtractionValidationIssue[],
+) {
+  if (!Array.isArray(value)) return;
+  const seen = new Set<string>();
+  value.forEach((item, index) => {
+    const key = identity(item);
+    if (key === null) return;
+    if (seen.has(key))
+      issues.push({
+        path: `${path}[${index}]${field}`,
+        message: "duplicates an earlier entry",
+      });
+    seen.add(key);
   });
 }
 
@@ -745,6 +767,42 @@ function validateExtractionShape(
     "relatedCourses",
   ] as const)
     validateDistinctPositions(record[key], `$.${key}`, issues);
+
+  validateDistinctValues(
+    record.areasOfInterest,
+    "$.areasOfInterest",
+    "",
+    (item) => (typeof item === "string" ? cleanText(item) : null),
+    issues,
+  );
+  validateDistinctValues(
+    record.attributes,
+    "$.attributes",
+    ".value",
+    (item) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item))
+        return null;
+      const { attributeKind, value } = item as UnknownRecord;
+      return typeof attributeKind === "string" && typeof value === "string"
+        ? `${attributeKind}\u0000${cleanText(value)}`
+        : null;
+    },
+    issues,
+  );
+  validateDistinctValues(
+    record.relatedCourses,
+    "$.relatedCourses",
+    ".courseCode",
+    (item) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item))
+        return null;
+      const { relationKind, courseCode } = item as UnknownRecord;
+      return typeof relationKind === "string" && typeof courseCode === "string"
+        ? `${relationKind}\u0000${courseCode}`
+        : null;
+    },
+    issues,
+  );
 
   if (
     Array.isArray(record.learningOutcomes) &&
