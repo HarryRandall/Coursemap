@@ -1089,6 +1089,24 @@ test("listed structure options retain ANU's programme option list", async () => 
   );
 });
 
+test("nested guidance does not extend a programme option list", () => {
+  const options = listedStructureOptions(`## Majors
+
+- [Capital Markets](CAPM-MAJ)
+
+### Credit advice
+
+- [Prior study](HIST-MAJ) may be assessed separately.
+
+## Minors
+
+- [Business Essentials](BESS-MIN)`);
+  assert.deepEqual(
+    options.map(({ targetCode }) => targetCode),
+    ["CAPM-MAJ", "BESS-MIN"],
+  );
+});
+
 test("failed and truncated structure responses remain audit-only", () => {
   assert.equal(finalise(null).canPersist, false);
   assert.equal(finalise({}).canPersist, false);
