@@ -32,6 +32,41 @@ function hasCollegeEnrolment(rule: CourseRule | null): boolean {
   return false;
 }
 
+function hasMinimumGpa(rule: CourseRule | null): boolean {
+  if (!rule) return false;
+  if (rule.op === "minimum_gpa") return true;
+  if (rule.op === "all_of" || rule.op === "one_of")
+    return rule.rules.some(hasMinimumGpa);
+  return false;
+}
+
+function missingMinimumGpa(
+  requisites: CourseExtraction["requisites"],
+  pageMarkdown: string,
+) {
+  const statesMinimumGpa =
+    /\bminimum\s+(?:GPA(?:\s+of)?\s*[0-7](?:\.\d+)?|[0-7](?:\.\d+)?\s+GPA)\b|\bGPA\s+(?:of\s+)?at\s+least\s+[0-7](?:\.\d+)?\b/iu.test(
+      pageMarkdown,
+    );
+  return (
+    statesMinimumGpa &&
+    !hasMinimumGpa(requisites.prerequisiteRule) &&
+    !requisites.unmodelledText.some((wording) => /\bGPA\b/iu.test(wording))
+  );
+}
+
+function hasAmbiguousCourseAlternatives(
+  requisites: CourseExtraction["requisites"],
+) {
+  const wording = requisites.prerequisiteText;
+  if (!wording || !requisites.prerequisiteRule) return false;
+  const sequence =
+    /\b[A-Z]{4}\d{4}\s+(and|or)\s+[A-Z]{4}\d{4}\s+(and|or)\s+[A-Z]{4}\d{4}\b/iu.exec(
+      wording,
+    );
+  return sequence !== null && sequence[1] !== sequence[2];
+}
+
 /** A printed college-degree gate must not disappear behind a mode-specific permission. */
 function missingCollegeEnrolment(
   rule: CourseRule | null,
@@ -85,6 +120,22 @@ export function reviewCourseSourceRules({
       severity: "error",
       message:
         "The ANU prerequisite requires enrolment in a college degree, but the modelled rule omits that eligibility. Review it before publication.",
+    });
+  if (missingMinimumGpa(requisites, pageMarkdown))
+    reviewItems.push({
+      fieldKey: "requisites.prerequisiteRule",
+      kind: "missing",
+      severity: "error",
+      message:
+        "The ANU page states a minimum GPA, but the extracted prerequisites omit it. Check whether it gates an interview or enrolment before publishing.",
+    });
+  if (hasAmbiguousCourseAlternatives(requisites))
+    reviewItems.push({
+      fieldKey: "requisites.prerequisiteRule",
+      kind: "ambiguous",
+      severity: "error",
+      message:
+        "The ANU prerequisite joins course codes with both 'and' and 'or' without grouping them. Confirm the intended alternatives before publishing.",
     });
   return {
     reviewItems,
