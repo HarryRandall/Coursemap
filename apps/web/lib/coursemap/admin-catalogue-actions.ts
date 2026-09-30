@@ -202,12 +202,14 @@ export async function resolveDraftExtractionErrorAction({
   recordId,
   expectedRevision,
   flagIndex,
+  reviewReason,
   editingSessionId,
   path,
 }: {
   recordId: number;
   expectedRevision: number;
   flagIndex: number;
+  reviewReason?: string;
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
@@ -220,6 +222,7 @@ export async function resolveDraftExtractionErrorAction({
       recordId,
       expectedRevision,
       flagIndex,
+      reviewReason,
       editingSessionId,
       userId: viewer.id,
     });

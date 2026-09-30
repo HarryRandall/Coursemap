@@ -40,7 +40,10 @@ export type CatalogueEditor = {
   publish: () => Promise<void>;
   unpublish: () => Promise<void>;
   discard: () => Promise<void>;
-  resolveExtractionError: (flagIndex: number) => Promise<void>;
+  resolveExtractionError: (
+    flagIndex: number,
+    reviewReason?: string,
+  ) => Promise<void>;
 };
 
 const CatalogueEditorContext = createContext<CatalogueEditor | null>(null);
@@ -220,7 +223,10 @@ export function CatalogueEditorProvider({
     router.refresh();
   }
 
-  async function resolveExtractionError(flagIndex: number) {
+  async function resolveExtractionError(
+    flagIndex: number,
+    reviewReason?: string,
+  ) {
     if (dirty || saveState !== "saved") {
       throw new Error(
         "Wait for the draft to finish saving before reviewing its extraction error.",
@@ -230,6 +236,7 @@ export function CatalogueEditorProvider({
       recordId,
       expectedRevision: revision,
       flagIndex,
+      reviewReason,
       editingSessionId,
       path,
     });

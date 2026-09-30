@@ -24,6 +24,7 @@ const CONFLICT_CODE = "TSTC9201";
 const CHANGE_CODE = "TSTC9202";
 const FIRST_READ_CODE = "TSTC9203";
 const EXTRACTION_ERROR_CODE = "TSTC9204";
+const AMBIGUOUS_ERROR_CODE = "TSTC9205";
 const ADMIN_ID = "99000000-0000-4000-8000-000000000041";
 
 let sql;
@@ -54,11 +55,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -190,6 +191,7 @@ beforeAll(async () => {
   await createRecord(CHANGE_CODE, "Change Record");
   await createRecord(FIRST_READ_CODE, "First Read Record");
   await createRecord(EXTRACTION_ERROR_CODE, "Extraction Error Record");
+  await createRecord(AMBIGUOUS_ERROR_CODE, "Ambiguous Error Record");
 });
 
 afterAll(async () => {
@@ -521,6 +523,13 @@ test("a manually corrected draft can resolve its old extraction error with an au
       message: "The description needs a complete ANU reading.",
       sourceExcerpt: "Complete ANU description.",
     },
+    {
+      fieldPath: "requisites.unmodelledText",
+      severity: "error",
+      code: "UNSUPPORTED",
+      message: "The ANU wording remains visible as an unmeasured requirement.",
+      sourceExcerpt: "A special ANU requirement.",
+    },
   ];
   await observeSource(EXTRACTION_ERROR_CODE, content);
   const review = await currentReview(EXTRACTION_ERROR_CODE);
@@ -568,8 +577,30 @@ test("a manually corrected draft can resolve its old extraction error with an au
     editingSessionId: "11111111-1111-4111-8111-111111111111",
     sql,
   });
-  assert.equal(reviewed.flags.length, 0);
+  assert.equal(reviewed.flags.length, 1);
   assert.equal(reviewed.revision, saved.draft.revision + 1);
+  await assert.rejects(
+    resolveDraftExtractionError({
+      recordId,
+      expectedRevision: reviewed.revision,
+      flagIndex: 0,
+      userId: ADMIN_ID,
+      editingSessionId: "11111111-1111-4111-8111-111111111111",
+      sql,
+    }),
+    (error) => error.code === "NO_MANUAL_CORRECTION",
+  );
+  const explained = await resolveDraftExtractionError({
+    recordId,
+    expectedRevision: reviewed.revision,
+    flagIndex: 0,
+    reviewReason:
+      "The complete ANU requirement is visible in the reviewed student view.",
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  assert.equal(explained.flags.length, 0);
   const [event] = await sql`
     select changes.old_value, changes.new_value
     from public.catalogue_field_changes as changes
@@ -578,12 +609,66 @@ test("a manually corrected draft can resolve its old extraction error with an au
   `;
   assert.equal(event.old_value.code, "INCOMPLETE_READING");
   assert.equal(event.new_value, null);
+  const [reason] = await sql`
+    select changes.new_value
+    from public.catalogue_field_changes as changes
+    join public.catalogue_change_events as events on events.id = changes.event_id
+    where events.record_id = ${recordId}
+      and changes.field_path = 'flags[0].reviewReason'
+  `;
+  assert.match(reason.new_value, /complete ANU requirement/);
   const published = await publishCatalogueDraft({
     recordId,
-    expectedRevision: reviewed.revision,
+    expectedRevision: explained.revision,
     userId: ADMIN_ID,
     editingSessionId: "11111111-1111-4111-8111-111111111111",
     sql,
   });
   assert.ok(published.versionId);
+});
+
+test("an ambiguous prerequisite cannot be cleared by explanation alone", async () => {
+  const recordId = records.get(AMBIGUOUS_ERROR_CODE);
+  const content = sourceContent(
+    AMBIGUOUS_ERROR_CODE,
+    "Ambiguous Error Record",
+    "An otherwise complete course.",
+  );
+  content.flags = [
+    {
+      fieldPath: "requisites.prerequisiteRule",
+      severity: "error",
+      code: "AMBIGUOUS",
+      message: "The source leaves two possible prerequisite groupings.",
+      sourceExcerpt: "A and B or C",
+    },
+  ];
+  await observeSource(AMBIGUOUS_ERROR_CODE, content);
+  const review = await currentReview(AMBIGUOUS_ERROR_CODE);
+  for (const change of review.firstRead.filter(
+    (item) => item.band !== "accepted",
+  )) {
+    await resolveSourceChange({
+      recordId,
+      changeId: change.id,
+      decision: "use_source",
+      userId: ADMIN_ID,
+      sql,
+    });
+  }
+  const [draft] = await sql`
+    select revision from public.catalogue_drafts where record_id = ${recordId}
+  `;
+  await assert.rejects(
+    resolveDraftExtractionError({
+      recordId,
+      expectedRevision: Number(draft.revision),
+      flagIndex: 0,
+      reviewReason: "I saw the wording, but cannot confirm its grouping.",
+      userId: ADMIN_ID,
+      editingSessionId: "11111111-1111-4111-8111-111111111111",
+      sql,
+    }),
+    (error) => error.code === "AMBIGUOUS_RULE",
+  );
 });
