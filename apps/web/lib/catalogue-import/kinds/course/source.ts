@@ -131,7 +131,7 @@ export function createAnuCourseUrl(year: number, courseCode: string) {
   return `${ANU_PROGRAMS_AND_COURSES_ORIGIN}/${selectedYear}/course/${code}`;
 }
 
-function normaliseOfficialUrl(value: string) {
+export function normaliseOfficialUrl(value: string) {
   let url: URL;
   try {
     url = new URL(value);
@@ -150,6 +150,18 @@ function normaliseOfficialUrl(value: string) {
   url.hash = "";
   url.pathname = url.pathname.replace(/\/+$/, "");
   return url.toString();
+}
+
+export function resolveAnuCanonicalUrl(
+  canonicalHref: string | undefined,
+  expectedUrl: string,
+) {
+  if (!canonicalHref) return expectedUrl;
+  try {
+    return normaliseOfficialUrl(new URL(canonicalHref, expectedUrl).toString());
+  } catch {
+    return null;
+  }
 }
 
 function isNotFoundShell(html: string) {
@@ -247,9 +259,7 @@ export function validateAnuCoursePage({
   }
 
   const canonicalHref = $("link[rel='canonical']").first().attr("href");
-  const resolvedCanonical = canonicalHref
-    ? normaliseOfficialUrl(new URL(canonicalHref, expectedUrl).toString())
-    : expectedUrl;
+  const resolvedCanonical = resolveAnuCanonicalUrl(canonicalHref, expectedUrl);
   if (!resolvedCanonical) {
     issues.push({
       code: "INVALID_CANONICAL_URL",
