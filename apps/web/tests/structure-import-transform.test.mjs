@@ -223,42 +223,78 @@ test("does not add unresolved wording twice when it is already a free-text condi
   );
 });
 
-test("keeps a consecutive-semester pair as an ordered, exact-unit condition", () => {
-  const model = structuredClone(extraction);
-  const timing =
-    "*Enrolment in the Student Managed Fund (SMF) courses requires 12 units over two consecutive semesters.";
+const PAIR_TIMING =
+  "*The practicum courses require 12 units over two consecutive semesters.";
+
+function withSemesterPair(model) {
   const pair = {
     ...model.requirements.rule.children[0],
-    key: "smf-pair",
+    key: "practicum-pair",
     conditionKind: "consecutive_semester_pair",
     minimumUnits: 12,
     maximumUnits: 12,
-    courseCodes: ["FINM3009", "FINM3010"],
-    freeText: timing,
+    courseCodes: ["TSTP3001", "TSTP3002"],
+    freeText: PAIR_TIMING,
     sourceText:
-      "FINM3009 Student Managed Fund and FINM3010 Student Managed Fund Extension (12 units*)",
+      "TSTP3001 Practicum and TSTP3002 Practicum Extension (12 units*)",
   };
   model.requirements.rule.children.push(pair);
+  return pair;
+}
+
+test("keeps a consecutive-semester pair as an ordered, exact-unit condition", () => {
+  const model = structuredClone(extraction);
+  const pair = withSemesterPair(model);
   assert.equal(validateAcademicStructureExtraction(model).success, true);
 
-  const projection = projectAcademicStructureSnapshot(model);
-  const content = structureCatalogueContent({ projection });
+  const content = structureCatalogueContent({
+    projection: projectAcademicStructureSnapshot(model),
+  });
   const stored = content.requirements.conditions.find(
-    (condition) => condition.key === "smf-pair",
+    (condition) => condition.key === "practicum-pair",
   );
   assert.equal(stored.kind, "consecutive_semester_pair");
   assert.equal(stored.minimumUnits, 12);
-  assert.equal(stored.maximumUnits, 12);
-  assert.equal(stored.freeText, timing);
+  assert.equal(stored.freeText, PAIR_TIMING);
   assert.deepEqual(
     content.requirements.options
-      .filter((option) => option.conditionKey === "smf-pair")
+      .filter((option) => option.conditionKey === "practicum-pair")
       .map((option) => option.code),
-    ["FINM3009", "FINM3010"],
+    ["TSTP3001", "TSTP3002"],
   );
 
   pair.maximumUnits = 18;
   assert.equal(validateAcademicStructureExtraction(model).success, false);
+});
+
+test("flags consecutive-semester wording that no pair models", () => {
+  const model = structuredClone(extraction);
+  model.requirements.sourceText += `\n${PAIR_TIMING}`;
+  const unmodelled = finalise(model, {
+    pageMarkdown: `${pageMarkdown}\n${PAIR_TIMING}`,
+  });
+  assert.ok(
+    unmodelled.extraction.reviewItems.some(
+      (item) =>
+        item.severity === "error" && item.message.includes("no course pair"),
+    ),
+  );
+
+  const pair = withSemesterPair(model);
+  model.requirements.rule.children.push({
+    ...pair,
+    key: "ordinary-list",
+    conditionKind: "course_list",
+    maximumUnits: null,
+    courseCodes: ["TSTP3001", "TSTP3100"],
+    freeText: null,
+  });
+  const leaked = finalise(model, {
+    pageMarkdown: `${pageMarkdown}\n${PAIR_TIMING}`,
+  });
+  const messages = leaked.extraction.reviewItems.map((item) => item.message);
+  assert.ok(!messages.some((message) => message.includes("no course pair")));
+  assert.ok(messages.some((message) => message.includes("could count alone")));
 });
 
 test("preserves a printed exchange unit bound without treating it as measured credit", () => {

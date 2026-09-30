@@ -11,6 +11,7 @@ import {
   repairRequirementNodes,
 } from "./model-canonical.ts";
 import { withListedStructureOptions } from "./listed-options.ts";
+import { consecutiveSemesterReviewItems } from "./semester-pairs.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
   hasExtractedContent,
@@ -206,6 +207,7 @@ export function finaliseAcademicStructureExtraction({
       severity: "warning" as const,
       message: `The ANU page does not contain this wording: ${wording.slice(0, 160)}`,
     })),
+    ...consecutiveSemesterReviewItems(extraction.requirements),
   ];
   // The page often opens with a paragraph the model reads as both the
   // introduction and the description; printed twice it doubles the page.
