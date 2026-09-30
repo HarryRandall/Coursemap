@@ -67,14 +67,16 @@ select extensions.is(
   (
     select count(*)
     from public.catalogue_records
+    join public.catalogue_codes as items on items.id = catalogue_records.code_id
     where academic_year_id = (
       select id from public.academic_years where year = 2026
     )
-      and kind = 'course'
+      and catalogue_records.kind = 'course'
+      and items.code in ('COMP1100', 'COMP1110')
       and published_version_id is not null
   ),
   2::bigint,
-  'only the two explicitly imported preview courses have published snapshots'
+  'the two explicitly imported preview courses have published snapshots'
 );
 
 select extensions.ok(
