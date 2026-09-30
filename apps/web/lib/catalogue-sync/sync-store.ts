@@ -93,6 +93,19 @@ export async function ensureAnuSourceId(sql: AnySyncSql) {
   return Number(row.id);
 }
 
+export async function ensureSupportingSourceId(
+  sql: AnySyncSql,
+  source: { sourceName: string; sourceKind: string; sourceBaseUrl: string },
+) {
+  const [row] = await sql`
+    insert into public.catalogue_sources (name, kind, base_url, is_active)
+    values (${source.sourceName}, ${source.sourceKind}, ${source.sourceBaseUrl}, true)
+    on conflict (kind, base_url) do update set is_active = true
+    returning id
+  `;
+  return Number(row.id);
+}
+
 export async function claimCatalogueSync(
   sql: SyncSql,
   {

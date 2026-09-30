@@ -2,8 +2,10 @@ import { expect, test } from "vitest";
 import {
   CBE_LIST_ONE_2024_URL,
   fetchCbeListOneMembership,
+  modelsCbeListOneMembership,
   parseCbeListOneMembership,
 } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
+import type { AcademicStructureRequirementCondition } from "../lib/catalogue-import/kinds/structure/contract.ts";
 
 const page = `
   <h1>List 1: CBE Courses 2024 and 2023</h1>
@@ -91,4 +93,45 @@ test("List 1 fetch refuses a response from another URL", async () => {
       fetchImpl: (async () => response) as typeof fetch,
     }),
   ).rejects.toThrow(/could not be fetched/u);
+});
+
+test("the linked requirement needs the whole verified list in one finite branch", () => {
+  const condition: AcademicStructureRequirementCondition = {
+    type: "condition",
+    key: "list-one",
+    conditionKind: "course_list",
+    minimumUnits: 6,
+    maximumUnits: null,
+    minimumCourses: null,
+    courseCodes: ["BUSN1001", "ECHI2119"],
+    structureKind: null,
+    structureCodes: [],
+    subjectCode: null,
+    minimumLevel: null,
+    maximumLevel: null,
+    tag: null,
+    freeText: null,
+    scope: "part",
+    includesAnyCourse: false,
+    sourceText: "6 units from completion of courses from List 1.",
+    sourceLocator: "Program Requirements",
+  };
+  expect(modelsCbeListOneMembership(condition, condition.courseCodes)).toBe(
+    true,
+  );
+  expect(
+    modelsCbeListOneMembership(condition, ["BUSN1001", "ECHI2119", "FINM3009"]),
+  ).toBe(false);
+  expect(
+    modelsCbeListOneMembership(
+      { ...condition, includesAnyCourse: true },
+      condition.courseCodes,
+    ),
+  ).toBe(false);
+  expect(
+    modelsCbeListOneMembership(
+      { ...condition, sourceText: "ordinary electives" },
+      condition.courseCodes,
+    ),
+  ).toBe(false);
 });
