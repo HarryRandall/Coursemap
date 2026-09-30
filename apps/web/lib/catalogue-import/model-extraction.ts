@@ -145,6 +145,7 @@ export function salvageModelExtraction<
       return { extraction: validation.data, ...result() };
     }
     const removals = new Map<string, Set<number>>();
+    const resetThisPass = new Set<string>();
     let changed = false;
     for (const issue of validation.issues) {
       const { field, index, property } = issueTarget(issue.path);
@@ -159,17 +160,24 @@ export function salvageModelExtraction<
         property !== null &&
         isRecord(current) &&
         isRecord(emptyField) &&
-        property in emptyField &&
-        !reset.has(`${field}.${property}`)
+        property in emptyField
       ) {
-        changed =
-          resetTo(
-            current,
-            property,
-            emptyField[property],
-            `${field}.${property}`,
-            message,
-          ) || changed;
+        const fieldKey = `${field}.${property}`;
+        if (resetThisPass.has(fieldKey)) continue;
+        if (!reset.has(fieldKey)) {
+          changed =
+            resetTo(
+              current,
+              property,
+              emptyField[property],
+              fieldKey,
+              message,
+            ) || changed;
+          resetThisPass.add(fieldKey);
+        } else {
+          changed =
+            resetTo(candidate, field, emptyField, field, message) || changed;
+        }
       } else {
         changed =
           resetTo(candidate, field, emptyField, field, message) || changed;

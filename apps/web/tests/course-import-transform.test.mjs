@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v22");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v33");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v34");
   assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.match(
     prompt,
@@ -2361,6 +2361,45 @@ test("incompatibility trees reject invalid leaves and unconditional duplicates o
       issue.message.includes("nesting depth"),
     ),
   );
+});
+
+test("multiple errors in one exclusion array preserve unrelated requisites", () => {
+  const model = structuredClone(extraction);
+  const advice = "Contact the first-year coordinator for preparation advice.";
+  model.requisites.assumedKnowledgeText = advice;
+  model.requisites.incompatibilityRule = {
+    op: "one_of",
+    rules: [
+      { op: "not_completed", courseCode: "MATH1113" },
+      { op: "not_completed", courseCode: "MATH1115" },
+    ],
+  };
+  model.requisites.incompatibilityCourseCodes = ["MATH1113", "MATH1115"];
+
+  const result = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: `${pageMarkdown}\n${advice}`,
+    finishReason: "stop",
+    responseError: null,
+  });
+
+  assert.equal(result.extraction.requisites.assumedKnowledgeText, advice);
+  assert.deepEqual(result.extraction.requisites.incompatibilityCourseCodes, []);
+  assert.ok(
+    result.report.droppedFields.some(
+      ({ fieldKey }) => fieldKey === "requisites.incompatibilityCourseCodes",
+    ),
+  );
+  assert.equal(
+    result.report.droppedFields.some(
+      ({ fieldKey }) => fieldKey === "requisites",
+    ),
+    false,
+  );
+  assert.ok(result.errorCount > 0);
 });
 
 test("normalises only an equivalent duplicate of a single unconditional exclusion", () => {
