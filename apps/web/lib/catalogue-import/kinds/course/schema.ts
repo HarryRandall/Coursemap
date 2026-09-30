@@ -205,6 +205,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         sourceText: { type: "string", minLength: 1 },
         learningOutcomePositions: {
           type: "array",
+          uniqueItems: true,
           items: { type: "integer", minimum: 1 },
         },
       },
