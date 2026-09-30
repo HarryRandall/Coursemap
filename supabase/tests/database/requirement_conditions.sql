@@ -197,13 +197,14 @@ select extensions.lives_ok(
   $$
     insert into public.requirement_conditions (
       rule_id, version_id, group_id, condition_key, position, condition_kind,
-      minimum_units, maximum_units, free_text
+      minimum_units, maximum_units, minimum_level, maximum_level, free_text
     )
     select groups.rule_id, groups.version_id, groups.id, 'exchange-route', 3,
-      'other', 24, 24, '24 units from approved exchange with pre-approval.'
+      'other', 24, 24, 3000, 3999,
+      '24 units of 3000-level approved exchange with pre-approval.'
     from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
   $$,
-  'an unmeasured exchange condition preserves its printed unit amount'
+  'an unmeasured exchange condition preserves its units and level'
 );
 
 select pg_temp.publish_snapshot((select version_id from fixture));
