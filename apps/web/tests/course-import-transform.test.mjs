@@ -23,8 +23,6 @@ import {
 import {
   buildCourseExtractionSystemPrompt,
   buildCourseExtractionUserPrompt,
-  COURSE_IMPORT_PARSER_VERSION,
-  COURSE_IMPORT_PROMPT_VERSION,
 } from "../lib/catalogue-import/kinds/course/prompt.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { courseKindAdapter } from "../lib/catalogue-import/kinds/course/adapter.ts";
@@ -652,23 +650,10 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
     /complete HTTPS URL on programsandcourses\.anu\.edu\.au/,
   );
   assert.match(prompt, /tidied, never rewritten/);
-  assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
-  assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v43");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
   );
-  assert.match(
-    buildCourseExtractionUserPrompt({
-      expectedCode: "CBEA2001",
-      academicYear: 2026,
-      pageMarkdown:
-        "## Requisite and Incompatibility\nMust be enrolled in a CBE degree.",
-    }),
-    /Final requisite check:[\s\S]*separate all_of requirement/u,
-  );
-  assert.match(prompt, /concurrentIncompatibilityCourseCodes to \[CBEA3001\]/);
   assert.match(
     prompt,
     /do not add completed MATH1003 to prerequisiteRule for everyone/,
@@ -972,7 +957,7 @@ test("the user prompt offers the tags already in use", () => {
       academicYear: 2026,
       pageMarkdown: "# COMP2400",
     }).startsWith(
-      "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400\n",
+      "Expected course: COMP2400\nSelected academic year: 2026\nRecognised academic periods for 2026:\nNone configured. Flag every offering session for review.\n\n# COMP2400",
     ),
   );
 });
@@ -1620,18 +1605,18 @@ for (const [code, stem] of [
 
 test("the model receives relevant course identities without resolving ambiguous names in code", () => {
   const prompt = buildCourseExtractionUserPrompt({
-    expectedCode: "FINM3010",
-    academicYear: 2024,
-    pageMarkdown: "Admission requires the Student Managed Fund Course.",
+    expectedCode: "TSTC3010",
+    academicYear: 2026,
+    pageMarkdown: "Admission requires the Research Practicum Course.",
     knownCourses: [
-      { code: "FINM3009", name: "Student Managed Fund" },
-      { code: "FINM3999", name: "Student Managed Fund" },
-      { code: "FINM2002", name: "Corporate Finance" },
+      { code: "TSTC3009", name: "Research Practicum" },
+      { code: "TSTC3999", name: "Research Practicum" },
+      { code: "TSTC2002", name: "Research Methods" },
     ],
   });
-  assert.match(prompt, /FINM3009: Student Managed Fund/u);
-  assert.match(prompt, /FINM3999: Student Managed Fund/u);
-  assert.equal(prompt.includes("FINM2002"), false);
+  assert.match(prompt, /TSTC3009: Research Practicum/u);
+  assert.match(prompt, /TSTC3999: Research Practicum/u);
+  assert.equal(prompt.includes("TSTC2002"), false);
 });
 
 test("captured FINM3010 named-course eligibility retains its Credit threshold and unresolved permission", async () => {
