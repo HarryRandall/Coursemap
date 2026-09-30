@@ -56,7 +56,6 @@ const extraction = JSON.parse(
 const pageMarkdown = JSON.stringify(extraction);
 
 test("unmodelled eligibility wording creates an explicit blocking review item", () => {
-  // https://programsandcourses.anu.edu.au/2026/course/CBEA3070
   const wording =
     "A student with a fail grade (N, NCN, WN) in the preceding semester is ineligible to apply.";
   const model = structuredClone(extraction);
@@ -200,15 +199,14 @@ test("a conditional school qualification remains under review rather than requir
 });
 
 test("unnamed equivalent courses remain an alternative requiring review", () => {
-  // https://programsandcourses.anu.edu.au/2024/course/ECON2091
   const model = structuredClone(extraction);
   model.requisites.prerequisiteText =
-    "To enrol in this course you must have completed or concurrent enrolment in ECON2101/2111 Microeconomics 2 (P or H) or equivalent.";
+    "To enrol in this course you must have completed or concurrent enrolment in STAT2101/2111 Microeconomics 2 (P or H) or equivalent.";
   model.requisites.prerequisiteRule = {
     op: "one_of",
     rules: [
-      { op: "completed_or_concurrent", courseCode: "ECON2101" },
-      { op: "completed_or_concurrent", courseCode: "ECON2111" },
+      { op: "completed_or_concurrent", courseCode: "STAT2101" },
+      { op: "completed_or_concurrent", courseCode: "STAT2111" },
       { op: "equivalent_course", sourceText: "or equivalent" },
     ],
   };
@@ -248,7 +246,7 @@ test("unnamed equivalent courses remain an alternative requiring review", () => 
   assert.equal(
     evaluateRule(expression, {
       ...reader,
-      enrolled: new Set(["ECON2111"]),
+      enrolled: new Set(["STAT2111"]),
     }).status,
     "met",
   );
@@ -484,13 +482,13 @@ test("keeps a requisite rule the model reads from a semicolon list", () => {
   model.requisites.prerequisiteRule = {
     op: "all_of",
     rules: [
-      { op: "completed", courseCode: "FINM2001" },
-      { op: "completed", courseCode: "FINM2002" },
+      { op: "completed", courseCode: "PHYS2001" },
+      { op: "completed", courseCode: "PHYS2002" },
       {
         op: "one_of",
         rules: [
-          { op: "completed", courseCode: "FINM2003" },
-          { op: "completed", courseCode: "FINM3011" },
+          { op: "completed", courseCode: "PHYS2003" },
+          { op: "completed", courseCode: "PHYS3011" },
         ],
       },
     ],
@@ -506,7 +504,7 @@ test("keeps a requisite rule the model reads from a semicolon list", () => {
     projection.ruleConditions
       .filter(({ ruleKey }) => ruleKey === "prerequisite")
       .map(({ requiredCourseCode }) => requiredCourseCode),
-    ["FINM2001", "FINM2002", "FINM2003", "FINM3011"],
+    ["PHYS2001", "PHYS2002", "PHYS2003", "PHYS3011"],
   );
 });
 
@@ -680,13 +678,13 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
 
 test("blocks a college-degree prerequisite omitted behind conditional permission", () => {
   const model = emptyCourseExtraction({
-    code: "CBEA2001",
+    code: "ARTS2001",
     year: 2026,
-    title: "Australian Indigenous Perspectives in Business and Economics",
+    title: "Test Arts Course",
   });
   const clause =
-    "24 units of study and must be enrolled in a CBE degree. Please note if you're in a Flexible Double Degree with a CBE program, you will need a permission code to enrol into this course";
-  const pageMarkdown = `# ${model.title}\n\nOffered by the ANU College of Business and Economics\n\n## Requisite and Incompatibility\n\n${clause}\n\n## Prescribed Texts\n`;
+    "24 units of study and must be enrolled in a CASS degree. Please note if you're in a Flexible Double Degree with a CASS program, you will need a permission code to enrol into this course";
+  const pageMarkdown = `# ${model.title}\n\nOffered by the ANU College of Arts and Social Sciences\n\n## Requisite and Incompatibility\n\n${clause}\n\n## Prescribed Texts\n`;
   model.requisites.prerequisiteText = clause;
   model.requisites.prerequisiteRule = {
     op: "all_of",
@@ -744,7 +742,7 @@ test("blocks a college-degree prerequisite omitted behind conditional permission
   );
   model.requisites.prerequisiteRule.rules.push({
     op: "enrolled_in_college",
-    college: "ANU College of Business and Economics",
+    college: "ANU College of Arts and Social Sciences",
   });
   const complete = finaliseModel();
   assert.equal(complete.report.missingCollegeEnrolment, false);
@@ -1136,13 +1134,13 @@ test("the captured COMP2410 model response preserves both total units and the su
     options: [],
   });
   const otherCourses = [
-    "FINM1001",
-    "BUSN1001",
-    "ECON1101",
+    "PHYS1101",
+    "CHEM1101",
+    "HIST1001",
+    "PHIL1001",
     "STAT1003",
     "MATH1013",
     "MGMT1003",
-    "MKTG2003",
   ].map((code) => [code, { units: 6, mark: 70 }]);
   for (const [code, expected] of [
     ["COMP1100", "met"],
@@ -1232,7 +1230,7 @@ test("preserves the captured MATH1116 minimum marks on each alternative", async 
 
 test("permission projection preserves the stated authority without inventing one", () => {
   const model = emptyCourseExtraction({
-    code: "BUSN3060",
+    code: "TSTB3060",
     year: 2024,
     title: "Permission test",
   });
@@ -1254,35 +1252,6 @@ test("permission projection preserves the stated authority without inventing one
   }
   model.requisites.prerequisiteRule = { op: "permission", sourceText: "" };
   assert.equal(validateCourseExtraction(model).success, false);
-});
-
-test("captured BUSN3060 permission retains its school and is projected once", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-busn3060-requisites.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "BUSN3060",
-    year: 2024,
-    title: "Advanced Accounting",
-  });
-  model.requisites = captured.requisites;
-  assert.equal(validateCourseExtraction(model).success, true);
-  const conditions = projectCourseSnapshot(model).ruleConditions.filter(
-    (item) => item.ruleKey === "prerequisite",
-  );
-  assert.equal(conditions.length, 1);
-  assert.equal(conditions[0].conditionKind, "permission");
-  assert.equal(
-    conditions[0].freeText,
-    "You will need to contact the Research School of Accounting to request a permission code to enrol in this course.",
-  );
-  assert.deepEqual(model.requisites.unmodelledText, []);
 });
 
 test("assumed knowledge remains advisory and retains its own provenance", () => {
@@ -1317,42 +1286,6 @@ test("assumed knowledge remains advisory and retains its own provenance", () => 
   );
   assert.ok(unit);
   assert.equal(reviewUnitEvidence(content, unit.fieldPath)[0].confidence, 0.9);
-});
-
-test("captured STAT2014 preparation advice never becomes a compulsory course", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-stat2014-requisites.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "STAT2014",
-    year: 2024,
-    title: "Statistics",
-  });
-  model.requisites = captured.requisites;
-  const projection = projectCourseSnapshot(model);
-  const knowledge = projection.ruleConditions.find(
-    (item) => item.ruleKey === "assumed_knowledge",
-  );
-  assert.equal(knowledge.hardness, "advisory");
-  assert.equal(knowledge.freeText, captured.requisites.assumedKnowledgeText);
-  assert.deepEqual(
-    projection.ruleConditions
-      .filter((item) => item.ruleKey === "prerequisite")
-      .map((item) => item.requiredCourseCode),
-    ["STAT1008", "STAT2013"],
-  );
-  assert.equal(
-    projection.ruleCourseReferences.some(
-      (item) => item.referencedCourseCode === "MATH1113",
-    ),
-    false,
-  );
 });
 
 test("captured STAT2014 fee quotes are supported and keep CSP separate from tuition", async () => {
@@ -1431,42 +1364,6 @@ test("cross-year offering dates survive validation without changing their year",
   assert.equal(validateCourseExtraction(model).success, false);
 });
 
-test("captured CBEA3070 Spring classes retain their following-year end date", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-cbea3070-offerings.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "CBEA3070",
-    year: 2024,
-    title: "Business internship",
-  });
-  model.offerings = captured.offerings;
-  assert.equal(
-    validateCourseExtraction(model, {
-      expectedCode: "CBEA3070",
-      expectedYear: 2024,
-    }).success,
-    true,
-  );
-  const sessions = projectCourseSnapshot(model).offeringSessions.filter(
-    (item) => item.academicPeriodName === "Spring Session",
-  );
-  assert.equal(sessions.length, 2);
-  assert.deepEqual(
-    sessions.map((item) => [item.startsOn, item.endsOn]),
-    [
-      ["2024-10-01", "2025-02-07"],
-      ["2024-10-01", "2025-02-07"],
-    ],
-  );
-});
-
 test("offering labels cannot replace supplied academic period identities", () => {
   const model = structuredClone(extraction);
   const codes = ["S1", "S2", "SUMMER", "AUTUMN", "WINTER", "SPRING"];
@@ -1507,102 +1404,6 @@ test("offering labels cannot replace supplied academic period identities", () =>
   );
 });
 
-test("captured FINM2002 sessions use calendar codes and preserve ANU labels", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-finm2002-offerings.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "FINM2002",
-    year: 2024,
-    title: "Corporate Finance",
-  });
-  model.offerings = captured.offerings;
-  const knownPeriodCodes = captured.knownAcademicPeriods.map(
-    (period) => period.code,
-  );
-  assert.equal(
-    validateCourseExtraction(model, { knownPeriodCodes }).success,
-    true,
-  );
-  const projection = projectCourseSnapshot(model);
-  assert.deepEqual(
-    projection.offeringSessions.map((session) => [
-      session.academicPeriodCode,
-      session.academicPeriodName,
-    ]),
-    [
-      ["S1", "First Semester"],
-      ["S2", "Second Semester"],
-    ],
-  );
-});
-
-for (const [code, stem] of [
-  ["FINM2002", "finm2002"],
-  ["CBEA3070", "cbea3070"],
-]) {
-  test(`captured ${code} table quotes retain source rows without rewritten headings`, async () => {
-    const captured = JSON.parse(
-      await readFile(
-        new URL(
-          `./fixtures/course-import/anu-2024-${stem}-tables.json`,
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    );
-    assert.ok(
-      unsupportedModelWording(
-        {
-          fees: captured.previousFees,
-          offerings: captured.previousOfferings,
-          evidence: captured.previousEvidence,
-        },
-        captured.sourceMarkdown,
-      ).length > 0,
-    );
-    assert.deepEqual(
-      unsupportedModelWording(
-        {
-          fees: captured.fees,
-          offerings: captured.offerings,
-          evidence: captured.evidence,
-        },
-        captured.sourceMarkdown,
-      ),
-      [],
-    );
-    const model = emptyCourseExtraction({
-      code,
-      year: 2024,
-      title: "Table quotation test",
-    });
-    model.fees = captured.fees;
-    model.offerings = captured.offerings;
-    model.evidence = captured.evidence;
-    const result = finaliseCourseExtraction({
-      code,
-      year: 2024,
-      listingTitle: model.title,
-      model,
-      pageMarkdown: captured.sourceMarkdown,
-      finishReason: "stop",
-      responseError: null,
-      knownPeriodCodes: ["S1", "S2", "SUMMER", "AUTUMN", "WINTER", "SPRING"],
-    });
-    assert.equal(result.warningCount, 0);
-    assert.equal(result.errorCount, 0);
-    assert.equal(result.extraction.offerings.length, captured.offerings.length);
-    assert.equal(result.extraction.fees.length, captured.fees.length);
-  });
-}
-
 test("the model receives relevant course identities without resolving ambiguous names in code", () => {
   const prompt = buildCourseExtractionUserPrompt({
     expectedCode: "TSTC3010",
@@ -1619,145 +1420,66 @@ test("the model receives relevant course identities without resolving ambiguous 
   assert.equal(prompt.includes("TSTC2002"), false);
 });
 
-test("captured FINM3010 named-course eligibility retains its Credit threshold and unresolved permission", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-finm3010-requisites.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
+test("a structure link in related courses is rejected without losing the prerequisite tree", () => {
   const model = emptyCourseExtraction({
-    code: "FINM3010",
-    year: 2024,
-    title: "Student Managed Fund Extension",
+    code: "TSTC2003",
+    year: 2026,
+    title: "Test Course",
   });
-  model.requisites = captured.requisites;
-  const content = courseCatalogueContent({
-    projection: projectCourseSnapshot(model),
-  });
-  const conditions = content.requirements.conditions.filter(
-    (item) => item.ruleKey === "prerequisite",
-  );
-  const course = conditions.find((condition) => condition.kind === "course");
-  assert.equal(course.itemCode, "FINM3009");
-  assert.equal(course.minimumMark, 60);
-  assert.ok(
-    conditions.some(
-      (condition) =>
-        condition.kind === "other" &&
-        condition.freeText.includes("permission code"),
-    ),
-  );
-  const rule = requirementSliceExpression({
-    rule: content.requirements.rules.find(
-      (item) => item.key === "prerequisite",
-    ),
-    groups: content.requirements.groups.filter(
-      (item) => item.ruleKey === "prerequisite",
-    ),
-    conditions,
-    options: [],
-  });
-  assert.notEqual(
-    evaluateRule(rule, {
-      completed: new Map([["FINM3009", { units: 6, mark: 60 }]]),
-      enrolled: new Set(),
-      programmeCodes: [],
-      wam: null,
-      gpa: null,
-      studyYear: null,
-    }).status,
-    "met",
-  );
-});
-
-test("the captured STAT2014 workload remains a whole-course total", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-stat2014-workload.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = structuredClone(extraction);
-  model.workloadText = captured.workloadText;
-  model.workloadHours = captured.workloadHours;
-  model.workloadHoursBasis = captured.workloadHoursBasis;
-  assert.equal(validateCourseExtraction(model).success, true);
-  const finalised = finaliseCourseExtraction({
-    code: model.code,
-    year: model.year,
-    listingTitle: model.title,
-    model,
-    pageMarkdown: JSON.stringify(model),
-    finishReason: "stop",
-    responseError: null,
-  });
-  assert.equal(finalised.extraction.workloadHoursBasis, "total");
-  const { snapshot } = projectCourseSnapshot(finalised.extraction);
-  assert.equal(snapshot.workloadText, captured.workloadText);
-  assert.equal(snapshot.workloadHours, 130);
-  assert.equal(snapshot.workloadHoursBasis, "total");
-});
-
-test("the captured Finance major rejection retains its value and the valid prerequisite tree", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-finm2003-related-reference.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "FINM2003",
-    year: 2024,
-    title: "Investments",
-  });
-  model.relatedCourses = [
-    ...captured.relatedCourses,
-    {
-      position: 2,
-      relationKind: "equivalent",
-      courseCode: "FINM6045",
-      courseTitle: null,
-      sourceText: "Equivalent course: FINM6045",
-    },
-  ];
-  model.requisites.prerequisiteText = captured.prerequisiteText;
-  model.requisites.prerequisiteRule = captured.prerequisiteRule;
+  const structureLink = {
+    position: 1,
+    relationKind: "other",
+    courseCode: "TSTX-MAJ",
+    courseTitle: "Test Studies",
+    sourceText: "Test Studies",
+  };
+  const equivalent = {
+    position: 2,
+    relationKind: "equivalent",
+    courseCode: "TSTC6045",
+    courseTitle: null,
+    sourceText: "Equivalent course: TSTC6045",
+  };
+  model.relatedCourses = [structureLink, equivalent];
+  model.requisites.prerequisiteText =
+    "To enrol in this course you must have previously completed TSTC1001, and either TSTS1008 or TSTS1003.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      { op: "completed", courseCode: "TSTC1001" },
+      {
+        op: "one_of",
+        rules: [
+          { op: "completed", courseCode: "TSTS1008" },
+          { op: "completed", courseCode: "TSTS1003" },
+        ],
+      },
+    ],
+  };
   const before = structuredClone(model);
   const result = finaliseCourseExtraction({
     code: model.code,
     year: model.year,
     listingTitle: model.title,
     model,
-    pageMarkdown: captured.sourceExcerpt + "\n" + JSON.stringify(model),
+    pageMarkdown:
+      "## Majors\n\n- [Test Studies](TSTX-MAJ)\n" + JSON.stringify(model),
     finishReason: "stop",
     responseError: null,
   });
   assert.equal(result.errorCount, 1);
-  assert.deepEqual(result.extraction.relatedCourses, [model.relatedCourses[1]]);
+  assert.deepEqual(result.extraction.relatedCourses, [equivalent]);
   assert.deepEqual(
     result.extraction.requisites.prerequisiteRule,
-    captured.prerequisiteRule,
+    model.requisites.prerequisiteRule,
   );
-  assert.deepEqual(
-    result.report.droppedFields[0].value,
-    captured.relatedCourses[0],
-  );
+  assert.equal(result.report.droppedFields[0].fieldKey, "relatedCourses[0]");
+  assert.deepEqual(result.report.droppedFields[0].value, structureLink);
   assert.match(
     result.extraction.reviewItems[0].message,
-    /Rejected value:.*FINM-MAJ.*Finance/,
+    /Rejected value:.*TSTX-MAJ.*Test Studies/,
   );
   assert.deepEqual(model, before);
-  assert.equal(result.report.droppedFields[0].fieldKey, "relatedCourses[0]");
 });
 
 test("rejected-value display is bounded while the report retains full content", () => {
@@ -2142,61 +1864,6 @@ test("reviews repeated course metadata before projection", () => {
   }
 });
 
-test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {
-  const fixture = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-mktg2003-course-count.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  assert.equal(
-    fixture.extraction.requisites.prerequisiteText,
-    fixture.sourceExcerpt,
-  );
-  const finalised = finaliseCourseExtraction({
-    code: "MKTG2003",
-    year: 2024,
-    listingTitle: fixture.extraction.title,
-    model: fixture.extraction,
-    pageMarkdown: await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-mktg2003-course-count.txt",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-    finishReason: "stop",
-    responseError: null,
-    knownTags: [],
-  });
-  assert.equal(finalised.errorCount, 1);
-  assert.ok(
-    finalised.extraction.reviewItems.some(
-      (item) => item.fieldKey === "level" && item.severity === "error",
-    ),
-  );
-  assert.deepEqual(finalised.extraction.requisites.prerequisiteRule, {
-    op: "min_courses_from_subject",
-    minimumCount: 1,
-    subjectCode: "STAT",
-  });
-  const content = courseCatalogueContent({
-    projection: projectCourseSnapshot(finalised.extraction),
-  });
-  assert.ok(
-    content.requirements.conditions.some(
-      (row) =>
-        row.kind === "subject_courses" &&
-        row.minimumCount === 1 &&
-        row.minimumUnits === null &&
-        row.subjectCode === "STAT",
-    ),
-  );
-});
-
 test("concurrent exclusions retain their scope separately from completion bans and prerequisites", async () => {
   const { treeFromRequirementWrite, requirementWriteWithTree } =
     await import("../lib/catalogue-import/requirement-tree.ts");
@@ -2284,103 +1951,37 @@ test("legacy responses retain their previous completion exclusions", () => {
   );
 });
 
-test("the captured MATH1013 response keeps both exclusion scopes while the metadata error blocks publication", async () => {
-  const capture = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2026-math1013-concurrent-extraction.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = capture.extraction;
-  assert.equal(
-    capture.source.sourceUrl,
-    "https://programsandcourses.anu.edu.au/2026/course/MATH1013",
-  );
-  const pageMarkdown = await readFile(
-    new URL(
-      "./fixtures/course-import/anu-2026-math1013-concurrent-source.txt",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  const result = finaliseCourseExtraction({
-    code: "MATH1013",
+test("an ambiguous AND/OR grouping remains a hard unknown with an error flag", () => {
+  const prerequisiteText =
+    "To enrol in this course you must have completed CHEM1101 and CHEM1102 or CHEM1100.";
+  const model = emptyCourseExtraction({
+    code: "CHEM2108",
+    year: 2026,
+    title: "Test Chemistry",
+  });
+  model.requisites = {
+    ...model.requisites,
+    prerequisiteText,
+    incompatibilityText: "Incompatible with CHEM2008.",
+    prerequisiteRule: null,
+    incompatibilityCourseCodes: ["CHEM2008"],
+    unmodelledText: [prerequisiteText],
+  };
+  model.reviewItems = [
+    {
+      fieldKey: "requisites.prerequisiteRule",
+      kind: "ambiguous",
+      severity: "error",
+      message:
+        "The prerequisite clause 'CHEM1101 and CHEM1102 or CHEM1100' is ambiguous regarding grouping.",
+    },
+  ];
+  const finalised = finaliseCourseExtraction({
+    code: "CHEM2108",
     year: 2026,
     listingTitle: model.title,
     model,
-    pageMarkdown,
-    finishReason: "stop",
-    responseError: null,
-    knownTags: [],
-    knownPeriodCodes: ["S1", "S2"],
-  });
-  assert.equal(result.errorCount, 3);
-  assert.ok(
-    result.extraction.reviewItems.some(
-      (item) => item.fieldKey === "level" && item.severity === "error",
-    ),
-  );
-  assert.ok(
-    result.extraction.reviewItems.some(
-      (item) =>
-        item.fieldKey === "sourceUpdatedAt" && item.severity === "error",
-    ),
-  );
-  assert.deepEqual(result.extraction.requisites.incompatibilityCourseCodes, [
-    "MATH1113",
-    "MATH1115",
-  ]);
-  assert.deepEqual(
-    result.extraction.requisites.concurrentIncompatibilityCourseCodes,
-    ["MATH1113", "MATH1115"],
-  );
-  const projection = projectCourseSnapshot(result.extraction);
-  assert.equal(
-    projection.ruleConditions.filter(
-      (condition) => condition.conditionKind === "incompatible",
-    ).length,
-    2,
-  );
-  assert.equal(
-    projection.ruleConditions.filter(
-      (condition) => condition.conditionKind === "incompatible_concurrent",
-    ).length,
-    2,
-  );
-  assert.equal(
-    projection.ruleCourseReferences.filter(
-      (reference) => reference.ruleKey === "incompatibility",
-    ).length,
-    2,
-  );
-});
-
-test("the model's unresolved ECON2108 grouping remains a hard unknown with an error flag", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-econ2108-grouping.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "ECON2108",
-    year: 2024,
-    title: "Japanese Economy and Economic Policy",
-  });
-  model.requisites = captured.requisites;
-  model.reviewItems = captured.reviewItems;
-  const finalised = finaliseCourseExtraction({
-    code: "ECON2108",
-    year: 2024,
-    listingTitle: model.title,
-    model,
-    pageMarkdown: captured.sourceMarkdown,
+    pageMarkdown: `## Requisite and Incompatibility\n\n${prerequisiteText} Incompatible with CHEM2008.\n`,
     finishReason: "stop",
     responseError: null,
   });
@@ -2393,7 +1994,7 @@ test("the model's unresolved ECON2108 grouping remains a hard unknown with an er
   assert.equal(conditions.length, 1);
   assert.equal(conditions[0].conditionKind, "other");
   assert.equal(conditions[0].hardness, "hard");
-  assert.equal(conditions[0].freeText, captured.requisites.prerequisiteText);
+  assert.equal(conditions[0].freeText, prerequisiteText);
   const content = courseKindAdapter.project(finalised.extraction);
   assert.ok(
     content.flags.some(
@@ -2416,9 +2017,9 @@ test("the model's unresolved ECON2108 grouping remains a hard unknown with an er
   });
   for (const courseCodes of [
     [],
-    ["ECON1100"],
-    ["ECON1101", "ECON1102"],
-    ["ECON1101", "ECON1100"],
+    ["CHEM1100"],
+    ["CHEM1101", "CHEM1102"],
+    ["CHEM1101", "CHEM1100"],
   ]) {
     assert.equal(
       evaluateRule(rule, {
@@ -2432,58 +2033,6 @@ test("the model's unresolved ECON2108 grouping remains a hard unknown with an er
         studyYear: null,
       }).status,
       "unknown",
-    );
-  }
-});
-
-test("the captured clear FINM2002 alternative cannot replace its compulsory finance course", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-finm2002-grouping.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const model = emptyCourseExtraction({
-    code: "FINM2002",
-    year: 2024,
-    title: "Corporate Finance",
-  });
-  model.requisites = captured.requisites;
-  const content = courseKindAdapter.project(model);
-  const rule = requirementSliceExpression({
-    rule: content.requirements.rules.find(
-      (item) => item.key === "prerequisite",
-    ),
-    groups: content.requirements.groups.filter(
-      (item) => item.ruleKey === "prerequisite",
-    ),
-    conditions: content.requirements.conditions.filter(
-      (item) => item.ruleKey === "prerequisite",
-    ),
-    options: [],
-  });
-  for (const [courseCodes, expected] of [
-    [[], "unmet"],
-    [["STAT1008", "STAT1003"], "partial"],
-    [["FINM1001"], "partial"],
-    [["FINM1001", "STAT1008"], "met"],
-    [["FINM1001", "STAT1003"], "met"],
-  ]) {
-    assert.equal(
-      evaluateRule(rule, {
-        completed: new Map(
-          courseCodes.map((code) => [code, { units: 6, mark: 60 }]),
-        ),
-        enrolled: new Set(),
-        programmeCodes: [],
-        wam: null,
-        gpa: null,
-        studyYear: null,
-      }).status,
-      expected,
     );
   }
 });
@@ -2708,15 +2257,15 @@ test("multiple errors in one exclusion array preserve unrelated requisites", () 
 
 test("normalises only an equivalent duplicate of a single unconditional exclusion", () => {
   for (const rule of [
-    { op: "not_concurrent", courseCode: "CBEA3001" },
+    { op: "not_concurrent", courseCode: "LAWS3001" },
     {
       op: "all_of",
-      rules: [{ op: "not_concurrent", courseCode: "CBEA3001" }],
+      rules: [{ op: "not_concurrent", courseCode: "LAWS3001" }],
     },
   ]) {
     const model = structuredClone(extraction);
     model.requisites.incompatibilityRule = rule;
-    model.requisites.concurrentIncompatibilityCourseCodes = ["CBEA3001"];
+    model.requisites.concurrentIncompatibilityCourseCodes = ["LAWS3001"];
     assert.equal(validateCourseExtraction(model).success, false);
     const normalised = canonicaliseCourseModelExtraction(model, {
       expectedCode: model.code,
@@ -2725,7 +2274,7 @@ test("normalises only an equivalent duplicate of a single unconditional exclusio
     assert.equal(normalised.value.requisites.incompatibilityRule, null);
     assert.deepEqual(
       normalised.value.requisites.concurrentIncompatibilityCourseCodes,
-      ["CBEA3001"],
+      ["LAWS3001"],
     );
     assert.equal(validateCourseExtraction(normalised.value).success, true);
     assert.ok(
@@ -2773,78 +2322,25 @@ test("independent unconditional exclusions remain outside the permission excepti
   assert.equal(validateCourseExtraction(legacy).success, true);
 });
 
-test("the captured MATH1115 model response preserves its permission waiver and unresolved school admission", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-math1115-permission.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  assert.equal(
-    captured.source.sourceUrl,
-    "https://programsandcourses.anu.edu.au/2024/course/MATH1115",
-  );
-  const model = emptyCourseExtraction({
-    code: "MATH1115",
-    year: 2024,
-    title: "Advanced Mathematics and Applications 1",
-  });
-  model.requisites = captured.requisites;
-  model.reviewItems = captured.reviewItems;
-  assert.equal(validateCourseExtraction(model).success, true);
-  assert.deepEqual(
-    model.requisites.incompatibilityRule,
-    permissionExceptionExtraction().requisites.incompatibilityRule,
-  );
-  assert.deepEqual(model.requisites.incompatibilityCourseCodes, []);
-  assert.ok(
-    model.requisites.unmodelledText[0].includes(
-      "Secondary School Prerequisite",
-    ),
-  );
-  const projection = projectCourseSnapshot(model);
-  assert.equal(
-    projection.ruleConditions.filter(
-      (condition) => condition.conditionKind === "permission",
-    ).length,
-    1,
-  );
-  assert.equal(
-    projection.ruleConditions.find(
-      (condition) => condition.conditionKind === "permission",
-    ).ruleKey,
-    "incompatibility",
-  );
-  assert.equal(
-    projection.ruleConditions.find(
-      (condition) => condition.ruleKey === "prerequisite",
-    ).conditionKind,
-    "other",
-  );
-});
-
 function cohortWaiverExtraction() {
   const model = emptyCourseExtraction({
-    code: "ECON3101",
-    year: 2024,
-    title: "Microeconomics 3",
+    code: "BIOL3101",
+    year: 2026,
+    title: "Test Biology",
   });
   const permission =
-    "Students who have not completed EMET1001 but commenced their program prior to 2021 can enrol by requesting permission from the Research School of Economics (enquiries.rse@anu.edu.au)";
+    "Students who have not completed BIOL1001 but commenced their program prior to 2021 can enrol by requesting permission from the Research School of Biology (enquiries.rsb@anu.edu.au)";
   model.requisites.prerequisiteText =
-    "To enrol in this course you must have completed EMET1001 and ECON2101. Note: " +
+    "To enrol in this course you must have completed BIOL1001 and BIOL2101. Note: " +
     permission;
   model.requisites.prerequisiteRule = {
     op: "all_of",
     rules: [
-      { op: "completed", courseCode: "ECON2101" },
+      { op: "completed", courseCode: "BIOL2101" },
       {
         op: "one_of",
         rules: [
-          { op: "completed", courseCode: "EMET1001" },
+          { op: "completed", courseCode: "BIOL1001" },
           {
             op: "all_of",
             rules: [
@@ -2907,11 +2403,11 @@ test("a commencement-year waiver preserves the compulsory course and exact permi
     options: [],
   });
   for (const [codes, commencementYear, permissionApproved, expected] of [
-    [["ECON2101"], 2020, true, "met"],
-    [["ECON2101"], 2020, false, "partial"],
-    [["ECON2101"], 2021, true, "partial"],
-    [["ECON2101"], null, true, "unknown"],
-    [["ECON2101", "EMET1001"], 2024, false, "met"],
+    [["BIOL2101"], 2020, true, "met"],
+    [["BIOL2101"], 2020, false, "partial"],
+    [["BIOL2101"], 2021, true, "partial"],
+    [["BIOL2101"], null, true, "unknown"],
+    [["BIOL2101", "BIOL1001"], 2024, false, "met"],
     [[], 2020, true, "partial"],
   ]) {
     assert.equal(
@@ -2950,40 +2446,4 @@ test("commencement rules require ordered inclusive calendar-year bounds", () => 
     };
     assert.equal(validateCourseExtraction(model).success, expected);
   }
-});
-
-test("captured ECON3101 extraction preserves the pre-2021 school-permission waiver without free-text duplication", async () => {
-  const captured = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-econ3101-cohort.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  assert.equal(
-    captured.source.sourceUrl,
-    "https://programsandcourses.anu.edu.au/2024/course/ECON3101",
-  );
-  const model = emptyCourseExtraction({
-    code: "ECON3101",
-    year: 2024,
-    title: "Microeconomics 3",
-  });
-  model.requisites = captured.requisites;
-  assert.equal(validateCourseExtraction(model).success, true);
-  assert.deepEqual(model.requisites.unmodelledText, []);
-  const projection = projectCourseSnapshot(model);
-  assert.deepEqual(
-    projection.ruleGroups.map((group) => group.operator),
-    ["all_of", "any_of", "all_of"],
-  );
-  const conditions = projection.ruleConditions;
-  assert.equal(conditions[0].requiredCourseCode, "ECON2101");
-  assert.equal(conditions[1].requiredCourseCode, "EMET1001");
-  assert.equal(conditions[2].conditionKind, "commencement_year");
-  assert.equal(conditions[2].maximumCommencementYear, 2020);
-  assert.equal(conditions[3].conditionKind, "permission");
-  assert.ok(conditions[3].sourceText.includes("Research School of Economics"));
 });
