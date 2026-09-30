@@ -15,6 +15,8 @@ export type DashboardTermPoint = {
   id: string;
   label: string;
   year: number;
+  /** First or Second Semester, rather than a short session such as Winter. */
+  isSemester: boolean;
   completed: number;
   planned: number;
   units: number;
@@ -33,11 +35,15 @@ function scheduledTerms(terms: readonly Term[]) {
   return terms.filter((term) => term.id !== "unscheduled");
 }
 
+function isSemesterTerm(term: Term) {
+  return /^S[12]$/u.test(term.id.split("-").at(-1)?.toUpperCase() ?? "");
+}
+
 export function termLabel(term: Term) {
-  const semester = term.id.split("-").at(-1)?.toUpperCase();
-  return semester?.match(/^S[12]$/)
-    ? `${semester} '${String(term.year).slice(2)}`
-    : `${term.shortName} ${String(term.year).slice(2)}`;
+  const year = `'${String(term.year).slice(2)}`;
+  return isSemesterTerm(term)
+    ? `${term.id.split("-").at(-1)!.toUpperCase()} ${year}`
+    : `${term.shortName} ${year}`;
 }
 
 /**
@@ -87,6 +93,7 @@ export function dashboardTermLoads({
       id: term.id,
       label: termLabel(term),
       year: term.year,
+      isSemester: isSemesterTerm(term),
       completed,
       planned,
       units: completed + planned,

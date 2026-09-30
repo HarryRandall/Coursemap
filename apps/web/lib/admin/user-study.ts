@@ -60,6 +60,7 @@ export function adminUserTermLoads(
       id,
       label: `${shortName} '${String(course.calendarYear).slice(-2)}`,
       year: course.calendarYear,
+      isSemester: /^S[12]$/u.test(course.periodCode.toUpperCase()),
       completed: 0,
       planned: 0,
       units: 0,

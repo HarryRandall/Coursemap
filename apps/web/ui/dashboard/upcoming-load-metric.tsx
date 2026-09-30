@@ -22,7 +22,10 @@ export function UpcomingLoadMetric({
 }: {
   upcoming: readonly DashboardTermPoint[];
 }) {
-  const terms = upcoming.slice(0, VISIBLE_TERMS);
+  // An empty short session is not a light load, so it is left out.
+  const terms = upcoming
+    .filter((term) => term.isSemester || term.units > 0)
+    .slice(0, VISIBLE_TERMS);
   const ceiling = Math.max(
     STANDARD_TERM_UNITS * 1.25,
     ...terms.map((term) => term.units),
@@ -50,11 +53,14 @@ export function UpcomingLoadMetric({
       }
     >
       <div className="flex h-24 flex-col">
-        <ul className="relative flex flex-1 items-end justify-around gap-2 border-b border-border">
+        <ul className="relative flex flex-1 gap-2">
+          {/* The rule sits over the bar area only, above the 20px labels. */}
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-0 border-t border-dashed border-muted-foreground/40"
-            style={{ bottom: `${(STANDARD_TERM_UNITS / ceiling) * 100}%` }}
+            style={{
+              bottom: `calc(20px + (100% - 20px) * ${STANDARD_TERM_UNITS / ceiling})`,
+            }}
           />
           {terms.map((term) => (
             <Tooltip key={term.id} delayDuration={100}>
@@ -62,19 +68,27 @@ export function UpcomingLoadMetric({
                 <li
                   tabIndex={0}
                   aria-label={`${term.label}: ${term.units} units`}
-                  className="flex h-full w-full max-w-8 flex-col justify-end outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-full min-w-0 flex-1 flex-col items-center outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
+                  <span className="flex w-full max-w-8 flex-1 flex-col justify-end border-b border-border">
+                    <span
+                      className={cn(
+                        "enter-grow-up rounded-t-md transition-opacity hover:opacity-85",
+                        term.units > STANDARD_TERM_UNITS
+                          ? "bg-amber-400"
+                          : term.units === STANDARD_TERM_UNITS
+                            ? "bg-primary"
+                            : "bg-primary/50",
+                      )}
+                      style={{ height: `${(term.units / ceiling) * 100}%` }}
+                    />
+                  </span>
                   <span
-                    className={cn(
-                      "enter-grow-up rounded-t-md transition-opacity hover:opacity-85",
-                      term.units > STANDARD_TERM_UNITS
-                        ? "bg-amber-400"
-                        : term.units === STANDARD_TERM_UNITS
-                          ? "bg-primary"
-                          : "bg-primary/50",
-                    )}
-                    style={{ height: `${(term.units / ceiling) * 100}%` }}
-                  />
+                    aria-hidden="true"
+                    className="block h-5 w-full truncate pt-1.5 text-center text-[10px] leading-none text-muted-foreground"
+                  >
+                    {term.label}
+                  </span>
                 </li>
               </TooltipTrigger>
               <TooltipContent side="top">
@@ -84,16 +98,6 @@ export function UpcomingLoadMetric({
             </Tooltip>
           ))}
         </ul>
-        <div className="flex h-5 items-end justify-around gap-2 text-[10px] text-muted-foreground">
-          {terms.map((term) => (
-            <span
-              key={term.id}
-              className="w-full max-w-8 text-center whitespace-nowrap"
-            >
-              {term.label}
-            </span>
-          ))}
-        </div>
       </div>
     </AcademicMetricCard>
   );
