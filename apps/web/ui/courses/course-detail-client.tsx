@@ -12,6 +12,7 @@ import {
 } from "@/ui/courses/course-detail-view";
 import { TermChooser } from "@/ui/overlays";
 import { AppShell } from "@/ui/shell";
+import { YearPicker } from "@/ui/common/year-picker";
 
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
@@ -64,39 +65,26 @@ export function CourseDetailClient({
       className="gap-0"
     >
       <AppShell tabs={<CourseDetailTabsList />}>
-        <div className="mb-4 flex items-center justify-end gap-2">
-          <label
-            htmlFor="course-academic-year"
-            className="text-sm text-muted-foreground"
-          >
-            Academic year
-          </label>
-          <select
-            id="course-academic-year"
-            aria-label="Academic year"
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-            value={course.year}
-            onChange={(event) => {
-              const tab = searchParams.get("tab");
-              const suffix = tab ? `?tab=${encodeURIComponent(tab)}` : "";
-              router.push(
-                `/courses/${event.target.value}/${course.code.toLowerCase()}${suffix}`,
-              );
-            }}
-          >
-            {availableYears.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </div>
         <CourseDetailView
           attempts={state.attempts}
           commencementYear={state.profile.commencementYear}
           course={course}
           onAddToPlan={() => setPlanOpen(true)}
           requisiteCompletion={requisiteCompletion}
+          yearPicker={
+            <YearPicker
+              value={course.year}
+              years={availableYears}
+              onChange={(year) => {
+                if (year === "all") return;
+                const tab = searchParams.get("tab");
+                const suffix = tab ? `?tab=${encodeURIComponent(tab)}` : "";
+                router.push(
+                  `/courses/${year}/${course.code.toLowerCase()}${suffix}`,
+                );
+              }}
+            />
+          }
         />
         {planOpen ? (
           <TermChooser course={course} onClose={() => setPlanOpen(false)} />
