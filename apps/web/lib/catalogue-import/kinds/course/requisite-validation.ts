@@ -414,6 +414,32 @@ export function validateCourseRequisites(
             requireString(item, path, issues, { pattern: COURSE_CODE_PATTERN }),
         );
     }
+    for (const [hardKey, advisoryKey] of [
+      ["incompatibilityCourseCodes", "softIncompatibilityCourseCodes"],
+      [
+        "concurrentIncompatibilityCourseCodes",
+        "softConcurrentIncompatibilityCourseCodes",
+      ],
+    ] as const) {
+      for (const key of [hardKey, advisoryKey]) {
+        const codes = requisites[key];
+        if (Array.isArray(codes) && new Set(codes).size !== codes.length)
+          issues.push({
+            path: `$.requisites.${key}`,
+            message: "must not repeat a course",
+          });
+      }
+      const hard = requisites[hardKey];
+      const advisory = requisites[advisoryKey];
+      if (Array.isArray(hard) && Array.isArray(advisory)) {
+        const overlap = advisory.find((code) => hard.includes(code));
+        if (overlap)
+          issues.push({
+            path: `$.requisites.${advisoryKey}`,
+            message: `${overlap} cannot be both a hard and advisory exclusion`,
+          });
+      }
+    }
     requireArray(
       requisites.unmodelledText,
       "$.requisites.unmodelledText",
