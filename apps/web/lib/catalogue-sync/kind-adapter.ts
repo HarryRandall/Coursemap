@@ -42,6 +42,10 @@ export type SupportingSourcePage = {
   /** Validated facts made available to the model, without unrelated page prose. */
   courseCodes: readonly string[];
   duplicateCodes: readonly string[];
+  mismatchedCourseLinks: readonly {
+    listedCode: string;
+    linkedCode: string;
+  }[];
 };
 
 export type ValidationOutcome = {

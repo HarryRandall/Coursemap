@@ -30,10 +30,11 @@ test("2024 CBE List 1 membership deduplicates source rows without importing unit
     sourceUrl: CBE_LIST_ONE_2024_URL,
     courseCodes: ["BUSN1001", "CBEA3070", "FINM3009"],
     duplicateCodes: ["FINM3009"],
+    mismatchedCourseLinks: [],
   });
 });
 
-test("CBE List 1 refuses another catalogue year or a mismatched course link", () => {
+test("CBE List 1 refuses another catalogue year and retains a mismatched link for review", () => {
   expect(() =>
     parseCbeListOneMembership({
       html: page,
@@ -41,13 +42,16 @@ test("CBE List 1 refuses another catalogue year or a mismatched course link", ()
       year: 2025,
     }),
   ).toThrow(/catalogue year/u);
-  expect(() =>
+  expect(
     parseCbeListOneMembership({
       html: page.replace("/course/CBEA3070", "/course/CBEA3001"),
       sourceUrl: CBE_LIST_ONE_2024_URL,
       year: 2024,
     }),
-  ).toThrow(/mismatched ANU link/u);
+  ).toMatchObject({
+    courseCodes: ["BUSN1001", "CBEA3070", "FINM3009"],
+    mismatchedCourseLinks: [{ listedCode: "CBEA3070", linkedCode: "CBEA3001" }],
+  });
 });
 
 test("CBE List 1 refuses a page without the year's membership heading", () => {
