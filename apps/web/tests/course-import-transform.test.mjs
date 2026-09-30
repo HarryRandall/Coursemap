@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v42");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v43");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -2094,6 +2094,51 @@ test("reviews repeated or missing assessment outcome links before projection", (
     );
     const result = finalise(model);
     assert.equal(result.extraction.assessmentItems.length, 1);
+    assert.ok(result.errorCount > 0);
+    assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
+  }
+});
+
+test("reviews repeated course metadata before projection", () => {
+  const variants = [
+    {
+      field: "areasOfInterest",
+      add(model) {
+        model.areasOfInterest.push(` ${model.areasOfInterest[0]} `);
+      },
+      path: "$.areasOfInterest[2]",
+    },
+    {
+      field: "attributes",
+      add(model) {
+        model.attributes.push({
+          ...model.attributes[0],
+          position: 4,
+          value: ` ${model.attributes[0].value} `,
+        });
+      },
+      path: "$.attributes[3].value",
+    },
+    {
+      field: "relatedCourses",
+      add(model) {
+        model.relatedCourses.push({
+          ...model.relatedCourses[0],
+          position: 2,
+        });
+      },
+      path: "$.relatedCourses[1].courseCode",
+    },
+  ];
+  for (const { field, add, path } of variants) {
+    const model = structuredClone(extraction);
+    add(model);
+    const validation = validateCourseExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(validation.issues.some((issue) => issue.path === path));
+
+    const result = finalise(model);
+    assert.equal(result.extraction[field].length, extraction[field].length);
     assert.ok(result.errorCount > 0);
     assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
   }

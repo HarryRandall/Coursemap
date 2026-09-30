@@ -110,7 +110,11 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
     prescribedTexts: { type: ["string", "null"] },
     offeringStatus: { enum: ["offered", "not_offered", "unknown"] },
     sourceUpdatedAt: { $ref: "#/$defs/nullableInstant" },
-    areasOfInterest: { type: "array", items: { type: "string", minLength: 1 } },
+    areasOfInterest: {
+      type: "array",
+      uniqueItems: true,
+      items: { type: "string", minLength: 1 },
+    },
     tags: { type: "array", items: { type: "string", minLength: 1 } },
     fees: { type: "array", items: { $ref: "#/$defs/fee" } },
     learningOutcomes: { type: "array", items: { $ref: "#/$defs/outcome" } },
