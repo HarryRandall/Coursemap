@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 const previewSeed = await readFile(
   new URL("../scripts/fixtures/local-preview.sql", import.meta.url),
@@ -13,7 +14,7 @@ const seedInsideTransaction = previewSeed
   .replace(/\ncommit;\s*$/u, "\n");
 
 test("the local preview seed leaves unrelated course records unpublished", async () => {
-  const sql = await createLocalDatabaseClient();
+  const sql = await createLocalDatabaseClient({ env: localTestEnvironment() });
   const rollback = new Error("Roll back the local preview isolation test.");
   try {
     await assert.rejects(
