@@ -2,11 +2,11 @@ import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.
 import { structureCatalogueContent } from "../../../catalogue/content.ts";
 import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
 import {
-  ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA,
   type AcademicStructureExtraction,
   type AcademicStructureKind,
   validateAcademicStructureExtraction,
 } from "./contract.ts";
+import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "./schema.ts";
 import { finaliseAcademicStructureExtraction } from "./finalise.ts";
 import {
   financeSourceReviewItems,
