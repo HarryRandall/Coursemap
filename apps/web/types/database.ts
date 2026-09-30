@@ -2688,70 +2688,6 @@ export type Database = {
           },
         ]
       }
-      course_list_members: {
-        Row: {
-          code: string
-          list_id: number
-          state: string
-        }
-        Insert: {
-          code: string
-          list_id: number
-          state: string
-        }
-        Update: {
-          code?: string
-          list_id?: number
-          state?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_list_members_list_id_fkey"
-            columns: ["list_id"]
-            isOneToOne: false
-            referencedRelation: "course_lists"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      course_lists: {
-        Row: {
-          academic_year_id: number
-          created_at: string
-          id: number
-          name: string
-          published_at: string | null
-          source_url: string | null
-          updated_at: string
-        }
-        Insert: {
-          academic_year_id: number
-          created_at?: string
-          id?: never
-          name: string
-          published_at?: string | null
-          source_url?: string | null
-          updated_at?: string
-        }
-        Update: {
-          academic_year_id?: number
-          created_at?: string
-          id?: never
-          name?: string
-          published_at?: string | null
-          source_url?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "course_lists_academic_year_id_fkey"
-            columns: ["academic_year_id"]
-            isOneToOne: false
-            referencedRelation: "academic_years"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       course_offerings: {
         Row: {
           academic_year_id: number
@@ -4631,7 +4567,6 @@ export type Database = {
         Args: { required_permission: string }
         Returns: boolean
       }
-      delete_course_list: { Args: { p_list_id: number }; Returns: undefined }
       discard_university_calendar_review: {
         Args: { p_review_id: string }
         Returns: undefined
@@ -4661,7 +4596,6 @@ export type Database = {
           starts_on: string
         }[]
       }
-      publish_course_list: { Args: { p_list_id: number }; Returns: undefined }
       published_course_availability: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: {
@@ -4677,14 +4611,6 @@ export type Database = {
       published_course_detail: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: Json
-      }
-      published_course_list_tags: {
-        Args: { p_codes: string[]; p_years: number[] }
-        Returns: {
-          academic_year: number
-          course_code: string
-          tag: string
-        }[]
       }
       published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }
@@ -4740,16 +4666,6 @@ export type Database = {
           p_title: string
         }
         Returns: undefined
-      }
-      save_course_list: {
-        Args: {
-          p_academic_year: number
-          p_codes: string[]
-          p_list_id?: number
-          p_name: string
-          p_source_url?: string
-        }
-        Returns: number
       }
       save_current_user_academic_result: {
         Args: {
@@ -4981,4 +4897,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

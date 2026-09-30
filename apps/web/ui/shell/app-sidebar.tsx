@@ -132,11 +132,6 @@ function adminNavigation(catalogueYear: number): NavSection[] {
           routeIcons.specialisations,
         ),
         {
-          href: "/admin/course-lists",
-          label: "Course lists",
-          icon: routeIcons["course-lists"],
-        },
-        {
           href: "/admin/key-dates",
           label: "Key dates",
           icon: routeIcons["key-dates"],

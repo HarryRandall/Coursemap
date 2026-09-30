@@ -3,7 +3,6 @@ import { getAuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import type { CompletedRequisiteCourse } from "./requisite-summary";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
-import { withCourseListTags } from "@/lib/catalogue/course-list-tags";
 
 export type RequisiteCompletionSnapshot = {
   completedCourses: CompletedRequisiteCourse[];
@@ -50,7 +49,7 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
     const { data: versions, error: versionsError } = versionIds.length
       ? await supabase
           .from("catalogue_versions")
-          .select("id,record_id,academic_year_id")
+          .select("id,record_id")
           .in("id", versionIds)
       : { data: [], error: null };
     if (versionsError) throw versionsError;
@@ -101,46 +100,24 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
         row.name,
       ]);
     }
-    const yearIds = [
-      ...new Set((versions ?? []).map((version) => version.academic_year_id)),
-    ];
-    const { data: years, error: yearsError } = yearIds.length
-      ? await supabase
-          .from("academic_years")
-          .select("id,year")
-          .in("id", yearIds)
-      : { data: [], error: null };
-    if (yearsError) throw yearsError;
-    const yearById = new Map((years ?? []).map((row) => [row.id, row.year]));
-    const yearByVersionId = new Map(
-      (versions ?? []).map((version) => [
-        version.id,
-        yearById.get(version.academic_year_id),
-      ]),
-    );
-    const completed = attemptRows.flatMap((attempt) => {
-      const codeId = codeIdByVersionId.get(attempt.catalogue_version_id);
-      const code = codeId ? codeByCourseId.get(codeId) : undefined;
-      const year = yearByVersionId.get(attempt.catalogue_version_id);
-      return code && year !== undefined && attempt.units_earned > 0
-        ? [
-            {
-              code,
-              year,
-              units: attempt.units_earned,
-              tags: tagsByVersionId.get(attempt.catalogue_version_id) ?? [],
-            },
-          ]
-        : [];
-    });
     const programmeContext = await loadEnrolledProgrammeContext(
       supabase,
       viewer.id,
     );
     return {
-      completedCourses: (await withCourseListTags(supabase, completed)).map(
-        ({ code, units, tags }) => ({ code, units, tags }),
-      ),
+      completedCourses: attemptRows.flatMap((attempt) => {
+        const codeId = codeIdByVersionId.get(attempt.catalogue_version_id);
+        const code = codeId ? codeByCourseId.get(codeId) : undefined;
+        return code && attempt.units_earned > 0
+          ? [
+              {
+                code,
+                units: attempt.units_earned,
+                tags: tagsByVersionId.get(attempt.catalogue_version_id) ?? [],
+              },
+            ]
+          : [];
+      }),
       enrolledProgrammeCodes: programmeContext.codes,
       programmeColleges: programmeContext.colleges,
       isAuthenticated: true,

@@ -6,7 +6,7 @@ import {
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v24";
+  "coursemap-academic-structure-prompt.v25";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -88,7 +88,7 @@ Requirement interpretation:
 - A finite linked programme, major, minor or specialisation list may be a structure_list condition only when every option has a literal code. Preserve literal unit limits on that condition.
 - When one requirement paragraph mixes an ordinary finite course choice with a specially paired course option, retain the ordinary choice as a course_list branch and isolate the paired option as its own branch. Never let a course_list containing the paired codes imply that either course alone can satisfy the option.
 - When two distinct named courses must both be completed in the printed order in consecutive semesters, use consecutive_semester_pair with those two courseCodes in order, the printed minimumUnits, and the exact timing sentence in freeText. Keep the paired course clause as exact sourceText and the timing sentence as exact freeText, even when a footnote separates them on the page. This is one measurable route, not two independent course choices. Do not add the same timing sentence to unmodelledText.
-- A named course list whose members the page does not print, such as "6 units from List 1" linking to another page, is a tag condition. Set tag to the supplied known tag that names that list, exactly as written; when none matches, use the list name exactly as printed. Keep its printed unit bounds. It is a separate requirement from an adjacent finite course list, even when the page indents them alike. Never enumerate its members, invent them or model it as unrestricted electives.
+- A named course list whose members the page does not print, such as "6 units from List 1" linking to another page, is a free_text condition with the exact clause in freeText and its printed unit bounds. Use a tag condition only when the page says courses are tagged, or the list name exactly matches a supplied known tag. It is a separate requirement from an adjacent finite course list, even when the page indents them alike. Never enumerate its members, invent them or model it as unrestricted electives.
 - Preserve independently modelled requirements when a neighbouring clause is unresolved. Do not move the entire surrounding block into unmodelledText because one footnote or paired option needs review.
 - Set freeText to null for typed conditions except consecutive_semester_pair, which must retain its exact timing sentence. Use it for free_text when wording cannot be modelled.
 - Use unit_total, level, subject, tag or unrestricted only when the source states that constraint explicitly.

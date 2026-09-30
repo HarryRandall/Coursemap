@@ -12,7 +12,7 @@ import {
 } from "./model-canonical.ts";
 import { withListedStructureOptions } from "./listed-options.ts";
 import { consecutiveSemesterReviewItems } from "./semester-pairs.ts";
-import { unknownTagReviewItems } from "./known-tags.ts";
+import { uncountableTagsAsText } from "./known-tags.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import {
   hasExtractedContent,
@@ -112,7 +112,7 @@ export function finaliseAcademicStructureExtraction({
   finishReason: string | null;
   responseError: string | null;
   responseRepair?: string | null;
-  /** Tags the year recognises; unknown tag conditions are flagged when given. */
+  /** Tags courses carry; a tag condition naming another becomes wording. */
   knownTags?: readonly string[];
 }) {
   const normalised = normaliseAcademicStructureModelExtraction(
@@ -153,6 +153,9 @@ export function finaliseAcademicStructureExtraction({
   });
 
   const unsupported = unsupportedModelWording(extraction, pageMarkdown);
+  const tagged = knownTags
+    ? uncountableTagsAsText(extraction.requirements.rule, knownTags)
+    : { rule: extraction.requirements.rule, reviewItems: [] };
   const problem = modelResponseProblem({ finishReason, responseError });
   const reviewItems: AcademicStructureExtractionReviewItem[] = [
     ...extraction.reviewItems,
@@ -212,9 +215,7 @@ export function finaliseAcademicStructureExtraction({
       message: `The ANU page does not contain this wording: ${wording.slice(0, 160)}`,
     })),
     ...consecutiveSemesterReviewItems(extraction.requirements),
-    ...(knownTags
-      ? unknownTagReviewItems(extraction.requirements.rule, knownTags)
-      : []),
+    ...tagged.reviewItems,
   ];
   // The page often opens with a paragraph the model reads as both the
   // introduction and the description; printed twice it doubles the page.
@@ -232,7 +233,10 @@ export function finaliseAcademicStructureExtraction({
       kind === "programme"
         ? withListedStructureOptions(extraction.relationships, pageMarkdown)
         : extraction.relationships,
-    requirements: ensureRequirementRootGroup(extraction.requirements),
+    requirements: ensureRequirementRootGroup({
+      ...extraction.requirements,
+      rule: tagged.rule,
+    }),
     reviewItems,
   };
   return {

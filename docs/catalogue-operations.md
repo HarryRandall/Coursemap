@@ -109,22 +109,6 @@ publication pointer and clears the draft. **Unpublish** closes the visibility
 interval without deleting history. Both drop the cached public reads for that
 record, so the public page never serves the previous version after the change.
 
-## Course lists
-
-Some degree rules require units "from List X", where the list is published on
-another page, often by a college. Structure imports record that requirement as
-a tag condition named after the list and flag it for review until a list with
-that name exists for the year.
-
-Create the list under **Admin > Course lists** for the same year and give it
-the tag's exact name. Paste the course codes or the list page's text, or enter
-its source link and use **Read codes**. Codes are read from the text as
-printed; nothing is sent to the extraction model. Saving keeps a draft.
-**Publish** makes each listed course carry the list's name as a tag in that
-year, so the planner and requisite checks count it. Course versions are not
-changed, and republishing a list takes effect immediately. Codes missing from
-that year's course listing are shown before publication.
-
 ## Read the changelog
 
 The **Changelog** tab is one timeline of everything that happened to the

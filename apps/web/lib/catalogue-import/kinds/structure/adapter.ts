@@ -60,7 +60,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
     buildSystemPrompt: buildAcademicStructureExtractionSystemPrompt,
     async loadPromptContext(sql, claim) {
       return {
-        knownTags: await loadStructureTags(sql, claim.academicYearId),
+        knownTags: await loadStructureTags(sql),
       };
     },
     buildUserPrompt(claim, pageMarkdown, context) {

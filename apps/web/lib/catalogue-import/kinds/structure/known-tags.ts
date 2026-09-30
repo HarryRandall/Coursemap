@@ -1,57 +1,67 @@
 import type { SyncSql } from "../../../catalogue-sync/sync-store.ts";
-import { loadKnownCourseTags } from "../course/tags.ts";
 import type {
   AcademicStructureExtractionReviewItem,
   AcademicStructureRequirementRule,
 } from "./contract.ts";
 
 /**
- * Tags a structure rule can count: reviewed course tags plus the course lists
- * published for the structure's year, whose names are tags too.
+ * Tags carried by published course versions. Tags named only by degree rules
+ * are left out, since a rule naming a tag does not make any course count.
  */
-export async function loadStructureTags(
-  sql: SyncSql,
-  academicYearId: number,
-): Promise<string[]> {
-  const [courseTags, lists] = await Promise.all([
-    loadKnownCourseTags(sql),
-    sql`
-      select name from public.course_lists
-      where academic_year_id = ${academicYearId} and published_at is not null
-      order by name
-    `,
-  ]);
-  const seen = new Set<string>();
-  return [...lists.map((row) => String(row.name)), ...courseTags].filter(
-    (name) => {
-      const key = name.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    },
-  );
+export async function loadStructureTags(sql: SyncSql): Promise<string[]> {
+  const rows = await sql`
+    select min(tags.name) as name
+    from public.course_tags as tags
+    join public.catalogue_records as records
+      on records.published_version_id = tags.version_id
+    where records.archived_at is null
+    group by lower(tags.name)
+    order by lower(tags.name)
+  `;
+  return rows.map((row) => String(row.name));
 }
 
-function tagConditions(
-  rule: AcademicStructureRequirementRule | null,
-): string[] {
-  if (!rule) return [];
-  if (rule.type === "group") return rule.children.flatMap(tagConditions);
-  return rule.conditionKind === "tag" && rule.tag ? [rule.tag] : [];
-}
-
-/** A tag nothing carries would count no course, so it is raised for review. */
-export function unknownTagReviewItems(
+/**
+ * A tag no course carries, such as a college list the page does not print,
+ * would count as zero and read as unmet. It becomes the page's wording with
+ * its unit bounds, which students see as a requirement to check themselves,
+ * and a review item records the change.
+ */
+export function uncountableTagsAsText(
   rule: AcademicStructureRequirementRule | null,
   knownTags: readonly string[],
-): AcademicStructureExtractionReviewItem[] {
+): {
+  rule: AcademicStructureRequirementRule | null;
+  reviewItems: AcademicStructureExtractionReviewItem[];
+} {
   const known = new Set(knownTags.map((tag) => tag.toLowerCase()));
-  return [...new Set(tagConditions(rule))]
-    .filter((tag) => !known.has(tag.toLowerCase()))
-    .map((tag) => ({
+  const converted = new Set<string>();
+  const visit = (
+    node: AcademicStructureRequirementRule,
+  ): AcademicStructureRequirementRule => {
+    if (node.type === "group")
+      return { ...node, children: node.children.map(visit) };
+    if (
+      node.conditionKind !== "tag" ||
+      !node.tag ||
+      known.has(node.tag.toLowerCase())
+    )
+      return node;
+    converted.add(node.tag);
+    return {
+      ...node,
+      conditionKind: "free_text",
+      tag: null,
+      freeText: node.sourceText,
+    };
+  };
+  return {
+    rule: rule ? visit(rule) : null,
+    reviewItems: [...converted].map((tag) => ({
       fieldKey: "requirements.rule",
-      kind: "missing" as const,
+      kind: "unsupported" as const,
       severity: "warning" as const,
-      message: `No course list or course tag named ${tag} exists for this year, so no course counts toward it yet. Add the list under Course lists.`,
-    }));
+      message: `No published course carries the tag ${tag}, so the rule is kept as wording that students check themselves.`,
+    })),
+  };
 }

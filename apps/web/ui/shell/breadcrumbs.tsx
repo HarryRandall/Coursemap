@@ -25,7 +25,6 @@ const labels: Record<string, string> = {
   academic: "Academic history",
   calendar: "Calendar",
   "key-dates": "Key dates",
-  "course-lists": "Course lists",
   roadmap: "Product roadmap",
   rooms: "Room finder",
   printing: "Printing",

@@ -16,7 +16,6 @@ import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
-import { withCourseListTags } from "@/lib/catalogue/course-list-tags";
 
 export type PlanCatalogue = {
   academicYear: number | null;
@@ -595,10 +594,7 @@ export async function loadPublishedPlanCatalogue(
 
   return {
     academicYear: academicYearRecord.year,
-    courses: await withCourseListTags(
-      supabase,
-      catalogueCourses.map(planCourseFromDetails),
-    ),
+    courses: catalogueCourses.map(planCourseFromDetails),
     terms,
     degrees,
     programmeColleges: degrees.map(({ code, college }) => ({ code, college })),
@@ -764,15 +760,9 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
     : { data: [], error: null };
   if (projectionsResult.error) return catalogue;
 
-  const snapshotCourses = await withCourseListTags(
-    supabase,
-    (projectionsResult.data ?? []).flatMap((row) => {
-      const course = courseFromSnapshotProjection(
-        row.projection,
-        row.version_id,
-      );
-      return course ? [planCourseFromDetails(course)] : [];
-    }),
-  );
+  const snapshotCourses = (projectionsResult.data ?? []).flatMap((row) => {
+    const course = courseFromSnapshotProjection(row.projection, row.version_id);
+    return course ? [planCourseFromDetails(course)] : [];
+  });
   return { ...catalogue, snapshotCourses };
 }
