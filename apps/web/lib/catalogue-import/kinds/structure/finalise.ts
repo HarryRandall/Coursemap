@@ -151,6 +151,14 @@ export function finaliseAcademicStructureExtraction({
   const problem = modelResponseProblem({ finishReason, responseError });
   const reviewItems: AcademicStructureExtractionReviewItem[] = [
     ...extraction.reviewItems,
+    ...normalised.normalisations
+      .filter((message) => message.includes("duplicate requirement key"))
+      .map((message) => ({
+        fieldKey: "requirements.rule",
+        kind: "model_repair" as const,
+        severity: "warning" as const,
+        message,
+      })),
     ...(responseRepair
       ? [
           {

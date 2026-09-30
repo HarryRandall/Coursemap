@@ -7,7 +7,7 @@ import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
   "coursemap-academic-structure-parser.v12";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v19";
+  "coursemap-academic-structure-prompt.v20";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -61,6 +61,7 @@ Requirement interpretation:
 - requirements.sourceText copies the full Requirements or Program Requirements section verbatim, including its line breaks, course names, footnotes and intervening prose, through the next heading. Do not shorten it to selected clauses or collapse its paragraphs into a sentence.
 - Each group's and condition's sourceText is a contiguous exact fragment from that section. For a long list, use its exact introductory sentence as the condition sourceText and put the literal codes in its options; do not compress the printed list into comma-separated codes, add punctuation or splice fragments with ellipses.
 - Model the whole requirement tree. Nested either/or paths, honours streams and double-degree variants are groups inside groups. Use free_text only for wording you genuinely cannot place in the tree.
+- Give every group and condition a distinct key across the entire requirement tree, including separate branches. A key is an internal identifier; it does not change the source wording or rule logic.
 - Model every requirement you can. A typed condition is always preferred to free_text when the source states the constraint plainly, even when the wording is long. unmodelledText is for wording you genuinely cannot classify, not for wording that is merely verbose. A requirements tree holding only a unit_total is wrong whenever the page lists further constraints.
 - Map these ANU phrasings to typed conditions. The wording below is explicit, not inferred, so use the typed condition rather than free_text:
   - "N units from completion of courses from the following list" plus a finite list of course codes -> course_list with those courseCodes and minimumUnits N.

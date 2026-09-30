@@ -31,11 +31,38 @@ export function normaliseAcademicStructureModelExtraction(value: unknown) {
     );
   }
 
+  const reservedKeys = new Set<string>();
+  const collectKeys = (rule: unknown) => {
+    if (typeof rule !== "object" || rule === null || Array.isArray(rule))
+      return;
+    const record = rule as Record<string, unknown>;
+    if (typeof record.key === "string") reservedKeys.add(record.key);
+    if (record.type === "group" && Array.isArray(record.children))
+      record.children.forEach(collectKeys);
+  };
+  collectKeys(requirementRecord.rule);
+  const usedKeys = new Set<string>();
+
   const visitRule = (rule: unknown, path: string) => {
     if (typeof rule !== "object" || rule === null || Array.isArray(rule)) {
       return;
     }
     const record = rule as Record<string, unknown>;
+    if (typeof record.key === "string") {
+      let key = record.key;
+      if (usedKeys.has(key)) {
+        let suffix = 2;
+        while (reservedKeys.has(`${key}:duplicate:${suffix}`)) suffix += 1;
+        const repairedKey = `${key}:duplicate:${suffix}`;
+        record.key = repairedKey;
+        reservedKeys.add(repairedKey);
+        normalisations.push(
+          `${path}.key repaired duplicate requirement key ${key}.`,
+        );
+        key = repairedKey;
+      }
+      usedKeys.add(key);
+    }
     if (record.type === "group" && Array.isArray(record.children)) {
       if (
         record.operator !== "minimum_count" &&

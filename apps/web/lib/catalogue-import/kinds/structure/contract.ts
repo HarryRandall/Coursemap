@@ -808,6 +808,25 @@ export function validateAcademicStructureExtraction(
     seenSections.add(section.key);
   }
 
+  const requirementKeys = new Set<string>();
+  const visitRequirement = (
+    rule: AcademicStructureRequirementRule,
+    path: string,
+  ) => {
+    if (requirementKeys.has(rule.key))
+      issues.push({
+        path: `${path}.key`,
+        message: `duplicates requirement key ${rule.key}`,
+      });
+    requirementKeys.add(rule.key);
+    if (rule.type === "group")
+      rule.children.forEach((child, index) =>
+        visitRequirement(child, `${path}.children.${index}`),
+      );
+  };
+  if (extraction.requirements.rule)
+    visitRequirement(extraction.requirements.rule, "$.requirements.rule");
+
   return issues.length === 0
     ? { success: true, data: extraction, issues: [] }
     : { success: false, issues };
