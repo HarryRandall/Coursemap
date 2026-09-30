@@ -90,11 +90,20 @@ export function courseTabFromSearch(value: string | null): CourseTab {
  * The tab strip is shared so the admin preview shows exactly the tabs a
  * student sees, in the same order and with the same labels.
  */
-export function CourseDetailTabsList() {
+export function CourseDetailTabsList({
+  disabled = false,
+}: {
+  disabled?: boolean;
+}) {
   return (
     <TabsList variant="line">
       {courseDetailTabs.map(({ id, label, icon: Icon }) => (
-        <TabsTrigger key={id} value={id}>
+        <TabsTrigger
+          className={disabled ? "disabled:opacity-100" : undefined}
+          disabled={disabled}
+          key={id}
+          value={id}
+        >
           <Icon size={15} aria-hidden="true" className="hidden sm:block" />
           {label}
         </TabsTrigger>

@@ -1,14 +1,25 @@
 import { Card } from "@coursemap/ui/primitives/card";
 import { Skeleton } from "@coursemap/ui/primitives/skeleton";
+import type { ReactNode } from "react";
 import { TabsLoading } from "@/ui/common/tabs-loading";
 import { AppShell } from "@/ui/shell";
 
 /** The shape a catalogue record page settles into, for every public kind. */
-export function PublicRecordLoading({ label }: { label: string }) {
+export function PublicRecordLoading({
+  label,
+  tabs,
+}: {
+  label: string;
+  tabs?: ReactNode;
+}) {
   return (
     <AppShell
       loading
-      tabs={<TabsLoading widths={["w-16", "w-24", "w-20"]} className="gap-4" />}
+      tabs={
+        tabs ?? (
+          <TabsLoading widths={["w-16", "w-24", "w-20"]} className="gap-4" />
+        )
+      }
     >
       <div aria-busy="true" className="space-y-4">
         <span className="sr-only">{`Loading ${label}`}</span>
