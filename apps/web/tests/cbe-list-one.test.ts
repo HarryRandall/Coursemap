@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   CBE_LIST_ONE_2024_URL,
+  fetchCbeListOneMembership,
   parseCbeListOneMembership,
 } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
 
@@ -55,4 +56,39 @@ test("CBE List 1 refuses a page without the year's membership heading", () => {
       year: 2024,
     }),
   ).toThrow(/does not identify/u);
+});
+
+test("fetching List 1 preserves a separately attributable source snapshot", async () => {
+  const response = new Response(page, {
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      etag: '"list-2024"',
+    },
+  });
+  Object.defineProperty(response, "url", { value: CBE_LIST_ONE_2024_URL });
+  const membership = await fetchCbeListOneMembership({
+    fetchImpl: (async () => response) as typeof fetch,
+    now: () => new Date("2026-09-30T00:00:00Z"),
+  });
+  expect(membership).toMatchObject({
+    year: 2024,
+    sourceUrl: CBE_LIST_ONE_2024_URL,
+    html: page,
+    byteSize: Buffer.byteLength(page),
+    fetchedAt: "2026-09-30T00:00:00.000Z",
+    httpEtag: '"list-2024"',
+  });
+  expect(membership.contentSha256).toMatch(/^[a-f0-9]{64}$/u);
+});
+
+test("List 1 fetch refuses a response from another URL", async () => {
+  const response = new Response(page, {
+    headers: { "content-type": "text/html" },
+  });
+  Object.defineProperty(response, "url", { value: "https://example.org/list" });
+  await expect(
+    fetchCbeListOneMembership({
+      fetchImpl: (async () => response) as typeof fetch,
+    }),
+  ).rejects.toThrow(/could not be fetched/u);
 });

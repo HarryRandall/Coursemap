@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { load } from "cheerio";
 
 const COURSE_CODE = /^[A-Z]{4}\d{4}[A-Z]?$/u;
@@ -12,6 +13,64 @@ export type CbeListOneMembership = {
   courseCodes: string[];
   duplicateCodes: string[];
 };
+
+export type FetchedCbeListOneMembership = CbeListOneMembership & {
+  html: string;
+  contentSha256: string;
+  byteSize: number;
+  fetchedAt: string;
+  httpEtag: string | null;
+  sourceLastModified: string | null;
+};
+
+const MAX_SOURCE_BYTES = 1_000_000;
+
+/** Fetches the fixed 2024 list; callers must record this source separately. */
+export async function fetchCbeListOneMembership({
+  fetchImpl = fetch,
+  now = () => new Date(),
+  signal,
+}: {
+  fetchImpl?: typeof fetch;
+  now?: () => Date;
+  signal?: AbortSignal;
+} = {}): Promise<FetchedCbeListOneMembership> {
+  const response = await fetchImpl(CBE_LIST_ONE_2024_URL, {
+    headers: { Accept: "text/html" },
+    redirect: "error",
+    signal: AbortSignal.any(
+      [AbortSignal.timeout(10_000), signal].filter(
+        (value): value is AbortSignal => value !== undefined,
+      ),
+    ),
+  });
+  if (!response.ok || response.url !== CBE_LIST_ONE_2024_URL)
+    throw new Error("The 2024 CBE List 1 source could not be fetched.");
+  if (
+    !response.headers.get("content-type")?.toLowerCase().includes("text/html")
+  )
+    throw new TypeError("The 2024 CBE List 1 source is not HTML.");
+  const declaredBytes = Number(response.headers.get("content-length"));
+  if (declaredBytes > MAX_SOURCE_BYTES)
+    throw new TypeError("The 2024 CBE List 1 source exceeds the size limit.");
+  const html = await response.text();
+  const byteSize = Buffer.byteLength(html, "utf8");
+  if (byteSize > MAX_SOURCE_BYTES)
+    throw new TypeError("The 2024 CBE List 1 source exceeds the size limit.");
+  return {
+    ...parseCbeListOneMembership({
+      html,
+      sourceUrl: CBE_LIST_ONE_2024_URL,
+      year: 2024,
+    }),
+    html,
+    contentSha256: createHash("sha256").update(html).digest("hex"),
+    byteSize,
+    fetchedAt: now().toISOString(),
+    httpEtag: response.headers.get("etag"),
+    sourceLastModified: response.headers.get("last-modified"),
+  };
+}
 
 /** Membership only: the linked current course pages cannot establish 2024 unit values. */
 export function parseCbeListOneMembership({
