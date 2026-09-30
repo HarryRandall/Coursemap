@@ -747,6 +747,48 @@ function validateExtractionShape(
     validateDistinctPositions(record[key], `$.${key}`, issues);
 
   if (
+    Array.isArray(record.learningOutcomes) &&
+    Array.isArray(record.assessmentItems)
+  ) {
+    const outcomePositions = new Set(
+      record.learningOutcomes
+        .filter(
+          (outcome): outcome is UnknownRecord =>
+            typeof outcome === "object" &&
+            outcome !== null &&
+            !Array.isArray(outcome),
+        )
+        .map((outcome) => outcome.position)
+        .filter(
+          (position): position is number =>
+            typeof position === "number" && Number.isInteger(position),
+        ),
+    );
+    record.assessmentItems.forEach((item, assessmentIndex) => {
+      if (typeof item !== "object" || item === null || Array.isArray(item))
+        return;
+      const links = (item as UnknownRecord).learningOutcomePositions;
+      if (!Array.isArray(links)) return;
+      const seen = new Set<number>();
+      links.forEach((position, linkIndex) => {
+        if (typeof position !== "number" || !Number.isInteger(position)) return;
+        const path = `$.assessmentItems[${assessmentIndex}].learningOutcomePositions[${linkIndex}]`;
+        if (seen.has(position))
+          issues.push({
+            path,
+            message: `repeats outcome position ${position}`,
+          });
+        if (!outcomePositions.has(position))
+          issues.push({
+            path,
+            message: `references missing outcome position ${position}`,
+          });
+        seen.add(position);
+      });
+    });
+  }
+
+  if (
     options.expectedCode &&
     record.code !== options.expectedCode.toUpperCase()
   ) {
