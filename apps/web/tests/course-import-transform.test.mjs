@@ -9,9 +9,9 @@ import {
 } from "../lib/catalogue-import/canonical.ts";
 import {
   COURSE_CODE_PATTERN,
-  COURSE_EXTRACTION_JSON_SCHEMA,
   validateCourseExtraction,
 } from "../lib/catalogue-import/kinds/course/contract.ts";
+import { COURSE_EXTRACTION_JSON_SCHEMA } from "../lib/catalogue-import/kinds/course/schema.ts";
 import {
   emptyCourseExtraction,
   finaliseCourseExtraction,
