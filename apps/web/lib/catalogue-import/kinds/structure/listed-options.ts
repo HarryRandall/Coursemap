@@ -21,8 +21,8 @@ const CODE_SUFFIX: Record<OptionKind, RegExp> = {
 };
 
 /** A link the page reader has turned into a record code, or a bare code. */
-const LISTED_CODE =
-  /\[([^\]]+)\]\(([A-Z0-9][A-Z0-9-]{1,31})\)|\b([A-Z0-9]{2,}-(?:MAJ|MIN|SPEC|HSPC))\b/gu;
+const LISTED_LINK = /\[([^\]]+)\]\(([A-Z0-9][A-Z0-9-]{1,31})\)/gu;
+const BARE_LISTED_CODE = /^-\s+([A-Z0-9]{2,}-(?:MAJ|MIN|SPEC|HSPC))\s*$/u;
 
 /**
  * The majors, minors and specialisations a programme page lists under its own
@@ -46,10 +46,16 @@ export function listedStructureOptions(
       continue;
     }
     if (!listing) continue;
-    for (const match of line.matchAll(LISTED_CODE)) {
-      const code = (match[2] ?? match[3]).toUpperCase();
+    const bare = BARE_LISTED_CODE.exec(line.trim());
+    const listed = [
+      ...Array.from(line.matchAll(LISTED_LINK), (match) => ({
+        code: match[2],
+        title: match[1]?.trim() || null,
+      })),
+      ...(bare ? [{ code: bare[1], title: null }] : []),
+    ];
+    for (const { code, title } of listed) {
       if (!CODE_SUFFIX[listing.kind].test(code)) continue;
-      const title = match[1]?.trim() || null;
       options.push({
         relationshipKind: "option",
         targetKind: listing.kind,
