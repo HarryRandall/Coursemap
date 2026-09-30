@@ -12,7 +12,9 @@ import { loadSourceReview } from "../lib/catalogue/source-review-store.ts";
 import { resolveSourceChange } from "../lib/catalogue/source-review-decisions.ts";
 import {
   publishCatalogueDraft,
+  resolveDraftExtractionError,
   restoreCatalogueVersion,
+  saveCatalogueDraft,
 } from "../lib/catalogue/drafts.ts";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
@@ -21,6 +23,7 @@ const YEAR = 2026;
 const CONFLICT_CODE = "TSTC9201";
 const CHANGE_CODE = "TSTC9202";
 const FIRST_READ_CODE = "TSTC9203";
+const EXTRACTION_ERROR_CODE = "TSTC9204";
 const ADMIN_ID = "99000000-0000-4000-8000-000000000041";
 
 let sql;
@@ -51,11 +54,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -186,6 +189,7 @@ beforeAll(async () => {
   await createRecord(CONFLICT_CODE, "Conflict Record");
   await createRecord(CHANGE_CODE, "Change Record");
   await createRecord(FIRST_READ_CODE, "First Read Record");
+  await createRecord(EXTRACTION_ERROR_CODE, "Extraction Error Record");
 });
 
 afterAll(async () => {
@@ -500,4 +504,86 @@ test("a first reading is rated for review and holds publishing until approved", 
     sql,
   });
   assert.ok(versionId);
+});
+
+test("a manually corrected draft can resolve its old extraction error with an audit trail", async () => {
+  const recordId = records.get(EXTRACTION_ERROR_CODE);
+  const content = sourceContent(
+    EXTRACTION_ERROR_CODE,
+    "Extraction Error Record",
+    "Incomplete model reading.",
+  );
+  content.flags = [
+    {
+      fieldPath: "description",
+      severity: "error",
+      code: "INCOMPLETE_READING",
+      message: "The description needs a complete ANU reading.",
+      sourceExcerpt: "Complete ANU description.",
+    },
+  ];
+  await observeSource(EXTRACTION_ERROR_CODE, content);
+  const review = await currentReview(EXTRACTION_ERROR_CODE);
+  for (const change of review.firstRead.filter(
+    (item) => item.band !== "accepted",
+  )) {
+    await resolveSourceChange({
+      recordId,
+      changeId: change.id,
+      decision: "use_source",
+      userId: ADMIN_ID,
+      sql,
+    });
+  }
+  const [initial] = await sql`
+    select revision from public.catalogue_drafts where record_id = ${recordId}
+  `;
+  await assert.rejects(
+    resolveDraftExtractionError({
+      recordId,
+      expectedRevision: Number(initial.revision),
+      flagIndex: 0,
+      userId: ADMIN_ID,
+      editingSessionId: "11111111-1111-4111-8111-111111111111",
+      sql,
+    }),
+    (error) => error.code === "NO_MANUAL_CORRECTION",
+  );
+
+  const corrected = structuredClone(content);
+  corrected.course.details.description = "Complete ANU description.";
+  const saved = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: Number(initial.revision),
+    content: corrected,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  const reviewed = await resolveDraftExtractionError({
+    recordId,
+    expectedRevision: saved.draft.revision,
+    flagIndex: 0,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  assert.equal(reviewed.flags.length, 0);
+  assert.equal(reviewed.revision, saved.draft.revision + 1);
+  const [event] = await sql`
+    select changes.old_value, changes.new_value
+    from public.catalogue_field_changes as changes
+    join public.catalogue_change_events as events on events.id = changes.event_id
+    where events.record_id = ${recordId} and changes.field_path = 'flags[0]'
+  `;
+  assert.equal(event.old_value.code, "INCOMPLETE_READING");
+  assert.equal(event.new_value, null);
+  const published = await publishCatalogueDraft({
+    recordId,
+    expectedRevision: reviewed.revision,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  assert.ok(published.versionId);
 });

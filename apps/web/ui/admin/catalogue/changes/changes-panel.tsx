@@ -6,6 +6,7 @@ import {
 } from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import type { SnapshotChange } from "@/lib/catalogue-import/changes";
+import type { CatalogueContentFlag } from "@/lib/catalogue/content";
 import {
   type FirstReadItem,
   isCertainFirstRead,
@@ -19,6 +20,7 @@ import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { AllFields } from "./all-fields";
 import { FirstReadReview } from "./first-read-review";
 import { UnreadParts } from "./model-notes";
+import { DraftExtractionErrors } from "./draft-extraction-errors";
 import type { ReviewSubject } from "./review-value";
 import { SourceChangeCard } from "./source-change-card";
 import { UnpublishedChanges } from "./unpublished-changes";
@@ -105,6 +107,7 @@ export function CatalogueChangesPanel({
   subject = null,
   allFields = [],
   latestSyncFailed = false,
+  draftErrors = [],
 }: {
   review: SourceReview | null;
   unpublished: SnapshotChange[];
@@ -121,6 +124,7 @@ export function CatalogueChangesPanel({
   /** Every filled field as the draft holds it, rated like a first reading. */
   allFields?: readonly FirstReadItem[];
   latestSyncFailed?: boolean;
+  draftErrors?: Array<{ flag: CatalogueContentFlag; index: number }>;
 }) {
   const conflicts = review?.conflicts ?? [];
   const firstRead = (review?.firstRead ?? []).filter(
@@ -138,6 +142,10 @@ export function CatalogueChangesPanel({
     );
   const unreadParts = (notes?.errors ?? []).filter(
     (note) =>
+      !draftErrors.some(
+        ({ flag }) =>
+          flag.fieldPath === note.fieldPath && flag.message === note.message,
+      ) &&
       !open.some((change) =>
         noteBelongsToReviewUnit(change.fieldPath, note.fieldPath),
       ),
@@ -147,7 +155,8 @@ export function CatalogueChangesPanel({
     hasEverSynced,
     unpublishedCount,
     kindLabel,
-    hasExtractionErrors: (notes?.errors.length ?? 0) > 0,
+    hasExtractionErrors:
+      draftErrors.length > 0 || (notes?.errors.length ?? 0) > 0,
     latestSyncFailed,
   });
   const showUnpublished = unpublishedCount > 0;
@@ -158,6 +167,13 @@ export function CatalogueChangesPanel({
 
   const toReview = (
     <div className={cn("flex flex-col gap-8", fillsPage && "flex-1")}>
+      <DraftExtractionErrors
+        errors={draftErrors}
+        canWrite={canWrite}
+        hasPendingReview={
+          firstRead.length + conflicts.length + incoming.length > 0
+        }
+      />
       <UnreadParts errors={unreadParts} />
       {firstRead.length ? (
         <FirstReadReview
@@ -265,7 +281,8 @@ export function CatalogueChangesPanel({
         <TabsTrigger value="review">
           To review
           <span className="text-muted-foreground tabular-nums">
-            {conflicts.length +
+            {draftErrors.length +
+              conflicts.length +
               incoming.length +
               firstRead.filter((change) => change.band !== "accepted").length}
           </span>
