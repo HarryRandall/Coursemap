@@ -40,6 +40,7 @@ export type RequirementConditionKind =
   | "structure"
   | "structure_set"
   | "course_set_units"
+  | "consecutive_semester_pair"
   | "units_total"
   | "subject_units"
   | "subject_courses"
@@ -677,6 +678,8 @@ function structureConditionKind(
   switch (kind) {
     case "course_list":
       return "course_set_units";
+    case "consecutive_semester_pair":
+      return "consecutive_semester_pair";
     case "structure_list":
       return "structure_set";
     case "unit_total":

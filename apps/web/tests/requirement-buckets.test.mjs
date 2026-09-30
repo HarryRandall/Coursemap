@@ -109,6 +109,24 @@ test("drops the unit lead from the label so a narrow card shows the subject", ()
   assert.equal(bucket.description, COMPULSORY);
 });
 
+test("a timed pair does not fill the dashboard bucket in the wrong semesters", () => {
+  const pair = condition(2, {
+    conditionKind: "consecutive_semester_pair",
+    minimumUnits: 12,
+    maximumUnits: 12,
+    freeText: "Complete in consecutive semesters.",
+    options: [option("COMP1100"), option("COMP1110")],
+    sourceText: "12 units from consecutive courses",
+  });
+  const first = attempt("COMP1100", "completed");
+  const second = attempt("COMP1110", "completed");
+  assert.equal(buckets(pair, [first, second])[0].completedUnits, 0);
+  assert.equal(
+    buckets(pair, [first, { ...second, termId: "2026-s2" }])[0].completedUnits,
+    12,
+  );
+});
+
 test("recovers the unit target stated in the prose when no field carries it", () => {
   const [bucket] = buckets(
     condition(2, { sourceText: COMPULSORY, options: [option("COMP1100")] }),

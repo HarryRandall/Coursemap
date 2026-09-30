@@ -82,6 +82,7 @@ export type AcademicStructureSnapshotProjection = {
     position: number;
     conditionKind:
       | "course_list"
+      | "consecutive_semester_pair"
       | "structure_list"
       | "unit_total"
       | "level"
