@@ -123,11 +123,11 @@ test("students can record and remove approval for a conditional exclusion in the
 });
 
 test("college eligibility follows the selected programme and stays unknown without published affiliation", async () => {
-  const college = "ANU College of Business and Economics";
+  const college = "ANU College of Arts and Social Sciences";
   const scoped = {
     ...catalogue,
     programmeColleges: [
-      { code: "BFINN", college },
+      { code: "BTEST", college },
       { code: "BCOMP", college: "Different college" },
     ],
     courses: catalogue.courses.map((course) =>
@@ -169,7 +169,7 @@ test("college eligibility follows the selected programme and stays unknown witho
   expect(
     screen.getByText("Your programme is offered by a different college"),
   ).toBeVisible();
-  fixture.degreeCode = "BFINN";
+  fixture.degreeCode = "BTEST";
   view.rerender(
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );

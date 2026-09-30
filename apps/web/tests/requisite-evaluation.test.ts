@@ -495,7 +495,7 @@ test("grade-only results settle thresholds only when their band proves them", ()
     attempts: [
       {
         id: "grade",
-        courseCode: "FINM3009",
+        courseCode: "TSTF3009",
         termId: "t1",
         status: "completed",
         resultCode: "CR",
@@ -503,7 +503,7 @@ test("grade-only results settle thresholds only when their band proves them", ()
       },
     ],
     commencementYear: null,
-    completedCourses: [{ code: "FINM3009", units: 6 }],
+    completedCourses: [{ code: "TSTF3009", units: 6 }],
     programmeCodes: [],
   });
   for (const [minimumMark, status] of [
@@ -512,15 +512,15 @@ test("grade-only results settle thresholds only when their band proves them", ()
     [70, "unmet"],
   ] as const) {
     expect(
-      evaluateRule(course("FINM3009", { minimumMark }), record).status,
+      evaluateRule(course("TSTF3009", { minimumMark }), record).status,
     ).toBe(status);
   }
-  expect(record.completed.get("FINM3009")?.mark).toBeNull();
+  expect(record.completed.get("TSTF3009")?.mark).toBeNull();
   expect(
-    evaluateRule(course("FINM3009", { minimumMark: 60 }), {
+    evaluateRule(course("TSTF3009", { minimumMark: 60 }), {
       ...record,
       completed: new Map([
-        ["FINM3009", { units: 6, mark: null, resultCode: "PS" }],
+        ["TSTF3009", { units: 6, mark: null, resultCode: "PS" }],
       ]),
     }).status,
   ).toBe("unknown");

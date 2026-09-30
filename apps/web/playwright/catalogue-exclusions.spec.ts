@@ -54,8 +54,8 @@ test("enrolment mode scope retains its grouping and authority through editor sav
         },
       ],
     };
-    const college = "ANU College of Business and Economics";
-    model.requisites.prerequisiteText = `Enrolment in a CBE degree. ${model.requisites.prerequisiteText}`;
+    const college = "ANU College of Arts and Social Sciences";
+    model.requisites.prerequisiteText = `Enrolment in a CASS degree. ${model.requisites.prerequisiteText}`;
     model.requisites.prerequisiteRule = {
       op: "all_of",
       rules: [

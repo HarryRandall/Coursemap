@@ -10,7 +10,7 @@ test("student course eligibility uses published programme college metadata and p
   const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
     max: 1,
   });
-  const college = "ANU College of Business and Economics";
+  const college = "ANU College of Arts and Social Sciences";
   const codes = ["COLLEGE-PROG", "MISSING-COLLEGE-PROG", "TSTE9908"];
   async function createProgramme(code: string, affiliation: string | null) {
     const [record] =
@@ -37,10 +37,10 @@ test("student course eligibility uses published programme college metadata and p
       const [course] =
         await tx`select pg_temp.create_course_snapshot(${codes[2]},2026::smallint,'College eligibility browser test',p_level => 9000::smallint) as id`;
       const [rule] =
-        await tx`insert into public.requirement_rules(version_id,academic_year_id,rule_kind,source_text,review_state,confidence) select ${course.id},academic_year_id,'prerequisite','You must be enrolled in a CBE degree.','verified',1 from public.catalogue_versions where id = ${course.id} returning id`;
+        await tx`insert into public.requirement_rules(version_id,academic_year_id,rule_kind,source_text,review_state,confidence) select ${course.id},academic_year_id,'prerequisite','You must be enrolled in a CASS degree.','verified',1 from public.catalogue_versions where id = ${course.id} returning id`;
       const [group] =
         await tx`insert into public.requirement_groups(rule_id,version_id,group_key,operator) values(${rule.id},${course.id},'prerequisite:root','all_of') returning id`;
-      await tx`insert into public.requirement_conditions(rule_id,group_id,version_id,condition_key,condition_kind,free_text,source_text,review_state,confidence) values(${rule.id},${group.id},${course.id},'prerequisite:college','college_enrolment',${college},'You must be enrolled in a CBE degree.','verified',1)`;
+      await tx`insert into public.requirement_conditions(rule_id,group_id,version_id,condition_key,condition_kind,free_text,source_text,review_state,confidence) values(${rule.id},${group.id},${course.id},'prerequisite:college','college_enrolment',${college},'You must be enrolled in a CASS degree.','verified',1)`;
       await tx`select pg_temp.publish_snapshot(${course.id})`;
     });
     const [plan] =
