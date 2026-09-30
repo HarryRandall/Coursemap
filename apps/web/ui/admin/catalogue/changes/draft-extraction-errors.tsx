@@ -1,7 +1,8 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@coursemap/ui/primitives/button";
+import { Textarea } from "@coursemap/ui/primitives/textarea";
 import {
   Alert,
   AlertDescription,
@@ -24,14 +25,16 @@ function ExtractionErrorList({
 }) {
   const { resolveExtractionError } = useCatalogueEditor();
   const [isPending, startTransition] = useTransition();
+  const [reasons, setReasons] = useState<Record<number, string>>({});
   return (
     <Alert variant="destructive">
       <CircleAlert aria-hidden="true" />
       <AlertTitle>Draft extraction errors</AlertTitle>
       <AlertDescription>
         <p className="mt-1">
-          Compare each part with ANU, correct the draft, then mark its error
-          reviewed.
+          Compare each part with ANU. Correct the draft, or explain why the
+          existing wording safely represents it, before marking an error
+          reviewed. Leave ambiguous requirements open.
         </p>
         <ul className="mt-3 flex flex-col gap-4">
           {errors.map(({ flag, index }) => (
@@ -48,28 +51,49 @@ function ExtractionErrorList({
                 </blockquote>
               ) : null}
               {canWrite ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isPending || hasPendingReview || !flag.fieldPath}
-                  onClick={() =>
-                    startTransition(async () => {
-                      try {
-                        await resolveExtractionError(index);
-                      } catch (error) {
-                        showToast(
-                          error instanceof Error
-                            ? error.message
-                            : "The error could not be reviewed.",
-                          "error",
-                        );
-                      }
-                    })
-                  }
-                >
-                  Mark corrected
-                </Button>
+                <div className="space-y-2">
+                  <label
+                    className="block text-xs font-medium"
+                    htmlFor={`error-reason-${index}`}
+                  >
+                    Review explanation, if the draft already represents this
+                    wording
+                  </label>
+                  <Textarea
+                    id={`error-reason-${index}`}
+                    rows={2}
+                    maxLength={500}
+                    value={reasons[index] ?? ""}
+                    onChange={(event) =>
+                      setReasons((current) => ({
+                        ...current,
+                        [index]: event.target.value,
+                      }))
+                    }
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isPending || hasPendingReview || !flag.fieldPath}
+                    onClick={() =>
+                      startTransition(async () => {
+                        try {
+                          await resolveExtractionError(index, reasons[index]);
+                        } catch (error) {
+                          showToast(
+                            error instanceof Error
+                              ? error.message
+                              : "The error could not be reviewed.",
+                            "error",
+                          );
+                        }
+                      })
+                    }
+                  >
+                    Mark reviewed
+                  </Button>
+                </div>
               ) : null}
             </li>
           ))}

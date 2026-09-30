@@ -445,6 +445,7 @@ export async function resolveDraftExtractionError({
   recordId,
   expectedRevision,
   flagIndex,
+  reviewReason,
   userId,
   editingSessionId,
   sql,
@@ -452,6 +453,7 @@ export async function resolveDraftExtractionError({
   recordId: number;
   expectedRevision: number;
   flagIndex: number;
+  reviewReason?: string;
   userId: string;
   editingSessionId: string;
   sql?: SyncSql;
@@ -495,16 +497,25 @@ export async function resolveDraftExtractionError({
       select field_path from public.catalogue_draft_provenance
       where record_id = ${recordId} and origin = 'manual'
     `;
-      if (
-        !corrections.some((correction) =>
-          noteBelongsToReviewUnit(
-            String(correction.field_path),
-            flag.fieldPath,
-          ),
-        )
-      ) {
+      const hasManualCorrection = corrections.some((correction) =>
+        noteBelongsToReviewUnit(String(correction.field_path), flag.fieldPath),
+      );
+      const reason = reviewReason?.trim() ?? "";
+      if (reason && (reason.length < 20 || reason.length > 500)) {
         throw new CatalogueDraftError(
-          "Correct this part of the draft before marking its extraction error reviewed.",
+          "Explain the review in 20 to 500 characters.",
+          "INVALID_REVIEW_REASON",
+        );
+      }
+      if (flag.code === "AMBIGUOUS" && !hasManualCorrection) {
+        throw new CatalogueDraftError(
+          "Confirm the ANU grouping and correct the rule before reviewing this ambiguity.",
+          "AMBIGUOUS_RULE",
+        );
+      }
+      if (!hasManualCorrection && !reason) {
+        throw new CatalogueDraftError(
+          "Correct this part of the draft or explain how the ANU wording is safely represented.",
           "NO_MANUAL_CORRECTION",
         );
       }
@@ -529,6 +540,13 @@ export async function resolveDraftExtractionError({
         event_id, position, field_path, old_value, new_value
       ) values (${event.id}, 0, ${`flags[${flagIndex}]`}, ${tx.json(flag as never)}, 'null'::jsonb)
     `;
+      if (reason) {
+        await tx`
+        insert into public.catalogue_field_changes (
+          event_id, position, field_path, old_value, new_value
+        ) values (${event.id}, 1, ${`flags[${flagIndex}].reviewReason`}, 'null'::jsonb, ${tx.json(reason)})
+      `;
+      }
       return { revision, flags };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
