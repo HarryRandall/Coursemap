@@ -78,6 +78,7 @@ export function normaliseAcademicStructureModelExtraction(value: unknown) {
     if (
       record.type === "condition" &&
       record.conditionKind !== "free_text" &&
+      record.conditionKind !== "consecutive_semester_pair" &&
       typeof record.freeText === "string"
     ) {
       record.freeText = null;

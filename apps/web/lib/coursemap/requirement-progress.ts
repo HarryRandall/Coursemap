@@ -130,6 +130,14 @@ export function canMeasureRequirementCondition(
   > &
     Partial<Pick<PlanRequirementCondition, "tag" | "includesAnyCourse">>,
 ) {
+  if (condition.conditionKind === "consecutive_semester_pair") {
+    return (
+      condition.minimumUnits !== null &&
+      condition.options.length === 2 &&
+      condition.options.every((option) => option.kind === "course") &&
+      condition.options[0]?.code !== condition.options[1]?.code
+    );
+  }
   return (
     (conditionPredicates(condition).length > 0 || takesAnyCourse(condition)) &&
     (condition.minimumUnits !== null ||
@@ -141,6 +149,21 @@ export function canMeasureRequirementCondition(
 function collectPredicates(node: PlanRequirementNode): CoursePredicate[] {
   if (node.type === "condition") return conditionPredicates(node);
   return node.children.flatMap(collectPredicates);
+}
+
+function countableBucketPredicates(
+  node: PlanRequirementNode,
+  credited: readonly CreditedAttempt[],
+): CoursePredicate[] {
+  if (node.type === "group")
+    return node.children.flatMap((child) =>
+      countableBucketPredicates(child, credited),
+    );
+  if (node.conditionKind === "consecutive_semester_pair") {
+    const sequence = pairSequence(node, credited);
+    if (sequence === "invalid" || sequence === "unknown") return [];
+  }
+  return conditionPredicates(node);
 }
 
 /**
@@ -260,7 +283,8 @@ export function requirementBucketProgress({
 
   const credited = creditedAttempts(attempts, catalogue);
 
-  return buckets.map(({ node, title, description, predicates }) => {
+  return buckets.map(({ node, title, description }) => {
+    const predicates = countableBucketPredicates(node, credited);
     let completedUnits = 0;
     let plannedUnits = 0;
     credited.forEach(({ attempt, course, units }) => {
@@ -475,6 +499,32 @@ function placementRank(leaf: Leaf, course: MatchableCourse): number | null {
   return null;
 }
 
+function semesterNumber(termId: string): number | null {
+  const match = /^(\d{4})-s([12])$/i.exec(termId);
+  if (!match) return null;
+  return Number(match[1]) * 2 + Number(match[2]) - 1;
+}
+
+function pairSequence(
+  condition: PlanRequirementCondition,
+  credited: readonly CreditedAttempt[],
+): "partial" | "unknown" | "valid" | "invalid" {
+  const codes = condition.options.map((option) => option.code);
+  if (
+    codes.length !== 2 ||
+    codes[0] === codes[1] ||
+    condition.options.some((option) => option.kind !== "course")
+  )
+    return "invalid";
+  const first = credited.find((entry) => entry.course.code === codes[0]);
+  const second = credited.find((entry) => entry.course.code === codes[1]);
+  if (!first || !second) return "partial";
+  const firstSemester = semesterNumber(first.attempt.termId);
+  const secondSemester = semesterNumber(second.attempt.termId);
+  if (firstSemester === null || secondSemester === null) return "unknown";
+  return secondSemester === firstSemester + 1 ? "valid" : "invalid";
+}
+
 /**
  * Assigns each course in the plan to at most one part of the degree.
  *
@@ -527,7 +577,9 @@ export function allocateRequirements({
       .map((leaf) => ({ leaf, rank: placementRank(leaf, course) }))
       .filter(
         (candidate): candidate is { leaf: Leaf; rank: number } =>
-          candidate.rank !== null,
+          candidate.rank !== null &&
+          (candidate.leaf.node.conditionKind !== "consecutive_semester_pair" ||
+            pairSequence(candidate.leaf.node, credited) !== "invalid"),
       );
   const queue = credited
     .filter(({ course }) => !excluded.has(course.code))
@@ -594,6 +646,10 @@ function conditionProgress(
   allocation: RequirementAllocation,
 ): RequirementNodeProgress {
   const key = requirementNodeKey(condition);
+  const sequence =
+    condition.conditionKind === "consecutive_semester_pair"
+      ? pairSequence(condition, credited)
+      : null;
   const predicates = conditionPredicates(condition);
   // A part counts only what was allocated to it; a degree-wide rule reads
   // every course the degree counts, and the total reads them all.
@@ -638,7 +694,12 @@ function conditionProgress(
   });
   return {
     key,
-    state: overCap ? "over_limit" : state,
+    state:
+      sequence === "unknown" && matchedCourseCodes.length === 2
+        ? "unmeasured"
+        : overCap
+          ? "over_limit"
+          : state,
     targetUnits,
     maximumUnits,
     targetCourses,
