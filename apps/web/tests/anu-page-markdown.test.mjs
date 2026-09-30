@@ -49,26 +49,34 @@ test("writes ANU record links as their codes", async () => {
   assert.match(markdown, /\[Quantitative Biology\]\(QBIO-MAJ\)/);
 });
 
-test("labels each offering tab with its year", async () => {
+test("labels each offering tab with its year", () => {
   const markdown = convertAnuPageToMarkdown({
-    html: await fixture("anu-2026-finm3006.html"),
-    frontMatter: { code: "FINM3006", year: 2026 },
+    html: `<main class="main">
+      <p>To enrol in this course, you must have completed: PHYS2001; PHYS2002; and, PHYS2003 or PHYS3011.</p>
+      <div class="course-tabs-menu"><a href="#tab-2026">2026</a><a href="#tab-2027">2027</a></div>
+      <div id="tab-2026"><table><tr><th>Class number</th></tr><tr><td>1234</td></tr></table></div>
+      <div id="tab-2027"><table><tr><th>Class number</th></tr><tr><td>5678</td></tr></table></div>
+    </main>`,
+    frontMatter: { code: "PHYS3006", year: 2026 },
   });
-  assert.match(markdown, /### Offerings in 2026/);
   assert.match(
     markdown,
-    /To enrol in this course, you must have completed: FINM2001; FINM2002; and, FINM2003 or FINM3011\./,
+    /### Offerings in 2026[\s\S]*1234[\s\S]*### Offerings in 2027[\s\S]*5678/u,
+  );
+  assert.match(
+    markdown,
+    /you must have completed: PHYS2001; PHYS2002; and, PHYS2003 or PHYS3011\./u,
   );
 });
 
 test("removes paragraph markup embedded in an ANU contact address", () => {
   const markdown = convertAnuPageToMarkdown({
-    html: `<main class="main"><p>Academic contact - <a href="mailto:&lt;p&gt;info.cbe@anu.edu.au&lt;/p&gt;">Dr Alexander Vadilyev</a></p></main>`,
-    frontMatter: { code: "BFINN", year: 2024 },
+    html: `<main class="main"><p>Academic contact - <a href="mailto:&lt;p&gt;info.test@anu.edu.au&lt;/p&gt;">Dr Test Contact</a></p></main>`,
+    frontMatter: { code: "TSTP", year: 2026 },
   });
   assert.match(
     markdown,
-    /Academic contact - Dr Alexander Vadilyev \(info\.cbe@anu\.edu\.au\)/u,
+    /Academic contact - Dr Test Contact \(info\.test@anu\.edu\.au\)/u,
   );
   assert.doesNotMatch(markdown, /<p>|<\/p>/u);
 });
