@@ -354,7 +354,7 @@ export async function fetchAnuCoursePage(
     try {
       const response = await fetchImpl(sourceUrl, {
         headers: {
-          Accept: "text/html,application/xhtml+xml",
+          Accept: "text/html",
           "User-Agent": "Coursemap course importer",
         },
         redirect: "follow",
