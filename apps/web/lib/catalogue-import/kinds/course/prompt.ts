@@ -6,7 +6,7 @@ import {
   programmesMentionedOnPage,
 } from "./programmes.ts";
 
-export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v24";
+export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v25";
 export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v44";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 

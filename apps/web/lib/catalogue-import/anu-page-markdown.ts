@@ -2,7 +2,7 @@ import { type CheerioAPI, load } from "cheerio";
 import type { AnyNode } from "domhandler";
 import { ANU_PROGRAMS_AND_COURSES_SOURCE } from "./import-source.ts";
 
-export const ANU_PAGE_MARKDOWN_VERSION = "anu-page-markdown.v2" as const;
+export const ANU_PAGE_MARKDOWN_VERSION = "anu-page-markdown.v3" as const;
 
 const ANU_ORIGIN = ANU_PROGRAMS_AND_COURSES_SOURCE.baseUrl;
 
@@ -52,6 +52,7 @@ const INLINE_ELEMENTS = new Set([
   "code",
   "em",
   "i",
+  "linked-co",
   "small",
   "strong",
   "sub",
@@ -173,6 +174,12 @@ function nodeMarkdown($: CheerioAPI, node: AnyNode): string {
       cleanText(childrenMarkdown($, node)),
       element.attr("href"),
     );
+  }
+  if (name === "linked-co") {
+    const code = cleanText(element.attr("data-code") ?? "").toUpperCase();
+    const title = cleanText(element.attr("data-name") ?? "");
+    if (!/^[A-Z0-9-]+$/u.test(code)) return title;
+    return title && title.toUpperCase() !== code ? `[${title}](${code})` : code;
   }
   if (/^h[1-6]$/.test(name)) {
     const body = cleanText(childrenMarkdown($, node));
