@@ -281,10 +281,12 @@ test("preserves a printed exchange unit bound without treating it as measured cr
     key: "exchange-route",
     minimumUnits: 24,
     maximumUnits: 24,
+    minimumLevel: 3000,
+    maximumLevel: 3999,
     sourceText:
-      "24 units from an approved university exchange partner in Asia: Courses taken whilst on exchange must be pre-approved by the convenor of the Bachelor of Finance and be focussed on financial and capital markets in an Asian context",
+      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Finance and must focus on financial and capital markets in an Asian context.",
     freeText:
-      "24 units from an approved university exchange partner in Asia: Courses taken whilst on exchange must be pre-approved by the convenor of the Bachelor of Finance and be focussed on financial and capital markets in an Asian context",
+      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Finance and must focus on financial and capital markets in an Asian context.",
   };
   model.requirements.rule.children.push(exchange);
   assert.equal(validateAcademicStructureExtraction(model).success, true);
@@ -298,6 +300,8 @@ test("preserves a printed exchange unit bound without treating it as measured cr
   assert.equal(stored.kind, "other");
   assert.equal(stored.minimumUnits, 24);
   assert.equal(stored.maximumUnits, 24);
+  assert.equal(stored.minimumLevel, 3000);
+  assert.equal(stored.maximumLevel, 3999);
   assert.equal(stored.freeText, exchange.freeText);
   assert.equal(
     classifyFirstRead(content).find(
@@ -784,11 +788,11 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v9",
+    "coursemap-academic-structure-parser.v10",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v18",
+    "coursemap-academic-structure-prompt.v19",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
