@@ -10,6 +10,7 @@ import {
   discardCatalogueDraft,
   publishCatalogueDraft,
   restoreCatalogueVersion,
+  resolveDraftExtractionError,
   saveCatalogueDraft,
   unpublishCatalogueRecord,
 } from "@/lib/catalogue/drafts";
@@ -194,6 +195,43 @@ export async function saveCatalogueDraftAction({
     };
   } catch (error) {
     return draftFailure(error, "The draft could not be saved.");
+  }
+}
+
+export async function resolveDraftExtractionErrorAction({
+  recordId,
+  expectedRevision,
+  flagIndex,
+  editingSessionId,
+  path,
+}: {
+  recordId: number;
+  expectedRevision: number;
+  flagIndex: number;
+  editingSessionId: string;
+  path: string;
+}): Promise<DraftActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, error: "Catalogue write permission is required." };
+  const viewer = await getAuthViewer();
+  if (!viewer) return { ok: false, error: "Authentication is required." };
+  try {
+    const result = await resolveDraftExtractionError({
+      recordId,
+      expectedRevision,
+      flagIndex,
+      editingSessionId,
+      userId: viewer.id,
+    });
+    revalidateRecord(path);
+    return {
+      ok: true,
+      revision: result.revision,
+      message:
+        "Extraction error marked reviewed. Check the remaining errors before publishing.",
+    };
+  } catch (error) {
+    return draftFailure(error, "The extraction error could not be reviewed.");
   }
 }
 

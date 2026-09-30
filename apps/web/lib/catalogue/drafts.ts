@@ -9,6 +9,7 @@ import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { insertVersionContent } from "@/lib/catalogue-sync/persist-source-version";
 import { countBlockingFirstReads } from "@/lib/catalogue/source-review-store";
+import { noteBelongsToReviewUnit } from "@/lib/catalogue/review-notes";
 import {
   contentHashForCatalogueContent,
   readVersionContent,
@@ -435,6 +436,100 @@ export async function saveCatalogueDraft({
         unchanged: false as const,
         changedPaths: changes.map((change) => change.fieldPath),
       };
+    });
+  return sql ? work(sql) : withSyncDatabaseClient(work);
+}
+
+/** Clears one model error only after its rule has been manually corrected and reviewed. */
+export async function resolveDraftExtractionError({
+  recordId,
+  expectedRevision,
+  flagIndex,
+  userId,
+  editingSessionId,
+  sql,
+}: {
+  recordId: number;
+  expectedRevision: number;
+  flagIndex: number;
+  userId: string;
+  editingSessionId: string;
+  sql?: SyncSql;
+}) {
+  assertEditingSession(editingSessionId);
+  const work = (client: SyncSql) =>
+    client.begin(async (tx) => {
+      const record = await catalogueRecordForUpdate(tx, recordId);
+      if (record.archived_at) {
+        throw new CatalogueDraftError(
+          "Archived records cannot be reviewed.",
+          "ARCHIVED",
+        );
+      }
+      const [row] = await tx`
+      select * from public.catalogue_drafts where record_id = ${recordId} for update
+    `;
+      if (!row)
+        throw new CatalogueDraftError(
+          "There is no draft to review.",
+          "NO_DRAFT",
+        );
+      const draft = draftFromRow(row);
+      if (draft.revision !== expectedRevision) {
+        throw new CatalogueDraftConflictError(draft.revision);
+      }
+      const flag = draft.content.flags[flagIndex];
+      if (!flag || flag.severity !== "error" || !flag.fieldPath) {
+        throw new CatalogueDraftError(
+          "This extraction error cannot be reviewed here.",
+          "INVALID_FLAG",
+        );
+      }
+      if (await countBlockingFirstReads(tx, recordId)) {
+        throw new CatalogueDraftError(
+          "Review the ANU changes before resolving extraction errors.",
+          "FIRST_READ_REVIEW",
+        );
+      }
+      const corrections = await tx`
+      select field_path from public.catalogue_draft_provenance
+      where record_id = ${recordId} and origin = 'manual'
+    `;
+      if (
+        !corrections.some((correction) =>
+          noteBelongsToReviewUnit(
+            String(correction.field_path),
+            flag.fieldPath,
+          ),
+        )
+      ) {
+        throw new CatalogueDraftError(
+          "Correct this part of the draft before marking its extraction error reviewed.",
+          "NO_MANUAL_CORRECTION",
+        );
+      }
+      const flags = draft.content.flags.filter(
+        (_, index) => index !== flagIndex,
+      );
+      const revision = draft.revision + 1;
+      const content = { ...draft.content, flags } satisfies CatalogueContent;
+      await tx`
+      update public.catalogue_drafts set content = ${tx.json(content as never)},
+        revision = ${revision}, updated_by = ${userId}::uuid, updated_at = now()
+      where record_id = ${recordId}
+    `;
+      const [event] = await tx`
+      insert into public.catalogue_change_events (
+        record_id, draft_revision, event_kind, origin, actor_id, editing_session_id
+      ) values (${recordId}, ${revision}, 'edit', 'manual', ${userId}::uuid,
+        ${editingSessionId}::uuid) returning id
+    `;
+      await tx`
+      insert into public.catalogue_field_changes (
+        event_id, position, field_path, old_value, new_value
+      ) values (${event.id}, 0, ${`flags[${flagIndex}]`}, ${tx.json(flag as never)}, 'null'::jsonb)
+    `;
+      return { revision, flags };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
 }

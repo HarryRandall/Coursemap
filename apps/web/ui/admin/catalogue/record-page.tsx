@@ -119,6 +119,26 @@ export async function CatalogueRecordPage({
         )
       : null,
   ]);
+  const draftErrors = hasDraft
+    ? draft.content.flags.flatMap((flag, index) =>
+        flag.severity === "error" ? [{ flag, index }] : [],
+      )
+    : [];
+  // Source versions are immutable. Once an error is corrected in the draft,
+  // keep its source history without showing it as an open review note.
+  const activeNotes =
+    notes && hasDraft
+      ? {
+          ...notes,
+          errors: notes.errors.filter((note) =>
+            draftErrors.some(
+              ({ flag }) =>
+                flag.fieldPath === note.fieldPath &&
+                flag.message === note.message,
+            ),
+          ),
+        }
+      : notes;
   const unpublished = hasChanges
     ? diffSnapshotWrites(studentContent, draft.content)
     : [];
@@ -134,6 +154,7 @@ export async function CatalogueRecordPage({
   // A first reading counts while it is unsure; what was read plainly waits
   // folded away and does not ask for attention.
   const openChanges =
+    draftErrors.length +
     (review?.conflicts.length ?? 0) +
     (review?.incoming.length ?? 0) +
     (review?.firstRead.filter(
@@ -197,7 +218,8 @@ export async function CatalogueRecordPage({
                 latestSyncFailed={record.syncs[0]?.status === "failed"}
                 isPublished={record.publishedVersionId !== null}
                 kindLabel={labels.singular.toLowerCase()}
-                notes={notes}
+                notes={activeNotes}
+                draftErrors={draftErrors}
                 path={path}
                 recordId={record.recordId}
                 review={review}

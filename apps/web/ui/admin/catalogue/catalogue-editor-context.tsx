@@ -16,6 +16,7 @@ import {
   beginCatalogueDraftAction,
   discardDraftAction,
   publishDraftAction,
+  resolveDraftExtractionErrorAction,
   saveCatalogueDraftAction,
   unpublishAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
@@ -39,6 +40,7 @@ export type CatalogueEditor = {
   publish: () => Promise<void>;
   unpublish: () => Promise<void>;
   discard: () => Promise<void>;
+  resolveExtractionError: (flagIndex: number) => Promise<void>;
 };
 
 const CatalogueEditorContext = createContext<CatalogueEditor | null>(null);
@@ -218,6 +220,31 @@ export function CatalogueEditorProvider({
     router.refresh();
   }
 
+  async function resolveExtractionError(flagIndex: number) {
+    if (dirty || saveState !== "saved") {
+      throw new Error(
+        "Wait for the draft to finish saving before reviewing its extraction error.",
+      );
+    }
+    const result = await resolveDraftExtractionErrorAction({
+      recordId,
+      expectedRevision: revision,
+      flagIndex,
+      editingSessionId,
+      path,
+    });
+    if (!result.ok) throw new Error(result.error);
+    const next = {
+      ...write,
+      flags: write.flags.filter((_, index) => index !== flagIndex),
+    };
+    setWrite(next);
+    setSavedContent(JSON.stringify(next));
+    setRevision(result.revision ?? revision);
+    showToast(result.message ?? "Extraction error reviewed.");
+    router.refresh();
+  }
+
   /**
    * The fields are offered straight away and the draft row is opened behind
    * them, so asking to edit never waits on a round trip. Should opening fail,
@@ -268,6 +295,7 @@ export function CatalogueEditorProvider({
         publish,
         unpublish,
         discard,
+        resolveExtractionError,
       }}
     >
       {children}
