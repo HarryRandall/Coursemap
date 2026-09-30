@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v36");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v37");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -1928,6 +1928,32 @@ test("rejects invalid course counts and zero-unit placeholders before projection
     assert.equal(validateCourseExtraction(model).success, false);
     assert.ok(finalise(model).errorCount > 0);
   }
+});
+
+test("rejects empty and repeated course sets before projection", () => {
+  for (const courseCodes of [[], ["STAT1003", "STAT1003"]]) {
+    const model = structuredClone(extraction);
+    model.requisites.prerequisiteRule = {
+      op: "min_units_from_courses",
+      minimumUnits: 6,
+      courseCodes,
+    };
+
+    const validation = validateCourseExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(
+      validation.issues.some(
+        ({ path }) => path === "$.requisites.prerequisiteRule.courseCodes",
+      ),
+    );
+    const result = finalise(model);
+    assert.equal(result.extraction.requisites.prerequisiteRule, null);
+    assert.ok(result.errorCount > 0);
+  }
+  const courseSetSchema = COURSE_EXTRACTION_JSON_SCHEMA.$defs.rule.oneOf.find(
+    (rule) => rule.properties?.op?.const === "min_units_from_courses",
+  );
+  assert.equal(courseSetSchema.properties.courseCodes.minItems, 1);
 });
 
 test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {

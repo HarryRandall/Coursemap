@@ -200,6 +200,18 @@ function validateRule(
             pattern: COURSE_CODE_PATTERN,
           }),
       );
+      if (Array.isArray(record.courseCodes)) {
+        if (record.courseCodes.length === 0)
+          issues.push({
+            path: `${path}.courseCodes`,
+            message: "must contain at least one course",
+          });
+        if (new Set(record.courseCodes).size !== record.courseCodes.length)
+          issues.push({
+            path: `${path}.courseCodes`,
+            message: "must not repeat a course",
+          });
+      }
     }
   } else if (op === "enrolled_in") {
     const record = exactRecord(value, path, ["op", "programmeCode"], issues);
