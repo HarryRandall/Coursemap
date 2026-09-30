@@ -38,7 +38,6 @@ function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
   if (layout === "public-courses")
     return [
       { label: "Course", kind: "identity" },
-      { label: "Year", kind: "text" },
       { label: "Available", kind: "text" },
       { label: "Units", kind: "text" },
       { label: "Actions", kind: "actions" },

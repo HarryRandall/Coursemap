@@ -6,9 +6,8 @@ import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { DataTableShell } from "@/ui/admin/catalogue-table/catalogue-table";
 import { FilterBar } from "@/ui/common/filter-bar";
 import {
-  loadAcademicYearOptions,
-  loadCourseFilterOptions,
-  loadPublishedCoursePage,
+  loadCourseDirectoryFilterOptions,
+  loadPublishedCourseDirectoryPage,
   type CourseFilterOptions,
   type PublishedCoursePage,
 } from "@/lib/coursemap/published-courses";
@@ -22,7 +21,6 @@ type CoursesSearchParams = {
   college?: string | string[];
   area?: string | string[];
   tag?: string | string[];
-  year?: string | string[];
   page?: string | string[];
 };
 
@@ -58,8 +56,6 @@ export default async function CoursesPage({
     areas: [],
     tags: [],
   };
-  let yearOptions: Awaited<ReturnType<typeof loadAcademicYearOptions>> = [];
-  let selectedAcademicYear = new Date().getFullYear();
   let result: PublishedCoursePage = {
     courses: [],
     page,
@@ -68,22 +64,9 @@ export default async function CoursesPage({
   };
   let catalogueUnavailable = false;
   try {
-    yearOptions = await loadAcademicYearOptions();
-    const requestedYear = Number(firstParam(params.year));
-    const availableYears = new Set(yearOptions.map((option) => option.year));
-    const currentYear = new Date().getFullYear();
-    selectedAcademicYear = availableYears.has(requestedYear)
-      ? requestedYear
-      : availableYears.has(currentYear)
-        ? currentYear
-        : (yearOptions[0]?.year ?? currentYear);
     [result, filterOptions] = await Promise.all([
-      loadPublishedCoursePage({
-        academicYear: selectedAcademicYear,
-        page,
-        filters,
-      }),
-      loadCourseFilterOptions(selectedAcademicYear),
+      loadPublishedCourseDirectoryPage({ page, filters }),
+      loadCourseDirectoryFilterOptions(),
     ]);
   } catch {
     // Show an explicit outage state rather than an empty catalogue.
@@ -97,7 +80,6 @@ export default async function CoursesPage({
     college: college || undefined,
     area: area || undefined,
     tag: tag || undefined,
-    year: String(selectedAcademicYear),
   };
 
   if (catalogueUnavailable) {
@@ -139,17 +121,6 @@ export default async function CoursesPage({
         <FilterBar
           searchPlaceholder="Search by course code, name or school"
           filters={[
-            {
-              key: "year",
-              label: "Academic year",
-              allLabel: "Current academic year",
-              options: yearOptions.map((option) => ({
-                value: String(option.year),
-                label: option.hasPublishedCourses
-                  ? String(option.year)
-                  : `${option.year} · No published courses`,
-              })),
-            },
             {
               key: "subject",
               label: "Subject",
@@ -206,7 +177,6 @@ export default async function CoursesPage({
           pageSize={result.pageSize}
           total={result.total}
           filtered={Object.values(filters).some(Boolean)}
-          academicYear={selectedAcademicYear}
           searchParams={paginationSearchParams}
         />
       </div>
