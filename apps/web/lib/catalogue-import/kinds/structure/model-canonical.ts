@@ -81,6 +81,26 @@ export function normaliseAcademicStructureModelExtraction(value: unknown) {
     }
     if (
       record.type === "condition" &&
+      (record.conditionKind === "course_list" ||
+        record.conditionKind === "structure_list")
+    ) {
+      const field =
+        record.conditionKind === "course_list"
+          ? "courseCodes"
+          : "structureCodes";
+      const codes = record[field];
+      if (Array.isArray(codes)) {
+        const distinct = [...new Set(codes)];
+        if (distinct.length !== codes.length) {
+          record[field] = distinct;
+          normalisations.push(
+            `${path}.${field} removed a repeated list option.`,
+          );
+        }
+      }
+    }
+    if (
+      record.type === "condition" &&
       record.conditionKind === "level" &&
       typeof record.subjectCode === "string" &&
       record.subjectCode.trim() !== ""

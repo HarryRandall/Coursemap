@@ -444,6 +444,11 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           message: "must contain a literal course code",
         });
       }
+      if (
+        condition.conditionKind === "course_list" &&
+        new Set(condition.courseCodes).size !== condition.courseCodes.length
+      )
+        unexpected("courseCodes", "must not repeat a course code");
       if (condition.conditionKind === "consecutive_semester_pair") {
         if (
           condition.courseCodes.length !== 2 ||
@@ -473,6 +478,12 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           message: "must contain a kind and literal structure code",
         });
       }
+      if (
+        condition.conditionKind === "structure_list" &&
+        new Set(condition.structureCodes).size !==
+          condition.structureCodes.length
+      )
+        unexpected("structureCodes", "must not repeat a structure code");
       if (
         condition.conditionKind === "subject" &&
         condition.subjectCode === null
