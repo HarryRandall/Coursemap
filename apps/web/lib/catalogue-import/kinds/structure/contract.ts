@@ -563,7 +563,7 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           }
           break;
         case "free_text":
-          disallowCommonReferences({ allowFreeText: true });
+          disallowCommonReferences({ allowFreeText: true, allowUnits: true });
           break;
       }
     });

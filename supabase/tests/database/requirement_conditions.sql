@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(16);
+select extensions.plan(17);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -191,6 +191,19 @@ select extensions.throws_ok(
   '23514',
   null,
   'a consecutive semester pair rejects a third option'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, maximum_units, free_text
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'exchange-route', 3,
+      'other', 24, 24, '24 units from approved exchange with pre-approval.'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'an unmeasured exchange condition preserves its printed unit amount'
 );
 
 select pg_temp.publish_snapshot((select version_id from fixture));
