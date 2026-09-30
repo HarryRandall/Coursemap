@@ -4,6 +4,15 @@ export const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/;
 
 export type UnknownRecord = Record<string, unknown>;
 
+export function cleanText(value: string) {
+  return value
+    .normalize("NFKC")
+    .replace(/\u200b/g, "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function exactRecord(
   value: unknown,
   path: string,

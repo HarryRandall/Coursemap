@@ -11,6 +11,7 @@ import {
   type CourseIncompatibilityRule,
 } from "./contract.ts";
 import { stableFingerprint } from "../../canonical.ts";
+import { cleanText } from "./validation-helpers.ts";
 
 type RuleKind =
   | "prerequisite"
@@ -206,15 +207,6 @@ type RuleProjectionAccumulator = Pick<
   | "ruleConditionCourses"
   | "ruleCourseReferences"
 >;
-
-function cleanText(value: string) {
-  return value
-    .normalize("NFKC")
-    .replace(/\u200b/g, "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function nullableText(value: string | null) {
   return value === null ? null : cleanText(value);

@@ -3,6 +3,7 @@ import type {
   CourseExtractionValidationOptions,
 } from "./contract.ts";
 import {
+  cleanText,
   type UnknownRecord,
   exactRecord,
   requireArray,
@@ -206,5 +207,24 @@ export function validateCourseOfferings(
         message: "must match the extraction year",
       });
     }
+  });
+  if (!Array.isArray(record.offerings)) return;
+  const identities = new Set<string>();
+  record.offerings.forEach((item, index) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item))
+      return;
+    const { periodCode, classNumber } = item as UnknownRecord;
+    if (
+      typeof periodCode !== "string" ||
+      (classNumber !== null && typeof classNumber !== "string")
+    )
+      return;
+    const identity = `${cleanText(periodCode)}\u0000${classNumber === null ? "" : cleanText(classNumber)}`;
+    if (identities.has(identity))
+      issues.push({
+        path: `$.offerings[${index}].periodCode`,
+        message: "duplicates an offering with the same period and class number",
+      });
+    identities.add(identity);
   });
 }
