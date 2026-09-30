@@ -167,6 +167,53 @@ test("sends one schema-guided, low-cost extraction and strips model reasoning fr
   assert.deepEqual(restored.routerMetadata, result.routerMetadata);
 });
 
+test("recovers one redundant requirement brace while retaining the original paid response", async () => {
+  const expected = {
+    kind: "major",
+    requirements: {
+      rule: { type: "group", children: [{ type: "condition" }] },
+      unmodelledText: [],
+    },
+    evidence: [],
+  };
+  const original = JSON.stringify(expected).replace(
+    '}]},"unmodelledText":',
+    '}]}},"unmodelledText":',
+  );
+  assert.notEqual(original, JSON.stringify(expected));
+  assert.throws(() => JSON.parse(original));
+
+  const result = await extractWithOpenRouter({
+    model: DEFAULT_OPENROUTER_MODEL,
+    systemPrompt: "Return the structure.",
+    modelInput: "ACMK-MAJ",
+    schema: TEST_SCHEMA,
+    env: { OPENROUTER_API_KEY: "test-key" },
+    fetchImpl: async () =>
+      Response.json({
+        model: DEFAULT_OPENROUTER_MODEL,
+        choices: [{ finish_reason: "stop", message: { content: original } }],
+      }),
+  });
+  assert.deepEqual(result.parsed, expected);
+  assert.equal(result.responseError, null);
+  assert.equal(result.responseRepair, "extra_requirement_closing_brace");
+  assert.equal(result.responseForAudit.content, original);
+
+  const restored = restoreOpenRouterExtraction(
+    {
+      ...result.responseForAudit,
+      responseError:
+        "OpenRouter returned invalid JSON despite structured-output mode.",
+    },
+    DEFAULT_OPENROUTER_MODEL,
+  );
+  assert.deepEqual(restored.parsed, expected);
+  assert.equal(restored.responseError, null);
+  assert.equal(restored.responseRepair, "extra_requirement_closing_brace");
+  assert.equal(restored.responseForAudit.content, original);
+});
+
 test("never starts an extraction without the dedicated key", async () => {
   await assert.rejects(
     extractWithOpenRouter({

@@ -576,6 +576,7 @@ async function processClaimedSync({
         model: modelResult.result.parsed,
         pageMarkdown,
         responseError: modelResult.result.responseError,
+        responseRepair: modelResult.result.responseRepair,
         finishReason: modelResult.result.finishReason,
         context: promptContext,
         supportingSources: page.supportingSources,
