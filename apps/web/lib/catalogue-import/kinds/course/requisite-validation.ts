@@ -12,7 +12,7 @@ import {
   requireString,
 } from "./validation-helpers.ts";
 
-export function validateIncompatibilityRule(
+function validateIncompatibilityRule(
   value: unknown,
   path: string,
   issues: CourseExtractionValidationIssue[],
@@ -66,7 +66,7 @@ export function validateIncompatibilityRule(
   }
 }
 
-export function validateRule(
+function validateRule(
   value: unknown,
   path: string,
   issues: CourseExtractionValidationIssue[],
@@ -284,5 +284,129 @@ export function validateRule(
       path: `${path}.op`,
       message: "is not a supported requisite operation",
     });
+  }
+}
+
+export function validateCourseRequisites(
+  record: UnknownRecord,
+  issues: CourseExtractionValidationIssue[],
+) {
+  const requisites = exactRecord(
+    record.requisites,
+    "$.requisites",
+    [
+      "prerequisiteText",
+      "corequisiteText",
+      "incompatibilityText",
+      "prerequisiteRule",
+      "corequisiteRule",
+      "incompatibilityCourseCodes",
+      "softIncompatibilityCourseCodes",
+      "unmodelledText",
+    ],
+    issues,
+    [
+      "assumedKnowledgeText",
+      "incompatibilityRule",
+      "concurrentIncompatibilityCourseCodes",
+      "softConcurrentIncompatibilityCourseCodes",
+    ],
+  );
+  if (requisites) {
+    if (requisites.assumedKnowledgeText !== undefined) {
+      requireString(
+        requisites.assumedKnowledgeText,
+        "$.requisites.assumedKnowledgeText",
+        issues,
+        { nullable: true },
+      );
+    }
+    requireString(
+      requisites.prerequisiteText,
+      "$.requisites.prerequisiteText",
+      issues,
+      { nullable: true },
+    );
+    requireString(
+      requisites.corequisiteText,
+      "$.requisites.corequisiteText",
+      issues,
+      { nullable: true },
+    );
+    requireString(
+      requisites.incompatibilityText,
+      "$.requisites.incompatibilityText",
+      issues,
+      { nullable: true },
+    );
+    if (requisites.prerequisiteRule !== null)
+      validateRule(
+        requisites.prerequisiteRule,
+        "$.requisites.prerequisiteRule",
+        issues,
+      );
+    if (requisites.corequisiteRule !== null)
+      validateRule(
+        requisites.corequisiteRule,
+        "$.requisites.corequisiteRule",
+        issues,
+      );
+    if (
+      requisites.incompatibilityRule !== undefined &&
+      requisites.incompatibilityRule !== null
+    ) {
+      const exclusions: Array<{ op: string; courseCode: string }> = [];
+      validateIncompatibilityRule(
+        requisites.incompatibilityRule,
+        "$.requisites.incompatibilityRule",
+        issues,
+        exclusions,
+      );
+      for (const exclusion of exclusions) {
+        const key =
+          exclusion.op === "not_completed"
+            ? "incompatibilityCourseCodes"
+            : "concurrentIncompatibilityCourseCodes";
+        if (
+          Array.isArray(requisites[key]) &&
+          requisites[key].includes(exclusion.courseCode)
+        )
+          issues.push({
+            path: `$.requisites.${key}`,
+            message: `${exclusion.courseCode} is already represented in incompatibilityRule; an unconditional duplicate would lose its scope`,
+          });
+      }
+    }
+    for (const key of [
+      "incompatibilityCourseCodes",
+      "softIncompatibilityCourseCodes",
+    ] as const) {
+      requireArray(
+        requisites[key],
+        `$.requisites.${key}`,
+        issues,
+        (item, path) =>
+          requireString(item, path, issues, { pattern: COURSE_CODE_PATTERN }),
+      );
+    }
+    for (const key of [
+      "concurrentIncompatibilityCourseCodes",
+      "softConcurrentIncompatibilityCourseCodes",
+    ] as const) {
+      if (requisites[key] !== undefined)
+        requireArray(
+          requisites[key],
+          `$.requisites.${key}`,
+          issues,
+          (item, path) =>
+            requireString(item, path, issues, { pattern: COURSE_CODE_PATTERN }),
+        );
+    }
+    requireArray(
+      requisites.unmodelledText,
+      "$.requisites.unmodelledText",
+      issues,
+      (item, path) => requireString(item, path, issues),
+    );
   }
 }
