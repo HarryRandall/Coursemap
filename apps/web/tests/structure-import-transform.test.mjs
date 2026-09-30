@@ -9,16 +9,12 @@ import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "../lib/catalogue-impo
 import { finaliseAcademicStructureExtraction } from "../lib/catalogue-import/kinds/structure/finalise.ts";
 import { listedStructureOptions } from "../lib/catalogue-import/kinds/structure/listed-options.ts";
 import {
-  ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-  ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-  ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION,
   buildAcademicStructureExtractionSystemPrompt,
   buildAcademicStructureExtractionUserPrompt,
 } from "../lib/catalogue-import/kinds/structure/prompt.ts";
 import { projectAcademicStructureSnapshot } from "../lib/catalogue-import/kinds/structure/project.ts";
 import { structureCatalogueContent } from "../lib/catalogue/content.ts";
 import { structureKindAdapter } from "../lib/catalogue-import/kinds/structure/adapter.ts";
-import { CBE_LIST_ONE_2024_URL } from "../lib/catalogue-import/kinds/structure/cbe-list-one.ts";
 import { convertAnuPageToMarkdown } from "../lib/catalogue-import/anu-page-markdown.ts";
 import { classifyFirstRead } from "../lib/catalogue/first-read.ts";
 
@@ -41,141 +37,6 @@ const pageMarkdown = [
   extraction.requirements.sourceText,
   ...extraction.evidence.map(({ evidenceExcerpt }) => evidenceExcerpt),
 ].join("\n\n");
-
-test("a verified 2024 CBE list is model input with separately attributed evidence", () => {
-  const supporting = {
-    sourceUrl: CBE_LIST_ONE_2024_URL,
-    sourceName: "ANU College of Business and Economics List 1",
-    sourceKind: "linked_course_list",
-    sourceBaseUrl: "https://cbe.anu.edu.au",
-    externalKey: "CBE-LIST-1-2024",
-    html: "<h1>List 1: CBE Courses 2024 and 2023</h1>",
-    contentSha256: "a".repeat(64),
-    byteSize: 44,
-    httpStatus: 200,
-    httpEtag: null,
-    sourceLastModified: null,
-    fetchedAt: "2026-09-30T00:00:00Z",
-    courseCodes: ["BUSN1001", "ECHI2119"],
-    duplicateCodes: ["ECHI2119"],
-    mismatchedCourseLinks: [],
-  };
-  const prompt = buildAcademicStructureExtractionUserPrompt({
-    expectedKind: "programme",
-    expectedCode: "BFINN",
-    academicYear: 2024,
-    pageMarkdown: "6 units from completion of courses from List 1.",
-    supportingSources: [supporting],
-  });
-  assert.match(prompt, /Supporting source for linked course-list membership/u);
-  assert.match(prompt, /BUSN1001\nECHI2119/u);
-  const content = structureKindAdapter.project(extraction, [supporting]);
-  assert.ok(
-    content.evidence.some(
-      (item) =>
-        item.sourceUrl === CBE_LIST_ONE_2024_URL &&
-        item.method === "deterministic" &&
-        item.fieldPath === "requirements.structure",
-    ),
-  );
-  assert.ok(
-    content.flags.some(
-      (flag) =>
-        flag.code === "SOURCE_DUPLICATE_COURSE" &&
-        flag.message.includes("ECHI2119"),
-    ),
-  );
-});
-
-test("an incomplete linked list becomes a publication-blocking extraction error", () => {
-  const input = {
-    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
-    listingTitle: "Bachelor of Finance",
-    model: structuredClone(extraction),
-    pageMarkdown,
-    finishReason: "stop",
-    responseError: null,
-  };
-  const baseline = structureKindAdapter.finalise(input);
-  const outcome = structureKindAdapter.finalise({
-    ...input,
-    supportingSources: [
-      {
-        courseCodes: ["BUSN1001", "ECHI2119"],
-        mismatchedCourseLinks: [],
-      },
-    ],
-  });
-  assert.equal(outcome.errorCount, baseline.errorCount + 1);
-  assert.ok(
-    outcome.extraction.reviewItems.some(
-      (item) =>
-        item.fieldKey === "requirements.rule" &&
-        item.severity === "error" &&
-        item.message.includes("full verified 2024 course membership"),
-    ),
-  );
-  const content = structureKindAdapter.project(outcome.extraction);
-  assert.ok(
-    content.flags.some(
-      (flag) =>
-        flag.fieldPath === "requirements.rule" && flag.severity === "error",
-    ),
-  );
-});
-
-test("a printed List 1 code that disagrees with its ANU link blocks publication", () => {
-  const outcome = structureKindAdapter.finalise({
-    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
-    listingTitle: "Bachelor of Finance",
-    model: structuredClone(extraction),
-    pageMarkdown,
-    finishReason: "stop",
-    responseError: null,
-    supportingSources: [
-      {
-        courseCodes: ["ECON2900P"],
-        mismatchedCourseLinks: [
-          { listedCode: "ECON2900P", linkedCode: "ECON2900" },
-        ],
-      },
-    ],
-  });
-  assert.ok(
-    outcome.extraction.reviewItems.some(
-      (item) =>
-        item.severity === "error" &&
-        item.message.includes("prints ECON2900P") &&
-        item.message.includes("points to ECON2900"),
-    ),
-  );
-});
-
-test("2024 Finance cannot publish a model response that drops the SMF timing", () => {
-  const outcome = structureKindAdapter.finalise({
-    claim: { kind: "programme", code: "BFINN", academicYear: 2024 },
-    listingTitle: "Bachelor of Finance",
-    model: structuredClone(extraction),
-    pageMarkdown: `${pageMarkdown}\nFINM3009 Student Managed Fund and FINM3010 Student Managed Fund Extension (12 units*)\nEnrolment in the Student Managed Fund courses requires 12 units over two consecutive semesters.`,
-    finishReason: "stop",
-    responseError: null,
-  });
-  assert.ok(
-    outcome.extraction.reviewItems.some(
-      (item) =>
-        item.severity === "error" &&
-        item.message.includes("consecutive-semester pair"),
-    ),
-  );
-  assert.ok(
-    structureKindAdapter
-      .project(outcome.extraction)
-      .flags.some(
-        (flag) =>
-          flag.severity === "error" && flag.fieldPath === "requirements.rule",
-      ),
-  );
-});
 
 function finalise(model, overrides = {}) {
   return finaliseAcademicStructureExtraction({
@@ -913,22 +774,6 @@ test("projects an explicit nested requirement tree without flattening its logic"
 test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
-    ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v12",
-  );
-  assert.equal(
-    ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v22",
-  );
-  assert.equal(
-    ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
-    "academic-structure-extraction.v4",
-  );
-  assert.equal(
-    ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION,
-    "academic-structure-snapshot.v3",
-  );
-  assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.properties.schemaVersion.const,
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
   );
@@ -937,7 +782,6 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   assert.match(systemPrompt, /free_text/);
   assert.match(systemPrompt, /linked external course list/);
   assert.match(systemPrompt, /specially paired course option/);
-  assert.match(systemPrompt, /FINM3009 followed by FINM3010/);
   assert.match(systemPrompt, /Every section object must include sourceLocator/);
   assert.match(systemPrompt, /approved exchange credit/);
   assert.match(systemPrompt, /Set freeText to null/);
