@@ -11,6 +11,7 @@ import {
 } from "../lib/catalogue-import/anu-university-calendar.ts";
 import { withUniversityCalendarImportTransaction } from "../scripts/catalogue/lib/calendar-importer.mjs";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 const calendarYear = 2026;
 const fetchedAt = "2026-08-19T00:43:00.000Z";
@@ -54,7 +55,7 @@ test("imports, replays and archives university calendar events", async () => {
   assert.deepEqual(diagnostics, []);
   assert.equal(events.length, 55);
 
-  const sql = await createLocalDatabaseClient();
+  const sql = await createLocalDatabaseClient({ env: localTestEnvironment() });
   try {
     await assert.rejects(
       withUniversityCalendarImportTransaction(
