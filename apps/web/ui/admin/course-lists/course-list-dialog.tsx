@@ -21,19 +21,28 @@ import {
   fetchCourseListCodesAction,
   saveCourseListAction,
 } from "@/lib/admin/course-lists-actions";
-import type { AdminCourseList } from "@/lib/catalogue/course-lists";
+import type {
+  AdminCourseList,
+  CourseListSuggestion,
+  CourseListTemplate,
+} from "@/lib/catalogue/course-lists";
 import { showToast } from "@/ui/common/toast";
 
 /**
  * Creates or edits a list's draft. Codes can be typed, pasted from any page
- * or read from the source link; saving never publishes.
+ * or read from the source link; saving never publishes. A new list can start
+ * from a suggestion, such as the same list in an earlier year.
  */
 export function CourseListDialog({
+  initial,
   list,
+  suggestions = [],
   trigger,
   year,
 }: {
+  initial?: CourseListTemplate;
   list?: AdminCourseList;
+  suggestions?: CourseListSuggestion[];
   trigger: ReactNode;
   year: number;
 }) {
@@ -48,12 +57,24 @@ export function CourseListDialog({
 
   function changeOpen(next: boolean) {
     if (next) {
-      setName(list?.name ?? "");
-      setSourceUrl(list?.sourceUrl ?? "");
-      setCodesText((list?.draftCodes ?? []).join("\n"));
+      fill(
+        list
+          ? {
+              name: list.name,
+              sourceUrl: list.sourceUrl,
+              codes: list.draftCodes,
+            }
+          : (initial ?? { name: "", sourceUrl: null, codes: [] }),
+      );
       setError(null);
     }
     setOpen(next);
+  }
+
+  function fill(template: CourseListTemplate) {
+    setName(template.name);
+    setSourceUrl(template.sourceUrl ?? "");
+    setCodesText(template.codes.join("\n"));
   }
 
   async function fetchCodes() {
@@ -109,9 +130,28 @@ export function CourseListDialog({
               {list ? `Edit ${list.name}` : `New course list for ${year}`}
             </DialogTitle>
             <DialogDescription>
-              Degree rules count this list as a tag with the same name.
+              Colleges publish lists such as elective lists on their own sites.
+              Degree rules count the list as a tag with this exact name.
             </DialogDescription>
           </DialogHeader>
+          {!list && suggestions.length > 0 ? (
+            <div className="grid gap-1.5">
+              <p className="text-sm font-medium">Start from</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((suggestion) => (
+                  <Button
+                    key={suggestion.label}
+                    onClick={() => fill(suggestion.template)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {suggestion.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="grid gap-1.5">
             <Label htmlFor={`${id}-name`}>Name</Label>
             <Input

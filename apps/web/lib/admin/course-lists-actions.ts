@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { loadAdminCourseListsYear } from "@/lib/admin/course-lists";
 import { canWriteCatalogue } from "@/lib/auth/viewer";
 import {
   courseCodesInText,
@@ -128,4 +129,45 @@ export async function deleteCourseListAction(
     return { ok: false, message: "The course list could not be deleted." };
   refreshCourseLists(year);
   return { ok: true, message: "Course list deleted." };
+}
+
+/**
+ * Copies the latest earlier year's lists that this year lacks, as drafts with
+ * the same names, links and codes. Nothing is published.
+ */
+export async function copyPreviousCourseListsAction(
+  year: number,
+): Promise<CourseListActionResult> {
+  if (!(await canWriteCatalogue()))
+    return { ok: false, message: PERMISSION_REQUIRED };
+  let data;
+  try {
+    data = await loadAdminCourseListsYear(year);
+  } catch {
+    return { ok: false, message: "The earlier lists could not be loaded." };
+  }
+  if (!data.previous)
+    return { ok: false, message: "No earlier year has course lists." };
+  const existing = new Set(data.lists.map((list) => list.name.toLowerCase()));
+  const templates = data.previous.lists.filter(
+    (list) => !existing.has(list.name.toLowerCase()),
+  );
+  const supabase = await createClient();
+  for (const template of templates) {
+    const { error } = await supabase.rpc("save_course_list", {
+      p_academic_year: year,
+      p_name: template.name,
+      p_codes: template.codes,
+      p_source_url: template.sourceUrl ?? undefined,
+    });
+    if (error) {
+      refreshCourseLists(year);
+      return { ok: false, message: `${template.name} could not be copied.` };
+    }
+  }
+  refreshCourseLists(year);
+  return {
+    ok: true,
+    message: `Copied ${templates.length} ${templates.length === 1 ? "list" : "lists"} from ${data.previous.year} as drafts. Check each source for ${year} before publishing.`,
+  };
 }

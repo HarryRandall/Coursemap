@@ -3,15 +3,18 @@
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
+import type { CourseListSuggestion } from "@/lib/catalogue/course-lists";
 import { YearPicker } from "@/ui/common/year-picker";
 import { CourseListDialog } from "@/ui/admin/course-lists/course-list-dialog";
 
 export function CourseListsToolbar({
   canEdit,
+  suggestions,
   year,
   years,
 }: {
   canEdit: boolean;
+  suggestions: CourseListSuggestion[];
   year: number;
   years: number[];
 }) {
@@ -28,6 +31,7 @@ export function CourseListsToolbar({
       />
       {canEdit ? (
         <CourseListDialog
+          suggestions={suggestions}
           trigger={
             <Button type="button" variant="outline">
               <Plus aria-hidden="true" size={15} />
