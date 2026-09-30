@@ -107,6 +107,8 @@ export function conditionHeading(condition: RequirementTreeCondition) {
           ? "Compulsory course"
           : "Compulsory courses"
         : "Course options";
+    case "consecutive_semester_pair":
+      return "Consecutive semester courses";
     case "units_total":
       return "Total units";
     case "subject_units":
@@ -209,6 +211,8 @@ export function conditionSummary(condition: RequirementTreeCondition) {
       return quantity
         ? sentence(`${quantity} from the listed courses`)
         : "Complete from the listed courses";
+    case "consecutive_semester_pair":
+      return `Complete ${condition.options.map((option) => option.code).join(" then ")} in consecutive semesters`;
     default:
       return conditionInterpretation(condition) || conditionHeading(condition);
   }
@@ -254,6 +258,10 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
       condition.minimumCourses
         ? `Complete at least ${condition.minimumCourses} listed course${condition.minimumCourses === 1 ? "" : "s"}`
         : "Complete from the listed courses",
+    );
+  } else if (condition.conditionKind === "consecutive_semester_pair") {
+    parts.push(
+      `Complete ${condition.options.map((option) => option.code).join(" then ")} in consecutive semesters`,
     );
   } else if (condition.conditionKind === "structure_set") {
     parts.push(

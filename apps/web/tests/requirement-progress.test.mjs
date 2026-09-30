@@ -43,6 +43,8 @@ const catalogue = {
     course("COMP2100", 2000),
     course("COMP3600", 3000),
     course("MATH1013", 1000),
+    course("FINM3009", 3000),
+    course("FINM3010", 3000),
   ],
   terms,
 };
@@ -141,6 +143,56 @@ test("a listed-course rule is satisfied once its minimum units are completed", (
   assert.equal(result.plannedUnits, 0);
   assert.deepEqual(result.matchedCourseCodes, ["COMP1100", "COMP1110"]);
   assert.equal(progress.get(requirementNodeKey(root)).state, "satisfied");
+});
+
+test("a paired route requires both courses in the printed order across adjacent semesters", () => {
+  const pair = condition(1, {
+    conditionKind: "consecutive_semester_pair",
+    minimumUnits: 12,
+    freeText:
+      "Student Managed Fund courses must be completed over two consecutive semesters.",
+    options: [option("FINM3009"), option("FINM3010")],
+  });
+  const root = group(10, "all_of", [pair]);
+  const evaluate = (firstTerm, secondTerm, secondStatus = "completed") => {
+    const first = {
+      ...attempt("first", "FINM3009", "completed"),
+      termId: firstTerm,
+    };
+    const second = {
+      ...attempt("second", "FINM3010", secondStatus),
+      termId: secondTerm,
+    };
+    return requirementTreeProgress({
+      root,
+      attempts: [first, second],
+      catalogue,
+    }).get(requirementNodeKey(pair));
+  };
+
+  assert.equal(evaluate("2026-s1", "2026-s2").state, "satisfied");
+  assert.equal(evaluate("2026-s2", "2027-s1").state, "satisfied");
+  assert.equal(evaluate("2026-s1", "2026-s2", "planned").state, "in_progress");
+  for (const [first, second] of [
+    ["2026-s1", "2026-s1"],
+    ["2026-s1", "2027-s1"],
+    ["2026-s2", "2026-s1"],
+  ]) {
+    const result = evaluate(first, second);
+    assert.notEqual(result.state, "satisfied");
+    assert.deepEqual(result.matchedCourseCodes, []);
+  }
+  assert.equal(evaluate("unknown", "2026-s2").state, "unmeasured");
+
+  const malformed = { ...pair, options: [option("FINM3009")] };
+  assert.equal(
+    requirementTreeProgress({
+      root: group(11, "all_of", [malformed]),
+      attempts: [attempt("first", "FINM3009", "completed")],
+      catalogue,
+    }).get(requirementNodeKey(malformed)).state,
+    "unmeasured",
+  );
 });
 
 test("planned courses count as in progress and not as satisfied", () => {

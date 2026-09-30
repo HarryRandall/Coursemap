@@ -102,6 +102,7 @@ export type AcademicStructureRequirementCondition = {
   key: string;
   conditionKind:
     | "course_list"
+    | "consecutive_semester_pair"
     | "structure_list"
     | "unit_total"
     | "level"
@@ -300,6 +301,7 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
       key: nonEmptyString,
       conditionKind: z.enum([
         "course_list",
+        "consecutive_semester_pair",
         "structure_list",
         "unit_total",
         "level",
@@ -441,6 +443,24 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           message: "must contain a literal course code",
         });
       }
+      if (condition.conditionKind === "consecutive_semester_pair") {
+        if (
+          condition.courseCodes.length !== 2 ||
+          condition.courseCodes[0] === condition.courseCodes[1]
+        )
+          unexpected(
+            "courseCodes",
+            "must contain two distinct courses in order",
+          );
+        if (
+          condition.minimumUnits === null ||
+          (condition.maximumUnits !== null &&
+            condition.maximumUnits !== condition.minimumUnits)
+        )
+          unexpected("minimumUnits", "requires an exact unit amount");
+        if (!condition.freeText?.trim())
+          unexpected("freeText", "requires the exact semester timing wording");
+      }
       if (
         condition.conditionKind === "structure_list" &&
         (condition.structureKind === null ||
@@ -485,6 +505,13 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           disallowCommonReferences({
             allowCourseCodes: true,
             allowMinimumCourses: true,
+            allowUnits: true,
+          });
+          break;
+        case "consecutive_semester_pair":
+          disallowCommonReferences({
+            allowCourseCodes: true,
+            allowFreeText: true,
             allowUnits: true,
           });
           break;
@@ -1054,6 +1081,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         conditionKind: {
           enum: [
             "course_list",
+            "consecutive_semester_pair",
             "structure_list",
             "unit_total",
             "level",

@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(12);
+select extensions.plan(16);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -143,6 +143,56 @@ select extensions.throws_ok(
   'options belong to set conditions only'
 );
 
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, maximum_units, free_text
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'semester-pair', 2,
+      'consecutive_semester_pair', 12, 12, 'Complete in consecutive semesters.'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'a consecutive semester pair accepts an exact unit amount and timing wording'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, maximum_units, free_text
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'wrong-pair', 3,
+      'consecutive_semester_pair', 12, 18, 'Complete in consecutive semesters.'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a consecutive semester pair rejects conflicting unit bounds'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_condition_options (condition_id, version_id, position, kind, code)
+    select conditions.id, conditions.version_id, choices.position, 'course', choices.code
+    from public.requirement_conditions as conditions
+    cross join (values (1, 'REQT1002'), (2, 'REQT1003')) as choices(position, code)
+    where conditions.condition_key = 'semester-pair'
+  $$,
+  'a consecutive semester pair stores two ordered course options'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (condition_id, version_id, position, kind, code)
+    select conditions.id, conditions.version_id, 3, 'course', 'REQT1004'
+    from public.requirement_conditions as conditions where conditions.condition_key = 'semester-pair'
+  $$,
+  '23514',
+  null,
+  'a consecutive semester pair rejects a third option'
+);
+
 select pg_temp.publish_snapshot((select version_id from fixture));
 
 select extensions.throws_ok(
@@ -163,7 +213,7 @@ set local role anon;
 select extensions.ok(
   (
     select public.published_course_detail('REQT1000', 2029::smallint) -> 'prerequisiteCodes'
-  ) = '["REQT1001"]'::jsonb
+  ) = '["REQT1001", "REQT1002", "REQT1003"]'::jsonb
   and exists (
     select 1 from public.catalogue_codes where code in ('REQT1001', 'REQT-MAJ')
   ),

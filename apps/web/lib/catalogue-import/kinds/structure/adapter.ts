@@ -194,7 +194,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
                     kind: "invalid" as const,
                     severity: "error" as const,
                     message:
-                      "The Student Managed Fund option must retain both paired courses and its consecutive-semester timing as unresolved wording. Review it before publication.",
+                      "The Student Managed Fund option must retain the ordered courses and timing in a consecutive-semester pair. Review it before publication.",
                   },
                 ]
               : []),

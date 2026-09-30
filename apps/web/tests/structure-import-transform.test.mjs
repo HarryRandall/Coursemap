@@ -162,7 +162,7 @@ test("2024 Finance cannot publish a model response that drops the SMF timing", (
     outcome.extraction.reviewItems.some(
       (item) =>
         item.severity === "error" &&
-        item.message.includes("consecutive-semester timing"),
+        item.message.includes("consecutive-semester pair"),
     ),
   );
   assert.ok(
@@ -234,6 +234,44 @@ test("does not add unresolved wording twice when it is already a free-text condi
     )?.band,
     "needs_review",
   );
+});
+
+test("keeps a consecutive-semester pair as an ordered, exact-unit condition", () => {
+  const model = structuredClone(extraction);
+  const timing =
+    "*Enrolment in the Student Managed Fund (SMF) courses requires 12 units over two consecutive semesters.";
+  const pair = {
+    ...model.requirements.rule.children[0],
+    key: "smf-pair",
+    conditionKind: "consecutive_semester_pair",
+    minimumUnits: 12,
+    maximumUnits: 12,
+    courseCodes: ["FINM3009", "FINM3010"],
+    freeText: timing,
+    sourceText:
+      "FINM3009 Student Managed Fund and FINM3010 Student Managed Fund Extension (12 units*)",
+  };
+  model.requirements.rule.children.push(pair);
+  assert.equal(validateAcademicStructureExtraction(model).success, true);
+
+  const projection = projectAcademicStructureSnapshot(model);
+  const content = structureCatalogueContent({ projection });
+  const stored = content.requirements.conditions.find(
+    (condition) => condition.key === "smf-pair",
+  );
+  assert.equal(stored.kind, "consecutive_semester_pair");
+  assert.equal(stored.minimumUnits, 12);
+  assert.equal(stored.maximumUnits, 12);
+  assert.equal(stored.freeText, timing);
+  assert.deepEqual(
+    content.requirements.options
+      .filter((option) => option.conditionKey === "smf-pair")
+      .map((option) => option.code),
+    ["FINM3009", "FINM3010"],
+  );
+
+  pair.maximumUnits = 18;
+  assert.equal(validateAcademicStructureExtraction(model).success, false);
 });
 
 test("drops only the item that breaks the contract and flags it", () => {
@@ -713,11 +751,11 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v6",
+    "coursemap-academic-structure-parser.v8",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,
-    "coursemap-academic-structure-prompt.v14",
+    "coursemap-academic-structure-prompt.v17",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
@@ -736,7 +774,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   assert.match(systemPrompt, /free_text/);
   assert.match(systemPrompt, /linked external course list/);
   assert.match(systemPrompt, /specially paired course option/);
-  assert.match(systemPrompt, /FINM3009 and FINM3010 together/);
+  assert.match(systemPrompt, /FINM3009 followed by FINM3010/);
   assert.match(systemPrompt, /Every section object must include sourceLocator/);
   assert.match(systemPrompt, /approved exchange credit/);
   assert.match(systemPrompt, /Set freeText to null/);
