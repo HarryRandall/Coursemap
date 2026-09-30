@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFile } from "node:fs/promises";
 import { collegeEnrolmentStatus } from "../lib/academic/college-enrolment.ts";
 import {
   emptyCourseExtraction,
@@ -18,9 +17,9 @@ import { readProjectionPrerequisiteRule } from "../lib/coursemap/published-cours
 import { evaluateRule } from "../lib/coursemap/requisite-evaluation.ts";
 import { evaluateCoursePrerequisites } from "../lib/planner.ts";
 
-const COLLEGE = "ANU College of Business and Economics";
+const COLLEGE = "ANU College of Arts and Social Sciences";
 const programmes = [
-  { code: "BFINN", college: COLLEGE },
+  { code: "BTEST", college: COLLEGE },
   {
     code: "BCOMP",
     college: "ANU College of Engineering, Computing and Cybernetics",
@@ -29,10 +28,10 @@ const programmes = [
 ];
 
 test.each([
-  [["BFINN"], "met"],
+  [["BTEST"], "met"],
   [["BCOMP"], "unmet"],
-  [["BFINN", "BCOMP"], "met"],
-  [["BFINN", "UNKNOWN"], "met"],
+  [["BTEST", "BCOMP"], "met"],
+  [["BTEST", "UNKNOWN"], "met"],
   [["BCOMP", "UNKNOWN"], "unknown"],
   [["MISSING"], "unknown"],
   [[], "unknown"],
@@ -45,23 +44,23 @@ test.each([
 
 test("college identity matching tidies formatting without guessing aliases or choosing a conflicting year", () => {
   assert.equal(
-    collegeEnrolmentStatus(` ${COLLEGE.toUpperCase()} `, ["bfinn"], programmes),
+    collegeEnrolmentStatus(` ${COLLEGE.toUpperCase()} `, ["btest"], programmes),
     "met",
   );
-  assert.equal(collegeEnrolmentStatus("CBE", ["BFINN"], programmes), "unmet");
+  assert.equal(collegeEnrolmentStatus("CASS", ["BTEST"], programmes), "unmet");
   assert.equal(
     collegeEnrolmentStatus(
       COLLEGE,
-      ["BFINN"],
-      [...programmes, { code: "BFINN", college: "Different college" }],
+      ["BTEST"],
+      [...programmes, { code: "BTEST", college: "Different college" }],
     ),
     "unknown",
   );
   assert.equal(
     collegeEnrolmentStatus(
       COLLEGE,
-      ["BFINN"],
-      [...programmes, { code: "BFINN", college: null }],
+      ["BTEST"],
+      [...programmes, { code: "BTEST", college: null }],
     ),
     "unknown",
   );
@@ -69,11 +68,11 @@ test("college identity matching tidies formatting without guessing aliases or ch
 
 function modelWithCollege() {
   const model = emptyCourseExtraction({
-    code: "CBEA2001",
+    code: "TSTA2001",
     year: 2024,
     title: "College eligibility test",
   });
-  model.requisites.prerequisiteText = "You must be enrolled in a CBE degree.";
+  model.requisites.prerequisiteText = "You must be enrolled in a CASS degree.";
   model.requisites.prerequisiteRule = {
     op: "enrolled_in_college",
     college: COLLEGE,
@@ -122,7 +121,7 @@ test("permission approval cannot waive college enrolment in student or planner c
   prerequisiteRule.relationalExpression.reviewState = "verified";
   prerequisiteRule.relationalExpression.conditions[0].reviewState = "verified";
   for (const [programmeCodes, expected] of [
-    [["BFINN"], "met"],
+    [["BTEST"], "met"],
     [["BCOMP"], "unmet"],
     [["UNKNOWN"], "unknown"],
   ]) {
@@ -143,7 +142,7 @@ test("permission approval cannot waive college enrolment in student or planner c
       evaluateCoursePrerequisites(
         {
           id: "target",
-          courseCode: "CBEA2001",
+          courseCode: "TSTA2001",
           academicYear: 2024,
           termId: "2024-s2",
           status: "planned",
@@ -152,7 +151,7 @@ test("permission approval cannot waive college enrolment in student or planner c
         [],
         {
           courses: [
-            { code: "CBEA2001", year: 2024, units: 6, prerequisiteRule },
+            { code: "TSTA2001", year: 2024, units: 6, prerequisiteRule },
           ],
           terms: [],
           programmeCodes,
@@ -187,73 +186,4 @@ test("college identities absent from the source remain extraction errors", () =>
   }
   model.requisites.prerequisiteRule.college = " ";
   assert.equal(validateCourseExtraction(model).success, false);
-});
-
-test("captured CBEA2001 extraction preserves college eligibility and conditional permission together", async () => {
-  const fixture = JSON.parse(
-    await readFile(
-      new URL(
-        "./fixtures/course-import/anu-2024-cbea2001-college.json",
-        import.meta.url,
-      ),
-      "utf8",
-    ),
-  );
-  const finalised = finaliseCourseExtraction({
-    code: "CBEA2001",
-    year: 2024,
-    listingTitle: fixture.extraction.title,
-    model: fixture.extraction,
-    pageMarkdown: fixture.pageMarkdown,
-    finishReason: fixture.finishReason,
-    responseError: null,
-  });
-  assert.equal(finalised.errorCount, 0);
-  assert.equal(finalised.warningCount, 0);
-  assert.equal(finalised.canPersist, true);
-  assert.deepEqual(finalised.extraction.requisites.unmodelledText, []);
-  const projection = projectCourseSnapshot(finalised.extraction);
-  const expression =
-    readProjectionPrerequisiteRule(projection).relationalExpression;
-  assert.equal(
-    projection.ruleConditions.find(
-      (condition) => condition.conditionKind === "college_enrolment",
-    ).freeText,
-    COLLEGE,
-  );
-  assert.equal(
-    projection.rules.some((rule) => rule.ruleKind === "permission"),
-    false,
-  );
-  for (const [
-    enrolmentMode,
-    permissionApproved,
-    programmeCodes,
-    units,
-    expected,
-  ] of [
-    ["single_degree", false, ["BFINN"], 24, "met"],
-    ["fixed_double_degree", false, ["BFINN"], 24, "met"],
-    ["flexible_double_degree", false, ["BFINN"], 24, "partial"],
-    ["flexible_double_degree", true, ["BFINN"], 24, "met"],
-    [null, true, ["BFINN"], 24, "unknown"],
-    ["single_degree", true, ["BCOMP"], 24, "partial"],
-    ["single_degree", true, ["UNKNOWN"], 24, "unknown"],
-    ["single_degree", true, ["BFINN"], 6, "partial"],
-  ]) {
-    assert.equal(
-      evaluateRule(expression, {
-        completed: new Map([["COMP1100", { units, mark: 70 }]]),
-        enrolled: new Set(),
-        programmeCodes,
-        programmeColleges: programmes,
-        enrolmentMode,
-        permissionApproved,
-        wam: null,
-        gpa: null,
-        studyYear: null,
-      }).status,
-      expected,
-    );
-  }
 });

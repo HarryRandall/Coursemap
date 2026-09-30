@@ -307,9 +307,9 @@ test("preserves a printed exchange unit bound without treating it as measured cr
     minimumLevel: 3000,
     maximumLevel: 3999,
     sourceText:
-      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Finance and must focus on financial and capital markets in an Asian context.",
+      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Test Studies and must focus on regional markets in an Asian context.",
     freeText:
-      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Finance and must focus on financial and capital markets in an Asian context.",
+      "24 units equivalent to 3000-level units from an approved university exchange partner in Asia. Courses taken while on exchange must be pre-approved by the convenor of the Bachelor of Test Studies and must focus on regional markets in an Asian context.",
   };
   model.requirements.rule.children.push(exchange);
   assert.equal(validateAcademicStructureExtraction(model).success, true);
@@ -947,7 +947,7 @@ Students should not count [Honours](HONR-MAJ) towards this degree.
 ## Minors
 
 - [Business Essentials](BESS-MIN)
-The course CBEA1001 does not count towards ARCH-MIN.`);
+The course TSTA1001 does not count towards ARCH-MIN.`);
   assert.deepEqual(
     options.map(({ targetCode }) => targetCode),
     ["CAPM-MAJ", "QFIN-MAJ", "BESS-MIN"],

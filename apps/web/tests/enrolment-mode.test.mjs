@@ -16,7 +16,7 @@ import { evaluateCoursePrerequisites } from "../lib/planner.ts";
 
 function conditionalPermissionModel() {
   const model = emptyCourseExtraction({
-    code: "CBEA2001",
+    code: "TSTA2001",
     year: 2024,
     title: "Conditional permission test",
   });
@@ -26,7 +26,7 @@ function conditionalPermissionModel() {
     op: "all_of",
     rules: [
       { op: "min_units_total", minimumUnits: 24 },
-      { op: "enrolled_in", programmeCode: "BFINN" },
+      { op: "enrolled_in", programmeCode: "BTEST" },
       {
         op: "one_of",
         rules: [
@@ -116,13 +116,13 @@ test("enrolment scope survives model projection and editor roundtrip without mak
 });
 
 test.each([
-  ["single_degree", false, 24, ["BFINN"], "met"],
-  ["fixed_double_degree", false, 24, ["BFINN"], "met"],
-  ["flexible_double_degree", false, 24, ["BFINN"], "partial"],
-  ["flexible_double_degree", true, 24, ["BFINN"], "met"],
-  [null, true, 24, ["BFINN"], "unknown"],
-  [null, false, 24, ["BFINN"], "unknown"],
-  ["single_degree", true, 6, ["BFINN"], "partial"],
+  ["single_degree", false, 24, ["BTEST"], "met"],
+  ["fixed_double_degree", false, 24, ["BTEST"], "met"],
+  ["flexible_double_degree", false, 24, ["BTEST"], "partial"],
+  ["flexible_double_degree", true, 24, ["BTEST"], "met"],
+  [null, true, 24, ["BTEST"], "unknown"],
+  [null, false, 24, ["BTEST"], "unknown"],
+  ["single_degree", true, 6, ["BTEST"], "partial"],
   ["flexible_double_degree", true, 24, ["BCOMP"], "partial"],
 ])(
   "mode %s with permission %s retains compulsory units and enrolment",
@@ -158,10 +158,10 @@ test("planner evaluates mode independently of programme count and preserves unkn
     prerequisiteRule.relationalExpression.conditions.filter(
       (condition) => condition.kind === "group",
     );
-  const course = { code: "CBEA2001", year: 2024, units: 6, prerequisiteRule };
+  const course = { code: "TSTA2001", year: 2024, units: 6, prerequisiteRule };
   const target = {
     id: "target",
-    courseCode: "CBEA2001",
+    courseCode: "TSTA2001",
     academicYear: 2024,
     termId: "2024-s2",
     status: "planned",
