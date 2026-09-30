@@ -3,7 +3,9 @@ import { textFingerprint } from "../../canonical.ts";
 import {
   assertImportYear,
   ANU_PROGRAMS_AND_COURSES_ORIGIN,
+  normaliseOfficialUrl,
   parseAnuCatalogueYear,
+  resolveAnuCanonicalUrl,
 } from "../course/source.ts";
 import {
   ACADEMIC_STRUCTURE_KINDS,
@@ -141,27 +143,6 @@ export function createAnuAcademicStructureUrl(
   return `${ANU_PROGRAMS_AND_COURSES_ORIGIN}/${selectedYear}/${ANU_STRUCTURE_ROUTE_BY_KIND[selectedKind]}/${code}`;
 }
 
-function normaliseOfficialUrl(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    return null;
-  }
-  if (
-    url.protocol !== "https:" ||
-    url.origin !== ANU_PROGRAMS_AND_COURSES_ORIGIN ||
-    url.username ||
-    url.password
-  ) {
-    return null;
-  }
-  url.search = "";
-  url.hash = "";
-  url.pathname = url.pathname.replace(/\/+$/, "");
-  return url.toString();
-}
-
 function detectedKind(html: string) {
   const $ = load(html);
   for (const kind of ACADEMIC_STRUCTURE_KINDS) {
@@ -296,9 +277,7 @@ export function validateAnuAcademicStructurePage({
   }
 
   const canonicalHref = $("link[rel='canonical']").first().attr("href");
-  const canonicalUrl = canonicalHref
-    ? normaliseOfficialUrl(new URL(canonicalHref, expectedUrl).toString())
-    : expectedUrl;
+  const canonicalUrl = resolveAnuCanonicalUrl(canonicalHref, expectedUrl);
   if (!canonicalUrl) {
     issues.push({
       code: "INVALID_CANONICAL_URL",
