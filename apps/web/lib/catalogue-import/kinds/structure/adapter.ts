@@ -8,6 +8,7 @@ import {
 } from "./contract.ts";
 import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "./schema.ts";
 import { finaliseAcademicStructureExtraction } from "./finalise.ts";
+import { loadStructureTags } from "./known-tags.ts";
 import { normaliseAcademicStructureModelExtraction } from "./model-canonical.ts";
 import { projectAcademicStructureSnapshot } from "./project.ts";
 import {
@@ -57,11 +58,17 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       });
     },
     buildSystemPrompt: buildAcademicStructureExtractionSystemPrompt,
-    buildUserPrompt(claim, pageMarkdown) {
+    async loadPromptContext(sql, claim) {
+      return {
+        knownTags: await loadStructureTags(sql),
+      };
+    },
+    buildUserPrompt(claim, pageMarkdown, context) {
       return buildAcademicStructureExtractionUserPrompt({
         expectedKind: structureKind(claim.kind),
         expectedCode: claim.code,
         academicYear: claim.academicYear,
+        knownTags: context?.knownTags ?? [],
         pageMarkdown,
       });
     },
@@ -85,6 +92,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       finishReason,
       responseError,
       responseRepair,
+      context,
     }) {
       return finaliseAcademicStructureExtraction({
         kind: structureKind(claim.kind),
@@ -96,6 +104,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         finishReason,
         responseError,
         responseRepair,
+        knownTags: context?.knownTags,
       });
     },
     project(extraction) {
