@@ -76,6 +76,7 @@ export type OpenRouterExtraction = {
   content: string | null;
   parsed: unknown;
   responseError: string | null;
+  responseRepair: "extra_requirement_closing_brace" | null;
   latencyMilliseconds: number;
   routerMetadata: OpenRouterRouterMetadata | null;
   usage: {
@@ -95,6 +96,7 @@ export type OpenRouterExtraction = {
     providerError: OpenRouterProviderError | null;
     content: string | null;
     responseError: string | null;
+    responseRepair: OpenRouterExtraction["responseRepair"];
     rawResponseText: string | null;
     routerMetadata: OpenRouterRouterMetadata | null;
     usage: OpenRouterExtraction["usage"];
@@ -339,15 +341,46 @@ function parseStructuredContent(content: string | null) {
     return {
       parsed: null,
       responseError: "OpenRouter returned no structured course extraction.",
+      responseRepair: null,
     };
   }
   try {
-    return { parsed: JSON.parse(content) as unknown, responseError: null };
+    return {
+      parsed: JSON.parse(content) as unknown,
+      responseError: null,
+      responseRepair: null,
+    };
   } catch {
+    const extraBrace = '}]}},"unmodelledText":';
+    if (content.split(extraBrace).length === 2) {
+      try {
+        const corrected = content.replace(extraBrace, '}]},"unmodelledText":');
+        const parsed = JSON.parse(corrected) as unknown;
+        if (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          !Array.isArray(parsed) &&
+          "requirements" in parsed &&
+          typeof parsed.requirements === "object" &&
+          parsed.requirements !== null &&
+          "unmodelledText" in parsed.requirements &&
+          Array.isArray(parsed.requirements.unmodelledText)
+        ) {
+          return {
+            parsed,
+            responseError: null,
+            responseRepair: "extra_requirement_closing_brace" as const,
+          };
+        }
+      } catch {
+        // The original response remains invalid when this exact repair fails.
+      }
+    }
     return {
       parsed: null,
       responseError:
         "OpenRouter returned invalid JSON despite structured-output mode.",
+      responseRepair: null,
     };
   }
 }
@@ -400,9 +433,13 @@ export function restoreOpenRouterExtraction(
   }
 
   const structured = parseStructuredContent(audit.content as string | null);
+  const obsoleteParseError =
+    structured.responseRepair !== null &&
+    savedResponseError ===
+      "OpenRouter returned invalid JSON despite structured-output mode.";
   const responseError =
     providerResponseProblem(restoredProviderError, finishReason) ??
-    savedResponseError ??
+    (obsoleteParseError ? null : savedResponseError) ??
     structured.responseError;
   return {
     generationId: typeof audit.id === "string" ? audit.id : null,
@@ -414,6 +451,7 @@ export function restoreOpenRouterExtraction(
     content: audit.content as string | null,
     parsed: structured.parsed,
     responseError,
+    responseRepair: structured.responseRepair,
     latencyMilliseconds,
     routerMetadata: restoredRouterMetadata,
     usage: {
@@ -436,6 +474,7 @@ export function restoreOpenRouterExtraction(
       nativeFinishReason,
       providerError: restoredProviderError,
       responseError,
+      responseRepair: structured.responseRepair,
       rawResponseText,
       routerMetadata: restoredRouterMetadata,
     },
@@ -632,6 +671,7 @@ export async function extractWithOpenRouter({
     content,
     parsed: structured.parsed,
     responseError,
+    responseRepair: structured.responseRepair,
     latencyMilliseconds,
     routerMetadata: parsedRouterMetadata,
     usage: resultUsage,
@@ -644,6 +684,7 @@ export async function extractWithOpenRouter({
       providerError: parsedProviderError,
       content,
       responseError,
+      responseRepair: structured.responseRepair,
       rawResponseText: responseWasJson ? null : responseText.slice(0, 16_000),
       routerMetadata: parsedRouterMetadata,
       usage: resultUsage,

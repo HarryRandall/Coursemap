@@ -154,6 +154,7 @@ export type AcademicStructureExtractionReviewItem = {
     | "conflict"
     | "unsupported"
     | "invalid"
+    | "model_repair"
     | "evidence_missing";
   severity: "warning" | "error";
   message: string;
@@ -669,6 +670,7 @@ const reviewItemSchema = z
       "conflict",
       "unsupported",
       "invalid",
+      "model_repair",
       "evidence_missing",
     ]),
     severity: z.enum(["warning", "error"]),
