@@ -284,7 +284,7 @@ function validateUnitValue(
         `${path}.unitsOptions`,
         issues,
         (item, itemPath) =>
-          requireNumber(item, itemPath, issues, { minimum: 0 }),
+          requireNumber(item, itemPath, issues, { exclusiveMinimum: 0 }),
       );
       if (
         Array.isArray(record.unitsOptions) &&
@@ -293,6 +293,15 @@ function validateUnitValue(
         issues.push({
           path: `${path}.unitsOptions`,
           message: "must contain at least two values",
+        });
+      }
+      if (
+        Array.isArray(record.unitsOptions) &&
+        new Set(record.unitsOptions).size !== record.unitsOptions.length
+      ) {
+        issues.push({
+          path: `${path}.unitsOptions`,
+          message: "must not repeat a unit value",
         });
       }
     }
