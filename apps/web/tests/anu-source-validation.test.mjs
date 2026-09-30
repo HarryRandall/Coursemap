@@ -57,4 +57,19 @@ for (const source of sources) {
     assert.ok(mismatch.issues.some(({ code }) => code === source.mismatchCode));
     assert.equal(source.validate(page("2024")).valid, true);
   });
+
+  test(`${source.label} source reports malformed canonical links`, () => {
+    const html = `<html><head>
+      <meta name="${source.prefix}-code" content="${source.code}">
+      <meta name="${source.prefix}-name" content="Finance">
+      <meta name="${source.prefix}-year" content="2024">
+      <link rel="canonical" href="http://[">
+    </head><body><h1>Finance</h1></body></html>`;
+
+    const result = source.validate(html);
+    assert.equal(result.valid, false);
+    assert.ok(
+      result.issues.some(({ code }) => code === "INVALID_CANONICAL_URL"),
+    );
+  });
 }
