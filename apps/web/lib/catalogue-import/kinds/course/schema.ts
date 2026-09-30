@@ -1,5 +1,5 @@
 import { ENROLMENT_MODES } from "../../../academic/enrolment-mode.ts";
-import { COURSE_LEVELS } from "../../../academic/course-level.ts";
+import { COURSE_LEVELS } from "../../../academic/course-code.ts";
 import { COURSE_EXTRACTION_SCHEMA_VERSION } from "./contract.ts";
 
 // OpenRouter receives this in the system message while JSON object mode keeps

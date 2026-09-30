@@ -1,5 +1,5 @@
 import "server-only";
-import { courseLevelForCode } from "@/lib/academic/course-level";
+import { courseLevelForCode } from "@/lib/academic/course-code";
 
 import type {
   SyncSql,
