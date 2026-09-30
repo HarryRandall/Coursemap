@@ -494,6 +494,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         },
         incompatibilityCourseCodes: {
           type: "array",
+          uniqueItems: true,
           items: {
             type: "string",
             pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
@@ -501,6 +502,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         },
         softIncompatibilityCourseCodes: {
           type: "array",
+          uniqueItems: true,
           items: {
             type: "string",
             pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
@@ -508,10 +510,12 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         },
         concurrentIncompatibilityCourseCodes: {
           type: "array",
+          uniqueItems: true,
           items: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
         },
         softConcurrentIncompatibilityCourseCodes: {
           type: "array",
+          uniqueItems: true,
           items: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
         },
         unmodelledText: {
