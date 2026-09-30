@@ -204,11 +204,13 @@ test("runs the preview fixture through the verified local database client", asyn
   await seedLocalPreview({
     createClient: async () => sql,
     readSeed: async (path, encoding) => {
+      assert.equal(encoding, "utf8");
+      if (path.pathname.endsWith("/scripts/fixtures/real-catalogue.json"))
+        return "[]";
       assert.equal(
         path.pathname.endsWith("/scripts/fixtures/local-preview.sql"),
         true,
       );
-      assert.equal(encoding, "utf8");
       return "select 'local preview';";
     },
   });
