@@ -142,10 +142,20 @@ select extensions.ok(
   (select count(*) from public.plans) = 0
   and (
     select count(*)
-    from public.catalogue_records
-    where kind <> 'course' and published_version_id is not null
+    from public.catalogue_records as records
+    join public.catalogue_codes as codes on codes.id = records.code_id
+    join public.academic_years as years on years.id = records.academic_year_id
+    join (values
+      ('programme', 'LOCAL-PROGRAMME'),
+      ('major', 'LOCAL-MAJ'),
+      ('minor', 'LOCALA-MIN'),
+      ('minor', 'LOCALB-MIN'),
+      ('specialisation', 'LOCAL-SPEC')
+    ) as fixtures(kind, code)
+      on fixtures.kind = records.kind::text and fixtures.code = codes.code
+    where years.year = 2026 and records.published_version_id is not null
   ) = 5,
-  'the preview keeps plans empty while publishing every selectable structure fixture'
+  'the preview keeps plans empty while publishing every local structure fixture'
 );
 
 select extensions.ok(
