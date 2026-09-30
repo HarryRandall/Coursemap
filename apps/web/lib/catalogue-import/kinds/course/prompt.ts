@@ -7,7 +7,7 @@ import {
 } from "./programmes.ts";
 
 export const COURSE_IMPORT_PARSER_VERSION = "coursemap-course-parser.v24";
-export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v37";
+export const COURSE_IMPORT_PROMPT_VERSION = "coursemap-course-prompt.v38";
 export const COURSE_SNAPSHOT_SCHEMA_VERSION = "course-snapshot.v1";
 
 /**
@@ -30,7 +30,7 @@ Source rules:
 2. Use only facts the page states and course or programme identities supplied from ANU's directory for the selected year. Never invent a course code, programme code, amount, class, date, session or requirement.
 3. level is the first digit of the course number multiplied by 1000. MATH1013 is level 1000, COMP2400 is level 2000 and CBEA3070 is level 3000. Never return the full course number, such as 1013 or 3070, or a single digit. A final letter does not change the level. Match the supplied authoritative course code.
 4. periodCode must use a recognised academic period code supplied with the input, for example S1 for First Semester or Semester 1 and S2 for Second Semester or Semester 2. periodName preserves the printed label. Never put that label in periodCode. Use the supplied identity for Summer, Autumn, Winter and Spring sessions too. If no supplied identity fits a source session, flag it for review rather than inventing a code. Offering tables are grouped under headings such as "Offerings in 2026". Include offerings and classes only from the selected year's group; the page also shows later years, which Coursemap imports separately.
-5. Preserve variable or ranged unit values. Do not collapse them to one number.
+5. Preserve variable or ranged unit values. Do not collapse them to one number. Variable unit options must be positive and distinct; do not add zero or repeat a printed option.
 6. Record every printed fee row: the student contribution band, domestic and international fees alike, each with its printed year, audience, basis and source wording. Do not assume the fee year equals the selected year. A student contribution band belongs in its own commonwealth_supported / student_contribution row, with amount null when no amount is printed. Do not attach that band to a domestic or international tuition row.
 7. workloadHours is an explicitly stated overall workload quantity, and workloadHoursBasis records whether it is weekly or total for the whole course. For "10 hours per week", return workloadHours 10 and workloadHoursBasis weekly. For an explicitly stated whole-course total, use total. Use null when the source gives only contact hours, a range, or no clear overall quantity or basis, preserving all the wording in workloadText. Never multiply weekly hours by teaching weeks, sum contact components into a guessed overall workload or derive hours from course units. Give source evidence for workloadHours and workloadHoursBasis. Record learning outcomes, assessment items, outcome links, workload, inherent requirements, prescribed texts, areas of interest, STEM status and graduate attributes when present.
 8. Separate hard incompatibilities from discretionary or soft incompatibilities.

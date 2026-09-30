@@ -654,7 +654,7 @@ test("advertises exact model formats in the prompt and JSON Schema", () => {
   assert.match(prompt, /tidied, never rewritten/);
   assert.match(prompt, /FINM2001; FINM2002; and, FINM2003 or FINM3011/);
   assert.equal(COURSE_IMPORT_PARSER_VERSION, "coursemap-course-parser.v24");
-  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v37");
+  assert.equal(COURSE_IMPORT_PROMPT_VERSION, "coursemap-course-prompt.v38");
   assert.match(
     prompt,
     /requires both min_units_total 24 and enrolled_in_college/u,
@@ -1954,6 +1954,33 @@ test("rejects empty and repeated course sets before projection", () => {
     (rule) => rule.properties?.op?.const === "min_units_from_courses",
   );
   assert.equal(courseSetSchema.properties.courseCodes.minItems, 1);
+});
+
+test("rejects zero and repeated variable unit options before projection", () => {
+  for (const unitsOptions of [
+    [0, 6],
+    [6, 6],
+  ]) {
+    const model = structuredClone(extraction);
+    model.unitValue = { kind: "variable", unitsOptions };
+
+    const validation = validateCourseExtraction(model);
+    assert.equal(validation.success, false);
+    assert.ok(
+      validation.issues.some(({ path }) =>
+        path.startsWith("$.unitValue.unitsOptions"),
+      ),
+    );
+    const result = finalise(model);
+    assert.deepEqual(result.extraction.unitValue, { kind: "unknown" });
+    assert.ok(result.errorCount > 0);
+  }
+  assert.equal(
+    COURSE_EXTRACTION_JSON_SCHEMA.properties.unitValue.oneOf.find(
+      (value) => value.properties?.kind?.const === "variable",
+    ).properties.unitsOptions.items.exclusiveMinimum,
+    0,
+  );
 });
 
 test("the captured MKTG2003 response preserves a STAT course without guessing units", async () => {
