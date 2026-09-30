@@ -189,6 +189,27 @@ function finalise(model, overrides = {}) {
   });
 }
 
+test("marks a recovered provider response for requirement review", () => {
+  const outcome = finalise(structuredClone(extraction), {
+    responseRepair: "extra_requirement_closing_brace",
+  });
+  assert.equal(outcome.errorCount, 0);
+  assert.ok(
+    outcome.extraction.reviewItems.some(
+      (item) =>
+        item.kind === "model_repair" &&
+        item.fieldKey === "requirements.rule" &&
+        item.severity === "warning",
+    ),
+  );
+  const content = structureKindAdapter.project(outcome.extraction);
+  const requirement = classifyFirstRead(content).find(
+    (item) => item.fieldPath === "requirements.structure",
+  );
+  assert.equal(requirement?.band, "needs_review");
+  assert.match(requirement.reason, /extra closing brace/u);
+});
+
 test("keeps every field the model returns, including sections and outcomes", () => {
   const model = structuredClone(extraction);
   model.title = "Bachelor of Computing (tidied)";
@@ -788,7 +809,7 @@ test("provides a strict OpenRouter prompt and recursive JSON schema", () => {
   const systemPrompt = buildAcademicStructureExtractionSystemPrompt();
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
-    "coursemap-academic-structure-parser.v10",
+    "coursemap-academic-structure-parser.v11",
   );
   assert.equal(
     ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION,

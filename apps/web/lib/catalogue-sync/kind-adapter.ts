@@ -114,6 +114,8 @@ export type CatalogueSyncAdapter<Extraction = unknown> = {
     model: unknown;
     pageMarkdown: string;
     responseError: string | null;
+    /** A recoverable provider JSON syntax issue retained for review. */
+    responseRepair?: string | null;
     /** The provider's stop reason; `length` means the response was truncated. */
     finishReason: string | null;
     context?: PromptContext;

@@ -137,6 +137,7 @@ export function classifyFirstRead(content: CatalogueContent): FirstReadItem[] {
     ];
     const confidence = candidates.length ? Math.min(...candidates) : null;
     const error = flags.find((flag) => flag.severity === "error");
+    const modelRepair = flags.find((flag) => flag.code === "MODEL_REPAIR");
     const warning = flags.find((flag) => flag.severity === "warning");
 
     let band: FirstReadBand;
@@ -144,6 +145,9 @@ export function classifyFirstRead(content: CatalogueContent): FirstReadItem[] {
     if (error) {
       band = "needs_review";
       reason = error.message;
+    } else if (modelRepair) {
+      band = "needs_review";
+      reason = modelRepair.message;
     } else if (rule.concerns.length) {
       band = "needs_review";
       reason = rule.concerns.join(". ");

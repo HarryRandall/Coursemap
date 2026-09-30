@@ -134,6 +134,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
       pageMarkdown,
       finishReason,
       responseError,
+      responseRepair,
       supportingSources,
     }) {
       const outcome = finaliseAcademicStructureExtraction({
@@ -145,6 +146,7 @@ export const structureKindAdapter: CatalogueSyncAdapter<AcademicStructureExtract
         pageMarkdown,
         finishReason,
         responseError,
+        responseRepair,
       });
       const incompleteList = supportingSources?.some(
         (source) =>
