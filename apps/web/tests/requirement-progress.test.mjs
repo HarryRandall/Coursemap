@@ -43,8 +43,8 @@ const catalogue = {
     course("COMP2100", 2000),
     course("COMP3600", 3000),
     course("MATH1013", 1000),
-    course("FINM3009", 3000),
-    course("FINM3010", 3000),
+    course("TSTF3009", 3000),
+    course("TSTF3010", 3000),
   ],
   terms,
 };
@@ -150,17 +150,17 @@ test("a paired route requires both courses in the printed order across adjacent 
     conditionKind: "consecutive_semester_pair",
     minimumUnits: 12,
     freeText:
-      "Student Managed Fund courses must be completed over two consecutive semesters.",
-    options: [option("FINM3009"), option("FINM3010")],
+      "Practicum courses must be completed over two consecutive semesters.",
+    options: [option("TSTF3009"), option("TSTF3010")],
   });
   const root = group(10, "all_of", [pair]);
   const evaluate = (firstTerm, secondTerm, secondStatus = "completed") => {
     const first = {
-      ...attempt("first", "FINM3009", "completed"),
+      ...attempt("first", "TSTF3009", "completed"),
       termId: firstTerm,
     };
     const second = {
-      ...attempt("second", "FINM3010", secondStatus),
+      ...attempt("second", "TSTF3010", secondStatus),
       termId: secondTerm,
     };
     return requirementTreeProgress({
@@ -184,11 +184,11 @@ test("a paired route requires both courses in the printed order across adjacent 
   }
   assert.equal(evaluate("unknown", "2026-s2").state, "unmeasured");
 
-  const malformed = { ...pair, options: [option("FINM3009")] };
+  const malformed = { ...pair, options: [option("TSTF3009")] };
   assert.equal(
     requirementTreeProgress({
       root: group(11, "all_of", [malformed]),
-      attempts: [attempt("first", "FINM3009", "completed")],
+      attempts: [attempt("first", "TSTF3009", "completed")],
       catalogue,
     }).get(requirementNodeKey(malformed)).state,
     "unmeasured",
@@ -289,19 +289,19 @@ test("named courses can satisfy a major's alternative to unverified exchange", (
   const courses = condition(2, {
     minimumUnits: 24,
     options: [
-      option("FINM3005"),
-      option("FINM3006"),
-      option("FINM3008"),
-      option("FINM3045"),
+      option("TSTF3005"),
+      option("TSTF3006"),
+      option("TSTF3008"),
+      option("TSTF3045"),
     ],
   });
   const root = group(10, "any_of", [exchange, courses]);
   const financeCatalogue = {
     courses: [
-      course("FINM3005", 3000),
-      course("FINM3006", 3000),
-      course("FINM3008", 3000),
-      course("FINM3045", 3000),
+      course("TSTF3005", 3000),
+      course("TSTF3006", 3000),
+      course("TSTF3008", 3000),
+      course("TSTF3045", 3000),
     ],
     terms,
   };
@@ -315,10 +315,10 @@ test("named courses can satisfy a major's alternative to unverified exchange", (
   const completed = requirementTreeProgress({
     root,
     attempts: [
-      attempt("a", "FINM3005", "completed"),
-      attempt("b", "FINM3006", "completed"),
-      attempt("c", "FINM3008", "completed"),
-      attempt("d", "FINM3045", "completed"),
+      attempt("a", "TSTF3005", "completed"),
+      attempt("b", "TSTF3006", "completed"),
+      attempt("c", "TSTF3008", "completed"),
+      attempt("d", "TSTF3045", "completed"),
     ],
     catalogue: financeCatalogue,
   });

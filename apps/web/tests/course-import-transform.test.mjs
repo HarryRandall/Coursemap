@@ -1236,7 +1236,7 @@ test("permission projection preserves the stated authority without inventing one
   });
   for (const sourceText of [
     "You must have permission from the Research School of Accounting.",
-    "Permission of the College of Business and Economics is required.",
+    "Permission of the College of Arts and Social Sciences is required.",
     null,
     undefined,
   ]) {
