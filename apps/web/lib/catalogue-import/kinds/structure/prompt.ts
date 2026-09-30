@@ -5,9 +5,9 @@ import {
 import type { SupportingSourcePage } from "../../../catalogue-sync/kind-adapter.ts";
 
 export const ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION =
-  "coursemap-academic-structure-parser.v8";
+  "coursemap-academic-structure-parser.v9";
 export const ACADEMIC_STRUCTURE_IMPORT_PROMPT_VERSION =
-  "coursemap-academic-structure-prompt.v17";
+  "coursemap-academic-structure-prompt.v18";
 export const ACADEMIC_STRUCTURE_IMPORT_MAX_OUTPUT_TOKENS = 24_000;
 export const ACADEMIC_STRUCTURE_SNAPSHOT_SCHEMA_VERSION =
   "academic-structure-snapshot.v3";
@@ -80,7 +80,7 @@ Requirement interpretation:
 - The requirement paragraph may print only major names while a later Majors list links those same names to codes. Match each name to its literal code in that list on the same page, then make one structure_list condition with structureKind major, all matched codes and the printed unit amount. This means completion of one major, not enrolment in another programme. If a name cannot be matched uniquely, leave that choice as exact free text and flag it for review; never guess a code.
 - Keep each degree-wide limit alongside the parts it constrains. For example, a maximum of 60 units of 1000-level courses is a degree-scope level condition with maximumUnits 60 and level bounds 1000 to 1999. A minimum of 12 units of courses tagged as Transdisciplinary Problem-Solving is a degree-scope tag condition with minimumUnits 12 and the full printed tag. Neither fills a 144-unit part.
 - Honour an explicit OR between two modelled alternatives, such as a subject condition OR a structure_list of majors, with an any_of group holding both.
-- When a major says "Either" approved exchange credit "Or" a finite set of named courses, keep one any_of group with those two branches. The named-course branch is a course_list with its printed unit target; the exchange branch keeps its exact unit, level, region, subject-focus and pre-approval wording as free_text with a review item. Do not make exchange compulsory for the named-course route or infer exchange approval from a student's planned courses. If a later catalogue year states only exchange, do not carry the earlier year's named-course alternative forward.
+- When a major says "Either" approved exchange credit "Or" a finite set of named courses, keep one any_of group with those two branches. The named-course branch is a course_list with its printed unit target; the exchange branch is free_text with the exact printed unit bound in minimumUnits and, when the amount is exact, maximumUnits. Keep its level, region, subject-focus and pre-approval wording in sourceText and freeText. The exchange branch remains unmeasured until approved exchange credit can be confirmed; add a review item if the source is ambiguous. Do not make exchange compulsory for the named-course route or infer exchange approval from a student's planned courses. If a later catalogue year states only exchange, do not carry the earlier year's named-course alternative forward.
 - Represent explicit AND as an all_of group and explicit OR as an any_of group.
 - Use minimum_count only when the source states an exact count such as "one of" or "two of", and set minimumCount to that literal count.
 - A finite linked course list may be a course_list condition. Keep the printed minimum or maximum units when present.
