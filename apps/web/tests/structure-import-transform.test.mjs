@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import {
   ACADEMIC_STRUCTURE_EXTRACTION_SCHEMA_VERSION,
-  ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA,
   validateAcademicStructureExtraction,
 } from "../lib/catalogue-import/kinds/structure/contract.ts";
+import { ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA } from "../lib/catalogue-import/kinds/structure/schema.ts";
 import { finaliseAcademicStructureExtraction } from "../lib/catalogue-import/kinds/structure/finalise.ts";
 import {
   ACADEMIC_STRUCTURE_IMPORT_PARSER_VERSION,
