@@ -20,7 +20,7 @@ const CODE_SUFFIX: Record<OptionKind, RegExp> = {
   specialisation: /-(?:HSPC|SPEC)$/u,
 };
 
-/** A link the page reader has turned into a record code, or a bare code. */
+/** A link the page reader has turned into a record code, or a bare list item. */
 const LISTED_LINK = /\[([^\]]+)\]\(([A-Z0-9][A-Z0-9-]{1,31})\)/gu;
 const BARE_LISTED_CODE = /^-\s+([A-Z0-9]{2,}-(?:MAJ|MIN|SPEC|HSPC))\s*$/u;
 
@@ -46,6 +46,7 @@ export function listedStructureOptions(
       continue;
     }
     if (!listing) continue;
+    if (!/^\s*-\s+/u.test(line)) continue;
     const bare = BARE_LISTED_CODE.exec(line.trim());
     const listed = [
       ...Array.from(line.matchAll(LISTED_LINK), (match) => ({
