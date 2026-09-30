@@ -22,19 +22,40 @@ const requirements: AcademicStructureRequirements = {
     children: [
       {
         type: "condition",
-        key: "paired-smf",
-        conditionKind: "free_text",
-        minimumUnits: null,
+        key: "ordinary-choice",
+        conditionKind: "course_list",
+        minimumUnits: 12,
         maximumUnits: null,
         minimumCourses: null,
-        courseCodes: [],
+        courseCodes: ["BUSN2036", "STAT2032"],
         structureKind: null,
         structureCodes: [],
         subjectCode: null,
         minimumLevel: null,
         maximumLevel: null,
         tag: null,
-        freeText: pairedChoice,
+        freeText: null,
+        scope: "part",
+        includesAnyCourse: false,
+        sourceText:
+          "12 units from completion of a course from the following list:",
+        sourceLocator: "Program Requirements",
+      },
+      {
+        type: "condition",
+        key: "paired-smf",
+        conditionKind: "consecutive_semester_pair",
+        minimumUnits: 12,
+        maximumUnits: null,
+        minimumCourses: null,
+        courseCodes: ["FINM3009", "FINM3010"],
+        structureKind: null,
+        structureCodes: [],
+        subjectCode: null,
+        minimumLevel: null,
+        maximumLevel: null,
+        tag: null,
+        freeText: timing,
         scope: "part",
         includesAnyCourse: false,
         sourceText: pairedChoice,
@@ -42,20 +63,23 @@ const requirements: AcademicStructureRequirements = {
       },
     ],
   },
-  unmodelledText: [timing],
+  unmodelledText: [],
 };
 
-test("the paired SMF option stays unresolved until timing can be evaluated", () => {
+test("the paired SMF option keeps the ordinary alternative and ordered timing", () => {
   expect(preservesStudentManagedFundChoice(requirements)).toBe(true);
   expect(
-    preservesStudentManagedFundChoice({ ...requirements, unmodelledText: [] }),
+    preservesStudentManagedFundChoice({
+      ...requirements,
+      unmodelledText: [timing],
+    }),
   ).toBe(false);
 });
 
 test("a course list cannot award the paired SMF option from either course alone", () => {
   const model = structuredClone(requirements);
   if (model.rule?.type !== "group") throw new Error("Expected a rule group.");
-  const paired = model.rule.children[0]!;
+  const paired = model.rule.children[1]!;
   if (paired.type !== "condition") throw new Error("Expected a condition.");
   model.rule.children.push({
     ...paired,
@@ -66,7 +90,7 @@ test("a course list cannot award the paired SMF option from either course alone"
     freeText: null,
   });
   expect(preservesStudentManagedFundChoice(model)).toBe(false);
-  const listed = model.rule.children[1]!;
+  const listed = model.rule.children[2]!;
   if (listed.type !== "condition") throw new Error("Expected a course list.");
   listed.sourceText = "6 units from completion of courses from List 1.";
   expect(preservesStudentManagedFundChoice(model)).toBe(true);

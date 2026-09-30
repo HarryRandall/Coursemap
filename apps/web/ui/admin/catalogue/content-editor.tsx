@@ -537,7 +537,25 @@ function RuleSection({
               This rule uses condition kinds the editor cannot yet represent, so
               it is shown as recorded.
             </p>
-            <JsonCode label={ruleKey} value={tree} uncapped />
+            <JsonCode
+              label={ruleKey}
+              value={{
+                groups: requirements.groups.filter(
+                  (group) => group.ruleKey === ruleKey,
+                ),
+                conditions: requirements.conditions.filter(
+                  (condition) => condition.ruleKey === ruleKey,
+                ),
+                options: requirements.options.filter((option) =>
+                  requirements.conditions.some(
+                    (condition) =>
+                      condition.ruleKey === ruleKey &&
+                      condition.key === option.conditionKey,
+                  ),
+                ),
+              }}
+              uncapped
+            />
           </>
         )}
         {rule && tree && !readOnly ? (
