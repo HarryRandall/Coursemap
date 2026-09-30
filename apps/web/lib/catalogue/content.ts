@@ -146,6 +146,8 @@ export type CatalogueVersionProvenance = {
   confidence: number | null;
   sourceLocator: string | null;
   sourceExcerpt: string | null;
+  /** A second fetched page may supply this evidence for the same version. */
+  sourceUrl?: string;
 };
 
 export type CatalogueContentFlag = {
@@ -416,7 +418,12 @@ export function validateCatalogueContent(value: unknown): CatalogueContent {
         hasString(reference, "ruleKey") && hasString(reference, "code"),
     ) ||
     !value.evidence.every(
-      (entry) => hasString(entry, "fieldPath") && hasString(entry, "method"),
+      (entry) =>
+        hasString(entry, "fieldPath") &&
+        hasString(entry, "method") &&
+        (entry.sourceUrl === undefined ||
+          (typeof entry.sourceUrl === "string" &&
+            /^https:\/\/[^\s]+$/u.test(entry.sourceUrl))),
     ) ||
     !value.flags.every(
       (flag) =>
