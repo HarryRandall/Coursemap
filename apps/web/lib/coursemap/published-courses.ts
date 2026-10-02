@@ -151,23 +151,51 @@ type DirectoryRow = {
 const DIRECTORY_SELECT =
   "academic_year,academic_year_id,code,college,convener_text,level,school,subject_code,subject_name,title,version_id";
 
+const DIRECTORY_VERSION_BATCH_SIZE = 100;
+
 async function directoryRows(): Promise<DirectoryRow[]> {
   const supabase = createPublicClient();
-  const rows: DirectoryRow[] = [];
-  // PostgREST limits a response to 1,000 rows. Read every published year before
-  // choosing one version per code, so pagination never drops older-only courses.
+  const versionIds: number[] = [];
+  // Start with the indexed publication pointers. Sorting the whole security-
+  // invoker summary view evaluates catalogue access policies before pagination.
   for (let start = 0; ; start += 1000) {
+    const { data, error } = await supabase
+      .from("catalogue_records")
+      .select("published_version_id")
+      .eq("kind", "course")
+      .is("archived_at", null)
+      .not("published_version_id", "is", null)
+      .order("id")
+      .range(start, start + 999);
+    if (error) throw error;
+    for (const record of data ?? []) {
+      if (record.published_version_id !== null) {
+        versionIds.push(record.published_version_id);
+      }
+    }
+    if ((data ?? []).length < 1000) break;
+  }
+  const rows: DirectoryRow[] = [];
+  for (
+    let start = 0;
+    start < versionIds.length;
+    start += DIRECTORY_VERSION_BATCH_SIZE
+  ) {
     const { data, error } = await supabase
       .from("published_course_summaries")
       .select(DIRECTORY_SELECT)
-      .order("code")
-      .order("academic_year", { ascending: false })
-      .range(start, start + 999);
+      .in(
+        "version_id",
+        versionIds.slice(start, start + DIRECTORY_VERSION_BATCH_SIZE),
+      );
     if (error) throw error;
     rows.push(...((data ?? []) as DirectoryRow[]));
-    if ((data ?? []).length < 1000) break;
   }
-  return rows;
+  return rows.sort(
+    (left, right) =>
+      left.code.localeCompare(right.code) ||
+      right.academic_year - left.academic_year,
+  );
 }
 
 const cachedDirectoryRows = unstable_cache(
@@ -181,15 +209,24 @@ async function directoryNames(
 ): Promise<Array<{ name: string; version_id: number }>> {
   const supabase = createPublicClient();
   const rows: Array<{ name: string; version_id: number }> = [];
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await supabase
-      .from(table)
-      .select("name,version_id")
-      .order("id")
-      .range(start, start + 999);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if ((data ?? []).length < 1000) break;
+  const versions = (await cachedDirectoryRows()).map((row) => row.version_id);
+  for (
+    let batch = 0;
+    batch < versions.length;
+    batch += DIRECTORY_VERSION_BATCH_SIZE
+  ) {
+    const ids = versions.slice(batch, batch + DIRECTORY_VERSION_BATCH_SIZE);
+    for (let start = 0; ; start += 1000) {
+      const { data, error } = await supabase
+        .from(table)
+        .select("name,version_id")
+        .in("version_id", ids)
+        .order("id")
+        .range(start, start + 999);
+      if (error) throw error;
+      rows.push(...(data ?? []));
+      if ((data ?? []).length < 1000) break;
+    }
   }
   return rows;
 }
@@ -267,34 +304,46 @@ export async function loadPublishedCourseDirectoryPage({
   const area = firstFilterValue(filters.area);
   const tag = firstFilterValue(filters.tag);
   const supabase = createPublicClient();
+  const directory = await cachedDirectoryRows();
   const versionsFor = async (
     table: "course_areas_of_interest" | "course_tags" | "offering_sessions",
     value: string,
   ) => {
     const ids = new Set<number>();
-    for (let start = 0; ; start += 1000) {
-      const result =
-        table === "offering_sessions"
-          ? await supabase
-              .from(table)
-              .select("version_id")
-              .eq("academic_period_name", value)
-              .order("id")
-              .range(start, start + 999)
-          : await supabase
-              .from(table)
-              .select("version_id")
-              .ilike(
-                "name",
-                value.replace(/[\\%_]/gu, (character) => `\\${character}`),
-              )
-              .order("id")
-              .range(start, start + 999);
-      if (result.error) throw result.error;
-      for (const row of result.data ?? []) {
-        if (row.version_id !== null) ids.add(row.version_id);
+    for (
+      let batch = 0;
+      batch < directory.length;
+      batch += DIRECTORY_VERSION_BATCH_SIZE
+    ) {
+      const versionIds = directory
+        .slice(batch, batch + DIRECTORY_VERSION_BATCH_SIZE)
+        .map((row) => row.version_id);
+      for (let start = 0; ; start += 1000) {
+        const result =
+          table === "offering_sessions"
+            ? await supabase
+                .from(table)
+                .select("version_id")
+                .in("version_id", versionIds)
+                .eq("academic_period_name", value)
+                .order("id")
+                .range(start, start + 999)
+            : await supabase
+                .from(table)
+                .select("version_id")
+                .in("version_id", versionIds)
+                .ilike(
+                  "name",
+                  value.replace(/[\\%_]/gu, (character) => `\\${character}`),
+                )
+                .order("id")
+                .range(start, start + 999);
+        if (result.error) throw result.error;
+        for (const row of result.data ?? []) {
+          if (row.version_id !== null) ids.add(row.version_id);
+        }
+        if ((result.data ?? []).length < 1000) break;
       }
-      if ((result.data ?? []).length < 1000) break;
     }
     return ids;
   };
@@ -303,9 +352,7 @@ export async function loadPublishedCourseDirectoryPage({
     area ? versionsFor("course_areas_of_interest", area) : null,
     tag ? versionsFor("course_tags", tag) : null,
   ]);
-  const matches = selectPreferredCourseYears(
-    await cachedDirectoryRows(),
-  ).filter((row) => {
+  const matches = selectPreferredCourseYears(directory).filter((row) => {
     if (subject && row.subject_code !== subject) return false;
     if (
       level &&
