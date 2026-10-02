@@ -162,25 +162,25 @@ export async function CatalogueRecordPage({
     ).length ?? 0);
 
   return (
-    <RecordTabs value={section} path={path}>
-      <AppShell
-        admin
-        breadcrumbSegmentLabels={{
-          [labels.segment]: labels.plural,
-          // The code names the record on every tab, and the open tab follows it.
-          [encodeURIComponent(record.code.toLowerCase())]: record.code,
-        }}
-        tabs={<RecordTabList changeCount={openChanges} />}
-      >
-        <CatalogueEditorProvider
-          key={`${draft.contentHash}:${draft.revision}:${record.publishedVersionId ?? "unpublished"}`}
-          initial={draft.content}
-          recordId={record.recordId}
-          initialRevision={draft.revision}
-          initiallyPublished={record.publishedVersionId !== null}
-          initialHasDraft={hasDraft}
-          initialHasUnpublishedChanges={hasUnpublishedChanges}
-          path={path}
+    <CatalogueEditorProvider
+      key={record.recordId}
+      initial={draft.content}
+      recordId={record.recordId}
+      initialRevision={draft.revision}
+      initiallyPublished={record.publishedVersionId !== null}
+      initialHasDraft={hasDraft}
+      initialHasUnpublishedChanges={hasUnpublishedChanges}
+      path={path}
+    >
+      <RecordTabs value={section} path={path}>
+        <AppShell
+          admin
+          breadcrumbSegmentLabels={{
+            [labels.segment]: labels.plural,
+            // The code names the record on every tab, and the open tab follows it.
+            [encodeURIComponent(record.code.toLowerCase())]: record.code,
+          }}
+          tabs={<RecordTabList changeCount={openChanges} />}
         >
           <div className="flex w-full min-w-0 flex-1 flex-col gap-6">
             {/* The record's summary belongs with its content; the other
@@ -224,9 +224,7 @@ export async function CatalogueRecordPage({
                 recordId={record.recordId}
                 review={review}
                 allFields={hasDraft ? classifyFirstRead(draft.content) : []}
-                subject={
-                  kind === "course" ? { code: record.code, academicYear } : null
-                }
+                subject={{ code: record.code, academicYear }}
                 unpublished={unpublished}
               />
             </TabsContent>
@@ -243,8 +241,8 @@ export async function CatalogueRecordPage({
               />
             </TabsContent>
           </div>
-        </CatalogueEditorProvider>
-      </AppShell>
-    </RecordTabs>
+        </AppShell>
+      </RecordTabs>
+    </CatalogueEditorProvider>
   );
 }

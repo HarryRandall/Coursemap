@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   assertStructureVocabulary,
+  assertPublishableUnitOptions,
   emptyCatalogueContent,
   validateCatalogueContent,
 } from "@/lib/catalogue/content";
@@ -124,4 +125,32 @@ test("readers show only the fixed vocabulary, under Coursemap's headings", () =>
   expect(
     details?.relationships.map(({ relationshipKind }) => relationshipKind),
   ).toEqual(["offered_in"]);
+});
+
+test("publication rejects incomplete unit options while drafts remain editable", () => {
+  const content = emptyCatalogueContent({
+    kind: "course",
+    code: "CBEA3070",
+    academicYear: 2026,
+    title: "Internship",
+  });
+  if (!content.course) throw new Error("Expected course content.");
+  content.course.unitOptions = [
+    { position: 1, units: 6, label: "", sourceText: "" },
+  ];
+  expect(() => validateCatalogueContent(content)).not.toThrow();
+  expect(() => assertPublishableUnitOptions(content)).toThrow(
+    "Unit option 1 needs a label",
+  );
+  content.course.unitOptions[0]!.label = null;
+  expect(() => assertPublishableUnitOptions(content)).toThrow(
+    "ANU source wording",
+  );
+  content.course.unitOptions[0]!.sourceText =
+    "6 units for 120 hours of placement.";
+  expect(() => assertPublishableUnitOptions(content)).not.toThrow();
+  content.course.unitOptions[0]!.units = 0;
+  expect(() => assertPublishableUnitOptions(content)).toThrow(
+    "positive number of units",
+  );
 });

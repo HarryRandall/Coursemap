@@ -125,7 +125,7 @@ function EditableRecordActions({ sync }: { sync: RecordSync | null }) {
         role={failed ? "alert" : "status"}
         aria-live="polite"
       >
-        {saveState === "saving" ? (
+        {saveState === "saving" || (dirty && !failed) ? (
           <span className="inline-flex items-center gap-1.5">
             <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
             Saving...

@@ -4,6 +4,7 @@ import { Tabs } from "@coursemap/ui/primitives/tabs";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { SectionTabs } from "@/ui/common/section-tabs";
+import { useCatalogueEditor } from "./catalogue-editor-context";
 import { routeIcons } from "@/ui/shell/route-icons";
 
 export type RecordSection =
@@ -33,6 +34,8 @@ export function RecordTabs({
 }
 
 export function RecordTabList({ changeCount = 0 }: { changeCount?: number }) {
+  const { dirty, saveState } = useCatalogueEditor();
+  const disabled = dirty || saveState !== "saved";
   return (
     <SectionTabs
       label="Record sections"
@@ -50,7 +53,7 @@ export function RecordTabList({ changeCount = 0 }: { changeCount?: number }) {
           count: changeCount,
         },
         { value: "changelog", label: "Changelog", icon: routeIcons.changelog },
-      ]}
+      ].map((tab) => ({ ...tab, disabled }))}
     />
   );
 }

@@ -55,6 +55,12 @@ Requirement confidence comes from model evidence, not a default percentage.
 Separate conditions may quote the same sentence without needing review; repeated
 conditions within the same group are flagged instead.
 
+A bare ANU clause such as 'Incompatible with COMP1100' covers completed and
+concurrent enrolment. The importer adds concurrent scope only for a simple
+code list already extracted as hard completed-course exclusions, and records
+the correction for review. Conditional wording or uncertain exclusions remain
+blocked for individual review.
+
 ## Review ANU changes
 
 The **Changes** tab compares three states for every review unit: the previous
@@ -95,6 +101,15 @@ The **Content** tab edits the record's draft. Saving checks the expected draft
 revision so a stale browser tab cannot overwrite newer work. Manual edits
 preserve source provenance for untouched paths and replace it for changed
 paths.
+
+Autosave keeps open sections and later typing in place. Record tabs wait for
+saving to finish, and removing a collection's final item is still a saved
+manual change. Editing source wording preserves the existing requirement
+conditions and their scopes.
+
+Incomplete unit options can be saved in a draft. Publication requires a
+positive number of units, a label or a cleared label field, and the ANU source
+wording; a missing value is reported before a new version is created.
 
 **Student view** answers what students will read. It shows the draft first,
 because the question being asked is what publishing would do, and offers

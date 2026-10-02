@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
+import { diffSnapshotWrites } from "../lib/catalogue-import/changes.ts";
+
 import { emptyCatalogueContent } from "../lib/catalogue/content.ts";
 import type { CatalogueContent } from "../lib/catalogue/content.ts";
 import {
@@ -224,5 +226,35 @@ test("a requirement rule reviews on its own", () => {
       .filter((change) => change.classification !== "converged")
       .map((change) => [change.fieldPath, change.classification]),
     [["requirements.prerequisite", "conflict"]],
+  );
+});
+
+test("removing the last optional tag is saved and offered as a manual correction", () => {
+  const before = course("Description");
+  before.course.tags = [{ position: 1, name: "Business" }];
+  const after = structuredClone(before);
+  delete after.course.tags;
+  const [change] = diffSnapshotWrites(before, after);
+  assert.equal(change.fieldPath, "course.tags");
+  assert.deepEqual(change.oldValue, before.course.tags);
+  assert.equal(change.newValue, null);
+  const stored = {
+    classification: "first_read" as const,
+    baseSourceValue: null,
+    localValue: before.course.tags,
+    incomingSourceValue: before.course.tags,
+    localValueHash: reviewValueHash(before.course.tags),
+  };
+  assert.deepEqual(reclassifyAgainstDraft(stored, null), {
+    classification: "first_read",
+    localValue: null,
+    isStale: true,
+  });
+  assert.deepEqual(
+    diffSnapshotWrites(after, {
+      ...after,
+      course: { ...after.course, tags: [] },
+    }),
+    [],
   );
 });

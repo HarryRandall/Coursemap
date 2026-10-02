@@ -73,6 +73,7 @@ export function ScalarField({
   long = false,
   readOnly = false,
   choices,
+  numeric = typeof value === "number",
 }: {
   id: string;
   label: string;
@@ -82,6 +83,7 @@ export function ScalarField({
   readOnly?: boolean;
   /** Limits the field to these values, chosen by name. */
   choices?: readonly FieldChoice[];
+  numeric?: boolean;
 }) {
   if (readOnly) {
     const chosen = choices?.find((choice) => choice.value === value);
@@ -152,15 +154,19 @@ export function ScalarField({
           id={id}
           value={text}
           rows={4}
-          onChange={(event) => onChange(parseScalar(value, event.target.value))}
+          onChange={(event) =>
+            onChange(parseScalar(numeric ? 0 : value, event.target.value))
+          }
         />
       ) : (
         <Input
           id={id}
-          type={typeof value === "number" ? "number" : "text"}
-          step={typeof value === "number" ? "any" : undefined}
+          type={numeric ? "number" : "text"}
+          step={numeric ? "any" : undefined}
           value={text}
-          onChange={(event) => onChange(parseScalar(value, event.target.value))}
+          onChange={(event) =>
+            onChange(parseScalar(numeric ? 0 : value, event.target.value))
+          }
         />
       )}
     </div>
@@ -287,6 +293,10 @@ export function RowsEditor({
                       id={`${idPrefix}-${index}-${key}`}
                       label={humanise(key)}
                       value={row[key] ?? null}
+                      numeric={
+                        typeof template[key] === "number" ||
+                        typeof row[key] === "number"
+                      }
                       long={long}
                       readOnly={readOnly}
                       choices={choices[key]}

@@ -295,6 +295,18 @@ export function CatalogueContentEditor() {
     }));
   }
 
+  function updateRuleSource(ruleKey: RequirementRuleKind, sourceText: string) {
+    setWrite((current) => ({
+      ...current,
+      requirements: {
+        ...current.requirements,
+        rules: current.requirements.rules.map((rule) =>
+          rule.key === ruleKey ? { ...rule, sourceText } : rule,
+        ),
+      },
+    }));
+  }
+
   const courseLabels = labelsFor("course.details");
   const structureLabels = labelsFor("structure.details");
 
@@ -415,6 +427,9 @@ export function CatalogueContentEditor() {
               onChange={(tree, sourceText) =>
                 updateRule(ruleKey, tree, sourceText)
               }
+              onSourceChange={(sourceText) =>
+                updateRuleSource(ruleKey, sourceText)
+              }
             />
           ))}
         </>
@@ -470,6 +485,9 @@ export function CatalogueContentEditor() {
             onChange={(tree, sourceText) =>
               updateRule("structure", tree, sourceText)
             }
+            onSourceChange={(sourceText) =>
+              updateRuleSource("structure", sourceText)
+            }
           />
         </>
       ) : null}
@@ -481,11 +499,13 @@ function RuleSection({
   ruleKey,
   requirements,
   onChange,
+  onSourceChange,
   readOnly = false,
 }: {
   ruleKey: RequirementRuleKind;
   requirements: CatalogueContent["requirements"];
   onChange: (tree: ReviewedRuleTree | null, sourceText: string) => void;
+  onSourceChange: (sourceText: string) => void;
   readOnly?: boolean;
 }) {
   const rule = requirements.rules.find(
@@ -497,6 +517,11 @@ function RuleSection({
     [requirements, ruleKey],
   );
   const [sourceText, setSourceText] = useState(rule?.sourceText ?? "");
+  const [receivedSource, setReceivedSource] = useState(rule?.sourceText);
+  if (receivedSource !== rule?.sourceText) {
+    setReceivedSource(rule?.sourceText);
+    setSourceText(rule?.sourceText ?? "");
+  }
   const conditionCount = requirements.conditions.filter(
     (condition) => condition.ruleKey === ruleKey,
   ).length;
@@ -521,7 +546,7 @@ function RuleSection({
             placeholder="As written on the ANU page"
             onChange={(event) => {
               setSourceText(event.target.value);
-              if (tree) onChange(tree, event.target.value);
+              if (rule) onSourceChange(event.target.value);
             }}
           />
         </div>

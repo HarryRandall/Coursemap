@@ -20,7 +20,10 @@ import {
   type KnownProgramme,
   programmesMentionedOnPage,
 } from "./programmes.ts";
-import { reviewCourseSourceRules } from "./source-review.ts";
+import {
+  reconcileBareIncompatibilities,
+  reviewCourseSourceRules,
+} from "./source-review.ts";
 
 /** Known identity fields do not count as extracted course content. */
 const COURSE_IDENTITY_FIELDS = [
@@ -136,7 +139,7 @@ export function finaliseCourseExtraction({
     },
   );
   const empty = emptyCourseExtraction({ code, year, title: listingTitle });
-  const { extraction, dropped } = salvageModelExtraction({
+  const { extraction: extracted, dropped } = salvageModelExtraction({
     value: canonical.value,
     empty,
     // Validate the model's level before falling back to the known identity.
@@ -151,6 +154,15 @@ export function finaliseCourseExtraction({
         knownTags,
       }),
   });
+
+  const incompatibilities = reconcileBareIncompatibilities({
+    requisites: extracted.requisites,
+    pageMarkdown,
+  });
+  const extraction: CourseExtraction = {
+    ...extracted,
+    requisites: incompatibilities.requisites,
+  };
 
   const unsupported = unsupportedModelWording(extraction, pageMarkdown);
   const sourceReview = reviewCourseSourceRules({
@@ -170,6 +182,7 @@ export function finaliseCourseExtraction({
       message: `The importer could not model this requirement: ${wording}`,
     })),
     ...sourceReview.reviewItems,
+    ...incompatibilities.reviewItems,
     ...(problem
       ? [
           {
