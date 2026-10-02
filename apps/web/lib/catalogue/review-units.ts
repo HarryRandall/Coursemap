@@ -171,7 +171,13 @@ const MODEL_FIELD_UNITS: Record<string, readonly string[]> = {
   "requisites.incompatibilityRule": ["requirements.incompatibility"],
   "requisites.incompatibilityText": ["requirements.incompatibility"],
   "requisites.incompatibilityCourseCodes": ["requirements.incompatibility"],
+  "requisites.concurrentIncompatibilityCourseCodes": [
+    "requirements.incompatibility",
+  ],
   "requisites.softIncompatibilityCourseCodes": ["requirements.incompatibility"],
+  "requisites.softConcurrentIncompatibilityCourseCodes": [
+    "requirements.incompatibility",
+  ],
 };
 
 export function evidenceBelongsToReviewUnit(

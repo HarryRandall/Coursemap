@@ -111,6 +111,37 @@ export function CatalogueEditorProvider({
   );
   const currentContent = JSON.stringify(write);
   const dirty = currentContent !== savedContent;
+  const incomingState = JSON.stringify([
+    initial,
+    initialRevision,
+    initialHasDraft,
+    initiallyPublished,
+  ]);
+  const [receivedState, setReceivedState] = useState(incomingState);
+  // Revalidation can arrive before the autosave response. Let that response
+  // acknowledge its revision before considering newer server content.
+  if (receivedState !== incomingState && saveState !== "saving") {
+    setReceivedState(incomingState);
+    if (initialRevision > revision || !initialHasDraft) {
+      if (dirty) {
+        setSaveState("conflict");
+        setSaveError(
+          "This draft changed elsewhere. Reload before applying more changes.",
+        );
+      } else {
+        setWrite(initial);
+        setSavedContent(JSON.stringify(initial));
+        setRevision(initialRevision);
+        setHasDraft(initialHasDraft);
+        setHasUnpublishedChanges(initialHasUnpublishedChanges);
+        setIsPublished(initiallyPublished);
+        setEditing(initialHasDraft);
+        setSaveState("saved");
+        setSaveError(null);
+        setFailedContent(null);
+      }
+    }
+  }
   // Publication is the only action here that changes a public page, so it is
   // also the only one that has to drop the cached public reads.
   const publishedRecord = {

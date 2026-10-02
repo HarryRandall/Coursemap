@@ -38,6 +38,7 @@ import { evaluateRule } from "../lib/coursemap/requisite-evaluation.ts";
 import { requirementTreeFromSource } from "../lib/coursemap/requirement-write-tree.ts";
 import { conditionSummary } from "../ui/requirements/requirement-presentation.ts";
 import { programmeCodeForName } from "../lib/catalogue-import/kinds/course/programmes.ts";
+import { reconcileBareIncompatibilities } from "../lib/catalogue-import/kinds/course/source-review.ts";
 
 // A complete, valid extraction of the reduced COMP2400 page in
 // fixtures/course-import, in the shape the model returns.
@@ -51,6 +52,106 @@ const extraction = JSON.parse(
   ),
 );
 const pageMarkdown = JSON.stringify(extraction);
+
+test("bare ANU incompatibility covers previous and concurrent enrolment", () => {
+  const model = emptyCourseExtraction({
+    code: "STAT2005",
+    year: 2025,
+    title: "Test Statistics",
+  });
+  model.requisites.incompatibilityText = "Incompatible with STAT7004.";
+  model.requisites.incompatibilityCourseCodes = ["STAT7004"];
+  const source =
+    "## Requisite and Incompatibility\n\nIncompatible with STAT7004.\n\n## Prescribed Texts\n";
+  const finalised = finaliseCourseExtraction({
+    code: model.code,
+    year: model.year,
+    listingTitle: model.title,
+    model,
+    pageMarkdown: source,
+    finishReason: "stop",
+    responseError: null,
+  });
+  assert.deepEqual(
+    finalised.extraction.requisites.concurrentIncompatibilityCourseCodes,
+    ["STAT7004"],
+  );
+  assert.ok(
+    finalised.extraction.reviewItems.some(
+      (item) =>
+        item.fieldKey === "requisites.concurrentIncompatibilityCourseCodes" &&
+        item.severity === "warning",
+    ),
+  );
+  const rule = projectCourseSnapshot(
+    finalised.extraction,
+  ).ruleConditions.filter(
+    (condition) => condition.ruleKey === "incompatibility",
+  );
+  assert.deepEqual(
+    rule.map((condition) => condition.conditionKind),
+    ["incompatible", "incompatible_concurrent"],
+  );
+});
+
+test("bare incompatibility reconciliation fails closed on unsupported scopes", () => {
+  const source =
+    "## Requisite and Incompatibility\n\nIncompatible with STAT2013 and STAT6013.\n\n## Other\n";
+  const base = emptyCourseExtraction({
+    code: "STAT2001",
+    year: 2025,
+    title: "Test Statistics",
+  }).requisites;
+  const complete = reconcileBareIncompatibilities({
+    requisites: {
+      ...base,
+      incompatibilityCourseCodes: ["STAT2013", "STAT6013"],
+      concurrentIncompatibilityCourseCodes: ["STAT2013", "STAT6013"],
+    },
+    pageMarkdown: source,
+  });
+  assert.equal(complete.reviewItems.length, 0);
+
+  const missing = reconcileBareIncompatibilities({
+    requisites: {
+      ...base,
+      incompatibilityCourseCodes: ["STAT2013"],
+    },
+    pageMarkdown: source,
+  });
+  assert.deepEqual(missing.requisites.concurrentIncompatibilityCourseCodes, [
+    "STAT2013",
+  ]);
+  assert.ok(
+    missing.reviewItems.some(
+      (item) => item.severity === "error" && item.message.includes("STAT6013"),
+    ),
+  );
+
+  for (const wording of [
+    "Previously completed STAT2013 is incompatible.",
+    "Cannot concurrently enrol in STAT2013.",
+    "Incompatible with STAT2013 if permission is refused.",
+  ]) {
+    const result = reconcileBareIncompatibilities({
+      requisites: { ...base, incompatibilityCourseCodes: ["STAT2013"] },
+      pageMarkdown: `## Requisite and Incompatibility\n\n${wording}\n`,
+    });
+    assert.deepEqual(
+      result.requisites.concurrentIncompatibilityCourseCodes,
+      [],
+    );
+    assert.deepEqual(result.reviewItems, []);
+  }
+  const advisory = reconcileBareIncompatibilities({
+    requisites: {
+      ...base,
+      softIncompatibilityCourseCodes: ["STAT2013"],
+    },
+    pageMarkdown: source,
+  });
+  assert.ok(advisory.reviewItems.some((item) => item.severity === "error"));
+});
 
 test("unmodelled eligibility wording creates an explicit blocking review item", () => {
   const wording =
@@ -330,7 +431,11 @@ test("resolves STAT2001's programme identity without losing its AND/OR tree", ()
         item.fieldKey === "sourceUpdatedAt" && item.severity === "error",
     ),
   );
-  assert.equal(result.warningCount, 0);
+  assert.equal(result.warningCount, 1);
+  assert.deepEqual(
+    result.extraction.requisites.concurrentIncompatibilityCourseCodes,
+    ["STAT2013", "STAT6013"],
+  );
   const expected = structuredClone(stat2001.requisites.prerequisiteRule);
   expected.rules[0].rules[2].programmeCode = "BADAN";
   assert.deepEqual(result.extraction.requisites.prerequisiteRule, expected);

@@ -10,9 +10,11 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
+import { requirementWriteWithTree } from "@/lib/catalogue-import/requirement-tree";
 import { emptyCatalogueContent } from "@/lib/catalogue/content";
 import { CatalogueEditorProvider } from "@/ui/admin/catalogue/catalogue-editor-context";
 import { RecordActions } from "@/ui/admin/catalogue/record-actions";
+import { RecordTabs, RecordTabList } from "@/ui/admin/catalogue/record-tabs";
 import { CatalogueContentEditor } from "@/ui/admin/catalogue/content-editor";
 
 const actions = vi.hoisted(() => ({
@@ -96,6 +98,7 @@ test("autosave shows saving then saved without a success toast", async () => {
   fireEvent.change(screen.getByLabelText("Description"), {
     target: { value: "A clearer description" },
   });
+  expect(screen.getByRole("status")).toHaveTextContent("Saving...");
   await act(async () => vi.advanceTimersByTime(1_000));
   expect(screen.getByRole("status")).toHaveTextContent("Saving...");
   expect(actions.save).toHaveBeenCalledWith(
@@ -241,4 +244,187 @@ test("backing out of an opened draft discards it, keeping no checkpoint", async 
     expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument(),
   );
   expect(screen.queryByLabelText("Description")).not.toBeInTheDocument();
+});
+
+test("server autosave refresh preserves later typing and expanded sections", async () => {
+  let finish!: (value: unknown) => void;
+  actions.save.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  actions.save.mockResolvedValue({ ok: true, revision: 2, unchanged: false });
+  const initial = initialContent();
+  const editor = (content: typeof initial, revision: number) => (
+    <TooltipProvider delayDuration={0}>
+      <CatalogueEditorProvider
+        initial={content}
+        recordId={42}
+        initialRevision={revision}
+        initiallyPublished
+        initialHasDraft
+        initialHasUnpublishedChanges
+        path="/admin/courses/2026/comp1000"
+      >
+        <RecordActions canWrite />
+        <RecordTabs value="content" path="/admin/courses/2026/comp1000">
+          <RecordTabList />
+        </RecordTabs>
+        <CatalogueContentEditor />
+      </CatalogueEditorProvider>
+    </TooltipProvider>
+  );
+  const view = render(editor(initial, 0));
+  fireEvent.click(screen.getByRole("button", { name: "Tags0" }));
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "First edit" },
+  });
+  expect(screen.getByRole("tab", { name: "Student view" })).toBeDisabled();
+  await act(async () => vi.advanceTimersByTime(1_000));
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "Second edit during saving" },
+  });
+  const server = structuredClone(initial);
+  server.course!.details.description = "First edit";
+  view.rerender(editor(server, 1));
+  await act(async () => {
+    finish({ ok: true, revision: 1, unchanged: false });
+  });
+  expect(screen.getByLabelText("Description")).toHaveValue(
+    "Second edit during saving",
+  );
+  expect(screen.getByRole("button", { name: "Tags0" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await act(async () => vi.advanceTimersByTime(1_000));
+  await waitFor(() => expect(actions.save).toHaveBeenCalledTimes(2));
+  expect(actions.save).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      expectedRevision: 1,
+      content: expect.objectContaining({
+        course: expect.objectContaining({
+          details: expect.objectContaining({
+            description: "Second edit during saving",
+          }),
+        }),
+      }),
+    }),
+  );
+  expect(screen.getByRole("tab", { name: "Student view" })).toBeEnabled();
+});
+
+test("a clean editor adopts a reviewed server draft without remounting its sections", () => {
+  const initial = initialContent();
+  const editor = (content: typeof initial, revision: number) => (
+    <CatalogueEditorProvider
+      initial={content}
+      recordId={42}
+      initialRevision={revision}
+      initiallyPublished
+      initialHasDraft
+      initialHasUnpublishedChanges
+      path="/admin/courses/2026/comp1000"
+    >
+      <CatalogueContentEditor />
+    </CatalogueEditorProvider>
+  );
+  const view = render(editor(initial, 0));
+  fireEvent.click(screen.getByRole("button", { name: "Tags0" }));
+  const reviewed = structuredClone(initial);
+  reviewed.course!.details.description = "Reviewed wording";
+  view.rerender(editor(reviewed, 1));
+  expect(screen.getByLabelText("Description")).toHaveValue("Reviewed wording");
+  expect(screen.getByRole("button", { name: "Tags0" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+});
+
+test("editing recorded source wording preserves unsupported condition kinds and unit scopes", async () => {
+  actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
+  const initial = initialContent();
+  initial.requirements = requirementWriteWithTree(
+    initial.requirements,
+    "prerequisite",
+    {
+      type: "group",
+      id: "root",
+      operator: "all_of",
+      minimumCount: null,
+      children: [
+        {
+          type: "condition",
+          id: "major",
+          kind: "course",
+          courseCode: "ECON1101",
+        },
+      ],
+    },
+    "Complete a major.",
+  );
+  const condition = initial.requirements.conditions[0]!;
+  condition.kind = "structure_set";
+  condition.itemCode = null;
+  condition.itemKind = null;
+  condition.structureKind = "major";
+  condition.scope = "degree";
+  condition.maximumUnits = 48;
+  initial.requirements.options = [
+    {
+      conditionKey: condition.key,
+      position: 1,
+      kind: "major",
+      code: "ACMK-MAJ",
+      title: null,
+      sourceText: null,
+    },
+  ];
+  render(
+    <CatalogueEditorProvider
+      initial={initial}
+      recordId={42}
+      initialRevision={0}
+      initiallyPublished
+      initialHasDraft
+      initialHasUnpublishedChanges
+      path="/admin/courses/2026/comp1000"
+    >
+      <CatalogueContentEditor />
+    </CatalogueEditorProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Prerequisites1" }));
+  fireEvent.change(screen.getByLabelText("Source wording shown to students"), {
+    target: { value: "Complete one approved major." },
+  });
+  await act(async () => vi.advanceTimersByTime(1_000));
+  await waitFor(() => expect(actions.save).toHaveBeenCalledTimes(1));
+  const expected = structuredClone(initial.requirements);
+  expected.rules[0]!.sourceText = "Complete one approved major.";
+  expect(actions.save.mock.calls[0]![0].content.requirements).toEqual(expected);
+});
+
+test("a new unit option retains its numeric type after an empty field is filled", async () => {
+  actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
+  renderEditor();
+  fireEvent.click(screen.getByRole("button", { name: "Unit options0" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+  const inputs = screen.getAllByRole("spinbutton", { name: "Units" });
+  fireEvent.change(inputs[1]!, { target: { value: "6" } });
+  fireEvent.change(screen.getByLabelText("Label"), {
+    target: { value: "Six-unit placement" },
+  });
+  fireEvent.change(screen.getByLabelText("Source Text"), {
+    target: { value: "6 units for 120 hours of placement." },
+  });
+  await act(async () => vi.advanceTimersByTime(1_000));
+  await waitFor(() => expect(actions.save).toHaveBeenCalledTimes(1));
+  expect(
+    actions.save.mock.calls[0]![0].content.course.unitOptions[0],
+  ).toMatchObject({
+    units: 6,
+    label: "Six-unit placement",
+    sourceText: "6 units for 120 hours of placement.",
+  });
 });

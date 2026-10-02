@@ -60,26 +60,16 @@ export function diffSnapshotWrites(
     );
   };
   const changes: SnapshotChange[] = [];
+  const after = catalogueReviewUnitMap(candidate);
+  // Optional collections, including the last tag, can disappear entirely.
+  // Their removals must still save and acquire manual review provenance.
   const units = [
     ...catalogueReviewUnits(candidate),
-    // A rule the candidate dropped still has to be reported as a removal.
-    ...[...before.values()].filter(
-      (unit) =>
-        unit.unitKind === "requirement_rule" &&
-        !candidate.requirements.rules.some(
-          (rule) => `requirements.${rule.key}` === unit.fieldPath,
-        ),
-    ),
+    ...[...before.values()].filter((unit) => !after.has(unit.fieldPath)),
   ];
   for (const unit of units) {
     const oldValue = before.get(unit.fieldPath)?.value ?? null;
-    const newValue =
-      unit.unitKind === "requirement_rule" &&
-      !candidate.requirements.rules.some(
-        (rule) => `requirements.${rule.key}` === unit.fieldPath,
-      )
-        ? null
-        : unit.value;
+    const newValue = after.get(unit.fieldPath)?.value ?? null;
     if (sameReviewValue(oldValue, newValue)) continue;
     const evidence = evidenceFor(unit.fieldPath);
     changes.push({

@@ -478,6 +478,22 @@ export function validateCatalogueContent(value: unknown): CatalogueContent {
   return structuredClone(value) as CatalogueContent;
 }
 
+/** Incomplete unit options may be drafted, but cannot be published. */
+export function assertPublishableUnitOptions(content: CatalogueContent) {
+  if (!content.course) return;
+  for (const [index, option] of content.course.unitOptions.entries()) {
+    const name = `Unit option ${index + 1}`;
+    if (!Number.isFinite(option.units) || option.units <= 0)
+      throw new TypeError(`${name} must have a positive number of units.`);
+    if (option.label !== null && !option.label?.trim())
+      throw new TypeError(`${name} needs a label or the label field cleared.`);
+    if (!option.sourceText?.trim())
+      throw new TypeError(
+        `${name} needs the ANU source wording before publication.`,
+      );
+  }
+}
+
 /**
  * Refuses structure content an administrator submits with a section or
  * relationship outside Coursemap's fixed vocabulary. Stored content is not

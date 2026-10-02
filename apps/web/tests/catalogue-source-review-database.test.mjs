@@ -25,6 +25,7 @@ const CHANGE_CODE = "TSTC9202";
 const FIRST_READ_CODE = "TSTC9203";
 const EXTRACTION_ERROR_CODE = "TSTC9204";
 const AMBIGUOUS_ERROR_CODE = "TSTC9205";
+const TAG_REMOVAL_CODE = "TSTC9206";
 const ADMIN_ID = "99000000-0000-4000-8000-000000000041";
 
 let sql;
@@ -55,11 +56,11 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE}, ${TAG_REMOVAL_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE}, ${TAG_REMOVAL_CODE})`;
   } finally {
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
@@ -192,6 +193,7 @@ beforeAll(async () => {
   await createRecord(FIRST_READ_CODE, "First Read Record");
   await createRecord(EXTRACTION_ERROR_CODE, "Extraction Error Record");
   await createRecord(AMBIGUOUS_ERROR_CODE, "Ambiguous Error Record");
+  await createRecord(TAG_REMOVAL_CODE, "Tag Removal Record");
 });
 
 afterAll(async () => {
@@ -671,4 +673,59 @@ test("an ambiguous prerequisite cannot be cleared by explanation alone", async (
     }),
     (error) => error.code === "AMBIGUOUS_RULE",
   );
+});
+
+test("removing the last tag persists, reconciles first reading and publishes without restoring it", async () => {
+  const recordId = records.get(TAG_REMOVAL_CODE);
+  const content = sourceContent(
+    TAG_REMOVAL_CODE,
+    "Tag Removal Record",
+    "Verified description.",
+  );
+  content.course.tags = [{ position: 1, name: "Business" }];
+  content.evidence.push({
+    fieldPath: "tags",
+    method: "model",
+    confidence: 0.7,
+    sourceLocator: null,
+    sourceExcerpt: null,
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  await observeSource(TAG_REMOVAL_CODE, content);
+  const [draft] =
+    await sql`select content, revision from public.catalogue_drafts where record_id = ${recordId}`;
+  const edited = structuredClone(draft.content);
+  delete edited.course.tags;
+  const saved = await saveCatalogueDraft({
+    recordId,
+    expectedRevision: Number(draft.revision),
+    content: edited,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  assert.equal(saved.unchanged, false);
+  assert.deepEqual(saved.changedPaths, ["course.tags"]);
+  const tag = (await currentReview(TAG_REMOVAL_CODE)).firstRead.find(
+    (change) => change.fieldPath === "course.tags",
+  );
+  assert.equal(tag.isStale, true);
+  assert.equal(tag.localValue, null);
+  await resolveSourceChange({
+    recordId,
+    changeId: tag.id,
+    decision: "keep_local",
+    userId: ADMIN_ID,
+    sql,
+  });
+  const { versionId } = await publishCatalogueDraft({
+    recordId,
+    expectedRevision: saved.draft.revision,
+    userId: ADMIN_ID,
+    editingSessionId: "11111111-1111-4111-8111-111111111111",
+    sql,
+  });
+  const [count] =
+    await sql`select count(*)::int as count from public.course_tags where version_id = ${versionId}`;
+  assert.equal(count.count, 0);
 });

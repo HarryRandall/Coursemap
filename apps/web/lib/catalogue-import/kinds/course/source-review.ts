@@ -2,8 +2,82 @@ import { unsupportedModelWording } from "../../model-evidence.ts";
 import type {
   CourseExtraction,
   CourseExtractionReviewItem,
+  CourseRequisites,
   CourseRule,
 } from "./contract.ts";
+
+/** ANU's unqualified incompatibility excludes both past and current enrolment. */
+export function reconcileBareIncompatibilities({
+  requisites,
+  pageMarkdown,
+}: {
+  requisites: CourseRequisites;
+  pageMarkdown: string;
+}): {
+  requisites: CourseRequisites;
+  reviewItems: CourseExtractionReviewItem[];
+} {
+  const sourceSection =
+    pageMarkdown
+      .split(/^## Requisite and Incompatibility\s*$/mu)[1]
+      ?.split(/^## /mu)[0] ?? "";
+  const plainSection = sourceSection.replace(
+    /\[([A-Z]{4}\d{4})\]\([^)]*\)/gu,
+    "$1",
+  );
+  const sourceCodes = new Set<string>();
+  for (const match of plainSection.matchAll(
+    /\bIncompatible with\s+([^.!?\n]+)(?:[.!?]|$)/giu,
+  )) {
+    const list = match[1]
+      .trim()
+      .replace(/,\s*(?:and|or)\s+/giu, ",")
+      .replace(/\s+(?:and|or)\s+/giu, ",");
+    if (!/^[A-Z]{4}\d{4}(?:\s*,\s*[A-Z]{4}\d{4})*$/iu.test(list)) continue;
+    for (const code of list.split(/\s*,\s*/u))
+      sourceCodes.add(code.toUpperCase());
+  }
+
+  const concurrent = new Set(
+    requisites.concurrentIncompatibilityCourseCodes ?? [],
+  );
+  const added: string[] = [];
+  const reviewItems: CourseExtractionReviewItem[] = [];
+  for (const code of sourceCodes) {
+    const isHardCompletion =
+      requisites.incompatibilityCourseCodes.includes(code);
+    const isSoft =
+      requisites.softIncompatibilityCourseCodes.includes(code) ||
+      (requisites.softConcurrentIncompatibilityCourseCodes ?? []).includes(
+        code,
+      );
+    if (isHardCompletion && concurrent.has(code) && !isSoft) continue;
+    if (!isHardCompletion || isSoft || requisites.incompatibilityRule) {
+      reviewItems.push({
+        fieldKey: "requisites.concurrentIncompatibilityCourseCodes",
+        kind: "missing",
+        severity: "error",
+        message: `ANU lists ${code} as incompatible, but the extracted exclusions do not safely cover both past and concurrent enrolment. Review the clause before publication.`,
+      });
+      continue;
+    }
+    concurrent.add(code);
+    added.push(code);
+  }
+  if (added.length)
+    reviewItems.push({
+      fieldKey: "requisites.concurrentIncompatibilityCourseCodes",
+      kind: "missing",
+      severity: "warning",
+      message: `ANU's unqualified incompatibility also excludes concurrent enrolment in ${added.join(", ")}; this scope was added to the model's completed-course exclusions.`,
+    });
+  return {
+    requisites: added.length
+      ? { ...requisites, concurrentIncompatibilityCourseCodes: [...concurrent] }
+      : requisites,
+    reviewItems,
+  };
+}
 
 /** A college identity must be source-backed, even when the clause abbreviates it. */
 function unsupportedCollegeNames(

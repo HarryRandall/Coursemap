@@ -16,6 +16,7 @@ import {
 } from "@/lib/catalogue-import/version-content";
 import {
   CATALOGUE_CONTENT_SCHEMA_VERSION,
+  assertPublishableUnitOptions,
   assertStructureVocabulary,
   emptyCatalogueContent,
   validateCatalogueContent,
@@ -565,6 +566,7 @@ async function materialiseDraftVersion(
   },
 ) {
   const content = validateCatalogueContent(draft.content);
+  assertPublishableUnitOptions(content);
   assertContentIdentity(content, record);
   const contentHash = contentHashForCatalogueContent(content);
   const evidenceRows = await tx`
