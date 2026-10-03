@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { SearchParams } from "@/ui/admin/catalogue/catalogue-pages";
 import {
   CatalogueDiscoveryDetailPage,
+  CatalogueImportPage,
   CatalogueOperationsPage,
   CatalogueSyncDetailPage,
 } from "@/ui/admin/operations/operations-pages";
@@ -26,11 +27,28 @@ export default async function Page({
       />
     );
   }
-  if (section.length === 1 && section[0] === "discovery") {
+  if (
+    section.length === 1 &&
+    (section[0] === "discovery" || section[0] === "imports")
+  ) {
     return (
       <CatalogueOperationsPage
-        section="discovery"
+        section={section[0]}
         searchParams={await searchParams}
+      />
+    );
+  }
+  if (section.length === 2 && section[0] === "imports") {
+    const runId = section[1]!;
+    if (runId !== "new" && !UUID.test(runId)) notFound();
+    const query = await searchParams;
+    const year = query.year === undefined ? undefined : Number(query.year);
+    if (year !== undefined && !Number.isInteger(year)) notFound();
+    return (
+      <CatalogueImportPage
+        runId={runId}
+        year={year}
+        initialTab={typeof query.tab === "string" ? query.tab : undefined}
       />
     );
   }

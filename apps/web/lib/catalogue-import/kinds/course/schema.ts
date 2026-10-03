@@ -368,6 +368,15 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         {
           type: "object",
           additionalProperties: false,
+          required: ["op", "sourceText"],
+          properties: {
+            op: { const: "external_requirement" },
+            sourceText: { type: "string", minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
           required: ["op", "mode", "matches"],
           properties: {
             op: { const: "enrolment_mode" },

@@ -210,13 +210,16 @@ function Section({
   title,
   count,
   defaultOpen = false,
+  plain = false,
   children,
 }: {
   title: string;
   count?: number;
   defaultOpen?: boolean;
+  plain?: boolean;
   children: React.ReactNode;
 }) {
+  if (plain) return <>{children}</>;
   return (
     <Collapsible
       defaultOpen={defaultOpen}
@@ -258,7 +261,9 @@ function labelsFor(prefix: string) {
  * belongs to the provider above them, so the toolbar reporting that session
  * can sit above the record's title instead of above these fields.
  */
-export function CatalogueContentEditor() {
+export function CatalogueContentEditor({
+  fieldPath,
+}: { fieldPath?: string } = {}) {
   const { editing, setWrite, write } = useCatalogueEditor();
 
   function updateCourse(
@@ -295,6 +300,15 @@ export function CatalogueContentEditor() {
     }));
   }
 
+  const selected = (path: string) => !fieldPath || fieldPath === path;
+  const detailValue = (prefix: string, value: Record<string, unknown>) =>
+    fieldPath
+      ? Object.fromEntries(
+          Object.entries(value).filter(
+            ([key]) => `${prefix}.${key}` === fieldPath,
+          ),
+        )
+      : value;
   const courseLabels = labelsFor("course.details");
   const structureLabels = labelsFor("structure.details");
 
@@ -302,44 +316,53 @@ export function CatalogueContentEditor() {
     <div className="flex flex-col gap-4">
       {write.course ? (
         <>
-          <Section title="Overview" defaultOpen>
-            <DetailsEditor
-              idPrefix="course-details"
-              value={
-                {
-                  ...write.course.details,
-                  workloadHoursBasis:
-                    write.course.details.workloadHoursBasis ??
-                    (editing ? "unknown" : null),
-                } as unknown as Row
-              }
-              choices={{
-                workloadHoursBasis: [
-                  { value: "unknown", label: "Not stated" },
-                  { value: "weekly", label: "Per week" },
-                  { value: "total", label: "Whole course" },
-                ],
-              }}
-              labels={courseLabels}
-              readOnly={!editing}
-              readOnlyKeys={["subjectCode", "level"]}
-              onChange={(details) =>
-                updateCourse({
-                  details: {
-                    ...details,
+          {(!fieldPath || fieldPath.startsWith("course.details.")) && (
+            <Section plain={Boolean(fieldPath)} title="Overview" defaultOpen>
+              <DetailsEditor
+                idPrefix="course-details"
+                hideLabels={Boolean(fieldPath)}
+                value={
+                  detailValue("course.details", {
+                    ...write.course.details,
                     workloadHoursBasis:
-                      details.workloadHoursBasis === "unknown"
-                        ? null
-                        : details.workloadHoursBasis,
-                  } as unknown as NonNullable<
-                    CatalogueContent["course"]
-                  >["details"],
-                })
-              }
-            />
-          </Section>
-          {!editing && !write.course.tags?.length ? null : (
+                      write.course.details.workloadHoursBasis ??
+                      (editing ? "unknown" : null),
+                  } as unknown as Row) as Row
+                }
+                choices={{
+                  workloadHoursBasis: [
+                    { value: "unknown", label: "Not stated" },
+                    { value: "weekly", label: "Per week" },
+                    { value: "total", label: "Whole course" },
+                  ],
+                }}
+                labels={courseLabels}
+                readOnly={!editing}
+                readOnlyKeys={["subjectCode", "level"]}
+                onChange={(details) =>
+                  updateCourse({
+                    details: {
+                      ...write.course!.details,
+                      ...details,
+                      workloadHoursBasis:
+                        details.workloadHoursBasis === undefined
+                          ? write.course!.details.workloadHoursBasis
+                          : details.workloadHoursBasis === "unknown"
+                            ? null
+                            : details.workloadHoursBasis,
+                    } as unknown as NonNullable<
+                      CatalogueContent["course"]
+                    >["details"],
+                  })
+                }
+              />
+            </Section>
+          )}
+          {!selected("course.tags") ||
+          (!editing && !write.course.tags?.length) ? null : (
             <Section
+              plain={Boolean(fieldPath)}
+              defaultOpen={Boolean(fieldPath)}
               title={FIELD_LABELS["course.tags"] ?? "Tags"}
               count={write.course.tags?.length ?? 0}
             >
@@ -362,11 +385,16 @@ export function CatalogueContentEditor() {
               />
             </Section>
           )}
-          {!editing &&
-          !Object.values(write.course.offering ?? {}).some(
-            (value) => value !== null && value !== "",
-          ) ? null : (
-            <Section title="Offering">
+          {!selected("course.offering") ||
+          (!editing &&
+            !Object.values(write.course.offering ?? {}).some(
+              (value) => value !== null && value !== "",
+            )) ? null : (
+            <Section
+              plain={Boolean(fieldPath)}
+              title="Offering"
+              defaultOpen={Boolean(fieldPath)}
+            >
               <DetailsEditor
                 idPrefix="course-offering"
                 value={
@@ -386,12 +414,16 @@ export function CatalogueContentEditor() {
               />
             </Section>
           )}
-          {COURSE_COLLECTIONS.map(({ key, template }) =>
+          {COURSE_COLLECTIONS.filter(({ key }) =>
+            selected(`course.${key}`),
+          ).map(({ key, template }) =>
             // A collection nobody filled in is part of the form, not part of
             // the record, so reading one leaves it out entirely.
             !editing && (write.course![key] as Row[]).length === 0 ? null : (
               <Section
+                plain={Boolean(fieldPath)}
                 key={key}
+                defaultOpen={Boolean(fieldPath)}
                 title={FIELD_LABELS[`course.${key}`] ?? key}
                 count={(write.course![key] as Row[]).length}
               >
@@ -406,71 +438,92 @@ export function CatalogueContentEditor() {
               </Section>
             ),
           )}
-          {COURSE_RULES.map((ruleKey) => (
-            <RuleSection
-              key={ruleKey}
-              ruleKey={ruleKey}
-              readOnly={!editing}
-              requirements={write.requirements}
-              onChange={(tree, sourceText) =>
-                updateRule(ruleKey, tree, sourceText)
-              }
-            />
-          ))}
+          {COURSE_RULES.filter((key) => selected(`requirements.${key}`)).map(
+            (ruleKey) => (
+              <RuleSection
+                plain={Boolean(fieldPath)}
+                key={ruleKey}
+                ruleKey={ruleKey}
+                defaultOpen={Boolean(fieldPath)}
+                readOnly={!editing}
+                requirements={write.requirements}
+                onChange={(tree, sourceText) =>
+                  updateRule(ruleKey, tree, sourceText)
+                }
+              />
+            ),
+          )}
         </>
       ) : null}
 
       {write.structure ? (
         <>
-          <Section title="Overview" defaultOpen>
-            <DetailsEditor
-              idPrefix="structure-details"
-              value={write.structure.details as unknown as Row}
-              labels={structureLabels}
+          {(!fieldPath || fieldPath.startsWith("structure.details.")) && (
+            <Section plain={Boolean(fieldPath)} title="Overview" defaultOpen>
+              <DetailsEditor
+                idPrefix="structure-details"
+                hideLabels={Boolean(fieldPath)}
+                value={
+                  detailValue(
+                    "structure.details",
+                    write.structure.details as unknown as Row,
+                  ) as Row
+                }
+                labels={structureLabels}
+                readOnly={!editing}
+                onChange={(details) =>
+                  updateStructure({
+                    details: {
+                      ...write.structure!.details,
+                      ...details,
+                    } as unknown as NonNullable<
+                      CatalogueContent["structure"]
+                    >["details"],
+                  })
+                }
+              />
+            </Section>
+          )}
+          {STRUCTURE_COLLECTIONS.filter(({ key }) =>
+            selected(`structure.${key}`),
+          ).map(({ key, template, hiddenKeys, choices, normalise }) =>
+            !editing && (write.structure![key] as Row[]).length === 0 ? null : (
+              <Section
+                plain={Boolean(fieldPath)}
+                key={key}
+                defaultOpen={Boolean(fieldPath)}
+                title={FIELD_LABELS[`structure.${key}`] ?? key}
+                count={(write.structure![key] as Row[]).length}
+              >
+                <RowsEditor
+                  idPrefix={`structure-${key}`}
+                  rows={write.structure![key] as unknown as Row[]}
+                  template={template}
+                  hiddenKeys={hiddenKeys}
+                  choices={choices}
+                  emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
+                  readOnly={!editing}
+                  onChange={(rows) =>
+                    updateStructure({
+                      [key]: normalise ? rows.map(normalise) : rows,
+                    } as never)
+                  }
+                />
+              </Section>
+            ),
+          )}
+          {selected("requirements.structure") && (
+            <RuleSection
+              plain={Boolean(fieldPath)}
+              ruleKey="structure"
+              defaultOpen={Boolean(fieldPath)}
               readOnly={!editing}
-              onChange={(details) =>
-                updateStructure({
-                  details: details as unknown as NonNullable<
-                    CatalogueContent["structure"]
-                  >["details"],
-                })
+              requirements={write.requirements}
+              onChange={(tree, sourceText) =>
+                updateRule("structure", tree, sourceText)
               }
             />
-          </Section>
-          {STRUCTURE_COLLECTIONS.map(
-            ({ key, template, hiddenKeys, choices, normalise }) =>
-              !editing &&
-              (write.structure![key] as Row[]).length === 0 ? null : (
-                <Section
-                  key={key}
-                  title={FIELD_LABELS[`structure.${key}`] ?? key}
-                  count={(write.structure![key] as Row[]).length}
-                >
-                  <RowsEditor
-                    idPrefix={`structure-${key}`}
-                    rows={write.structure![key] as unknown as Row[]}
-                    template={template}
-                    hiddenKeys={hiddenKeys}
-                    choices={choices}
-                    emptyLabel={`No ${(FIELD_LABELS[`structure.${key}`] ?? key).toLowerCase()} recorded.`}
-                    readOnly={!editing}
-                    onChange={(rows) =>
-                      updateStructure({
-                        [key]: normalise ? rows.map(normalise) : rows,
-                      } as never)
-                    }
-                  />
-                </Section>
-              ),
           )}
-          <RuleSection
-            ruleKey="structure"
-            readOnly={!editing}
-            requirements={write.requirements}
-            onChange={(tree, sourceText) =>
-              updateRule("structure", tree, sourceText)
-            }
-          />
         </>
       ) : null}
     </div>
@@ -482,7 +535,11 @@ function RuleSection({
   requirements,
   onChange,
   readOnly = false,
+  defaultOpen = false,
+  plain = false,
 }: {
+  defaultOpen?: boolean;
+  plain?: boolean;
   ruleKey: RequirementRuleKind;
   requirements: CatalogueContent["requirements"];
   onChange: (tree: ReviewedRuleTree | null, sourceText: string) => void;
@@ -503,6 +560,8 @@ function RuleSection({
   if (readOnly && !rule && conditionCount === 0 && !sourceText) return null;
   return (
     <Section
+      plain={plain}
+      defaultOpen={defaultOpen}
       title={FIELD_LABELS[`requirements.${ruleKey}`] ?? ruleKey}
       count={conditionCount}
     >

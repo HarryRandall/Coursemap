@@ -916,6 +916,129 @@ export type Database = {
         }
         Relationships: []
       }
+      catalogue_course_run_items: {
+        Row: {
+          actual_usd: number | null
+          published_version_id: number | null
+          record_id: number
+          reserved_usd: number
+          run_id: string
+          sync_id: string
+        }
+        Insert: {
+          actual_usd?: number | null
+          published_version_id?: number | null
+          record_id: number
+          reserved_usd?: number
+          run_id: string
+          sync_id: string
+        }
+        Update: {
+          actual_usd?: number | null
+          published_version_id?: number | null
+          record_id?: number
+          reserved_usd?: number
+          run_id?: string
+          sync_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_course_run_items_published_version_id_fkey"
+            columns: ["published_version_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_course_run_items_published_version_id_fkey"
+            columns: ["published_version_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["version_id"]
+          },
+          {
+            foreignKeyName: "catalogue_course_run_items_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_course_run_items_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "catalogue_course_run_items_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_course_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalogue_course_run_items_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: true
+            referencedRelation: "catalogue_syncs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalogue_course_runs: {
+        Row: {
+          academic_year: number
+          budget_usd: number
+          course_limit: number
+          created_at: string
+          id: string
+          input_usd_per_million: number
+          output_usd_per_million: number
+          pause_reason: string | null
+          publish_verified: boolean
+          requested_by: string
+          requested_model: string
+          state: string
+        }
+        Insert: {
+          academic_year: number
+          budget_usd: number
+          course_limit: number
+          created_at?: string
+          id?: string
+          input_usd_per_million: number
+          output_usd_per_million: number
+          pause_reason?: string | null
+          publish_verified?: boolean
+          requested_by: string
+          requested_model: string
+          state?: string
+        }
+        Update: {
+          academic_year?: number
+          budget_usd?: number
+          course_limit?: number
+          created_at?: string
+          id?: string
+          input_usd_per_million?: number
+          output_usd_per_million?: number
+          pause_reason?: string | null
+          publish_verified?: boolean
+          requested_by?: string
+          requested_model?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogue_course_runs_requested_model_fkey"
+            columns: ["requested_model"]
+            isOneToOne: false
+            referencedRelation: "import_models"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogue_discovery_check_source_pages: {
         Row: {
           discovery_check_id: number

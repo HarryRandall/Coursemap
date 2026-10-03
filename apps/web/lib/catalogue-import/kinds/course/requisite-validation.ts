@@ -222,7 +222,7 @@ function validateRule(
   } else if (op === "enrolled_in_college") {
     const record = exactRecord(value, path, ["op", "college"], issues);
     if (record) requireString(record.college, `${path}.college`, issues);
-  } else if (op === "equivalent_course") {
+  } else if (op === "equivalent_course" || op === "external_requirement") {
     const record = exactRecord(value, path, ["op", "sourceText"], issues);
     if (record) requireString(record.sourceText, `${path}.sourceText`, issues);
   } else if (op === "enrolment_mode") {

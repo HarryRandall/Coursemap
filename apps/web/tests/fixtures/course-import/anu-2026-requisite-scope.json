@@ -1,0 +1,66 @@
+[
+  {
+    "code": "BUSN1001",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/BUSN1001",
+    "fetchedAt": "2026-10-03T01:26:26.419Z",
+    "contentSha256": "0a5c65441cc6bc6332ef08bcdad18c0a635a9fb2cfb02b70c1f0e6fcbe66736c",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nYou are not able to enrol in this course if you have previously completed ENGN3211.\n"
+  },
+  {
+    "code": "FINM2001",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM2001",
+    "fetchedAt": "2026-10-03T01:26:26.393Z",
+    "contentSha256": "d1abecf08440a22141adfdbaafc446cedcafdb2d198e2f2628b1e818a303ecba",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed FINM1001, and either STAT1008 or STAT1003.\n"
+  },
+  {
+    "code": "FINM3005",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM3005",
+    "fetchedAt": "2026-10-03T01:26:26.342Z",
+    "contentSha256": "567df936fa6b5900c8208695657b17e4465aaaff1d74e92ff8953c0fe7df0d2b",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed FINM2001 and BUSN1001.\n"
+  },
+  {
+    "code": "ECON2108",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/ECON2108",
+    "fetchedAt": "2026-10-03T01:26:26.289Z",
+    "contentSha256": "930759a05af32e61f77014757987c64e6dfcef78b573c7e0b951f66629915a27",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed ECON1101 and ECON1102 or ECON1100. Incompatible with ECON2008.\n"
+  },
+  {
+    "code": "STAT2014",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/STAT2014",
+    "fetchedAt": "2026-10-03T01:26:26.360Z",
+    "contentSha256": "f869955880ccc68f10b11b15777526d1543695a6cef5eb572ce090ba67535f7b",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course, you must have completed STAT1008 and STAT2013 or be concurrently enrolled in STAT2013. Incompatible with STAT2008 and STAT6014.\n"
+  },
+  {
+    "code": "ECON2016",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/ECON2016",
+    "fetchedAt": "2026-10-03T01:30:22.677Z",
+    "contentSha256": "8b02000b627a8fcafe91b09de85adc674257394db056e6c7e065eb959fe1859b",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have successfully completed ECON2101. You are not able to enrol I this course if you have previously completed ECON2102 or ECON2112 or ECON1100.\n"
+  },
+  {
+    "code": "EMET2007",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/EMET2007",
+    "fetchedAt": "2026-10-03T01:30:22.689Z",
+    "contentSha256": "bbe1f3e24608c77e9deb9b1ebadbb6d443ee7d9f49d69a3e6075843aa54a97a6",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed or be currently enrolled in ECON1101. You must also have completed at least one of EMET1001, MATH1014, or MATH1116. You must also have completed either STAT1008 or STAT2001. Incompatible with EMET6007.\n"
+  },
+  {
+    "code": "FINM3008",
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM3008",
+    "fetchedAt": "2026-10-03T01:30:22.652Z",
+    "contentSha256": "27667edfc2307c492f64f228fe046df868c6d36c3918746fb46da192ad92ba05",
+    "year": 2026,
+    "requisiteMarkdown": "## Requisite and Incompatibility\n\nTo enrol in this course, you must have completed: FINM2001; and, FINM2003 or FINM3011. Incompatible with FINM6016.\n"
+  }
+]

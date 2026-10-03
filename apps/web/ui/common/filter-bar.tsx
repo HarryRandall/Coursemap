@@ -7,7 +7,13 @@ import {
   PopoverTrigger,
 } from "@coursemap/ui/primitives/popover";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, Funnel, ListFilter, Search, X } from "lucide-react";
 
@@ -52,9 +58,12 @@ export function FilterBar({
   autoFocus = false,
   normaliseParams,
   hideSearch = false,
+  actions,
 }: {
   searchPlaceholder: string;
   hideSearch?: boolean;
+  /** List actions placed beside the filter control. */
+  actions?: ReactNode;
   /** Focuses the search on mount, for a bar that opens a dialog. */
   autoFocus?: boolean;
   filters?: FilterConfig[];
@@ -284,6 +293,7 @@ export function FilterBar({
             </PopoverContent>
           </Popover>
         ) : null}
+        {actions}
       </div>
 
       {active.length > 0 && !hideSearch ? (

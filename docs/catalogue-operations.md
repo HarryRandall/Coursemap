@@ -55,6 +55,13 @@ Requirement confidence comes from model evidence, not a default percentage.
 Separate conditions may quote the same sentence without needing review; repeated
 conditions within the same group are flagged instead.
 
+Course finalisation independently checks plain mixed AND/OR prerequisite
+sentences without explicit scope markers. A guessed rule for such a sentence is
+withheld, the exact source wording is retained as an unknown requirement, and
+publication is blocked for review even if the model reported full confidence.
+This safeguard is conservative; it does not establish the correctness of every
+other requirement.
+
 ## Review ANU changes
 
 The **Changes** tab compares three states for every review unit: the previous

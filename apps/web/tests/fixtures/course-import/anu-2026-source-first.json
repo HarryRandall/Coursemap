@@ -1,0 +1,1784 @@
+{
+  "context": {
+    "knownCourses": [
+      {
+        "code": "BUSN1001",
+        "name": "Business Reporting and Analysis"
+      },
+      {
+        "code": "ECON1100",
+        "name": "Economics I (H)"
+      },
+      {
+        "code": "ECON1101",
+        "name": "Microeconomics 1"
+      },
+      {
+        "code": "ECON1102",
+        "name": "Macroeconomics 1"
+      },
+      {
+        "code": "ECON2016",
+        "name": "Economics II (H)"
+      },
+      {
+        "code": "ECON2101",
+        "name": "Microeconomics 2"
+      },
+      {
+        "code": "ECON2102",
+        "name": "Macroeconomics 2"
+      },
+      {
+        "code": "ECON2108",
+        "name": "Japanese Economy and Economic Policy"
+      },
+      {
+        "code": "EMET1001",
+        "name": "Foundations of Economic and Financial Models"
+      },
+      {
+        "code": "EMET2007",
+        "name": "Econometrics I: Econometric Methods"
+      },
+      {
+        "code": "EMET6007",
+        "name": "Econometrics I: Econometric Methods"
+      },
+      {
+        "code": "FINM1001",
+        "name": "Foundations of Finance"
+      },
+      {
+        "code": "FINM2001",
+        "name": "Corporate Finance"
+      },
+      {
+        "code": "FINM3005",
+        "name": "Corporate Valuation"
+      },
+      {
+        "code": "FINM3008",
+        "name": "Portfolio Construction"
+      },
+      {
+        "code": "FINM3011",
+        "name": "Investments"
+      },
+      {
+        "code": "FINM6005",
+        "name": "Applied Valuation"
+      },
+      {
+        "code": "FINM6016",
+        "name": "Applied Portfolio Construction"
+      },
+      {
+        "code": "MATH1014",
+        "name": "Mathematics and Applications 2"
+      },
+      {
+        "code": "MATH1113",
+        "name": "Mathematical Foundations for Actuarial Studies"
+      },
+      {
+        "code": "MATH1116",
+        "name": "Advanced Mathematics and Applications 2"
+      },
+      {
+        "code": "STAT1003",
+        "name": "Statistical Techniques"
+      },
+      {
+        "code": "STAT1008",
+        "name": "Quantitative Research Methods"
+      },
+      {
+        "code": "STAT2001",
+        "name": "Introductory Mathematical Statistics"
+      },
+      {
+        "code": "STAT2008",
+        "name": "Regression Modelling"
+      },
+      {
+        "code": "STAT2013",
+        "name": "Introductory Mathematical Statistics for Actuarial Studies"
+      },
+      {
+        "code": "STAT2014",
+        "name": "Regression Modelling for Actuarial Studies"
+      },
+      {
+        "code": "STAT6014",
+        "name": "Regression Modelling for Actuarial Studies"
+      }
+    ],
+    "knownProgrammes": [
+      {
+        "code": "1005XNAWD",
+        "name": "Non-Award Cross-Institutional National Institute of the Arts/University of Canberra"
+      },
+      {
+        "code": "1006XSRS",
+        "name": "ANU Summer Research Scholarship Program"
+      },
+      {
+        "code": "1110XNAWD",
+        "name": "Non-Award Arts (ANU College of Arts and Social Sciences)"
+      },
+      {
+        "code": "1111XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU College of Arts and Social Sciences)"
+      },
+      {
+        "code": "1130XNAWD",
+        "name": "Non-Award Law (ANU College of Law, Governance and Policy)"
+      },
+      {
+        "code": "1131XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU College of Law, Governance and Policy)"
+      },
+      {
+        "code": "1140XNAWD",
+        "name": "Non Award (ANU College of Business and Economics)"
+      },
+      {
+        "code": "1141XNAWD",
+        "name": "Non Award Cross-Institutional (ANU College of Business and Economics)"
+      },
+      {
+        "code": "1150XNAWD",
+        "name": "UG Non-Award (College of Asia and the Pacific)"
+      },
+      {
+        "code": "1151XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU College of Asia and the Pacific)"
+      },
+      {
+        "code": "1152XNAWD",
+        "name": "Cross Institutional - College of Asia and the Pacific Language Partnership"
+      },
+      {
+        "code": "1155XNAWD",
+        "name": "Non Award \u2013 Open Universities Australia"
+      },
+      {
+        "code": "1160XNAWD",
+        "name": "Non-Award (ANU Colleges of Science)"
+      },
+      {
+        "code": "1161XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU Colleges of Science)"
+      },
+      {
+        "code": "1170XNAWD",
+        "name": "Non-Award (ANU College of Engineering and Computer Science)"
+      },
+      {
+        "code": "1171XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU College of Engineering and Computer Science)"
+      },
+      {
+        "code": "1190XNAWD",
+        "name": "Non-Award (ANU Medical School)"
+      },
+      {
+        "code": "1300XNAW12",
+        "name": "Non-Award Study Abroad Program (12 Months)"
+      },
+      {
+        "code": "1300XNAWD6",
+        "name": "Non-Award Study Abroad Program (6 Months)"
+      },
+      {
+        "code": "1301XNAWD",
+        "name": "Non Award Exchange Program (12 Months)"
+      },
+      {
+        "code": "1301XNAWD6",
+        "name": "Non Award Exchange Program (6 Months)"
+      },
+      {
+        "code": "1302XNAWD",
+        "name": "Non Award Cross Institutional"
+      },
+      {
+        "code": "1303XNAWD",
+        "name": "Non-Award MOOC Exchange"
+      },
+      {
+        "code": "1305XGSPU",
+        "name": "Global Summer Program (Undergraduate)"
+      },
+      {
+        "code": "4050FDD",
+        "name": "Flexible Double Degree - Arts, Social Sciences, Business, Science"
+      },
+      {
+        "code": "4350FDD",
+        "name": "Flexible Double Degree - Law (Honours)"
+      },
+      {
+        "code": "4569FDD",
+        "name": "Flexible Double Degree PhB Advanced Arts Social Sciences Business & Science"
+      },
+      {
+        "code": "4850FDD",
+        "name": "Flexible Double Degree - Advanced Computing (Honours)"
+      },
+      {
+        "code": "4855FDD",
+        "name": "Flexible Double Degree - Engineering"
+      },
+      {
+        "code": "5003XNAWD",
+        "name": "Graduate Non-Award MOOC Exchange"
+      },
+      {
+        "code": "5031XNAWD",
+        "name": "Graduate Exchange Program"
+      },
+      {
+        "code": "5034XNAWD",
+        "name": "Graduate Exchange Program"
+      },
+      {
+        "code": "5035XJOINT",
+        "name": "Joint Degree Program National University Singapore -The Australian National University"
+      },
+      {
+        "code": "5036XGSPP",
+        "name": "Global Summer Program (Postgraduate)"
+      },
+      {
+        "code": "5050XNAWD",
+        "name": "Graduate Non-Award"
+      },
+      {
+        "code": "5051XNAWD",
+        "name": "Graduate Non-Award Cross-Institutional"
+      },
+      {
+        "code": "5082XCRWFD",
+        "name": "Graduate Bridging Program (Crawford School of Public Policy)"
+      },
+      {
+        "code": "5092XNAWD",
+        "name": "Graduate Non-Award (Research)"
+      },
+      {
+        "code": "5130XNAWD",
+        "name": "Non-Award Law (ANU College of Law, Governance and Policy)"
+      },
+      {
+        "code": "5131XNAWD",
+        "name": "Non-Award Cross-Institutional (ANU College of Law, Governance and Policy)"
+      },
+      {
+        "code": "5141XCBE",
+        "name": "Graduate Non-Award Cross-Institutional (ANU College of Business and Economics)"
+      },
+      {
+        "code": "5150XNAWD",
+        "name": "Graduate Non-Award (College of Asia and the Pacific)"
+      },
+      {
+        "code": "5151XCAP",
+        "name": "Graduate Non-Award Cross-Institutional (ANU College of Asia and the Pacific)"
+      },
+      {
+        "code": "5160XNAWD",
+        "name": "Graduate Non-Award (ANU Colleges of Science)"
+      },
+      {
+        "code": "5162XCOS",
+        "name": "Graduate Non-Award Cross-Institutional (ANU Colleges of Science)"
+      },
+      {
+        "code": "5170XNAWD",
+        "name": "Graduate Non-Award (College of Engineering and Computer Science)"
+      },
+      {
+        "code": "5172XCECS",
+        "name": "Graduate Non-Award Cross-Institutional (ANU College of Engineering and Computer Science)"
+      },
+      {
+        "code": "5179XNSC",
+        "name": "Graduate Non-Award, National Security College"
+      },
+      {
+        "code": "5191XCMHS",
+        "name": "Graduate Non-Award Cross Institutional (ANU College of Medicine Biology and Environment)"
+      },
+      {
+        "code": "6192XGCPPP",
+        "name": "Graduate Certificate of Public Policy"
+      },
+      {
+        "code": "6459XGCACC",
+        "name": "Graduate Certificate of Accounting"
+      },
+      {
+        "code": "6600XGDSCI",
+        "name": "Graduate Diploma of Science"
+      },
+      {
+        "code": "6659XGCENV",
+        "name": "Graduate Certificate of Environment"
+      },
+      {
+        "code": "6706XGDCP",
+        "name": "Graduate Diploma of Computing"
+      },
+      {
+        "code": "7051FDM",
+        "name": "Flexible Double Masters"
+      },
+      {
+        "code": "7410XMACTS",
+        "name": "Master of Actuarial Studies"
+      },
+      {
+        "code": "7413XMPACC",
+        "name": "Master of Professional Accounting"
+      },
+      {
+        "code": "7414XMACCT",
+        "name": "Master of Accounting"
+      },
+      {
+        "code": "7418XMFIN",
+        "name": "Master of Finance"
+      },
+      {
+        "code": "7420XMACTP",
+        "name": "Master of Actuarial Practice"
+      },
+      {
+        "code": "7421XMAPFN",
+        "name": "Master of Applied Finance"
+      },
+      {
+        "code": "7601XMCPSY",
+        "name": "Master of Clinical Psychology"
+      },
+      {
+        "code": "7670XNSCAI",
+        "name": "Master of Science in Agricultural Innovation"
+      },
+      {
+        "code": "7670XNSCMS",
+        "name": "Master of Science in Mathematical Sciences"
+      },
+      {
+        "code": "7670XVSCAI",
+        "name": "Master of Science (Advanced) in Agricultural Innovation"
+      },
+      {
+        "code": "7706XMCOMP",
+        "name": "Master of Computing"
+      },
+      {
+        "code": "7722XVCOMP",
+        "name": "Master of Computing (Advanced)"
+      },
+      {
+        "code": "8030XMPHIL",
+        "name": "Master of Philosophy (MPhil), ANU College of Law"
+      },
+      {
+        "code": "8040XMPHIL",
+        "name": "Master of Philosophy, ANU College of Business and Economics"
+      },
+      {
+        "code": "8050XMPHIL",
+        "name": "Master of Philosophy, Culture, History and Languages"
+      },
+      {
+        "code": "8060XMPHIL",
+        "name": "Master of Philosophy, ANU Colleges of Science"
+      },
+      {
+        "code": "8065XMPHIL",
+        "name": "Master of Philosophy, Fenner School of Environment and Society"
+      },
+      {
+        "code": "8066XMPHIL",
+        "name": "Master of Philosophy, Biology"
+      },
+      {
+        "code": "8073XMPHIL",
+        "name": "Master of Philosophy, School of Cybernetics"
+      },
+      {
+        "code": "8510XMPHIL",
+        "name": "Master of Philosophy, International, Political and Strategic Studies"
+      },
+      {
+        "code": "8520XMPHIL",
+        "name": "Master of Philosophy, Research School of Social Sciences"
+      },
+      {
+        "code": "8540XMPHIL",
+        "name": "Master of Philosophy, Crawford School of Public Policy"
+      },
+      {
+        "code": "8551XMPHIL",
+        "name": "Master of Philosophy, Research School of Humanities and the Arts"
+      },
+      {
+        "code": "8560XMPHIL",
+        "name": "Master of Philosophy, Regulation and Governance"
+      },
+      {
+        "code": "8601XMPHIL",
+        "name": "Master of Philosophy, Population Health"
+      },
+      {
+        "code": "8603XMPHIL",
+        "name": "Master of Philosophy, Australian National Centre for the Public Awareness of Science"
+      },
+      {
+        "code": "8620XMPHIL",
+        "name": "Master of Philosophy, Chemistry"
+      },
+      {
+        "code": "8640XMPHIL",
+        "name": "Master of Philosophy, Earth Sciences"
+      },
+      {
+        "code": "8650XMPHIL",
+        "name": "Master of Philosophy, Mathematical Sciences"
+      },
+      {
+        "code": "8670XMPHIL",
+        "name": "Master of Philosophy, Astronomy and Astrophysics"
+      },
+      {
+        "code": "8680XMPHIL",
+        "name": "Master of Philosophy, Physics"
+      },
+      {
+        "code": "8710XMPHIL",
+        "name": "Master of Philosophy, John Curtin School of Medical Research"
+      },
+      {
+        "code": "8714XMPHIL",
+        "name": "Master of Philosophy, School of Computing"
+      },
+      {
+        "code": "8715XMPHIL",
+        "name": "Master of Philosophy, School of Engineering"
+      },
+      {
+        "code": "8721XMPHIL",
+        "name": "Master of Philosophy in Applied Epidemiology"
+      },
+      {
+        "code": "8723XMPHIL",
+        "name": "Master of Philosophy, Psychology"
+      },
+      {
+        "code": "8850XMPHIL",
+        "name": "Master of Philosophy, National Security College"
+      },
+      {
+        "code": "8910XMPHIL",
+        "name": "Master of Philosophy, Medicine"
+      },
+      {
+        "code": "8950XMCHD",
+        "name": "Doctor of Medicine and Surgery"
+      },
+      {
+        "code": "9030XPHD",
+        "name": "Doctor of Philosophy, ANU College of Law"
+      },
+      {
+        "code": "9040XPHD",
+        "name": "Doctor of Philosophy, ANU College of Business and Economics"
+      },
+      {
+        "code": "9050XPHD",
+        "name": "Doctor of Philosophy, Culture, History and Languages"
+      },
+      {
+        "code": "9060XPHD",
+        "name": "Doctor of Philosophy, Science"
+      },
+      {
+        "code": "9064XCLPSY",
+        "name": "Doctor of Philosophy (Clinical Psychology)"
+      },
+      {
+        "code": "9065XPHD",
+        "name": "Doctor of Philosophy, Fenner School of Environment and Society"
+      },
+      {
+        "code": "9066XPHD",
+        "name": "Doctor of Philosophy, Biology"
+      },
+      {
+        "code": "9073XPHD",
+        "name": "Doctor of Philosophy, School of Cybernetics"
+      },
+      {
+        "code": "9101XLITTD",
+        "name": "Doctor of Letters"
+      },
+      {
+        "code": "9300XLLD",
+        "name": "Doctor of Laws"
+      },
+      {
+        "code": "9510XPHD",
+        "name": "Doctor of Philosophy, International, Political and Strategic Studies"
+      },
+      {
+        "code": "9520XPHD",
+        "name": "Doctor of Philosophy, Research School of Social Sciences"
+      },
+      {
+        "code": "9540XPHD",
+        "name": "Doctor of Philosophy, Crawford School of Public Policy"
+      },
+      {
+        "code": "9552XPHD",
+        "name": "Doctor of Philosophy, Research School of Humanities and the Arts"
+      },
+      {
+        "code": "9560XPHD",
+        "name": "Doctor of Philosophy, Regulation and Governance"
+      },
+      {
+        "code": "9600XDSCI",
+        "name": "Doctor of Science"
+      },
+      {
+        "code": "9602XPHD",
+        "name": "Doctor of Philosophy, Population Health"
+      },
+      {
+        "code": "9603XPHD",
+        "name": "Doctor of Philosophy, Australian National Centre for the Public Awareness of Science"
+      },
+      {
+        "code": "9620XPHD",
+        "name": "Doctor of Philosophy, Chemistry"
+      },
+      {
+        "code": "9640XPHD",
+        "name": "Doctor of Philosophy, Earth Sciences"
+      },
+      {
+        "code": "9650XPHD",
+        "name": "Doctor of Philosophy, Mathematical Sciences"
+      },
+      {
+        "code": "9670XPHD",
+        "name": "Doctor of Philosophy, Astronomy and Astrophysics"
+      },
+      {
+        "code": "9680XPHD",
+        "name": "Doctor of Philosophy, Physics"
+      },
+      {
+        "code": "9710XPHD",
+        "name": "Doctor of Philosophy, John Curtin School of Medical Research"
+      },
+      {
+        "code": "9714XPHD",
+        "name": "Doctor of Philosophy, School of Computing"
+      },
+      {
+        "code": "9715XPHD",
+        "name": "Doctor of Philosophy, School of Engineering"
+      },
+      {
+        "code": "9723XPHD",
+        "name": "Doctor of Philosophy, Psychology"
+      },
+      {
+        "code": "9850XPHD",
+        "name": "Doctor of Philosophy, National Security College"
+      },
+      {
+        "code": "9910XPHD",
+        "name": "Doctor of Philosophy, Medicine"
+      },
+      {
+        "code": "9911XMD",
+        "name": "Doctor of Medicine"
+      },
+      {
+        "code": "AACOM",
+        "name": "Bachelor of Advanced Computing (Honours)"
+      },
+      {
+        "code": "AACRD",
+        "name": "Bachelor of Advanced Computing (Research and Development) (Honours)"
+      },
+      {
+        "code": "AENGI",
+        "name": "Bachelor of Engineering (Honours)"
+      },
+      {
+        "code": "AENRD",
+        "name": "Bachelor of Engineering (Research and Development) (Honours)"
+      },
+      {
+        "code": "AENSE",
+        "name": "Bachelor of Engineering (Honours) in Software Engineering"
+      },
+      {
+        "code": "AFEST",
+        "name": "Bachelor of Finance, Economics and Statistics (Honours)"
+      },
+      {
+        "code": "AHUSS",
+        "name": "Bachelor of Philosophy (Honours)\u2014Humanities and Social Sciences"
+      },
+      {
+        "code": "ALLB",
+        "name": "Bachelor of Laws (Honours)"
+      },
+      {
+        "code": "APHSC",
+        "name": "Bachelor of Philosophy (Honours) - Science"
+      },
+      {
+        "code": "ASCAD",
+        "name": "Bachelor of Science (Advanced) (Honours)"
+      },
+      {
+        "code": "BACCT",
+        "name": "Bachelor of Accounting"
+      },
+      {
+        "code": "BACTS",
+        "name": "Bachelor of Actuarial Studies"
+      },
+      {
+        "code": "BADAN",
+        "name": "Bachelor of Applied Data Analytics"
+      },
+      {
+        "code": "BAPAF",
+        "name": "Bachelor of Asia-Pacific Affairs"
+      },
+      {
+        "code": "BAPAR",
+        "name": "Bachelor of Asia-Pacific Affairs (Ritsumeikan)"
+      },
+      {
+        "code": "BARTS",
+        "name": "Bachelor of Arts"
+      },
+      {
+        "code": "BARTY",
+        "name": "Bachelor of Arts (with Year in Asia)"
+      },
+      {
+        "code": "BASIA",
+        "name": "Bachelor of Asian Studies"
+      },
+      {
+        "code": "BASY",
+        "name": "Bachelor of Asian Studies (with Year in Asia)"
+      },
+      {
+        "code": "BBIOT",
+        "name": "Bachelor of Biotechnology"
+      },
+      {
+        "code": "BBUSA",
+        "name": "Bachelor of Business Administration"
+      },
+      {
+        "code": "BCOMM",
+        "name": "Bachelor of Commerce"
+      },
+      {
+        "code": "BCOMP",
+        "name": "Bachelor of Computing"
+      },
+      {
+        "code": "BCRIM",
+        "name": "Bachelor of Criminology"
+      },
+      {
+        "code": "BDESN",
+        "name": "Bachelor of Design"
+      },
+      {
+        "code": "BDEVY",
+        "name": "Bachelor of Development Studies (with Year in Asia)"
+      },
+      {
+        "code": "BECON",
+        "name": "Bachelor of Economics"
+      },
+      {
+        "code": "BENSU",
+        "name": "Bachelor of Environment and Sustainability"
+      },
+      {
+        "code": "BFINN",
+        "name": "Bachelor of Finance"
+      },
+      {
+        "code": "BGENE",
+        "name": "Bachelor of Genetics"
+      },
+      {
+        "code": "BHLTH",
+        "name": "Bachelor of Health Science"
+      },
+      {
+        "code": "BINBS",
+        "name": "Bachelor of International Business"
+      },
+      {
+        "code": "BINSS",
+        "name": "Bachelor of International Security Studies"
+      },
+      {
+        "code": "BINSY",
+        "name": "Bachelor of International Security Studies (with Year in Asia)"
+      },
+      {
+        "code": "BIR",
+        "name": "Bachelor of International Relations"
+      },
+      {
+        "code": "BIRY",
+        "name": "Bachelor of International Relations (With Year in Asia)"
+      },
+      {
+        "code": "BLANG",
+        "name": "Bachelor of Languages"
+      },
+      {
+        "code": "BLANY",
+        "name": "Bachelor of Languages (with Year in Asia)"
+      },
+      {
+        "code": "BMASC",
+        "name": "Bachelor of Mathematical Sciences"
+      },
+      {
+        "code": "BMEDS",
+        "name": "Bachelor of Medical Science"
+      },
+      {
+        "code": "BMUSI",
+        "name": "Bachelor of Music"
+      },
+      {
+        "code": "BPAST",
+        "name": "Bachelor of Pacific Studies"
+      },
+      {
+        "code": "BPLSC",
+        "name": "Bachelor of Political Science"
+      },
+      {
+        "code": "BPNP",
+        "name": "Bachelor of Philosophy, Neuroscience, and Psychology"
+      },
+      {
+        "code": "BPPE",
+        "name": "Bachelor of Politics, Philosophy and Economics"
+      },
+      {
+        "code": "BPPOL",
+        "name": "Bachelor of Public Policy"
+      },
+      {
+        "code": "BSC",
+        "name": "Bachelor of Science"
+      },
+      {
+        "code": "BSCY",
+        "name": "Bachelor of Science (with Year in Asia)"
+      },
+      {
+        "code": "BSPSY",
+        "name": "Bachelor of Science (Psychology)"
+      },
+      {
+        "code": "BSTAT",
+        "name": "Bachelor of Statistics"
+      },
+      {
+        "code": "BVART",
+        "name": "Bachelor of Visual Arts"
+      },
+      {
+        "code": "CACST",
+        "name": "Graduate Certificate of Actuarial Statistics"
+      },
+      {
+        "code": "CACYB",
+        "name": "Graduate Certificate of Applied Cybernetics"
+      },
+      {
+        "code": "CADAN",
+        "name": "Graduate Certificate of Applied Data Analytics"
+      },
+      {
+        "code": "CASAF",
+        "name": "Graduate Certificate of Asian Affairs"
+      },
+      {
+        "code": "CCCA",
+        "name": "Graduate Certificate of Cross-Cultural Analysis"
+      },
+      {
+        "code": "CDEMO",
+        "name": "Graduate Certificate of Demography"
+      },
+      {
+        "code": "CECON",
+        "name": "Graduate Certificate of Economics"
+      },
+      {
+        "code": "CFAS",
+        "name": "Graduate Certificate of Finance and Actuarial Statistics"
+      },
+      {
+        "code": "CFINN",
+        "name": "Graduate Certificate of Finance"
+      },
+      {
+        "code": "CFORS",
+        "name": "Graduate Certificate of Forests"
+      },
+      {
+        "code": "CLAW",
+        "name": "Graduate Certificate of Law"
+      },
+      {
+        "code": "CLING",
+        "name": "Graduate Certificate of General and Applied Linguistics"
+      },
+      {
+        "code": "CMECA",
+        "name": "Graduate Certificate of Middle Eastern and Central Asian Studies"
+      },
+      {
+        "code": "CMGMT",
+        "name": "Graduate Certificate of Management"
+      },
+      {
+        "code": "CMUHS",
+        "name": "Graduate Certificate of Museum and Heritage Studies"
+      },
+      {
+        "code": "CNSEP",
+        "name": "Graduate Certificate of National Security Policy"
+      },
+      {
+        "code": "CNSEPO",
+        "name": "Graduate Certificate of National Security Policy"
+      },
+      {
+        "code": "CNSS",
+        "name": "Graduate Certificate of Nuclear Security and Safeguards"
+      },
+      {
+        "code": "CNSSO",
+        "name": "Graduate Certificate of Nuclear Security and Safeguards"
+      },
+      {
+        "code": "CNSTE",
+        "name": "Graduate Certificate of Nuclear Science and Technology"
+      },
+      {
+        "code": "CNTR",
+        "name": "Graduate Certificate of Nuclear Technology Regulation"
+      },
+      {
+        "code": "CPADE",
+        "name": "Graduate Certificate of Pacific Development"
+      },
+      {
+        "code": "CPADEO",
+        "name": "Graduate Certificate of Pacific Development"
+      },
+      {
+        "code": "CPARC",
+        "name": "Graduate Certificate of Professional Archaeology"
+      },
+      {
+        "code": "CPAST",
+        "name": "Graduate Certificate of Pacific Studies"
+      },
+      {
+        "code": "CPASTO",
+        "name": "Graduate Certificate of Pacific Studies"
+      },
+      {
+        "code": "CPPO",
+        "name": "Graduate Certificate of Public Policy"
+      },
+      {
+        "code": "CPUBH",
+        "name": "Graduate Certificate of Public Health"
+      },
+      {
+        "code": "CRARC",
+        "name": "Graduate Certificate of the Repatriation of Ancestral Remains and Cultural Objects"
+      },
+      {
+        "code": "CREGO",
+        "name": "Graduate Certificate of Regulation and Governance"
+      },
+      {
+        "code": "CREGOL",
+        "name": "Graduate Certificate of Regulation and Governance"
+      },
+      {
+        "code": "CSCIE",
+        "name": "Graduate Certificate of Science"
+      },
+      {
+        "code": "CSRES",
+        "name": "Graduate Certificate of Social Research"
+      },
+      {
+        "code": "CSTUD",
+        "name": "Graduate Certificate of Studies"
+      },
+      {
+        "code": "CTEGO",
+        "name": "Graduate Certificate of Technology Governance"
+      },
+      {
+        "code": "CTEGOL",
+        "name": "Graduate Certificate of Technology Governance"
+      },
+      {
+        "code": "DADAN",
+        "name": "Graduate Diploma of Applied Data Analytics"
+      },
+      {
+        "code": "DBUSI",
+        "name": "Graduate Diploma of Business"
+      },
+      {
+        "code": "DECON",
+        "name": "Graduate Diploma of Economics"
+      },
+      {
+        "code": "DENVI",
+        "name": "Graduate Diploma of Environment"
+      },
+      {
+        "code": "DIAFF",
+        "name": "Graduate Diploma of International Affairs"
+      },
+      {
+        "code": "DPUBH",
+        "name": "Graduate Diploma of Public Health"
+      },
+      {
+        "code": "DPUBP",
+        "name": "Graduate Diploma of Public Policy"
+      },
+      {
+        "code": "DSTUD",
+        "name": "Graduate Diploma of Studies"
+      },
+      {
+        "code": "ELANG",
+        "name": "Diploma of Languages"
+      },
+      {
+        "code": "ESTD",
+        "name": "Diploma of Studies"
+      },
+      {
+        "code": "GCSCM",
+        "name": "Graduate Certificate of Science Communication"
+      },
+      {
+        "code": "GPPSY",
+        "name": "Graduate Diploma of Professional Psychology"
+      },
+      {
+        "code": "HACCT",
+        "name": "Bachelor of Accounting (Honours)"
+      },
+      {
+        "code": "HACTS",
+        "name": "Bachelor of Actuarial Studies (Honours)"
+      },
+      {
+        "code": "HADAN",
+        "name": "Bachelor of Applied Data Analytics (Honours)"
+      },
+      {
+        "code": "HAHCR",
+        "name": "Bachelor of Art History and Curatorship (Honours)"
+      },
+      {
+        "code": "HAPRC",
+        "name": "Bachelor of Archaeological Practice (Honours)"
+      },
+      {
+        "code": "HART2",
+        "name": "Bachelor of Arts (Honours)"
+      },
+      {
+        "code": "HARTS",
+        "name": "Bachelor of Arts (Honours)"
+      },
+      {
+        "code": "HASIA",
+        "name": "Bachelor of Asian Studies (Honours)"
+      },
+      {
+        "code": "HBIOT",
+        "name": "Bachelor of Biotechnology (Honours)"
+      },
+      {
+        "code": "HBUSA",
+        "name": "Bachelor of Business Administration (Honours)"
+      },
+      {
+        "code": "HCLAS",
+        "name": "Bachelor of Classical Studies (Honours)"
+      },
+      {
+        "code": "HCOMM",
+        "name": "Bachelor of Commerce (Honours)"
+      },
+      {
+        "code": "HCOMP",
+        "name": "Bachelor of Computing (Honours)"
+      },
+      {
+        "code": "HCRIM",
+        "name": "Bachelor of Criminology (Honours)"
+      },
+      {
+        "code": "HDESN",
+        "name": "Bachelor of Design (Honours)"
+      },
+      {
+        "code": "HDEVS",
+        "name": "Bachelor of Development Studies (Honours)"
+      },
+      {
+        "code": "HECON",
+        "name": "Bachelor of Economics (Honours)"
+      },
+      {
+        "code": "HENSU",
+        "name": "Bachelor of Environment and Sustainability (Honours)"
+      },
+      {
+        "code": "HFINN",
+        "name": "Bachelor of Finance (Honours)"
+      },
+      {
+        "code": "HGENE",
+        "name": "Bachelor of Genetics (Honours)"
+      },
+      {
+        "code": "HHLTH",
+        "name": "Bachelor of Health Science (Honours)"
+      },
+      {
+        "code": "HINBS",
+        "name": "Bachelor of International Business (Honours)"
+      },
+      {
+        "code": "HINSS",
+        "name": "Bachelor of International Security Studies (Honours)"
+      },
+      {
+        "code": "HIR",
+        "name": "Bachelor of International Relations (Honours)"
+      },
+      {
+        "code": "HIT",
+        "name": "Bachelor of Information Technology (Honours)"
+      },
+      {
+        "code": "HLANG",
+        "name": "Bachelor of Languages (Honours)"
+      },
+      {
+        "code": "HMASC",
+        "name": "Bachelor of Mathematical Sciences (Honours)"
+      },
+      {
+        "code": "HMEDS",
+        "name": "Bachelor of Medical Science (Honours)"
+      },
+      {
+        "code": "HMUSI",
+        "name": "Bachelor of Music (Honours)"
+      },
+      {
+        "code": "HPAST",
+        "name": "Bachelor of Pacific Studies (Honours)"
+      },
+      {
+        "code": "HPLSC",
+        "name": "Bachelor of Political Science (Honours)"
+      },
+      {
+        "code": "HPPE",
+        "name": "Bachelor of Politics, Philosophy and Economics (Honours)"
+      },
+      {
+        "code": "HPPOL",
+        "name": "Bachelor of Public Policy (Honours)"
+      },
+      {
+        "code": "HSC",
+        "name": "Bachelor of Science (Honours)"
+      },
+      {
+        "code": "HSPSY",
+        "name": "Bachelor of Science (Psychology) (Honours)"
+      },
+      {
+        "code": "HSTAT",
+        "name": "Bachelor of Statistics (Honours)"
+      },
+      {
+        "code": "HVART",
+        "name": "Bachelor of Visual Arts (Honours)"
+      },
+      {
+        "code": "MAAMFM",
+        "name": "Master of Applied Accounting and Master of Financial Management"
+      },
+      {
+        "code": "MACRI",
+        "name": "Master of Applied Criminology"
+      },
+      {
+        "code": "MACYB",
+        "name": "Master of Applied Cybernetics"
+      },
+      {
+        "code": "MADAN",
+        "name": "Master of Applied Data Analytics"
+      },
+      {
+        "code": "MAESC",
+        "name": "Master of Archaeological and Evolutionary Science"
+      },
+      {
+        "code": "MAHST",
+        "name": "Master of Art History and Curatorial Studies"
+      },
+      {
+        "code": "MANPS",
+        "name": "Master of Asian and Pacific Studies"
+      },
+      {
+        "code": "MAPAC",
+        "name": "Master of Applied Accounting"
+      },
+      {
+        "code": "MAPEC",
+        "name": "Master of Applied Economics"
+      },
+      {
+        "code": "MAPF",
+        "name": "Master of Anthropology and Planetary Futures"
+      },
+      {
+        "code": "MASIA",
+        "name": "Master of Asian Studies"
+      },
+      {
+        "code": "MBINS",
+        "name": "Master of Business Information Systems"
+      },
+      {
+        "code": "MBIOT",
+        "name": "Master of Biotechnology"
+      },
+      {
+        "code": "MBUSA",
+        "name": "Master of Business Administration"
+      },
+      {
+        "code": "MCLIM",
+        "name": "Master of Climate Change"
+      },
+      {
+        "code": "MCLIMO",
+        "name": "Master of Climate Change"
+      },
+      {
+        "code": "MDIHU",
+        "name": "Master of Digital Humanities"
+      },
+      {
+        "code": "MDIP",
+        "name": "Master of Diplomacy"
+      },
+      {
+        "code": "MDIPOL",
+        "name": "Master of Diplomacy"
+      },
+      {
+        "code": "MDTE",
+        "name": "Master of Digital Transformation and Entrepreneurship"
+      },
+      {
+        "code": "MECAS",
+        "name": "Master of Middle Eastern and Central Asian Studies (MECAS)"
+      },
+      {
+        "code": "MECON",
+        "name": "Master of Economics"
+      },
+      {
+        "code": "MECPO",
+        "name": "Master of Economic Policy"
+      },
+      {
+        "code": "MEINV",
+        "name": "Master of Entrepreneurship and Innovation"
+      },
+      {
+        "code": "MEMDV",
+        "name": "Master of Environmental Management and Development"
+      },
+      {
+        "code": "MEMDVO",
+        "name": "Master of Environmental Management and Development"
+      },
+      {
+        "code": "MEMPA",
+        "name": "Executive Master of Public Administration"
+      },
+      {
+        "code": "MENCH",
+        "name": "Master of Energy Change"
+      },
+      {
+        "code": "MENVI",
+        "name": "Master of Environment"
+      },
+      {
+        "code": "MEREC",
+        "name": "Master of Environmental and Resource Economics"
+      },
+      {
+        "code": "MERECO",
+        "name": "Master of Environmental and Resource Economics"
+      },
+      {
+        "code": "MFIEC",
+        "name": "Master of Financial Economics"
+      },
+      {
+        "code": "MFIML",
+        "name": "Master of Financial Management and Law"
+      },
+      {
+        "code": "MFINM",
+        "name": "Master of Financial Management"
+      },
+      {
+        "code": "MFORS",
+        "name": "Master of Forests"
+      },
+      {
+        "code": "MGAL",
+        "name": "Master of General and Applied Linguistics"
+      },
+      {
+        "code": "MGSS",
+        "name": "Master of Global Securities and Strategy"
+      },
+      {
+        "code": "MHIT",
+        "name": "Master of History"
+      },
+      {
+        "code": "MHITO",
+        "name": "Master of History"
+      },
+      {
+        "code": "MHRTM",
+        "name": "Master of Heritage Tourism Management"
+      },
+      {
+        "code": "MIDEC",
+        "name": "Master of International and Development Economics"
+      },
+      {
+        "code": "MIDECO",
+        "name": "Master of International and Development Economics"
+      },
+      {
+        "code": "MIMGT",
+        "name": "Master of International Management"
+      },
+      {
+        "code": "MINLD",
+        "name": "Master of International Law and Diplomacy"
+      },
+      {
+        "code": "MINLDO",
+        "name": "Master of International Law and Diplomacy"
+      },
+      {
+        "code": "MINTR",
+        "name": "Master of International Relations"
+      },
+      {
+        "code": "MJD",
+        "name": "Juris Doctor"
+      },
+      {
+        "code": "MLLM",
+        "name": "Master of Laws"
+      },
+      {
+        "code": "MMGNT",
+        "name": "Master of Management"
+      },
+      {
+        "code": "MMHES",
+        "name": "Master of Museum and Heritage Studies"
+      },
+      {
+        "code": "MMKMT",
+        "name": "Master of Marketing Management"
+      },
+      {
+        "code": "MMLCV",
+        "name": "Master of Machine Learning and Computer Vision"
+      },
+      {
+        "code": "MNEUR",
+        "name": "Master of Neuroscience"
+      },
+      {
+        "code": "MNSEP",
+        "name": "Master of National Security Policy"
+      },
+      {
+        "code": "MNSEPO",
+        "name": "Master of National Security Policy"
+      },
+      {
+        "code": "MPAD",
+        "name": "Master of Public Administration"
+      },
+      {
+        "code": "MPADE",
+        "name": "Master of Pacific Development"
+      },
+      {
+        "code": "MPADEO",
+        "name": "Master of Pacific Development"
+      },
+      {
+        "code": "MPADO",
+        "name": "Master of Public Administration"
+      },
+      {
+        "code": "MPAST",
+        "name": "Master of Pacific Studies"
+      },
+      {
+        "code": "MPASTO",
+        "name": "Master of Pacific Studies"
+      },
+      {
+        "code": "MPCS",
+        "name": "Master of Peace and Conflict Studies"
+      },
+      {
+        "code": "MPCSO",
+        "name": "Master of Peace and Conflict Studies"
+      },
+      {
+        "code": "MPOLS",
+        "name": "Master of Political Science"
+      },
+      {
+        "code": "MPPAU",
+        "name": "Master of Public Policy/Master of Public Policy ANU - U Tokyo"
+      },
+      {
+        "code": "MPPSY",
+        "name": "Master of Professional Psychology"
+      },
+      {
+        "code": "MPRLE",
+        "name": "Master of Project Leadership"
+      },
+      {
+        "code": "MPROM",
+        "name": "Master of Project Management"
+      },
+      {
+        "code": "MPSC",
+        "name": "Master of Preclinical Science"
+      },
+      {
+        "code": "MPUBH",
+        "name": "Master of Public Health"
+      },
+      {
+        "code": "MPUPP",
+        "name": "Master of Public Policy"
+      },
+      {
+        "code": "MPUPPO",
+        "name": "Master of Public Policy"
+      },
+      {
+        "code": "MRGOV",
+        "name": "Master of Regulation and Governance"
+      },
+      {
+        "code": "MRGOVO",
+        "name": "Master of Regulation and Governance"
+      },
+      {
+        "code": "MSCOM",
+        "name": "Master of Science Communication"
+      },
+      {
+        "code": "MSDA",
+        "name": "Master of Statistical Data Analysis"
+      },
+      {
+        "code": "MSDEF",
+        "name": "Master of Strategy and Defence"
+      },
+      {
+        "code": "MSDEFO",
+        "name": "Master of Strategy and Defence"
+      },
+      {
+        "code": "MSDES",
+        "name": "Master of Strategic and Defence Studies"
+      },
+      {
+        "code": "MSDESO",
+        "name": "Master of Strategic and Defence Studies"
+      },
+      {
+        "code": "MSRM",
+        "name": "Master of Social Research Methods"
+      },
+      {
+        "code": "MSTAT",
+        "name": "Master of Statistics"
+      },
+      {
+        "code": "MSTD",
+        "name": "Master of Studies"
+      },
+      {
+        "code": "MSTRAT",
+        "name": "Master of Strategic Studies"
+      },
+      {
+        "code": "MTGOV",
+        "name": "Master of Technology Governance"
+      },
+      {
+        "code": "MTGOVO",
+        "name": "Master of Technology Governance"
+      },
+      {
+        "code": "NELENG",
+        "name": "Master of Engineering in Electrical Engineering"
+      },
+      {
+        "code": "NSCAA",
+        "name": "Master of Science in Astronomy and Astrophysics"
+      },
+      {
+        "code": "NSCBS",
+        "name": "Master of Science in Biological Sciences"
+      },
+      {
+        "code": "NSCES",
+        "name": "Master of Science in Earth Sciences"
+      },
+      {
+        "code": "NSCMC",
+        "name": "Master of Science in Materials Science"
+      },
+      {
+        "code": "NSCNS",
+        "name": "Master of Science in Nuclear Science"
+      },
+      {
+        "code": "NSCPI",
+        "name": "Master of Science in Precision Instrumentation and Measurement"
+      },
+      {
+        "code": "NSCQB",
+        "name": "Master of Science in Quantitative Biology and Bioinformatics"
+      },
+      {
+        "code": "NSCQT",
+        "name": "Master of Science in Quantum Technology"
+      },
+      {
+        "code": "NSCTP",
+        "name": "Master of Science in Theoretical Physics"
+      },
+      {
+        "code": "VAAAD",
+        "name": "Master of Applied Anthropology and Development (Advanced)"
+      },
+      {
+        "code": "VACCT",
+        "name": "Master of Accounting (Advanced)"
+      },
+      {
+        "code": "VACYB",
+        "name": "Master of Applied Cybernetics (Advanced)"
+      },
+      {
+        "code": "VAESC",
+        "name": "Master of Archaeological and Evolutionary Science (Advanced)"
+      },
+      {
+        "code": "VAHST",
+        "name": "Master of Art History and Curatorial Studies (Advanced)"
+      },
+      {
+        "code": "VANTP",
+        "name": "Master of Anthropology (Advanced)"
+      },
+      {
+        "code": "VAPF",
+        "name": "Master of Anthropology and Planetary Futures (Advanced)"
+      },
+      {
+        "code": "VBIOT",
+        "name": "Master of Biotechnology (Advanced)"
+      },
+      {
+        "code": "VCAP",
+        "name": "Master of Contemporary Art Practices (Advanced)"
+      },
+      {
+        "code": "VCOMM",
+        "name": "Master of Commerce (Advanced)"
+      },
+      {
+        "code": "VDIHU",
+        "name": "Master of Digital Humanities (Advanced)"
+      },
+      {
+        "code": "VEASC",
+        "name": "Master of Earth Sciences (Advanced)"
+      },
+      {
+        "code": "VENCH",
+        "name": "Master of Energy Change (Advanced)"
+      },
+      {
+        "code": "VENVI",
+        "name": "Master of Environment (Advanced)"
+      },
+      {
+        "code": "VFORS",
+        "name": "Master of Forests (Advanced)"
+      },
+      {
+        "code": "VHIT",
+        "name": "Master of History (Advanced)"
+      },
+      {
+        "code": "VHITO",
+        "name": "Master of History (Advanced)"
+      },
+      {
+        "code": "VLING",
+        "name": "Master of General and Applied Linguistics (Advanced)"
+      },
+      {
+        "code": "VMASC",
+        "name": "Master of Mathematical Sciences (Advanced)"
+      },
+      {
+        "code": "VMECA",
+        "name": "Master of Middle Eastern and Central Asian Studies (Advanced)"
+      },
+      {
+        "code": "VMGOV",
+        "name": "Master of Governance (Advanced)"
+      },
+      {
+        "code": "VMHES",
+        "name": "Master of Museum and Heritage Studies (Advanced)"
+      },
+      {
+        "code": "VNEUR",
+        "name": "Master of Neuroscience (Advanced)"
+      },
+      {
+        "code": "VPCS",
+        "name": "Master of Peace and Conflict Studies (Advanced)"
+      },
+      {
+        "code": "VPCSO",
+        "name": "Master of Peace and Conflict Studies (Advanced)"
+      },
+      {
+        "code": "VPLSC",
+        "name": "Master of Political Science (Advanced)"
+      },
+      {
+        "code": "VPUBH",
+        "name": "Master of Public Health (Advanced)"
+      },
+      {
+        "code": "VSCAA",
+        "name": "Master of Science (Advanced) in Astronomy and Astrophysics"
+      },
+      {
+        "code": "VSCBS",
+        "name": "Master of Science (Advanced) in Biological Sciences"
+      },
+      {
+        "code": "VSCMC",
+        "name": "Master of Science (Advanced) in Materials Science"
+      },
+      {
+        "code": "VSCNS",
+        "name": "Master of Science (Advanced) in Nuclear Science"
+      },
+      {
+        "code": "VSCPI",
+        "name": "Master of Science (Advanced) in Precision Instrumentation and Measurement"
+      },
+      {
+        "code": "VSCQB",
+        "name": "Master of Science (Advanced) in Quantitative Biology and Bioinformatics"
+      },
+      {
+        "code": "VSCQT",
+        "name": "Master of Science (Advanced) in Quantum Technology"
+      },
+      {
+        "code": "VSCTP",
+        "name": "Master of Science (Advanced) in Theoretical Physics"
+      },
+      {
+        "code": "VSRM",
+        "name": "Master of Social Research Methods (Advanced)"
+      },
+      {
+        "code": "VSTST",
+        "name": "Master of Strategic Studies (Advanced)"
+      }
+    ],
+    "knownAcademicPeriods": [
+      {
+        "code": "SUMMER",
+        "name": "Summer Session"
+      },
+      {
+        "code": "S1",
+        "name": "First Semester"
+      },
+      {
+        "code": "AUTUMN",
+        "name": "Autumn Session"
+      },
+      {
+        "code": "WINTER",
+        "name": "Winter Session"
+      },
+      {
+        "code": "S2",
+        "name": "Second Semester"
+      },
+      {
+        "code": "SPRING",
+        "name": "Spring Session"
+      }
+    ],
+    "knownTags": [
+      "Business",
+      "Work Integrated Learning",
+      "Science",
+      "Engineering",
+      "Transdisciplinary Problem-Solving",
+      "Transdisciplinary"
+    ]
+  },
+  "sources": [
+    {
+      "code": "BUSN1001",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/BUSN1001",
+      "fetchedAt": "2026-10-03T01:26:26.419Z",
+      "contentSha256": "0a5c65441cc6bc6332ef08bcdad18c0a635a9fb2cfb02b70c1f0e6fcbe66736c",
+      "markdown": "---\nkind: \"course\"\ncode: \"BUSN1001\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/BUSN1001\"\n---\n\nCourse\n\n# Business Reporting and Analysis\n\nAn undergraduate course offered by the Research School of Accounting .\n\nBUSN1001\n\n- Code BUSN1001\n- Unit Value 6 units\n\n- Offered by Research School of Accounting\n- ANU College ANU College of Business and Economics\n- Course subject Business\n- Areas of interest Accounting\n\n- Academic career UGRD\n- Course convener - Dr Madhukar Singh - Eunice Khoo\n- Mode of delivery In Person\n- Offered in First Semester 2026 Second Semester 2026 Spring Session 2026 See Future Offerings\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/BUSN1001_Time_Series_LRN.pdf)\n\nBusiness Reporting and Analysis (BUSN1001)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Assumed Knowledge\n- Other Information\n- Minors\n- Fees\n- Offerings and Dates\n\nThe course focuses on the nature and scope of business reporting and the need for financial and non-financial information for business decision-making. It provides students with fundamental financial management knowledge in the contemporary business environment. The course commences with an introduction to the use of business reports and the financial reporting regulatory environment. The concepts of primary financial reports and specific reporting issues are then discussed, with a focus on the preparation and analysis of financial statements from the perspectives of business report users. The course proceeds with discussions on the basic financial decision tools, the use of past and future-oriented information and how the knowledge is applied to managerial decision-making, including planning, control and investment opportunities.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Illustrate the relationship of business reporting to the social and economic environment;\n- Explain who are the main users of business reports, and the main purposes for which the information is used;\n- Describe the major differences between sole traders, partnerships and companies.\n- Distinguish between income, expenses, assets and liabilities;\n- Apply the principle of duality to the accounting equation;\n- Prepare an income statement, balance sheet and a statement of cash flows;\n- Analyse financial reports with regard to key aspects of performance such as profitability, solvency and liquidity;\n- Explain what the planning and control processes are in relation to company objectives;\n- Evaluate investment opportunities, including cost-volume-profit analysis, capital investment decision making, and budgeting.\n\n## Other Information\n\n## Indicative Assessment\n\n- Typical assessment may include, but is not restricted to, class participation, assignment(s), quizzes and examination(s) as appropriate to assess the learning outcomes of the course. (100) [LO 1,2,3,4,5,6,7,8,9]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents taking this course are expected to commit at least 10 hours a week to completing the work. This will include 4 hours per week in class and at least 6 hours a week on average (including non-teaching weeks) on course reading, research, writing and assignment work.\n\n## Inherent Requirements\n\nNot applicable\n\n## Requisite and Incompatibility\n\nYou are not able to enrol in this course if you have previously completed ENGN3211.\n\n## Prescribed Texts\n\nInformation about the prescribed textbook (if any) will be made available via the Class Summary.\n\n## Assumed Knowledge\n\nNumeracy and literacy proficiency is assumed.\n\n## Minors\n\n- [Business and Economics Essentials](BECE-MIN)\n\n- [Introductory Accounting](ACCT-MIN)\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2119 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/BUSN1001/First%20Semester/2119) |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 7124 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/BUSN1001/Second%20Semester/7124) |\n\n### Spring Session\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9393 | 21 Sep 2026 | 21 Sep 2026 | 26 Oct 2026 | 04 Dec 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/BUSN1001/Spring%20Session/9393) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 3685 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 8694 | 26 Jul 2027 | 02 Aug 2027 | 31 Aug 2027 | 29 Oct 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 5273 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9675 | 24 Jul 2028 | 31 Jul 2028 | 31 Aug 2028 | 27 Oct 2028 | In Person | N/A |\n"
+    },
+    {
+      "code": "FINM2001",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM2001",
+      "fetchedAt": "2026-10-03T01:26:26.393Z",
+      "contentSha256": "d1abecf08440a22141adfdbaafc446cedcafdb2d198e2f2628b1e818a303ecba",
+      "markdown": "---\nkind: \"course\"\ncode: \"FINM2001\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/FINM2001\"\n---\n\nCourse\n\n# Corporate Finance\n\nAn undergraduate course offered by the Rsch Sch of Finance, Actuarial Studies & App Stats .\n\nFINM2001\n\n- Code FINM2001\n- Unit Value 6 units\n\n- Offered by Rsch Sch of Finance, Actuarial Studies & App Stats\n- ANU College ANU College of Business and Economics\n- Course subject Financial Management\n- Areas of interest Finance\n\n- Academic career UGRD\n- Course convener - Prof Emma Schultz - Shasta Shakya\n- Mode of delivery In Person\n- Offered in First Semester 2026 Second Semester 2026 See Future Offerings\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/FINM2001_Time_Series_LRN.pdf)\n\nCorporate Finance (FINM2001)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Other Information\n- Minors\n- Fees\n- Offerings and Dates\n\nThis course focuses on tools and techniques used in modern financial management. Material in the course has an applied focus and is designed to provide students with the knowledge and skills required for understanding, exploring and analysing financial management issues. The course draws upon topical material in order to contextualise theoretical discussion, and present students with examples in practice.\n\nSpecific topics to be covered include: financial mathematics, security valuation, techniques for capital investment decisions, financial decision making, corporate capital structure, cost of capital, dividend decision and policy, leasing decision and the analysis of mergers and acquisitions.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Explain the key issues facing financial managers;\n- Perform asset valuation and project evaluation; and,\n- Explain the finance theory underlying financial management.\n\n## Other Information\n\n## Indicative Assessment\n\n- Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate (100) [LO 1,2,3]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents are expected to commit 130 hours of work in completing this course. This includes time spent in scheduled classes and self-directed study time.\n\n## Inherent Requirements\n\nNot applicable\n\n## Requisite and Incompatibility\n\nTo enrol in this course you must have completed FINM1001, and either STAT1008 or STAT1003.\n\n## Prescribed Texts\n\nInformation about the prescribed textbook will be available via the Class Summary.\n\n## Minors\n\n- [Finance](FINM-MIN)\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 3349 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM2001/First%20Semester/3349) |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 8355 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM2001/Second%20Semester/8355) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 4713 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9736 | 26 Jul 2027 | 02 Aug 2027 | 31 Aug 2027 | 29 Oct 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 6180 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 10563 | 24 Jul 2028 | 31 Jul 2028 | 31 Aug 2028 | 27 Oct 2028 | In Person | N/A |\n"
+    },
+    {
+      "code": "FINM3005",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM3005",
+      "fetchedAt": "2026-10-03T01:26:26.342Z",
+      "contentSha256": "567df936fa6b5900c8208695657b17e4465aaaff1d74e92ff8953c0fe7df0d2b",
+      "markdown": "---\nkind: \"course\"\ncode: \"FINM3005\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/FINM3005\"\n---\n\nCourse\n\n# Corporate Valuation\n\nAn undergraduate course offered by the Rsch Sch of Finance, Actuarial Studies & App Stats .\n\nFINM3005\n\n- Code FINM3005\n- Unit Value 6 units\n\n- Offered by Rsch Sch of Finance, Actuarial Studies & App Stats\n- ANU College ANU College of Business and Economics\n- Course subject Financial Management\n- Areas of interest Finance\n\n- Academic career UGRD\n- Course convener - AsPr Xianming Zhou - Chao Gao\n- Mode of delivery In Person\n- Co-taught Course - FINM6005\n- Offered in First Semester 2026 Second Semester 2026 See Future Offerings\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/FINM3005_Time_Series_LRN.pdf)\n\nCorporate Valuation (FINM3005)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Other Information\n- Minors\n- Fees\n- Offerings and Dates\n\nCorporate Valuation is a course that draws on core corporate finance principles, theories and methods previously studied. Students will work in teams to value an existing company, present their analysis and investment recommendation. The techniques covered include discounted cash flow, multiple-based and asset-based valuations. Because of the richness of the approach, most of the focus will be on discounted cash flow analysis. While this entails more work and requires significant student initiative, this type of \u2018learning by doing\u2019 should provide a lasting framework.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Apply appropriate techniques for company valuation.\n- Apply theories and concepts learned in other finance courses.\n- Effectively work in groups and discuss results of the activities undertaken in a team.\n\n## Other Information\n\n## Indicative Assessment\n\n- Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate, which may be completed individually or in groups. (100) [LO 1,2,3]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents are expected to commit 130 hours of work in completing this course. This includes time spent in scheduled classes and self-directed study time.\n\n## Inherent Requirements\n\nNot applicable.\n\n## Requisite and Incompatibility\n\nTo enrol in this course you must have completed FINM2001 and BUSN1001.\n\n## Prescribed Texts\n\nInformation about the prescribed textbook will be available via the Class Summary.\n\n## Minors\n\n- [Finance](FINM-MIN)\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 3117 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM3005/First%20Semester/3117) |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 8105 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM3005/Second%20Semester/8105) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 4525 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9539 | 26 Jul 2027 | 02 Aug 2027 | 31 Aug 2027 | 29 Oct 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 6027 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 10412 | 24 Jul 2028 | 31 Jul 2028 | 31 Aug 2028 | 27 Oct 2028 | In Person | N/A |\n"
+    },
+    {
+      "code": "ECON2108",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/ECON2108",
+      "fetchedAt": "2026-10-03T01:26:26.289Z",
+      "contentSha256": "930759a05af32e61f77014757987c64e6dfcef78b573c7e0b951f66629915a27",
+      "markdown": "---\nkind: \"course\"\ncode: \"ECON2108\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/ECON2108\"\n---\n\nCourse\n\n# Japanese Economy and Economic Policy\n\nAn undergraduate course offered by the Research School of Economics .\n\nECON2108\n\n- Code ECON2108\n- Unit Value 6 units\n\n- Offered by Research School of Economics\n- ANU College ANU College of Business and Economics\n- Course subject Economics\n- Areas of interest Economics\n\n- Academic career UGRD\n- Course convener - Dr Shiro Armstrong\n- Mode of delivery In Person\n- Offered in First Semester 2026 See Future Offerings\n- Graduate Attributes - Critical Thinking - Transdisciplinary\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/ECON2108_Time_Series_LRN.pdf)\n\nJapanese Economy and Economic Policy (ECON2108)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Fees\n- Offerings and Dates\n\nThis course is designed to introduce students to the operation and management of the Japanese economy and its impact on Australia and the Asia-Pacific region. Stress will be given to the analytic and policy interest in the operation and management of an economic system built on different social and institutional foundations from those of our own, and the interaction between the Japanese economy and other economies, particularly the Australian economy.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- demonstrate an understanding of the way the Japanese economy works;\n- apply economic analysis to current issues facing Japan, including understanding the trade-offs faced and limitations of economic tools for understanding Japan\u2019s institutions and challenges;\n- demonstrate an understanding of Japan in the global economy with the use of different disciplines, collaboratively with peers.\n- demonstrate knowledge about contemporary public policy choices in Japan in a policy brief proposing a solution to a real-world issue;\n\n## Indicative Assessment\n\n- Assessment will consist of a Final Exam, mid-semester exam(s), quizzes, assignments or some combination thereof. See the Class Summary for details. (100) [LO 1,2,3,4]\n- Group work, team-based activities. Groupwork assessment will be compulsory. Further details, including the percentage value, will be made available via the Class Summary. (0) [LO 2,4]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\n130 hours in total over the semester consisting of lectures, tutorials and private study time.\n\n## Inherent Requirements\n\nThis course requires active participation in group work. Working in teams is an inherent requirement, as it develops essential collaboration, communication, and problem-solving skills relevant to your studies as an economist.\n\n## Requisite and Incompatibility\n\nTo enrol in this course you must have completed ECON1101 and ECON1102 or ECON1100. Incompatible with ECON2008.\n\n## Prescribed Texts\n\nSee Class Summary\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 3641 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/ECON2108/First%20Semester/3641) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 4904 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 6345 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n"
+    },
+    {
+      "code": "STAT2014",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/STAT2014",
+      "fetchedAt": "2026-10-03T01:26:26.360Z",
+      "contentSha256": "f869955880ccc68f10b11b15777526d1543695a6cef5eb572ce090ba67535f7b",
+      "markdown": "---\nkind: \"course\"\ncode: \"STAT2014\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/STAT2014\"\n---\n\nCourse\n\n# Regression Modelling for Actuarial Studies\n\nAn undergraduate course offered by the Rsch Sch of Finance, Actuarial Studies & App Stats .\n\nSTAT2014\n\n- Code STAT2014\n- Unit Value 6 units\n\n- Offered by Rsch Sch of Finance, Actuarial Studies & App Stats\n- ANU College ANU College of Business and Economics\n- Course subject Statistics\n- Areas of interest Actuarial Studies, Statistics\n\n- Academic career UGRD\n- Course convener - Abhinav Mehta - Dr Laurence Field\n- Mode of delivery In Person\n- Co-taught Course - STAT2008 - STAT6014\n- Offered in First Semester 2026 Second Semester 2026 See Future Offerings\n- STEM Course\n- Graduate Attributes - Critical Thinking - Transdisciplinary\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/STAT2014_Time_Series_LRN.pdf)\n\nRegression Modelling for Actuarial Studies (STAT2014)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Requisite and Incompatibility\n- Prescribed Texts\n- Assumed Knowledge\n- Other Information\n- Fees\n- Offerings and Dates\n\nRegression Modelling studies the use of linear regression techniques for examining relationships between variables across a broad range of different disciplines including the sciences, arts, business, politics, management and the financial sciences. Further, students use the skills acquired in this course to identify problems, interpret and analyse results, and provide solutions while engaging with external stakeholders.\n\nThe course emphasises the principles of statistical modelling through the iterative process of fitting a model, examining the fit to assess imperfections in the model and suggest alternative models, and continuing until a satisfactory model is reached. Both steps in this process require the use of versatile software: model fitting uses various numerical algorithms, and model assessment involves extensive use of graphical displays. The R statistical computing package is used as an integral part of the course.\n\nStudents in this course are exposed to a variety of different problems/issues from different disciplines and seek to provide input to these problems through application of quantitative data analysis skills. The data sets and/or problems/issues are introduced through a variety of means from blogs or newspaper articles, and case studies (real ad fictional) to drive and contextualise the data stemming from the variety of different disciplines.\n\nRegression Modelling for Actuarial Students focuses on the use of linear regression techniques to examine relationships between variables in contexts directly relevant to actuarial science, insurance, and financial risk management. While akin to STAT2008, this course is specifically designed to meet the applied modelling needs of actuarial students, with examples and case studies drawn from actuarial practice and financial applications.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Use the skills developed in this course to identify problems in a variety of different disciplines to interpret and analyse results and provide solutions while engaging with external stakeholders from diverse fields of study.\n- Work collaboratively in groups to analyse results, provide solutions and orally present findings and discussions to a diverse range of stakeholders from a variety of areas of study.\n- Demonstrate a working knowledge of the R statistical computing language, particularly the graphical capabilities.\n- Fit linear regression models and interpret model parameters, including relationships between a response variable and a covariate.\n- Assess and refine simple and multiple linear regression models based on diagnostic measures, including identifying outlying and influential data points.\n- Explore model selection in a linear regression modelling context in a variety of fields of study.\n- Define and describe the features of a Generalised Linear Model (GLM), fit GLM models, assess and refine the models based on diagnostic measures, and interpret model output.\n\n## Other Information\n\nThis course is compulsory for students who enrolled or transferred into the Bachelor of Actuarial Studies. Contact the convener of the Bachelor of Actuarial Studies if you are unsure whether to enrol in STAT2008 or STAT2014.\n\n## Indicative Assessment\n\n- The research-based assessment will consist of assignments. Students will work to perform analysis of the dataset in the initial part of the assignment. In the second part of the assignment, students will use the results to suggest possible solutions to the problem raised in the dataset and communicate their solutions. (25) [LO 1,2,3,4,5,6]\n- The other assessment may include but is not restricted to: exams, quizzes, presentations and other assessments as appropriate. (75) [LO 1,2,3,4,5,6,7]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents are expected to commit at least 10 hours per week to completing the work in this course. This will include at least 3 contact hours per week and up to 7 hours of private study time.\n\n## Requisite and Incompatibility\n\nTo enrol in this course, you must have completed STAT1008 and STAT2013 or be concurrently enrolled in STAT2013. Incompatible with STAT2008 and STAT6014.\n\n## Prescribed Texts\n\nInformation about the prescribed textbook will be available via the class summary.\n\n## Assumed Knowledge\n\nThe course uses the R statistical package, which uses matrix algebra to implement the regression modelling techniques. An understanding of matrix algebra (equivalent to an introductory mathematics course such as MATH1113) would be helpful in understanding how the R routines work, but such knowledge is not a required prerequisite.\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [1](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $4920 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2568 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/STAT2014/First%20Semester/2568) |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 7564 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/STAT2014/Second%20Semester/7564) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 4045 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9057 | 26 Jul 2027 | 02 Aug 2027 | 31 Aug 2027 | 29 Oct 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 5595 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9982 | 24 Jul 2028 | 31 Jul 2028 | 31 Aug 2028 | 27 Oct 2028 | In Person | N/A |\n"
+    },
+    {
+      "code": "ECON2016",
+      "markdown": "---\nkind: \"course\"\ncode: \"ECON2016\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/ECON2016\"\n---\n\nCourse\n\n# Economics II (H)\n\nAn undergraduate course offered by the Research School of Economics .\n\nECON2016\n\n- Code ECON2016\n- Unit Value 6 units\n\n- Offered by Research School of Economics\n- ANU College ANU College of Business and Economics\n- Course subject Economics\n- Areas of interest Economics\n\n- Academic career UGRD\n- Course convener - Dr Dana Hanna\n- Mode of delivery In Person\n- Co-taught Course - ECON2102\n- Offered in Second Semester 2026 See Future Offerings\n- Graduate Attributes - Critical Thinking\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/ECON2016_Time_Series_LRN.pdf)\n\nEconomics II (H) (ECON2016)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Other Information\n- Fees\n- Offerings and Dates\n\nThis course will bring in practicing economists from the Australian Public Service and Industry and leading researchers to discuss how economics is used in the formulation of public policy and in finding solutions to a number of interesting real-world problems. We will explore the boundaries and interactions of economic theory, practical application and the interplay of politics, institutions and differing view points.\n\nEconomics 2(H) is taught alongside ECON2102 Macroeconomics 2 with additional contact hours a week. This extension course is designed for the better performing students who want to extend their exposure to economics beyond that offered in the standard second year theory courses in microeconomics and macroeconomics. As such, students enrolling in this course should have achieved at least a credit (above 60%) for Microeconomics 2 (ECON2101).\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- demonstrate an understanding of a coherent set of ideas for underlying macroeconomic phenomena and policy issues;\n- demonstrate an understanding of the assumptions, structure and micro-foundations of a macroeconomic model and recognise its power and shortcomings;\n- formulate a relevant model and use such analytical tools in addressing a key macroeconomic question independently;\n- demonstrate an understanding of the different ways in which economic issues can be tackled;\n- Analyse complex public policy problems using intermediate level economic reasoning within broader social, political, and institutional systems, recognising interdependencies and unintended consequences;\n- Evaluate competing economic perspectives and stakeholder viewpoints in the formulation of policy solutions, demonstrating awareness of plural approaches to economic analysis, both independently and in collaborative settings;\n- Critically reflect on the interaction between economic evidence, political decision-making, and practical constraints in shaping policy outcomes;\n- Integrate insights from practitioners, academic theory, and real-world case studies to propose evidence-informed approaches to contemporary policy challenges.\n\n## Other Information\n\nIf enroled in ECON2016 you DO NOT enrol in ECON2102. However, you are required to attend all lectures and tutorials/workshops for the ECON2102 Macroeconomics 2 course, as well as the lectures and workshop/discussion session for ECON2016 to complete this course. Overall, your final grade will be a weighted average of the two components (ECON2016 will count for 50% of your final grade and ECON2102 for 50% of your final grade).\n\n## Indicative Assessment\n\n- ECON2102 Assessment. Which may include but is not restricted to in-class exercises, written and oral assignments, quizzes, examinations, group project tasks, oral presentation, and other assessment deemed appropriate to show attainment of the learning outcomes set for the course. Further details will be made available via the Class Summary. (50) [LO 1,2,3,4]\n- ECON2016 Assessment. Which may include written reflections, assignments, oral presentations and discussions. (50) [LO 5,6,7,8]\n- ECON2016 also involves collaborative engagement with class peers. (0) [LO 6]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nThe course includes attending all lectures and tutorials for ECON2102 AS WELL AS the seminars and workshop for ECON2016. As such, this course does include a higher workload than your other courses.\n\n## Inherent Requirements\n\nThere are no inherent requirements identified.\n\n## Requisite and Incompatibility\n\nTo enrol in this course you must have successfully completed ECON2101. You are not able to enrol I this course if you have previously completed ECON2102 or ECON2112 or ECON1100.\n\n## Prescribed Texts\n\nSee Class Summary for ECON2102 for textbook recommendations. No additional texts are required for ECON2016 component. Any readings will be placed on the Canvas site.\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9197 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/ECON2016/Second%20Semester/9197) |\n",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/ECON2016",
+      "fetchedAt": "2026-10-03T01:30:22.677Z",
+      "contentSha256": "8b02000b627a8fcafe91b09de85adc674257394db056e6c7e065eb959fe1859b"
+    },
+    {
+      "code": "EMET2007",
+      "markdown": "---\nkind: \"course\"\ncode: \"EMET2007\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/EMET2007\"\n---\n\nCourse\n\n# Econometrics I: Econometric Methods\n\nAn undergraduate course offered by the Research School of Economics .\n\nEMET2007\n\n- Code EMET2007\n- Unit Value 6 units\n\n- Offered by Research School of Economics\n- ANU College ANU College of Business and Economics\n- Course subject Econometrics\n- Areas of interest Econometrics\n\n- Academic career UGRD\n- Course convener - Dr Juergen Meinecke\n- Mode of delivery In Person\n- Co-taught Course - EMET6007\n- Offered in First Semester 2026 See Future Offerings\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/EMET2007_Time_Series_LRN.pdf)\n\nEconometrics I: Econometric Methods (EMET2007)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Inherent Requirements\n- Requisite and Incompatibility\n- Prescribed Texts\n- Other Information\n- Majors\n- Fees\n- Offerings and Dates\n\nThis course provides an introduction to econometric methods and their applications. The main workhorse of applied econometrics is the linear regression model and the course will develop its theory and look at a wide range of applications. The course emphasizes intuitive and conceptual understanding as well as hands on econometric analysis using modern computer software on data sets from economics and business. Students learn how to conduct empirical studies, as well as how to analyze and interpret results from other empirical works. We cover a broad range of topics, including a brief review of basic statistics, ordinary least squares estimation and its properties, choice of functional form, departures from standard OLS assumptions, and time series analysis.\n\nThis is a hand-on course with a focus on applications in economics as well as business. A standard statistical software will be used during computer sessions, no special programming skills are required.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Define and derive the Ordinary Least Squares (OLS) estimator in the linear regression model, including its mathematical representation and assumptions.\n- Examine the statistical properties of the OLS estimator, such as unbiasedness, efficiency, and consistency.\n- Apply the Central Limit Theorem (CLT) to approximate the statistical distribution of the OLS estimator, explaining the implications for hypothesis testing and confidence intervals.\n- Critically evaluate the strengths and limitations of the OLS estimator, including its sensitivity to outliers, multicollinearity, and omitted variable bias.\n- Demonstrate proficiency in using specialized econometric softwares to summarize and analyse actual economic data, including data visualization and model estimation.\n- Contextualize and critically evaluate the results of empirical analysis, interpreting the findings in light of economic theory and policy implications.\n\n## Other Information\n\n## Indicative Assessment\n\n- Typical assessments may include but is not restricted to in-class exercises, written and oral assignments, quizzes, examinations, group project tasks, oral presentation, and other assessment deemed appropriate to show attainment of the learning outcomes set for the course. Further details will be made available via the Class Summary. (100) [LO 1,2,3,4,5,6]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents taking this course are expected to commit at least 10 hours per week consisting of 2 hours of lectures, a 1 hour of computer tutorial and a 1 hour of problem solving tutorial as well as 6 hours of private study\n\n## Inherent Requirements\n\nNot applicable\n\n## Requisite and Incompatibility\n\nTo enrol in this course you must have completed or be currently enrolled in ECON1101. You must also have completed at least one of EMET1001, MATH1014, or MATH1116. You must also have completed either STAT1008 or STAT2001. Incompatible with EMET6007.\n\n## Prescribed Texts\n\nsee Class Summary and Wattle site\n\n## Majors\n\n- [Mathematical Economics](MECO-MAJ)\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 4053 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/EMET2007/First%20Semester/4053) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 5008 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/EMET2007",
+      "fetchedAt": "2026-10-03T01:30:22.689Z",
+      "contentSha256": "bbe1f3e24608c77e9deb9b1ebadbb6d443ee7d9f49d69a3e6075843aa54a97a6"
+    },
+    {
+      "code": "FINM3008",
+      "markdown": "---\nkind: \"course\"\ncode: \"FINM3008\"\nyear: 2026\nsource_url: \"https://programsandcourses.anu.edu.au/2026/course/FINM3008\"\n---\n\nCourse\n\n# Portfolio Construction\n\nAn undergraduate course offered by the Rsch Sch of Finance, Actuarial Studies & App Stats .\n\nFINM3008\n\n- Code FINM3008\n- Unit Value 6 units\n\n- Offered by Rsch Sch of Finance, Actuarial Studies & App Stats\n- ANU College ANU College of Business and Economics\n- Course subject Financial Management\n- Areas of interest Finance\n\n- Academic career UGRD\n- Course convener - Dr Mohammed Abdullah Al Mamun - Tian Yao Zhang\n- Mode of delivery In Person\n- Co-taught Course - FINM6016\n- Offered in First Semester 2026 Second Semester 2026 See Future Offerings\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\n[SELT Survey Results](http://unistats.anu.edu.au/internal/surveys/selt/learning/time-series/FINM3008_Time_Series_LRN.pdf)\n\nPortfolio Construction (FINM3008)\n- Introduction\n- Learning Outcomes\n- Indicative Assessment\n- Workload\n- Requisite and Incompatibility\n- Prescribed Texts\n- Other Information\n- Fees\n- Offerings and Dates\n\nPortfolio Construction draws on core investment principles, theories and techniques previously studied. The objective of this course is to introduce students to portfolio construction and asset allocation. It will focus on gaps in theory and how they can be managed in practice. Examples include challenges/realities in estimating and implementing portfolio optimisation programs, role of liquidity, and importance of plan governance. Topics will include: types of investors and their objectives; dimensions of risk; asset allocation; the nature and role of various asset classes (equity, fixed income, alternative assets, FX); building multi-manager portfolios, and implementation issues.\n\n## Learning Outcomes\n\nUpon successful completion, students will have the knowledge and skills to:\n\n- Implement portfolio construction at the overall plan level, taking into account investor objectives and the practical challenges of implementation.\n- Discuss the use and limitations of portfolio theory.\n- Describe the main characteristics of key asset classes, and the role they each play within a balanced portfolio.\n- Communicate portfolio structures and strategies to a diverse audience.\n- Work effectively in group environments.\n\n## Other Information\n\nInformation about the prescribed textbook will be available via the Class Summary\n\n## Indicative Assessment\n\n- Typical assessment may include, but is not restricted to: exams, assignments, quizzes, presentations and other assessment as appropriate. (100) [LO 1,2,3,4,5]\n- Group Work. Further details, including % value will be made available via the Class Summary. (0) [LO 5]\n\nThe ANU uses Turnitin to enhance student citation and referencing techniques, and to assess assignment submissions as a component of the University's approach to managing Academic Integrity. While the use of Turnitin is not mandatory, the ANU highly recommends Turnitin is used by both teaching staff and students. For additional information regarding Turnitin please visit the [ANU Online](http://services.anu.edu.au/information-technology/software-systems/turnitin) website.\n\n## Workload\n\nStudents are expected to commit 130 hours of work in completing this course. This includes time spent in scheduled classes and self-directed study time\n\n## Requisite and Incompatibility\n\nTo enrol in this course, you must have completed: FINM2001; and, FINM2003 or FINM3011. Incompatible with FINM6016.\n\n## Prescribed Texts\n\nInformation about the prescribed textbook will be available via the Class Summary.\n\n## Fees\n\nTuition fees are for the academic year indicated at the top of the page.\n\n**Commonwealth Support (CSP) Students**\nIf you have been offered a Commonwealth supported place, your fees are set by the Australian Government for each course. At ANU 1 EFTSL is 48 units (normally 8 x 6-unit courses). More information about your student contribution amount for each course at **[Fees](https://www.anu.edu.au/students/program-administration/fees-payments/student-contributions)**.\n\n- **Student Contribution Band:** [34](https://students.anu.edu.au/fees/domestic/csp.php)\n\n- **Unit value:** 6 units\n\nIf you are a **domestic graduate coursework student**with a Domestic Tuition Fee (DTF) place**or international student** you will be required to pay course tuition fees (see below). Course tuition fees are indexed annually. Further information for domestic and international students about tuition and other fees can be found at **[Fees](http://students.anu.edu.au/fees/)**.\n\nWhere there is a unit range displayed for this course, not all unit options below may be available.\n\n| Units | EFTSL |\n| --- | --- |\n| 6.00 | 0.12500 |\n\n## Course fees\n\nDomestic International\n\n- **Domestic fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $5520 |\n\n- **International fee paying students:**\n\n| Year | Fee |\n| --- | --- |\n| 2026 | $7020 |\n\n**Note:**Please note that fee information is for current year only.\n\n## Offerings, Dates and Class Summary Links\n\nANU utilises MyTimetable to enable students to view the timetable for their enrolled courses, browse, then self-allocate to small teaching activities / tutorials so they can better plan their time. Find out more on the [Timetable webpage](https://www.anu.edu.au/students/program-administration/timetabling).\n\nThe list of offerings for future years is indicative only.\nClass summaries, if available, can be accessed by clicking on the View link for the relevant class number.\n\n### Offerings in 2026\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2345 | 23 Feb 2026 | 02 Mar 2026 | 31 Mar 2026 | 29 May 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM3008/First%20Semester/2345) |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 7220 | 27 Jul 2026 | 03 Aug 2026 | 31 Aug 2026 | 30 Oct 2026 | In Person | [View](https://programsandcourses.anu.edu.au/2026/course/FINM3008/Second%20Semester/7220) |\n\n### Offerings in 2027\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 3877 | 22 Feb 2027 | 01 Mar 2027 | 31 Mar 2027 | 28 May 2027 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 8784 | 26 Jul 2027 | 02 Aug 2027 | 31 Aug 2027 | 29 Oct 2027 | In Person | N/A |\n\n### Offerings in 2028\n\n### First Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 5447 | 21 Feb 2028 | 28 Feb 2028 | 31 Mar 2028 | 26 May 2028 | In Person | N/A |\n\n### Second Semester\n\n| Class number | Class start date | Last day to enrol | Census date | Class end date | Mode Of Delivery | Class Summary |\n| --- | --- | --- | --- | --- | --- | --- |\n| 9757 | 24 Jul 2028 | 31 Jul 2028 | 31 Aug 2028 | 27 Oct 2028 | In Person | N/A |\n",
+      "sourceUrl": "https://programsandcourses.anu.edu.au/2026/course/FINM3008",
+      "fetchedAt": "2026-10-03T01:30:22.652Z",
+      "contentSha256": "27667edfc2307c492f64f228fe046df868c6d36c3918746fb46da192ad92ba05"
+    }
+  ]
+}
