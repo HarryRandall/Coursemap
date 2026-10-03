@@ -3,12 +3,14 @@ import type { CourseRunProgress } from "./progress";
 import {
   canManageCatalogueOperations,
   canWriteCourses,
+  canWriteCatalogue,
   getAuthViewer,
 } from "../auth/viewer";
 import { loadImportModelSetting } from "../admin/settings";
 import { withSyncDatabaseClient } from "../catalogue-sync/sync-store";
 export { advanceCourseRun } from "./advance";
-import { compactCourseAdapter } from "../catalogue-import/kinds/course/compact-adapter";
+import { bulkImportAdapter } from "./adapter";
+import { isBulkImportKind } from "./kinds";
 import { courseRunEstimate } from "./estimates";
 import { ensureCourseRunPricing } from "./pricing";
 import { fetchCatalogueModel } from "../admin/model-catalogue";
@@ -48,13 +50,14 @@ export async function previewCourseRun(
   options: ReturnType<typeof parseCourseRunOptions>,
 ) {
   const model = await runModel();
+  const adapter = bulkImportAdapter(options.kind);
   const records = await withSyncDatabaseClient(
     (sql) => sql`
     select records.id, codes.code, count(*) over() as available_count from public.catalogue_records records
     join public.catalogue_codes codes on codes.id = records.code_id
     join public.academic_years years on years.id = records.academic_year_id
     join public.catalogue_listings listings on listings.code_id = records.code_id and listings.academic_year_id = records.academic_year_id
-    where records.kind = 'course' and years.year = ${options.year}
+    where records.kind = ${options.kind} and years.year = ${options.year}
       and records.archived_at is null and listings.is_current
       and records.latest_source_version_id is null and records.published_version_id is null
       and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
@@ -70,7 +73,8 @@ export async function previewCourseRun(
     join public.catalogue_syncs syncs on syncs.id = items.sync_id
     where items.actual_usd is not null and syncs.source_version_id is not null
       and syncs.status in ('applied', 'review_required', 'unchanged')
-      and syncs.parser_version = ${compactCourseAdapter.parserVersion}
+      and syncs.parser_version = ${adapter.parserVersion}
+      and runs.kind = ${options.kind}
       and runs.requested_model = ${model.id}
       and runs.input_usd_per_million = ${model.input_usd_per_million!}
       and runs.output_usd_per_million = ${model.output_usd_per_million!}
@@ -84,6 +88,7 @@ export async function previewCourseRun(
     requestedLimit: options.limit,
     ...courseRunEstimate({
       count: records.length,
+      kind: options.kind,
       model: model.id,
       inputPrice: model.input_usd_per_million!,
       outputPrice: model.output_usd_per_million!,
@@ -105,21 +110,27 @@ export async function createCourseRun(
   options: ReturnType<typeof parseCourseRunOptions>,
 ) {
   const viewer = await requireCourseRunAdministrator();
-  if (options.publishVerified && !(await canWriteCourses()))
-    throw new Error("Course publication permission is required.");
+  if (
+    options.publishVerified &&
+    !(await (options.kind === "course"
+      ? canWriteCourses()
+      : canWriteCatalogue()))
+  )
+    throw new Error("Catalogue publication permission is required.");
   const preview = await previewCourseRun(options);
+  const adapter = bulkImportAdapter(options.kind);
   if (!preview.count)
     throw new Error(
-      "No unimported courses are available for this year. Refresh the ANU listing first.",
+      "No unimported records are available for this year. Refresh the ANU listing first.",
     );
   const runId = await withSyncDatabaseClient((sql) =>
     sql.begin(async (tx) => {
       const [run] =
-        await tx`insert into public.catalogue_course_runs (academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified) values (${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}) returning id`;
+        await tx`insert into public.catalogue_course_runs (kind, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified) values (${options.kind}, ${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}) returning id`;
       for (const record of preview.records) {
         const [sync] = await tx`
         insert into public.catalogue_syncs (record_id, trigger, requested_model, parser_version, prompt_version, schema_version, requested_by)
-        select records.id, 'manual', ${preview.model}, ${compactCourseAdapter.parserVersion}, ${compactCourseAdapter.promptVersion}, ${compactCourseAdapter.schemaVersion}, ${viewer.id}::uuid
+        select records.id, 'manual', ${preview.model}, ${adapter.parserVersion}, ${adapter.promptVersion}, ${adapter.schemaVersion}, ${viewer.id}::uuid
         from public.catalogue_records records where records.id = ${record.id} and records.latest_source_version_id is null and records.published_version_id is null and records.archived_at is null
           and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
         returning id
@@ -141,19 +152,21 @@ export async function readCourseRuns(
     pageSize = 25,
     query = "",
     status = "",
+    kind = "",
   }: {
     runId?: string;
     page?: number;
     pageSize?: number;
     query?: string;
     status?: string;
+    kind?: string;
   } = {},
 ) {
   return withSyncDatabaseClient(
     (sql) => sql<
       (CourseRunProgress & { academic_year: number; matched_count: number })[]
     >`
-    with summaries as (select runs.id, runs.academic_year, runs.state, runs.pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
+    with summaries as (select runs.id, runs.kind, runs.academic_year, runs.state, runs.pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
       (select coalesce(jsonb_agg(blockers), '[]'::jsonb) from (
         select flag->>'message' as reason, count(distinct run_items.record_id)::integer as courses
         from public.catalogue_course_run_items run_items
@@ -181,7 +194,7 @@ export async function readCourseRuns(
       coalesce(sum(case when items.actual_usd is null then items.reserved_usd else 0 end), 0) as reserved_usd
     from public.catalogue_course_runs runs left join public.catalogue_course_run_items items on items.run_id = runs.id
     left join public.catalogue_syncs syncs on syncs.id = items.sync_id
-    where (${year ?? null}::integer is null or runs.academic_year = ${year ?? null})
+    where (${kind} = '' or runs.kind = ${kind}) and (${year ?? null}::integer is null or runs.academic_year = ${year ?? null})
       and (${runId ?? null}::uuid is null or runs.id = ${runId ?? null}::uuid)
       and (${query} = '' or runs.academic_year::text ilike ${`%${query}%`} or exists (
         select 1 from public.catalogue_course_run_items search_items
@@ -199,7 +212,12 @@ export async function readCourseRuns(
 
 export async function readCourseRunHistory(
   page: number,
-  filters: { query?: string; status?: string; year?: number } = {},
+  filters: {
+    query?: string;
+    status?: string;
+    year?: number;
+    kind?: string;
+  } = {},
 ) {
   const query = (filters.query ?? "").trim().slice(0, 200);
   const status = ["finished", "incomplete", "paused", "stopped"].includes(
@@ -207,7 +225,8 @@ export async function readCourseRunHistory(
   )
     ? filters.status!
     : "";
-  const options = { page, query, status };
+  const kind = isBulkImportKind(filters.kind) ? filters.kind : "";
+  const options = { page, query, status, kind };
   const runs = await readCourseRuns(filters.year, options);
   // A stale page link still needs the filtered total to offer valid navigation.
   const first =
@@ -228,6 +247,7 @@ export async function readCourseRunHistory(
     query,
     status,
     year: filters.year,
+    kind,
   };
 }
 
@@ -250,7 +270,7 @@ export async function readCourseRunItems(
 ) {
   return withSyncDatabaseClient(async (sql) => {
     const rows = await sql`
-      with results as (select records.id as record_id, codes.code, coalesce(drafts.content #>> '{course,details,title}', listings.title, codes.code) as title,
+      with results as (select records.id as record_id, codes.code, coalesce(drafts.content #>> '{course,details,title}', drafts.content #>> '{structure,details,name}', listings.title, codes.code) as title,
         syncs.status, syncs.error_message, items.actual_usd,
         records.published_version_id, drafts.content,
         coalesce((select jsonb_agg(distinct reason) from (

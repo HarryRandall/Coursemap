@@ -69,11 +69,15 @@ export function CourseRunHeader({
       </div>
       <div
         role="progressbar"
-        aria-label="Courses imported"
+        aria-label={
+          run.kind && run.kind !== "course"
+            ? "Records imported"
+            : "Courses imported"
+        }
         aria-valuemin={0}
         aria-valuemax={run.total || 1}
         aria-valuenow={Math.min(run.total, run.imported)}
-        aria-valuetext={`${run.imported} of ${run.total} courses imported: ${segments.published} published, ${segments.drafts} drafts ready, ${segments.review} need review, ${segments.failed} failed, ${segments.stopped} stopped${segments.other ? `, ${segments.other} other processed` : ""}`}
+        aria-valuetext={`${run.imported} of ${run.total} ${run.kind && run.kind !== "course" ? `${run.kind}s` : "courses"} imported: ${segments.published} published, ${segments.drafts} drafts ready, ${segments.review} need review, ${segments.failed} failed, ${segments.stopped} stopped${segments.other ? `, ${segments.other} other processed` : ""}`}
         className="flex h-2 overflow-hidden rounded-full bg-muted"
       >
         {outcomes.map(
@@ -136,12 +140,12 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
     {
       label: "Publication rate",
       value: percent(analysis.publicationRate),
-      detail: `${run.published} of ${run.imported} imported courses`,
+      detail: `${run.published} of ${run.imported} imported ${run.kind && run.kind !== "course" ? `${run.kind}s` : "courses"}`,
     },
     {
       label: "Review rate",
       value: percent(analysis.reviewRate),
-      detail: `${run.review} of ${run.imported} imported courses`,
+      detail: `${run.review} of ${run.imported} imported ${run.kind && run.kind !== "course" ? `${run.kind}s` : "courses"}`,
     },
     {
       label: "Elapsed time",
@@ -158,7 +162,7 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
         analysis.coursesPerMinute === null
           ? "--"
           : `${analysis.coursesPerMinute.toFixed(1)} / min`,
-      detail: "Imported courses per elapsed minute",
+      detail: "Imported records per elapsed minute",
     },
   ];
   return (
@@ -202,7 +206,7 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">
-              Average cost per course
+              Average cost per record
             </dt>
             <dd className="mt-1 text-lg tabular-nums">
               {analysis.averageCost === null
@@ -210,12 +214,12 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
                 : cost(analysis.averageCost)}
             </dd>
             <dd className="mt-1 text-xs text-muted-foreground">
-              {analysis.settled} courses with confirmed costs
+              {analysis.settled} records with confirmed costs
             </dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">
-              Average cost per paid course
+              Average cost per paid record
             </dt>
             <dd className="mt-1 text-lg tabular-nums">
               {analysis.paidAverageCost === null
@@ -223,7 +227,7 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
                 : cost(analysis.paidAverageCost)}
             </dd>
             <dd className="mt-1 text-xs text-muted-foreground">
-              Per course with an AI charge
+              Per record with an AI charge
             </dd>
           </div>
           {costs.reserved > 0 && (
@@ -237,7 +241,7 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
         </dl>
         <p className="text-xs text-muted-foreground">
           {run.paid_courses ?? 0}{" "}
-          {run.paid_courses === 1 ? "course" : "courses"} with AI charges ·{" "}
+          {run.paid_courses === 1 ? "record" : "records"} with AI charges ·{" "}
           {run.free_courses ?? 0} with no AI charge (
           {percent(analysis.noChargeRate)})
         </p>

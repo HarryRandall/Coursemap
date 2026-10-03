@@ -1,3 +1,8 @@
+import {
+  importKindLabel,
+  type BulkImportKind,
+} from "@/lib/catalogue-runs/kinds";
+import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
   courseRunItemState,
@@ -20,6 +25,7 @@ import { Pagination } from "@/ui/common/pagination";
 
 export function CourseRunResults({
   results,
+  kind = "course",
   reviewOnly = false,
   year,
   page,
@@ -32,6 +38,7 @@ export function CourseRunResults({
   onFilterChange,
 }: {
   results: Results | null;
+  kind?: BulkImportKind;
   reviewOnly?: boolean;
   year: number;
   page: number;
@@ -43,14 +50,15 @@ export function CourseRunResults({
   onQueryChange: (query: string) => void;
   onFilterChange: (key: string, value: string) => void;
 }) {
+  const plural = importKindLabel(kind);
   return (
     <section
-      aria-label="Imported course results"
+      aria-label={`Imported ${kind} results`}
       className="workspace-stack gap-4"
       aria-busy={loading}
     >
       <FilterBar
-        searchPlaceholder="Search courses by code or title"
+        searchPlaceholder={`Search ${plural} by code or title`}
         state={{
           query,
           values: reviewOnly ? { issue } : { outcome, issue },
@@ -90,7 +98,7 @@ export function CourseRunResults({
         selectable={false}
         footer={
           <Pagination
-            itemName="courses"
+            itemName={plural}
             page={page}
             pageSize={results?.pageSize ?? 25}
             alwaysShowControls
@@ -100,10 +108,12 @@ export function CourseRunResults({
         }
       >
         <Table>
-          <TableCaption className="sr-only">Imported courses</TableCaption>
+          <TableCaption className="sr-only">Imported {plural}</TableCaption>
           <TableHeader>
             <TableRow>
-              <TableHead>Course</TableHead>
+              <TableHead>
+                {kind.charAt(0).toUpperCase() + kind.slice(1)}
+              </TableHead>
               <TableHead>Outcome</TableHead>
               <TableHead>Issues</TableHead>
               <TableHead className="text-right">Cost</TableHead>
@@ -116,7 +126,7 @@ export function CourseRunResults({
                   <CatalogueIdentity
                     code={item.code}
                     title={item.title}
-                    href={`/admin/courses/${year}/${item.code}${reviewOnly ? "/changes" : ""}`}
+                    href={`${adminCatalogueRecordPath(kind, year, item.code)}${reviewOnly ? "/changes" : ""}`}
                   />
                 </TableCell>
                 <TableCell>
@@ -172,10 +182,10 @@ export function CourseRunResults({
                   role="status"
                 >
                   {!results
-                    ? "Loading course results..."
+                    ? `Loading ${kind} results...`
                     : query || outcome || issue
-                      ? "No courses match your search or filters."
-                      : "No course results yet."}
+                      ? `No ${plural} match your search or filters.`
+                      : `No ${kind} results yet.`}
                 </TableCell>
               </TableRow>
             )}

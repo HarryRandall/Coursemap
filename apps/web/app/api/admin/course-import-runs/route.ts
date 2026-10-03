@@ -11,7 +11,6 @@ import {
 } from "@/lib/catalogue-runs/service";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
-import { canWriteCourses } from "@/lib/auth/viewer";
 import {
   publishSavedCourseRunDrafts,
   setCourseRunAutoPublish,
@@ -104,11 +103,6 @@ export async function POST(request: Request) {
     if (typeof value.runId !== "string" || !UUID.test(value.runId))
       throw new TypeError("Choose a valid import run.");
     if (value.action === "auto-publish" || value.action === "publish-drafts") {
-      if (!(await canWriteCourses()))
-        return Response.json(
-          { error: "Course publication permission is required." },
-          { status: 403 },
-        );
       const viewer = await requireCourseRunAdministrator();
       const runId = value.runId;
       if (value.action === "auto-publish") {

@@ -47,6 +47,7 @@ export default async function Page({
     return (
       <CatalogueImportPage
         runId={runId}
+        kind={typeof query.kind === "string" ? query.kind : undefined}
         year={year}
         initialTab={typeof query.tab === "string" ? query.tab : undefined}
       />

@@ -1,5 +1,7 @@
+import type { BulkImportKind } from "./kinds";
 export type CourseRunProgress = {
   id: string;
+  kind?: BulkImportKind;
   requested_by?: string;
   created_at: string;
   started_at?: string | null;

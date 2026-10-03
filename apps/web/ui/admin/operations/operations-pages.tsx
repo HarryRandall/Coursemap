@@ -1,3 +1,4 @@
+import { isBulkImportKind } from "@/lib/catalogue-runs/kinds";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
@@ -13,6 +14,7 @@ import { CourseImportList } from "./course-import-list";
 import {
   canManageCatalogueOperations,
   canWriteCourses,
+  canWriteCatalogue,
   getAuthViewer,
 } from "@/lib/auth/viewer";
 import {
@@ -72,6 +74,7 @@ export async function CatalogueOperationsPage({
           {
             query: first(searchParams.q),
             status: first(searchParams.status),
+            kind: first(searchParams.kind),
             year: /^\d{4}$/u.test(first(searchParams.year) ?? "")
               ? Number(first(searchParams.year))
               : undefined,
@@ -218,26 +221,31 @@ export async function CatalogueImportPage({
   runId,
   year,
   initialTab,
+  kind: requestedKind,
 }: {
   runId: string;
   year?: number;
   initialTab?: string;
+  kind?: string;
 }) {
   if (!(await canManageCatalogueOperations())) return <AccessDeniedError />;
   const run =
     runId === "new" ? null : (await readCourseRuns(undefined, { runId }))[0];
   if (runId !== "new" && !run) notFound();
+  const kind = run?.kind ?? requestedKind ?? "course";
+  if (!isBulkImportKind(kind)) notFound();
   const years = await loadCatalogueYears();
   const selectedYear =
-    run?.academic_year ?? year ?? (await defaultCatalogueYear("course", years));
+    run?.academic_year ?? year ?? (await defaultCatalogueYear(kind, years));
   if (!selectedYear || !years.includes(selectedYear)) notFound();
   const [canPublish, viewer] = await Promise.all([
-    canWriteCourses(),
+    kind === "course" ? canWriteCourses() : canWriteCatalogue(),
     getAuthViewer(),
   ]);
   return (
     <CourseImportWorkspace
-      key={`${runId}-${selectedYear}`}
+      key={`${runId}-${selectedYear}-${kind}`}
+      kind={kind}
       years={years}
       year={selectedYear}
       initialRun={run ?? null}
