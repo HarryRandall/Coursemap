@@ -143,7 +143,7 @@ export type AcademicStructureExtractionEvidence = {
   sourceLocator: string;
   evidenceExcerpt: string;
   confidence: number;
-  method: "model";
+  method: "model" | "deterministic";
 };
 
 export type AcademicStructureExtractionReviewItem = {
@@ -668,7 +668,7 @@ const evidenceSchema = z
     sourceLocator: nonEmptyString,
     evidenceExcerpt: nonEmptyString,
     confidence: z.number().finite().min(0).max(1),
-    method: z.literal("model"),
+    method: z.enum(["model", "deterministic"]),
   })
   .strict();
 

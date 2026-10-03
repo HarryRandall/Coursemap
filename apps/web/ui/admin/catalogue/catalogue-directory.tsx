@@ -178,10 +178,12 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {page.kind === "course" && (
+        {page.kind !== "programme" && (
           <Button variant="outline" asChild>
-            <Link href={adminCourseImportPath("new", page.academicYear)}>
-              Import courses
+            <Link
+              href={adminCourseImportPath("new", page.academicYear, page.kind)}
+            >
+              Import {CATALOGUE_KIND_LABELS[page.kind].plural.toLowerCase()}
             </Link>
           </Button>
         )}

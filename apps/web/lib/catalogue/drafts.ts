@@ -1,5 +1,6 @@
+import { importPublicationPermission } from "../catalogue-runs/kinds";
 import "server-only";
-import { verifiedCoursePublication } from "../catalogue-runs/eligibility";
+import { verifiedCataloguePublication } from "../catalogue-runs/eligibility";
 import { courseLevelForCode } from "@/lib/academic/course-code";
 
 import type {
@@ -673,7 +674,7 @@ export async function publishCatalogueDraft({
           where runs.id = ${importRunId}::uuid and items.record_id = ${recordId}
             and (${importPublicationMode === "verified-draft"} or
               (runs.state = 'active' and runs.publish_verified and runs.requested_by = ${userId}::uuid))
-            and private.has_permission('imports.manage') and private.has_permission('courses.write')
+            and private.has_permission('imports.manage') and private.has_permission(${importPublicationPermission(record.kind)})
             and syncs.status in ('applied', 'review_required', 'unchanged')
             and syncs.previous_source_version_id is null
             and versions.id = ${row.base_version_id}
@@ -694,7 +695,7 @@ export async function publishCatalogueDraft({
       }
       const draft = draftFromRow(row);
       const verifiedContent = importRunId
-        ? verifiedCoursePublication(draft.content)
+        ? verifiedCataloguePublication(draft.content)
         : null;
       if (importRunId && !verifiedContent)
         throw new CatalogueDraftError(

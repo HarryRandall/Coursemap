@@ -1,10 +1,12 @@
 import type { SyncSql } from "../catalogue-sync/sync-store.ts";
-import {
-  COMPACT_COURSE_MAX_INPUT_BYTES,
-  COMPACT_COURSE_OUTPUT_TOKENS,
-} from "../catalogue-import/kinds/course/compact-adapter.ts";
+import { bulkImportAdapter, bulkImportInputCap } from "./adapter.ts";
+import type { BulkImportKind } from "./kinds.ts";
 
-export function courseRunAllowance(inputPrice: number, outputPrice: number) {
+export function courseRunAllowance(
+  inputPrice: number,
+  outputPrice: number,
+  kind: BulkImportKind = "course",
+) {
   if (
     ![inputPrice, outputPrice].every(
       (value) => Number.isFinite(value) && value >= 0,
@@ -13,8 +15,8 @@ export function courseRunAllowance(inputPrice: number, outputPrice: number) {
     throw new TypeError("Current model pricing is required.");
   // One UTF-8 byte per token is a conservative bound; never assume cache hits.
   return (
-    (COMPACT_COURSE_MAX_INPUT_BYTES * inputPrice +
-      COMPACT_COURSE_OUTPUT_TOKENS * outputPrice) /
+    (bulkImportInputCap(kind) * inputPrice +
+      bulkImportAdapter(kind).maxOutputTokens * outputPrice) /
     1_000_000
   );
 }
@@ -29,10 +31,6 @@ export async function reserveCourseRunSpend(
   syncId: string,
   inputBytes: number,
 ) {
-  if (inputBytes > COMPACT_COURSE_MAX_INPUT_BYTES)
-    throw new CourseRunBudgetError(
-      "The eligibility request exceeds the source-first input cap. Review this course individually.",
-    );
   await sql.begin(async (tx) => {
     const [run] = await tx`
       select runs.* from public.catalogue_course_runs runs
@@ -42,6 +40,10 @@ export async function reserveCourseRunSpend(
     if (!run)
       throw new CourseRunBudgetError(
         "The source-first sync has no authorised import run.",
+      );
+    if (inputBytes > bulkImportInputCap(run.kind as BulkImportKind))
+      throw new CourseRunBudgetError(
+        "The request exceeds the input cap. Review this record individually.",
       );
     if (run.state !== "active")
       throw new CourseRunBudgetError(
@@ -55,6 +57,7 @@ export async function reserveCourseRunSpend(
     const allowance = courseRunAllowance(
       Number(run.input_usd_per_million),
       Number(run.output_usd_per_million),
+      run.kind as BulkImportKind,
     );
     if (Number(total.used) + allowance > Number(run.budget_usd))
       throw new CourseRunBudgetError(

@@ -44,7 +44,7 @@ export function CourseRunReview({
           size="sm"
           onClick={() => setGrouped(false)}
         >
-          Courses needing review
+          Records needing review
         </Button>
         <Button
           variant={grouped ? "secondary" : "ghost"}
@@ -57,7 +57,7 @@ export function CourseRunReview({
       {!!run.published_drafts && (
         <p className="text-sm text-warning">
           {run.published_drafts} published{" "}
-          {run.published_drafts === 1 ? "course has" : "courses have"} separate
+          {run.published_drafts === 1 ? "record has" : "records have"} separate
           draft changes.
         </p>
       )}
@@ -96,7 +96,7 @@ export function CourseRunReview({
               <TableHeader>
                 <TableRow>
                   <TableHead>Issue</TableHead>
-                  <TableHead className="text-right">Affected courses</TableHead>
+                  <TableHead className="text-right">Affected records</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -115,7 +115,7 @@ export function CourseRunReview({
                             onViewCourses(blocker.reason);
                             setGrouped(false);
                           }}
-                          aria-label={`View ${blocker.courses} ${blocker.courses === 1 ? "course" : "courses"}: ${blocker.reason}`}
+                          aria-label={`View ${blocker.courses} ${blocker.courses === 1 ? "record" : "records"}: ${blocker.reason}`}
                         >
                           {blocker.courses}
                         </Button>
@@ -128,7 +128,7 @@ export function CourseRunReview({
                       {query
                         ? "No issues match your search."
                         : run.review
-                          ? "Open the courses needing review for their source changes."
+                          ? "Open the records needing review for their source changes."
                           : "No publication issues."}
                     </TableCell>
                   </TableRow>

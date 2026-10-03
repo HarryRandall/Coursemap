@@ -40,5 +40,45 @@ export function verifiedCoursePublication(
 }
 
 export function sourceFirstPublicationEligible(content: CatalogueContent) {
-  return verifiedCoursePublication(content) !== null;
+  return verifiedCataloguePublication(content) !== null;
+}
+
+/** Structures need independent coverage of the whole source and its completion tree. */
+export function verifiedCataloguePublication(
+  content: CatalogueContent,
+): CatalogueContent | null {
+  if (content.kind === "course") return verifiedCoursePublication(content);
+  if (content.kind === "programme" || content.flags.length) return null;
+  const verified = new Set(
+    content.evidence
+      .filter(
+        (item) =>
+          item.method === "deterministic" &&
+          item.confidence === 1 &&
+          item.sourceExcerpt,
+      )
+      .map((item) => item.fieldPath),
+  );
+  if (
+    !["title", "totalUnits", "requirements", "sourceCoverage"].every((key) =>
+      verified.has(key),
+    )
+  )
+    return null;
+  if (
+    !content.structure.details.units ||
+    !content.requirements.rules.length ||
+    !content.requirements.conditions.length
+  )
+    return null;
+  if (
+    content.requirements.conditions.some(
+      (condition) =>
+        condition.kind === "other" || condition.reviewState === "review",
+    )
+  )
+    return null;
+  if (classifyFirstRead(content).some((item) => item.band !== "accepted"))
+    return null;
+  return content;
 }

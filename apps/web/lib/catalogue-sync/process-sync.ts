@@ -1,3 +1,13 @@
+import {
+  compactStructureAdapter,
+  COMPACT_STRUCTURE_PARSER_VERSION,
+  COMPACT_STRUCTURE_MAX_INPUT_BYTES,
+} from "../catalogue-import/kinds/structure/compact-adapter.ts";
+import {
+  readStructureSource,
+  heldStructureRequirements,
+} from "../catalogue-import/kinds/structure/source-parser.ts";
+import type { AcademicStructureKind } from "../catalogue-import/kinds/structure/contract.ts";
 import { parsePlainCourseRequisites } from "../catalogue-import/kinds/course/plain-requisites.ts";
 import { randomUUID } from "node:crypto";
 import {
@@ -266,9 +276,15 @@ async function processClaimedSync({
   const compact =
     claim.kind === "course" &&
     claim.parserVersion === COMPACT_COURSE_PARSER_VERSION;
-  const adapter = compact
-    ? compactCourseAdapter
-    : syncAdapterForKind(claim.kind);
+  const compactStructure =
+    ["major", "minor", "specialisation"].includes(claim.kind) &&
+    claim.parserVersion === COMPACT_STRUCTURE_PARSER_VERSION;
+  const sourceFirst = compact || compactStructure;
+  const adapter = compactStructure
+    ? compactStructureAdapter
+    : compact
+      ? compactCourseAdapter
+      : syncAdapterForKind(claim.kind);
   let sourceDocumentId: number | null = null;
   let requestProviderRevision = claim.providerRevision;
 
@@ -522,18 +538,38 @@ async function processClaimedSync({
                   ],
                 }
               : null);
-          if (compact && !localRequisites)
+          const structureSource = compactStructure
+            ? readStructureSource(
+                claim.kind as AcademicStructureKind,
+                claim.code,
+                claim.academicYear,
+                pageMarkdown,
+              )
+            : null;
+          const localStructure =
+            structureSource?.plain ??
+            (structureSource &&
+            Buffer.byteLength(JSON.stringify(requestBody), "utf8") >
+              COMPACT_STRUCTURE_MAX_INPUT_BYTES
+              ? heldStructureRequirements(structureSource.extraction)
+              : null);
+          const localResult = localRequisites
+            ? { requisites: localRequisites }
+            : localStructure
+              ? { requirements: localStructure }
+              : null;
+          if (sourceFirst && !localResult)
             await reserveCourseRunSpend(
               sql,
               claim.syncId,
               Buffer.byteLength(JSON.stringify(requestBody), "utf8"),
             );
-          result = localRequisites
+          result = localResult
             ? restoreOpenRouterExtraction(
                 {
                   id: null,
                   model: claim.requestedModel,
-                  content: JSON.stringify({ requisites: localRequisites }),
+                  content: JSON.stringify(localResult),
                   finishReason: "stop",
                   latencyMilliseconds: 0,
                   usage: {
@@ -605,7 +641,7 @@ async function processClaimedSync({
           latencyMs: result.latencyMilliseconds,
         });
       }
-      if (compact)
+      if (sourceFirst)
         await settleCourseRunSpend(
           sql,
           claim.syncId,
@@ -707,15 +743,15 @@ async function processClaimedSync({
       errorCode: null,
       errorMessage: null,
     });
-    if (compact) {
+    if (sourceFirst) {
       const { publishVerifiedRunCandidate } =
         await import("../catalogue-runs/publication.ts");
       await publishVerifiedRunCandidate(sql, claim.syncId, write);
     }
   } catch (error) {
-    if (compact && error instanceof SyncPaidOutcomeUncertainError)
+    if (sourceFirst && error instanceof SyncPaidOutcomeUncertainError)
       await settleCourseRunSpend(sql, claim.syncId, null);
-    if (compact && error instanceof CourseRunBudgetError)
+    if (sourceFirst && error instanceof CourseRunBudgetError)
       await sql`update public.catalogue_course_runs set state = 'paused', pause_reason = ${error.message} where id = (select run_id from public.catalogue_course_run_items where sync_id = ${claim.syncId}::uuid) and state = 'active'`;
     const code = syncErrorCode(error);
     const summary = safeErrorSummary(error);

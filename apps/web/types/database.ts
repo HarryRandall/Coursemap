@@ -994,6 +994,7 @@ export type Database = {
           created_at: string
           id: string
           input_usd_per_million: number
+          kind: string
           output_usd_per_million: number
           pause_reason: string | null
           publish_verified: boolean
@@ -1008,6 +1009,7 @@ export type Database = {
           created_at?: string
           id?: string
           input_usd_per_million: number
+          kind?: string
           output_usd_per_million: number
           pause_reason?: string | null
           publish_verified?: boolean
@@ -1022,6 +1024,7 @@ export type Database = {
           created_at?: string
           id?: string
           input_usd_per_million?: number
+          kind?: string
           output_usd_per_million?: number
           pause_reason?: string | null
           publish_verified?: boolean

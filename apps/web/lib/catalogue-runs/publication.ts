@@ -17,12 +17,12 @@ export async function setCourseRunAutoPublish(
     const rows = await tx`
       update public.catalogue_course_runs set publish_verified = ${enabled}
       where id = ${runId}::uuid and requested_by = ${userId}::uuid
-        and private.has_permission('imports.manage') and private.has_permission('courses.write')
+        and private.has_permission('imports.manage') and private.has_permission(case when kind = 'course' then 'courses.write' else 'catalogue.write' end)
       returning id
     `;
     if (!rows.length)
       throw new Error(
-        "Only the import's initiator with course publication permission can change auto-publish.",
+        "Only the import's initiator with catalogue publication permission can change auto-publish.",
       );
   });
 }
@@ -37,9 +37,9 @@ export async function publishSavedCourseRunDrafts(
   await sql.begin(async (tx) => {
     await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
     const [permission] =
-      await tx`select private.has_permission('imports.manage') and private.has_permission('courses.write') as allowed`;
-    if (!permission.allowed)
-      throw new Error("Course publication permission is required.");
+      await tx`select private.has_permission('imports.manage') and private.has_permission(case when kind = 'course' then 'courses.write' else 'catalogue.write' end) as allowed from public.catalogue_course_runs where id = ${runId}::uuid`;
+    if (!permission?.allowed)
+      throw new Error("Catalogue publication permission is required.");
   });
   const rows = await sql`
     select items.record_id, drafts.revision, drafts.content
