@@ -1,4 +1,6 @@
 "use client";
+
+import { hasInherentRequirements } from "./course-detail-format";
 import { workloadHoursLabel } from "@/lib/academic/workload";
 import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
@@ -345,7 +347,8 @@ export function CourseDetailView({
                   {course.workloadText ? (
                     <section>
                       <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                        <GraduationCap size={15} aria-hidden="true" /> Workload
+                        <GraduationCap size={15} aria-hidden="true" /> Study
+                        information
                       </h3>
                       <p className="mt-2 text-xs leading-relaxed whitespace-pre-line text-muted-foreground">
                         {course.workloadText}
@@ -356,8 +359,8 @@ export function CourseDetailView({
                   {course.prescribedTexts ? (
                     <section>
                       <h3 className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                        <Library size={15} aria-hidden="true" /> Prescribed
-                        texts
+                        <Library size={15} aria-hidden="true" /> Texts and
+                        reading
                       </h3>
                       <p className="mt-2 text-xs leading-relaxed whitespace-pre-line text-muted-foreground">
                         {course.prescribedTexts}
@@ -615,7 +618,9 @@ export function CourseDetailView({
               },
               {
                 title: "Inherent requirements",
-                text: course.inherentRequirements,
+                text: hasInherentRequirements(course.inherentRequirements)
+                  ? course.inherentRequirements
+                  : null,
                 linked: false,
               },
             ].map((section) =>

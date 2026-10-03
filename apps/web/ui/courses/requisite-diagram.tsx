@@ -361,7 +361,6 @@ export function RequisiteDiagram({
   hasPrerequisiteWording,
   student,
   unlocks,
-  unlocksAreKnown,
 }: {
   academicYear: number;
   availableCourseCodes: ReadonlySet<string>;
@@ -374,25 +373,6 @@ export function RequisiteDiagram({
 }) {
   const { requirements, permissions, incompatible, concurrentIncompatible } =
     splitRequisiteRule(expression);
-
-  if (
-    requirements.length === 0 &&
-    unlocks.length === 0 &&
-    !permissions.length
-  ) {
-    return (
-      <p
-        className="px-5 pb-5 text-center text-sm text-muted-foreground"
-        data-testid="requisite-diagram"
-      >
-        {hasPrerequisiteWording
-          ? `The prerequisites for ${code} have not been read into a chain yet. They are listed below as ANU publishes them.`
-          : unlocksAreKnown
-            ? `${code} has no prerequisites, and no published course lists it as one.`
-            : `${code} has no prerequisites. Which courses it leads to is not known until it is published.`}
-      </p>
-    );
-  }
 
   const shared = { academicYear, availableCourseCodes, student };
   const heights = requirements.map(heightOf);
@@ -427,10 +407,11 @@ export function RequisiteDiagram({
 
   const merges = placed.length > 1;
   const mergeX = REQUIRES_W + MERGE_GAP;
-  const courseX = mergeX + (merges ? 44 : 0);
+  const isolated =
+    !requirements.length && !unlocks.length && !hasPrerequisiteWording;
+  const courseX = isolated ? 0 : mergeX + (merges ? 44 : 0);
   const unlockX = courseX + COURSE_W + UNLOCK_GAP;
-  // With nothing known to follow, the column is left out rather than filled
-  // with a placeholder, and the diagram closes on the course.
+  // An isolated course stays centred without blank columns forcing mobile scrolling.
   const width = unlocks.length ? unlockX + UNLOCK_W : courseX + COURSE_W;
   const spineX = courseX + COURSE_W + UNLOCK_GAP / 2;
   const unlockTop = mid - unlockTotal / 2;
@@ -443,7 +424,11 @@ export function RequisiteDiagram({
       <div className="mx-auto" style={{ width }}>
         <div className="relative h-6 text-center text-[10px] font-bold tracking-wider text-muted-foreground/80 uppercase">
           <p className="absolute" style={{ left: 0, width: REQUIRES_W }}>
-            {merges ? "Requires all of" : "Requires"}
+            {requirements.length || hasPrerequisiteWording
+              ? merges
+                ? "Requires all of"
+                : "Requires"
+              : null}
           </p>
           <p className="absolute" style={{ left: courseX, width: COURSE_W }}>
             This course
@@ -515,7 +500,7 @@ export function RequisiteDiagram({
             ) : null}
           </svg>
 
-          {placed.length === 0 ? (
+          {placed.length === 0 && hasPrerequisiteWording ? (
             <Placeholder
               label={
                 hasPrerequisiteWording

@@ -4,6 +4,7 @@ import {
   CATALOGUE_STATE_LABELS,
   type CatalogueDirectoryRecord,
   catalogueRecordState,
+  catalogueRecordMatchesState,
 } from "@/lib/coursemap/catalogue-kinds";
 
 function record(
@@ -83,4 +84,18 @@ test("offers every state the directory can be narrowed to a name", () => {
   expect(CATALOGUE_STATES).toEqual(Object.keys(CATALOGUE_STATE_LABELS));
   for (const state of CATALOGUE_STATES)
     expect(CATALOGUE_STATE_LABELS[state]).toBeTruthy();
+});
+
+test("the Published filter includes published records with a retained draft", () => {
+  const imported = record({
+    isPublished: true,
+    hasDraft: true,
+    hasChanges: true,
+  });
+  expect(catalogueRecordState(imported)).toBe("draft");
+  expect(catalogueRecordMatchesState(imported, "published")).toBe(true);
+  expect(catalogueRecordMatchesState(imported, "draft")).toBe(true);
+  expect(
+    catalogueRecordMatchesState(record({ hasDraft: true }), "published"),
+  ).toBe(false);
 });

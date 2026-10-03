@@ -23,9 +23,17 @@ import {
   markFieldForReviewAction,
 } from "@/lib/coursemap/admin-catalogue-actions";
 import { Pencil } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import { FieldEditDialog } from "./field-edit-dialog";
+import { Badge } from "@coursemap/ui/components/badge";
+import { ReviewValue } from "./review-value";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@coursemap/ui/primitives/collapsible";
+import { ChevronDown } from "lucide-react";
 import { plainText } from "./review-value";
 import { showToast } from "@/ui/common/toast";
 
@@ -105,7 +113,7 @@ function StatusSelect({
 /**
  * Every filled field of the record as ANU was read, with how sure the reading
  * was, including those taken as read and never put up for review. A field can
- * be sent back for review or settled here, and edited on the Content tab.
+ * be sent back for review, settled or edited in place.
  */
 export function AllFields({
   items,
@@ -121,62 +129,110 @@ export function AllFields({
   path: string;
   canWrite: boolean;
 }) {
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const editTrigger = useRef<HTMLButtonElement | null>(null);
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <Table aria-label="All fields">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Field</TableHead>
-            <TableHead>Value</TableHead>
-            <TableHead className="text-right">Confidence</TableHead>
-            <TableHead>Status</TableHead>
-            {canWrite ? (
-              <TableHead>
-                <span className="sr-only">Edit</span>
-              </TableHead>
-            ) : null}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((item) => (
-            <TableRow key={item.fieldPath}>
-              <TableCell className="align-top font-medium">
-                {fieldLabel(item.fieldPath)}
-              </TableCell>
-              <TableCell className="max-w-xl align-top whitespace-normal text-muted-foreground">
-                {summary(item)}
-              </TableCell>
-              <TableCell className="text-right align-top tabular-nums">
-                {item.confidence === null
-                  ? "None given"
-                  : `${Math.round(item.confidence * 100)}%`}
-              </TableCell>
-              <TableCell className="align-top">
-                <StatusSelect
-                  canWrite={canWrite}
-                  item={item}
-                  open={open[item.fieldPath]}
-                  path={path}
-                  recordId={recordId}
-                />
-              </TableCell>
+    <>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <Table aria-label="All fields">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Field</TableHead>
+              <TableHead>Value</TableHead>
+              <TableHead className="text-right">Confidence</TableHead>
+              <TableHead>Status</TableHead>
               {canWrite ? (
-                <TableCell className="text-right align-top">
-                  {/* Fields are edited where they live, in the Content tab. */}
-                  <Button asChild variant="ghost" size="sm">
-                    <Link
-                      href={path}
-                      aria-label={`Edit ${fieldLabel(item.fieldPath)} in Content`}
-                    >
-                      <Pencil aria-hidden="true" /> Edit
-                    </Link>
-                  </Button>
-                </TableCell>
+                <TableHead>
+                  <span className="sr-only">Edit</span>
+                </TableHead>
               ) : null}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {items.map((item) => (
+              <TableRow key={item.fieldPath}>
+                <TableCell className="align-top font-medium">
+                  {fieldLabel(item.fieldPath)}
+                </TableCell>
+                <TableCell className="max-w-xl align-top whitespace-normal text-muted-foreground">
+                  {Array.isArray(item.value) ? (
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="group gap-2"
+                          aria-label={`View all ${fieldLabel(item.fieldPath)}`}
+                        >
+                          {summary(item)}
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="size-3 transition-transform group-data-[state=open]:rotate-180"
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="max-h-80 overflow-auto py-3">
+                        <ReviewValue
+                          label={fieldLabel(item.fieldPath)}
+                          value={item.value}
+                          unitKind={item.unitKind}
+                        />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : (
+                    summary(item)
+                  )}
+                </TableCell>
+                <TableCell className="text-right align-top tabular-nums">
+                  {item.confidence === null ? (
+                    <span
+                      aria-label="Confidence not provided"
+                      className="text-muted-foreground"
+                    >
+                      --
+                    </span>
+                  ) : (
+                    <Badge variant="secondary">
+                      {Math.round(item.confidence * 100)}%
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell className="align-top">
+                  <StatusSelect
+                    canWrite={canWrite}
+                    item={item}
+                    open={open[item.fieldPath]}
+                    path={path}
+                    recordId={recordId}
+                  />
+                </TableCell>
+                {canWrite ? (
+                  <TableCell className="text-right align-top">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Edit ${fieldLabel(item.fieldPath)}`}
+                      onClick={(event) => {
+                        editTrigger.current = event.currentTarget;
+                        setEditingField(item.fieldPath);
+                      }}
+                    >
+                      <Pencil aria-hidden="true" /> Edit
+                    </Button>
+                  </TableCell>
+                ) : null}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      {editingField && (
+        <FieldEditDialog
+          fieldPath={editingField}
+          onClose={() => setEditingField(null)}
+          returnFocus={() => editTrigger.current?.focus()}
+        />
+      )}
+    </>
   );
 }

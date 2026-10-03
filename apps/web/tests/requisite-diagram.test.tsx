@@ -118,18 +118,26 @@ test("completed requirements say so in words as well as colour", () => {
   ).toBeInTheDocument();
 });
 
-test("a course with nothing on either side explains the gap", () => {
-  renderDiagram({
-    expression: null,
-    unlocks: [],
-    hasPrerequisiteWording: false,
-  });
-  expect(
-    screen.getByText(
-      "COMP3500 has no prerequisites, and no published course lists it as one.",
-    ),
-  ).toBeInTheDocument();
-});
+test.each([true, false])(
+  "keeps an isolated course in the graph when follow-on courses are known: %s",
+  (unlocksAreKnown) => {
+    renderDiagram({
+      expression: null,
+      unlocks: [],
+      hasPrerequisiteWording: false,
+      unlocksAreKnown,
+    });
+    expect(screen.getByTestId("requisite-diagram")).toContainElement(
+      screen.getByText("COMP3500"),
+    );
+    expect(screen.getByText("This course")).toBeVisible();
+    expect(
+      screen.queryByText(
+        /has no prerequisites|not known until|No course prerequisites/,
+      ),
+    ).not.toBeInTheDocument();
+  },
+);
 
 test("with nothing known to follow, the unlocks column is left out", () => {
   renderDiagram({ unlocks: [], unlocksAreKnown: false });

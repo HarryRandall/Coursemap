@@ -192,7 +192,7 @@ a.title:focus-visible {
   min-width: 1020px;
   grid-template-columns:
     minmax(220px, 1.2fr) 72px 150px 100px 170px
-    92px minmax(150px, 1fr) 96px;
+    92px minmax(150px, 1fr) 130px;
 }
 /* Operations discovery: kind, year, status, completeness, discovered,
    started, duration. */
@@ -207,4 +207,18 @@ a.title:focus-visible {
   .actions button {
     min-height: 44px;
   }
+}
+
+.shell[data-layout="operations-imports"] tr {
+  min-width: 800px;
+  grid-template-columns: minmax(220px, 1fr) 160px 110px 100px 120px 120px;
+}
+
+.shell[data-layout="import-courses"] tr {
+  min-width: 760px;
+  grid-template-columns: minmax(260px, 1.4fr) 170px minmax(180px, 1fr) 130px;
+}
+.shell[data-layout="import-review"] tr {
+  min-width: 480px;
+  grid-template-columns: minmax(300px, 1fr) 150px;
 }

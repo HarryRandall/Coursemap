@@ -169,6 +169,15 @@ export function finaliseCourseExtraction({
     requisites: extraction.requisites,
     pageMarkdown,
   });
+  if (sourceReview.unscopedPrerequisiteClauses.length) {
+    extraction.requisites.prerequisiteRule = null;
+    extraction.requisites.unmodelledText = [
+      ...new Set([
+        ...extraction.requisites.unmodelledText,
+        ...sourceReview.unscopedPrerequisiteClauses,
+      ]),
+    ];
+  }
   const problem = modelResponseProblem({ finishReason, responseError });
   const canonicalised = courseModelCanonicalisationReviewItem(
     canonical.changes,
@@ -230,6 +239,7 @@ export function finaliseCourseExtraction({
       unsupportedWording: unsupported,
       unsupportedCollegeNames: sourceReview.unsupportedCollegeNames,
       missingCollegeEnrolment: sourceReview.missingCollegeEnrolment,
+      unscopedPrerequisiteClauses: sourceReview.unscopedPrerequisiteClauses,
     },
   };
 }

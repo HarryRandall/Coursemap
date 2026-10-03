@@ -7,7 +7,7 @@ import { ADMIN_CATALOGUE_OPERATIONS_PATH } from "@/lib/coursemap/catalogue-kinds
 import { SectionTabs } from "@/ui/common/section-tabs";
 import { routeIcons } from "@/ui/shell/route-icons";
 
-export type OperationsSection = "syncs" | "discovery";
+export type OperationsSection = "syncs" | "discovery" | "imports";
 
 export function OperationsTabs({
   value,
@@ -41,6 +41,7 @@ export function OperationsTabList() {
       tabs={[
         { value: "syncs", label: "Syncs", icon: routeIcons.syncs },
         { value: "discovery", label: "Discovery", icon: routeIcons.discovery },
+        { value: "imports", label: "Bulk imports", icon: routeIcons.syncs },
       ]}
     />
   );

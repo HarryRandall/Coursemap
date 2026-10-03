@@ -1,3 +1,4 @@
+import { parsePlainCourseRequisites } from "./plain-requisites.ts";
 import { unsupportedModelWording } from "../../model-evidence.ts";
 import type {
   CourseExtraction,
@@ -157,6 +158,31 @@ function missingCollegeEnrolment(
   );
 }
 
+/** Plain mixed conjunctions do not establish the scope of a prerequisite. */
+function unscopedPrerequisiteClauses(
+  pageMarkdown: string,
+  rule: CourseRule | null,
+): string[] {
+  const section =
+    pageMarkdown
+      .split(/^## Requisite and Incompatibility\s*$/mu)[1]
+      ?.split(/^## /mu)[0] ?? "";
+  return section
+    .split(/(?<=[.!?])\s+|\n\s*\n/u)
+    .map((sentence) => sentence.trim())
+    .filter(
+      (sentence) =>
+        /\b(?:completed|enrolled)\b/iu.test(sentence) &&
+        /\band\b/iu.test(sentence) &&
+        /\bor\b/iu.test(sentence) &&
+        (sentence.match(/\b[A-Z]{4}\d{4}[A-Z]?\b/gu)?.length ?? 0) >= 2 &&
+        !/\beither\b|\bboth\b|[();]/iu.test(sentence) &&
+        JSON.stringify(
+          parsePlainCourseRequisites(sentence)?.prerequisiteRule,
+        ) !== JSON.stringify(rule),
+    );
+}
+
 /** Source-backed checks return review items and diagnostics without changing model rules. */
 export function reviewCourseSourceRules({
   requisites,
@@ -168,7 +194,11 @@ export function reviewCourseSourceRules({
   reviewItems: CourseExtractionReviewItem[];
   unsupportedCollegeNames: string[];
   missingCollegeEnrolment: boolean;
+  unscopedPrerequisiteClauses: string[];
 } {
+  const unscoped = requisites.prerequisiteRule
+    ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
+    : [];
   const collegeNames = [
     ...new Set([
       ...unsupportedCollegeNames(requisites.prerequisiteRule, pageMarkdown),
@@ -211,9 +241,17 @@ export function reviewCourseSourceRules({
       message:
         "The ANU prerequisite joins course codes with both 'and' and 'or' without grouping them. Confirm the intended alternatives before publishing.",
     });
+  for (const clause of unscoped)
+    reviewItems.push({
+      fieldKey: "requisites.prerequisiteRule",
+      kind: "ambiguous",
+      severity: "error",
+      message: `The ANU prerequisite mixes AND/OR without explicit scope. The guessed rule was withheld for review: ${clause}`,
+    });
   return {
     reviewItems,
     unsupportedCollegeNames: collegeNames,
     missingCollegeEnrolment: missingCollege,
+    unscopedPrerequisiteClauses: unscoped,
   };
 }

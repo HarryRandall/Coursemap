@@ -1,4 +1,5 @@
 import "server-only";
+import { verifiedCoursePublication } from "../catalogue-runs/eligibility";
 import { courseLevelForCode } from "@/lib/academic/course-code";
 
 import type {
@@ -92,7 +93,7 @@ function assertEditingSession(editingSessionId: string) {
 export async function catalogueRecordForUpdate(sql: Sql, recordId: number) {
   const [record] = await sql`
     select records.id, records.kind, records.academic_year_id,
-      records.published_version_id, records.archived_at, codes.code,
+      records.published_version_id, records.latest_source_version_id, records.archived_at, codes.code,
       academic_years.year, listings.title as listing_title
     from public.catalogue_records as records
     join public.catalogue_codes as codes on codes.id = records.code_id
@@ -583,7 +584,7 @@ async function materialiseDraftVersion(
     contentHash,
     evidence: evidenceRows.map((row) => ({
       fieldPath: String(row.field_path),
-      method: row.origin as "model" | "manual",
+      method: row.origin as "model" | "manual" | "deterministic",
       confidence: row.confidence === null ? null : Number(row.confidence),
       sourceLocator:
         row.source_locator === null ? null : String(row.source_locator),
@@ -632,15 +633,19 @@ export async function publishCatalogueDraft({
   expectedRevision,
   userId,
   editingSessionId,
+  importRunId,
+  importPublicationMode = "automatic",
   sql,
 }: {
   recordId: number;
   expectedRevision: number;
   userId: string;
-  editingSessionId: string;
+  editingSessionId?: string;
+  importRunId?: string;
+  importPublicationMode?: "automatic" | "verified-draft";
   sql?: SyncSql;
 }) {
-  assertEditingSession(editingSessionId);
+  if (!importRunId) assertEditingSession(editingSessionId ?? "");
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
@@ -657,7 +662,45 @@ export async function publishCatalogueDraft({
           "There is no draft to publish.",
           "NO_DRAFT",
         );
+      if (importRunId) {
+        await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
+        const [authorisation] = await tx`
+          select runs.requested_by, items.sync_id, versions.content_hash
+          from public.catalogue_course_runs runs
+          join public.catalogue_course_run_items items on items.run_id = runs.id
+          join public.catalogue_syncs syncs on syncs.id = items.sync_id
+          join public.catalogue_versions versions on versions.id = syncs.source_version_id
+          where runs.id = ${importRunId}::uuid and items.record_id = ${recordId}
+            and (${importPublicationMode === "verified-draft"} or
+              (runs.state = 'active' and runs.publish_verified and runs.requested_by = ${userId}::uuid))
+            and private.has_permission('imports.manage') and private.has_permission('courses.write')
+            and syncs.status in ('applied', 'review_required', 'unchanged')
+            and syncs.previous_source_version_id is null
+            and versions.id = ${row.base_version_id}
+            and versions.id = ${record.latest_source_version_id}
+          for update of runs
+        `;
+        if (
+          !authorisation ||
+          record.published_version_id !== null ||
+          row.updated_by !== null ||
+          row.content_hash !== authorisation.content_hash
+        ) {
+          throw new CatalogueDraftError(
+            "This draft is not an untouched candidate authorised for automatic publication.",
+            "RUN_PUBLICATION_HELD",
+          );
+        }
+      }
       const draft = draftFromRow(row);
+      const verifiedContent = importRunId
+        ? verifiedCoursePublication(draft.content)
+        : null;
+      if (importRunId && !verifiedContent)
+        throw new CatalogueDraftError(
+          "This candidate has not passed the independent source verification gate.",
+          "RUN_PUBLICATION_HELD",
+        );
       if (draft.revision !== expectedRevision)
         throw new CatalogueDraftConflictError(draft.revision);
       if (
@@ -672,12 +715,20 @@ export async function publishCatalogueDraft({
         );
       // A first reading from ANU is the model's word until a person has
       // looked at the parts it was unsure of.
-      if (draft.content.flags.some((flag) => flag.severity === "error"))
+      if (
+        (verifiedContent ?? draft.content).flags.some(
+          (flag) => flag.severity === "error",
+        )
+      )
         throw new CatalogueDraftError(
           "The draft contains extraction errors. Resolve them with a complete ANU reading before publishing.",
           "INVALID_EXTRACTION",
         );
-      const blocking = await countBlockingFirstReads(tx, recordId);
+      const blocking = await countBlockingFirstReads(
+        tx,
+        recordId,
+        Boolean(importRunId),
+      );
       if (blocking > 0)
         throw new CatalogueDraftError(
           `${blocking} ${blocking === 1 ? "part" : "parts"} of the first ANU reading ${blocking === 1 ? "needs" : "need"} review before publishing. Approve or correct ${blocking === 1 ? "it" : "them"} on the Changes tab.`,
@@ -697,7 +748,7 @@ export async function publishCatalogueDraft({
       }
       const versionId = await materialiseDraftVersion(tx, {
         record,
-        draft,
+        draft: verifiedContent ? { ...draft, content: verifiedContent } : draft,
         userId,
       });
       await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
@@ -711,10 +762,12 @@ export async function publishCatalogueDraft({
           record_id, draft_revision, event_kind, origin, actor_id,
           editing_session_id, version_id
         ) values (
-          ${recordId}, ${draft.revision}, 'publish', 'manual', ${userId}::uuid,
-          ${editingSessionId}::uuid, ${versionId}
+          ${recordId}, ${draft.revision}, 'publish', ${importRunId ? "source" : "manual"}, ${userId}::uuid,
+          ${editingSessionId ?? null}::uuid, ${versionId}
         )
       `;
+      if (importRunId)
+        await tx`update public.catalogue_course_run_items set published_version_id = ${versionId} where run_id = ${importRunId}::uuid and record_id = ${recordId}`;
       await tx`delete from public.catalogue_drafts where record_id = ${recordId}`;
       return { versionId };
     });

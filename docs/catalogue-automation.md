@@ -24,6 +24,13 @@ document when it does.
 A scheduled run calls the same services a manual run calls. There is no
 second pipeline and no scheduler-only code path.
 
+The [year-wide course import proposal](year-course-imports.md) adds an explicit
+administrator-started run with verified automatic publication. Its publication
+mode is separate from the unattended scheduled sync policy below. The local
+implementation now supports explicit year-wide runs and verified publication;
+hosted rollout remains separate. Uncertain optional fields and rule
+interpretations hold the entire candidate as a source draft for review.
+
 ## Scope
 
 - Scheduled lightweight discovery, daily to start, reconciling records and

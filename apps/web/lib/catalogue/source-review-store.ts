@@ -272,11 +272,12 @@ export async function generateFirstReadReview(
 export async function countBlockingFirstReads(
   sql: SyncSql | SyncTransactionSql,
   recordId: number,
+  strict = false,
 ) {
   const [row] = await sql`
     select count(*)::int as count from public.catalogue_sync_changes
     where record_id = ${recordId} and superseded_at is null
-      and decision is null and review_band = 'needs_review'
+      and decision is null and (review_band = 'needs_review' or (${strict} and review_band = 'check'))
   `;
   return Number(row?.count ?? 0);
 }
