@@ -544,6 +544,7 @@ async function processClaimedSync({
                 claim.code,
                 claim.academicYear,
                 pageMarkdown,
+                promptContext?.knownStructures,
               )
             : null;
           const localStructure =

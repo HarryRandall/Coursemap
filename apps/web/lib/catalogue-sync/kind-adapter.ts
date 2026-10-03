@@ -9,6 +9,11 @@ export type PromptContext = {
   knownProgrammes?: Array<{ code: string; name: string }>;
   knownCourses?: Array<{ code: string; name: string }>;
   knownAcademicPeriods?: Array<{ code: string; name: string }>;
+  knownStructures?: Array<{
+    code: string;
+    name: string;
+    kind: "programme" | "major" | "minor" | "specialisation";
+  }>;
 };
 
 export type FetchedSourcePage = {

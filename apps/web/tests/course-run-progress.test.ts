@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import {
   courseRunAnalysis,
+  courseRunItemState,
   courseRunSegments,
   type CourseRunProgress,
 } from "../lib/catalogue-runs/progress";
@@ -113,4 +114,20 @@ it("does not invent rates for an unstarted or empty run", () => {
   expect(analysis.coursesPerMinute).toBeNull();
   expect(analysis.publicationRate).toBeNull();
   expect(analysis.averageCost).toBeNull();
+});
+
+it("shows a paused request as paused even when an older draft exists", () => {
+  expect(
+    courseRunItemState({
+      recordId: 1,
+      code: "TEST-MAJ",
+      title: "Test",
+      status: "paused",
+      published: false,
+      hasDraft: true,
+      issues: ["Old draft issue"],
+      error: "Provider paused",
+      actualUsd: null,
+    }),
+  ).toBe("Paused");
 });

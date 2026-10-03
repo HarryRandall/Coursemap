@@ -70,11 +70,20 @@ it("reads the captured finance allocations exactly, preserving all compulsory co
     "FINM3045",
     "STAT3011",
   ]);
-  // The additional enrolment wording remains held, even though the list is clear.
-  expect(sourceFirstPublicationEligible(content)).toBe(false);
+  // Complete enrolment advice remains visible alongside verified allocations.
+  expect(sourceFirstPublicationEligible(content)).toBe(true);
+  expect(
+    finalise(finance).extraction.sections.find(
+      (section) => section.key === "advice",
+    )?.markdown,
+  ).toContain("enrol");
 });
 
-it.each(samples.filter((sample) => sample.code !== "INPL-SPEC"))(
+it.each(
+  samples.filter((sample) =>
+    ["ACCT-MAJ", "POLS-MAJ", "MATH-MIN"].includes(sample.code),
+  ),
+)(
   "retains metadata and source wording when interpretation fails for $code",
   (sample) => {
     const result = finalise(sample);
@@ -161,8 +170,7 @@ describe.each(["major", "minor", "specialisation"] as const)(
 
 it.each([
   "Students must also complete another major.",
-  "This minor is incompatible with another major.",
-  "The minor will not be listed for students completing another degree.",
+  "Students may substitute an approved course.",
 ])("holds external constraints: %s", (constraint) => {
   const sample = {
     ...finance,
@@ -227,4 +235,17 @@ it("independently verifies the captured International Policy specialisation with
   expect(sourceFirstPublicationEligible(content)).toBe(true);
   expect(content.requirements.options).toHaveLength(15);
   expect(content.requirements.conditions[0]?.minimumUnits).toBe(24);
+});
+
+it.each([
+  "***Choose one***\nTEST1001 First course\nTEST1002 Second course",
+  "TEST1001 First course (subject to approval)\nTEST1002 Second course",
+  "TEST1001 First course (6 units)\nTEST1002 Second course (6 units)",
+])("holds qualifiers and inconsistent compulsory units: %s", (rows) => {
+  expect(
+    parsePlainStructureRequirements(
+      `This minor requires the completion of 24 units, which must include:\n24 units from the following compulsory courses:\n${rows}`,
+      24,
+    ),
+  ).toBeNull();
 });

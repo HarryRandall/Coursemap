@@ -406,7 +406,10 @@ export type CoursePlacement = {
 
 export type RequirementAllocation = ReadonlyMap<string, CoursePlacement>;
 
+type UnitPool = { key: string; minimum: number | null; maximum: number | null };
+
 type Leaf = {
+  pools: UnitPool[];
   node: PlanRequirementCondition;
   key: string;
   scope: "part" | "degree";
@@ -420,16 +423,30 @@ function collectLeaves(
   inherited: "part" | "degree",
   mandatory: boolean,
   into: Leaf[],
+  pools: UnitPool[] = [],
 ) {
   const scope =
     inherited === "degree" || node.scope === "degree" ? "degree" : "part";
   if (node.type === "group") {
+    const childPools =
+      scope === "part" &&
+      (node.minimumUnits !== null || node.maximumUnits !== null)
+        ? [
+            ...pools,
+            {
+              key: requirementNodeKey(node),
+              minimum: node.minimumUnits,
+              maximum: node.maximumUnits,
+            },
+          ]
+        : pools;
     node.children.forEach((child) =>
       collectLeaves(
         child,
         scope,
         mandatory && node.operator === "all_of",
         into,
+        childPools,
       ),
     );
     return;
@@ -437,7 +454,8 @@ function collectLeaves(
   into.push({
     node,
     key: requirementNodeKey(node),
-    scope: effectiveScope(node, scope, mandatory),
+    scope: effectiveScope(node, scope, mandatory, pools.length > 0),
+    pools,
     predicates: conditionPredicates(node),
     mandatory,
   });
@@ -464,10 +482,11 @@ function effectiveScope(
   condition: PlanRequirementCondition,
   inherited: "part" | "degree",
   mandatory: boolean,
+  inUnitPool = false,
 ): "part" | "degree" {
   return inherited === "degree" ||
     condition.scope === "degree" ||
-    (mandatory && isCap(condition))
+    (mandatory && !inUnitPool && isCap(condition))
     ? "degree"
     : "part";
 }
@@ -596,13 +615,27 @@ export function allocateRequirements({
     const { course, units } = entry;
     const room = candidates.filter(({ leaf }) => {
       const maximum = leaf.node.maximumUnits;
-      return maximum === null || (used.get(leaf.key) ?? 0) + units <= maximum;
+      return (
+        (maximum === null || (used.get(leaf.key) ?? 0) + units <= maximum) &&
+        leaf.pools.every(
+          (pool) =>
+            pool.maximum === null ||
+            (used.get(pool.key) ?? 0) + units <= pool.maximum,
+        )
+      );
     });
     const pinnedKey = pins.get(course.code);
     const pinned = room.find(({ leaf }) => leaf.key === pinnedKey);
     const needing = (leaf: Leaf) => {
       const target = leaf.node.minimumUnits;
-      return target === null || (used.get(leaf.key) ?? 0) < target;
+      return (
+        (target !== null && (used.get(leaf.key) ?? 0) < target) ||
+        leaf.pools.some(
+          (pool) =>
+            pool.minimum !== null && (used.get(pool.key) ?? 0) < pool.minimum,
+        ) ||
+        (target === null && !leaf.pools.length)
+      );
     };
     const chosen =
       pinned ??
@@ -612,6 +645,8 @@ export function allocateRequirements({
       room.toSorted((left, right) => left.rank - right.rank)[0];
     if (chosen) {
       used.set(chosen.leaf.key, (used.get(chosen.leaf.key) ?? 0) + units);
+      for (const pool of chosen.leaf.pools)
+        used.set(pool.key, (used.get(pool.key) ?? 0) + units);
     }
     placements.set(course.code, {
       nodeKey: chosen?.leaf.key ?? null,
@@ -748,15 +783,20 @@ function groupProgress(
   credited: readonly CreditedAttempt[],
   allocation: RequirementAllocation,
   into: Map<string, RequirementNodeProgress>,
+  inUnitPool = false,
 ): RequirementNodeProgress {
   const scope =
     inherited === "degree" || group.scope === "degree" ? "degree" : "part";
   const childrenMandatory = mandatory && group.operator === "all_of";
+  const childUnitPool =
+    inUnitPool ||
+    (scope === "part" &&
+      (group.minimumUnits !== null || group.maximumUnits !== null));
   const children = group.children.map((child) =>
     child.type === "condition"
       ? conditionProgress(
           child,
-          effectiveScope(child, scope, childrenMandatory),
+          effectiveScope(child, scope, childrenMandatory, childUnitPool),
           credited,
           allocation,
         )
@@ -767,6 +807,7 @@ function groupProgress(
           credited,
           allocation,
           into,
+          childUnitPool,
         ),
   );
   children.forEach((child) => into.set(child.key, child));
