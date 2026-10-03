@@ -1,5 +1,17 @@
 "use client";
 
+import {
+  BULK_IMPORT_KINDS,
+  importKindLabel,
+  type BulkImportKind,
+} from "@/lib/catalogue-runs/kinds";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@coursemap/ui/primitives/select";
 import { YearPicker } from "@/ui/common/year-picker";
 import { adminCourseImportPath } from "@/lib/coursemap/catalogue-kinds";
 import { useRouter } from "next/navigation";
@@ -71,6 +83,7 @@ async function action(body: Record<string, unknown>) {
 
 export function CourseImportWorkspace({
   year,
+  kind = "course",
   initialRun = null,
   initialTab = "overview",
   years = [year],
@@ -78,6 +91,7 @@ export function CourseImportWorkspace({
   canChangeAutoPublish = false,
 }: {
   year: number;
+  kind?: BulkImportKind;
   years?: number[];
   initialRun?: Run | null;
   initialTab?: string;
@@ -85,6 +99,8 @@ export function CourseImportWorkspace({
   canChangeAutoPublish?: boolean;
 }) {
   const router = useRouter();
+  const plural = importKindLabel(kind);
+  const label = plural.charAt(0).toUpperCase() + plural.slice(1);
   const id = useId();
   const [publicationBusy, setPublicationBusy] = useState(false);
   const [publicationMessage, setPublicationMessage] = useState<string | null>(
@@ -171,7 +187,7 @@ export function CourseImportWorkspace({
       stopped = true;
       clearTimeout(timeout);
     };
-  }, [viewRunId, active, year, estimateAttempt]);
+  }, [viewRunId, active, year, kind, estimateAttempt]);
 
   useEffect(() => {
     if (active || viewRunId) return;
@@ -180,7 +196,7 @@ export function CourseImportWorkspace({
       setEstimating(true);
       setError(null);
       try {
-        const result = await action({ action: "preview", year });
+        const result = await action({ action: "preview", year, kind });
         if (!stopped) {
           setPreview(result);
           setLimit((value) =>
@@ -202,7 +218,7 @@ export function CourseImportWorkspace({
       stopped = true;
       clearTimeout(timeout);
     };
-  }, [active, viewRunId, year, estimateAttempt]);
+  }, [active, viewRunId, year, kind, estimateAttempt]);
 
   async function startImport() {
     setPending(true);
@@ -211,6 +227,7 @@ export function CourseImportWorkspace({
       const result = await action({
         action: "create",
         year,
+        kind,
         limit,
         budgetUsd: budget,
         publishVerified,
@@ -291,8 +308,8 @@ export function CourseImportWorkspace({
       );
       setPublicationMessage(
         enabled
-          ? "Auto-publish enabled for remaining courses. Publish verified drafts below to include saved results."
-          : "Auto-publish disabled for remaining courses.",
+          ? `Auto-publish enabled for remaining ${plural}. Publish verified drafts below to include saved results.`
+          : `Auto-publish disabled for remaining ${plural}.`,
       );
     } catch (cause) {
       setError(
@@ -423,6 +440,7 @@ export function CourseImportWorkspace({
 
   const courseResults = (
     <CourseRunResults
+      kind={kind}
       results={results}
       query={resultQuery}
       outcome={resultTab === "review" ? "review" : resultOutcome}
@@ -460,7 +478,8 @@ export function CourseImportWorkspace({
             <TabsList aria-label="Import details" variant="line">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="courses">
-                Courses{current ? ` (${current.total})` : ""}
+                {label}
+                {current ? ` (${current.total})` : ""}
               </TabsTrigger>
               <TabsTrigger value="review">
                 Review{current ? ` (${current.review})` : ""}
@@ -485,17 +504,36 @@ export function CourseImportWorkspace({
               >
                 {progressScreen
                   ? `${year} import progress`
-                  : `Import ${year} courses`}
+                  : `Import ${year} ${plural}`}
               </h1>
               {!progressScreen && (
-                <YearPicker
-                  value={year}
-                  years={years}
-                  onChange={(next) => {
-                    if (typeof next === "number")
-                      router.push(adminCourseImportPath("new", next));
-                  }}
-                />
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={kind}
+                    onValueChange={(value) =>
+                      router.push(adminCourseImportPath("new", year, value))
+                    }
+                  >
+                    <SelectTrigger aria-label="Import type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BULK_IMPORT_KINDS.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {importKindLabel(value)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <YearPicker
+                    value={year}
+                    years={years}
+                    onChange={(next) => {
+                      if (typeof next === "number")
+                        router.push(adminCourseImportPath("new", next, kind));
+                    }}
+                  />
+                </div>
               )}
             </div>
             {!progressScreen && (
@@ -556,10 +594,10 @@ export function CourseImportWorkspace({
                               void changeAutoPublish(value === true)
                             }
                           />
-                          Auto-publish remaining courses
+                          Auto-publish remaining {plural}
                         </label>
                         <p className="text-xs text-muted-foreground">
-                          Only verified, untouched drafts are published. Courses
+                          Only verified, untouched drafts are published. Records
                           needing review stay held.
                         </p>
                         {publicationMessage && (
@@ -594,17 +632,17 @@ export function CourseImportWorkspace({
               <>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor={`${id}-slider`}>Courses</Label>
+                    <Label htmlFor={`${id}-slider`}>{label}</Label>
                     <span className="text-sm text-muted-foreground tabular-nums">
                       {preview
                         ? `${selected} of ${available} missing`
-                        : "Loading courses..."}
+                        : `Loading ${plural}...`}
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
                     <input
                       id={`${id}-slider`}
-                      aria-label="Courses to import"
+                      aria-label={`${label} to import`}
                       className="min-w-0 flex-1 cursor-pointer accent-primary"
                       type="range"
                       min={available ? 1 : 0}
@@ -620,7 +658,7 @@ export function CourseImportWorkspace({
                     />
                     <InputGroup className="w-24 shrink-0">
                       <InputGroupInput
-                        aria-label="Exact course count"
+                        aria-label={`Exact ${kind} count`}
                         type="number"
                         min={available ? 1 : 0}
                         max={available || undefined}
@@ -689,7 +727,7 @@ export function CourseImportWorkspace({
                         }
                       />
                       <Label htmlFor={`${id}-publish`}>
-                        Auto-publish verified courses
+                        Auto-publish verified {plural}
                       </Label>
                     </div>
                     <p className="pl-6 text-xs text-muted-foreground">
@@ -734,7 +772,11 @@ export function CourseImportWorkspace({
                         Estimated
                       </dt>
                       <dd className="mt-1 text-lg font-semibold">
-                        {estimated === null ? "..." : budgetPrice(estimated)}
+                        {estimated === null
+                          ? preview
+                            ? "--"
+                            : "..."
+                          : budgetPrice(estimated)}
                       </dd>
                     </div>
                     <div>
@@ -763,7 +805,7 @@ export function CourseImportWorkspace({
                     {!preview
                       ? "Loading current prices..."
                       : available === 0
-                        ? "No missing courses. Refresh the ANU listing if you expect more."
+                        ? `No missing ${plural}. Refresh the ANU listing if you expect more.`
                         : overBudget
                           ? `May pause at your ${budgetPrice(budget)} spending limit.`
                           : `Within your ${budgetPrice(budget)} spending limit.`}
@@ -850,7 +892,7 @@ export function CourseImportWorkspace({
                       ? "Importing..."
                       : available === 0 && preview
                         ? "Nothing to import"
-                        : `Import ${selected || limit} courses`}
+                        : `Import ${selected || limit} ${plural}`}
                 </Button>
               )}
             </footer>

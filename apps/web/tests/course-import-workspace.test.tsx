@@ -229,7 +229,7 @@ it("opens a paused import on the progress screen with exact live costs", async (
   ).toHaveTextContent("A printed class date needs review.");
   await user.click(
     screen.getByRole("button", {
-      name: "View 2 courses: A printed class date needs review.",
+      name: "View 2 records: A printed class date needs review.",
     }),
   );
   await waitFor(() =>
@@ -393,7 +393,7 @@ it("switches to progress when starting and updates actual costs while importing"
   await screen.findByText("US$0.0180");
   expect(screen.getByText("US$0.0073")).toBeInTheDocument();
   expect(
-    screen.getByText(/12 courses with AI charges · 1 with no AI charge/),
+    screen.getByText(/12 records with AI charges · 1 with no AI charge/),
   ).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Importing..." }),
@@ -404,7 +404,7 @@ it("switches to progress when starting and updates actual costs while importing"
   );
   expect(screen.getByText("15 of 100 imported")).toBeInTheDocument();
   expect(
-    screen.getByText(/14 courses with AI charges · 1 with no AI charge/),
+    screen.getByText(/14 records with AI charges · 1 with no AI charge/),
   ).toBeInTheDocument();
 });
 
@@ -483,7 +483,7 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   const link = await screen.findByRole("link", {
     name: "Programming",
   });
-  expect(link).toHaveAttribute("href", "/admin/courses/2026/COMP1100");
+  expect(link).toHaveAttribute("href", "/admin/courses/2026/comp1100");
   expect(window.location.search).toBe("?tab=courses");
   await user.click(screen.getByRole("tab", { name: "Overview" }));
   // The list remains available even while the next background refresh is pending.
@@ -640,4 +640,44 @@ it("shows imported courses rather than counting stopped jobs as imports", () => 
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "6");
   expect(screen.getByText("94 stopped")).toBeVisible();
   expect(screen.queryByText(/100 of 100/)).not.toBeInTheDocument();
+});
+
+it("previews the selected structure kind and uses its available count", async () => {
+  const requests: Record<string, unknown>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, options?: RequestInit) => {
+      if (!options) return Response.json({ runs: [] });
+      const body = JSON.parse(options.body as string);
+      requests.push(body);
+      return Response.json({
+        count: 8,
+        availableCount: 8,
+        minimumUsd: 0,
+        maximumUsd: 0.128,
+        estimatedUsd: null,
+        estimateKind: "unavailable",
+        estimateBasis: "No measured estimate yet.",
+        budgetUsd: 0.5,
+      });
+    }),
+  );
+  render(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2026} kind="specialisation" />
+    </TooltipProvider>,
+  );
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      action: "preview",
+      year: 2026,
+      kind: "specialisation",
+    }),
+  );
+  expect(
+    screen.getByRole("slider", { name: "Specialisations to import" }),
+  ).toHaveAttribute("max", "8");
+  expect(
+    screen.getByRole("button", { name: "Import 8 specialisations" }),
+  ).toBeEnabled();
 });

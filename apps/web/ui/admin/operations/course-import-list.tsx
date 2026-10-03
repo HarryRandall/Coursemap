@@ -1,3 +1,4 @@
+import { BULK_IMPORT_KINDS, importKindLabel } from "@/lib/catalogue-runs/kinds";
 import Link from "next/link";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
@@ -35,8 +36,16 @@ export function CourseImportList({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <FilterBar
-        searchPlaceholder="Search by year or course code"
+        searchPlaceholder="Search by year or record code"
         filters={[
+          {
+            key: "kind",
+            label: "Type",
+            options: BULK_IMPORT_KINDS.map((kind) => ({
+              value: kind,
+              label: importKindLabel(kind),
+            })),
+          },
           {
             key: "status",
             label: "Status",
@@ -58,9 +67,7 @@ export function CourseImportList({
         ]}
         actions={
           <Button variant="outline" asChild>
-            <Link href={adminCourseImportPath("new", year)}>
-              Import courses
-            </Link>
+            <Link href={adminCourseImportPath("new", year)}>New import</Link>
           </Button>
         }
       />
@@ -68,7 +75,9 @@ export function CourseImportList({
         <CatalogueEmpty
           title="No bulk imports yet"
           description="Your saved imports will appear here."
-          filtered={Boolean(history.query || history.status || history.year)}
+          filtered={Boolean(
+            history.query || history.status || history.year || history.kind,
+          )}
           clearHref={ADMIN_COURSE_IMPORTS_PATH}
         />
       ) : (
@@ -83,6 +92,7 @@ export function CourseImportList({
               pathname={ADMIN_COURSE_IMPORTS_PATH}
               searchParams={{
                 q: history.query,
+                kind: history.kind,
                 status: history.status,
                 year: history.year ? String(history.year) : undefined,
               }}
@@ -91,7 +101,7 @@ export function CourseImportList({
           }
         >
           <Table>
-            <TableCaption className="sr-only">Bulk course imports</TableCaption>
+            <TableCaption className="sr-only">Bulk imports</TableCaption>
             <TableHeader>
               <TableRow>
                 <TableHead>Import</TableHead>
@@ -111,7 +121,7 @@ export function CourseImportList({
                       className="font-medium text-foreground hover:underline"
                       href={adminCourseImportPath(run.id)}
                     >
-                      {run.academic_year} courses
+                      {run.academic_year} {importKindLabel(run.kind)}
                     </Link>
                     <span className="mt-1 block text-xs text-muted-foreground">
                       {formatTimestamp(run.created_at)}

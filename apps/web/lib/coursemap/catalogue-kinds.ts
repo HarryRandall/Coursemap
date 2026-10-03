@@ -51,8 +51,15 @@ export const ADMIN_CATALOGUE_OPERATIONS_PATH = "/admin/operations/catalogue";
 
 export const ADMIN_COURSE_IMPORTS_PATH = `${ADMIN_CATALOGUE_OPERATIONS_PATH}/imports`;
 
-export function adminCourseImportPath(runId: string, year?: number) {
-  return `${ADMIN_COURSE_IMPORTS_PATH}/${runId}${year ? `?year=${year}` : ""}`;
+export function adminCourseImportPath(
+  runId: string,
+  year?: number,
+  kind = "course",
+) {
+  const query = new URLSearchParams();
+  if (year) query.set("year", String(year));
+  if (kind !== "course") query.set("kind", kind);
+  return `${ADMIN_COURSE_IMPORTS_PATH}/${runId}${query.size ? `?${query}` : ""}`;
 }
 
 export function adminCatalogueSyncPath(syncId: string) {

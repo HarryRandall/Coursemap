@@ -133,3 +133,36 @@ The review page should group by issue rather than require opening thousands of c
 The initial release includes slice 1, a conservative parser/assembly path, durable run coordination and guarded automatic publication. The broader slices are not all complete. The initial guard recognises plain mixed AND/OR prerequisite sentences without explicit scope markers. It is deliberately conservative and is not a complete prerequisite grammar or automatic publication gate. Old provider artefacts retain the guessed model output; finalised candidates withhold it and retain the source wording as a hard unknown. The parser version is bumped so new work is distinguishable from previous finalisation.
 
 Programmes and academic structures stay on the existing full extraction/manual publication workflow until their own equivalent parser, contracts and publication gates are demonstrated.
+
+## Majors, minors and specialisations
+
+Bulk imports also support majors, minors and specialisations. Choose a type on
+New import or open Import from its catalogue directory. Existing imports and
+manual drafts are excluded, and each saved run fixes one type and year. The
+history has a Type filter and result links open the correct catalogue workspace.
+The historical API path and `catalogue_course_runs` table names are retained so
+saved course imports and URLs continue to work. Migration 036 adds the run kind
+and checks that manifest items match the run's kind, year and sync record.
+
+Structure runs use `anu-structure-source-first.v1`. Labelled metadata, introduction,
+learning outcomes, advice and relevant degree links are copied from the source.
+The initial deterministic grammar verifies complete flat allocations of units
+from explicit course lists, including compulsory lists, and checks their total
+against the page's unit total. Duplicate options, unknown clauses, nested logic,
+subject/level rules and additional completion wording are not silently discarded.
+Unsupported requirements go to the model, with source text retained for review.
+Only independently verified whole candidates can auto-publish. AI confidence
+alone cannot authorise publication. This first grammar is deliberately narrower
+than all ANU structure layouts; no 80–90% publication rate has been established.
+
+Structure requests have a 40,000-byte input bound and a 4,000-token output bound.
+The run reserves this kind's allowance before each paid request. Estimates use
+completed imports of the same kind, parser and model prices. The single-course
+fallback estimate is never applied to structures. Until enough structure samples
+exist, the estimated value is unavailable, with the conservative maximum shown.
+
+Publishing structures requires `catalogue.write` as well as `imports.manage`;
+course publication still requires `courses.write`. Saved verified drafts can be
+published after stopping a run without another AI request. Edited drafts and
+ambiguous candidates remain held. Programmes continue to use their existing
+individual import workflow.
