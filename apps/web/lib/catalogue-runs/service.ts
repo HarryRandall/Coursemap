@@ -153,21 +153,25 @@ export async function readCourseRuns(
     (sql) => sql<
       (CourseRunProgress & { academic_year: number; matched_count: number })[]
     >`
-    with summaries as (select runs.id, runs.academic_year, runs.state, runs.pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
+    with summaries as (select runs.id, runs.academic_year,
+      case when runs.state = 'active' and bool_or(syncs.status = 'paused') then 'paused' else runs.state end as state,
+      coalesce(runs.pause_reason, max(syncs.error_message) filter (where syncs.status = 'paused')) as pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
       (select coalesce(jsonb_agg(blockers), '[]'::jsonb) from (
         select flag->>'message' as reason, count(distinct run_items.record_id)::integer as courses
         from public.catalogue_course_run_items run_items
+        join public.catalogue_syncs run_syncs on run_syncs.id = run_items.sync_id
         join public.catalogue_drafts drafts on drafts.record_id = run_items.record_id
         cross join lateral jsonb_array_elements(drafts.content->'flags') flag
         where run_items.run_id = runs.id and run_items.published_version_id is null
+          and run_syncs.status in ('applied', 'review_required', 'unchanged')
         group by flag->>'message' order by count(distinct run_items.record_id) desc, flag->>'message'
       ) blockers) as publication_blockers,
       min(syncs.started_at) as started_at,
       max(syncs.completed_at) as completed_at,
       count(items.record_id)::integer as total,
-      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged', 'failed', 'cancelled', 'paused'))::integer as finished,
-      count(*) filter (where syncs.status not in ('queued', 'running', 'failed', 'cancelled') and items.published_version_id is null and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id) and (exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')) or exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') > 0)))::integer as review,
-      count(*) filter (where syncs.status not in ('queued', 'running', 'failed', 'cancelled') and items.published_version_id is null
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged', 'failed', 'cancelled'))::integer as finished,
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged') and items.published_version_id is null and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id) and (exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')) or exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') > 0)))::integer as review,
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged') and items.published_version_id is null
         and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') = 0)
         and not exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')))::integer as drafts,
       count(*) filter (where syncs.status = 'failed')::integer as failed,
@@ -270,13 +274,13 @@ export async function readCourseRunItems(
       ), classified as (select *, case
         when status = 'failed' then 'failed'
         when status = 'cancelled' then 'stopped'
-        when status in ('queued', 'running') then 'pending'
+        when status in ('queued', 'running', 'paused') then 'pending'
         when published_version_id is not null then 'published'
         when jsonb_array_length(issues) > 0 then 'review'
         when content is not null then 'draft'
         else 'pending' end as outcome from results
       ), filtered as (select * from classified
-      where (not ${needsReview} or (published_version_id is null and content is not null and jsonb_array_length(issues) > 0))
+      where (not ${needsReview} or outcome = 'review')
         and (${filters.query ?? ""} = '' or code ilike ${`%${filters.query ?? ""}%`} or title ilike ${`%${filters.query ?? ""}%`})
         and (${filters.outcome ?? ""} = '' or outcome = ${filters.outcome ?? ""})
         and (${filters.issue ?? ""} = '' or issues ? ${filters.issue ?? ""})

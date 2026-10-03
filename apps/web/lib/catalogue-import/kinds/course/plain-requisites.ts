@@ -556,6 +556,14 @@ export function parsePlainCourseRequisites(
       empty.incompatibilityCourseCodes = incompatibility[1]!.match(
         /\b[A-Z]{4}\d{4}[A-Z]?\b/gu,
       )!;
+      if (
+        /^(?:Incompatible with|This course is (?:incompatible|not compatible) with) /u.test(
+          sentence,
+        )
+      )
+        empty.concurrentIncompatibilityCourseCodes = [
+          ...empty.incompatibilityCourseCodes,
+        ];
     } else return null;
   }
   return empty;
