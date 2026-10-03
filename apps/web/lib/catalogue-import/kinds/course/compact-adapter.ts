@@ -6,7 +6,7 @@ import { parseCourseSource } from "./source-parser.ts";
 import type { CourseExtraction } from "./contract.ts";
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 
-export const COMPACT_COURSE_PARSER_VERSION = "anu-course-source-first.v12";
+export const COMPACT_COURSE_PARSER_VERSION = "anu-course-source-first.v13";
 export const COMPACT_COURSE_PROMPT_VERSION = "course-requisites.v2";
 export const COMPACT_COURSE_OUTPUT_TOKENS = 1_500;
 export const COMPACT_COURSE_MAX_INPUT_BYTES = 20_000;
