@@ -1,3 +1,4 @@
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { beforeAll, afterAll, expect, test, vi } from "vitest";
@@ -17,7 +18,11 @@ import {
 } from "../lib/catalogue-runs/service.ts";
 import { reserveCourseRunSpend } from "../lib/catalogue-runs/budget.ts";
 const artifacts = vi.hoisted(() => new Map());
-const paid = vi.hoisted(() => ({ calls: 0 }));
+const paid = vi.hoisted(() => ({
+  calls: 0,
+  responses: new Map(),
+  errors: new Map(),
+}));
 const revalidate = vi.hoisted(() => vi.fn());
 vi.mock("next/cache", async (original) => ({
   ...(await original()),
@@ -51,7 +56,7 @@ vi.mock("../lib/catalogue-import/openrouter.ts", async (original) => ({
   extractWithOpenRouter: async ({ model, modelInput, schemaName }) => {
     paid.calls++;
     const input = JSON.parse(modelInput);
-    const requirements = {
+    const requirements = paid.responses.get(input.code)?.requirements ?? {
       sourceText: input.requirements,
       sourceLocator: "Requirements",
       rule: null,
@@ -72,7 +77,7 @@ vi.mock("../lib/catalogue-import/openrouter.ts", async (original) => ({
           reasoningTokens: 0,
           costUsd: 0.0005,
         },
-        responseError: null,
+        responseError: paid.errors.get(input.code) ?? null,
       },
       model,
       schemaName,
@@ -99,8 +104,17 @@ const runs = [];
 const codeIds = [];
 const inputs = new Map();
 beforeAll(async () => {
-  const url = process.env.COURSEMAP_RUN_TEST_DATABASE_URL;
-  if (!url || !/test/iu.test(new URL(url).pathname))
+  const url =
+    process.env.COURSEMAP_RUN_TEST_DATABASE_URL ??
+    (process.env.CI === "true" || process.env.COURSEMAP_TEST_SUPABASE_WORKDIR
+      ? localTestEnvironment().COURSEMAP_DATABASE_URL
+      : null);
+  if (
+    !url ||
+    (!/test/iu.test(new URL(url).pathname) &&
+      process.env.CI !== "true" &&
+      !process.env.COURSEMAP_TEST_SUPABASE_WORKDIR)
+  )
     throw new Error("An isolated local test database is required.");
   process.env.COURSEMAP_DATABASE_URL = url;
   process.env.OPENROUTER_API_KEY = "";
@@ -164,6 +178,11 @@ beforeAll(async () => {
   );
   vi.spyOn(compactStructureAdapter, "loadPromptContext").mockResolvedValue({
     knownTags: [],
+    knownStructures: auditSamples.map((item) => ({
+      code: item.code,
+      kind: item.kind,
+      name: item.markdown.match(/^# (.+)$/m)[1],
+    })),
   });
 });
 
@@ -265,5 +284,248 @@ test("course publication permission cannot enable or publish a structure run", a
     await sql`update private.user_roles set role_id=(select id from private.app_roles where key='admin') where user_id=${userId}::uuid`;
     await sql`delete from private.role_permissions where role_id=${role.id}`;
     await sql`delete from private.app_roles where id=${role.id}`;
+  }
+});
+
+const auditSamples = JSON.parse(
+  readFileSync(
+    new URL(
+      "./fixtures/catalogue/anu-2026-structure-audit.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+);
+
+async function auditRun(kind, samples) {
+  const [run] =
+    await sql`insert into public.catalogue_course_runs (kind,academic_year,requested_by,requested_model,course_limit,budget_usd,input_usd_per_million,output_usd_per_million,publish_verified) values (${kind},2026,${userId}::uuid,'google/gemini-3.1-flash-lite',${samples.length},0.5,0.25,1.5,true) returning id`;
+  const entry = { id: run.id, kind, items: [] };
+  runs.push(entry);
+  const [year] =
+    await sql`select id from public.academic_years where year=2026`;
+  for (const sample of samples) {
+    const code = `AUDIT${codeIds.length}-${kind === "major" ? "MAJ" : kind === "minor" ? "MIN" : "SPEC"}`;
+    const [identity] =
+      await sql`insert into public.catalogue_codes (kind,code) values (${kind},${code}) returning id`;
+    codeIds.push(identity.id);
+    const [record] =
+      await sql`insert into public.catalogue_records (code_id,kind,academic_year_id) values (${identity.id},${kind},${year.id}) returning id`;
+    const [sync] =
+      await sql`insert into public.catalogue_syncs (record_id,trigger,requested_model,parser_version,prompt_version,schema_version) values (${record.id},'manual','google/gemini-3.1-flash-lite',${compactStructureAdapter.parserVersion},${compactStructureAdapter.promptVersion},${compactStructureAdapter.schemaVersion}) returning id`;
+    await sql`insert into public.catalogue_course_run_items (run_id,record_id,sync_id) values (${run.id}::uuid,${record.id},${sync.id}::uuid)`;
+    inputs.set(code, sample.markdown);
+    paid.responses.set(code, sample.model);
+    entry.items.push({
+      code,
+      originalCode: sample.code,
+      recordId: record.id,
+      syncId: sync.id,
+    });
+  }
+  return entry;
+}
+
+test("all captured audit sources persist without the eight live validation crashes", async () => {
+  for (const kind of ["major", "minor", "specialisation"]) {
+    const run = await auditRun(
+      kind,
+      auditSamples.filter((item) => item.kind === kind),
+    );
+    for (const item of run.items) {
+      await processCatalogueSync({ syncId: item.syncId, maxDeliveries: 1 });
+      const [status] =
+        await sql`select status,error_message from public.catalogue_syncs where id=${item.syncId}::uuid`;
+      expect(
+        status.status,
+        `${item.originalCode}: ${status.error_message}`,
+      ).toBe("applied");
+    }
+    // Check the published rows, not only the run counters: source policies,
+    // compulsory counts and course choices must survive the write boundary.
+    for (const item of run.items) {
+      const [record] =
+        await sql`select published_version_id from public.catalogue_records where id=${item.recordId}`;
+      if (!record.published_version_id) continue;
+      const sample = auditSamples.find(
+        (entry) => entry.code === item.originalCode,
+      );
+      const result = compactStructureAdapter.finalise({
+        claim: { kind, code: item.code, academicYear: 2026 },
+        listingTitle: null,
+        pageMarkdown: sample.markdown,
+        model: null,
+        responseError: null,
+        finishReason: "stop",
+        context: {
+          knownTags: [],
+          knownStructures: auditSamples.map((entry) => ({
+            code: entry.code,
+            kind: entry.kind,
+            name: entry.markdown.match(/^# (.+)$/m)[1],
+          })),
+        },
+      });
+      const expected = compactStructureAdapter.project(result.extraction);
+      const versionId = record.published_version_id;
+      const [details] =
+        await sql`select name,units,introduction from public.structure_version_details where version_id=${versionId}`;
+      expect(
+        { ...details, units: Number(details.units) },
+        item.originalCode,
+      ).toEqual({
+        name: expected.structure.details.name,
+        units: expected.structure.details.units,
+        introduction: expected.structure.details.introduction,
+      });
+      const sections =
+        await sql`select section_key,markdown from public.academic_structure_snapshot_sections where version_id=${versionId} order by position`;
+      expect([...sections], item.originalCode).toEqual(
+        expected.structure.sections.map((section) => ({
+          section_key: section.sectionKey,
+          markdown: section.markdown,
+        })),
+      );
+      const conditions =
+        await sql`select condition_key,condition_kind,minimum_units,maximum_units,minimum_count,subject_code,minimum_level,maximum_level,source_text from public.requirement_conditions where version_id=${versionId} order by condition_key`;
+      const nullableNumber = (value) => (value === null ? null : Number(value));
+      expect(
+        conditions.map((condition) => ({
+          ...condition,
+          minimum_units: nullableNumber(condition.minimum_units),
+          maximum_units: nullableNumber(condition.maximum_units),
+        })),
+        item.originalCode,
+      ).toEqual(
+        expected.requirements.conditions
+          .map((condition) => ({
+            condition_key: condition.key,
+            condition_kind: condition.kind,
+            minimum_units: condition.minimumUnits,
+            maximum_units: condition.maximumUnits,
+            minimum_count: condition.minimumCount,
+            subject_code: condition.subjectCode,
+            minimum_level: condition.minimumLevel,
+            maximum_level: condition.maximumLevel,
+            source_text: condition.sourceText,
+          }))
+          .sort((a, b) => a.condition_key.localeCompare(b.condition_key)),
+      );
+      const options =
+        await sql`select c.condition_key,o.code from public.requirement_condition_options o join public.requirement_conditions c on c.id=o.condition_id where o.version_id=${versionId} order by c.condition_key,o.code`;
+      expect([...options], item.originalCode).toEqual(
+        expected.requirements.options
+          .map((option) => ({
+            condition_key: option.conditionKey,
+            code: option.code,
+          }))
+          .sort(
+            (a, b) =>
+              a.condition_key.localeCompare(b.condition_key) ||
+              a.code.localeCompare(b.code),
+          ),
+      );
+    }
+    for (const item of run.items.filter((entry) =>
+      ["BIOL-MIN", "ADPH-SPEC"].includes(entry.originalCode),
+    )) {
+      const groups =
+        await sql`select g.minimum_units, g.maximum_units from public.requirement_groups g join public.catalogue_records r on r.published_version_id=g.version_id where r.id=${item.recordId} order by g.parent_group_id nulls first, g.position`;
+      expect(
+        groups.map((group) => [
+          group.minimum_units === null ? null : Number(group.minimum_units),
+          Number(group.maximum_units),
+        ]),
+      ).toEqual([
+        [24, 24],
+        [null, 12],
+        [12, 24],
+      ]);
+    }
+    const summary = (await readCourseRuns(2026, { runId: run.id }))[0];
+    expect(summary.imported).toBe(run.items.length);
+    expect(summary.failed).toBe(0);
+    expect(summary.published).toBe(
+      { major: 14, minor: 15, specialisation: 20 }[kind],
+    );
+    expect(summary.published + summary.review).toBe(run.items.length);
+    console.log(
+      "AUDIT_REPLAY",
+      JSON.stringify({
+        kind,
+        imported: summary.imported,
+        published: summary.published,
+        held: summary.review,
+      }),
+    );
+  }
+}, 180000);
+
+test("accepted provider errors preserve the response but create no successful import", async () => {
+  const sample = auditSamples.find((item) => item.code === "ANTH-HSPC");
+  const run = await auditRun("specialisation", [sample]);
+  const item = run.items[0];
+  paid.errors.set(item.code, "Provider rate limit (429).");
+  await processCatalogueSync({ syncId: item.syncId, maxDeliveries: 1 });
+  const summary = (await readCourseRuns(2026, { runId: run.id }))[0];
+  expect(summary.failed).toBe(1);
+  expect(summary.imported).toBe(0);
+  expect(summary.published).toBe(0);
+  expect(summary.review).toBe(0);
+  const [stored] =
+    await sql`select response_artifact_id from public.catalogue_extractions where sync_id=${item.syncId}::uuid`;
+  expect(stored.response_artifact_id).not.toBeNull();
+  const [draft] =
+    await sql`select record_id from public.catalogue_drafts where record_id=${item.recordId}`;
+  expect(draft).toBeUndefined();
+});
+
+test("provider-paused entries are not finished imports or ready drafts", async () => {
+  const run = await auditRun(
+    "minor",
+    auditSamples.filter((item) => item.kind === "minor").slice(0, 2),
+  );
+  await sql`update public.catalogue_syncs set status='paused',error_message='Provider spending limit reached.' where id = any(${sql.array(run.items.map((item) => item.syncId))}::uuid[])`;
+  const summary = (await readCourseRuns(2026, { runId: run.id }))[0];
+  expect(summary).toMatchObject({
+    state: "paused",
+    finished: 0,
+    imported: 0,
+    review: 0,
+    drafts: 0,
+    pause_reason: "Provider spending limit reached.",
+  });
+  const paused = await readCourseRunHistory(1, {
+    kind: "minor",
+    status: "paused",
+  });
+  expect(paused.runs.some((item) => item.id === run.id)).toBe(true);
+  const complete = await readCourseRunHistory(1, {
+    kind: "minor",
+    status: "finished",
+  });
+  expect(complete.runs.some((item) => item.id === run.id)).toBe(false);
+});
+
+test("the review tab does not include an older draft while its request is paused", async () => {
+  const run = runs[0];
+  const item = run.items[1];
+  await sql`update public.catalogue_syncs set status='paused' where id=${item.syncId}::uuid`;
+  try {
+    const [summary] = await readCourseRuns(2026, { runId: run.id });
+    expect(summary.review).toBe(0);
+    expect(summary.publication_blockers).toEqual([]);
+    const review = await readCourseRunItems(2026, run.id, 1, true);
+    expect(
+      review.items.some((row) => row.recordId === Number(item.recordId)),
+    ).toBe(false);
+    const pending = await readCourseRunItems(2026, run.id, 1, false, {
+      outcome: "pending",
+    });
+    expect(
+      pending.items.some((row) => row.recordId === Number(item.recordId)),
+    ).toBe(true);
+  } finally {
+    await sql`update public.catalogue_syncs set status='applied' where id=${item.syncId}::uuid`;
   }
 });

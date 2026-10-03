@@ -77,6 +77,8 @@ export type AcademicStructureRelationship = {
 };
 
 export type AcademicStructureRequirementGroup = {
+  minimumUnits?: number | null;
+  maximumUnits?: number | null;
   type: "group";
   key: string;
   operator: "all_of" | "any_of" | "minimum_count";
@@ -342,6 +344,15 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
       };
       const hasUnits =
         condition.minimumUnits !== null || condition.maximumUnits !== null;
+      if (
+        condition.conditionKind === "course_list" &&
+        !hasUnits &&
+        condition.minimumCourses === null
+      )
+        unexpected(
+          "minimumUnits",
+          "requires a unit amount or minimum course count",
+        );
       const disallowCommonReferences = ({
         allowCourseCodes = false,
         allowStructureCodes = false,
@@ -590,6 +601,8 @@ const requirementRuleSchema: z.ZodType<AcademicStructureRequirementRule> =
       z
         .object({
           type: z.literal("group"),
+          minimumUnits: nullableRequirementUnits.optional(),
+          maximumUnits: nullableRequirementUnits.optional(),
           key: nonEmptyString,
           operator: z.enum(["all_of", "any_of", "minimum_count"]),
           minimumCount: z.number().int().positive().nullable().default(null),
@@ -601,6 +614,17 @@ const requirementRuleSchema: z.ZodType<AcademicStructureRequirementRule> =
         })
         .strict()
         .superRefine((group, context) => {
+          if (
+            group.minimumUnits != null &&
+            group.maximumUnits != null &&
+            group.minimumUnits > group.maximumUnits
+          ) {
+            context.addIssue({
+              code: "custom",
+              path: ["maximumUnits"],
+              message: "must not be less than minimumUnits",
+            });
+          }
           if (
             (group.operator === "minimum_count") !==
             (group.minimumCount !== null)

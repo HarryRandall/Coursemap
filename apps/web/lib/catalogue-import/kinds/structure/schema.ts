@@ -7,7 +7,7 @@ import {
   ACADEMIC_STRUCTURE_KINDS,
 } from "./contract.ts";
 
-const nullableNumberSchema = { type: ["number", "null"], minimum: 0 };
+const nullableNumberSchema = { type: ["number", "null"], exclusiveMinimum: 0 };
 const nullableStringSchema = { type: ["string", "null"] };
 
 // OpenRouter receives this schema alongside the trusted prompt. Runtime
@@ -215,6 +215,8 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         "key",
         "operator",
         "minimumCount",
+        "minimumUnits",
+        "maximumUnits",
         "scope",
         "title",
         "sourceText",
@@ -226,6 +228,8 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         key: { type: "string", minLength: 1 },
         operator: { enum: ["all_of", "any_of", "minimum_count"] },
         minimumCount: { type: ["integer", "null"], minimum: 1 },
+        minimumUnits: { type: ["number", "null"], exclusiveMinimum: 0 },
+        maximumUnits: { type: ["number", "null"], exclusiveMinimum: 0 },
         scope: { enum: ["part", "degree"] },
         title: nullableStringSchema,
         sourceText: { type: "string", minLength: 1 },

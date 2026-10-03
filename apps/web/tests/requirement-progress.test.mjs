@@ -603,3 +603,91 @@ test("electives are measured, and a student's choice moves a course", () => {
   });
   assert.equal(wrong.get("COMP1100").pinned, false);
 });
+
+test("imported range allocations fill the listed total without consuming each course twice", async () => {
+  const { parsePlainStructureRequirements } =
+    await import("../lib/catalogue-import/kinds/structure/plain-requirements.ts");
+  const parsed = parsePlainStructureRequirements(
+    `This minor requires the completion of 24 units, which must consist of:
+A minimum of 12 units from completion of courses from the following list:
+COMP1100 First course
+COMP1110 Second course
+COMP2100 Third course
+A maximum of 12 units from completion of courses from the following list:
+MATH1013 Fourth course
+COMP3600 Fifth course`,
+    24,
+  );
+  const root = group(
+    99,
+    "all_of",
+    parsed.rule.children.map((item, index) =>
+      condition(index + 1, {
+        scope: item.scope,
+        minimumUnits: item.minimumUnits,
+        maximumUnits: item.maximumUnits,
+        minimumCourses: item.minimumCourses,
+        options: item.courseCodes.map(option),
+      }),
+    ),
+  );
+  const selected = ["COMP1100", "COMP1110", "MATH1013", "COMP3600"];
+  const evaluate = (codes) =>
+    requirementTreeProgress({
+      root,
+      catalogue,
+      attempts: codes.map((code, index) =>
+        attempt(String(index), code, "completed"),
+      ),
+    }).get(requirementNodeKey(root));
+  assert.equal(evaluate(selected).state, "satisfied");
+  assert.notEqual(
+    evaluate(["COMP1100", "MATH1013", "COMP3600", "TSTF3009"]).state,
+    "satisfied",
+  );
+  assert.notEqual(
+    evaluate(["COMP1100", "COMP1110", "MATH1013", "TSTF3009"]).state,
+    "satisfied",
+  );
+});
+
+test("imported subject allocations require the correct subject and full academic level", async () => {
+  const { parsePlainStructureRequirements } =
+    await import("../lib/catalogue-import/kinds/structure/plain-requirements.ts");
+  const parsed = parsePlainStructureRequirements(
+    "This specialisation requires the completion of 12 units, which must include:\n12 units from completion of 3000- level Mathematics (MATH) courses",
+    12,
+  );
+  const item = parsed.rule.children[0];
+  assert.equal(item.minimumLevel, 3000);
+  const root = group(99, "all_of", [
+    condition(1, {
+      conditionKind: "subject_units",
+      subjectCode: item.subjectCode,
+      minimumUnits: item.minimumUnits,
+      maximumUnits: item.maximumUnits,
+      minimumLevel: item.minimumLevel,
+      maximumLevel: item.maximumLevel,
+    }),
+  ]);
+  const catalogue = {
+    terms,
+    courses: [
+      course("MATH3001", 3000),
+      course("MATH3002", 3000),
+      course("MATH2001", 2000),
+      course("COMP3001", 3000),
+    ],
+  };
+  const evaluate = (codes) =>
+    requirementTreeProgress({
+      root,
+      catalogue,
+      attempts: codes.map((code, index) =>
+        attempt(String(index), code, "completed"),
+      ),
+    }).get(requirementNodeKey(root)).state;
+  assert.equal(evaluate(["MATH3001", "MATH3002"]), "satisfied");
+  assert.notEqual(evaluate(["MATH3001", "MATH2001"]), "satisfied");
+  assert.notEqual(evaluate(["MATH3001", "COMP3001"]), "satisfied");
+});

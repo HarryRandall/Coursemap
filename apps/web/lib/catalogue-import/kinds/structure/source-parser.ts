@@ -4,13 +4,18 @@ import type {
   AcademicStructureKind,
 } from "./contract.ts";
 import type { StructureSectionKey } from "../../../catalogue/structure-vocabulary.ts";
+import { parseSubjectStructureRequirements } from "./subject-requirements.ts";
+import { separateStructurePolicies } from "./source-policies.ts";
 import { parsePlainStructureRequirements } from "./plain-requirements.ts";
+import { structureForName, type KnownStructure } from "./known-structures.ts";
 
 const SECTIONS: Record<string, StructureSectionKey> = {
   "Other Information": "advice",
   "Further Information": "further_information",
   "Inherent Requirements": "inherent_requirements",
   "Career Options": "careers",
+  "Admission Requirements": "admission",
+  "Cognate Disciplines": "admission",
 };
 
 /** Reads only labelled ANU fields. Every unrecognised section remains visible and held. */
@@ -19,6 +24,7 @@ export function readStructureSource(
   code: string,
   year: number,
   markdown: string,
+  knownStructures: readonly KnownStructure[] = [],
 ) {
   const extraction = emptyAcademicStructureExtraction({
     kind,
@@ -97,24 +103,44 @@ export function readStructureSource(
       flag("sections", `The source repeats the ${heading} section.`);
     headings.add(heading);
     if (heading === "Requirements") {
-      requirementsText = text;
+      requirementsText = [requirementsText, text].filter(Boolean).join("\n\n");
       continue;
     }
-    if (heading === "Learning Outcomes") {
+    if (heading === "Areas of Interest") {
+      const existing = extraction.summaryFields.find(
+        (field) => field.key === "areas_of_interest",
+      );
+      if (existing) {
+        if (!existing.values.includes(text)) existing.values.push(text);
+        existing.sourceText += `\n\n${text}`;
+      } else {
+        extraction.summaryFields.push({
+          position: extraction.summaryFields.length + 1,
+          key: "areas_of_interest",
+          label: "Areas of interest",
+          values: [text],
+          sourceText: text,
+        });
+      }
+      evidence("summaryFields", text);
+    } else if (heading === "Learning Outcomes") {
       const rows = text.split(/\n+/u).filter(Boolean);
       if (rows.some((row) => !row.startsWith("- ")))
         flag("learningOutcomes", "The learning outcome layout needs review.");
-      extraction.learningOutcomes = rows.map((row, index) => ({
-        position: index + 1,
-        text: row.replace(/^- /u, ""),
-        sourceText: row,
-        sourceLocator: heading,
-      }));
+      const offset = extraction.learningOutcomes.length;
+      extraction.learningOutcomes.push(
+        ...rows.map((row, index) => ({
+          position: offset + index + 1,
+          text: row.replace(/^- /u, ""),
+          sourceText: row,
+          sourceLocator: heading,
+        })),
+      );
       if (text) evidence("learningOutcomes", text);
     } else if (heading === "Relevant Degrees") {
       const rows = text.split(/\n+/u).filter(Boolean);
       for (const row of rows) {
-        const link = row.match(/^- \[([^\]]+)\]\(([A-Z][A-Z0-9-]+)\)$/u);
+        const link = row.match(/^- \[([^\]]+)\]\(([A-Z0-9][A-Z0-9-]+)\)$/u);
         if (!link) {
           flag("relationships", "A related degree link needs review.");
           continue;
@@ -131,21 +157,60 @@ export function readStructureSource(
       }
       if (text) evidence("relationships", text);
     } else if (text) {
-      extraction.sections.push({
-        key: SECTIONS[heading] ?? "further_information",
-        markdown: text,
-        sourceText: text,
-        sourceLocator: heading,
-      });
+      const key = SECTIONS[heading] ?? "further_information";
+      const existing = extraction.sections.find(
+        (section) => section.key === key,
+      );
+      const markdown =
+        SECTIONS[heading] && heading !== "Cognate Disciplines"
+          ? text
+          : `### ${heading}\n\n${text}`;
+      if (existing) {
+        existing.markdown += `\n\n${markdown}`;
+        existing.sourceText += `\n\n${text}`;
+        existing.sourceLocator += `; ${heading}`;
+      } else {
+        extraction.sections.push({
+          key,
+          markdown,
+          sourceText: text,
+          sourceLocator: heading,
+        });
+      }
       evidence("sections", text);
       if (!SECTIONS[heading])
         flag("sections", `The ${heading} section needs review.`);
     }
   }
-  const plain = parsePlainStructureRequirements(
-    requirementsText,
-    extraction.totalUnits,
-  );
+  const separated = separateStructurePolicies(requirementsText ?? "");
+  if (separated.policies.length) {
+    const text = separated.policies.join("\n\n");
+    const existing = extraction.sections.find(
+      (section) => section.key === "advice",
+    );
+    if (existing) {
+      existing.markdown += `\n\n${text}`;
+      existing.sourceText += `\n\n${text}`;
+      existing.sourceLocator += "; Requirements";
+    } else
+      extraction.sections.push({
+        key: "advice",
+        markdown: text,
+        sourceText: text,
+        sourceLocator: "Requirements",
+      });
+    evidence("sections", text);
+  }
+  const plain =
+    parsePlainStructureRequirements(
+      separated.requirements,
+      extraction.totalUnits,
+      separated.prerequisiteMarkers,
+    ) ??
+    parseSubjectStructureRequirements(
+      separated.requirements,
+      extraction.totalUnits,
+    );
   extraction.requirements = plain ?? {
     sourceText: requirementsText,
     sourceLocator: "Requirements",
@@ -153,21 +218,46 @@ export function readStructureSource(
     unmodelledText: requirementsText ? [requirementsText] : [],
   };
   if (plain) evidence("requirements", requirementsText!);
-  // Rules can also appear outside Requirements. Never approve only the convenient section.
+  // Admission and enrolment policies are published as verbatim source text.
+  // Completion overrides still need review because they can change the tree.
   const advice = [
     extraction.introduction,
     ...extraction.sections.map((section) => section.sourceText),
   ]
     .filter(Boolean)
     .join("\n");
+  // Resolve explicit relationships when the current directory has one exact
+  // identity. Unresolved policy names remain visible in their original text.
+  const completionAdvice = advice.replace(
+    /This (major|minor|specialisation) is incompatible with the ([^.\n]+) (major|minor|specialisation)\./giu,
+    (sentence, _kind, name, targetKind) => {
+      const target = structureForName(
+        name,
+        targetKind.toLowerCase(),
+        knownStructures,
+      );
+      if (!target) return sentence;
+      extraction.relationships.push({
+        position: extraction.relationships.length + 1,
+        relationshipKind: "incompatible",
+        targetKind: target.kind,
+        targetCode: target.code,
+        targetTitle: target.name,
+        sourceText: sentence,
+        sourceLocator: "Other Information",
+      });
+      evidence("relationships", sentence);
+      return "";
+    },
+  );
   if (
-    /\b(?:must|required|requires|corequisite|co-requisite|cannot|may not|will not|incompatible|incompatibilities|does not count|need to|prerequisite)\b/iu.test(
-      advice,
+    /\b(?:substitute|double.count|counted towards|credited|topic must|must be in the field|must also complete)\b/iu.test(
+      completionAdvice,
     )
   )
     flag(
       "requirements",
-      "Wording outside Requirements may affect completion or eligibility. Review it before publication.",
+      "Additional completion rules outside Requirements need review. The original conditions remain visible in the catalogue text.",
     );
   if (!requirementsText)
     flag("requirements", "The source has no readable requirements section.");

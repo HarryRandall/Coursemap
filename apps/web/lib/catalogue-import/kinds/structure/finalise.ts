@@ -212,7 +212,7 @@ export function finaliseAcademicStructureExtraction({
       fieldKey,
       kind: "evidence_missing" as const,
       severity: "warning" as const,
-      message: `The ANU page does not contain this wording: ${wording.slice(0, 160)}`,
+      message: `The extracted wording could not be matched verbatim to the ANU page. Check it against the source: ${wording.slice(0, 160)}`,
     })),
     ...consecutiveSemesterReviewItems(extraction.requirements),
     ...tagged.reviewItems,

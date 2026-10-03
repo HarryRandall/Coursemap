@@ -1,3 +1,6 @@
+import postgres from "postgres";
+import { randomUUID } from "node:crypto";
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { expect, login, test } from "./fixtures";
 
 test("administrators browse year-first catalogue records", async ({
@@ -48,4 +51,61 @@ test("administrators browse year-first catalogue records", async ({
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await courseRow.click();
   await expect(page).toHaveURL(/\/admin\/courses\/2026\/comp1110$/);
+});
+
+test("stopped bulk imports show imported counts and linked results on desktop and mobile", async ({
+  page,
+  administrator,
+}) => {
+  const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+    max: 1,
+  });
+  const runId = randomUUID();
+  const syncIds = [randomUUID(), randomUUID()];
+  let codeId: number | undefined;
+  try {
+    const [published] =
+      await sql`select records.id, records.academic_year_id, records.published_version_id from public.catalogue_records records join public.catalogue_codes codes on codes.id = records.code_id join public.academic_years years on years.id = records.academic_year_id where codes.code = 'COMP1110' and years.year = 2026`;
+    const [code] =
+      await sql`insert into public.catalogue_codes (kind, code) values ('course', 'TSTB9901') returning id`;
+    codeId = code.id;
+    const [stopped] =
+      await sql`insert into public.catalogue_records (code_id, kind, academic_year_id) values (${code.id}, 'course', ${published.academic_year_id}) returning id`;
+    const [model] =
+      await sql`select id from public.import_models where enabled order by id limit 1`;
+    await sql`insert into public.catalogue_course_runs (id, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, state) values (${runId}, 2026, ${administrator.id}, ${model.id}, 2, 0.5, 0.1, 0.4, 'cancelled')`;
+    for (const [index, record] of [published, stopped].entries()) {
+      await sql`insert into public.catalogue_syncs (id, record_id, trigger, status, requested_model, parser_version, prompt_version, schema_version, source_version_id) values (${syncIds[index]}, ${record.id}, 'manual', ${index === 0 ? "unchanged" : "cancelled"}, ${model.id}, 'test', 'test', 'test', ${index === 0 ? published.published_version_id : null})`;
+      await sql`insert into public.catalogue_course_run_items (run_id, record_id, sync_id, published_version_id, actual_usd) values (${runId}, ${record.id}, ${syncIds[index]}, ${index === 0 ? published.published_version_id : null}, ${index === 0 ? 0 : null})`;
+    }
+    await login(page, administrator);
+    await page.goto(`/admin/operations/catalogue/imports/${runId}`);
+    await expect(
+      page.getByText("1 of 2 imported", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("progressbar", { name: "Courses imported" }),
+    ).toHaveAttribute("aria-valuenow", "1");
+    await page.getByRole("tab", { name: "Courses (2)", exact: true }).click();
+    await expect(page).toHaveURL(/tab=courses/);
+    await expect(page.getByRole("row", { name: /COMP1110/ })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole("tab", { name: "Courses (2)", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    await expect(
+      page.getByText("1 of 2 imported", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("progressbar", { name: "Courses imported" }),
+    ).toBeVisible();
+  } finally {
+    await sql`delete from public.catalogue_course_run_items where run_id = ${runId}`;
+    await sql`delete from public.catalogue_course_runs where id = ${runId}`;
+    await sql`delete from public.catalogue_syncs where id = any(${sql.array(syncIds)}::uuid[])`;
+    if (codeId)
+      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+    await sql.end();
+  }
 });
