@@ -462,7 +462,9 @@ export function CatalogueContentEditor({
                 onChange={(tree, sourceText) =>
                   updateRule(ruleKey, tree, sourceText)
                 }
-                onSourceChange={(sourceText) => updateRuleSource(ruleKey, sourceText)}
+                onSourceChange={(sourceText) =>
+                  updateRuleSource(ruleKey, sourceText)
+                }
               />
             ),
           )}
@@ -535,7 +537,9 @@ export function CatalogueContentEditor({
               onChange={(tree, sourceText) =>
                 updateRule("structure", tree, sourceText)
               }
-              onSourceChange={(sourceText) => updateRuleSource("structure", sourceText)}
+              onSourceChange={(sourceText) =>
+                updateRuleSource("structure", sourceText)
+              }
             />
           )}
         </>

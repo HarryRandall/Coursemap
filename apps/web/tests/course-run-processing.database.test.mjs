@@ -1,3 +1,4 @@
+import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { beforeAll, afterAll, expect, test, vi } from "vitest";
@@ -108,8 +109,17 @@ const inputs = new Map();
 const syncIds = [];
 
 beforeAll(async () => {
-  const url = process.env.COURSEMAP_RUN_TEST_DATABASE_URL;
-  if (!url || !/test/iu.test(new URL(url).pathname))
+  const url =
+    process.env.COURSEMAP_RUN_TEST_DATABASE_URL ??
+    (process.env.CI === "true" || process.env.COURSEMAP_TEST_SUPABASE_WORKDIR
+      ? localTestEnvironment().COURSEMAP_DATABASE_URL
+      : null);
+  if (
+    !url ||
+    (!/test/iu.test(new URL(url).pathname) &&
+      process.env.CI !== "true" &&
+      !process.env.COURSEMAP_TEST_SUPABASE_WORKDIR)
+  )
     throw new Error(
       "Set COURSEMAP_RUN_TEST_DATABASE_URL to an isolated local test database; never use the preview database.",
     );
