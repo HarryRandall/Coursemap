@@ -23,6 +23,7 @@ export type CatalogueLoadingLayout =
   | "directory"
   | "import-records"
   | "operations-syncs"
+  | "operations-imports"
   | "operations-discovery";
 
 /**
@@ -35,6 +36,15 @@ type Column = {
 };
 
 function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
+  if (layout === "operations-imports")
+    return [
+      { label: "Import", kind: "identity" },
+      { label: "Status", kind: "text" },
+      { label: "Imported", kind: "text" },
+      { label: "Published", kind: "text" },
+      { label: "Needs review", kind: "text" },
+      { label: "Spent", kind: "text" },
+    ];
   if (layout === "public-courses")
     return [
       { label: "Course", kind: "identity" },

@@ -107,6 +107,7 @@ export type CourseRule =
   | { op: "enrolled_in"; programmeCode: string }
   | { op: "enrolled_in_college"; college: string }
   | { op: "equivalent_course"; sourceText: string }
+  | { op: "external_requirement"; sourceText: string }
   | { op: "enrolment_mode"; mode: EnrolmentMode; matches: boolean }
   | { op: "year_standing"; minimumYear: number }
   | {
@@ -162,7 +163,7 @@ export type CourseExtractionEvidence = {
   sourceLocator: string;
   evidenceExcerpt: string;
   confidence: number;
-  method: "model";
+  method: "model" | "deterministic";
 };
 
 export type CourseExtractionReviewItem = {
@@ -720,7 +721,12 @@ function validateExtractionShape(
       minimum: 0,
       maximum: 1,
     });
-    requireEnum(evidence.method, `${path}.method`, ["model"], issues);
+    requireEnum(
+      evidence.method,
+      `${path}.method`,
+      ["model", "deterministic"],
+      issues,
+    );
   });
   requireNumber(record.overallConfidence, "$.overallConfidence", issues, {
     nullable: true,

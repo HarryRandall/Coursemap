@@ -63,7 +63,14 @@ export function CatalogueStateBadge({
         </Badge>
       );
     case "draft":
-      return <Badge variant="primary-light">Draft</Badge>;
+      return record.isPublished ? (
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="success-light">Published</Badge>
+          <Badge variant="primary-light">Draft changes</Badge>
+        </div>
+      ) : (
+        <Badge variant="primary-light">Draft</Badge>
+      );
     case "published":
       return <Badge variant="success-light">Published</Badge>;
     default:

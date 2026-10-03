@@ -664,3 +664,19 @@ test("commencement-year boundaries use the recorded calendar year independently 
     ).status,
   ).toBe("met");
 });
+
+test("literal source requirements remain unknown even with permission approval", () => {
+  const rule = {
+    ...base,
+    kind: "other" as const,
+    text: "Complete 24 units in the named programme or seek permission",
+    sourceText: "Complete 24 units in the named programme or seek permission",
+    reviewState: "review" as const,
+  };
+  expect(
+    evaluateRule(rule, { ...student, permissionApproved: true }).status,
+  ).toBe("unknown");
+  expect(
+    evaluateRule(rule, { ...student, permissionApproved: false }).status,
+  ).toBe("unknown");
+});

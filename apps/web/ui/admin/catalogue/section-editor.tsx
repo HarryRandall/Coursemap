@@ -74,6 +74,7 @@ export function ScalarField({
   readOnly = false,
   choices,
   numeric = typeof value === "number",
+  hideLabel = false,
 }: {
   id: string;
   label: string;
@@ -81,6 +82,7 @@ export function ScalarField({
   onChange: (value: Scalar) => void;
   long?: boolean;
   readOnly?: boolean;
+  hideLabel?: boolean;
   /** Limits the field to these values, chosen by name. */
   choices?: readonly FieldChoice[];
   numeric?: boolean;
@@ -92,7 +94,10 @@ export function ScalarField({
   if (choices) {
     return (
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium" htmlFor={id}>
+        <label
+          className={hideLabel ? "sr-only" : "text-xs font-medium"}
+          htmlFor={id}
+        >
           {label}
         </label>
         <Select
@@ -123,12 +128,15 @@ export function ScalarField({
   ) {
     return (
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium" htmlFor={id}>
+        <label
+          className={hideLabel ? "sr-only" : "text-xs font-medium"}
+          htmlFor={id}
+        >
           {label}
         </label>
         <select
           id={id}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-8 rounded-lg border border-input bg-transparent px-2.5 text-sm dark:bg-input/30"
           value={value === null ? "" : value ? "true" : "false"}
           onChange={(event) =>
             onChange(
@@ -146,7 +154,10 @@ export function ScalarField({
   const text = value === null ? "" : String(value);
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium" htmlFor={id}>
+      <label
+        className={hideLabel ? "sr-only" : "text-xs font-medium"}
+        htmlFor={id}
+      >
         {label}
       </label>
       {long ? (
@@ -182,6 +193,7 @@ export function DetailsEditor({
   readOnlyKeys = [],
   readOnly = false,
   choices = {},
+  hideLabels = false,
 }: {
   idPrefix: string;
   value: Row;
@@ -190,6 +202,7 @@ export function DetailsEditor({
   readOnlyKeys?: string[];
   /** Reads the whole form rather than offering it for editing. */
   readOnly?: boolean;
+  hideLabels?: boolean;
   choices?: Partial<Record<string, readonly FieldChoice[]>>;
 }) {
   // Reading a record should show what it says, not the shape of the form it
@@ -204,7 +217,9 @@ export function DetailsEditor({
       <p className="text-sm text-muted-foreground">Nothing recorded yet.</p>
     );
   return (
-    <div className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+    <div
+      className={hideLabels ? "grid" : "grid gap-x-6 gap-y-4 md:grid-cols-2"}
+    >
       {entries.map(([key, fieldValue]) => {
         const long = LONG_TEXT_KEYS.has(key);
         return (
@@ -212,6 +227,7 @@ export function DetailsEditor({
             <ScalarField
               id={`${idPrefix}-${key}`}
               label={labels[key] ?? humanise(key)}
+              hideLabel={hideLabels}
               value={fieldValue}
               long={long}
               choices={choices[key]}

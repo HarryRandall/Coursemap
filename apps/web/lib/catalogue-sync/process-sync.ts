@@ -1,4 +1,15 @@
+import { parsePlainCourseRequisites } from "../catalogue-import/kinds/course/plain-requisites.ts";
 import { randomUUID } from "node:crypto";
+import {
+  compactCourseAdapter,
+  COMPACT_COURSE_PARSER_VERSION,
+  COMPACT_COURSE_MAX_INPUT_BYTES,
+} from "../catalogue-import/kinds/course/compact-adapter.ts";
+import {
+  CourseRunBudgetError,
+  reserveCourseRunSpend,
+  settleCourseRunSpend,
+} from "../catalogue-runs/budget.ts";
 import { extractionUsageForStorage } from "./extraction-usage.ts";
 import {
   CatalogueProviderPausedError,
@@ -224,6 +235,18 @@ export async function processCatalogueSync({
       finalDelivery: deliveryCount >= maxDeliveries,
       signal,
     });
+    if (
+      claim.parserVersion === COMPACT_COURSE_PARSER_VERSION &&
+      process.env.COURSEMAP_QUEUE_SYNCS_ENABLED === "true"
+    ) {
+      const [item] =
+        await sql`select run_id from public.catalogue_course_run_items where sync_id = ${syncId}::uuid`;
+      if (item) {
+        const { advanceCourseRun } =
+          await import("../catalogue-runs/advance.ts");
+        await advanceCourseRun(String(item.run_id));
+      }
+    }
   });
 }
 
@@ -240,7 +263,12 @@ async function processClaimedSync({
   finalDelivery: boolean;
   signal?: AbortSignal;
 }) {
-  const adapter = syncAdapterForKind(claim.kind);
+  const compact =
+    claim.kind === "course" &&
+    claim.parserVersion === COMPACT_COURSE_PARSER_VERSION;
+  const adapter = compact
+    ? compactCourseAdapter
+    : syncAdapterForKind(claim.kind);
   let sourceDocumentId: number | null = null;
   let requestProviderRevision = claim.providerRevision;
 
@@ -473,17 +501,66 @@ async function processClaimedSync({
           if (control.pause)
             throw new CatalogueProviderPausedError(control.pause);
           requestProviderRevision = control.revision;
-          result = await extractWithOpenRouter({
-            model: claim.requestedModel,
-            systemPrompt,
-            modelInput: userPrompt,
-            schema: adapter.extractionJsonSchema,
-            schemaName: adapter.schemaName,
-            maxOutputTokens: adapter.maxOutputTokens,
-            reasoningEffort: adapter.reasoningEffort,
-            requestTimeoutMs: adapter.requestTimeoutMs,
-            signal,
-          });
+          const plain = compact
+            ? parsePlainCourseRequisites(
+                (JSON.parse(userPrompt) as { requisiteText: string | null })
+                  .requisiteText,
+              )
+            : null;
+          const oversized =
+            compact &&
+            Buffer.byteLength(JSON.stringify(requestBody), "utf8") >
+              COMPACT_COURSE_MAX_INPUT_BYTES;
+          const localRequisites =
+            plain ??
+            (oversized
+              ? {
+                  ...parsePlainCourseRequisites(null)!,
+                  unmodelledText: [
+                    (JSON.parse(userPrompt) as { requisiteText: string })
+                      .requisiteText,
+                  ],
+                }
+              : null);
+          if (compact && !localRequisites)
+            await reserveCourseRunSpend(
+              sql,
+              claim.syncId,
+              Buffer.byteLength(JSON.stringify(requestBody), "utf8"),
+            );
+          result = localRequisites
+            ? restoreOpenRouterExtraction(
+                {
+                  id: null,
+                  model: claim.requestedModel,
+                  content: JSON.stringify({ requisites: localRequisites }),
+                  finishReason: "stop",
+                  latencyMilliseconds: 0,
+                  usage: {
+                    inputTokens: 0,
+                    outputTokens: 0,
+                    totalTokens: 0,
+                    cachedInputTokens: 0,
+                    reasoningTokens: 0,
+                    costUsd: 0,
+                  },
+                  extractionMethod: "deterministic",
+                  responseError: null,
+                },
+                claim.requestedModel,
+                adapter.schemaName,
+              )
+            : await extractWithOpenRouter({
+                model: claim.requestedModel,
+                systemPrompt,
+                modelInput: userPrompt,
+                schema: adapter.extractionJsonSchema,
+                schemaName: adapter.schemaName,
+                maxOutputTokens: adapter.maxOutputTokens,
+                reasoningEffort: adapter.reasoningEffort,
+                requestTimeoutMs: adapter.requestTimeoutMs,
+                signal,
+              });
           const responseArtifact = await persistArtifact({
             stageId,
             stageName: "model_extract",
@@ -495,6 +572,7 @@ async function processClaimedSync({
           responsePause = catalogueProviderResponsePause(result.providerError);
         } catch (error) {
           if (
+            error instanceof CourseRunBudgetError ||
             error instanceof OpenRouterConfigurationError ||
             error instanceof OpenRouterRequestError ||
             error instanceof CatalogueProviderPausedError
@@ -527,6 +605,12 @@ async function processClaimedSync({
           latencyMs: result.latencyMilliseconds,
         });
       }
+      if (compact)
+        await settleCourseRunSpend(
+          sql,
+          claim.syncId,
+          reusable ? 0 : result.usage.costUsd,
+        );
       return { result, extractionId: reservation.id, responsePause };
     });
 
@@ -623,7 +707,16 @@ async function processClaimedSync({
       errorCode: null,
       errorMessage: null,
     });
+    if (compact) {
+      const { publishVerifiedRunCandidate } =
+        await import("../catalogue-runs/publication.ts");
+      await publishVerifiedRunCandidate(sql, claim.syncId, write);
+    }
   } catch (error) {
+    if (compact && error instanceof SyncPaidOutcomeUncertainError)
+      await settleCourseRunSpend(sql, claim.syncId, null);
+    if (compact && error instanceof CourseRunBudgetError)
+      await sql`update public.catalogue_course_runs set state = 'paused', pause_reason = ${error.message} where id = (select run_id from public.catalogue_course_run_items where sync_id = ${claim.syncId}::uuid) and state = 'active'`;
     const code = syncErrorCode(error);
     const summary = safeErrorSummary(error);
     const pauseReason = catalogueProviderPauseReason(error);

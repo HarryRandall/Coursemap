@@ -41,7 +41,7 @@ export function feeValue(fee: CourseDetails["fees"][number]) {
     }).format(fee.amount);
   }
   if (fee.studentContributionBand !== null) {
-    return `Student contribution band ${fee.studentContributionBand}`;
+    return `ANU contribution-band code ${fee.studentContributionBand}`;
   }
   return fee.sourceText ?? "See the ANU source";
 }
@@ -61,4 +61,13 @@ export function sessionLabel(session: string) {
     "Spring Session": "Spring",
   };
   return labels[session] ?? session;
+}
+
+/** Empty source placeholders should not create a section with no useful content. */
+export function hasInherentRequirements(value: string | null | undefined) {
+  const text = value?.trim();
+  return Boolean(
+    text &&
+    !/^(?:n\/?a|not applicable|none|not provided|[-–—]+)[.!]?$/iu.test(text),
+  );
 }

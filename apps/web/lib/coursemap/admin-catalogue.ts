@@ -9,7 +9,7 @@ import type {
   CatalogueKind,
   CatalogueRecordState,
 } from "./catalogue-kinds";
-import { catalogueRecordState } from "./catalogue-kinds";
+import { catalogueRecordMatchesState } from "./catalogue-kinds";
 
 export * from "./catalogue-kinds";
 
@@ -305,8 +305,8 @@ export async function loadCatalogueDirectoryPage({
       return words.every((word) => haystack.includes(word));
     })
     // The whole year is already in memory, so narrowing by state costs a pass
-    // rather than a query, and it agrees with the badge by construction.
-    .filter((row) => !state || catalogueRecordState(row) === state)
+    // rather than a query. Published includes records with retained draft work.
+    .filter((row) => catalogueRecordMatchesState(row, state))
     .sort((left, right) => left.code.localeCompare(right.code));
   const safePage = Math.max(
     1,

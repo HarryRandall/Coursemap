@@ -1,6 +1,20 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { canManageCatalogueOperations } from "@/lib/auth/viewer";
+import {
+  readCourseRunHistory,
+  readCourseRuns,
+} from "@/lib/catalogue-runs/service";
+import {
+  loadCatalogueYears,
+  defaultCatalogueYear,
+} from "@/lib/coursemap/admin-catalogue";
+import { CourseImportWorkspace } from "@/ui/admin/catalogue/course-import-workspace";
+import { CourseImportList } from "./course-import-list";
+import {
+  canManageCatalogueOperations,
+  canWriteCourses,
+  getAuthViewer,
+} from "@/lib/auth/viewer";
 import {
   loadDiscoveryCheck,
   loadDiscoveryChecks,
@@ -48,6 +62,22 @@ export async function CatalogueOperationsPage({
           page: Number(first(searchParams.page)) || 1,
         })
       : null;
+  const requestedImportPage = Number(first(searchParams.page));
+  const imports =
+    section === "imports"
+      ? readCourseRunHistory(
+          Number.isSafeInteger(requestedImportPage) && requestedImportPage > 0
+            ? requestedImportPage
+            : 1,
+          {
+            query: first(searchParams.q),
+            status: first(searchParams.status),
+            year: /^\d{4}$/u.test(first(searchParams.year) ?? "")
+              ? Number(first(searchParams.year))
+              : undefined,
+          },
+        )
+      : null;
   const checks = section === "discovery" ? loadDiscoveryChecks() : null;
 
   return (
@@ -55,7 +85,7 @@ export async function CatalogueOperationsPage({
       <AppShell
         admin
         fill
-        breadcrumbSegmentLabels={{ operations: null }}
+        breadcrumbSegmentLabels={{ operations: null, imports: "Bulk imports" }}
         currentBreadcrumbLabel={section === "syncs" ? "Catalogue" : undefined}
         breadcrumbTrailingLabel={section === "syncs" ? "Syncs" : undefined}
         breadcrumbTrailingIcon={section === "syncs" ? "syncs" : undefined}
@@ -68,13 +98,23 @@ export async function CatalogueOperationsPage({
               layout={
                 section === "syncs"
                   ? "operations-syncs"
-                  : "operations-discovery"
+                  : section === "imports"
+                    ? "operations-imports"
+                    : "operations-discovery"
               }
-              noun={section === "syncs" ? "Record" : "Listing"}
+              noun={
+                section === "syncs"
+                  ? "Record"
+                  : section === "imports"
+                    ? "Import"
+                    : "Listing"
+              }
             />
           }
         >
-          {page ? (
+          {imports ? (
+            <ImportsContent history={imports} />
+          ) : page ? (
             <SyncsContent page={page} />
           ) : (
             <DiscoveryContent checks={checks!} />
@@ -156,5 +196,56 @@ export async function CatalogueDiscoveryDetailPage({
     >
       <DiscoveryDetailView check={check} />
     </AppShell>
+  );
+}
+
+async function ImportsContent({
+  history,
+}: {
+  history: ReturnType<typeof readCourseRunHistory>;
+}) {
+  const [loaded, years] = await Promise.all([history, loadCatalogueYears()]);
+  return (
+    <CourseImportList
+      history={loaded}
+      years={years}
+      year={await defaultCatalogueYear("course", years)}
+    />
+  );
+}
+
+export async function CatalogueImportPage({
+  runId,
+  year,
+  initialTab,
+}: {
+  runId: string;
+  year?: number;
+  initialTab?: string;
+}) {
+  if (!(await canManageCatalogueOperations())) return <AccessDeniedError />;
+  const run =
+    runId === "new" ? null : (await readCourseRuns(undefined, { runId }))[0];
+  if (runId !== "new" && !run) notFound();
+  const years = await loadCatalogueYears();
+  const selectedYear =
+    run?.academic_year ?? year ?? (await defaultCatalogueYear("course", years));
+  if (!selectedYear || !years.includes(selectedYear)) notFound();
+  const [canPublish, viewer] = await Promise.all([
+    canWriteCourses(),
+    getAuthViewer(),
+  ]);
+  return (
+    <CourseImportWorkspace
+      key={`${runId}-${selectedYear}`}
+      years={years}
+      year={selectedYear}
+      initialRun={run ?? null}
+      initialTab={initialTab}
+      canPublish={canPublish}
+      canChangeAutoPublish={
+        canPublish && (!run || run.requested_by === viewer?.id)
+      }
+    />
   );
 }

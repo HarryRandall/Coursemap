@@ -32,6 +32,9 @@ import { LinkedTableRow } from "@/ui/common/linked-table-row";
 import { Pagination } from "@/ui/common/pagination";
 import { startTask } from "@/ui/common/task-toast";
 import { YearPicker } from "@/ui/common/year-picker";
+import Link from "next/link";
+import { adminCourseImportPath } from "@/lib/coursemap/catalogue-kinds";
+import { MenuHint } from "@/ui/common/menu-hint";
 import { readImportStream } from "./import-stream";
 
 /** The column is scanned, so the year is dropped once it is the obvious one. */
@@ -175,31 +178,46 @@ export function CatalogueDirectory({ page }: { page: CatalogueDirectoryPage }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <YearPicker
-          ariaLabel="Academic year"
-          value={page.academicYear}
-          years={page.years}
-          onChange={changeYear}
-        />
-        <Button
-          variant="outline"
-          onClick={refreshDirectory}
-          disabled={refreshing}
-          aria-busy={refreshing}
-        >
-          {refreshing ? (
-            <LoaderCircle
-              className="animate-spin"
-              size={16}
-              aria-hidden="true"
-            />
-          ) : (
-            <RefreshCw size={16} aria-hidden="true" />
-          )}
-          Refresh ANU listing
-        </Button>
+        {page.kind === "course" && (
+          <Button variant="outline" asChild>
+            <Link href={adminCourseImportPath("new", page.academicYear)}>
+              Import courses
+            </Link>
+          </Button>
+        )}
+        <div className="ml-auto">
+          <YearPicker
+            ariaLabel="Academic year"
+            value={page.academicYear}
+            years={page.years}
+            onChange={changeYear}
+          />
+        </div>
       </div>
       <FilterBar
+        actions={
+          <MenuHint label="Refresh ANU listing" open={refreshing}>
+            <Button
+              aria-label="Refresh ANU listing"
+              className="size-10 shrink-0"
+              size="icon"
+              variant="outline"
+              onClick={refreshDirectory}
+              disabled={refreshing}
+              aria-busy={refreshing}
+            >
+              {refreshing ? (
+                <LoaderCircle
+                  className="animate-spin"
+                  size={16}
+                  aria-hidden="true"
+                />
+              ) : (
+                <RefreshCw size={16} aria-hidden="true" />
+              )}
+            </Button>
+          </MenuHint>
+        }
         searchPlaceholder={`Search ${labels.plural.toLowerCase()} by code or title`}
         filters={[
           {

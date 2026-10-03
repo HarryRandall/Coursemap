@@ -45,7 +45,9 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <FilterBar
         searchPlaceholder="Search by code"
-        filters={[{ key: "status", label: "Status", options: STATUS_OPTIONS }]}
+        filters={[
+          { key: "status", label: "Sync status", options: STATUS_OPTIONS },
+        ]}
       />
       {page.rows.length === 0 ? (
         <CatalogueEmpty
@@ -78,12 +80,12 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
               <TableRow>
                 <TableHead>Record</TableHead>
                 <TableHead>Year</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Sync status</TableHead>
                 <TableHead>Trigger</TableHead>
                 <TableHead>Started</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Model</TableHead>
-                <TableHead>Cost</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,9 +118,14 @@ export function SyncList({ page }: { page: SyncOperationsPage }) {
                   </TableCell>
                   <TableCell>{formatDuration(row.durationMs)}</TableCell>
                   <TableCell className="font-mono text-xs">
-                    {row.model ?? "—"}
+                    <span
+                      className="block truncate"
+                      title={row.model ?? undefined}
+                    >
+                      {row.model ?? "--"}
+                    </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {formatCost(row.costUsd, row.knownCostUsd)}
                   </TableCell>
                 </LinkedTableRow>

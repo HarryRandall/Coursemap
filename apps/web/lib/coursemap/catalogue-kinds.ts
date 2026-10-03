@@ -49,6 +49,12 @@ export function adminCatalogueVersionPath(
 
 export const ADMIN_CATALOGUE_OPERATIONS_PATH = "/admin/operations/catalogue";
 
+export const ADMIN_COURSE_IMPORTS_PATH = `${ADMIN_CATALOGUE_OPERATIONS_PATH}/imports`;
+
+export function adminCourseImportPath(runId: string, year?: number) {
+  return `${ADMIN_COURSE_IMPORTS_PATH}/${runId}${year ? `?year=${year}` : ""}`;
+}
+
 export function adminCatalogueSyncPath(syncId: string) {
   return `${ADMIN_CATALOGUE_OPERATIONS_PATH}/syncs/${syncId}`;
 }
@@ -147,12 +153,28 @@ export function catalogueRecordState(
   return "unpublished";
 }
 
+/** Publication remains searchable when a record also has draft changes. */
+export function catalogueRecordMatchesState(
+  record: CatalogueDirectoryRecord,
+  state: CatalogueRecordState | null,
+) {
+  return (
+    !state ||
+    (state === "published"
+      ? record.isPublished
+      : catalogueRecordState(record) === state)
+  );
+}
+
 export type CatalogueTableLayout =
   | "public-courses"
   | "users"
   | "directory"
   | "operations-syncs"
-  | "operations-discovery";
+  | "operations-discovery"
+  | "import-courses"
+  | "import-review"
+  | "operations-imports";
 
 export type CatalogueDirectoryPage = {
   kind: CatalogueKind;

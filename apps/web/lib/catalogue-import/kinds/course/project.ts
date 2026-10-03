@@ -278,6 +278,7 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
       return `Enrolment in programme ${rule.programmeCode}`;
     case "enrolled_in_college":
       return `Enrolment in a programme offered by ${rule.college}`;
+    case "external_requirement":
     case "equivalent_course":
       return rule.sourceText;
     case "enrolment_mode":
@@ -551,6 +552,7 @@ function addAtomicRule(
       accumulator.ruleConditions.push(condition);
       return;
     }
+    case "external_requirement":
     case "equivalent_course": {
       const condition = emptyCondition({
         key,
@@ -917,7 +919,21 @@ function projectRules(extraction: CourseExtraction): RuleProjectionAccumulator {
     accumulator,
     ruleKey: "prerequisite",
     rule: extraction.requisites.prerequisiteRule,
-    sourceText: nullableText(extraction.requisites.prerequisiteText),
+    sourceText:
+      !extraction.requisites.prerequisiteRule &&
+      (extraction.requisites.incompatibilityCourseCodes.length > 0 ||
+        /^(?:N\/A|Not applicable|None)\.?$/iu.test(
+          extraction.requisites.prerequisiteText?.trim() ?? "",
+        )) &&
+      extraction.requisites.unmodelledText.length === 0 &&
+      extraction.evidence.some(
+        (item) =>
+          item.fieldKey === "requisites" &&
+          item.method === "deterministic" &&
+          item.confidence === 1,
+      )
+        ? null
+        : nullableText(extraction.requisites.prerequisiteText),
     extraText: extraction.requisites.unmodelledText,
   });
   addStructuredRule({

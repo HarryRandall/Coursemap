@@ -76,7 +76,12 @@ function ruleConcerns(content: CatalogueContent, fieldPath: string) {
     (condition) => condition.ruleKey === ruleKey,
   );
   const concerns: string[] = [];
-  if (conditions.some((condition) => condition.kind === "other")) {
+  if (
+    conditions.some(
+      (condition) =>
+        condition.kind === "other" && condition.hardness === "hard",
+    )
+  ) {
     concerns.push("Part of the rule is free text Coursemap cannot check");
   }
   if (conditions.some((condition) => condition.reviewState === "review")) {

@@ -12,6 +12,7 @@
 
 ## Proposals
 
+- [Year-wide course imports](year-course-imports.md): low-cost grouped extraction, durable year runs, verified automatic publication and field-level exceptions.
 - [Catalogue automation](catalogue-automation.md): scheduled discovery and syncing, what a scheduled run may and may not do, and the journeys that prove it.
 - [Redesign plan](redesign-plan.md): the prerequisite modelling, student interface and campus map projects still to come.
 

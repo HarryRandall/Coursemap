@@ -60,6 +60,12 @@ concurrent enrolment. The importer adds concurrent scope only for a simple
 code list already extracted as hard completed-course exclusions, and records
 the correction for review. Conditional wording or uncertain exclusions remain
 blocked for individual review.
+Course finalisation independently checks plain mixed AND/OR prerequisite
+sentences without explicit scope markers. A guessed rule for such a sentence is
+withheld, the exact source wording is retained as an unknown requirement, and
+publication is blocked for review even if the model reported full confidence.
+This safeguard is conservative; it does not establish the correctness of every
+other requirement.
 
 ## Review ANU changes
 

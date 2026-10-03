@@ -71,6 +71,9 @@ test("redirects protected routes to the canonical login page", async ({
     "/history",
     "/timetable",
     "/admin/dashboard",
+    "/admin/operations/catalogue/imports",
+    "/admin/operations/catalogue/imports/new?year=2026",
+    "/admin/operations/catalogue/imports/11111111-1111-4111-8111-111111111111",
     "/admin/rooms",
     "/admin/users",
     "/admin/roles",
@@ -173,4 +176,34 @@ test("rejects malformed auth callbacks and cross-origin logout", async ({
   });
   assert.equal(response.status, 403);
   assert.match(response.headers.get("cache-control") ?? "", /no-store/i);
+});
+
+test("anonymous users cannot preview or start paid course import runs", async ({
+  request: api,
+}) => {
+  const responses = await Promise.all([
+    request(api, "/api/admin/course-import-runs?year=2026"),
+    ...["publish-drafts", "auto-publish"].map((action) =>
+      request(api, "/api/admin/course-import-runs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action,
+          runId: "00000000-0000-4000-8000-000000000001",
+          enabled: true,
+        }),
+      }),
+    ),
+    request(api, "/api/admin/course-import-runs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "create",
+        year: 2026,
+        limit: 100,
+        budgetUsd: 0.5,
+      }),
+    }),
+  ]);
+  for (const response of responses) assert.equal(response.status, 403);
 });
