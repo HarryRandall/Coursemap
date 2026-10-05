@@ -548,7 +548,7 @@ export function CourseImportWorkspace({
             className={
               progressScreen
                 ? "workspace-stack pb-6"
-                : "workspace-scroll space-y-5 pb-6"
+                : "space-y-5 pb-6"
             }
           >
             {progressScreen ? (
