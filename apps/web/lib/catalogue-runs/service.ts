@@ -26,13 +26,11 @@ export async function requireCourseRunAdministrator() {
 export { parseCourseRunOptions } from "./options";
 import type { parseCourseRunOptions } from "./options";
 
-async function runModel() {
+async function runModel({ allowAi }: { allowAi: boolean }) {
   const setting = await loadImportModelSetting();
   const model = setting.models.find((item) => item.id === setting.model);
-  if (!model)
-    throw new Error(
-      "Choose an enabled import model with current pricing first.",
-    );
+  if (!model) throw new Error("Choose an enabled import model first.");
+  if (!allowAi) return model;
   return ensureCourseRunPricing(model, {
     fetchModel: fetchCatalogueModel,
     savePricing: async (fresh) => {
@@ -49,7 +47,7 @@ async function runModel() {
 export async function previewCourseRun(
   options: ReturnType<typeof parseCourseRunOptions>,
 ) {
-  const model = await runModel();
+  const model = await runModel({ allowAi: options.allowAi });
   const adapter = bulkImportAdapter(options.kind);
   const records = await withSyncDatabaseClient(
     (sql) => sql`
@@ -65,8 +63,9 @@ export async function previewCourseRun(
     order by codes.code limit ${options.limit}
   `,
   );
-  const [sample] = await withSyncDatabaseClient(
-    (sql) => sql`
+  const [sample] = options.allowAi
+    ? await withSyncDatabaseClient(
+        (sql) => sql`
     select count(*) as sample_count, avg(items.actual_usd) as average_cost
     from public.catalogue_course_run_items items
     join public.catalogue_course_runs runs on runs.id = items.run_id
@@ -80,7 +79,10 @@ export async function previewCourseRun(
       and runs.output_usd_per_million = ${model.output_usd_per_million!}
       and runs.created_at > now() - interval '30 days'
   `,
-  );
+      )
+    : [{ sample_count: 0, average_cost: null }];
+  const inputPrice = model.input_usd_per_million ?? 0;
+  const outputPrice = model.output_usd_per_million ?? 0;
   return {
     model: model.id,
     count: records.length,
@@ -90,19 +92,20 @@ export async function previewCourseRun(
       count: records.length,
       kind: options.kind,
       model: model.id,
-      inputPrice: model.input_usd_per_million!,
-      outputPrice: model.output_usd_per_million!,
+      inputPrice,
+      outputPrice,
       sampleCount: Number(sample.sample_count),
       averageCost:
         sample.average_cost === null ? null : Number(sample.average_cost),
+      allowAi: options.allowAi,
     }),
     budgetUsd: options.budgetUsd,
     records: records.map((row) => ({
       id: Number(row.id),
       code: String(row.code),
     })),
-    inputPrice: model.input_usd_per_million!,
-    outputPrice: model.output_usd_per_million!,
+    inputPrice,
+    outputPrice,
   };
 }
 
@@ -126,7 +129,7 @@ export async function createCourseRun(
   const runId = await withSyncDatabaseClient((sql) =>
     sql.begin(async (tx) => {
       const [run] =
-        await tx`insert into public.catalogue_course_runs (kind, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified) values (${options.kind}, ${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}) returning id`;
+        await tx`insert into public.catalogue_course_runs (kind, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified, allow_ai) values (${options.kind}, ${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}, ${options.allowAi}) returning id`;
       for (const record of preview.records) {
         const [sync] = await tx`
         insert into public.catalogue_syncs (record_id, trigger, requested_model, parser_version, prompt_version, schema_version, requested_by)
@@ -166,21 +169,25 @@ export async function readCourseRuns(
     (sql) => sql<
       (CourseRunProgress & { academic_year: number; matched_count: number })[]
     >`
-    with summaries as (select runs.id, runs.kind, runs.academic_year, runs.state, runs.pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
+    with summaries as (select runs.id, runs.kind, runs.academic_year,
+      case when runs.state = 'active' and bool_or(syncs.status = 'paused') then 'paused' else runs.state end as state,
+      coalesce(runs.pause_reason, max(syncs.error_message) filter (where syncs.status = 'paused')) as pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified, runs.allow_ai,
       (select coalesce(jsonb_agg(blockers), '[]'::jsonb) from (
         select flag->>'message' as reason, count(distinct run_items.record_id)::integer as courses
         from public.catalogue_course_run_items run_items
+        join public.catalogue_syncs run_syncs on run_syncs.id = run_items.sync_id
         join public.catalogue_drafts drafts on drafts.record_id = run_items.record_id
         cross join lateral jsonb_array_elements(drafts.content->'flags') flag
         where run_items.run_id = runs.id and run_items.published_version_id is null
+          and run_syncs.status in ('applied', 'review_required', 'unchanged')
         group by flag->>'message' order by count(distinct run_items.record_id) desc, flag->>'message'
       ) blockers) as publication_blockers,
       min(syncs.started_at) as started_at,
       max(syncs.completed_at) as completed_at,
       count(items.record_id)::integer as total,
-      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged', 'failed', 'cancelled', 'paused'))::integer as finished,
-      count(*) filter (where syncs.status not in ('queued', 'running', 'failed', 'cancelled') and items.published_version_id is null and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id) and (exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')) or exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') > 0)))::integer as review,
-      count(*) filter (where syncs.status not in ('queued', 'running', 'failed', 'cancelled') and items.published_version_id is null
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged', 'failed', 'cancelled'))::integer as finished,
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged') and items.published_version_id is null and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id) and (exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')) or exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') > 0)))::integer as review,
+      count(*) filter (where syncs.status in ('applied', 'review_required', 'unchanged') and items.published_version_id is null
         and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = items.record_id and jsonb_array_length(drafts.content->'flags') = 0)
         and not exists (select 1 from public.catalogue_sync_changes changes where changes.sync_id = syncs.id and changes.decision is null and changes.superseded_at is null and changes.review_band in ('check', 'needs_review')))::integer as drafts,
       count(*) filter (where syncs.status = 'failed')::integer as failed,
@@ -290,13 +297,13 @@ export async function readCourseRunItems(
       ), classified as (select *, case
         when status = 'failed' then 'failed'
         when status = 'cancelled' then 'stopped'
-        when status in ('queued', 'running') then 'pending'
+        when status in ('queued', 'running', 'paused') then 'pending'
         when published_version_id is not null then 'published'
         when jsonb_array_length(issues) > 0 then 'review'
         when content is not null then 'draft'
         else 'pending' end as outcome from results
       ), filtered as (select * from classified
-      where (not ${needsReview} or (published_version_id is null and content is not null and jsonb_array_length(issues) > 0))
+      where (not ${needsReview} or outcome = 'review')
         and (${filters.query ?? ""} = '' or code ilike ${`%${filters.query ?? ""}%`} or title ilike ${`%${filters.query ?? ""}%`})
         and (${filters.outcome ?? ""} = '' or outcome = ${filters.outcome ?? ""})
         and (${filters.issue ?? ""} = '' or issues ? ${filters.issue ?? ""})

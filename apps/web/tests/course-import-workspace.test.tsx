@@ -109,6 +109,57 @@ it("shows errors without starting a paid run", async () => {
   ).toBeDisabled();
 });
 
+it("creates an AI-free import without a spending limit", async () => {
+  const requests: Record<string, unknown>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, options?: RequestInit) => {
+      if (!options) return Response.json({ runs: [] });
+      const body = JSON.parse(options.body as string);
+      requests.push(body);
+      return Response.json(
+        body.action === "preview"
+          ? {
+              count: 10,
+              availableCount: 10,
+              minimumUsd: 0,
+              estimatedUsd: 0,
+              maximumUsd: 0,
+              estimateKind: "not_used",
+              estimateBasis: "AI is disabled.",
+              budgetUsd: 0,
+            }
+          : { runId: "deterministic-run" },
+      );
+    }),
+  );
+  const user = userEvent.setup();
+  render(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2026} />
+    </TooltipProvider>,
+  );
+  await screen.findByRole("button", { name: "Import 10 courses" });
+  await user.click(
+    screen.getByRole("checkbox", {
+      name: "Use AI for ambiguous requirements",
+    }),
+  );
+  await screen.findByText("AI is disabled. This import has no AI spend.");
+  await user.click(screen.getByRole("button", { name: "Import 10 courses" }));
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      action: "create",
+      year: 2026,
+      kind: "course",
+      limit: 10,
+      budgetUsd: 0,
+      allowAi: false,
+      publishVerified: false,
+    }),
+  );
+});
+
 it("retries a failed estimate and enables Start after recovery", async () => {
   let attempts = 0;
   vi.stubGlobal(
@@ -672,6 +723,7 @@ it("previews the selected structure kind and uses its available count", async ()
       action: "preview",
       year: 2026,
       kind: "specialisation",
+      allowAi: true,
     }),
   );
   expect(

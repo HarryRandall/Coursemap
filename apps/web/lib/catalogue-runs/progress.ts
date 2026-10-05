@@ -21,6 +21,7 @@ export type CourseRunProgress = {
   reserved_usd: string;
   budget_usd: string;
   publish_verified: boolean;
+  allow_ai?: boolean;
   publication_blockers: Array<{ reason: string; courses: number }>;
   paid_courses: number;
   free_courses: number;
@@ -99,11 +100,12 @@ export function courseRunItemState(item: CourseRunItem) {
   if (item.status === "cancelled") return "Stopped";
   if (item.status === "running") return "Importing";
   if (item.status === "queued") return "Queued";
+  if (item.status === "paused") return "Paused";
   if (item.published)
     return item.hasDraft ? "Published with draft" : "Published";
   if (item.issues.length) return "Needs review";
   if (item.hasDraft) return "Draft ready";
-  return item.status === "paused" ? "Paused" : "Pending";
+  return "Pending";
 }
 
 /** Mutually exclusive segments leave stopped and unclassified work neutral. */

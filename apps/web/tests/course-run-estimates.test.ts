@@ -35,11 +35,26 @@ it("does not transfer the single-course estimate to an unmeasured model", () => 
   ).toBeNull();
 });
 
+it("has no estimated or maximum spend when AI is disabled", () => {
+  expect(courseRunEstimate({ ...options, allowAi: false })).toMatchObject({
+    estimatedUsd: 0,
+    maximumUsd: 0,
+    estimateKind: "not_used",
+  });
+});
+
 it("permits catalogue-wide selections and rejects invalid amounts", () => {
   expect(parseCourseRunOptions({ year: 2026, limit: 3500 }).limit).toBe(3500);
+  expect(parseCourseRunOptions({ year: 2026, allowAi: false })).toMatchObject({
+    allowAi: false,
+    budgetUsd: 0,
+  });
   expect(() => parseCourseRunOptions({ year: 2026, limit: 1.5 })).toThrow();
   expect(() => parseCourseRunOptions({ year: 2026, limit: 0 })).toThrow();
   expect(() =>
     parseCourseRunOptions({ year: 2026, budgetUsd: 0.001 }),
   ).toThrow();
+  expect(
+    parseCourseRunOptions({ year: 2026, budgetUsd: 0, allowAi: false }),
+  ).toMatchObject({ allowAi: false, budgetUsd: 0 });
 });

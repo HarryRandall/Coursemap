@@ -76,6 +76,7 @@ export type ClaimedCatalogueSync = {
   retryCount: number;
   providerRevision: number;
   lockVersion: number;
+  allowAi: boolean;
 };
 
 function numberOrNull(value: unknown) {
@@ -127,7 +128,8 @@ export async function claimCatalogueSync(
         syncs.previous_source_version_id, syncs.requested_model,
         syncs.parser_version, syncs.prompt_version, syncs.schema_version,
         syncs.attempt_count, syncs.retry_count, syncs.lock_version,
-        (select revision from public.catalogue_provider_controls where provider = 'openrouter') as provider_revision
+        (select revision from public.catalogue_provider_controls where provider = 'openrouter') as provider_revision,
+        coalesce((select runs.allow_ai from public.catalogue_course_run_items items join public.catalogue_course_runs runs on runs.id = items.run_id where items.sync_id = syncs.id), true) as allow_ai
     `;
     if (!row) return null;
     return {
@@ -147,6 +149,7 @@ export async function claimCatalogueSync(
       retryCount: Number(row.retry_count),
       providerRevision: Number(row.provider_revision),
       lockVersion: Number(row.lock_version),
+      allowAi: Boolean(row.allow_ai),
     };
   });
 }
