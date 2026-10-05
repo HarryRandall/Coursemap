@@ -989,6 +989,7 @@ export type Database = {
       catalogue_course_runs: {
         Row: {
           academic_year: number
+          allow_ai: boolean
           budget_usd: number
           course_limit: number
           created_at: string
@@ -1004,6 +1005,7 @@ export type Database = {
         }
         Insert: {
           academic_year: number
+          allow_ai?: boolean
           budget_usd: number
           course_limit: number
           created_at?: string
@@ -1019,6 +1021,7 @@ export type Database = {
         }
         Update: {
           academic_year?: number
+          allow_ai?: boolean
           budget_usd?: number
           course_limit?: number
           created_at?: string

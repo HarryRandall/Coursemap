@@ -117,9 +117,14 @@ export function CourseRunHeader({
               </li>
             ))}
         </ul>
-        <span className="tabular-nums">
-          {cost(Number(run.spent_usd))} spent of {cost(Number(run.budget_usd))}
-        </span>
+        {run.allow_ai === false ? (
+          <span>AI disabled</span>
+        ) : (
+          <span className="tabular-nums">
+            {cost(Number(run.spent_usd))} spent of{" "}
+            {cost(Number(run.budget_usd))}
+          </span>
+        )}
       </div>
       {run.pause_reason && (
         <p role="alert" className="text-sm text-warning">
@@ -191,6 +196,12 @@ export function CourseRunProgress({ run }: { run?: Run; active: boolean }) {
         className="space-y-4 rounded-lg border p-4"
       >
         <h3 className="text-sm font-medium">Spending</h3>
+        {run.allow_ai === false && (
+          <p className="text-sm text-muted-foreground">
+            AI was disabled for this import. Ambiguous requirements were kept
+            for review.
+          </p>
+        )}
         <dl className="grid grid-cols-2 gap-6 text-sm lg:grid-cols-4">
           <div>
             <dt className="text-xs text-muted-foreground">Actual spend</dt>

@@ -10,6 +10,7 @@ export function courseRunEstimate({
   outputPrice,
   sampleCount,
   averageCost,
+  allowAi = true,
 }: {
   count: number;
   kind?: BulkImportKind;
@@ -18,7 +19,17 @@ export function courseRunEstimate({
   outputPrice: number;
   sampleCount: number;
   averageCost: number | null;
+  allowAi?: boolean;
 }) {
+  if (!allowAi)
+    return {
+      minimumUsd: 0,
+      estimateKind: "not_used" as const,
+      estimatedUsd: 0,
+      maximumUsd: 0,
+      estimateBasis:
+        "AI is disabled. Ambiguous requirements are retained for review.",
+    };
   const measured = sampleCount >= 5 && averageCost !== null;
   const fallback =
     kind === "course" && model === "google/gemini-3.1-flash-lite";

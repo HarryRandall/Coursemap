@@ -58,7 +58,7 @@ type Preview = {
   minimumUsd: number;
   estimatedUsd: number | null;
   maximumUsd: number;
-  estimateKind: "measured" | "provisional" | "unavailable";
+  estimateKind: "measured" | "provisional" | "unavailable" | "not_used";
   estimateBasis: string;
   budgetUsd: number;
 };
@@ -141,6 +141,7 @@ export function CourseImportWorkspace({
   const refreshedRun = useRef<string | null>(null);
   const [limit, setLimit] = useState(100);
   const [budget, setBudget] = useState(0.5);
+  const [allowAi, setAllowAi] = useState(true);
   const [publishVerified, setPublishVerified] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [runs, setRuns] = useState<Run[]>(initialRun ? [initialRun] : []);
@@ -196,7 +197,7 @@ export function CourseImportWorkspace({
       setEstimating(true);
       setError(null);
       try {
-        const result = await action({ action: "preview", year, kind });
+        const result = await action({ action: "preview", year, kind, allowAi });
         if (!stopped) {
           setPreview(result);
           setLimit((value) =>
@@ -218,7 +219,7 @@ export function CourseImportWorkspace({
       stopped = true;
       clearTimeout(timeout);
     };
-  }, [active, viewRunId, year, kind, estimateAttempt]);
+  }, [active, viewRunId, year, kind, allowAi, estimateAttempt]);
 
   async function startImport() {
     setPending(true);
@@ -229,7 +230,8 @@ export function CourseImportWorkspace({
         year,
         kind,
         limit,
-        budgetUsd: budget,
+        budgetUsd: allowAi ? budget : 0,
+        allowAi,
         publishVerified,
       });
       setViewRunId(result.runId);
@@ -426,7 +428,7 @@ export function CourseImportWorkspace({
     Number.isInteger(limit) &&
     selected > 0 &&
     limit === selected &&
-    budget >= 0.01 &&
+    budget >= (allowAi ? 0.01 : 0) &&
     budget <= 10;
   const presets = [10, 25, 50, 100]
     .map((percent) => ({
@@ -705,11 +707,11 @@ export function CourseImportWorkspace({
                       <InputGroupInput
                         id={`${id}-budget`}
                         type="number"
-                        min={0.01}
+                        min={allowAi ? 0.01 : 0}
                         max={10}
                         step={0.01}
-                        value={budget}
-                        disabled={pending || Boolean(active)}
+                        value={allowAi ? budget : 0}
+                        disabled={!allowAi || pending || Boolean(active)}
                         onChange={(event) =>
                           setBudget(Number(event.target.value))
                         }
@@ -736,6 +738,29 @@ export function CourseImportWorkspace({
                   </div>
                 </div>
                 <section
+                  aria-label="AI requirements interpretation"
+                  className="rounded-lg border p-4"
+                >
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      id={`${id}-ai`}
+                      checked={allowAi}
+                      disabled={pending || Boolean(active)}
+                      onCheckedChange={(checked) =>
+                        setAllowAi(checked === true)
+                      }
+                    />
+                    <Label htmlFor={`${id}-ai`}>
+                      Use AI for ambiguous requirements
+                    </Label>
+                  </div>
+                  <p className="mt-2 pl-6 text-xs text-muted-foreground">
+                    {allowAi
+                      ? "Coursemap uses deterministic source data first, then asks AI only to interpret requirements it cannot safely parse."
+                      : "AI is disabled. Coursemap imports deterministic source data only and keeps ambiguous requirements for review."}
+                  </p>
+                </section>
+                <section
                   aria-label="Import costs"
                   aria-busy={estimating}
                   className="space-y-3 rounded-lg border bg-muted/30 p-4"
@@ -752,17 +777,19 @@ export function CourseImportWorkspace({
                         >
                           {preview?.estimateKind === "measured"
                             ? "Measured"
-                            : preview?.estimateKind === "unavailable"
-                              ? "No sample"
-                              : "Provisional"}
+                            : preview?.estimateKind === "not_used"
+                              ? "AI disabled"
+                              : preview?.estimateKind === "unavailable"
+                                ? "No sample"
+                                : "Provisional"}
                           <Info className="size-3" aria-hidden="true" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
                         {preview?.estimateBasis ??
                           "Loading current model prices."}{" "}
-                        Min assumes no paid requests; Max assumes every request
-                        uses its token allowance.
+                        {preview?.estimateKind !== "not_used" &&
+                          " Min assumes no paid requests; Max assumes every request uses its token allowance."}
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -804,11 +831,13 @@ export function CourseImportWorkspace({
                     )}
                     {!preview
                       ? "Loading current prices..."
-                      : available === 0
-                        ? `No missing ${plural}. Refresh the ANU listing if you expect more.`
-                        : overBudget
-                          ? `May pause at your ${budgetPrice(budget)} spending limit.`
-                          : `Within your ${budgetPrice(budget)} spending limit.`}
+                      : !allowAi
+                        ? "AI is disabled. This import has no AI spend."
+                        : available === 0
+                          ? `No missing ${plural}. Refresh the ANU listing if you expect more.`
+                          : overBudget
+                            ? `May pause at your ${budgetPrice(budget)} spending limit.`
+                            : `Within your ${budgetPrice(budget)} spending limit.`}
                   </p>
                 </section>
               </>
