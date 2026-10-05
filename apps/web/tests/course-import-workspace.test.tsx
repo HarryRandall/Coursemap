@@ -439,8 +439,9 @@ it("switches to progress when starting and updates actual costs while importing"
   );
   await screen.findByText("100 of 1000 missing");
   await user.click(screen.getByRole("button", { name: "Import 100 courses" }));
-  expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Spending limit")).not.toBeInTheDocument();
+  expect(screen.getByRole("slider")).toBeInTheDocument();
+  expect(screen.getByLabelText("Spending limit")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Starting..." })).toBeDisabled();
   await screen.findByText("US$0.0180");
   expect(screen.getByText("US$0.0073")).toBeInTheDocument();
   expect(
