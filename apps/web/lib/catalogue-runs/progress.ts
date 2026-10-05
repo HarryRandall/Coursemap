@@ -21,6 +21,7 @@ export type CourseRunProgress = {
   reserved_usd: string;
   budget_usd: string;
   publish_verified: boolean;
+  allow_ai?: boolean;
   publication_blockers: Array<{ reason: string; courses: number }>;
   paid_courses: number;
   free_courses: number;

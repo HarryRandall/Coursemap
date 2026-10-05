@@ -554,11 +554,39 @@ async function processClaimedSync({
               COMPACT_STRUCTURE_MAX_INPUT_BYTES
               ? heldStructureRequirements(structureSource.extraction)
               : null);
-          const localResult = localRequisites
+          let localResult = localRequisites
             ? { requisites: localRequisites }
             : localStructure
               ? { requirements: localStructure }
               : null;
+          if (!claim.allowAi && !localResult) {
+            if (!sourceFirst) {
+              throw new Error(
+                "AI is disabled and this importer has no deterministic extraction path.",
+              );
+            }
+            if (compact) {
+              const requisiteText = (
+                JSON.parse(userPrompt) as { requisiteText: string | null }
+              ).requisiteText;
+              localResult = {
+                requisites: {
+                  ...parsePlainCourseRequisites(null)!,
+                  unmodelledText: requisiteText ? [requisiteText] : [],
+                },
+              };
+            } else if (structureSource) {
+              localResult = {
+                requirements: heldStructureRequirements(
+                  structureSource.extraction,
+                ),
+              };
+            } else {
+              throw new Error(
+                "Deterministic requirements could not be prepared while AI is disabled.",
+              );
+            }
+          }
           if (sourceFirst && !localResult)
             await reserveCourseRunSpend(
               sql,

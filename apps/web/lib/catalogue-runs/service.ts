@@ -26,13 +26,11 @@ export async function requireCourseRunAdministrator() {
 export { parseCourseRunOptions } from "./options";
 import type { parseCourseRunOptions } from "./options";
 
-async function runModel() {
+async function runModel({ allowAi }: { allowAi: boolean }) {
   const setting = await loadImportModelSetting();
   const model = setting.models.find((item) => item.id === setting.model);
-  if (!model)
-    throw new Error(
-      "Choose an enabled import model with current pricing first.",
-    );
+  if (!model) throw new Error("Choose an enabled import model first.");
+  if (!allowAi) return model;
   return ensureCourseRunPricing(model, {
     fetchModel: fetchCatalogueModel,
     savePricing: async (fresh) => {
@@ -49,7 +47,7 @@ async function runModel() {
 export async function previewCourseRun(
   options: ReturnType<typeof parseCourseRunOptions>,
 ) {
-  const model = await runModel();
+  const model = await runModel({ allowAi: options.allowAi });
   const adapter = bulkImportAdapter(options.kind);
   const records = await withSyncDatabaseClient(
     (sql) => sql`
@@ -65,8 +63,9 @@ export async function previewCourseRun(
     order by codes.code limit ${options.limit}
   `,
   );
-  const [sample] = await withSyncDatabaseClient(
-    (sql) => sql`
+  const [sample] = options.allowAi
+    ? await withSyncDatabaseClient(
+        (sql) => sql`
     select count(*) as sample_count, avg(items.actual_usd) as average_cost
     from public.catalogue_course_run_items items
     join public.catalogue_course_runs runs on runs.id = items.run_id
@@ -80,7 +79,10 @@ export async function previewCourseRun(
       and runs.output_usd_per_million = ${model.output_usd_per_million!}
       and runs.created_at > now() - interval '30 days'
   `,
-  );
+      )
+    : [{ sample_count: 0, average_cost: null }];
+  const inputPrice = model.input_usd_per_million ?? 0;
+  const outputPrice = model.output_usd_per_million ?? 0;
   return {
     model: model.id,
     count: records.length,
@@ -90,19 +92,20 @@ export async function previewCourseRun(
       count: records.length,
       kind: options.kind,
       model: model.id,
-      inputPrice: model.input_usd_per_million!,
-      outputPrice: model.output_usd_per_million!,
+      inputPrice,
+      outputPrice,
       sampleCount: Number(sample.sample_count),
       averageCost:
         sample.average_cost === null ? null : Number(sample.average_cost),
+      allowAi: options.allowAi,
     }),
     budgetUsd: options.budgetUsd,
     records: records.map((row) => ({
       id: Number(row.id),
       code: String(row.code),
     })),
-    inputPrice: model.input_usd_per_million!,
-    outputPrice: model.output_usd_per_million!,
+    inputPrice,
+    outputPrice,
   };
 }
 
@@ -126,7 +129,7 @@ export async function createCourseRun(
   const runId = await withSyncDatabaseClient((sql) =>
     sql.begin(async (tx) => {
       const [run] =
-        await tx`insert into public.catalogue_course_runs (kind, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified) values (${options.kind}, ${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}) returning id`;
+        await tx`insert into public.catalogue_course_runs (kind, academic_year, requested_by, requested_model, course_limit, budget_usd, input_usd_per_million, output_usd_per_million, publish_verified, allow_ai) values (${options.kind}, ${options.year}, ${viewer.id}::uuid, ${preview.model}, ${options.limit}, ${options.budgetUsd}, ${preview.inputPrice}, ${preview.outputPrice}, ${options.publishVerified}, ${options.allowAi}) returning id`;
       for (const record of preview.records) {
         const [sync] = await tx`
         insert into public.catalogue_syncs (record_id, trigger, requested_model, parser_version, prompt_version, schema_version, requested_by)
@@ -168,7 +171,7 @@ export async function readCourseRuns(
     >`
     with summaries as (select runs.id, runs.kind, runs.academic_year,
       case when runs.state = 'active' and bool_or(syncs.status = 'paused') then 'paused' else runs.state end as state,
-      coalesce(runs.pause_reason, max(syncs.error_message) filter (where syncs.status = 'paused')) as pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified,
+      coalesce(runs.pause_reason, max(syncs.error_message) filter (where syncs.status = 'paused')) as pause_reason, runs.created_at, runs.requested_by, runs.budget_usd, runs.publish_verified, runs.allow_ai,
       (select coalesce(jsonb_agg(blockers), '[]'::jsonb) from (
         select flag->>'message' as reason, count(distinct run_items.record_id)::integer as courses
         from public.catalogue_course_run_items run_items
