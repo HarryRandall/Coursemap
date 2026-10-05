@@ -239,7 +239,7 @@ export function CourseImportWorkspace({
       window.history.replaceState(
         null,
         "",
-        adminCourseImportPath(result.runId),
+        adminCourseImportPath(result.runId, year, kind),
       );
       setResultPage(1);
       setResultCache({});
@@ -255,7 +255,7 @@ export function CourseImportWorkspace({
   }
 
   const current = runs.find((run) => run.id === viewRunId);
-  const progressScreen = pending || viewRunId !== null;
+  const progressScreen = viewRunId !== null;
   const unfinished =
     current &&
     current.finished < current.total &&
