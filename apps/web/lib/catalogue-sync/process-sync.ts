@@ -559,7 +559,7 @@ async function processClaimedSync({
             : localStructure
               ? { requirements: localStructure }
               : null;
-          if (!claim.allowAi && !localResult) {
+          if (claim.allowAi === false && !localResult) {
             if (!sourceFirst) {
               throw new Error(
                 "AI is disabled and this importer has no deterministic extraction path.",
