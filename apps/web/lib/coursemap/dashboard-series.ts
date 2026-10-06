@@ -1,4 +1,5 @@
 import type { Accent, Attempt, Course, Term } from "@/lib/coursemap/types";
+import { isSemesterTerm } from "@/lib/coursemap/academic-periods";
 import {
   isActiveAttempt,
   planningCourseForAttempt,
@@ -33,10 +34,6 @@ export type DashboardCalendarEvent = {
 
 function scheduledTerms(terms: readonly Term[]) {
   return terms.filter((term) => term.id !== "unscheduled");
-}
-
-function isSemesterTerm(term: Term) {
-  return /^S[12]$/u.test(term.id.split("-").at(-1)?.toUpperCase() ?? "");
 }
 
 export function termLabel(term: Term) {

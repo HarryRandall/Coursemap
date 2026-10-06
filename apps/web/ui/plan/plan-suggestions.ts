@@ -1,5 +1,4 @@
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
-import { requirementNodeMatcher } from "@/lib/coursemap/requirement-progress";
 import type {
   PlanCatalogue,
   PlanStructureKind,
@@ -11,7 +10,6 @@ import {
   hidesCondition,
   listedCourseCounts,
   requirementRowStatus,
-  suggestedCourses,
   type RequirementTreeCondition,
   type RequirementTreeGroup,
   type RequirementTreeNode,
@@ -68,7 +66,7 @@ export function courseForTerm(
   );
 }
 
-/** One open rule with the courses that would count towards it. */
+/** One open rule with the courses the student has already settled on for it. */
 export type RuleToPlan = {
   key: string;
   /** A few words, such as "COMP 3000+" or "Pick one". */
@@ -80,7 +78,15 @@ export type RuleToPlan = {
   /** Share of the rule completed or planned, from 0 to 1. */
   progress: number;
   compulsory: boolean;
+  /**
+   * Compulsory courses still to place, or the options the student starred.
+   * The planner never chooses between options on the student's behalf.
+   */
   courses: CourseToPlan[];
+  /** How many courses the rule lists to choose from; 0 when it names none. */
+  options: number;
+  /** Course directory filters for a rule that names no courses. */
+  browse: string | null;
 };
 
 export type StructureToPlan = {
@@ -95,7 +101,7 @@ export type StructureToPlan = {
  * subject or tag, and its levels as the leading digit ("3+" for 3000 level
  * or above). Rules any course meets have none.
  */
-export function ruleSearchParams(rule: RequirementTreeCondition) {
+function ruleSearchParams(rule: RequirementTreeCondition) {
   const digit = (level: number) => String(level < 10 ? level : level / 1000);
   const { minimumLevel, maximumLevel } = rule;
   const params = new URLSearchParams();
@@ -113,20 +119,6 @@ export function ruleSearchParams(rule: RequirementTreeCondition) {
     );
   else if (maximumLevel !== null) params.set("level", digit(maximumLevel));
   return params.size > 0 ? params.toString() : null;
-}
-
-/** Open rules across the structures that could use a course search. */
-export function ruleSearches(structures: PlannedStructure[]) {
-  return [
-    ...new Set(
-      structures.flatMap((structure) =>
-        rulesToPlan(structure.root, structure.context).flatMap((rule) => {
-          const params = ruleSearchParams(rule);
-          return params ? [params] : [];
-        }),
-      ),
-    ),
-  ];
 }
 
 /** A rule named in a few words, so a list of them reads at a glance. */
@@ -167,71 +159,52 @@ function requirementRules(
 }
 
 /**
- * Each structure's open rules with a few courses under each that would count,
- * in requirement order. A course can count for more than one structure, so it
- * may appear under each of them.
+ * Each structure's open rules in requirement order, with the compulsory
+ * courses still to place and any options the student starred. A course can
+ * count for more than one structure, so it may appear under each of them.
  */
 export function structuresToPlan({
   structures,
   attempts,
   catalogue,
-  searched = new Map(),
-  perRule = 3,
+  starred,
 }: {
   structures: PlannedStructure[];
   attempts: Attempt[];
   catalogue: PlanCatalogue;
-  /** Courses the course search found for a rule, by its search params. */
-  searched?: ReadonlyMap<string, Course[]>;
-  perRule?: number;
+  /** Codes of the courses the student starred. */
+  starred: readonly string[];
 }): StructureToPlan[] {
   const planned = new Set(
     attempts
       .filter((attempt) => attempt.status !== "withdrawn")
       .map((attempt) => attempt.courseCode),
   );
+  const starredCodes = new Set(starred);
   return structures.map((structure) => {
     const { context } = structure;
     const open = rulesToPlan(structure.root, context);
-    const searchedFor = (rule: RequirementTreeCondition) => {
-      const params = ruleSearchParams(rule);
-      return params ? (searched.get(params) ?? []) : [];
-    };
-    // Any course counts towards electives, so they borrow the courses found
-    // for the structure's other rules.
-    const pool = open.flatMap(searchedFor);
-    const suggestedFor = (rule: RequirementTreeCondition) => {
-      const local = suggestedCourses(rule, context, perRule + 6);
-      if (local.length > 0) return local;
-      const found = searchedFor(rule);
-      if (found.length > 0) return found;
-      return ruleSearchParams(rule) === null && !requirementNodeMatcher(rule)
-        ? pool
-        : [];
-    };
     const seen = new Set<string>();
     const rules = open.flatMap((rule): RuleToPlan[] => {
       const listed = listedCourseCounts(rule, context);
       const compulsory = listed.codes.length > 0 && listed.required;
       // A choice the student already made, counted under another rule,
-      // is theirs to move rather than a reason to suggest the alternatives.
+      // is theirs to move rather than a reason to list the alternatives.
       if (
         !compulsory &&
         listed.codes.some((code) => context.attemptStatusByCode.has(code))
       )
         return [];
       const heading = shortHeading(rule, compulsory);
-      const courses = (
-        listed.codes.length > 0
-          ? listed.codes.flatMap((code) => {
-              const course = catalogue.courses.find(
-                (item) =>
-                  item.code === code && item.year === catalogue.academicYear,
-              );
-              return course ? [course] : [];
-            })
-          : suggestedFor(rule)
-      )
+      const courses = listed.codes
+        .filter((code) => compulsory || starredCodes.has(code))
+        .flatMap((code) => {
+          const course = catalogue.courses.find(
+            (item) =>
+              item.code === code && item.year === catalogue.academicYear,
+          );
+          return course ? [course] : [];
+        })
         .filter((course) => !planned.has(course.code) && !seen.has(course.code))
         .map((course) => {
           seen.add(course.code);
@@ -256,6 +229,8 @@ export function structuresToPlan({
               : 0,
           compulsory,
           courses,
+          options: listed.codes.length,
+          browse: listed.codes.length > 0 ? null : ruleSearchParams(rule),
         },
       ];
     });

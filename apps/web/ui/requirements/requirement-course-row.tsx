@@ -4,11 +4,12 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import { CatalogueIdentity } from "@/ui/admin/catalogue-table/catalogue-table";
 import type { Course } from "@/lib/coursemap/types";
+import { StarButton } from "@/ui/common/star-button";
 import type { ReactNode } from "react";
 
 /**
  * One course a rule lists, as a compact row: its status, code and name, and
- * where it counts or a way to add it. Every course links to its page, even
+ * where it counts or a way to star or add it. Every course links to its page, even
  * one the catalogue has not published yet.
  */
 export function RequirementCourseRow({
@@ -70,6 +71,11 @@ export function RequirementCourseRow({
           </Badge>
         ) : null}
       </span>
+      {showStatus && course && !status ? (
+        // A starred option waits in the planner's courses to plan, so a
+        // choice can be made here and scheduled there.
+        <StarButton courseCode={code} className="relative z-10" />
+      ) : null}
       {showStatus && course && !status && onAdd ? (
         <Button
           variant="outline"

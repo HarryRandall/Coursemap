@@ -21,10 +21,11 @@
 
 ## Marketing and auth surfaces
 
-- Landing, auth and onboarding pages use a white canvas with pastel accent tints from the default Tailwind palette (sky, amber, emerald, rose and the brand violet scale) and large radii.
+- Landing and onboarding pages use theme tokens (`bg-background`, `bg-card`, `border-border`, `text-muted-foreground`) so they follow light and dark mode. Keep them square: small radii (`rounded-sm` to `rounded-lg`), 1px borders between sections and the `LandingGridBackground` grid rather than gradients or photography. The brand violet is the only accent.
+- Show the product with small working views built from real components, not screenshots or stock images.
 - Use ReUI default control appearance and variants. `cn` merges Tailwind classes; avoid cosmetic overrides that recreate a second component library.
 - Use `TabsList variant="line"` for page sections. The shared theme owns tab height, spacing and the purple indicator above the divider; do not add per-page tab styling. Keep compact view toggles on the default variant.
-- Decorative product mock-ups are CSS-only, marked `aria-hidden="true"` and never carry meaning that is missing from nearby text.
+- Decorative product views are marked `aria-hidden="true"` and never carry meaning that is missing from nearby text. An interactive demo is a labelled section with real buttons.
 
 ## Copy
 

@@ -1,114 +1,87 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
-import { Check } from "lucide-react";
-import { BrandMark } from "@/ui/brand-mark";
+import type { CSSProperties, ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
+import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
+import { LandingMark } from "@/ui/landing/landing-mark";
+import { LandingAuthStory } from "@/ui/landing/landing-auth-story";
+import { LandingHelp } from "@/ui/landing/landing-help";
+import type { ShowcaseCourse } from "@/lib/coursemap/landing-courses";
+import { LandingReveal } from "@/ui/landing/landing-reveal";
 
-const highlights = [
-  "Search every published ANU course in seconds",
-  "Follow prerequisite chains before you enrol",
-  "Keep one degree plan across every semester",
-] as const;
+const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
 
 /**
- * Two-column authentication layout: the form on the left, a colourful
- * product panel on the right. The panel is decorative and hidden on small
- * screens, so all meaningful content lives in the form column.
+ * Sign-in and sign-up layout, on the landing page's bordered column so it
+ * keeps its shape at any width or zoom: the form on the left, and on the
+ * right a year planning itself in turn with real prerequisite examples. The
+ * preview is hidden on small screens, so everything needed to sign in lives
+ * in the form column.
  */
-export function AuthShell({ children }: { children: ReactNode }) {
+export function AuthShell({
+  children,
+  courses = [],
+}: {
+  children: ReactNode;
+  /** Prerequisite examples for the side panel; none shows only the plan. */
+  courses?: readonly ShowcaseCourse[];
+}) {
   return (
-    <main className="grid min-h-dvh bg-background lg:grid-cols-[1fr_minmax(0,44rem)]">
-      <section className="flex flex-col px-5 py-6 sm:px-10">
-        <Link
-          href="/"
-          aria-label="Coursemap home"
-          className="inline-flex w-fit items-center gap-2.5 text-foreground"
-        >
-          <BrandMark className="size-9" />
-          <strong className="brand-wordmark text-lg">coursemap</strong>
-        </Link>
-
-        <div className="flex flex-1 items-center justify-center py-10">
-          <div className="w-full max-w-sm">{children}</div>
+    <main className="landing-surface flex min-h-dvh flex-col bg-background">
+      <header className="border-b border-border">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between border-x border-border px-4 sm:px-6">
+          <Link href="/" aria-label="Coursemap home">
+            <LandingMark />
+          </Link>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground transition hover:text-foreground"
+          >
+            <ArrowLeft className="size-3.5" aria-hidden="true" />
+            Back to home
+          </Link>
         </div>
+      </header>
 
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 gap-px border-x border-border bg-border lg:grid-cols-2">
+        <section className="flex items-center justify-center bg-background px-5 py-12 sm:px-10">
+          <div className="w-full max-w-sm">{children}</div>
+        </section>
+
+        <aside
+          aria-label="Coursemap preview"
+          className="relative isolate hidden overflow-hidden bg-background lg:block"
+        >
+          <LandingGridBackground edge="box" />
+          <LandingReveal className="relative flex h-full flex-col gap-6 px-10 py-14">
+            <div>
+              <h2 className="enter-rise text-3xl leading-tight font-semibold tracking-tight text-balance text-foreground">
+                Every course, every prerequisite, one plan.
+              </h2>
+              <p
+                className="enter-rise mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground"
+                style={delay(80)}
+              >
+                Each semester filled course by course, with every requirement
+                checked as you go.
+              </p>
+            </div>
+            <div
+              className="enter-rise relative min-h-[42rem] flex-1"
+              style={delay(160)}
+            >
+              <LandingAuthStory courses={courses} />
+            </div>
+          </LandingReveal>
+        </aside>
+      </div>
+
+      <footer className="border-t border-border">
+        <p className="mx-auto max-w-6xl border-x border-border px-4 py-4 text-[11px] leading-relaxed text-muted-foreground sm:px-6">
           Coursemap is an independent planning tool. It is not an official ANU
           system and does not replace Programs and Courses or academic advice.
         </p>
-      </section>
-
-      <aside
-        aria-hidden="true"
-        className="landing-mesh relative hidden overflow-hidden border-l border-border lg:block"
-      >
-        <div className="absolute inset-0 flex flex-col justify-center gap-8 px-14">
-          <div className="max-w-md">
-            <p className="text-xs font-bold tracking-wider text-primary uppercase">
-              Your ANU degree, mapped
-            </p>
-            <h2 className="mt-3 text-3xl leading-tight font-bold tracking-tight text-foreground">
-              Every course, every prerequisite, one clear plan.
-            </h2>
-            <ul className="mt-6 space-y-3">
-              {highlights.map((highlight) => (
-                <li
-                  key={highlight}
-                  className="flex items-center gap-3 text-sm text-foreground/80"
-                >
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-card text-primary shadow-xs ring-1 ring-border">
-                    <Check className="size-3.5" />
-                  </span>
-                  {highlight}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="relative max-w-md">
-            <div className="rounded-3xl bg-card/90 p-5 shadow-lg ring-1 ring-border backdrop-blur-sm">
-              <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
-                Semester 1 · 2026
-              </p>
-              <div className="mt-3 space-y-2">
-                {[
-                  ["COMP1100", "Programming as Problem Solving", "emerald"],
-                  ["MATH1013", "Mathematics and Applications 1", "sky"],
-                  ["COMP1600", "Foundations of Computing", "amber"],
-                ].map(([code, name, tone]) => (
-                  <div
-                    key={code}
-                    className="flex items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 ring-1 ring-border"
-                  >
-                    <span
-                      className={
-                        tone === "emerald"
-                          ? "size-2 rounded-full bg-emerald-400"
-                          : tone === "sky"
-                            ? "size-2 rounded-full bg-sky-400"
-                            : "size-2 rounded-full bg-amber-400"
-                      }
-                    />
-                    <span className="font-mono text-xs font-semibold text-foreground">
-                      {code}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {name}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="absolute -top-4 -right-4 rounded-2xl bg-card px-4 py-3 shadow-md ring-1 ring-border">
-              <p className="text-[11px] font-semibold text-muted-foreground">
-                Prerequisites met
-              </p>
-              <p className="mt-0.5 text-lg font-bold tracking-tight text-emerald-600 dark:text-emerald-400">
-                3 of 3
-              </p>
-            </div>
-          </div>
-        </div>
-      </aside>
+      </footer>
+      <LandingHelp />
     </main>
   );
 }

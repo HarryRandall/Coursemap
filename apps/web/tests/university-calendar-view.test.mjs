@@ -8,6 +8,8 @@ const {
   decorateUniversityCalendarEvents,
   groupUniversityCalendarEventsByMonth,
   upcomingUniversityCalendarEvents,
+  keyDatesAround,
+  daysBetween,
 } = await import("../lib/coursemap/university-calendar.ts");
 
 test("categorises real calendar titles with the ordered keyword rules", () => {
@@ -114,4 +116,22 @@ test("upcoming events include the boundary day and respect the limit", () => {
     upcomingUniversityCalendarEvents(events, "2026-08-01", 3),
     [],
   );
+});
+
+test("key dates around today keep the last one passed and skip holidays", () => {
+  const events = decorateUniversityCalendarEvents([
+    { id: 1, date: "2026-09-28", title: "Semester 2 teaching break ends" },
+    { id: 2, date: "2026-10-05", title: "Labour Day public holiday" },
+    { id: 3, date: "2026-10-09", title: "Last day to drop Semester 2 courses" },
+    { id: 4, date: "2026-10-30", title: "Semester 2 ends" },
+  ]);
+  assert.deepEqual(
+    keyDatesAround(events, "2026-10-06", 2).map((event) => event.id),
+    [1, 3, 4],
+  );
+  assert.deepEqual(
+    keyDatesAround(events, "2026-12-01").map((event) => event.id),
+    [4],
+  );
+  assert.equal(daysBetween("2026-10-06", "2026-10-09"), 3);
 });

@@ -164,7 +164,7 @@ function SegmentedRing({
 
 /**
  * Degree progress as two rings cut into semesters: completed units on the
- * outside, enrolled and planned units inside. Hovering a segment shows its
+ * outside, and everything planned inside, completed and enrolled included. Hovering a segment shows its
  * units just outside the rings, beside that segment.
  */
 export function SemesterProgressRings({
@@ -218,6 +218,14 @@ export function SemesterProgressRings({
             hover={hover}
             onHover={setHover}
             series={[
+              // A completed course was planned first, so the plan ring
+              // includes it and always reaches at least as far as the
+              // completed ring.
+              {
+                label: "completed",
+                units: completed,
+                className: "stroke-primary",
+              },
               {
                 label: "enrolled",
                 units: enrolled,

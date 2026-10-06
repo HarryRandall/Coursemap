@@ -1,77 +1,64 @@
 import { Button } from "@coursemap/ui/primitives/button";
-import { Input } from "@coursemap/ui/primitives/input";
-import ReuiLink from "next/link";
-import { ArrowRight, Search } from "lucide-react";
+import Link from "next/link";
+import type { CSSProperties } from "react";
+import { ArrowRight } from "lucide-react";
+import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
+import { LandingHeroAccents } from "@/ui/landing/landing-hero-accents";
+import { LandingOverview } from "@/ui/landing/landing-overview";
+import { LandingReveal } from "@/ui/landing/landing-reveal";
+import type { UniversityCalendarEvent } from "@/lib/coursemap/university-calendar";
 
-const popularSearches = ["COMP2100", "Machine learning", "MATH1013"] as const;
+const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
 
-export function LandingHero({ canOpenPlan }: { canOpenPlan: boolean }) {
+export function LandingHero({
+  keyDates,
+  today,
+}: {
+  /** The next few published key dates, for the dashboard's card. */
+  keyDates: readonly UniversityCalendarEvent[];
+  today: string;
+}) {
   return (
-    <section className="mx-auto max-w-4xl px-4 pt-16 pb-14 text-center sm:px-6 sm:pt-24 sm:pb-20">
-      <p className="inline-flex items-center gap-2 rounded-full bg-white/80 px-4 py-1.5 text-xs font-bold tracking-wider text-brand-700 uppercase shadow-xs ring-1 ring-brand-100">
-        ANU degree planning, made clear
-      </p>
-      <h1 className="mt-6 text-4xl leading-tight font-bold tracking-tight text-zinc-950 sm:text-6xl">
-        See how every course fits before you enrol.
-      </h1>
-      <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-zinc-600 sm:text-lg">
-        Explore courses and prerequisite chains freely, then sign in to map a
-        degree plan across future semesters.
-      </p>
+    <section className="relative isolate border-b border-border">
+      <LandingGridBackground />
+      <LandingReveal className="relative mx-auto max-w-6xl border-x border-border px-4 pt-14 pb-10 sm:px-10 sm:pt-20 sm:pb-14">
+        <div className="relative">
+          <LandingHeroAccents />
+          <div className="relative flex flex-col items-center pb-16 text-center sm:pb-24">
+            <h1
+              className="enter-rise max-w-3xl text-4xl leading-[1.05] font-semibold tracking-tight text-balance text-foreground sm:text-6xl"
+              style={delay(80)}
+            >
+              Plan your degree, semester by semester.
+            </h1>
+            <p
+              className="enter-rise mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg"
+              style={delay(160)}
+            >
+              Search the catalogue, follow prerequisites and watch every
+              requirement fill as you place courses.
+            </p>
 
-      <form
-        action="/courses"
-        className="mx-auto mt-10 flex max-w-2xl flex-col gap-3 rounded-[28px] bg-white p-2 shadow-md ring-1 ring-zinc-200/80 sm:flex-row sm:items-center"
-      >
-        <label className="flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-3xl px-3 transition focus-within:ring-3 focus-within:ring-brand-500/20">
-          <Search
-            className="size-5 shrink-0 text-zinc-400"
-            aria-hidden="true"
-          />
-          <span className="sr-only">Search courses</span>
-          <Input
-            type="search"
-            name="q"
-            maxLength={120}
-            placeholder="Search COMP2100, software design, or a major"
-            className="h-11 min-h-11 border-0 bg-transparent px-0 text-[15px] shadow-none hover:border-transparent focus-visible:border-transparent focus-visible:ring-0"
-          />
-        </label>
-        <Button
-          type="submit"
-          variant="default"
-          size="lg"
-          className="!rounded-3xl sm:min-w-44"
-        >
-          Explore courses <ArrowRight className="size-4" aria-hidden="true" />
-        </Button>
-      </form>
-
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <span className="text-xs text-zinc-500">Popular:</span>
-        {popularSearches.map((query) => (
-          <Button
-            asChild
-            key={query}
-            variant="outline"
-            size="sm"
-            className="min-h-9 !rounded-full px-3.5 text-xs"
-          >
-            <ReuiLink href={`/courses?q=${encodeURIComponent(query)}`}>
-              {query}
-            </ReuiLink>
-          </Button>
-        ))}
-      </div>
-
-      <div className="mt-6 flex justify-center">
-        <Button asChild variant="ghost" className="min-h-11 text-zinc-600">
-          <ReuiLink href={canOpenPlan ? "/plan" : "/signup"}>
-            {canOpenPlan ? "Continue planning" : "Create a free account"}
-            <ArrowRight className="size-4" aria-hidden="true" />
-          </ReuiLink>
-        </Button>
-      </div>
+            <div
+              className="enter-rise mt-8 flex flex-col gap-2 sm:flex-row"
+              style={delay(240)}
+            >
+              <Button asChild size="lg" className="h-11 px-5">
+                <Link href="/signup">
+                  Get started
+                  <ArrowRight className="size-4" aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-11 px-5">
+                <Link href="/courses">Explore courses</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div className="enter-rise" style={delay(420)}>
+          <LandingOverview keyDates={keyDates} today={today} />
+        </div>
+      </LandingReveal>
     </section>
   );
 }
