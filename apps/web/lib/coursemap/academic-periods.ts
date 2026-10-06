@@ -24,6 +24,28 @@ export const STANDARD_ACADEMIC_PERIODS = [
   },
 ] as const;
 
+/** First or Second Semester, the two terms a standard study load is built on. */
+export function isSemesterTerm(term: Pick<Term, "id">) {
+  return /^S[12]$/u.test(term.id.split("-").at(-1)?.toUpperCase() ?? "");
+}
+
+/**
+ * A course session as the planner prints it: "S1" for First Semester and
+ * "Summer" for Summer Session. Names outside the standard periods keep their
+ * first word.
+ */
+export function sessionShortName(session: string) {
+  const period = STANDARD_ACADEMIC_PERIODS.find(
+    (item) =>
+      item.name.toLowerCase() === session.toLowerCase() ||
+      item.shortName.toLowerCase() === session.toLowerCase(),
+  );
+  if (period) return period.shortName;
+  if (/semester 1\b/iu.test(session)) return "S1";
+  if (/semester 2\b/iu.test(session)) return "S2";
+  return session.split(" ")[0];
+}
+
 const dateFormat = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",

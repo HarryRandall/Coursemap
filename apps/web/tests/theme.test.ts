@@ -1,7 +1,6 @@
 import { runInNewContext } from "node:vm";
 import { expect, test } from "vitest";
 import {
-  isLightOnlyPath,
   THEME_STORAGE_KEY,
   themeInitialisationScript,
   themeStorageKey,
@@ -33,13 +32,6 @@ function renderTheme(
   return root.style.colorScheme;
 }
 
-test("only the landing page is held light", () => {
-  expect(isLightOnlyPath("/")).toBe(true);
-  for (const path of ["/login", "/signup", "/auth/error", "/onboarding"]) {
-    expect(isLightOnlyPath(path)).toBe(false);
-  }
-});
-
 test("signed-out visitors follow the system and ignore a saved choice", () => {
   expect(themeStorageKey(false)).not.toBe(THEME_STORAGE_KEY);
   expect(renderTheme("/login", false, { systemDark: true })).toBe("dark");
@@ -49,9 +41,10 @@ test("signed-out visitors follow the system and ignore a saved choice", () => {
   expect(
     renderTheme("/signup", false, { stored: "dark", systemDark: false }),
   ).toBe("light");
+  expect(renderTheme("/", false, { systemDark: true })).toBe("dark");
 });
 
-test("signed-in people keep their saved choice on every route but the landing page", () => {
+test("signed-in people keep their saved choice on every route", () => {
   expect(themeStorageKey(true)).toBe(THEME_STORAGE_KEY);
   expect(
     renderTheme("/onboarding", true, { stored: "dark", systemDark: false }),
@@ -60,8 +53,8 @@ test("signed-in people keep their saved choice on every route but the landing pa
     renderTheme("/dashboard", true, { stored: "light", systemDark: true }),
   ).toBe("light");
   expect(renderTheme("/plan", true, { systemDark: true })).toBe("dark");
-  expect(renderTheme("/", true, { stored: "dark", systemDark: true })).toBe(
-    "light",
+  expect(renderTheme("/", true, { stored: "dark", systemDark: false })).toBe(
+    "dark",
   );
 });
 

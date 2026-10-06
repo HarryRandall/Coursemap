@@ -45,7 +45,7 @@ export function ChoiceCards<T extends string | number>({
             <label
               key={option.value}
               className={cn(
-                "relative flex min-h-14 cursor-pointer flex-col justify-center gap-0.5 rounded-xl border bg-card px-4 py-3 transition-colors",
+                "relative flex min-h-16 cursor-pointer flex-col justify-center gap-0.5 rounded-md border bg-card px-4 py-3 transition-[color,background-color,border-color,transform] active:scale-[0.98]",
                 "hover:border-primary/40 hover:bg-accent/40",
                 "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background",
                 checked && "border-primary bg-primary/5 hover:bg-primary/5",
@@ -68,13 +68,15 @@ export function ChoiceCards<T extends string | number>({
               <span
                 aria-hidden="true"
                 className={cn(
-                  "absolute top-1/2 right-3.5 grid size-5 -translate-y-1/2 place-items-center rounded-full border",
+                  "absolute top-1/2 right-3.5 grid size-5 -translate-y-1/2 place-items-center rounded-full border transition-colors",
                   checked
                     ? "border-primary bg-primary text-primary-foreground"
                     : "border-border",
                 )}
               >
-                {checked ? <Check className="size-3" /> : null}
+                {checked ? (
+                  <Check className="size-3 animate-count-pop" />
+                ) : null}
               </span>
             </label>
           );

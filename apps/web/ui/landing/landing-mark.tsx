@@ -13,7 +13,7 @@ export function LandingMark({
       <BrandMark className="size-8" />
       <strong
         className={cn(
-          "brand-wordmark text-lg text-zinc-950",
+          "brand-wordmark text-lg text-foreground",
           wordmarkClassName,
         )}
       >

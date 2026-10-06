@@ -236,6 +236,12 @@
     clip-path: inset(0 100% 0 0);
   }
 }
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
 @keyframes enter-pop {
   from {
     opacity: 0;
@@ -263,12 +269,16 @@
 .enter-pop {
   animation: enter-pop 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+.enter-rise {
+  animation: enter-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 .enter-grow-up,
 .enter-chart-bars .recharts-bar-rectangle,
 .enter-grow-across,
 .enter-draw,
 .enter-chart-line .recharts-surface,
-.enter-pop {
+.enter-pop,
+.enter-rise {
   animation-delay: var(--enter-delay, 0ms);
   animation-play-state: paused;
 }
@@ -279,9 +289,92 @@
     .enter-grow-across,
     .enter-draw,
     .enter-chart-line .recharts-surface,
-    .enter-pop
+    .enter-pop,
+    .enter-rise
   ) {
   animation-play-state: running;
+}
+
+/* Onboarding steps slide in from the side they were reached from; each
+   child staggers by its --step-delay. */
+@keyframes step-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes step-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+.step-in-forward > *,
+.step-in-back > * {
+  animation: step-in-forward 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--step-delay, 0ms);
+}
+.step-in-back > * {
+  animation-name: step-in-back;
+}
+.step-in-forward > :nth-child(2),
+.step-in-back > :nth-child(2) {
+  --step-delay: 60ms;
+}
+.step-in-forward > :nth-child(3),
+.step-in-back > :nth-child(3) {
+  --step-delay: 120ms;
+}
+.step-in-forward > :nth-child(n + 4),
+.step-in-back > :nth-child(n + 4) {
+  --step-delay: 180ms;
+}
+
+/* The landing course carousel: each course slides in. */
+@keyframes landing-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+/* The sign-in panel scrolls between scenes: one leaves through the top as
+   the next rises from the bottom. */
+@keyframes landing-scene-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes landing-scene-out {
+  to {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+}
+
+/* Landing hero chips drift gently while they wait. */
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Landing grid squares fade in and out; each moves on every repeat. */
+@keyframes landing-grid-flicker {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.14;
+  }
+}
+.landing-grid-flicker {
+  opacity: 0;
+  animation: landing-grid-flicker 3200ms ease-in-out infinite;
 }
 
 /* One reset disables every animation above for readers who ask for it. */

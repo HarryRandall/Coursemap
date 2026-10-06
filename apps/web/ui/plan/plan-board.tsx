@@ -21,6 +21,12 @@ import { AppShell } from "@/ui/shell";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@coursemap/ui/primitives/dropdown-menu";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 import {
   Dialog,
@@ -37,7 +43,6 @@ import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
 import {
   courseForTerm,
-  ruleSearches,
   structuresToPlan,
   type CourseToPlan,
   type PlannedStructure,
@@ -48,6 +53,7 @@ import {
 } from "@/ui/requirements/plan-tree-context";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
+import { isSemesterTerm } from "@/lib/coursemap/academic-periods";
 import {
   planTimelineTerms,
   planTimelineYears,
@@ -87,6 +93,11 @@ export type PickerState = { termId: string; intent: "all" | "recommended" };
 const SUGGESTION_DRAG = "suggestion:";
 /** Where a planned course dropped on the courses to plan box goes: out of the plan. */
 const REMOVE_DROP = "remove";
+/**
+ * The short sessions share one row, so a drop there names the year and the
+ * session is chosen from where the course runs, as in "short:2026".
+ */
+const SHORT_DROP = "short:";
 export /** Single muted status mark - the only colour on the board. */
 function StatusMark({
   status,
@@ -115,9 +126,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
-  const [searched, setSearched] = useState<ReadonlyMap<string, Course[]>>(
-    () => new Map(),
-  );
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -244,7 +252,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         label: `Year ${Math.max(1, year - state.profile.commencementYear + 1)}`,
         detail: String(year),
         units: unitsOf(entries),
-        target: terms.length * STANDARD_TERM_UNITS,
+        // Short sessions are optional extra load, so the year's target is
+        // the two semesters alone.
+        target: terms.filter(isSemesterTerm).length * STANDARD_TERM_UNITS,
         finished:
           entries.length > 0 &&
           entries.every((entry) => entry.attempt.status === "completed"),
@@ -271,11 +281,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       (year) =>
         year.key !== "later" &&
         !year.finished &&
-        termsFor(year.key).some(hasRoom),
+        termsFor(year.key).filter(isSemesterTerm).some(hasRoom),
     ) ??
     yearTabs.find((year) => !year.finished) ??
     yearTabs[0];
   const selectedTerms = selectedYear ? termsFor(selectedYear.key) : [];
+  const semesterTerms = selectedTerms.filter(isSemesterTerm);
+  const shortTerms = selectedTerms.filter(
+    (term) => term.id !== "unscheduled" && !isSemesterTerm(term),
+  );
 
   const requestAddSuggested = async (picked: Course, term: Term) => {
     const course =
@@ -322,9 +336,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     );
   };
   const addToSelectedYear = (course: Course) => {
+    // Semesters come first so a course that also runs in Summer lands in S1.
+    const candidates =
+      selectedYear?.key === "later"
+        ? selectedTerms
+        : [...semesterTerms, ...shortTerms];
     const term =
-      selectedTerms.find((item) => hasRoom(item) && offeredIn(course, item)) ??
-      selectedTerms.find((item) => offeredIn(course, item));
+      candidates.find((item) => hasRoom(item) && offeredIn(course, item)) ??
+      candidates.find((item) => offeredIn(course, item));
     if (!term) {
       notify(
         `${course.code} does not run in ${selectedYear?.label ?? "this year"}'s semesters.`,
@@ -388,39 +407,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       ];
     },
   );
-  // Each open rule's courses come from the course search, so every rule has
-  // something to drag in even when the catalogue has not loaded its courses.
-  const searches = ruleSearches(structures)
-    .filter((params) => !searched.has(params))
-    .join("|");
-  useEffect(() => {
-    if (!searches || catalogue.academicYear === null) return;
-    const controller = new AbortController();
-    const year = String(catalogue.academicYear);
-    void Promise.all(
-      searches.split("|").map((params) =>
-        fetch(
-          `/api/courses/search?browse=1&pageSize=12&year=${year}&${params}`,
-          { signal: controller.signal },
-        )
-          .then((response) => (response.ok ? response.json() : null))
-          .then(
-            (payload: { courses?: Course[] } | null) =>
-              [params, payload?.courses ?? []] as const,
-          )
-          .catch(() => [params, [] as Course[]] as const),
-      ),
-    ).then((results) => {
-      if (controller.signal.aborted) return;
-      setSearched((current) => new Map([...current, ...results]));
-    });
-    return () => controller.abort();
-  }, [searches, catalogue.academicYear]);
   const toPlan = structuresToPlan({
     structures,
     attempts: state.attempts,
     catalogue: planningCatalogue,
-    searched,
+    starred: state.starredCourses ?? [],
   });
 
   // Starred courses the planner has not loaded are fetched by code.
@@ -578,7 +569,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   };
 
   const finishPointerDrag = (cancelled = false) => {
-    const drop = dragPreviewRef.current;
+    let drop = dragPreviewRef.current;
     pointerCleanupRef.current?.();
     pointerCleanupRef.current = null;
     dragPreviewRef.current = null;
@@ -594,6 +585,38 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         notify(result.message, result.ok ? "success" : "error"),
       );
       return;
+    }
+    if (drop.termId.startsWith(SHORT_DROP)) {
+      const { attemptId } = drop;
+      const attempt = state.attempts.find((item) => item.id === attemptId);
+      const course =
+        suggestion?.course ??
+        (attempt ? planningCourseForAttempt(attempt, planningCatalogue) : null);
+      const year = Number(drop.termId.slice(SHORT_DROP.length));
+      const sessions = timelineTerms.filter(
+        (term) =>
+          term.year === year &&
+          term.id !== "unscheduled" &&
+          !isSemesterTerm(term),
+      );
+      // A course already in one of the year's short sessions stays put.
+      if (attempt && sessions.some((term) => term.id === attempt.termId))
+        return;
+      const term = course
+        ? sessions.find((item) => {
+            const version = courseForTerm(course.code, item, planningCatalogue);
+            return courseIsAvailable(version ?? course, item.name);
+          })
+        : undefined;
+      if (!course) return;
+      if (!term) {
+        notify(
+          `${course.code} does not run in a ${year} short session.`,
+          "warning",
+        );
+        return;
+      }
+      drop = { ...drop, termId: term.id };
     }
     if (suggestion && drop.attemptId.startsWith(SUGGESTION_DRAG)) {
       const term = timelineTerms.find((item) => item.id === drop.termId);
@@ -723,195 +746,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     );
   };
 
-  const renderLane = (term: Term) => {
-    const entries = entriesFor(term.id);
-    const units = unitsOf(entries);
-    const previewEntry = draggedEntry;
-    const previewApplies = Boolean(
-      previewEntry && dragPreview?.termId === term.id,
-    );
-    const containsDragged = Boolean(
-      dragging && entries.some((entry) => entry.attempt.id === dragging),
-    );
-    const previewUsesEmptySlot = Boolean(
-      previewApplies &&
-      !containsDragged &&
-      (term.id === "unscheduled" || entries.length < STANDARD_COURSE_SLOTS),
-    );
-    const emptySlots =
-      term.id === "unscheduled"
-        ? entries.length === 0 && !previewUsesEmptySlot
-          ? 1
-          : 0
-        : Math.max(
-            0,
-            STANDARD_COURSE_SLOTS -
-              entries.length -
-              Number(previewUsesEmptySlot),
-          );
-    const remainingEmpty = emptySlots;
-
-    const dropPreview = previewEntry ? (
-      <div
-        key={`drop-preview-${previewEntry.attempt.id}-${term.id}`}
-        aria-hidden="true"
-        className="pointer-events-none flex min-h-[52px] origin-top animate-drop-slot-in items-center gap-2.5 rounded-lg bg-primary/10 px-2 py-2 text-left ring-1 ring-primary/30 ring-inset"
-      >
-        <GripVertical size={13} className="shrink-0 text-primary/50" />
-        <StatusMark status={previewEntry.status} />
-        <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-primary">
-          {previewEntry.course.code}
-        </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-          {previewEntry.course.name}
-        </span>
-        <span className="shrink-0 text-[11px] text-muted-foreground">
-          {unitsForAttempt(previewEntry.attempt, previewEntry.course)}u
-        </span>
-      </div>
-    ) : null;
-
-    return (
-      <div
-        key={term.id}
-        data-testid={`term-${term.id}`}
-        data-drop-term={term.id}
-        className={cn(
-          "flex min-h-44 flex-col rounded-xl bg-card p-2.5 ring-1 transition",
-          dragging && dragPreview?.termId === term.id
-            ? "ring-2 ring-primary/40"
-            : "ring-border",
-        )}
-      >
-        <header className="flex items-center justify-between gap-2 px-1 pb-2">
-          <p className="text-[13px] font-semibold text-foreground">
-            {term.name}
-            <span className="ml-2 font-normal text-muted-foreground">
-              {term.dates}
-            </span>
-          </p>
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "text-[11px] font-medium",
-                units > 24
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-muted-foreground",
-              )}
-            >
-              {term.id === "unscheduled"
-                ? `${units} units`
-                : `${units} / 24 units`}
-              {units > 24 && " · Overload"}
-            </span>
-            <button
-              type="button"
-              onClick={() => requestAddCourse(term)}
-              aria-label={`Add a course to ${term.name} ${term.year}`}
-              className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <Plus size={14} />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex flex-1 flex-col gap-1">
-          {entries.map((entry) => {
-            const note = issueNote(entry);
-            if (dragging === entry.attempt.id) {
-              return (
-                <div
-                  key={entry.attempt.id}
-                  aria-hidden="true"
-                  className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground"
-                  style={{ height: dragPointer?.rowHeight }}
-                >
-                  <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card">
-                    <Plus size={10} />
-                  </span>
-                  <span>Add course</span>
-                </div>
-              );
-            }
-            return (
-              <div
-                key={entry.attempt.id}
-                data-attempt-id={entry.attempt.id}
-                data-drag-row
-                className="group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition-colors hover:bg-muted/50"
-              >
-                <button
-                  type="button"
-                  aria-label={`Reorder ${entry.course.code}`}
-                  onPointerDown={(event) =>
-                    startPointerDrag(event, entry.attempt.id, term.id)
-                  }
-                  className="grid cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
-                >
-                  <GripVertical size={13} aria-hidden="true" />
-                </button>
-                <Tooltip open={note ? undefined : false}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedAttempt(entry.attempt.id)}
-                      className="min-w-0 cursor-pointer py-2 pr-2 text-left"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <StatusMark status={entry.status} />
-                        <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
-                          {entry.course.code}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
-                          {entry.course.name}
-                        </span>
-                        <span className="shrink-0 text-[11px] text-muted-foreground">
-                          {unitsForAttempt(entry.attempt, entry.course)}u
-                        </span>
-                      </span>
-                    </button>
-                  </TooltipTrigger>
-                  {note ? (
-                    <TooltipContent align="start" side="bottom">
-                      {note}
-                    </TooltipContent>
-                  ) : null}
-                </Tooltip>
-                {entry.status === "blocked" && (
-                  <div className="col-span-2 flex justify-end px-2 pb-2">
-                    <FixIssueButton
-                      attempt={entry.attempt}
-                      catalogue={planningCatalogue}
-                    />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {previewUsesEmptySlot && dropPreview}
-          {Array.from({ length: remainingEmpty }, (_, index) => (
-            <button
-              key={`${term.id}-empty-${index}`}
-              type="button"
-              onClick={() => requestAddCourse(term)}
-              aria-label={
-                term.id === "unscheduled"
-                  ? "Add an unscheduled course"
-                  : `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
-              }
-              className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
-            >
-              <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
-                <Plus size={10} />
-              </span>
-              <span>Add course</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const overloadTarget = overloadTerm
     ? timelineTerms.find((term) => term.id === overloadTerm)
     : undefined;
@@ -943,6 +777,280 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             status: draggedStatus,
           }
         : undefined;
+
+  const renderDropPreview = (key: string) =>
+    draggedEntry ? (
+      <div
+        key={`drop-preview-${draggedEntry.attempt.id}-${key}`}
+        aria-hidden="true"
+        className="pointer-events-none flex min-h-[52px] origin-top animate-drop-slot-in items-center gap-2.5 rounded-lg bg-primary/10 px-2 py-2 text-left ring-1 ring-primary/30 ring-inset"
+      >
+        <GripVertical size={13} className="shrink-0 text-primary/50" />
+        <StatusMark status={draggedEntry.status} />
+        <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-primary">
+          {draggedEntry.course.code}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+          {draggedEntry.course.name}
+        </span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">
+          {unitsForAttempt(draggedEntry.attempt, draggedEntry.course)}u
+        </span>
+      </div>
+    ) : null;
+
+  /** One planned course; short sessions tag each row with its session. */
+  const renderEntry = (entry: Entry, term: Term, session?: string) => {
+    const note = issueNote(entry);
+    if (dragging === entry.attempt.id) {
+      return (
+        <div
+          key={entry.attempt.id}
+          aria-hidden="true"
+          className="flex min-h-[52px] items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground"
+          style={{ height: dragPointer?.rowHeight }}
+        >
+          <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card">
+            <Plus size={10} />
+          </span>
+          <span>Add course</span>
+        </div>
+      );
+    }
+    return (
+      <div
+        key={entry.attempt.id}
+        data-attempt-id={entry.attempt.id}
+        data-drag-row
+        className="group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition-colors hover:bg-muted/50"
+      >
+        <button
+          type="button"
+          aria-label={`Reorder ${entry.course.code}`}
+          onPointerDown={(event) =>
+            startPointerDrag(event, entry.attempt.id, term.id)
+          }
+          className="grid cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
+        >
+          <GripVertical size={13} aria-hidden="true" />
+        </button>
+        <Tooltip open={note ? undefined : false}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={() => setSelectedAttempt(entry.attempt.id)}
+              className="min-w-0 cursor-pointer py-2 pr-2 text-left"
+            >
+              <span className="flex items-center gap-2.5">
+                <StatusMark status={entry.status} />
+                <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
+                  {entry.course.code}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+                  {entry.course.name}
+                </span>
+                {session ? (
+                  <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {session}
+                  </span>
+                ) : null}
+                <span className="shrink-0 text-[11px] text-muted-foreground">
+                  {unitsForAttempt(entry.attempt, entry.course)}u
+                </span>
+              </span>
+            </button>
+          </TooltipTrigger>
+          {note ? (
+            <TooltipContent align="start" side="bottom">
+              {note}
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+        {entry.status === "blocked" && (
+          <div className="col-span-2 flex justify-end px-2 pb-2">
+            <FixIssueButton
+              attempt={entry.attempt}
+              catalogue={planningCatalogue}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderLane = (term: Term) => {
+    const entries = entriesFor(term.id);
+    const units = unitsOf(entries);
+    const previewApplies = Boolean(
+      draggedEntry && dragPreview?.termId === term.id,
+    );
+    const containsDragged = Boolean(
+      dragging && entries.some((entry) => entry.attempt.id === dragging),
+    );
+    const previewUsesEmptySlot = Boolean(
+      previewApplies &&
+      !containsDragged &&
+      (term.id === "unscheduled" || entries.length < STANDARD_COURSE_SLOTS),
+    );
+    const emptySlots =
+      term.id === "unscheduled"
+        ? entries.length === 0 && !previewUsesEmptySlot
+          ? 1
+          : 0
+        : Math.max(
+            0,
+            STANDARD_COURSE_SLOTS -
+              entries.length -
+              Number(previewUsesEmptySlot),
+          );
+
+    return (
+      <div
+        key={term.id}
+        data-testid={`term-${term.id}`}
+        data-drop-term={term.id}
+        className={cn(
+          "flex min-h-44 flex-col rounded-xl bg-card p-2.5 ring-1 transition",
+          dragging && dragPreview?.termId === term.id
+            ? "ring-2 ring-primary/40"
+            : "ring-border",
+        )}
+      >
+        <header className="flex items-center justify-between gap-2 px-1 pb-2">
+          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
+            {term.name}
+            <span className="ml-2 font-normal text-muted-foreground">
+              {term.dates}
+            </span>
+          </p>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span
+              className={cn(
+                "text-[11px] font-medium",
+                units > 24
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground",
+              )}
+            >
+              {term.id === "unscheduled"
+                ? `${units} units`
+                : `${units} / 24 units`}
+              {units > 24 && " · Overload"}
+            </span>
+            <button
+              type="button"
+              onClick={() => requestAddCourse(term)}
+              aria-label={`Add a course to ${term.name} ${term.year}`}
+              className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        </header>
+
+        <div className="flex flex-1 flex-col gap-1">
+          {entries.map((entry) => renderEntry(entry, term))}
+          {previewUsesEmptySlot && renderDropPreview(term.id)}
+          {Array.from({ length: emptySlots }, (_, index) => (
+            <button
+              key={`${term.id}-empty-${index}`}
+              type="button"
+              onClick={() => requestAddCourse(term)}
+              aria-label={
+                term.id === "unscheduled"
+                  ? "Add an unscheduled course"
+                  : `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
+              }
+              className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
+            >
+              <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
+                <Plus size={10} />
+              </span>
+              <span>Add course</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * Summer, Autumn, Winter and Spring as one row under the semesters. It
+   * holds one empty slot and grows by a row for each course placed in it.
+   */
+  const renderShortSessions = (terms: Term[]) => {
+    const dropId = `${SHORT_DROP}${terms[0].year}`;
+    const termIds = new Set(terms.map((term) => term.id));
+    const placed = terms.flatMap((term) =>
+      entriesFor(term.id).map((entry) => ({ entry, term })),
+    );
+    const units = unitsOf(placed.map(({ entry }) => entry));
+    const targeted =
+      Boolean(dragging) &&
+      (dragPreview?.termId === dropId ||
+        termIds.has(dragPreview?.termId ?? ""));
+    const showPreview =
+      dragPreview?.termId === dropId &&
+      !placed.some(({ entry }) => entry.attempt.id === dragging);
+    return (
+      <div
+        key={dropId}
+        data-testid="short-sessions"
+        data-drop-term={dropId}
+        className={cn(
+          "flex flex-col rounded-xl bg-card p-2.5 ring-1 transition",
+          targeted ? "ring-2 ring-primary/40" : "ring-border",
+        )}
+      >
+        <header className="flex items-center justify-between gap-2 px-1 pb-2">
+          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
+            Short sessions
+            <span className="ml-2 font-normal text-muted-foreground">
+              {terms.map((term) => term.shortName).join(" · ")}
+            </span>
+          </p>
+          {units > 0 ? (
+            <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
+              {units} units
+            </span>
+          ) : null}
+        </header>
+        <div className="flex flex-col gap-1">
+          {placed.map(({ entry, term }) =>
+            renderEntry(entry, term, term.shortName),
+          )}
+          {showPreview && renderDropPreview(dropId)}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Add a course to a ${terms[0].year} short session`}
+                className="group flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
+              >
+                <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
+                  <Plus size={10} />
+                </span>
+                <span>Add a short-session course</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="min-w-56">
+              {terms.map((term) => (
+                <DropdownMenuItem
+                  key={term.id}
+                  onSelect={() => requestAddCourse(term)}
+                >
+                  <span className="flex-1">{term.name}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {term.dates}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    );
+  };
 
   if (!degree) {
     return (
@@ -993,7 +1101,16 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             data-testid="roadmap-board"
             className="flex min-w-0 flex-1 flex-col gap-3"
           >
-            {selectedTerms.map(renderLane)}
+            {selectedYear?.key === "later" ? (
+              selectedTerms.map(renderLane)
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                  {semesterTerms.map(renderLane)}
+                </div>
+                {shortTerms.length > 0 && renderShortSessions(shortTerms)}
+              </>
+            )}
           </section>
           <aside
             aria-label="Courses to plan"

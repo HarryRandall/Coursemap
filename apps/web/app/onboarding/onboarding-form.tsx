@@ -27,7 +27,7 @@ import {
   type ChoiceCardOption,
 } from "@/ui/onboarding/choice-cards";
 import { OnboardingProgress } from "@/ui/onboarding/onboarding-progress";
-import { OnboardingSummary } from "@/ui/onboarding/onboarding-summary";
+import { OnboardingPlanPreview } from "@/ui/onboarding/onboarding-plan-preview";
 import { StructureMultiSelect } from "@/ui/profile/structure-multi-select";
 import { saveProfileAndPlan } from "@/lib/coursemap/actions";
 import {
@@ -67,6 +67,12 @@ const STUDY_LOADS: readonly ChoiceCardOption<StudyLoad>[] = [
   },
 ];
 
+/** Courses a semester the preview fills for each study load. */
+const STUDY_LOAD_COURSES: Record<StudyLoad, number> = {
+  "Full time": 4,
+  "Part time": 2,
+};
+
 /**
  * First-run flow that creates the student's primary plan. It is optional:
  * students can skip to the dashboard and set up a plan from their profile.
@@ -85,6 +91,7 @@ export function OnboardingForm({
   const movedStep = useRef(false);
 
   const [stepId, setStepId] = useState<StepId>("about");
+  const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [name, setName] = useState("");
   const [studentNumber, setStudentNumber] = useState("");
   const [commencementYear, setCommencementYear] = useState<number | null>(null);
@@ -170,6 +177,11 @@ export function OnboardingForm({
 
   const moveTo = (next: StepId) => {
     movedStep.current = true;
+    setDirection(
+      steps.findIndex((item) => item.id === next) < stepIndex
+        ? "back"
+        : "forward",
+    );
     setMessage(null);
     setStepId(next);
   };
@@ -240,50 +252,46 @@ export function OnboardingForm({
   ) =>
     options
       .filter((item) => codes.includes(item.code))
-      .map((item) => item.name)
-      .join(", ");
+      .map((item) => item.name);
 
-  const summaryRows = [
-    { label: "Name", value: name.trim() },
-    {
-      label: "Started",
-      value:
-        commencementYear === null
-          ? ""
-          : catalogueYear === null || catalogueYear === commencementYear
-            ? String(commencementYear)
-            : `${commencementYear} · ${catalogueYear} rules`,
-    },
-    { label: "Degree", value: degree?.name ?? "" },
-    { label: "Major", value: major?.name ?? "" },
-    ...(minorCodes.length > 0
-      ? [{ label: "Minors", value: namesOf(minors, minorCodes) }]
-      : []),
-    ...(specialisationCodes.length > 0
-      ? [
-          {
-            label: "Specialisations",
-            value: namesOf(specialisations, specialisationCodes),
-          },
-        ]
-      : []),
-    { label: "Study load", value: stepId === "pace" ? studyLoad : "" },
-  ];
+  const preview = (
+    <OnboardingPlanPreview
+      name={name}
+      degree={degree?.name ?? ""}
+      structures={[
+        ...(major ? [major.name] : []),
+        ...namesOf(minors, minorCodes),
+        ...namesOf(specialisations, specialisationCodes),
+      ]}
+      startYear={commencementYear}
+      years={
+        degree
+          ? nominalProgrammeDuration({
+              duration: degree.durationYears,
+              units: degree.units,
+            })
+          : null
+      }
+      coursesPerSemester={
+        stepId === "pace" ? STUDY_LOAD_COURSES[studyLoad] : null
+      }
+    />
+  );
 
   return (
-    <main className="landing-mesh min-h-dvh px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <BrandMark className="size-9" />
-          <strong className="brand-wordmark text-lg">coursemap</strong>
+    <main className="grid min-h-dvh bg-background lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="flex min-w-0 flex-col px-4 py-5 sm:px-10 sm:py-8">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <BrandMark className="size-8" />
+            <strong className="brand-wordmark text-lg">coursemap</strong>
+          </div>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/dashboard">Skip for now</Link>
+          </Button>
         </div>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/dashboard">Skip for now</Link>
-        </Button>
-      </div>
 
-      <div className="mx-auto mt-8 grid w-full max-w-5xl gap-6 sm:mt-14 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-10">
-        <div className="mx-auto w-full max-w-xl rounded-3xl border bg-card p-6 shadow-sm sm:p-9">
+        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-10 sm:py-16">
           <h1 className="sr-only">Set up your plan</h1>
           {unavailable ? (
             <Alert variant="warning">
@@ -301,167 +309,172 @@ export function OnboardingForm({
                 total={steps.length}
               />
 
-              <h2
-                ref={headingRef}
-                tabIndex={-1}
-                className="mt-8 text-2xl font-bold tracking-tight outline-none sm:text-3xl"
+              {/* Re-keyed per step so each one slides in from the side it
+                  was reached from. */}
+              <div
+                key={stepId}
+                className={
+                  direction === "back" ? "step-in-back" : "step-in-forward"
+                }
               >
-                {step.title}
-              </h2>
+                <h2
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="mt-10 text-3xl font-semibold tracking-tight text-balance outline-none sm:text-4xl"
+                >
+                  {step.title}
+                </h2>
 
-              <div className="mt-6 space-y-5">
-                {stepId === "about" ? (
-                  <>
-                    <Field>
-                      <FieldLabel htmlFor={nameId}>Name</FieldLabel>
-                      <Input
-                        ref={nameRef}
-                        aria-describedby={message ? messageId : undefined}
-                        aria-invalid={
-                          message && !name.trim() ? true : undefined
-                        }
-                        autoComplete="name"
-                        autoFocus
-                        id={nameId}
-                        onChange={(event) => setName(event.target.value)}
-                        value={name}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel htmlFor={studentNumberId}>
-                        Student number{" "}
-                        <span className="font-normal text-muted-foreground">
-                          (optional)
-                        </span>
-                      </FieldLabel>
-                      <Input
-                        aria-invalid={
-                          message && studentNumberInvalid ? true : undefined
-                        }
-                        autoComplete="off"
-                        id={studentNumberId}
-                        onChange={(event) =>
-                          setStudentNumber(event.target.value)
-                        }
-                        placeholder="u1234567"
-                        value={studentNumber}
-                      />
-                    </Field>
-                  </>
-                ) : null}
-
-                {stepId === "start" ? (
-                  <>
-                    <ChoiceCards
-                      columns={3}
-                      label="Year you started"
-                      onValueChange={selectCommencementYear}
-                      options={commencementYearOptions(currentYear).map(
-                        (year) => ({
-                          value: year,
-                          label: String(year),
-                          description:
-                            year === currentYear ? "Starting now" : undefined,
-                        }),
-                      )}
-                      value={commencementYear}
-                    />
-                    {commencementYear !== null && catalogueYear !== null ? (
-                      <div className="space-y-4 rounded-xl bg-muted/50 p-4 text-sm">
-                        <p className="flex gap-2">
-                          <Info
-                            className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                            aria-hidden="true"
-                          />
-                          <span>
-                            {suggestedRulesYear === commencementYear
-                              ? `Your plan follows the ${commencementYear} degree rules, from the year you started.`
-                              : `Coursemap doesn't have the ${commencementYear} degree rules yet, so your plan uses ${suggestedRulesYear}.`}
+                <div className="mt-8 space-y-5">
+                  {stepId === "about" ? (
+                    <>
+                      <Field>
+                        <FieldLabel htmlFor={nameId}>Name</FieldLabel>
+                        <Input
+                          ref={nameRef}
+                          aria-describedby={message ? messageId : undefined}
+                          aria-invalid={
+                            message && !name.trim() ? true : undefined
+                          }
+                          autoComplete="name"
+                          autoFocus
+                          id={nameId}
+                          onChange={(event) => setName(event.target.value)}
+                          value={name}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor={studentNumberId}>
+                          Student number{" "}
+                          <span className="font-normal text-muted-foreground">
+                            (optional)
                           </span>
-                        </p>
-                        {publishedYears.length > 1 ? (
-                          <SelectField
-                            description="Change this only if you moved to a newer set of rules."
-                            items={publishedYears.map((year) => ({
-                              value: year,
-                              label: `${year} rules`,
-                            }))}
-                            label="Degree rules"
-                            onValueChange={selectRulesYear}
-                            searchable={false}
-                            value={catalogueYear}
-                          />
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
+                        </FieldLabel>
+                        <Input
+                          aria-invalid={
+                            message && studentNumberInvalid ? true : undefined
+                          }
+                          autoComplete="off"
+                          id={studentNumberId}
+                          onChange={(event) =>
+                            setStudentNumber(event.target.value)
+                          }
+                          placeholder="u1234567"
+                          value={studentNumber}
+                        />
+                      </Field>
+                    </>
+                  ) : null}
 
-                {stepId === "degree" ? (
-                  <>
-                    <SelectField
-                      items={degrees.map((item) => ({
-                        value: item.code,
-                        label: `${item.name} (${item.code})`,
-                      }))}
-                      label="Degree"
-                      onValueChange={selectDegree}
-                      placeholder="Search degrees"
-                      value={degreeCode}
-                    />
-                    {majors.length > 0 ? (
+                  {stepId === "start" ? (
+                    <>
+                      <ChoiceCards
+                        columns={3}
+                        label="Year you started"
+                        onValueChange={selectCommencementYear}
+                        options={commencementYearOptions(currentYear).map(
+                          (year) => ({
+                            value: year,
+                            label: String(year),
+                            description:
+                              year === currentYear ? "Starting now" : undefined,
+                          }),
+                        )}
+                        value={commencementYear}
+                      />
+                      {commencementYear !== null && catalogueYear !== null ? (
+                        <div className="space-y-4 rounded-xl bg-muted/50 p-4 text-sm">
+                          <p className="flex gap-2">
+                            <Info
+                              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                              aria-hidden="true"
+                            />
+                            <span>
+                              {suggestedRulesYear === commencementYear
+                                ? `Your plan follows the ${commencementYear} degree rules, from the year you started.`
+                                : `Coursemap doesn't have the ${commencementYear} degree rules yet, so your plan uses ${suggestedRulesYear}.`}
+                            </span>
+                          </p>
+                          {publishedYears.length > 1 ? (
+                            <SelectField
+                              description="Change this only if you moved to a newer set of rules."
+                              items={publishedYears.map((year) => ({
+                                value: year,
+                                label: `${year} rules`,
+                              }))}
+                              label="Degree rules"
+                              onValueChange={selectRulesYear}
+                              searchable={false}
+                              value={catalogueYear}
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
+
+                  {stepId === "degree" ? (
+                    <>
                       <SelectField
-                        description="Optional. You can choose later."
-                        items={[
-                          { value: "", label: "Choose later" },
-                          ...majors.map((item) => ({
-                            value: item.code,
-                            label: `${item.name} (${item.code})`,
-                          })),
-                        ]}
-                        label="Major"
-                        onValueChange={setMajorCode}
-                        value={majorCode}
+                        items={degrees.map((item) => ({
+                          value: item.code,
+                          label: `${item.name} (${item.code})`,
+                        }))}
+                        label="Degree"
+                        onValueChange={selectDegree}
+                        placeholder="Search degrees"
+                        value={degreeCode}
                       />
-                    ) : null}
-                    {minors.length > 0 ? (
-                      <StructureMultiSelect
-                        hint="Optional. Choose any you plan to complete."
-                        label="Minors"
-                        onChange={setMinorCodes}
-                        options={minors}
-                        value={minorCodes}
-                      />
-                    ) : null}
-                    {specialisations.length > 0 ? (
-                      <StructureMultiSelect
-                        hint="Optional. Choose any you plan to complete."
-                        label="Specialisations"
-                        onChange={setSpecialisationCodes}
-                        options={specialisations}
-                        value={specialisationCodes}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
+                      {majors.length > 0 ? (
+                        <SelectField
+                          description="Optional. You can choose later."
+                          items={[
+                            { value: "", label: "Choose later" },
+                            ...majors.map((item) => ({
+                              value: item.code,
+                              label: `${item.name} (${item.code})`,
+                            })),
+                          ]}
+                          label="Major"
+                          onValueChange={setMajorCode}
+                          value={majorCode}
+                        />
+                      ) : null}
+                      {minors.length > 0 ? (
+                        <StructureMultiSelect
+                          hint="Optional. Choose any you plan to complete."
+                          label="Minors"
+                          onChange={setMinorCodes}
+                          options={minors}
+                          value={minorCodes}
+                        />
+                      ) : null}
+                      {specialisations.length > 0 ? (
+                        <StructureMultiSelect
+                          hint="Optional. Choose any you plan to complete."
+                          label="Specialisations"
+                          onChange={setSpecialisationCodes}
+                          options={specialisations}
+                          value={specialisationCodes}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
 
-                {stepId === "pace" ? (
-                  <>
-                    <ChoiceCards
-                      label="Study load"
-                      onValueChange={setStudyLoad}
-                      options={STUDY_LOADS}
-                      value={studyLoad}
-                    />
-                    <OnboardingSummary
-                      className="lg:hidden"
-                      rows={summaryRows}
-                    />
-                    <FieldDescription>
-                      You can change any of this later from your profile.
-                    </FieldDescription>
-                  </>
-                ) : null}
+                  {stepId === "pace" ? (
+                    <>
+                      <ChoiceCards
+                        label="Study load"
+                        onValueChange={setStudyLoad}
+                        options={STUDY_LOADS}
+                        value={studyLoad}
+                      />
+                      <FieldDescription>
+                        You can change any of this later from your profile.
+                      </FieldDescription>
+                    </>
+                  ) : null}
+                </div>
               </div>
 
               {message ? (
@@ -476,7 +489,7 @@ export function OnboardingForm({
                 </Alert>
               ) : null}
 
-              <div className="mt-8 flex items-center justify-between gap-3">
+              <div className="mt-10 flex items-center justify-between gap-3">
                 {stepIndex > 0 ? (
                   <Button
                     type="button"
@@ -495,26 +508,35 @@ export function OnboardingForm({
                     {submitting ? "Creating your plan…" : "Create my plan"}
                   </Button>
                 ) : (
-                  <Button type="submit">
-                    Continue
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
+                  <span className="flex items-center gap-3">
+                    <span className="hidden text-xs text-muted-foreground sm:inline">
+                      or press Enter
+                    </span>
+                    <Button type="submit">
+                      Continue
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </span>
                 )}
               </div>
             </form>
           )}
+          {stepId === "pace" ? (
+            <div className="mt-10 lg:hidden">{preview}</div>
+          ) : null}
         </div>
-
-        <aside className="hidden lg:block">
-          <div className="sticky top-8 space-y-3">
-            <OnboardingSummary rows={summaryRows} />
-            <p className="px-1 text-xs text-muted-foreground">
-              Signed in as {email || "your account"}. Only you can see your
-              plan.
-            </p>
-          </div>
-        </aside>
       </div>
+
+      <aside className="relative hidden min-w-0 flex-col items-center justify-center gap-4 border-l border-border bg-muted/40 px-10 py-12 lg:flex">
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 [background-image:linear-gradient(var(--border)_1px,transparent_1px),linear-gradient(90deg,var(--border)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)] [background-size:2.5rem_2.5rem] opacity-40"
+        />
+        <div className="relative w-full max-w-md">{preview}</div>
+        <p className="relative max-w-md text-center text-xs text-muted-foreground">
+          Signed in as {email || "your account"}. Only you can see your plan.
+        </p>
+      </aside>
     </main>
   );
 }

@@ -87,6 +87,27 @@ export function decorateUniversityCalendarEvents(
     });
 }
 
+/** Whole days from one ISO day to another, ignoring time zones. */
+export function daysBetween(from: string, to: string) {
+  return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000);
+}
+
+/**
+ * A short run of key dates around today: the most recent one that has
+ * passed, then the next ones in order. Public holidays are left out because
+ * they are not deadlines. Expects events sorted by date.
+ */
+export function keyDatesAround<Event extends UniversityCalendarEvent>(
+  events: readonly Event[],
+  today: string,
+  upcoming = 5,
+): Event[] {
+  const deadlines = events.filter((event) => event.category !== "holiday");
+  const next = deadlines.findIndex((event) => event.date >= today);
+  if (next === -1) return deadlines.slice(-1);
+  return deadlines.slice(Math.max(0, next - 1), next + upcoming);
+}
+
 const MONTH_LABELS = [
   "January",
   "February",
