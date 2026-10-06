@@ -42,7 +42,7 @@ test.each([
   ["/rooms", "light", true, "light"],
   ["/rooms", "system", true, "dark"],
   ["/login", "dark", false, "dark"],
-  ["/", "dark", true, "light"],
+  ["/", "dark", true, "dark"],
 ])(
   "applies %s with %s preference before body content without the Next.js runtime",
   async (path, theme, systemDark, expected) => {

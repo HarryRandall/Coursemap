@@ -2,6 +2,7 @@ import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import Link from "next/link";
 import { TriangleAlert } from "lucide-react";
 import { AuthShell } from "@/app/auth/auth-shell";
+import { loadCurrentLandingCourses } from "@/lib/coursemap/landing-courses";
 import { SignUpForm } from "@/app/auth/sign-up/sign-up-form";
 import { SocialSignIn } from "@/app/auth/social-sign-in";
 
@@ -27,7 +28,7 @@ export default async function SignupPage({
   const signInHref = `/login?next=${encodeURIComponent(next)}`;
 
   return (
-    <AuthShell>
+    <AuthShell courses={await loadCurrentLandingCourses()}>
       <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
         Create your account
       </h1>

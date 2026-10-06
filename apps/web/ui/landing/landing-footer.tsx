@@ -1,63 +1,38 @@
 import { Button } from "@coursemap/ui/primitives/button";
-import ReuiLink from "next/link";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
 import { LandingMark } from "@/ui/landing/landing-mark";
 
-export function LandingFooter({ canOpenPlan }: { canOpenPlan: boolean }) {
+export function LandingFooter() {
   return (
     <footer>
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-        <div className="relative overflow-hidden rounded-[2.5rem] bg-zinc-950 px-6 py-16 text-center sm:px-12 sm:py-20">
-          <div
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={{
-              backgroundImage:
-                "radial-gradient(ellipse 60% 55% at 18% 0%, rgba(124, 58, 237, 0.45), transparent 60%), radial-gradient(ellipse 55% 50% at 85% 15%, rgba(14, 165, 233, 0.35), transparent 55%), radial-gradient(ellipse 45% 45% at 70% 100%, rgba(244, 114, 182, 0.3), transparent 55%)",
-            }}
-          />
-          <div className="relative">
-            <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-white sm:text-5xl">
-              Start with a course, then build the rest.
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-zinc-300 sm:text-lg">
-              Browse the catalogue without an account. Sign in when you are
-              ready to keep a degree plan across semesters.
-            </p>
-            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Button
-                asChild
-                size="lg"
-                className="!rounded-full !bg-white !text-zinc-950 !ring-white hover:!bg-zinc-100"
-                variant="outline"
-              >
-                <ReuiLink href={canOpenPlan ? "/plan" : "/signup"}>
-                  {canOpenPlan ? "Open your plan" : "Get Coursemap free"}
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </ReuiLink>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                className="!rounded-full !bg-white/10 !text-white !ring-white/25 hover:!bg-white/20"
-                variant="outline"
-              >
-                <ReuiLink href="/courses">Explore courses</ReuiLink>
-              </Button>
-            </div>
+      <section className="relative isolate border-b border-border">
+        <LandingGridBackground />
+        <div className="relative mx-auto flex max-w-6xl flex-col items-start gap-6 border-x border-border px-4 py-16 sm:px-10 sm:py-24">
+          <h2 className="max-w-xl text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
+            Start with a course, then build the rest.
+          </h2>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button asChild size="lg">
+              <Link href="/signup">
+                Create a free account
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/courses">Browse without an account</Link>
+            </Button>
           </div>
         </div>
       </section>
-
-      <div className="border-t border-zinc-200">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <LandingMark wordmarkClassName="text-base" />
-          <p className="max-w-xl text-xs leading-relaxed text-zinc-500">
-            Coursemap is an independent planning tool. It is not an official ANU
-            system and does not replace the Programs and Courses catalogue or
-            academic advice.
-          </p>
-        </div>
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 border-x border-border px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-10">
+        <LandingMark wordmarkClassName="text-base" />
+        <p className="max-w-xl text-xs leading-relaxed text-muted-foreground">
+          Coursemap is an independent planning tool. It is not an official ANU
+          system and does not replace the Programs and Courses catalogue or
+          academic advice.
+        </p>
       </div>
     </footer>
   );
