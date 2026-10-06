@@ -49,6 +49,7 @@ export async function previewCourseRun(
 ) {
   const model = await runModel({ allowAi: options.allowAi });
   const adapter = bulkImportAdapter(options.kind);
+  // A cold connection needs the text[] OID before the driver discovers array types.
   const records = await withSyncDatabaseClient(
     (sql) => sql`
     select records.id, codes.code, count(*) over() as available_count from public.catalogue_records records
@@ -56,7 +57,7 @@ export async function previewCourseRun(
     join public.academic_years years on years.id = records.academic_year_id
     join public.catalogue_listings listings on listings.code_id = records.code_id and listings.academic_year_id = records.academic_year_id
     where records.kind = ${options.kind} and years.year = ${options.year}
-      and (${options.codes === undefined} or codes.code = any(${sql.array(options.codes ?? [])}::text[]))
+      and (${options.codes === undefined} or codes.code = any(${sql.array(options.codes ?? [], 1009)}::text[]))
       and records.archived_at is null and listings.is_current
       and records.latest_source_version_id is null and records.published_version_id is null
       and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
