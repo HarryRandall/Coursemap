@@ -1,0 +1,1104 @@
+{
+  "rules": [
+    {
+      "key": "structure",
+      "hardness": "hard",
+      "sourceText": "The Bachelor of Economics requires completion of 144 units, of which: The 144 units must include:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "position": 0
+    }
+  ],
+  "groups": [
+    {
+      "key": "root",
+      "ruleKey": "structure",
+      "parentKey": null,
+      "label": "Bachelor of Economics 2025 requirements",
+      "description": null,
+      "operator": "all_of",
+      "minimumCount": null,
+      "minimumUnits": null,
+      "maximumUnits": null,
+      "sourceText": "The 144 units must include:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "position": 0
+    },
+    {
+      "key": "level3000-subjects",
+      "ruleKey": "structure",
+      "parentKey": "root",
+      "label": "3000-level ECHI, ECON or EMET",
+      "description": null,
+      "operator": "all_of",
+      "minimumCount": null,
+      "minimumUnits": 18,
+      "maximumUnits": null,
+      "sourceText": "A minimum of 18 units must come from the completion of 3000-level courses in ECHI, ECON or EMET",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "position": 2,
+      "scope": "degree"
+    }
+  ],
+  "conditions": [
+    {
+      "key": "total",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 0,
+      "kind": "units_total",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 144,
+      "maximumUnits": 144,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "The Bachelor of Economics requires completion of 144 units, of which:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "level1000-cap",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 1,
+      "kind": "level_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": null,
+      "maximumUnits": 60,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": 1000,
+      "maximumLevel": 1000,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A maximum of 60 units may come from completion of 1000-level courses",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "level3000-echi",
+      "ruleKey": "structure",
+      "groupKey": "level3000-subjects",
+      "position": 0,
+      "kind": "subject_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 0,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": "ECHI",
+      "minimumLevel": 3000,
+      "maximumLevel": 3000,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A minimum of 18 units must come from the completion of 3000-level courses in ECHI, ECON or EMET",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "level3000-econ",
+      "ruleKey": "structure",
+      "groupKey": "level3000-subjects",
+      "position": 1,
+      "kind": "subject_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 0,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": "ECON",
+      "minimumLevel": 3000,
+      "maximumLevel": 3000,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A minimum of 18 units must come from the completion of 3000-level courses in ECHI, ECON or EMET",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "level3000-emet",
+      "ruleKey": "structure",
+      "groupKey": "level3000-subjects",
+      "position": 2,
+      "kind": "subject_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 0,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": "EMET",
+      "minimumLevel": 3000,
+      "maximumLevel": 3000,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A minimum of 18 units must come from the completion of 3000-level courses in ECHI, ECON or EMET",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "tps-overlay",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 3,
+      "kind": "tagged_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 12,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": "Transdisciplinary Problem-Solving",
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A minimum of 12 units of courses tagged as Transdisciplinary Problem-Solving",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "scope": "degree"
+    },
+    {
+      "key": "core42",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 4,
+      "kind": "course_set_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 42,
+      "maximumUnits": 42,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "42 units from completion of the following compulsory courses:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1
+    },
+    {
+      "key": "macro1-choice6",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 5,
+      "kind": "course_set_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 6,
+      "maximumUnits": 6,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "6 units from completion of a course from the following list:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1
+    },
+    {
+      "key": "macro2-choice6",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 6,
+      "kind": "course_set_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 6,
+      "maximumUnits": 6,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "6 units from completion of a course from the following list:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1
+    },
+    {
+      "key": "transdisciplinary-pool12",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 7,
+      "kind": "course_set_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 12,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "minimum 12 units of Transdisciplinary courses:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1
+    },
+    {
+      "key": "restricted-pool18",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 8,
+      "kind": "course_set_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 18,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "minimum 18 units of the following courses:",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1
+    },
+    {
+      "key": "open-electives-cap12",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 9,
+      "kind": "elective_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": null,
+      "maximumUnits": 12,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "maximum 12 units from completion of elective courses offered by ANU, which may include courses from the following course codes: BUSI, BUSN, CBEA, COMP, ECHI, ECON, EMET, FINM, INFS, MATH, MGMT, MKTG, STAT",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "includesAnyCourse": true
+    },
+    {
+      "key": "open-electives48",
+      "ruleKey": "structure",
+      "groupKey": "root",
+      "position": 10,
+      "kind": "elective_units",
+      "itemCode": null,
+      "itemKind": null,
+      "structureKind": null,
+      "requirementMode": null,
+      "minimumMark": null,
+      "minimumUnits": 48,
+      "maximumUnits": null,
+      "minimumCount": null,
+      "subjectCode": null,
+      "minimumLevel": null,
+      "maximumLevel": null,
+      "minimumYear": null,
+      "minimumGpa": null,
+      "minimumWam": null,
+      "tag": null,
+      "freeText": null,
+      "hardness": "hard",
+      "sourceText": "A minimum of 48 units from completion of elective courses offered by ANU",
+      "sourceLocator": "https://programsandcourses.anu.edu.au/2025/program/BECON#program-requirements",
+      "reviewState": "verified",
+      "confidence": 1,
+      "includesAnyCourse": true
+    }
+  ],
+  "options": [
+    {
+      "conditionKey": "core42",
+      "position": 0,
+      "kind": "course",
+      "code": "ECON1101",
+      "title": "Microeconomics 1",
+      "sourceText": "ECON1101 Microeconomics 1"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 1,
+      "kind": "course",
+      "code": "ECON2101",
+      "title": "Microeconomics 2",
+      "sourceText": "ECON2101 Microeconomics 2"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 2,
+      "kind": "course",
+      "code": "ECON3101",
+      "title": "Microeconomics 3",
+      "sourceText": "ECON3101 Microeconomics 3"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 3,
+      "kind": "course",
+      "code": "ECON3102",
+      "title": "Macroeconomics 3",
+      "sourceText": "ECON3102 Macroeconomics 3"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 4,
+      "kind": "course",
+      "code": "EMET1001",
+      "title": "Foundations of Economic and Financial Models",
+      "sourceText": "EMET1001 Foundations of Economic and Financial Models"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 5,
+      "kind": "course",
+      "code": "EMET2007",
+      "title": "Econometrics I: Econometric Methods",
+      "sourceText": "EMET2007 Econometrics I: Econometric Methods"
+    },
+    {
+      "conditionKey": "core42",
+      "position": 6,
+      "kind": "course",
+      "code": "STAT1008",
+      "title": "Quantitative Research Methods",
+      "sourceText": "STAT1008 Quantitative Research Methods"
+    },
+    {
+      "conditionKey": "macro1-choice6",
+      "position": 0,
+      "kind": "course",
+      "code": "ECON1100",
+      "title": "Economics I (H)",
+      "sourceText": "ECON1100 Economics I (H)"
+    },
+    {
+      "conditionKey": "macro1-choice6",
+      "position": 1,
+      "kind": "course",
+      "code": "ECON1102",
+      "title": "Macroeconomics 1",
+      "sourceText": "ECON1102 Macroeconomics 1"
+    },
+    {
+      "conditionKey": "macro2-choice6",
+      "position": 0,
+      "kind": "course",
+      "code": "ECON2016",
+      "title": "Economics II (H)",
+      "sourceText": "ECON2016 Economics II (H)"
+    },
+    {
+      "conditionKey": "macro2-choice6",
+      "position": 1,
+      "kind": "course",
+      "code": "ECON2102",
+      "title": "Macroeconomics 2",
+      "sourceText": "ECON2102 Macroeconomics 2"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 0,
+      "kind": "course",
+      "code": "CBEA2001",
+      "title": "Indigenous Perspectives in Business and Economics",
+      "sourceText": "CBEA2001 Indigenous Perspectives in Business and Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 1,
+      "kind": "course",
+      "code": "ECHI1006",
+      "title": "The Australian Economy: Past and Present",
+      "sourceText": "ECHI1006 The Australian Economy: Past and Present"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 2,
+      "kind": "course",
+      "code": "ECHI3009",
+      "title": "World Economy Since 1800",
+      "sourceText": "ECHI3009 World Economy Since 1800"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 3,
+      "kind": "course",
+      "code": "ECON2013",
+      "title": "Behavioral Economics",
+      "sourceText": "ECON2013 Behavioral Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 4,
+      "kind": "course",
+      "code": "ECON2014",
+      "title": "Managerial Economics",
+      "sourceText": "ECON2014 Managerial Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 5,
+      "kind": "course",
+      "code": "ECON2108",
+      "title": "Japanese Economy and Political Economy",
+      "sourceText": "ECON2108 Japanese Economy and Political Economy"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 6,
+      "kind": "course",
+      "code": "ECON2141",
+      "title": "Strategic Thinking: An introduction to Game Theory",
+      "sourceText": "ECON2141 Strategic Thinking: An introduction to Game Theory"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 7,
+      "kind": "course",
+      "code": "ECON2900",
+      "title": "Development Poverty and Famine",
+      "sourceText": "ECON2900 Development Poverty and Famine"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 8,
+      "kind": "course",
+      "code": "ECON3004",
+      "title": "Health Economics",
+      "sourceText": "ECON3004 Health Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 9,
+      "kind": "course",
+      "code": "ECON3006",
+      "title": "Financial Economics",
+      "sourceText": "ECON3006 Financial Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 10,
+      "kind": "course",
+      "code": "ECON3127",
+      "title": "Computational Methods in Economics",
+      "sourceText": "ECON3127 Computational Methods in Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 11,
+      "kind": "course",
+      "code": "ECON3128",
+      "title": "Resource and Environmental Economics",
+      "sourceText": "ECON3128 Resource and Environmental Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 12,
+      "kind": "course",
+      "code": "ECON3180",
+      "title": "Advanced Behavioural Economics",
+      "sourceText": "ECON3180 Advanced Behavioural Economics"
+    },
+    {
+      "conditionKey": "transdisciplinary-pool12",
+      "position": 13,
+      "kind": "course",
+      "code": "ECON3023",
+      "title": "Economic Policy Issues",
+      "sourceText": "ECON3023 Economic Policy Issues"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 0,
+      "kind": "course",
+      "code": "ECHI1006",
+      "title": "The Australian Economy: Past and Present",
+      "sourceText": "ECHI1006 The Australian Economy: Past and Present"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 1,
+      "kind": "course",
+      "code": "ECHI3009",
+      "title": "World Economy Since 1800",
+      "sourceText": "ECHI3009 World Economy Since 1800"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 2,
+      "kind": "course",
+      "code": "ECON1100",
+      "title": "Economics I (H)",
+      "sourceText": "ECON1100 Economics I (H)"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 3,
+      "kind": "course",
+      "code": "ECON2009",
+      "title": "Labour Economics and Industrial Relations Policy",
+      "sourceText": "ECON2009 Labour Economics and Industrial Relations Policy"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 4,
+      "kind": "course",
+      "code": "ECON2013",
+      "title": "Behavioral Economics",
+      "sourceText": "ECON2013 Behavioral Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 5,
+      "kind": "course",
+      "code": "ECON2014",
+      "title": "Managerial Economics",
+      "sourceText": "ECON2014 Managerial Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 6,
+      "kind": "course",
+      "code": "ECON2026",
+      "title": "Money and Banking",
+      "sourceText": "ECON2026 Money and Banking"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 7,
+      "kind": "course",
+      "code": "ECON2091",
+      "title": "The Economy, Politics and the State",
+      "sourceText": "ECON2091 The Economy, Politics and the State"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 8,
+      "kind": "course",
+      "code": "ECON2108",
+      "title": "Japanese Economy and Political Economy",
+      "sourceText": "ECON2108 Japanese Economy and Political Economy"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 9,
+      "kind": "course",
+      "code": "ECON2125",
+      "title": "Optimisation",
+      "sourceText": "ECON2125 Optimisation"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 10,
+      "kind": "course",
+      "code": "ECON2131",
+      "title": "Public Sector Economics",
+      "sourceText": "ECON2131 Public Sector Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 11,
+      "kind": "course",
+      "code": "ECON2141",
+      "title": "Strategic Thinking: An introduction to Game Theory",
+      "sourceText": "ECON2141 Strategic Thinking: An introduction to Game Theory"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 12,
+      "kind": "course",
+      "code": "ECON2900",
+      "title": "Development Poverty and Famine",
+      "sourceText": "ECON2900 Development Poverty and Famine"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 13,
+      "kind": "course",
+      "code": "ECON3004",
+      "title": "Health Economics",
+      "sourceText": "ECON3004 Health Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 14,
+      "kind": "course",
+      "code": "ECON3006",
+      "title": "Financial Economics",
+      "sourceText": "ECON3006 Financial Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 15,
+      "kind": "course",
+      "code": "ECON3057",
+      "title": "Industrial Organisation",
+      "sourceText": "ECON3057 Industrial Organisation"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 16,
+      "kind": "course",
+      "code": "ECON3100",
+      "title": "Economics 3 (H)",
+      "sourceText": "ECON3100 Economics 3 (H)"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 17,
+      "kind": "course",
+      "code": "ECON3103",
+      "title": "International Economics",
+      "sourceText": "ECON3103 International Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 18,
+      "kind": "course",
+      "code": "ECON3127",
+      "title": "Computational Methods in Economics",
+      "sourceText": "ECON3127 Computational Methods in Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 19,
+      "kind": "course",
+      "code": "ECON3128",
+      "title": "Resource and Environmental Economics",
+      "sourceText": "ECON3128 Resource and Environmental Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 20,
+      "kind": "course",
+      "code": "ECON3152",
+      "title": "Game Theory",
+      "sourceText": "ECON3152 Game Theory"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 21,
+      "kind": "course",
+      "code": "ECON3180",
+      "title": "Advanced Behavioural Economics",
+      "sourceText": "ECON3180 Advanced Behavioural Economics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 22,
+      "kind": "course",
+      "code": "ECON3023",
+      "title": "Economic Policy Issues",
+      "sourceText": "ECON3023 Economic Policy Issues"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 23,
+      "kind": "course",
+      "code": "EMET3004",
+      "title": "Econometrics II: Modelling",
+      "sourceText": "EMET3004 Econometrics II: Modelling"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 24,
+      "kind": "course",
+      "code": "EMET3006",
+      "title": "Applied Microeconomics",
+      "sourceText": "EMET3006 Applied Microeconomics"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 25,
+      "kind": "course",
+      "code": "EMET3007",
+      "title": "Business and Economic Forecasting",
+      "sourceText": "EMET3007 Business and Economic Forecasting"
+    },
+    {
+      "conditionKey": "restricted-pool18",
+      "position": 26,
+      "kind": "course",
+      "code": "EMET3008",
+      "title": "Applied Macro and Financial Economics",
+      "sourceText": "EMET3008 Applied Macro and Financial Economics"
+    }
+  ],
+  "references": [
+    {
+      "ruleKey": "structure",
+      "code": "CBEA2001",
+      "sourceText": "CBEA2001 Indigenous Perspectives in Business and Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECHI1006",
+      "sourceText": "ECHI1006 The Australian Economy: Past and Present",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECHI3009",
+      "sourceText": "ECHI3009 World Economy Since 1800",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON1100",
+      "sourceText": "ECON1100 Economics I (H)",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON1101",
+      "sourceText": "ECON1101 Microeconomics 1",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON1102",
+      "sourceText": "ECON1102 Macroeconomics 1",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2009",
+      "sourceText": "ECON2009 Labour Economics and Industrial Relations Policy",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2013",
+      "sourceText": "ECON2013 Behavioral Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2014",
+      "sourceText": "ECON2014 Managerial Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2016",
+      "sourceText": "ECON2016 Economics II (H)",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2026",
+      "sourceText": "ECON2026 Money and Banking",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2091",
+      "sourceText": "ECON2091 The Economy, Politics and the State",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2101",
+      "sourceText": "ECON2101 Microeconomics 2",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2102",
+      "sourceText": "ECON2102 Macroeconomics 2",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2108",
+      "sourceText": "ECON2108 Japanese Economy and Political Economy",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2125",
+      "sourceText": "ECON2125 Optimisation",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2131",
+      "sourceText": "ECON2131 Public Sector Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2141",
+      "sourceText": "ECON2141 Strategic Thinking: An introduction to Game Theory",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON2900",
+      "sourceText": "ECON2900 Development Poverty and Famine",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3004",
+      "sourceText": "ECON3004 Health Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3006",
+      "sourceText": "ECON3006 Financial Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3023",
+      "sourceText": "ECON3023 Economic Policy Issues",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3057",
+      "sourceText": "ECON3057 Industrial Organisation",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3100",
+      "sourceText": "ECON3100 Economics 3 (H)",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3101",
+      "sourceText": "ECON3101 Microeconomics 3",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3102",
+      "sourceText": "ECON3102 Macroeconomics 3",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3103",
+      "sourceText": "ECON3103 International Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3127",
+      "sourceText": "ECON3127 Computational Methods in Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3128",
+      "sourceText": "ECON3128 Resource and Environmental Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3152",
+      "sourceText": "ECON3152 Game Theory",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "ECON3180",
+      "sourceText": "ECON3180 Advanced Behavioural Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET1001",
+      "sourceText": "EMET1001 Foundations of Economic and Financial Models",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET2007",
+      "sourceText": "EMET2007 Econometrics I: Econometric Methods",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET3004",
+      "sourceText": "EMET3004 Econometrics II: Modelling",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET3006",
+      "sourceText": "EMET3006 Applied Microeconomics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET3007",
+      "sourceText": "EMET3007 Business and Economic Forecasting",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "EMET3008",
+      "sourceText": "EMET3008 Applied Macro and Financial Economics",
+      "confidence": 1,
+      "reviewState": "verified"
+    },
+    {
+      "ruleKey": "structure",
+      "code": "STAT1008",
+      "sourceText": "STAT1008 Quantitative Research Methods",
+      "confidence": 1,
+      "reviewState": "verified"
+    }
+  ]
+}
