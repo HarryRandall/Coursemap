@@ -404,3 +404,45 @@ test("text fields keep pointer focus rings without passing them to buttons or li
       .toEqual({ outline: "none", ring: "0 0 #0000" });
   }
 });
+
+for (const width of [1440, 390]) {
+  test(`returning from a course restores its programme after a section jump at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/programmes/2026/bcomp?tab=information");
+    await expect(
+      page.getByRole("heading", { name: "Bachelor of Computing", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("link", { name: "First-year advice", exact: true })
+      .click();
+    await expect(page).toHaveURL(
+      /\/programmes\/2026\/bcomp\?tab=information#section-first_year_advice$/,
+    );
+    await page
+      .getByRole("tabpanel", { name: "Information" })
+      .getByRole("link", { name: "COMP1100", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/courses\/2026\/comp1100$/);
+    await expect(
+      page.getByRole("heading", {
+        name: "Programming as Problem Solving",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(
+      /\/programmes\/2026\/bcomp\?tab=information#section-first_year_advice$/,
+    );
+    await expect(
+      page.getByRole("heading", { name: "Bachelor of Computing", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Information", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      page.getByRole("heading", { name: "First-year advice", exact: true }),
+    ).toBeVisible();
+  });
+}
