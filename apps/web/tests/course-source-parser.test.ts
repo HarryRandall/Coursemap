@@ -56,6 +56,31 @@ describe("source-first course parsing", () => {
     expect(course.learningOutcomes).toHaveLength(4);
     expect(course.description).toContain("Japanese economy");
   });
+  it.each(["", " \t ", "\u00a0"])(
+    "keeps blank assumed knowledge nullable: %j",
+    (blank) => {
+      const source = fixture.sources.find((item) => item.code === "ECON2108")!;
+      const course = parse(
+        source.code,
+        source.markdown.replace(
+          "## Fees\n",
+          `## Assumed Knowledge\n${blank}\n\n## Fees\n`,
+        ),
+      );
+      expect(course.requisites.assumedKnowledgeText).toBeNull();
+      expect(
+        validateCourseExtraction(course, {
+          expectedCode: source.code,
+          expectedYear: 2026,
+          knownPeriodCodes: fixture.context.knownAcademicPeriods.map(
+            (period) => period.code,
+          ),
+          knownTags: fixture.context.knownTags,
+        }).issues,
+      ).toEqual([]);
+      expect(course.fees.length).toBeGreaterThan(0);
+    },
+  );
   it("maps ANU semester names to the configured calendar codes", () => {
     const markdown = fixture.sources.find(
       (source) => source.code === "ECON2108",
