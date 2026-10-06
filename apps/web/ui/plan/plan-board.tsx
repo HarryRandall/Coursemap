@@ -337,7 +337,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   };
   const addToSelectedYear = (course: Course) => {
     // Semesters come first so a course that also runs in Summer lands in S1.
-    const candidates = [...semesterTerms, ...shortTerms];
+    const candidates =
+      selectedYear?.key === "later"
+        ? selectedTerms
+        : [...semesterTerms, ...shortTerms];
     const term =
       candidates.find((item) => hasRoom(item) && offeredIn(course, item)) ??
       candidates.find((item) => offeredIn(course, item));

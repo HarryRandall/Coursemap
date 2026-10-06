@@ -207,7 +207,7 @@ export function LandingCampus({
   societies: ReactNode;
 }) {
   return (
-    <section className="border-b border-border">
+    <section className="relative isolate border-b border-border after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:z-10 after:h-px after:bg-border">
       <LandingReveal className="mx-auto max-w-6xl border-x border-border">
         <div className="border-b border-border px-4 py-10 sm:px-10 sm:py-14">
           <p className="enter-rise font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
@@ -220,7 +220,7 @@ export function LandingCampus({
             The rest of campus, in the same place.
           </h2>
         </div>
-        <ul className="grid gap-px bg-border lg:grid-cols-3">
+        <ul className="grid gap-px overflow-hidden bg-border lg:grid-cols-3">
           {showcases.map((item, index) => (
             <li
               key={item.title}

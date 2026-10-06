@@ -65,7 +65,9 @@ export function LandingGridBackground({
     );
     observer.observe(element);
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setStill(reduced.matches);
+    const updateMotion = () => setStill(reduced.matches);
+    updateMotion();
+    reduced.addEventListener("change", updateMotion);
     const move = (event: PointerEvent) => {
       const rect = element.getBoundingClientRect();
       setPointer({ x: event.clientX - rect.left, y: event.clientY - rect.top });
@@ -75,6 +77,7 @@ export function LandingGridBackground({
     parent.addEventListener("pointerleave", leave);
     return () => {
       observer.disconnect();
+      reduced.removeEventListener("change", updateMotion);
       parent.removeEventListener("pointermove", move);
       parent.removeEventListener("pointerleave", leave);
     };

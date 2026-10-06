@@ -168,14 +168,14 @@ const features: readonly Feature[] = [
 /** What Coursemap covers, as a bordered grid of small working views. */
 export function LandingFeatureGrid() {
   return (
-    <section className="border-b border-border">
+    <section className="relative isolate border-b border-border after:pointer-events-none after:absolute after:inset-x-0 after:-bottom-px after:z-10 after:h-px after:bg-border">
       <LandingReveal className="mx-auto max-w-6xl border-x border-border">
         <div className="border-b border-border px-4 py-10 sm:px-10 sm:py-14">
           <h2 className="enter-rise max-w-2xl text-3xl font-semibold tracking-tight text-balance text-foreground sm:text-4xl">
             The catalogue, the rules and your plan in one place.
           </h2>
         </div>
-        <ul className="grid gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-px overflow-hidden bg-border sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature, index) => (
             <li
               key={feature.title}

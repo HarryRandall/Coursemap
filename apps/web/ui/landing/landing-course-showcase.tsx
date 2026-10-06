@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { CheckCircle2, GitBranch, ListChecks, Pause, Play } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ShowcaseCourse } from "@/lib/coursemap/landing-courses";
@@ -37,6 +43,7 @@ export function LandingCourseShowcase({
   /** Called after the last course instead of starting again from the first. */
   onFinished?: () => void;
 }) {
+  const id = useId();
   const [index, setIndex] = useState(0);
   const [step, setStep] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -107,7 +114,28 @@ export function LandingCourseShowcase({
               key={item.code}
               type="button"
               role="tab"
+              id={`${id}-tab-${itemIndex}`}
+              aria-controls={`${id}-panel`}
               aria-selected={selected}
+              tabIndex={selected ? 0 : -1}
+              onKeyDown={(event) => {
+                const next =
+                  event.key === "ArrowRight"
+                    ? (itemIndex + 1) % courses.length
+                    : event.key === "ArrowLeft"
+                      ? (itemIndex - 1 + courses.length) % courses.length
+                      : event.key === "Home"
+                        ? 0
+                        : event.key === "End"
+                          ? courses.length - 1
+                          : null;
+                if (next === null) return;
+                event.preventDefault();
+                show(next);
+                event.currentTarget.parentElement
+                  ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                  [next]?.focus();
+              }}
               onClick={() => show(itemIndex)}
               className={cn(
                 "relative flex min-w-0 flex-col gap-0.5 border-r border-border px-3 py-2.5 text-left transition-colors last:border-r-0",
@@ -143,6 +171,8 @@ export function LandingCourseShowcase({
       <div
         key={course.code}
         role="tabpanel"
+        id={`${id}-panel`}
+        aria-labelledby={`${id}-tab-${index}`}
         aria-label={`${course.code} ${graph ? "prerequisite graph" : "enrolment requirements"}`}
         className="animate-[landing-slide-in_420ms_cubic-bezier(0.22,1,0.36,1)]"
       >
