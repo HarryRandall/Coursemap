@@ -113,7 +113,7 @@ export default async function Home() {
   const keyDates = keyDatesAround(calendar, today);
 
   return (
-    <main className="min-h-dvh bg-background">
+    <main className="landing-surface min-h-dvh bg-background">
       <LandingHeader />
       <LandingHero
         keyDates={upcomingUniversityCalendarEvents(calendar, today, 3)}

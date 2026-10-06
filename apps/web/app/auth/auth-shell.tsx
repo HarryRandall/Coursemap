@@ -26,7 +26,7 @@ export function AuthShell({
   courses?: readonly ShowcaseCourse[];
 }) {
   return (
-    <main className="flex min-h-dvh flex-col bg-background">
+    <main className="landing-surface flex min-h-dvh flex-col bg-background">
       <header className="border-b border-border">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between border-x border-border px-4 sm:px-6">
           <Link href="/" aria-label="Coursemap home">

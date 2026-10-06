@@ -355,6 +355,14 @@
   }
 }
 
+/* Landing and sign-in pages draw many crossing lines. The dark border is
+   translucent, so two overlapping lines read lighter than one. These pages
+   use the same colour made opaque, so every line matches. */
+.dark-mode .landing-surface {
+  --border: color-mix(in srgb, #fff 10%, var(--background));
+  --color-border: var(--border);
+}
+
 .brand-wordmark {
   font-family: ui-rounded, "SF Pro Rounded", "Avenir Next", var(--font-sans);
   font-weight: 700;
