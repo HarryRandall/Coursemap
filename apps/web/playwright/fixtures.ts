@@ -95,8 +95,14 @@ export async function login(
   account: Account,
 ) {
   await page.goto("/login");
-  await page.locator('input[name="email"]').fill(account.email);
-  await page.locator('input[name="password"]').fill(account.password);
+  await page
+    .getByRole("main")
+    .locator('input[name="email"]')
+    .fill(account.email);
+  await page
+    .getByRole("main")
+    .locator('input[name="password"]')
+    .fill(account.password);
   await page.getByRole("button", { name: /sign in|log in/i }).click();
   await expect(page).not.toHaveURL(/\/login/);
 }

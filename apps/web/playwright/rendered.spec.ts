@@ -82,14 +82,18 @@ test("public pages render catalogue data and safe authentication forms", async (
   await page.goto("/courses?q=COMP1100&year=2026");
   await expect(page.getByRole("main")).toContainText("COMP1100");
   await page.goto("/login?next=%2F%2Fevil.example%2Fplan");
-  await expect(page.locator('input[name="next"]')).toHaveValue("/dashboard");
-  await expect(page.locator('input[name="password"]')).toBeVisible();
+  await expect(
+    page.getByRole("main").locator('input[name="next"]'),
+  ).toHaveValue("/dashboard");
+  await expect(
+    page.getByRole("main").locator('input[name="password"]'),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Continue with Google/ }),
   ).toBeVisible();
   await page.goto("/signup");
   await expect(
-    page.locator('input[name="passwordConfirmation"]'),
+    page.getByRole("main").locator('input[name="passwordConfirmation"]'),
   ).toBeVisible();
 });
 
