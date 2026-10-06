@@ -11,6 +11,4 @@ export type ShowcaseCourse = {
   prerequisiteRule: CourseRuleExpression | null;
   hasPrerequisiteWording: boolean;
   availableCourseCodes: string[];
-  unlocks: { code: string; isAvailable: boolean }[];
-  unlocksAreKnown: boolean;
 };

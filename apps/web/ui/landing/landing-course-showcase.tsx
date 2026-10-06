@@ -17,8 +17,10 @@ import { LandingFit } from "@/ui/landing/landing-fit";
 
 /** How long each course takes to be completed, one after another. */
 const STEP_MS = 1100;
-/** How long a course stays up once its rule is met, clicked or not. */
-const HOLD_MS = 5000;
+/** How long a met course stays up before the next one slides in. */
+const HOLD_MS = 1200;
+/** The prerequisite graph's width without its unlocks column, with padding. */
+const GRAPH_WIDTH = 520;
 
 const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 
@@ -222,7 +224,11 @@ export function LandingCourseShowcase({
             </span>
           ) : null}
         </p>
-        <LandingFit className="h-[30rem] pt-3 text-[13px] leading-relaxed text-foreground/80">
+        <LandingFit
+          // The graph's natural width; narrower boxes scale it down.
+          minWidth={graph ? GRAPH_WIDTH : 0}
+          className="h-[30rem] pt-3 text-[13px] leading-relaxed text-foreground/80"
+        >
           {graph ? (
             <div className="px-2 pb-4">
               <RequisiteDiagram
@@ -232,8 +238,10 @@ export function LandingCourseShowcase({
                 expression={course.prerequisiteRule}
                 hasPrerequisiteWording={course.hasPrerequisiteWording}
                 student={student}
-                unlocks={course.unlocks}
-                unlocksAreKnown={course.unlocksAreKnown}
+                // What a course unlocks is beside the point of meeting its
+                // prerequisites, and the extra column would not fit.
+                unlocks={[]}
+                unlocksAreKnown={false}
               />
             </div>
           ) : (

@@ -4,7 +4,7 @@ import type { ShowcaseCourse } from "@/lib/coursemap/landing-courses";
  * Four real courses from the published 2026 catalogue whose prerequisites
  * take three or more courses to meet, snapshotted so the landing and
  * sign-in pages show them instantly without querying the catalogue. Only
- * the course links and unlocks the views draw are kept. Refresh by hand
+ * the course links the views draw are kept. Refresh by hand
  * if these courses' rules change.
  */
 export const SHOWCASE_COURSES: readonly ShowcaseCourse[] = [
@@ -172,8 +172,6 @@ export const SHOWCASE_COURSES: readonly ShowcaseCourse[] = [
     },
     hasPrerequisiteWording: true,
     availableCourseCodes: ["FINM1001", "FINM2001", "FINM2002", "FINM3011"],
-    unlocks: [],
-    unlocksAreKnown: true,
   },
   {
     code: "ECON2125",
@@ -431,17 +429,6 @@ export const SHOWCASE_COURSES: readonly ShowcaseCourse[] = [
       "MATH1113",
       "MATH1116",
     ],
-    unlocks: [
-      {
-        code: "ECON3127",
-        isAvailable: true,
-      },
-      {
-        code: "ECON3152",
-        isAvailable: true,
-      },
-    ],
-    unlocksAreKnown: true,
   },
   {
     code: "PSYC3026",
@@ -564,8 +551,6 @@ export const SHOWCASE_COURSES: readonly ShowcaseCourse[] = [
     },
     hasPrerequisiteWording: true,
     availableCourseCodes: [],
-    unlocks: [],
-    unlocksAreKnown: true,
   },
   {
     code: "STAT3017",
@@ -826,7 +811,5 @@ export const SHOWCASE_COURSES: readonly ShowcaseCourse[] = [
       "STAT2008",
       "STAT2013",
     ],
-    unlocks: [],
-    unlocksAreKnown: true,
   },
 ];

@@ -28,8 +28,6 @@ const course = (code: string): ShowcaseCourse => ({
   prerequisiteRule: null,
   hasPrerequisiteWording: false,
   availableCourseCodes: [],
-  unlocks: [],
-  unlocksAreKnown: false,
 });
 
 test("example course tabs support arrow navigation and keep a single tab stop", () => {
