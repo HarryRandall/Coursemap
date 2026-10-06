@@ -5,7 +5,7 @@ import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
 import { LandingMark } from "@/ui/landing/landing-mark";
 import { LandingAuthStory } from "@/ui/landing/landing-auth-story";
 import { LandingHelp } from "@/ui/landing/landing-help";
-import type { ShowcaseCourse } from "@/lib/coursemap/landing-courses";
+import { SHOWCASE_COURSES } from "@/ui/landing/landing-showcase-courses";
 import { LandingReveal } from "@/ui/landing/landing-reveal";
 
 const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
@@ -17,14 +17,7 @@ const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
  * preview is hidden on small screens, so everything needed to sign in lives
  * in the form column.
  */
-export function AuthShell({
-  children,
-  courses = [],
-}: {
-  children: ReactNode;
-  /** Prerequisite examples for the side panel; none shows only the plan. */
-  courses?: readonly ShowcaseCourse[];
-}) {
+export function AuthShell({ children }: { children: ReactNode }) {
   return (
     <main className="landing-surface flex min-h-dvh flex-col bg-background">
       <header className="border-b border-border">
@@ -52,7 +45,10 @@ export function AuthShell({
           className="relative isolate hidden overflow-hidden bg-background lg:block"
         >
           <LandingGridBackground edge="box" />
-          <LandingReveal className="relative flex h-full flex-col gap-6 px-10 py-14">
+          <LandingReveal
+            immediate
+            className="absolute inset-0 flex flex-col gap-6 px-10 py-12"
+          >
             <div>
               <h2 className="enter-rise text-3xl leading-tight font-semibold tracking-tight text-balance text-foreground">
                 Every course, every prerequisite, one plan.
@@ -66,10 +62,10 @@ export function AuthShell({
               </p>
             </div>
             <div
-              className="enter-rise relative min-h-[42rem] flex-1"
+              className="enter-rise relative min-h-0 flex-1"
               style={delay(160)}
             >
-              <LandingAuthStory courses={courses} />
+              <LandingAuthStory courses={SHOWCASE_COURSES} />
             </div>
           </LandingReveal>
         </aside>
