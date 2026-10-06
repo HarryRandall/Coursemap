@@ -337,6 +337,8 @@ export type TreeContext = {
   selectedStructureCodes: ReadonlySet<string>;
   progress: RequirementTreeProgress;
   unitTarget?: number | null;
+  /** Neutral selectors within a group that owns their combined unit target. */
+  unitPool?: boolean;
   onAddCourse?: (course: Course) => void;
   /**
    * The requirements workspace picks majors and minors through its own
