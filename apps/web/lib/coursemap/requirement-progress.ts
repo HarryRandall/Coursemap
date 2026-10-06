@@ -486,7 +486,7 @@ function effectiveScope(
 ): "part" | "degree" {
   return inherited === "degree" ||
     condition.scope === "degree" ||
-    (mandatory && !inUnitPool && isCap(condition))
+    (mandatory && !inUnitPool && !takesAnyCourse(condition) && isCap(condition))
     ? "degree"
     : "part";
 }
@@ -544,6 +544,46 @@ function pairSequence(
   return secondSemester === firstSemester + 1 ? "valid" : "invalid";
 }
 
+/** A bounded degree root counts the total; its parts still allocate separately. */
+function allocationRoot(root: PlanRequirementGroup): PlanRequirementGroup {
+  return root.scope === "degree" &&
+    (root.minimumUnits !== null || root.maximumUnits !== null) &&
+    root.children.some((child) => child.scope === "degree") &&
+    root.children.some((child) => child.scope !== "degree")
+    ? { ...root, scope: "part" }
+    : root;
+}
+
+// Evaluate whole alternatives before assigning courses shared by their branches.
+// A bounded search avoids exponential work on deeply nested catalogue rules.
+const MAX_ALLOCATION_ALTERNATIVES = 128;
+
+function allocationAlternatives(
+  node: PlanRequirementNode,
+): PlanRequirementNode[] {
+  if (node.type === "condition") return [node];
+  if (node.operator === "any_of") {
+    return node.children
+      .flatMap((child) =>
+        allocationAlternatives(child).map((alternative) => ({
+          ...node,
+          children: [alternative],
+        })),
+      )
+      .slice(0, MAX_ALLOCATION_ALTERNATIVES);
+  }
+  let variants: PlanRequirementNode[][] = [[]];
+  for (const child of node.children) {
+    const alternatives = allocationAlternatives(child);
+    variants = variants
+      .flatMap((children) =>
+        alternatives.map((alternative) => [...children, alternative]),
+      )
+      .slice(0, MAX_ALLOCATION_ALTERNATIVES);
+  }
+  return variants.map((children) => ({ ...node, children }));
+}
+
 /**
  * Assigns each course in the plan to at most one part of the degree.
  *
@@ -554,7 +594,7 @@ function pairSequence(
  * precedence wherever the course may count. Courses with a single possible
  * home claim their place before courses that could go anywhere.
  */
-export function allocateRequirements({
+function allocateSingleAlternative({
   root,
   attempts,
   catalogue,
@@ -569,7 +609,7 @@ export function allocateRequirements({
   const placements = new Map<string, CoursePlacement>();
   if (!root) return placements;
   const leaves: Leaf[] = [];
-  collectLeaves(root, "part", true, leaves);
+  collectLeaves(allocationRoot(root), "part", true, leaves);
   const credited = orderedCredit(creditedAttempts(attempts, catalogue));
 
   // Caps across the degree decide what may count at all.
@@ -658,6 +698,68 @@ export function allocateRequirements({
     placements.set(code, { nodeKey: null, pinned: false, overCapKey: capKey });
   }
   return placements;
+}
+
+export function allocateRequirements({
+  root,
+  attempts,
+  catalogue,
+  pins = new Map(),
+}: {
+  root: PlanRequirementGroup | null;
+  attempts: readonly Attempt[];
+  catalogue: PlanningCatalogue;
+  pins?: ReadonlyMap<string, string>;
+}): RequirementAllocation {
+  if (!root) return new Map();
+  const alternatives = allocationAlternatives(root) as PlanRequirementGroup[];
+  let best: RequirementAllocation = new Map();
+  let bestScore: number[] | null = null;
+  for (const alternative of alternatives) {
+    const allocation = allocateSingleAlternative({
+      root: alternative,
+      attempts,
+      catalogue,
+      pins,
+    });
+    const progress = requirementTreeProgress({
+      root: alternative,
+      attempts,
+      catalogue,
+      allocation,
+    });
+    const nodes = [...progress.values()];
+    const rootProgress = progress.get(requirementNodeKey(root));
+    const score = [
+      [...pins].filter(([code, key]) => allocation.get(code)?.nodeKey === key)
+        .length,
+      Number(rootProgress?.state === "satisfied"),
+      nodes.filter((node) => node.state === "satisfied").length,
+      nodes.reduce(
+        (sum, node) =>
+          sum +
+          Math.min(
+            node.completedUnits + node.plannedUnits,
+            node.targetUnits ?? node.maximumUnits ?? 0,
+          ),
+        0,
+      ),
+    ];
+    if (
+      !bestScore ||
+      score.some(
+        (value, index) =>
+          value > bestScore![index]! &&
+          score
+            .slice(0, index)
+            .every((prior, priorIndex) => prior === bestScore![priorIndex]),
+      )
+    ) {
+      best = allocation;
+      bestScore = score;
+    }
+  }
+  return best;
 }
 
 /** Completed work first, then this semester's, then plans, each in plan order. */
@@ -898,13 +1000,31 @@ export function requirementTreeProgress({
   const placements =
     allocation ?? allocateRequirements({ root, attempts, catalogue });
   const rootProgress = groupProgress(
-    root,
+    allocationRoot(root),
     "part",
     true,
     credited,
     placements,
     progress,
   );
+  if (root.scope === "degree" && allocationRoot(root) !== root) {
+    const total = credited.filter(
+      ({ course }) => !placements.get(course.code)?.overCapKey,
+    );
+    rootProgress.completedUnits = total
+      .filter(({ attempt }) => attempt.status === "completed")
+      .reduce((sum, entry) => sum + entry.units, 0);
+    rootProgress.plannedUnits = total
+      .filter(({ attempt }) => attempt.status !== "completed")
+      .reduce((sum, entry) => sum + entry.units, 0);
+    rootProgress.matchedCourseCodes = total.map(({ course }) => course.code);
+    if (
+      root.maximumUnits !== null &&
+      rootProgress.completedUnits + rootProgress.plannedUnits >
+        root.maximumUnits
+    )
+      rootProgress.state = "over_limit";
+  }
   progress.set(rootProgress.key, rootProgress);
   return progress;
 }
@@ -951,7 +1071,7 @@ export function placementOptions({
 }): string[] {
   if (!root) return [];
   const leaves: Leaf[] = [];
-  collectLeaves(root, "part", true, leaves);
+  collectLeaves(allocationRoot(root), "part", true, leaves);
   return leaves
     .filter(
       (leaf) =>
