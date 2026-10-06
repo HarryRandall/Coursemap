@@ -6,6 +6,7 @@ packages:
 overrides:
   "brace-expansion@>=5.0.0 <5.0.11": "catalog:"
   "source-map-js@<1.2.2": "catalog:"
+  "sharp@<0.35.5": "catalog:"
 
 # Install scripts are allowed only for these dependencies. Review any additions
 # when upgrading packages rather than enabling every dependency's build script.
@@ -20,6 +21,7 @@ allowBuilds:
 catalog:
   # Framework and runtime
   next: 16.3.6
+  sharp: 0.35.5
   react: 19.3.0
   react-dom: 19.3.0
 

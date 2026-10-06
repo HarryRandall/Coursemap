@@ -16,9 +16,12 @@ test("sign-up allows optional onboarding and retains a session after reload", as
   );
   try {
     await page.goto("/signup");
-    await page.locator('[name="email"]').fill(email);
-    await page.locator('[name="password"]').fill(password);
-    await page.locator('[name="passwordConfirmation"]').fill(password);
+    await page.getByRole("main").locator('[name="email"]').fill(email);
+    await page.getByRole("main").locator('[name="password"]').fill(password);
+    await page
+      .getByRole("main")
+      .locator('[name="passwordConfirmation"]')
+      .fill(password);
     await page.getByRole("button", { name: /create account/i }).click();
     await expect(page).toHaveURL(/\/onboarding/);
     await page.getByRole("link", { name: "Skip for now" }).click();

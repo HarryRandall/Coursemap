@@ -500,3 +500,125 @@ test("large requirement sections start collapsed and paginate without search", a
   await user.click(screen.getByRole("button", { name: /Hide courses/ }));
   expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
 });
+
+test.each([false, true])(
+  "combined unit selectors retain their shared target with plan progress %s",
+  (showPlanProgress) => {
+    render(
+      <RequirementGroupView
+        group={{
+          ...root,
+          minimumUnits: 18,
+          children: ["ECHI", "ECON", "EMET"].map((subjectCode, index) => ({
+            ...condition,
+            id: index + 10,
+            projectionKey: subjectCode,
+            conditionKind: "subject_units",
+            minimumUnits: 0,
+            minimumCourses: null,
+            minimumLevel: 3000,
+            maximumLevel: 3000,
+            subjectCode,
+            options: [],
+            scope: "degree",
+          })),
+        }}
+        context={{
+          catalogue,
+          attemptStatusByCode: new Map(),
+          selectedStructureCodes: new Set(),
+          progress: new Map(),
+          showPlanProgress,
+        }}
+      />,
+    );
+    expect(
+      screen.getByText(
+        "At least 18 units from any combination of these courses",
+      ),
+    ).toBeVisible();
+    for (const subject of ["ECHI", "ECON", "EMET"]) {
+      expect(
+        screen.getByRole("heading", {
+          name: new RegExp(`^${subject} courses at 3000 level`),
+        }),
+      ).toBeVisible();
+    }
+    expect(screen.queryByText(/0 units/)).not.toBeInTheDocument();
+  },
+);
+
+test("zero-unit limits remain visible outside neutral selector pools", () => {
+  render(
+    <RequirementGroupView
+      group={{
+        ...root,
+        children: [
+          {
+            ...condition,
+            conditionKind: "subject_units",
+            minimumUnits: null,
+            maximumUnits: 0,
+            minimumCourses: null,
+            subjectCode: "MATH",
+            options: [],
+          },
+        ],
+      }}
+      context={{
+        catalogue,
+        attemptStatusByCode: new Map(),
+        selectedStructureCodes: new Set(),
+        progress: new Map(),
+        showPlanProgress: false,
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole("heading", { name: "At most 0 units of MATH courses" }),
+  ).toBeVisible();
+});
+
+test.each(["part", "degree"] as const)(
+  "unit cap labels preserve explicit %s scope and subject filters",
+  (scope) => {
+    render(
+      <RequirementGroupView
+        group={{
+          ...root,
+          minimumUnits: 48,
+          maximumUnits: 48,
+          children: [
+            {
+              ...condition,
+              conditionKind: "level_units",
+              minimumUnits: null,
+              maximumUnits: 18,
+              minimumCourses: null,
+              minimumLevel: 2000,
+              maximumLevel: 2000,
+              subjectCode: "COMP",
+              scope,
+              options: [],
+            },
+          ],
+        }}
+        context={{
+          catalogue,
+          attemptStatusByCode: new Map(),
+          selectedStructureCodes: new Set(),
+          progress: new Map(),
+          showPlanProgress: false,
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: /^At most 18 units of COMP courses at 2000 level/,
+      }),
+    ).toBeVisible();
+    const degreeLabel = screen.queryByText(/Counts across the whole degree/);
+    if (scope === "degree") expect(degreeLabel).toBeVisible();
+    else expect(degreeLabel).not.toBeInTheDocument();
+  },
+);

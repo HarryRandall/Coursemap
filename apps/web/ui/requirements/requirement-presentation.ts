@@ -195,7 +195,13 @@ export function conditionSummary(condition: RequirementTreeCondition) {
         ),
       );
     case "level_units":
-      return sentence(scoped("courses"));
+      return sentence(
+        scoped(
+          condition.subjectCode
+            ? `${condition.subjectCode} courses`
+            : "courses",
+        ),
+      );
     case "tagged_units":
       return sentence(
         scoped(
@@ -287,6 +293,7 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
       condition.minimumLevel,
       condition.maximumLevel,
     );
+    if (condition.subjectCode) parts.push(`${condition.subjectCode} courses`);
     if (levels) parts.push(levels);
   } else if (condition.conditionKind === "tagged_units" && condition.tag) {
     parts.push(condition.tag);
@@ -337,6 +344,8 @@ export type TreeContext = {
   selectedStructureCodes: ReadonlySet<string>;
   progress: RequirementTreeProgress;
   unitTarget?: number | null;
+  /** Neutral selectors within a group that owns their combined unit target. */
+  unitPool?: boolean;
   onAddCourse?: (course: Course) => void;
   /**
    * The requirements workspace picks majors and minors through its own

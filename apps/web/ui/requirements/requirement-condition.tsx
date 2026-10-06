@@ -178,12 +178,7 @@ function CourseSuggestions({
 
 /** Rules that read every course the degree counts rather than using any up. */
 function spansDegree(condition: RequirementTreeCondition) {
-  return (
-    condition.scope === "degree" ||
-    (condition.maximumUnits !== null &&
-      condition.minimumUnits === null &&
-      condition.minimumCourses === null)
-  );
+  return condition.scope === "degree";
 }
 
 /** A glyph beside each rule that gives its status a shape as well as a colour. */
@@ -368,8 +363,12 @@ function StatedCondition({
   note?: string;
 }) {
   const tone = conditionTone(condition);
+  const selector = context?.unitPool === true;
+  const displayedCondition = selector
+    ? { ...condition, minimumUnits: null }
+    : condition;
   const interpretation =
-    conditionInterpretation(condition) || condition.freeText;
+    conditionInterpretation(displayedCondition) || condition.freeText;
   if (tone === "warning" || tone === "note") {
     return (
       <Alert variant={tone === "warning" ? "warning" : "default"}>
@@ -384,16 +383,21 @@ function StatedCondition({
     );
   }
   const showProgress = context && context.showPlanProgress !== false;
-  const status = showProgress ? requirementRowStatus(condition, context) : null;
+  const status =
+    showProgress && !selector ? requirementRowStatus(condition, context) : null;
   const progress = context?.progress.get(requirementNodeKey(condition));
   // The summary leads with how much is needed; the category only follows it
   // when the summary does not already name it.
-  const title = conditionSummary(condition);
+  const title = conditionSummary(displayedCondition);
   const heading = conditionHeading(condition);
   const detail = [
     title.toLowerCase().includes(heading.toLowerCase()) ? null : heading,
     showProgress ? null : interpretation,
-    spansDegree(condition) ? "Counts across the whole degree" : null,
+    selector
+      ? "Counts towards the combined requirement"
+      : spansDegree(condition)
+        ? "Counts across the whole degree"
+        : null,
     note,
   ]
     .filter(Boolean)
@@ -407,7 +411,7 @@ function StatedCondition({
       />
     ) : null;
   const suggestions =
-    status?.kind === "todo" && context ? (
+    (selector || status?.kind === "todo") && context ? (
       <CourseSuggestions condition={condition} context={context} />
     ) : null;
   return (

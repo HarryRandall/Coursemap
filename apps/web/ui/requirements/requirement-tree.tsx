@@ -189,11 +189,29 @@ export function RequirementGroupView({
       ? unitsDescription(group.minimumUnits, group.maximumUnits)
       : null;
   if (children.length === 0) return null;
+  const unitPool =
+    group.operator === "all_of" &&
+    group.minimumUnits !== null &&
+    group.minimumUnits > 0 &&
+    children.every(
+      (child) =>
+        child.type === "condition" &&
+        [
+          "subject_units",
+          "level_units",
+          "tagged_units",
+          "elective_units",
+        ].includes(child.conditionKind) &&
+        child.minimumUnits === 0 &&
+        child.maximumUnits === null,
+    );
+  const childContext = unitPool ? { ...context, unitPool: true } : context;
   const rows = children.filter((child) => !isNotice(child));
   const notices = children.filter(isNotice);
   // With a plan behind the view, the top level sorts rules by what is left
   // to do. Alternatives keep their order, since the choice is between them.
-  const sorted = !nested && !alternative && context.showPlanProgress !== false;
+  const sorted =
+    !nested && !alternative && !unitPool && context.showPlanProgress !== false;
   const sortedRules = sorted
     ? flattenRules(rows).filter(
         (child) =>
@@ -217,7 +235,10 @@ export function RequirementGroupView({
             </h3>
             {units ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                {units} across the following requirements
+                {units}{" "}
+                {unitPool
+                  ? "from any combination of these courses"
+                  : "across the following requirements"}
               </p>
             ) : null}
           </div>
@@ -238,14 +259,14 @@ export function RequirementGroupView({
                     requirementRowStatus(child, context).kind,
                   ),
               )}
-              context={context}
+              context={childContext}
               alternative={false}
             />
           ))
         ) : (
           <RequirementPanel
             nodes={rows}
-            context={context}
+            context={childContext}
             alternative={group.operator === "any_of"}
           />
         )}
