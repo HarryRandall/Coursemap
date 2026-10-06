@@ -36,6 +36,7 @@ import {
 } from "@/lib/coursemap/requisite-conditions";
 import { RequisiteRuleTree } from "@/ui/admin/requisites/requisite-rule-tree";
 import { useCatalogueEditor } from "./catalogue-editor-context";
+import { RecordedRuleEditor } from "./recorded-rule-editor";
 import { TagsEditor } from "./tags-editor";
 import { DetailsEditor, type FieldChoice, RowsEditor } from "./section-editor";
 import { JsonCode } from "@/ui/common/json-code";
@@ -565,6 +566,7 @@ function RuleSection({
   onSourceChange: (sourceText: string) => void;
   readOnly?: boolean;
 }) {
+  const { write } = useCatalogueEditor();
   const rule = requirements.rules.find(
     (candidate) => candidate.key === ruleKey,
   );
@@ -618,30 +620,50 @@ function RuleSection({
         ) : (
           <>
             <p className="text-sm text-muted-foreground">
-              This rule uses condition kinds the editor cannot yet represent, so
-              it is shown as recorded.
+              {readOnly
+                ? "This rule is shown as recorded."
+                : "Check corrections against the ANU source before applying. JSON changes save only after you apply them."}
             </p>
-            <JsonCode
-              label={ruleKey}
-              value={{
-                groups: requirements.groups.filter(
-                  (group) => group.ruleKey === ruleKey,
-                ),
-                conditions: requirements.conditions.filter(
-                  (condition) => condition.ruleKey === ruleKey,
-                ),
-                options: requirements.options.filter((option) =>
-                  requirements.conditions.some(
-                    (condition) =>
-                      condition.ruleKey === ruleKey &&
-                      condition.key === option.conditionKey,
+            {!readOnly ? (
+              <RecordedRuleEditor
+                key={`${write.kind}:${write.code}:${write.academicYear}:${ruleKey}`}
+                ruleKey={ruleKey}
+              />
+            ) : (
+              <JsonCode
+                label={ruleKey}
+                value={{
+                  groups: requirements.groups.filter(
+                    (group) => group.ruleKey === ruleKey,
                   ),
-                ),
-              }}
-              uncapped
-            />
+                  conditions: requirements.conditions.filter(
+                    (condition) => condition.ruleKey === ruleKey,
+                  ),
+                  options: requirements.options.filter((option) =>
+                    requirements.conditions.some(
+                      (condition) =>
+                        condition.ruleKey === ruleKey &&
+                        condition.key === option.conditionKey,
+                    ),
+                  ),
+                }}
+                uncapped
+              />
+            )}
           </>
         )}
+        {editable && rule && !readOnly ? (
+          <Section title="Edit recorded rule">
+            <p className="mb-3 text-sm text-muted-foreground">
+              Check corrections against the ANU source before applying. JSON
+              changes save only after you apply them.
+            </p>
+            <RecordedRuleEditor
+              key={`${write.kind}:${write.code}:${write.academicYear}:${ruleKey}`}
+              ruleKey={ruleKey}
+            />
+          </Section>
+        ) : null}
         {rule && tree && !readOnly ? (
           <Button
             variant="ghost"

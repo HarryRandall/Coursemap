@@ -428,3 +428,144 @@ test("a new unit option retains its numeric type after an empty field is filled"
     sourceText: "6 units for 120 hours of placement.",
   });
 });
+
+test("recorded JSON waits for Apply and merges with later ordinary edits", async () => {
+  actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
+  const initial = emptyCatalogueContent({
+    kind: "programme",
+    code: "BSTAT",
+    academicYear: 2027,
+  });
+  initial.requirements = requirementWriteWithTree(
+    initial.requirements,
+    "structure",
+    {
+      type: "group",
+      id: "root",
+      operator: "all_of",
+      minimumCount: null,
+      children: [
+        {
+          type: "condition",
+          id: "major",
+          kind: "structure",
+          structureCode: "PRST-MAJ",
+        },
+      ],
+    },
+    "Complete a major.",
+  );
+  const condition = initial.requirements.conditions[0]!;
+  condition.kind = "structure_set";
+  condition.structureKind = "major";
+  initial.requirements.options = [
+    {
+      conditionKey: condition.key,
+      position: 0,
+      kind: "major",
+      code: "PRST-MAJ",
+      title: null,
+      sourceText: null,
+    },
+  ];
+  render(
+    <CatalogueEditorProvider
+      initial={initial}
+      recordId={42}
+      initialRevision={0}
+      initiallyPublished
+      initialHasDraft
+      initialHasUnpublishedChanges
+      path="/admin/programmes/2027/bstat"
+    >
+      <CatalogueContentEditor />
+    </CatalogueEditorProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Requirements1" }));
+  const input = screen.getByLabelText("Recorded rule JSON");
+  const corrected = String((input as HTMLTextAreaElement).value).replaceAll(
+    "PRST-MAJ",
+    "PSTO-MAJ",
+  );
+  fireEvent.change(input, { target: { value: "{" } });
+  fireEvent.click(screen.getByRole("button", { name: "Apply corrected rule" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Enter valid JSON");
+  await act(async () => vi.advanceTimersByTime(1_000));
+  expect(actions.save).not.toHaveBeenCalled();
+  fireEvent.change(input, { target: { value: corrected } });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Description"), {
+    target: { value: "A later ordinary edit" },
+  });
+  await act(async () => vi.advanceTimersByTime(1_000));
+  expect(actions.save).toHaveBeenCalledTimes(1);
+  expect(
+    actions.save.mock.calls[0]![0].content.requirements.options[0].code,
+  ).toBe("PRST-MAJ");
+  expect(input).toHaveValue(corrected);
+  fireEvent.click(screen.getByRole("button", { name: "Apply corrected rule" }));
+  await act(async () => vi.advanceTimersByTime(1_000));
+  expect(actions.save).toHaveBeenCalledTimes(2);
+  const saved = actions.save.mock.calls[1]![0].content;
+  expect(saved.requirements.options[0].code).toBe("PSTO-MAJ");
+  expect(saved.structure.details.description).toBe("A later ordinary edit");
+  expect(saved.requirements.rules).toEqual(initial.requirements.rules);
+});
+
+test("supported text rules keep the visual editor and offer recorded editing on request", async () => {
+  actions.save.mockResolvedValue({ ok: true, revision: 1, unchanged: false });
+  const initial = initialContent();
+  initial.requirements = requirementWriteWithTree(
+    initial.requirements,
+    "prerequisite",
+    {
+      type: "group",
+      id: "root",
+      operator: "all_of",
+      minimumCount: null,
+      children: [
+        {
+          type: "condition",
+          id: "text",
+          kind: "other",
+          freeText: "Complete the published alternative branches.",
+        },
+      ],
+    },
+    "Complete the published alternative branches.",
+  );
+  render(
+    <CatalogueEditorProvider
+      initial={initial}
+      recordId={42}
+      initialRevision={0}
+      initiallyPublished
+      initialHasDraft
+      initialHasUnpublishedChanges
+      path="/admin/courses/2026/comp1000"
+    >
+      <CatalogueContentEditor />
+    </CatalogueEditorProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Prerequisites1" }));
+  expect(screen.queryByLabelText("Recorded rule JSON")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Edit recorded rule" }));
+  const input = screen.getByLabelText("Recorded rule JSON");
+  const submitted = JSON.parse((input as HTMLTextAreaElement).value);
+  submitted.conditions[0].kind = "tagged_units";
+  submitted.conditions[0].tag = "transdisciplinary_problem_solving";
+  submitted.conditions[0].minimumUnits = 12;
+  fireEvent.change(input, { target: { value: JSON.stringify(submitted) } });
+  await act(async () => vi.advanceTimersByTime(1_000));
+  expect(actions.save).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Apply corrected rule" }));
+  await act(async () => vi.advanceTimersByTime(1_000));
+  expect(actions.save).toHaveBeenCalledTimes(1);
+  expect(
+    actions.save.mock.calls[0]![0].content.requirements.conditions[0],
+  ).toMatchObject({
+    kind: "tagged_units",
+    tag: "transdisciplinary_problem_solving",
+    minimumUnits: 12,
+  });
+});

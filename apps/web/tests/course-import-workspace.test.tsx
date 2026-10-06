@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import { CourseRunHeader } from "../ui/admin/catalogue/course-run-progress";
@@ -733,4 +733,65 @@ it("previews the selected structure kind and uses its available count", async ()
   expect(
     screen.getByRole("button", { name: "Import 8 specialisations" }),
   ).toBeEnabled();
+});
+
+it("re-previews listed codes and uses the same selection when creating a free run", async () => {
+  const requests: Record<string, unknown>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, options?: RequestInit) => {
+      if (!options) return Response.json({ runs: [] });
+      const body = JSON.parse(options.body as string);
+      requests.push(body);
+      return Response.json(
+        body.action === "preview"
+          ? {
+              count: body.codes ? 2 : 10,
+              availableCount: body.codes ? 2 : 10,
+              minimumUsd: 0,
+              estimatedUsd: 0,
+              maximumUsd: 0,
+              estimateKind: "not_used",
+              estimateBasis: "AI disabled.",
+              budgetUsd: 0,
+            }
+          : { runId: "selected-run" },
+      );
+    }),
+  );
+  const user = userEvent.setup();
+  render(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2027} />
+    </TooltipProvider>,
+  );
+  await screen.findByRole("button", { name: "Import 10 courses" });
+  await user.click(
+    screen.getByRole("checkbox", { name: "Use AI for ambiguous requirements" }),
+  );
+  fireEvent.change(screen.getByLabelText("Only these codes"), {
+    target: { value: "STAT1008, MATH1013" },
+  });
+  expect(
+    screen.getByRole("button", { name: /Import \d+ courses/ }),
+  ).toBeDisabled();
+  const start = await screen.findByRole("button", { name: "Import 2 courses" });
+  await waitFor(() => expect(start).toBeEnabled());
+  await user.click(start);
+  const selectedPreviews = requests.filter(
+    (body) => body.action === "preview" && body.codes,
+  );
+  expect(selectedPreviews.at(-1)).toMatchObject({
+    year: 2027,
+    kind: "course",
+    codes: ["STAT1008", "MATH1013"],
+    allowAi: false,
+  });
+  expect(requests.find((body) => body.action === "create")).toMatchObject({
+    codes: ["STAT1008", "MATH1013"],
+    allowAi: false,
+    budgetUsd: 0,
+    publishVerified: false,
+    limit: 2,
+  });
 });

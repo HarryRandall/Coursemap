@@ -37,6 +37,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
+import { Textarea } from "@coursemap/ui/primitives/textarea";
 import { Label } from "@coursemap/ui/primitives/label";
 import {
   Alert,
@@ -140,6 +141,13 @@ export function CourseImportWorkspace({
   }, []);
   const refreshedRun = useRef<string | null>(null);
   const [limit, setLimit] = useState(100);
+  const [codeFilter, setCodeFilter] = useState("");
+  const codes = codeFilter.trim()
+    ? codeFilter
+        .trim()
+        .split(/[\s,]+/)
+        .filter(Boolean)
+    : undefined;
   const [budget, setBudget] = useState(0.5);
   const [allowAi, setAllowAi] = useState(true);
   const [publishVerified, setPublishVerified] = useState(false);
@@ -197,7 +205,18 @@ export function CourseImportWorkspace({
       setEstimating(true);
       setError(null);
       try {
-        const result = await action({ action: "preview", year, kind, allowAi });
+        const result = await action({
+          action: "preview",
+          year,
+          kind,
+          allowAi,
+          codes: codeFilter.trim()
+            ? codeFilter
+                .trim()
+                .split(/[\s,]+/)
+                .filter(Boolean)
+            : undefined,
+        });
         if (!stopped) {
           setPreview(result);
           setLimit((value) =>
@@ -219,7 +238,7 @@ export function CourseImportWorkspace({
       stopped = true;
       clearTimeout(timeout);
     };
-  }, [active, viewRunId, year, kind, allowAi, estimateAttempt]);
+  }, [active, viewRunId, year, kind, allowAi, codeFilter, estimateAttempt]);
 
   async function startImport() {
     setPending(true);
@@ -233,6 +252,7 @@ export function CourseImportWorkspace({
         budgetUsd: allowAi ? budget : 0,
         allowAi,
         publishVerified,
+        codes,
       });
       setViewRunId(result.runId);
       // Keep the live worker mounted while giving this saved run a reloadable URL.
@@ -630,6 +650,26 @@ export function CourseImportWorkspace({
               </>
             ) : (
               <>
+                <div className="space-y-2">
+                  <Label htmlFor={`${id}-codes`}>Only these codes</Label>
+                  <Textarea
+                    id={`${id}-codes`}
+                    value={codeFilter}
+                    disabled={pending}
+                    aria-describedby={`${id}-codes-help`}
+                    onChange={(event) => {
+                      setCodeFilter(event.target.value);
+                      setPreview(null);
+                    }}
+                  />
+                  <p
+                    id={`${id}-codes-help`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Separate codes with commas or spaces. Leave blank to include
+                    all missing records.
+                  </p>
+                </div>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-4">
                     <Label htmlFor={`${id}-slider`}>{label}</Label>

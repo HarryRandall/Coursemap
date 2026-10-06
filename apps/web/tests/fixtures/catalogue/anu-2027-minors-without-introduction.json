@@ -1,0 +1,29 @@
+[
+  {
+    "kind": "minor",
+    "code": "ENGS-MIN",
+    "year": 2027,
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2027/minor/ENGS-MIN",
+    "retrievedDate": "2026-10-06",
+    "rawSourceSha256": "83832db51a4624d0192cb2afc64609144dbfb906525c4a98c7f829f0a1dc34c3",
+    "markdown": "---\nkind: \"minor\"\ncode: \"ENGS-MIN\"\nyear: 2027\n---\n\nMinor\n\n# Engineering Science\n\nA minor offered by the ANU College of Engineering and Computer Science\n\nENGS\n\n- Total units 24 Units\n\n- Minor code ENGS-MIN\n\n- Academic career Undergraduate\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\nEngineering Science Minor\n- Requirements\n\n## Requirements\n\n6 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| PHYS1101 | Physics I | 6 |\n| | ENGN 1215: Engineering Sciences | |\n\n6 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| ENGN1217 | Introduction to Mechanics | 6 |\n| ENGN1218 | Introduction to Electronics | 6 |\n\n6 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| ENGN2217 | Mechanical Systems and Design | 6 |\n| ENGN2218 | Electronic Systems and Design | 6 |\n\n6 units from completion of the following course(s):\n\n2000/3000/4000 level Engineering (ENGN) courses\n"
+  },
+  {
+    "kind": "minor",
+    "code": "MTSY-MIN",
+    "year": 2027,
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2027/minor/MTSY-MIN",
+    "retrievedDate": "2026-10-06",
+    "rawSourceSha256": "36fc1e81ca7e1c42080b3d6e33d84ce5e6c9e2b88a7f24f79d2bada29bc19898",
+    "markdown": "---\nkind: \"minor\"\ncode: \"MTSY-MIN\"\nyear: 2027\n---\n\nMinor\n\n# Mechatronic Systems\n\nA minor offered by the ANU College of Engineering Computing & Cybernetics\n\nMTSY\n\n- Total units 24 Units\n\n- Minor code MTSY-MIN\n\n- Academic career Undergraduate\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\nMechatronic Systems Minor\n- Requirements\n- Relevant Degrees\n\n## Relevant Degrees\n\n- [Bachelor of Engineering (Research and Development) (Honours) (AENRD)](AENRD)\n\n## Requirements\n\nThis minor requires the completion of 24 units, which must include:\n\n12 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| | ENGN 3213: Digital Sys Microprocess | |\n| ENGN3223 | Control Systems | 6 |\n\n12 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| ENGN3331 | System Dynamics | 6 |\n| ENGN4528 | Computer Vision | 6 |\n| ENGN4627 | Robotics | 6 |\n| ENGN4628 | Optimisation and Control with Uncertainty and Constraints | 6 |\n"
+  },
+  {
+    "kind": "minor",
+    "code": "SUSY-MIN",
+    "year": 2027,
+    "sourceUrl": "https://programsandcourses.anu.edu.au/2027/minor/SUSY-MIN",
+    "retrievedDate": "2026-10-06",
+    "rawSourceSha256": "99ff4b8a900cc5e572f467e201bbec077f9fa32143d3ec7b08eae488b036112f",
+    "markdown": "---\nkind: \"minor\"\ncode: \"SUSY-MIN\"\nyear: 2027\n---\n\nMinor\n\n# Sustainable Systems\n\nA minor offered by the ANU College of Engineering Computing & Cybernetics\n\nSUSY\n\n- Total units 24 Units\n\n- Minor code SUSY-MIN\n\n- Academic career Undergraduate\n\n[Tweet](https://twitter.com/share)\n\nShare on Facebook\n\n[Wattle Share](https://wattle.anu.edu.au/)\n\n[Canvas](https://canvas.anu.edu.au/)\n\nSustainable Systems Minor\n- Requirements\n- Relevant Degrees\n\n## Relevant Degrees\n\n- [Bachelor of Engineering (Research and Development) (Honours) (AENRD)](AENRD)\n\n## Requirements\n\n12 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| ENGN3410 | Engineering Sustainable Systems | 6 |\n| ENVS3040 | Complex Environmental Problems in Action | 6 |\n\n12 units from completion of the following course(s):\n\n| Code | Title | Units |\n| --- | --- | --- |\n| | ENGN 4027: Sustainable Nanomaterials | |\n| | ENGN 3516: Energy Resources | |\n| ENVS2011 | Human Ecology | 6 |\n| ENVS2015 | GIS and Spatial Analysis | 6 |\n| ENVS2012 | Sustainable Urban Systems | 6 |\n| ENVS3020 | Climate Change: Science, Society, and Policy | 6 |\n"
+  }
+]
