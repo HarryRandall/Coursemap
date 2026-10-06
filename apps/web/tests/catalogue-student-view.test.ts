@@ -6,6 +6,7 @@ import {
   emptyCatalogueContent,
 } from "../lib/catalogue/content.ts";
 import { courseDetailsFromWrite } from "../lib/coursemap/course-version-view.ts";
+import { courseFromSnapshotProjection } from "../lib/coursemap/published-courses.ts";
 
 function draftCourse() {
   const content = emptyCatalogueContent({
@@ -143,3 +144,36 @@ test("draft workload basis reaches the student detail without qualifying legacy 
   content.course!.details.workloadHoursBasis = "total";
   assert.equal(courseDetailsFromWrite(content)?.workloadHoursBasis, "total");
 });
+
+test.each([
+  [null, "The course introduction.", "The course introduction."],
+  ["", "The course introduction.", "The course introduction."],
+  [" \n ", "The course introduction.", "The course introduction."],
+  [
+    "Detailed course description.",
+    "The introduction.",
+    "Detailed course description.",
+  ],
+  [null, null, "No description is listed."],
+  [" ", " ", "No description is listed."],
+])(
+  "course readers use the introduction when the description is %j",
+  (description, introduction, expected) => {
+    const content = draftCourse();
+    content.course.details.description = description;
+    content.course.details.introduction = introduction;
+    const draft = courseDetailsFromWrite(content);
+    const published = courseFromSnapshotProjection(
+      {
+        courseCode: content.code,
+        academicYear: content.academicYear,
+        snapshot: { title: "Systems and Security", description, introduction },
+      },
+      1,
+    );
+    assert.ok(draft);
+    assert.ok(published);
+    assert.equal(draft.description, expected);
+    assert.equal(published.description, expected);
+  },
+);
