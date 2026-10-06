@@ -35,7 +35,7 @@ export function parseCourseSource({
   context?: PromptContext;
 }): CourseExtraction {
   const section = (heading: string) =>
-    markdown.split(`## ${heading}\n`)[1]?.split(/^## /mu)[0]?.trim() ?? null;
+    markdown.split(`## ${heading}\n`)[1]?.split(/^## /mu)[0]?.trim() || null;
   const field = (label: string) =>
     markdown.match(new RegExp(`^- ${label} (.+)$`, "mu"))?.[1]?.trim() ?? null;
   const title = markdown.match(/^# (.+)$/mu)?.[1] ?? null;
