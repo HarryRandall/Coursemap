@@ -28,6 +28,7 @@ export function unitsDescription(
   minimum: number | null,
   maximum: number | null,
 ) {
+  if (minimum === 0 && maximum !== null && maximum > 0) minimum = null;
   if (minimum !== null && maximum !== null && minimum === maximum) {
     return formatUnits(minimum);
   }
@@ -78,7 +79,13 @@ export function conditionTone(
   ) {
     return "note";
   }
-  if (condition.minimumUnits === null && condition.maximumUnits !== null) {
+  if (
+    condition.maximumUnits !== null &&
+    (condition.minimumUnits === null ||
+      (condition.minimumUnits === 0 &&
+        condition.maximumUnits > 0 &&
+        (condition.minimumCourses === null || condition.minimumCourses === 0)))
+  ) {
     return "limit";
   }
   return "requirement";
@@ -137,6 +144,7 @@ export function conditionHeading(condition: RequirementTreeCondition) {
 }
 
 function unitQuantity(minimum: number | null, maximum: number | null) {
+  if (minimum === 0 && maximum !== null && maximum > 0) minimum = null;
   const figure = (units: number) =>
     units.toLocaleString("en-AU", { maximumFractionDigits: 2 });
   if (minimum !== null && maximum !== null) {
@@ -640,8 +648,11 @@ export function courseListTitle(
   }
   const count = condition.minimumCourses;
   if (count === 1 && codes.length <= 3) return `Pick ${listed(codes, "or")}`;
-  if (count !== null) {
+  if (count !== null && count > 0) {
     return `Pick ${count} of ${codes.length} courses`;
+  }
+  if (condition.minimumUnits === 0 && condition.maximumUnits !== null) {
+    return `Pick up to ${formatUnits(condition.maximumUnits)} from ${codes.length} ${codes.length === 1 ? "course" : "courses"}`;
   }
   if (condition.minimumUnits !== null) {
     return `Pick ${formatUnits(condition.minimumUnits)} from ${codes.length} courses`;

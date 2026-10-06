@@ -548,6 +548,43 @@ test.each([false, true])(
   },
 );
 
+test.each([false, true])(
+  "optional course pools show their upper bound with plan progress %s",
+  (showPlanProgress) => {
+    render(
+      <RequirementGroupView
+        group={{
+          ...root,
+          children: [
+            {
+              ...condition,
+              minimumUnits: 0,
+              maximumUnits: 18,
+              minimumCourses: null,
+            },
+          ],
+        }}
+        context={{
+          catalogue,
+          attemptStatusByCode: new Map(),
+          selectedStructureCodes: new Set(),
+          progress: new Map(),
+          showPlanProgress,
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /Pick up to 18 units from 2 courses/,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText(/Up to 18 units · 2 options/)).toBeVisible();
+    expect(screen.queryByText(/Pick 0 units/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 units to/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Completed")).not.toBeInTheDocument();
+  },
+);
+
 test("zero-unit limits remain visible outside neutral selector pools", () => {
   render(
     <RequirementGroupView
