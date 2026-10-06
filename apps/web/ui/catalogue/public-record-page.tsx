@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import type { CatalogueKind } from "@/lib/catalogue/content";
-import { requirementCourseCodes } from "@/lib/coursemap/requirement-display";
+import { structureCourseReferenceCodes } from "@/lib/coursemap/structure-course-references";
 import { planCourseFromDetails } from "@/lib/coursemap/plan-catalogue";
 import {
   loadPublishedCourse,
@@ -65,7 +65,7 @@ export async function PublicCatalogueRecordPage({
   let details;
   try {
     details = await loadPublishedCoursesByCodes(
-      requirementCourseCodes(structure.requirements),
+      structureCourseReferenceCodes(structure),
       academicYear,
     );
   } catch {
