@@ -178,12 +178,7 @@ function CourseSuggestions({
 
 /** Rules that read every course the degree counts rather than using any up. */
 function spansDegree(condition: RequirementTreeCondition) {
-  return (
-    condition.scope === "degree" ||
-    (condition.maximumUnits !== null &&
-      condition.minimumUnits === null &&
-      condition.minimumCourses === null)
-  );
+  return condition.scope === "degree";
 }
 
 /** A glyph beside each rule that gives its status a shape as well as a colour. */

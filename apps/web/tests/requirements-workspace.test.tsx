@@ -578,3 +578,47 @@ test("zero-unit limits remain visible outside neutral selector pools", () => {
     screen.getByRole("heading", { name: "At most 0 units of MATH courses" }),
   ).toBeVisible();
 });
+
+test.each(["part", "degree"] as const)(
+  "unit cap labels preserve explicit %s scope and subject filters",
+  (scope) => {
+    render(
+      <RequirementGroupView
+        group={{
+          ...root,
+          minimumUnits: 48,
+          maximumUnits: 48,
+          children: [
+            {
+              ...condition,
+              conditionKind: "level_units",
+              minimumUnits: null,
+              maximumUnits: 18,
+              minimumCourses: null,
+              minimumLevel: 2000,
+              maximumLevel: 2000,
+              subjectCode: "COMP",
+              scope,
+              options: [],
+            },
+          ],
+        }}
+        context={{
+          catalogue,
+          attemptStatusByCode: new Map(),
+          selectedStructureCodes: new Set(),
+          progress: new Map(),
+          showPlanProgress: false,
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: /^At most 18 units of COMP courses at 2000 level/,
+      }),
+    ).toBeVisible();
+    const degreeLabel = screen.queryByText(/Counts across the whole degree/);
+    if (scope === "degree") expect(degreeLabel).toBeVisible();
+    else expect(degreeLabel).not.toBeInTheDocument();
+  },
+);
