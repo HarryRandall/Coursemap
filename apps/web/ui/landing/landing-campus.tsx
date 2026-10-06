@@ -197,7 +197,7 @@ const showcases: readonly Showcase[] = [
 
 /**
  * The rest of student life Coursemap covers, beyond planning. `keyDates` and
- * `societies` are live from the database, or null when nothing is published.
+ * `societies` are the live parts, streamed in by the page.
  */
 export function LandingCampus({
   keyDates,
@@ -231,13 +231,7 @@ export function LandingCampus({
               style={delay(120 + index * 90)}
             >
               <div aria-hidden="true" className="min-h-32">
-                {item.href === "/societies"
-                  ? (societies ?? (
-                      <p className="text-sm text-muted-foreground">
-                        Societies appear here once the directory is published.
-                      </p>
-                    ))
-                  : item.visual}
+                {item.href === "/societies" ? societies : item.visual}
               </div>
               <div>
                 <h3 className="flex items-center gap-1 text-[15px] font-semibold text-foreground">
@@ -262,13 +256,7 @@ export function LandingCampus({
             className="enter-rise group relative flex flex-col gap-5 bg-background p-6 transition-colors hover:bg-muted/30 sm:p-8 lg:col-span-2"
             style={delay(120 + showcases.length * 90)}
           >
-            <div className="min-h-32">
-              {keyDates ?? (
-                <p className="text-sm text-muted-foreground">
-                  Dates appear here once the university calendar is published.
-                </p>
-              )}
-            </div>
+            <div className="min-h-32">{keyDates}</div>
             <div>
               <h3 className="flex items-center gap-1 text-[15px] font-semibold text-foreground">
                 <Link href="/key-dates">Key dates, counted down</Link>

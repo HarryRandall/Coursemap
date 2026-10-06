@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { ShowcaseCourse } from "@/lib/coursemap/landing-courses";
 import { LandingCourseShowcase } from "@/ui/landing/landing-course-showcase";
+import { LandingFit } from "@/ui/landing/landing-fit";
 import { LandingPlanLoop } from "@/ui/landing/landing-plan-loop";
 
 const SCENES = ["Plan a year", "Check prerequisites"] as const;
@@ -19,7 +20,8 @@ type Story = {
  * The sign-in pages' side panel: a year planning itself, then the
  * prerequisite examples, back and forth. Each change scrolls the whole
  * panel: the finished scene leaves through the top as the next rises from
- * the bottom. Scenes sit in a fixed frame, so the page never changes size.
+ * the bottom. Scenes fill the panel's frame and shrink to fit it, so the
+ * page's height comes from the form alone.
  * Without courses it stays on the plan.
  */
 export function LandingAuthStory({
@@ -59,7 +61,7 @@ export function LandingAuthStory({
           <div
             key={round}
             className={cn(
-              "absolute inset-0",
+              "absolute inset-0 flex flex-col",
               story.leaving !== null &&
                 (outgoing
                   ? "animate-[landing-scene-out_900ms_cubic-bezier(0.65,0,0.35,1)_forwards]"
@@ -69,17 +71,19 @@ export function LandingAuthStory({
             <p className="mb-3 font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
               {SCENES[scene]}
             </p>
-            {scene === 0 ? (
-              <LandingPlanLoop
-                startYear={Math.floor(round / scenes)}
-                onFinished={scenes > 1 && !outgoing ? next : undefined}
-              />
-            ) : (
-              <LandingCourseShowcase
-                courses={courses}
-                onFinished={outgoing ? undefined : next}
-              />
-            )}
+            <LandingFit className="min-h-0 flex-1">
+              {scene === 0 ? (
+                <LandingPlanLoop
+                  startYear={Math.floor(round / scenes)}
+                  onFinished={scenes > 1 && !outgoing ? next : undefined}
+                />
+              ) : (
+                <LandingCourseShowcase
+                  courses={courses}
+                  onFinished={outgoing ? undefined : next}
+                />
+              )}
+            </LandingFit>
           </div>
         );
       })}

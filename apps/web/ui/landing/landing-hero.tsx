@@ -1,27 +1,24 @@
 import { Button } from "@coursemap/ui/primitives/button";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import { Suspense, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
 import { LandingHeroAccents } from "@/ui/landing/landing-hero-accents";
 import { LandingOverview } from "@/ui/landing/landing-overview";
 import { LandingReveal } from "@/ui/landing/landing-reveal";
-import type { UniversityCalendarEvent } from "@/lib/coursemap/university-calendar";
+import { Skeleton } from "@coursemap/ui/primitives/skeleton";
+import { LandingOverviewKeyDates } from "@/ui/landing/landing-overview-key-dates";
 
 const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
 
-export function LandingHero({
-  keyDates,
-  today,
-}: {
-  /** The next few published key dates, for the dashboard's card. */
-  keyDates: readonly UniversityCalendarEvent[];
-  today: string;
-}) {
+export function LandingHero({ today }: { today: string }) {
   return (
     <section className="relative isolate border-b border-border">
       <LandingGridBackground />
-      <LandingReveal className="relative mx-auto max-w-6xl border-x border-border px-4 pt-14 pb-10 sm:px-10 sm:pt-20 sm:pb-14">
+      <LandingReveal
+        immediate
+        className="relative mx-auto max-w-6xl border-x border-border px-4 pt-14 pb-10 sm:px-10 sm:pt-20 sm:pb-14"
+      >
         <div className="relative">
           <LandingHeroAccents />
           <div className="relative flex flex-col items-center pb-16 text-center sm:pb-24">
@@ -56,7 +53,13 @@ export function LandingHero({
           </div>
         </div>
         <div className="enter-rise" style={delay(420)}>
-          <LandingOverview keyDates={keyDates} today={today} />
+          <LandingOverview
+            keyDates={
+              <Suspense fallback={<Skeleton className="h-full min-h-48" />}>
+                <LandingOverviewKeyDates today={today} />
+              </Suspense>
+            }
+          />
         </div>
       </LandingReveal>
     </section>

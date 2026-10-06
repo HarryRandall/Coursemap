@@ -1,12 +1,6 @@
 import type { CSSProperties } from "react";
-import type { Society } from "@/lib/societies";
+import type { LandingSocietyRow } from "@/lib/coursemap/landing-data";
 import { SocietyEmblem } from "@/ui/societies/society-emblem";
-
-/** One row: a society with its next event, or its summary when none is listed. */
-export type LandingSocietyRow = {
-  society: Pick<Society, "slug" | "name" | "logoUrl">;
-  detail: string;
-};
 
 const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
 
