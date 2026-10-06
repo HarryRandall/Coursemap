@@ -77,7 +77,7 @@ test("public pages render catalogue data and safe authentication forms", async (
 }) => {
   await page.goto("/");
   await expect(page.getByRole("main")).toContainText(
-    "See how every course fits",
+    "Plan your degree, semester by semester.",
   );
   await page.goto("/courses?q=COMP1100&year=2026");
   await expect(page.getByRole("main")).toContainText("COMP1100");
