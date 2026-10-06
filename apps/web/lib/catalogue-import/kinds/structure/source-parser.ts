@@ -86,7 +86,16 @@ export function readStructureSource(
     evidence("summaryFields", areas[0]);
   }
   const nav = markdown.match(/^- Introduction\n(?:- [^\n]+\n)*\s*/mu);
-  const body = nav ? markdown.slice(nav.index! + nav[0].length) : "";
+  // Some ANU structures omit Introduction and start directly at a labelled
+  // Study section. Read that section without treating header furniture as prose.
+  const firstSection = markdown.search(
+    /^## (?:Requirements|Learning Outcomes|Other Information|Further Information|Relevant Degrees)\s*$/mu,
+  );
+  const body = nav
+    ? markdown.slice(nav.index! + nav[0].length)
+    : firstSection >= 0
+      ? markdown.slice(firstSection)
+      : "";
   if (!nav)
     flag("introduction", "The source page layout could not be verified.");
   const parts = body.split(/^## /mu);
@@ -295,9 +304,14 @@ export function readStructureSource(
 export function heldStructureRequirements(
   extraction: AcademicStructureExtraction,
 ) {
-  const source =
-    extraction.requirements.sourceText ||
-    "No requirements could be read from the source.";
+  const source = extraction.requirements.sourceText;
+  if (!source)
+    return {
+      sourceText: null,
+      sourceLocator: null,
+      unmodelledText: [],
+      rule: null,
+    };
   return {
     sourceText: source,
     sourceLocator: "Requirements",

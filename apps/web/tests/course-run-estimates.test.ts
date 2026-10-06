@@ -58,3 +58,30 @@ it("permits catalogue-wide selections and rejects invalid amounts", () => {
     parseCourseRunOptions({ year: 2026, budgetUsd: 0, allowAi: false }),
   ).toMatchObject({ allowAi: false, budgetUsd: 0 });
 });
+
+it("normalises an explicit code selection and rejects empty or malformed selections", () => {
+  expect(
+    parseCourseRunOptions({
+      year: 2027,
+      codes: [" stat1008 ", "STAT1008", "MATH1013"],
+      allowAi: false,
+    }).codes,
+  ).toEqual(["STAT1008", "MATH1013"]);
+  expect(parseCourseRunOptions({ year: 2027 }).codes).toBeUndefined();
+  for (const codes of [
+    [],
+    [""],
+    ["STAT1008 OR true"],
+    ["BECE-MIN"],
+    [42],
+    "STAT1008",
+  ]) {
+    expect(() => parseCourseRunOptions({ year: 2027, codes })).toThrow(
+      "valid catalogue codes",
+    );
+  }
+  expect(
+    parseCourseRunOptions({ year: 2027, kind: "minor", codes: ["bece-min"] })
+      .codes,
+  ).toEqual(["BECE-MIN"]);
+});

@@ -6,6 +6,7 @@ import { parsePlainStructureRequirements } from "../lib/catalogue-import/kinds/s
 import { sourceFirstPublicationEligible } from "../lib/catalogue-runs/eligibility";
 import { courseRunEstimate } from "../lib/catalogue-runs/estimates";
 import { parseCourseRunOptions } from "../lib/catalogue-runs/options";
+import { validateAcademicStructureExtraction } from "../lib/catalogue-import/kinds/structure/contract";
 import type { AcademicStructureKind } from "../lib/catalogue-import/kinds/structure/contract";
 import type { ClaimedCatalogueSync } from "../lib/catalogue-sync/sync-store";
 
@@ -248,4 +249,88 @@ it.each([
       24,
     ),
   ).toBeNull();
+});
+
+const withoutIntroduction = JSON.parse(
+  readFileSync(
+    new URL(
+      "./fixtures/catalogue/anu-2027-minors-without-introduction.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+) as typeof samples;
+
+it.each(withoutIntroduction)(
+  "retains actual table requirements without an Introduction for $code",
+  (sample) => {
+    const source = readStructureSource(
+      sample.kind,
+      sample.code,
+      sample.year,
+      sample.markdown,
+    );
+    expect(source.extraction.introduction).toBeNull();
+    expect(source.requirementsText).toContain("units from completion");
+    expect(source.requirementsText).toContain("| Code | Title | Units |");
+    expect(source.plain).toBeNull();
+    const result = finalise(sample);
+    expect(result.canPersist).toBe(true);
+    expect(
+      validateAcademicStructureExtraction(result.extraction, {
+        expectedKind: sample.kind,
+        expectedCode: sample.code,
+        expectedYear: sample.year,
+      }).success,
+    ).toBe(true);
+    expect(result.extraction.requirements.sourceText).toBe(
+      source.requirementsText,
+    );
+    expect(result.extraction.requirements.sourceLocator).toBe("Requirements");
+    expect(result.extraction.requirements.rule?.sourceText).toBe(
+      source.requirementsText,
+    );
+    expect(result.extraction.requirements.unmodelledText).toEqual([
+      source.requirementsText,
+    ]);
+    const content = compactStructureAdapter.project(result.extraction);
+    expect(content.requirements.conditions).toHaveLength(1);
+    expect(content.requirements.conditions[0]).toMatchObject({
+      kind: "other",
+      reviewState: "review",
+      confidence: 0,
+      freeText: source.requirementsText,
+    });
+    expect(content.flags.length).toBeGreaterThan(0);
+    expect(sourceFirstPublicationEligible(content)).toBe(false);
+    if (sample.code === "ENGS-MIN") {
+      expect(source.requirementsText).toContain(
+        "ENGN 1215: Engineering Sciences",
+      );
+      expect(source.requirementsText).not.toContain("This minor requires");
+    }
+  },
+);
+
+it("keeps genuinely absent requirements empty and held without invented source wording", () => {
+  const sample = {
+    kind: "minor" as const,
+    code: "EMPTY-MIN",
+    year: 2027,
+    markdown:
+      "# Empty source\n\n- Total units 24 Units\n- Academic career Undergraduate\n",
+  };
+  const result = finalise(sample);
+  expect(result.canPersist).toBe(true);
+  expect(result.extraction.requirements).toMatchObject({
+    sourceText: null,
+    sourceLocator: null,
+    rule: null,
+    unmodelledText: [],
+  });
+  expect(
+    sourceFirstPublicationEligible(
+      compactStructureAdapter.project(result.extraction),
+    ),
+  ).toBe(false);
 });

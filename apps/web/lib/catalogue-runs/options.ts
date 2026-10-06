@@ -8,6 +8,29 @@ export function parseCourseRunOptions(value: unknown) {
   const kind = data.kind ?? "course";
   if (!isBulkImportKind(kind))
     throw new TypeError("Choose courses, majors, minors or specialisations.");
+  let codes: string[] | undefined;
+  if (data.codes !== undefined) {
+    if (
+      !Array.isArray(data.codes) ||
+      data.codes.length === 0 ||
+      data.codes.length > 5_000 ||
+      !data.codes.every(
+        (code) =>
+          typeof code === "string" &&
+          code.trim().length <= 80 &&
+          (kind === "course"
+            ? /^[A-Z]{4}[0-9]{4}$/i
+            : /^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*$/i
+          ).test(code.trim()),
+      )
+    )
+      throw new TypeError(
+        "Enter a non-empty list of valid catalogue codes, with at most 5,000 entries.",
+      );
+    codes = [
+      ...new Set(data.codes.map((code: string) => code.trim().toUpperCase())),
+    ];
+  }
   const limit = data.limit ?? 100;
   const allowAi = data.allowAi !== false;
   const budgetUsd = data.budgetUsd ?? (allowAi ? 0.5 : 0);
@@ -43,5 +66,6 @@ export function parseCourseRunOptions(value: unknown) {
     budgetUsd,
     allowAi,
     publishVerified: data.publishVerified === true,
+    codes,
   };
 }

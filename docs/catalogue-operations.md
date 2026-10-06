@@ -108,6 +108,16 @@ revision so a stale browser tab cannot overwrite newer work. Manual edits
 preserve source provenance for untouched paths and replace it for changed
 paths.
 
+Rules that the visual editor cannot represent offer a recorded JSON editor.
+Supported rules also offer **Edit recorded rule**, closed by default. Check the
+exact-year ANU page, edit that rule's groups, conditions, options and optional
+reference index, then choose **Apply corrected rule**. Typing JSON does not
+save. Invalid rows, cross-rule references and a rule changed during editing are
+rejected. **Reset recorded rule** loads its current rows. Applying uses the
+normal draft autosave and preserves other rules and record fields; it does not
+publish or clear existing review flags. Omitting `references` preserves the
+recorded reference index.
+
 Autosave keeps open sections and later typing in place. Record tabs wait for
 saving to finish, and removing a collection's final item is still a saved
 manual change. Editing source wording preserves the existing requirement
@@ -189,3 +199,13 @@ Local development processes syncs after the request using the local database.
 Hosted environments set `COURSEMAP_SYNC_DATABASE_URL` and
 `COURSEMAP_QUEUE_SYNCS_ENABLED=true`; the queue topic is
 `catalogue-sync-v1`. See `apps/web/.env.example`.
+
+## Limit a bulk import to named codes
+
+The import setup's **Only these codes** field accepts comma- or space-separated
+catalogue codes. Blank includes all eligible missing records for the selected
+year and kind. A supplied list narrows both the preview count and creation query
+before the record limit is applied. Codes are normalised and deduplicated;
+invalid or explicitly empty lists are rejected. Existing imported records,
+drafts and active syncs remain excluded. Saved run items retain the selection
+when the run resumes. The code filter does not alter AI or publication choices.

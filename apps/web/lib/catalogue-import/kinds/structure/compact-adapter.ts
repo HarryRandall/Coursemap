@@ -14,7 +14,7 @@ import {
   readStructureSource,
 } from "./source-parser.ts";
 
-export const COMPACT_STRUCTURE_PARSER_VERSION = "anu-structure-source-first.v4";
+export const COMPACT_STRUCTURE_PARSER_VERSION = "anu-structure-source-first.v5";
 export const COMPACT_STRUCTURE_OUTPUT_TOKENS = 4000;
 export const COMPACT_STRUCTURE_MAX_INPUT_BYTES = 40000;
 const schema = {
@@ -158,7 +158,10 @@ export const compactStructureAdapter: CatalogueSyncAdapter<AcademicStructureExtr
         }
       }
       extraction.requirements.sourceText = source.requirementsText;
-      extraction.requirements.sourceLocator = "Requirements";
+      extraction.requirements.sourceLocator = source.requirementsText
+        ? "Requirements"
+        : null;
+      if (!source.requirementsText) extraction.requirements.rule = null;
       extraction.reviewItems = extraction.reviewItems.filter(
         (item, index, items) =>
           items.findIndex(
