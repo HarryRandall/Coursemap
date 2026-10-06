@@ -1,10 +1,8 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { AverageMarkMetric } from "@/ui/dashboard/average-mark-metric";
 import { DegreeProgressHero } from "@/ui/dashboard/degree-progress-hero";
 import { GpaMetric } from "@/ui/dashboard/gpa-metric";
 import { GradesMetric } from "@/ui/dashboard/grades-metric";
-import { KeyDatesMetric } from "@/ui/dashboard/key-dates-metric";
-import type { UniversityCalendarEvent } from "@/lib/coursemap/university-calendar";
 import {
   overviewEnrolledUnits,
   overviewGpa,
@@ -18,15 +16,14 @@ const delay = (ms: number) => ({ "--enter-delay": `${ms}ms` }) as CSSProperties;
 
 /**
  * The dashboard's own cards for an example student, with the university's
- * live key dates. Sits inside an entered ancestor so the cards' entrance
+ * live key dates in the slot beside them. Sits inside an entered ancestor so the cards' entrance
  * animations play.
  */
 export function LandingOverview({
   keyDates,
-  today,
 }: {
-  keyDates: readonly UniversityCalendarEvent[];
-  today: string;
+  /** The live key dates card, streamed in separately. */
+  keyDates: ReactNode;
 }) {
   return (
     <section
@@ -38,7 +35,7 @@ export function LandingOverview({
           <GpaMetric gpa={overviewGpa} points={overviewTerms} />
           <GradesMetric grades={overviewGrades} />
           <AverageMarkMetric points={overviewTerms} />
-          <KeyDatesMetric events={keyDates} todayIso={today} />
+          {keyDates}
         </div>
         <div style={delay(70)}>
           <DegreeProgressHero
