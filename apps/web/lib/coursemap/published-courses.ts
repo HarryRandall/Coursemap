@@ -1256,7 +1256,10 @@ function detailAsCourseDetails(value: Json): CourseDetails | null {
     convener: readString(snapshot.convenerText, "Not listed"),
     corequisiteText: ruleText(value, "corequisite"),
     delivery,
-    description: readString(snapshot.description, "No description is listed."),
+    description:
+      readNullableString(snapshot.description) ??
+      readNullableString(snapshot.introduction) ??
+      "No description is listed.",
     eftsl: readNullableNumber(snapshot.eftsl),
     fees: readFees(value.fees),
     incompatibilityText: ruleText(value, "incompatibility"),
@@ -1690,7 +1693,10 @@ async function loadListRelationships(
           offering?.delivery_mode ??
           snapshot.delivery_summary ??
           "Not listed",
-        description: snapshot.description ?? "No description is listed.",
+        description:
+          readNullableString(snapshot.description) ??
+          readNullableString(snapshot.introduction) ??
+          "No description is listed.",
         eftsl: snapshot.eftsl,
         fees: [],
         incompatibilityText: snapshotRules
