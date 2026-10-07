@@ -59,6 +59,7 @@ import {
   STANDARD_COURSE_SLOTS,
   STANDARD_TERM_UNITS,
   courseIsAvailable,
+  displayCourseForAttempt,
   effectiveStatus,
   missingPrereqs,
   planningCourseForAttempt,
@@ -112,34 +113,6 @@ function saveOpenSessions(termIds: readonly string[]) {
   } catch {
     // Without storage an opened session lasts until the page is left.
   }
-}
-
-/**
- * Stands in for a planned course whose year is no longer published, so the
- * row stays on the board with its code until the student removes it.
- */
-function unpublishedCourse(attempt: Attempt): Course {
-  return {
-    code: attempt.courseCode,
-    name: "No longer published",
-    year: attempt.academicYear ?? 0,
-    units: 0,
-    level: 0,
-    subject: "",
-    school: "",
-    convener: "",
-    sessions: [],
-    delivery: "",
-    description: "",
-    prerequisiteText: "",
-    prerequisiteCodes: [],
-    incompatibilities: [],
-    countsTowards: [],
-    sourceUrl: "",
-    lastChanged: "",
-    parseState: "Review",
-    accent: "amber",
-  };
 }
 
 /** Single muted status mark - the only colour on the board. */
@@ -301,11 +274,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           attempt.termId === termId && attempt.status !== "withdrawn",
       )
       .map((attempt) => {
-        const course =
-          planningCourseForAttempt(attempt, planningCatalogue) ??
-          (attempt.isPublished === false
-            ? unpublishedCourse(attempt)
-            : undefined);
+        const course = displayCourseForAttempt(attempt, planningCatalogue);
         return course
           ? {
               attempt,

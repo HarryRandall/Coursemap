@@ -110,6 +110,40 @@ export function planningCourseForAttempt(
   );
 }
 
+/**
+ * The course to show for an attempt. A planned course that is no longer
+ * published shows as a placeholder carrying its code and no units, so it
+ * stays visible until the student removes it.
+ */
+export function displayCourseForAttempt(
+  attempt: Attempt,
+  catalogue?: PlanningCatalogue,
+): Course | undefined {
+  if (attempt.isPublished !== false)
+    return planningCourseForAttempt(attempt, catalogue);
+  return {
+    code: attempt.courseCode,
+    name: "No longer published",
+    year: attempt.academicYear ?? 0,
+    units: 0,
+    level: 0,
+    subject: "",
+    school: "",
+    convener: "",
+    sessions: [],
+    delivery: "",
+    description: "",
+    prerequisiteText: "",
+    prerequisiteCodes: [],
+    incompatibilities: [],
+    countsTowards: [],
+    sourceUrl: "",
+    lastChanged: "",
+    parseState: "Review",
+    accent: "amber",
+  };
+}
+
 export function unitsForAttempt(
   attempt: Attempt,
   course: Pick<Course, "units"> | undefined,
