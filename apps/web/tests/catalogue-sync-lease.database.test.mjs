@@ -190,8 +190,13 @@ test("a run advance fails a final attempt whose worker stopped", async () => {
   const [event] =
     await sql`select event_kind from public.catalogue_change_events where record_id = ${exhausted.recordId}`;
   assert.equal(event.event_kind, "sync_failed");
-  // A sync with attempts left is requeued and dispatched again instead.
-  assert.equal((await syncRow(retryableSync)).status, "queued");
+  // A sync with attempts left is requeued and dispatched again instead,
+  // under a new generation so its queue idempotency key is new too.
+  const [requeued] =
+    await sql`select status, dispatch_generation, dispatched_at from public.catalogue_syncs where id = ${retryableSync}::uuid`;
+  assert.equal(requeued.status, "queued");
+  assert.equal(requeued.dispatch_generation, 1);
+  assert.notEqual(requeued.dispatched_at, null);
 });
 
 test("cancelling a run stops a running sync whose worker stopped", async () => {
@@ -263,6 +268,7 @@ test("the sweep redispatches a stranded sync but leaves run items to their run",
 
   await sweepCatalogueSyncs({
     queueEnabled: true,
+    advance: async () => null,
     dispatch: async (sync) => {
       dispatched.push(sync);
       return { mode: "queue" };
