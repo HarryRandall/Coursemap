@@ -192,8 +192,11 @@ nothing, and a review with nothing to decide, say nothing at all.
 Each sync records immutable fetched source material, stage artefacts, parser and
 model versions, validation results and model usage. Identical valid extraction
 inputs can reuse the stored response. Queue workers claim one record with a
-lease; expired work is retryable up to five attempts, terminal completion is
-lease-checked, and cancellation prevents unfinished work from completing.
+lease that is renewed at every stage; expired work is retryable up to five
+attempts, persistence and terminal completion are lease-checked in one
+transaction, and cancellation prevents unfinished work from completing. A
+scheduled sweep fails syncs whose final lease expired and re-dispatches queued
+syncs that were never sent; it needs `CRON_SECRET` in hosted environments.
 
 Local development processes syncs after the request using the local database.
 Hosted environments set `COURSEMAP_SYNC_DATABASE_URL` and

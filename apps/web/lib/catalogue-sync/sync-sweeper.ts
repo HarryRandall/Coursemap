@@ -1,0 +1,62 @@
+import {
+  failExhaustedExpiredSyncs,
+  withSyncDatabaseClient,
+  type SyncSql,
+} from "./sync-store.ts";
+import { dispatchCatalogueSync, syncQueueEnabled } from "./sync-queue.ts";
+import { safeErrorSummary } from "./process-sync.ts";
+
+/** A queued sync gets this long to be dispatched by the request that started it. */
+export const UNDISPATCHED_SYNC_GRACE_MINUTES = 5;
+const SWEEP_DISPATCH_LIMIT = 25;
+
+type DispatchSync = typeof dispatchCatalogueSync;
+
+/**
+ * Queued syncs whose queue message was never recorded as sent, outside a
+ * run. Run items wait for their turn undispatched and are advanced by the
+ * run, so they are excluded.
+ */
+async function readUndispatchedSyncs(sql: SyncSql) {
+  const rows = await sql`select syncs.id, syncs.dispatch_generation
+    from public.catalogue_syncs as syncs
+    where syncs.status = 'queued' and syncs.dispatched_at is null
+      and syncs.updated_at < now() - make_interval(mins => ${UNDISPATCHED_SYNC_GRACE_MINUTES})
+      and not exists (select 1 from public.catalogue_course_run_items as items where items.sync_id = syncs.id)
+    order by syncs.updated_at limit ${SWEEP_DISPATCH_LIMIT}`;
+  return rows.map((row) => ({
+    syncId: String(row.id),
+    generation: Number(row.dispatch_generation),
+  }));
+}
+
+/**
+ * Repairs syncs that nothing else will finish: running syncs whose final
+ * lease expired are failed, and queued syncs whose dispatch never completed
+ * are sent again under the same idempotency key, so a message that did reach
+ * the queue is not delivered twice.
+ */
+export async function sweepCatalogueSyncs({
+  dispatch = dispatchCatalogueSync,
+  queueEnabled = syncQueueEnabled(),
+}: { dispatch?: DispatchSync; queueEnabled?: boolean } = {}) {
+  const { expired, undispatched } = await withSyncDatabaseClient(
+    async (sql) => ({
+      expired: await failExhaustedExpiredSyncs(sql, "all"),
+      // Inline syncs are processed by the request that started them.
+      undispatched: queueEnabled ? await readUndispatchedSyncs(sql) : [],
+    }),
+  );
+  let redispatched = 0;
+  const errors: string[] = [];
+  for (const sync of undispatched) {
+    try {
+      const result = await dispatch(sync);
+      if (result.mode === "queue") redispatched += 1;
+    } catch (error) {
+      // dispatchCatalogueSync has already recorded the failure on the sync.
+      errors.push(safeErrorSummary(error));
+    }
+  }
+  return { failedExpired: expired.length, redispatched, errors };
+}
