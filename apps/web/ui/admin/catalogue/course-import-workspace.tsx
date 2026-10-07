@@ -144,6 +144,10 @@ export function CourseImportWorkspace({
   const [estimateAttempt, setEstimateAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Shared by every run of the polling effect, so a restarted effect cannot
+  // start an advance while an earlier one is still on its way.
+  const advancing = useRef(false);
+
   useEffect(() => {
     if (!viewRunId) return;
     let stopped = false;
@@ -158,9 +162,18 @@ export function CourseImportWorkspace({
         if (stopped) return;
         setRuns(data.runs);
         const running = (data.runs as Run[]).find((run) => run.id === active);
-        if (running?.state === "active" && running.finished < running.total)
-          await action({ action: "advance", runId: active });
-        else if (active) setActive(null);
+        if (running?.state === "active" && running.finished < running.total) {
+          // The advance is not aborted with the effect: the server finishes
+          // it either way, and the guard has to cover it until it does.
+          if (!advancing.current) {
+            advancing.current = true;
+            try {
+              await action({ action: "advance", runId: active });
+            } finally {
+              advancing.current = false;
+            }
+          }
+        } else if (active) setActive(null);
       } catch (cause) {
         if (!stopped) {
           setError(

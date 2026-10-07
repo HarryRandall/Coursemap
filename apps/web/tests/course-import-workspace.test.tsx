@@ -873,3 +873,66 @@ it("scopes an import to the courses a chosen degree names", async () => {
     limit: 2,
   });
 });
+
+it("never starts a second advance while one is still on its way", async () => {
+  const run = {
+    id: "unfinished",
+    created_at: "2026-10-03T02:00:00Z",
+    state: "active",
+    pause_reason: null,
+    total: 2,
+    finished: 1,
+    imported: 1,
+    published: 0,
+    drafts: 1,
+    review: 0,
+    failed: 0,
+    spent_usd: "0.0012",
+    reserved_usd: "0",
+    budget_usd: "0.5",
+    publish_verified: false,
+    publication_blockers: [],
+    paid_courses: 1,
+    free_courses: 0,
+  };
+  let summaries = 0;
+  const advances: RequestInit[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, options?: RequestInit) => {
+      if (options) {
+        advances.push(options);
+        // The server is still choosing and dispatching the next course.
+        return new Promise<Response>(() => {});
+      }
+      if (url.includes("summary=")) summaries += 1;
+      return Promise.resolve(
+        Response.json(
+          url.includes("runId=")
+            ? { items: [], total: 0, page: 1, pageSize: 25 }
+            : { runs: [run] },
+        ),
+      );
+    }),
+  );
+  const user = userEvent.setup();
+  const { rerender } = render(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2026} initialRun={run} />
+    </TooltipProvider>,
+  );
+  await user.click(
+    await screen.findByRole("button", { name: "Continue import" }),
+  );
+  await waitFor(() => expect(advances).toHaveLength(1));
+  // A changed dependency restarts the polling effect with its own first poll.
+  const polled = summaries;
+  rerender(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2027} initialRun={run} />
+    </TooltipProvider>,
+  );
+  await waitFor(() => expect(summaries).toBeGreaterThan(polled));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(advances).toHaveLength(1);
+});
