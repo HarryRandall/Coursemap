@@ -2,9 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronsUpDown, Cpu, Plus, Settings2 } from "lucide-react";
+import {
+  ChevronsUpDown,
+  CircleAlert,
+  Cpu,
+  Plus,
+  Settings2,
+} from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
-import { Card } from "@coursemap/ui/primitives/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,16 +23,15 @@ import { cn } from "@/lib/cn";
 import { ImportModelLogo } from "./import-model-logo";
 import { ImportModelPrice } from "./import-model-price";
 import { ImportModelManager } from "./import-model-manager";
+import { Hint } from "@/ui/common/hint";
 import { showToast } from "@/ui/common/toast";
+import { formatCanberraDate } from "@/lib/canberra-format";
 
-const dateFormatter = new Intl.DateTimeFormat("en-AU", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-  timeZone: "Australia/Sydney",
-});
-
-export function ImportModelCard({
+/**
+ * The default model for catalogue syncs, as a compact picker that sits in the
+ * header of the sync panel it governs rather than as a card of its own.
+ */
+export function ImportModelPicker({
   canManage,
   model,
   models,
@@ -60,66 +64,58 @@ export function ImportModelCard({
       }
     });
   }
+  const hint = error
+    ? error
+    : !canManage
+      ? "Import management permission is required to change this."
+      : `Default model for catalogue syncs${
+          updatedAt ? `, updated ${formatCanberraDate(updatedAt)}` : ""
+        }`;
   return (
-    // A card, like the tiles it sits beside: the overview is one grid of
-    // cards, and this was the only thing on it drawn as loose page furniture.
-    <Card
-      aria-label="Import settings"
-      className="h-full min-w-0 items-start gap-3 px-3.5 py-3 sm:col-span-2"
-      role="region"
-    >
-      <div className="flex w-full items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h2 className="text-[11px] font-medium text-muted-foreground">
-            Default import model
-          </h2>
-          {updatedAt ? (
-            <p className="text-xs text-muted-foreground">
-              Updated {dateFormatter.format(new Date(updatedAt))}
-            </p>
-          ) : null}
-        </div>
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary"
-        >
-          <Cpu className="size-4" />
-        </span>
-      </div>
+    <div className="flex min-w-0 items-center">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            ref={triggerRef}
-            variant="outline"
-            className="h-auto min-h-12 w-full justify-between gap-3 py-2 sm:w-80"
-            disabled={!canManage || pending || Boolean(error)}
-            aria-label="Import model"
-          >
-            <span
-              className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold"
-              aria-hidden="true"
-            >
-              {selected ? (
-                <ImportModelLogo model={selected.id} className="size-6" />
-              ) : (
-                <Cpu className="size-4" />
-              )}
-            </span>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate">
-                {selected?.name ?? "Add an import model"}
-              </span>
-              {selected ? (
-                <span className="block text-xs font-normal text-muted-foreground">
-                  {selected.provider}
+        <Hint label={hint} side="bottom" align="end">
+          {/* Disabled buttons fire no pointer events, so the hint sits on a
+              wrapper that still does. */}
+          <span className="inline-flex min-w-0">
+            <DropdownMenuTrigger asChild>
+              <Button
+                ref={triggerRef}
+                variant="outline"
+                size="sm"
+                className="h-8 max-w-full min-w-0 gap-2 pr-2 pl-1.5"
+                disabled={!canManage || pending || Boolean(error)}
+                aria-label="Import model"
+              >
+                <span
+                  className="grid size-5 shrink-0 place-items-center overflow-hidden rounded-sm bg-muted"
+                  aria-hidden="true"
+                >
+                  {error ? (
+                    <CircleAlert className="size-3.5 text-destructive" />
+                  ) : selected ? (
+                    <ImportModelLogo model={selected.id} className="size-4" />
+                  ) : (
+                    <Cpu className="size-3.5" />
+                  )}
                 </span>
-              ) : null}
-            </span>
-            {selected ? <ImportModelPrice model={selected} /> : null}
-            <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="flex max-w-[calc(100vw-2rem)] min-w-72 flex-col overflow-hidden">
+                <span className="min-w-0 truncate text-xs font-medium">
+                  {error
+                    ? "Models unavailable"
+                    : (selected?.name ?? "Add an import model")}
+                </span>
+                {selected && !error ? (
+                  <ImportModelPrice model={selected} />
+                ) : null}
+                <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+          </span>
+        </Hint>
+        <DropdownMenuContent
+          align="end"
+          className="flex max-w-[calc(100vw-2rem)] min-w-72 flex-col overflow-hidden"
+        >
           <div className="max-h-63 min-h-0 overflow-y-auto overscroll-contain">
             {models
               .filter((entry) => entry.visible)
@@ -173,16 +169,6 @@ export function ImportModelCard({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {error ? (
-        <p role="alert" className="w-full text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
-      {!canManage ? (
-        <p className="w-full text-xs text-muted-foreground">
-          Import management permission is required to change this.
-        </p>
-      ) : null}
       {canManage ? (
         <ImportModelManager
           open={managerOpen}
@@ -192,6 +178,6 @@ export function ImportModelCard({
           selected={model}
         />
       ) : null}
-    </Card>
+    </div>
   );
 }

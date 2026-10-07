@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
-import { ImportModelCard } from "../ui/admin/imports/import-model-card";
+import { ImportModelPicker } from "../ui/admin/imports/import-model-picker";
 const actions = vi.hoisted(() => ({
   setImportModel: vi.fn(),
   saveImportModel: vi.fn(),
@@ -40,7 +40,7 @@ beforeEach(() => vi.resetAllMocks());
 function setup(canManage = true) {
   render(
     <TooltipProvider>
-      <ImportModelCard
+      <ImportModelPicker
         canManage={canManage}
         model="google/test"
         models={models}
@@ -128,7 +128,7 @@ test("hidden models can be shown again and are absent from the selector", async 
   });
   render(
     <TooltipProvider>
-      <ImportModelCard
+      <ImportModelPicker
         canManage
         model="google/test"
         models={models.map((model) => ({
