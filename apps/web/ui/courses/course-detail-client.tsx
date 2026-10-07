@@ -1,4 +1,5 @@
 "use client";
+import { usePublishedSurvey } from "@/lib/course-surveys/use-published-survey";
 import { Tabs } from "@coursemap/ui/primitives/tabs";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -30,6 +31,7 @@ export function CourseDetailClient({
     isAuthenticated: boolean;
   };
 }) {
+  const surveyReport = usePublishedSurvey(course.code);
   const { state } = useCoursemap();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,15 +62,22 @@ export function CourseDetailClient({
 
   return (
     <Tabs
-      value={activeTab}
+      value={
+        activeTab === "student-review" && !surveyReport ? "overview" : activeTab
+      }
       onValueChange={(value) => selectTab(value as CourseTab)}
       className="gap-0"
     >
-      <AppShell tabs={<CourseDetailTabsList />}>
+      <AppShell
+        tabs={
+          <CourseDetailTabsList showStudentReview={Boolean(surveyReport)} />
+        }
+      >
         <CourseDetailView
           attempts={state.attempts}
           commencementYear={state.profile.commencementYear}
           course={course}
+          surveyReport={surveyReport}
           onAddToPlan={() => setPlanOpen(true)}
           requisiteCompletion={requisiteCompletion}
           yearPicker={

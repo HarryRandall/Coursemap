@@ -14,7 +14,7 @@ python3 -m venv ~/.venvs/coursemap-selt
 ~/.venvs/coursemap-selt/bin/python -m pip install -r apps/web/scripts/selt/requirements.txt
 ```
 
-Apply migration `039_selt_imports.sql` through the normal reviewed database rollout.
+Apply migrations `039_selt_imports.sql` and `040_selt_published_reads.sql` through the normal reviewed database rollout.
 The upload routes use the existing server-only `COURSEMAP_SYNC_DATABASE_URL`.
 The local CLI needs neither a database password nor a Supabase service key.
 
@@ -66,8 +66,11 @@ bump its version and re-extract the retained PDFs before attempting publication.
 Publication also requires `courses.write` and selects one report per stable course.
 
 This delivery stores reviewed reports and survey metrics in dedicated relational
-SELT tables. They remain admin-only, including after publication; wiring them into
-the student course review interface is a separate presentation change. The catalogue
+SELT tables. Drafts remain admin-only. Signed-in users can view the published report in the
+course Student review tab. Courses without published reports do not show that tab. The table includes all periods; charts include only periods
+with complete counts and theme values. Missing and suppressed values remain
+unavailable. Approximate intervals use rounded percentages and total respondents,
+which can differ from question-level counts. The catalogue
 and student plans are not rewritten by a SELT import. Raw PDFs remain local.
 
 The current parser supports semester time-series reports with the five standard
