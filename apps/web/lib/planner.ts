@@ -141,14 +141,6 @@ export function termIndex(termId: string, catalogue?: PlanningCatalogue) {
   return orderOf(termId, catalogue);
 }
 
-export function completedCodes(attempts: Attempt[]) {
-  return new Set(
-    attempts
-      .filter((attempt) => attempt.status === "completed")
-      .map((attempt) => attempt.courseCode),
-  );
-}
-
 export function isActiveAttempt(attempt: Attempt) {
   return attempt.status !== "failed" && attempt.status !== "withdrawn";
 }

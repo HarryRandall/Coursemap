@@ -367,52 +367,6 @@ export function isValidIndoorPolygonPoints(
   return polygonArea(points) > 0 && !hasSelfIntersection(points);
 }
 
-export function isIndoorSpaceGeometry(
-  value: unknown,
-): value is IndoorSpaceGeometry {
-  if (!isPlainRecord(value) || typeof value.type !== "string") return false;
-
-  if (value.type === "rectangle") {
-    return (
-      hasExactKeys(value, [
-        "type",
-        "x",
-        "y",
-        "width",
-        "height",
-        "cornerRadius",
-      ]) &&
-      isFiniteNumber(value.x) &&
-      isFiniteNumber(value.y) &&
-      isFiniteNumber(value.width) &&
-      value.width > 0 &&
-      isFiniteNumber(value.height) &&
-      value.height > 0 &&
-      isFiniteNumber(value.cornerRadius) &&
-      value.cornerRadius >= 0 &&
-      value.cornerRadius <= Math.min(value.width, value.height) / 2
-    );
-  }
-
-  if (value.type === "ellipse") {
-    return (
-      hasExactKeys(value, ["type", "cx", "cy", "rx", "ry"]) &&
-      isFiniteNumber(value.cx) &&
-      isFiniteNumber(value.cy) &&
-      isFiniteNumber(value.rx) &&
-      value.rx > 0 &&
-      isFiniteNumber(value.ry) &&
-      value.ry > 0
-    );
-  }
-
-  return (
-    value.type === "polygon" &&
-    hasExactKeys(value, ["type", "points"]) &&
-    isValidIndoorPolygonPoints(value.points)
-  );
-}
-
 export function isIndoorPointWithinViewBox(
   point: IndoorPoint,
   viewBox: CampusIndoorViewBox,
@@ -1253,8 +1207,6 @@ export function createEmptyCampusIndoorDocument(
     routeEdges: [],
   };
 }
-
-export const EMPTY_CAMPUS_INDOOR_DOCUMENT = createEmptyCampusIndoorDocument();
 
 export function parseCampusIndoorDocument(
   value: unknown,

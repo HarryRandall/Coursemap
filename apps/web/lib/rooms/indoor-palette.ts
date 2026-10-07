@@ -92,8 +92,6 @@ export const INDOOR_SPACE_FILL_KEYS = [
   "ramp",
 ] as const;
 
-export type IndoorSpaceFillKey = (typeof INDOOR_SPACE_FILL_KEYS)[number];
-
 /** The light palette the public map has always used. */
 export const DEFAULT_INDOOR_PALETTE: IndoorPalette = {
   background: "#f4f4f5",

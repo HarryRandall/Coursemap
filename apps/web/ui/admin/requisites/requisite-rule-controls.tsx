@@ -112,16 +112,6 @@ export function RemoveButton({
   );
 }
 
-export function operatorChipClass(operator: ReviewedOperator) {
-  if (operator === "any_of") {
-    return "border-sky-200 dark:border-sky-900 bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 hover:border-sky-300 hover:bg-sky-100 dark:hover:bg-sky-950/60";
-  }
-  if (operator === "at_least") {
-    return "border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 hover:border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/60";
-  }
-  return "border-primary/25 bg-primary/10 text-primary hover:border-primary/40 hover:bg-primary/15";
-}
-
 export function ConditionIcon({
   className,
   kind,
@@ -312,38 +302,6 @@ export function GroupOperatorMenu({
             </DropdownMenuItem>
           </>
         ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-/**
- * After the first condition, Add asks how the next item should join.
- */
-export function AddJoinMenu({
-  align = "start",
-  canNest,
-  children,
-  onAnd,
-  onNewSection,
-  onOr,
-}: {
-  align?: "start" | "center" | "end";
-  canNest: boolean;
-  children: ReactNode;
-  onAnd: () => void;
-  onNewSection: () => void;
-  onOr: () => void;
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-52 p-1.5">
-        <DropdownMenuItem onSelect={onAnd}>And</DropdownMenuItem>
-        <DropdownMenuItem onSelect={onOr}>Or</DropdownMenuItem>
-        <DropdownMenuItem disabled={!canNest} onSelect={onNewSection}>
-          New section
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -6,7 +6,6 @@ import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
   PUBLISHED_COURSE_DETAIL_TAG,
   PUBLISHED_COURSE_PAGE_TAG,
-  PUBLISHED_COURSE_YEARS_TAG,
   publishedCourseTag,
   publishedCourseYearTag,
 } from "./published-cache";
@@ -128,11 +127,6 @@ export type PublishedCoursePage = {
   page: number;
   pageSize: number;
   total: number;
-};
-
-export type AcademicYearOption = {
-  hasPublishedCourses: boolean;
-  year: number;
 };
 
 type DirectoryRow = {
@@ -1382,105 +1376,6 @@ async function academicYearRecord(
   return data;
 }
 
-async function loadAcademicYearOptionsUncached(): Promise<
-  AcademicYearOption[]
-> {
-  const supabase = createPublicClient();
-  const { data: years, error } = await supabase
-    .from("academic_years")
-    .select("id,year")
-    .gte("year", 2020)
-    .lte("year", 2030)
-    .order("year", { ascending: false });
-  if (error) throw error;
-  return Promise.all(
-    ((years ?? []) as AcademicYearRow[]).map(async (year) => {
-      const { count, error: countError } = await supabase
-        .from("catalogue_records")
-        .select("id", { count: "exact", head: true })
-        .eq("academic_year_id", year.id)
-        .eq("kind", "course")
-        .is("archived_at", null)
-        .not("published_version_id", "is", null);
-      if (countError) throw countError;
-      return { year: year.year, hasPublishedCourses: (count ?? 0) > 0 };
-    }),
-  );
-}
-
-async function loadCourseFilterOptionsUncached(
-  academicYear: number,
-): Promise<CourseFilterOptions> {
-  const empty = { subjects: [], colleges: [], areas: [], tags: [] };
-  const supabase = createPublicClient();
-  const year = await academicYearRecord(supabase, academicYear);
-  if (!year) return empty;
-  const [summaries, areas, tags] = await Promise.all([
-    supabase
-      .from("published_course_summaries")
-      .select("version_id,subject_code,subject_name,college")
-      .eq("academic_year_id", year.id),
-    // Only published versions are readable here, so every row belongs to a
-    // published course of some year; the year's version set narrows them.
-    supabase.from("course_areas_of_interest").select("version_id,name"),
-    supabase.from("course_tags").select("version_id,name"),
-  ]);
-  for (const result of [summaries, areas, tags]) {
-    if (result.error) throw result.error;
-  }
-  const versions = new Set((summaries.data ?? []).map((row) => row.version_id));
-  const distinctNames = (rows: Array<{ version_id: number; name: string }>) => {
-    const byKey = new Map<string, string>();
-    for (const row of rows) {
-      if (!versions.has(row.version_id)) continue;
-      const key = row.name.toLowerCase();
-      if (!byKey.has(key)) byKey.set(key, row.name);
-    }
-    return [...byKey.values()].sort((left, right) => left.localeCompare(right));
-  };
-  const subjects = new Map<string, string | null>();
-  const colleges = new Set<string>();
-  for (const row of summaries.data ?? []) {
-    if (row.subject_code && !subjects.has(row.subject_code)) {
-      subjects.set(row.subject_code, row.subject_name);
-    }
-    if (row.college) colleges.add(row.college);
-  }
-  return {
-    subjects: [...subjects]
-      .map(([code, name]) => ({ code, name }))
-      .sort((left, right) => left.code.localeCompare(right.code)),
-    colleges: [...colleges].sort((left, right) => left.localeCompare(right)),
-    areas: distinctNames(areas.data ?? []),
-    tags: distinctNames(tags.data ?? []),
-  };
-}
-
-/** The values the course explorer can filter a year's courses by. */
-export async function loadCourseFilterOptions(
-  academicYear: number,
-): Promise<CourseFilterOptions> {
-  return unstable_cache(
-    () => loadCourseFilterOptionsUncached(academicYear),
-    ["published-course-filter-options", String(academicYear)],
-    {
-      revalidate: 300,
-      tags: [PUBLISHED_COURSE_PAGE_TAG, publishedCourseYearTag(academicYear)],
-    },
-  )();
-}
-
-export async function loadAcademicYearOptions(): Promise<AcademicYearOption[]> {
-  return unstable_cache(
-    loadAcademicYearOptionsUncached,
-    ["published-academic-year-options"],
-    {
-      revalidate: 300,
-      tags: [PUBLISHED_COURSE_YEARS_TAG],
-    },
-  )();
-}
-
 function firstFilterValue(value?: string) {
   return value?.trim().slice(0, 120) ?? "";
 }
@@ -1966,47 +1861,6 @@ export async function loadPublishedCoursesBySelections(
     ),
   );
   return courses.filter((course): course is CourseDetails => course !== null);
-}
-
-export async function loadPublishedCourseFilterOptions(academicYear: number) {
-  const supabase = createPublicClient();
-  const year = await academicYearRecord(supabase, academicYear);
-  if (!year) return { subjects: [], levels: [], sessions: [] };
-  const [snapshotsResult, sessionsResult] = await Promise.all([
-    supabase
-      .from("published_course_summaries")
-      .select("subject_code,level")
-      .eq("academic_year_id", year.id),
-    supabase
-      .from("offering_sessions")
-      .select("academic_period_name")
-      .eq("academic_year_id", year.id),
-  ]);
-  if (snapshotsResult.error) throw snapshotsResult.error;
-  if (sessionsResult.error) throw sessionsResult.error;
-  return {
-    subjects: [
-      ...new Set(
-        (snapshotsResult.data ?? []).flatMap((item) =>
-          item.subject_code ? [item.subject_code] : [],
-        ),
-      ),
-    ].sort(),
-    levels: [
-      ...new Set(
-        (snapshotsResult.data ?? []).flatMap((item) =>
-          item.level === null ? [] : [item.level / 1000],
-        ),
-      ),
-    ].sort(),
-    sessions: [
-      ...new Set(
-        (sessionsResult.data ?? []).flatMap((item) =>
-          item.academic_period_name ? [item.academic_period_name] : [],
-        ),
-      ),
-    ].sort(),
-  };
 }
 
 export async function loadPublishedCourses(academicYear: number) {

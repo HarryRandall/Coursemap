@@ -4,10 +4,7 @@ import {
   catalogueReviewUnitMap,
   catalogueReviewUnits,
 } from "../catalogue/review-units.ts";
-import type {
-  CatalogueContent,
-  CatalogueContentFlag,
-} from "../catalogue/content.ts";
+import type { CatalogueContent } from "../catalogue/content.ts";
 
 export type SnapshotChange = {
   fieldPath: string;
@@ -82,9 +79,4 @@ export function diffSnapshotWrites(
     });
   }
   return changes;
-}
-
-/** Errors block publication; warnings inform. */
-export function isBlockingFlag(flag: CatalogueContentFlag) {
-  return flag.severity === "error";
 }

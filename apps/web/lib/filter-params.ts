@@ -24,12 +24,3 @@ export function encodeNegatableValue(value: string, negated: boolean) {
   if (!value) return "";
   return negated ? `!${value}` : value;
 }
-
-/** Reads a search parameter that may be absent, repeated, or negated. */
-export function negatableParam(
-  value: string | string[] | undefined,
-  fallback: string,
-): NegatableValue {
-  const raw = (Array.isArray(value) ? value[0] : value) ?? fallback;
-  return parseNegatableValue(raw);
-}

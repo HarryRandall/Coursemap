@@ -1230,7 +1230,3 @@ export function projectCourseSnapshot(
   };
   return { ...data, projectionSha256: projectionHash(data) };
 }
-
-// Kept as the worker-facing name because the projection is assembled before
-// any database identifiers are resolved.
-export const buildCourseSnapshotProjection = projectCourseSnapshot;

@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Badge } from "@coursemap/ui/components/badge";
 import { TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
@@ -57,19 +56,6 @@ export function SectionTabs({
           </TabsTrigger>
         ))}
       </TabsList>
-    </div>
-  );
-}
-
-/**
- * A tab bar for sections inside a panel rather than for the page itself, such
- * as the course preview nested in an import review. It carries its own rule
- * because it is not rendered by the shell.
- */
-export function PanelTabs({ children }: { children: ReactNode }) {
-  return (
-    <div className="overflow-x-auto overflow-y-hidden border-b border-border">
-      <div className="min-w-max">{children}</div>
     </div>
   );
 }

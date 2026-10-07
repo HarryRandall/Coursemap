@@ -1,7 +1,6 @@
 import type { Attempt, Profile } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
-  PlanRequirementCondition,
   PlanRequirementNode,
 } from "@/lib/coursemap/plan-catalogue";
 
@@ -27,20 +26,6 @@ export function requirementCourseStatus(
     return "enrolled";
   if (matches.some((attempt) => attempt.status === "planned")) return "planned";
   return null;
-}
-
-export function requirementCourseHeading(condition: PlanRequirementCondition) {
-  const count = condition.options.filter(
-    (option) => option.kind === "course",
-  ).length;
-  if (condition.minimumCourses !== null && condition.minimumCourses >= count) {
-    return count === 1 ? "Compulsory course" : "Compulsory courses";
-  }
-  if (condition.minimumCourses !== null)
-    return `Choose ${condition.minimumCourses} ${condition.minimumCourses === 1 ? "course" : "courses"}`;
-  if (condition.minimumUnits !== null)
-    return `Choose ${condition.minimumUnits} units`;
-  return "Course options";
 }
 
 /**

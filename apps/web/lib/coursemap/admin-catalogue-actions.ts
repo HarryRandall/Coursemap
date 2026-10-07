@@ -28,9 +28,6 @@ type PublishedRecord = {
   code: string;
 };
 
-export type ActionResult =
-  { ok: true; message?: string } | { ok: false; error: string };
-
 export type DraftActionResult =
   | { ok: true; message?: string; revision?: number; unchanged?: boolean }
   | {
