@@ -17,6 +17,7 @@ import {
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
+import { groupOperator } from "@/lib/coursemap/requisite-evaluation";
 
 export type PlanningCatalogue = {
   courses: readonly Course[];
@@ -182,7 +183,8 @@ function evaluateRelationalPrerequisite(
     const children = expression.conditions.map((condition) =>
       evaluateRelationalPrerequisite(condition, attempt, attempts, catalogue),
     );
-    if (expression.operator === "all_of") {
+    const operator = groupOperator(expression);
+    if (operator === "all_of") {
       const unsatisfied = children.filter(
         (child) => child.state === "unsatisfied",
       );
@@ -208,7 +210,7 @@ function evaluateRelationalPrerequisite(
     }
 
     const required =
-      expression.operator === "any_of"
+      operator === "any_of"
         ? 1
         : Math.max(1, expression.minimumCount ?? Number.POSITIVE_INFINITY);
     const satisfied = children.filter(

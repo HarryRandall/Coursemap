@@ -879,3 +879,32 @@ test("cohort approval can waive one course without waiving the cohort or other c
     );
   }
 });
+
+test("an exclusion listed as either course blocks a plan holding either course", () => {
+  const exclusion = (code) => ({
+    kind: "incompatible",
+    code,
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Incompatible with COMP1100 or MATH1005.",
+  });
+  const catalogue = catalogueWithExclusion({
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [exclusion("COMP1100"), exclusion("MATH1005")],
+  });
+  const target = attempt("target", "COMP1110", "2026-s2");
+  assert.equal(effectiveStatus(target, [target], catalogue), "planned");
+  for (const code of ["COMP1100", "MATH1005"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", code, "2026-s1", "completed"), target],
+        catalogue,
+      ),
+      "blocked",
+    );
+  }
+});
