@@ -4,7 +4,7 @@ import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
 import { startCatalogueSync } from "@/lib/catalogue-sync/sync-service";
-import { publicErrorMessage } from "@/lib/public-errors";
+import { publicErrorMessage, UserFacingError } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -47,12 +47,10 @@ export async function POST(request: Request) {
     }
     return json(result);
   } catch (error) {
+    // Refusals from startCatalogueSync are UserFacingErrors and keep their copy.
     return json(
-      {
-        error:
-          error instanceof Error ? error.message : "The sync could not start.",
-      },
-      400,
+      { error: publicErrorMessage(error, "The sync could not start.") },
+      error instanceof UserFacingError ? 400 : 500,
     );
   }
 }
@@ -84,8 +82,10 @@ export async function DELETE(request: Request) {
     return json(
       {
         error: publicErrorMessage(error, "The sync could not be stopped.", {
-          "28000": "Authentication is required.",
-          "42501": "Catalogue sync permission is required.",
+          messages: {
+            "28000": "Authentication is required.",
+            "42501": "Catalogue sync permission is required.",
+          },
         }),
       },
       400,

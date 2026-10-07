@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
   administrator: vi.fn(),
   readRuns: vi.fn(),
+  previewRun: vi.fn(),
+  dispatch: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -12,21 +14,41 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/auth/viewer", () => ({
   canManageCatalogueOperations: async () => true,
+  getAuthViewer: async () => ({ id: "admin", email: null }),
+}));
+vi.mock("@/lib/admin/settings", () => ({
+  loadImportModelSetting: async () => ({ model: "test/model" }),
+}));
+vi.mock("@/lib/catalogue-sync/process-sync", () => ({
+  safeErrorSummary: (error: Error) => error.message,
+  syncAdapterForKind: () => ({
+    parserVersion: "p",
+    promptVersion: "p",
+    schemaVersion: "s",
+  }),
 }));
 vi.mock("@/lib/catalogue-runs/service", () => ({
   requireCourseRunAdministrator: mocks.administrator,
   parseCourseRunOptions: ({ year }: { year: number }) => ({ year }),
   readCourseRuns: mocks.readRuns,
+  previewCourseRun: mocks.previewRun,
 }));
 vi.mock("@/lib/catalogue-sync/sync-queue", () => ({
   syncQueueEnabled: () => true,
-  dispatchCatalogueSync: vi.fn(),
+  dispatchCatalogueSync: mocks.dispatch,
   processCatalogueSyncInline: vi.fn(),
 }));
 
 import { POST as recoverProvider } from "@/app/api/admin/catalogue-provider/route";
-import { DELETE as stopSync } from "@/app/api/admin/catalogue-syncs/route";
-import { GET as readImportRuns } from "@/app/api/admin/course-import-runs/route";
+import {
+  DELETE as stopSync,
+  POST as startSync,
+} from "@/app/api/admin/catalogue-syncs/route";
+import {
+  GET as readImportRuns,
+  POST as importRunAction,
+} from "@/app/api/admin/course-import-runs/route";
+import { UserFacingError } from "@/lib/public-errors";
 import { removePlanCourse, setCourseStar } from "@/lib/coursemap/actions";
 
 const PRIVATE = 'relation "private.user_roles" does not exist';
@@ -148,4 +170,55 @@ test("permission errors never pass their database text through", async () => {
   expect((await setCourseStar("COMP1100", true)).message).toBe(
     "Couldn't save that change. Try again.",
   );
+});
+
+test("import run actions keep service copy and hide database failures", async () => {
+  mocks.previewRun.mockRejectedValue(
+    new UserFacingError("Choose an enabled import model first."),
+  );
+  const refused = await importRunAction(
+    mutation("POST", { action: "preview" }),
+  );
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toEqual({
+    error: "Choose an enabled import model first.",
+  });
+
+  mocks.previewRun.mockRejectedValue(
+    Object.assign(new Error(PRIVATE), { code: "42P01" }),
+  );
+  const failed = await importRunAction(mutation("POST", { action: "preview" }));
+  expect(failed.status).toBe(500);
+  expect(await failed.json()).toEqual({ error: "The import action failed." });
+});
+
+test("starting a sync keeps its refusals and hides database failures", async () => {
+  const start = () =>
+    startSync(mutation("POST", { recordId: 1, kind: "course" }));
+
+  mocks.rpc.mockResolvedValue({
+    data: null,
+    error: {
+      code: "55000",
+      message: "This record already has an unfinished ANU sync.",
+    },
+  });
+  const refused = await start();
+  expect(refused.status).toBe(400);
+  expect(await refused.json()).toEqual({
+    error: "This record already has an unfinished ANU sync.",
+  });
+
+  mocks.rpc.mockResolvedValue({
+    data: null,
+    error: { code: "42P01", message: PRIVATE },
+  });
+  const hidden = await start();
+  expect(JSON.stringify(await hidden.json())).not.toContain(PRIVATE);
+
+  mocks.rpc.mockResolvedValue({ data: "sync-id", error: null });
+  mocks.dispatch.mockRejectedValue(new Error(PRIVATE));
+  const failed = await start();
+  expect(failed.status).toBe(500);
+  expect(JSON.stringify(await failed.json())).not.toContain(PRIVATE);
 });

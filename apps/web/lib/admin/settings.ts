@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
 import type { ImportModel } from "@/lib/admin/import-model";
 
@@ -36,7 +37,7 @@ export async function loadImportModelSetting(): Promise<ImportModelSetting> {
         .maybeSingle(),
     ]);
     if (catalogue.error || setting.error)
-      throw new Error("The import models could not be loaded.");
+      throw new UserFacingError("The import models could not be loaded.");
     const models = catalogue.data ?? [];
     const options = models
       .filter((model) => model.visible)

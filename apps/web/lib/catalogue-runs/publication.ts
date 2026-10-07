@@ -1,3 +1,4 @@
+import { UserFacingError } from "../public-errors.ts";
 import { revalidateTag } from "next/cache";
 import { publishedRecordTags } from "../coursemap/published-cache.ts";
 import type { SyncSql } from "../catalogue-sync/sync-store.ts";
@@ -27,7 +28,7 @@ export async function setCourseRunAutoPublish(
       returning id
     `;
     if (!rows.length)
-      throw new Error(
+      throw new UserFacingError(
         "Only the import's initiator with catalogue publication permission can change auto-publish.",
       );
   });
@@ -70,7 +71,9 @@ export async function publishSavedCourseRunDrafts(
     const [permission] =
       await tx`select private.has_permission('imports.manage') and private.has_permission(case when kind = 'course' then 'courses.write' else 'catalogue.write' end) as allowed from public.catalogue_course_runs where id = ${runId}::uuid`;
     if (!permission?.allowed)
-      throw new Error("Catalogue publication permission is required.");
+      throw new UserFacingError(
+        "Catalogue publication permission is required.",
+      );
   });
   const rows = await sql`
     select items.record_id, drafts.revision, drafts.content

@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { isSameOriginRequest } from "@/lib/auth/request-origin";
-import { publicErrorMessage } from "@/lib/public-errors";
+import { publicErrorMessage, UserFacingError } from "@/lib/public-errors";
 import {
   advanceCourseRun,
   cancelCourseRun,
@@ -107,8 +107,9 @@ export async function GET(request: Request) {
       runs: await readCourseRuns(options.year, { runId: summary ?? undefined }),
     });
   } catch (error) {
-    // Request validation throws TypeError with copy written for the page.
-    if (error instanceof TypeError)
+    // Request validation throws TypeError and the run service throws
+    // UserFacingError, both with copy written for the page.
+    if (error instanceof TypeError || error instanceof UserFacingError)
       return Response.json({ error: error.message }, { status: 400 });
     return Response.json(
       { error: publicErrorMessage(error, "Import runs could not be loaded.") },
@@ -180,12 +181,13 @@ export async function POST(request: Request) {
     }
     throw new TypeError("Choose a supported import action.");
   } catch (error) {
+    // Request validation throws TypeError and the run service throws
+    // UserFacingError, both with copy written for the page.
+    if (error instanceof TypeError || error instanceof UserFacingError)
+      return Response.json({ error: error.message }, { status: 400 });
     return Response.json(
-      {
-        error:
-          error instanceof Error ? error.message : "The import action failed.",
-      },
-      { status: 400 },
+      { error: publicErrorMessage(error, "The import action failed.") },
+      { status: 500 },
     );
   }
 }

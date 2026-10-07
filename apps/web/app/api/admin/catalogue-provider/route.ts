@@ -52,11 +52,13 @@ export async function POST(request: Request) {
     return Response.json(
       {
         error: publicErrorMessage(error, "The imports could not be resumed.", {
-          "28000": "Authentication is required.",
-          "42501": "Catalogue sync permission is required.",
-          "40001": "The provider state changed. Refresh before resuming.",
-          "55000":
-            "The provider state changed. Refresh to see what still needs recovering.",
+          messages: {
+            "28000": "Authentication is required.",
+            "42501": "Catalogue sync permission is required.",
+            "40001": "The provider state changed. Refresh before resuming.",
+            "55000":
+              "The provider state changed. Refresh to see what still needs recovering.",
+          },
         }),
       },
       { status: 400 },
