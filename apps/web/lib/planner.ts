@@ -116,7 +116,10 @@ export function planningCourseForAttempt(
   );
 }
 
-export function unitsForAttempt(attempt: Attempt, course: Course | undefined) {
+export function unitsForAttempt(
+  attempt: Attempt,
+  course: Pick<Course, "units"> | undefined,
+) {
   if (
     attempt.status === "completed" &&
     attempt.unitsEarned !== undefined &&
@@ -600,33 +603,48 @@ export function statusLabel(status: EffectiveStatus) {
   }[status];
 }
 
-export function earnedUnits(
-  attempts: Attempt[],
-  catalogue?: PlanningCatalogue,
-) {
+type AttemptUnits = (attempt: Attempt) => number;
+
+function catalogueUnits(catalogue?: PlanningCatalogue): AttemptUnits {
+  return (attempt) =>
+    unitsForAttempt(attempt, planningCourseForAttempt(attempt, catalogue));
+}
+
+function earnedUnitsBy(attempts: readonly Attempt[], unitsOf: AttemptUnits) {
   const completed = new Map(
     attempts
       .filter((attempt) => attempt.status === "completed")
       .map((attempt) => [attempt.courseCode, attempt]),
   );
-  return [...completed.values()].reduce((total, attempt) => {
-    const course = planningCourseForAttempt(attempt, catalogue);
-    return total + unitsForAttempt(attempt, course);
-  }, 0);
+  return [...completed.values()].reduce(
+    (total, attempt) => total + unitsOf(attempt),
+    0,
+  );
+}
+
+function mappedUnitsBy(attempts: readonly Attempt[], unitsOf: AttemptUnits) {
+  const latest = new Map<string, Attempt>();
+  attempts
+    .filter(isActiveAttempt)
+    .forEach((attempt) => latest.set(attempt.courseCode, attempt));
+  return [...latest.values()].reduce(
+    (total, attempt) => total + unitsOf(attempt),
+    0,
+  );
+}
+
+export function earnedUnits(
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+) {
+  return earnedUnitsBy(attempts, catalogueUnits(catalogue));
 }
 
 export function mappedUnits(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ) {
-  const latest = new Map<string, Attempt>();
-  attempts
-    .filter(isActiveAttempt)
-    .forEach((attempt) => latest.set(attempt.courseCode, attempt));
-  return [...latest.values()].reduce((total, attempt) => {
-    const course = planningCourseForAttempt(attempt, catalogue);
-    return total + unitsForAttempt(attempt, course);
-  }, 0);
+  return mappedUnitsBy(attempts, catalogueUnits(catalogue));
 }
 
 export function unitsByCalendarYear(
@@ -672,8 +690,21 @@ export function degreeUnitProgress(
   totalUnits: number,
   catalogue?: PlanningCatalogue,
 ): DegreeUnitProgress {
-  const completed = earnedUnits(attempts, catalogue);
-  const mapped = mappedUnits(attempts, catalogue);
+  return degreeUnitProgressBy(attempts, totalUnits, catalogueUnits(catalogue));
+}
+
+/**
+ * Degree progress when each attempt's units come from somewhere other than
+ * the planning catalogue, such as the admin view of a student's plan. The
+ * counting rules match the student's own view.
+ */
+export function degreeUnitProgressBy(
+  attempts: readonly Attempt[],
+  totalUnits: number,
+  unitsOf: AttemptUnits,
+): DegreeUnitProgress {
+  const completed = earnedUnitsBy(attempts, unitsOf);
+  const mapped = mappedUnitsBy(attempts, unitsOf);
   const planned = Math.max(0, mapped - completed);
   const remaining = Math.max(0, totalUnits - mapped);
   return {

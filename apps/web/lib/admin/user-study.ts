@@ -1,6 +1,11 @@
 import type { AdminUserCourse, AdminUserStudy } from "@/lib/admin/users";
 import type { DashboardTermPoint } from "@/lib/coursemap/dashboard-series";
-import type { DegreeUnitProgress } from "@/lib/planner";
+import type { Attempt } from "@/lib/coursemap/types";
+import {
+  degreeUnitProgressBy,
+  unitsForAttempt,
+  type DegreeUnitProgress,
+} from "@/lib/planner";
 
 function activeCourses(courses: readonly AdminUserCourse[]) {
   const byCode = new Map<string, AdminUserCourse>();
@@ -16,29 +21,48 @@ function countsAsPlanned(course: AdminUserCourse) {
   return course.status === "planned" || course.status === "enrolled";
 }
 
+/**
+ * The row as the student's plan loads it: credit counts as a completion and
+ * a recorded row keeps the units saved on the attempt.
+ */
+function attemptForCourse(course: AdminUserCourse): Attempt {
+  const recorded = course.status !== "planned";
+  return {
+    id: course.id,
+    courseCode: course.code,
+    termId:
+      course.calendarYear !== null && course.periodCode !== null
+        ? `${course.calendarYear}-${course.periodCode.toLowerCase()}`
+        : "unscheduled",
+    status: course.status === "credited" ? "completed" : course.status,
+    ...(recorded
+      ? { unitsAttempted: course.units, unitsEarned: course.unitsEarned }
+      : {}),
+  };
+}
+
+function courseUnits(course: AdminUserCourse) {
+  return unitsForAttempt(attemptForCourse(course), { units: course.units });
+}
+
 export function adminUserStudyProgress(
   study: AdminUserStudy,
 ): DegreeUnitProgress {
   const degreeUnits =
     study.structures.find((structure) => structure.role === "programme")
       ?.units ?? 0;
-  const active = activeCourses(study.courses);
-  const completed = active
-    .filter(countsAsCompleted)
-    .reduce((total, course) => total + (course.unitsEarned || course.units), 0);
-  const planned = active
-    .filter(countsAsPlanned)
-    .reduce((total, course) => total + course.units, 0);
-  const mapped = completed + planned;
-  return {
-    completed,
-    planned,
-    mapped,
-    remaining: Math.max(0, degreeUnits - mapped),
-    total: degreeUnits,
-    percent:
-      degreeUnits === 0 ? 0 : Math.round((completed / degreeUnits) * 100),
-  };
+  // The student's view orders planned items before recorded attempts.
+  const ordered = [
+    ...study.courses.filter((course) => course.status === "planned"),
+    ...study.courses.filter((course) => course.status !== "planned"),
+  ];
+  const unitsById = new Map(ordered.map((course) => [course.id, course.units]));
+  return degreeUnitProgressBy(
+    ordered.map(attemptForCourse),
+    degreeUnits,
+    (attempt) =>
+      unitsForAttempt(attempt, { units: unitsById.get(attempt.id) ?? 0 }),
+  );
 }
 
 export function adminUserTermLoads(
@@ -66,9 +90,9 @@ export function adminUserTermLoads(
       units: 0,
     };
     if (countsAsCompleted(course)) {
-      existing.completed += course.unitsEarned || course.units;
+      existing.completed += courseUnits(course);
     } else {
-      existing.planned += course.units;
+      existing.planned += courseUnits(course);
     }
     existing.units = existing.completed + existing.planned;
     grouped.set(id, existing);
