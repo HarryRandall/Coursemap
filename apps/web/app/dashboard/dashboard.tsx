@@ -8,7 +8,8 @@ import { KeyDatesMetric } from "@/ui/dashboard/key-dates-metric";
 import { CoverageMetric } from "@/ui/dashboard/coverage-metric";
 import { UpcomingLoadMetric } from "@/ui/dashboard/upcoming-load-metric";
 import { MonthCalendar } from "@/ui/dashboard/month-calendar";
-import { PlanEmptyState } from "@/ui/dashboard/plan-empty-state";
+import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
+import { DashboardSkeleton } from "@/ui/dashboard/dashboard-skeleton";
 import { PlanDetailPanel } from "@/ui/dashboard/plan-detail-panel";
 import type { PlanCourseRow } from "@/ui/dashboard/plan-course-table";
 import { GpaMetric } from "@/ui/dashboard/gpa-metric";
@@ -288,8 +289,8 @@ export function Dashboard({
 
   if (!degree) {
     return (
-      <AppShell fill>
-        <PlanEmptyState />
+      <AppShell>
+        <OnboardingPrompt backdrop={<DashboardSkeleton />} />
       </AppShell>
     );
   }

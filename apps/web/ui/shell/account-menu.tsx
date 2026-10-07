@@ -5,10 +5,12 @@ import { useRef, useState } from "react";
 import {
   EllipsisVertical,
   GraduationCap,
+  LogIn,
   LogOut,
   MessageCircle,
   Shield,
   SunMoon,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import styles from "./account-menu.module.css";
@@ -37,12 +39,13 @@ const accountLinks = [
 ];
 
 export function AccountMenu() {
-  const { state } = useCoursemap();
+  const { guest, state } = useCoursemap();
   const { isMobile, setOpenMobile, state: sidebarState } = useSidebar();
   const [open, setOpen] = useState(false);
   const profileLink = useRef<HTMLAnchorElement>(null);
   const profile = state.profile;
-  const name = profile.name || "Your account";
+  const name = profile.name || (guest ? "Guest" : "Your account");
+  const detail = guest ? "Saved in this browser" : null;
   const collapsed = !isMobile && sidebarState === "collapsed";
   const closeOnNavigate = () => {
     setOpen(false);
@@ -62,7 +65,7 @@ export function AccountMenu() {
           <span className="grid min-w-0 flex-1 text-left leading-tight">
             <span className="truncate text-[13px] font-semibold">{name}</span>
             <span className="truncate text-[11px] text-muted-foreground">
-              {profile.studentId || "Personal account"}
+              {detail ?? (profile.studentId || "Personal account")}
             </span>
           </span>
           <EllipsisVertical
@@ -94,10 +97,26 @@ export function AccountMenu() {
           <div className="min-w-0">
             <p className="truncate font-medium">{name}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {profile.email || "Personal account"}
+              {detail ?? (profile.email || "Personal account")}
             </p>
           </div>
         </div>
+        {guest ? (
+          <div className="border-t p-1.5">
+            <Button asChild variant="ghost" className={styles.row}>
+              <Link href="/signup" onClick={closeOnNavigate}>
+                <UserPlus aria-hidden="true" />
+                Create an account
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" className={styles.row}>
+              <Link href="/login" onClick={closeOnNavigate}>
+                <LogIn aria-hidden="true" />
+                Sign in
+              </Link>
+            </Button>
+          </div>
+        ) : null}
         <div className="border-t p-1.5">
           {accountLinks.map(({ href, label, icon: Icon }) => (
             <Button key={href} asChild variant="ghost" className={styles.row}>
@@ -113,13 +132,16 @@ export function AccountMenu() {
           ))}
         </div>
         <div className="border-t p-1.5">
-          <div className={styles.themeRow}>
-            <span className="flex items-center gap-2.5">
-              <SunMoon aria-hidden="true" />
-              Theme
-            </span>
-            <AccountAppearance />
-          </div>
+          {/* Guests follow the system theme, like every signed-out page. */}
+          {guest ? null : (
+            <div className={styles.themeRow}>
+              <span className="flex items-center gap-2.5">
+                <SunMoon aria-hidden="true" />
+                Theme
+              </span>
+              <AccountAppearance />
+            </div>
+          )}
           <Button asChild variant="ghost" className={styles.row}>
             <Link href="/help#contact" onClick={closeOnNavigate}>
               <MessageCircle aria-hidden="true" />
@@ -127,16 +149,18 @@ export function AccountMenu() {
             </Link>
           </Button>
         </div>
-        <form action="/auth/logout" method="post" className="border-t p-1.5">
-          <Button
-            type="submit"
-            variant="ghost"
-            className={`${styles.row} ${styles.signOut}`}
-          >
-            <LogOut aria-hidden="true" />
-            Sign out
-          </Button>
-        </form>
+        {guest ? null : (
+          <form action="/auth/logout" method="post" className="border-t p-1.5">
+            <Button
+              type="submit"
+              variant="ghost"
+              className={`${styles.row} ${styles.signOut}`}
+            >
+              <LogOut aria-hidden="true" />
+              Sign out
+            </Button>
+          </form>
+        )}
       </PopoverContent>
     </Popover>
   );

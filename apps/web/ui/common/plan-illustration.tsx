@@ -1,17 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Button } from "@coursemap/ui/primitives/button";
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@coursemap/ui/primitives/empty";
 
 const edgeTransition = {
   duration: 0.7,
@@ -46,8 +36,9 @@ function PlanIllustration({ reduceMotion }: { reduceMotion: boolean }) {
 
   return (
     <svg
-      width="220"
-      height="120"
+      width="330"
+      height="180"
+      className="max-w-full"
       viewBox="0 0 220 120"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -170,7 +161,7 @@ function PlanIllustration({ reduceMotion }: { reduceMotion: boolean }) {
 }
 
 /** Replays the illustration on a slow cycle with a soft cross-fade. */
-function LoopingPlanIllustration() {
+export function LoopingPlanIllustration() {
   const reduceMotion = useReducedMotion() ?? false;
   const [cycle, setCycle] = useState(0);
 
@@ -194,31 +185,5 @@ function LoopingPlanIllustration() {
         <PlanIllustration reduceMotion={false} />
       </motion.div>
     </AnimatePresence>
-  );
-}
-
-export function PlanEmptyState() {
-  return (
-    <Empty className="h-full min-h-[70vh] w-full rounded-xl border px-6 py-16 md:min-h-0">
-      <EmptyHeader>
-        <EmptyMedia>
-          <LoopingPlanIllustration />
-        </EmptyMedia>
-        <EmptyTitle>Set up your plan first</EmptyTitle>
-        <EmptyDescription>
-          Choose a degree before Coursemap can calculate your progress.
-        </EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href="/onboarding">Start onboarding</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/courses">Browse courses</Link>
-          </Button>
-        </div>
-      </EmptyContent>
-    </Empty>
   );
 }

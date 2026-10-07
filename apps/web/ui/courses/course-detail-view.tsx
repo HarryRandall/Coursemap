@@ -4,7 +4,6 @@ import { hasInherentRequirements } from "./course-detail-format";
 import { workloadHoursLabel } from "@/lib/academic/workload";
 import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
-import { Button } from "@coursemap/ui/primitives/button";
 import {
   Card,
   CardContent,
@@ -38,9 +37,12 @@ import {
   Library,
   MapPin,
   MessageSquareText,
-  Plus,
 } from "lucide-react";
 import { Hint } from "@/ui/common/hint";
+import {
+  CoursePlanStatus,
+  attemptForCourse,
+} from "@/ui/courses/course-plan-status";
 import type {
   CourseDetails,
   CourseRuleExpression,
@@ -229,16 +231,10 @@ export function CourseDetailView({
         </div>
         <div className="flex w-full flex-col items-end gap-2 sm:w-auto">
           {yearPicker}
-          <Button
-            className="w-full shrink-0 sm:w-auto"
-            disabled={!onAddToPlan}
-            onClick={onAddToPlan}
-            variant="default"
-            type="button"
-          >
-            <Plus size={16} aria-hidden="true" />
-            Add to plan
-          </Button>
+          <CoursePlanStatus
+            attempt={attemptForCourse(course.code, attempts)}
+            onAddToPlan={onAddToPlan}
+          />
         </div>
       </header>
 

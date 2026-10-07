@@ -9,13 +9,26 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { saveAcademicResult } from "@/lib/academic/actions";
-import type { AppState, AttemptStatus, Profile } from "@/lib/coursemap/types";
+import type {
+  AppState,
+  Attempt,
+  AttemptStatus,
+  Profile,
+} from "@/lib/coursemap/types";
+import { emptyGuestState, guestAttemptId } from "@/lib/coursemap/guest-plan";
+import {
+  clearGuestPlanCookie,
+  writeGuestPlanCookie,
+} from "@/lib/coursemap/guest-plan-cookie";
+import { GuestPlanTransfer } from "@/ui/shell/guest-plan-transfer";
 
 export type { AppState, Profile } from "@/lib/coursemap/types";
 import {
@@ -34,6 +47,18 @@ type AppContextValue = {
   state: AppState;
   ready: boolean;
   canAccessAdmin: boolean;
+  /** The plan is kept in this browser's cookies rather than an account. */
+  guest: boolean;
+  /** Ends guest mode and forgets the plan saved in this browser. */
+  leaveGuestMode: () => void;
+  /**
+   * Records, clears or removes a guest's result in their browser copy, where
+   * Academic history would otherwise save it to an account. Null removes it.
+   */
+  saveGuestResult: (
+    attemptId: string,
+    change: { status: AttemptStatus; mark?: number } | null,
+  ) => CoursemapActionResult;
   updateProfile: (profile: Partial<Profile>) => Promise<CoursemapActionResult>;
   setPlanExtensionYears: (
     extensionYears: number,
@@ -67,7 +92,8 @@ type AppContextValue = {
   notify: (message: string, tone?: ToastTone) => void;
 };
 
-function createInitialState(viewer: AuthViewer | null) {
+function createInitialState(viewer: AuthViewer | null, guest: boolean) {
+  if (guest) return emptyGuestState();
   return {
     schemaVersion: 1,
     profile: {
@@ -101,15 +127,65 @@ function courseYearForTerm<T extends number | undefined>(
   return match ? Number(match[1]) : fallback;
 }
 
+/**
+ * The plan with one course moved to a term, before another course or at the
+ * end of that term's courses.
+ */
+function moveAttempt(
+  attempts: Attempt[],
+  attemptId: string,
+  termId: string,
+  beforeAttemptId?: string,
+) {
+  const moving = attempts.find((attempt) => attempt.id === attemptId);
+  if (!moving || beforeAttemptId === attemptId) return attempts;
+
+  const remaining = attempts.filter((attempt) => attempt.id !== attemptId);
+  const next = {
+    ...moving,
+    termId,
+    academicYear: courseYearForTerm(termId, moving.academicYear),
+  };
+  const beforeIndex = beforeAttemptId
+    ? remaining.findIndex((attempt) => attempt.id === beforeAttemptId)
+    : -1;
+
+  if (beforeIndex >= 0) {
+    remaining.splice(beforeIndex, 0, next);
+  } else {
+    let insertAt = remaining.length;
+    for (let index = remaining.length - 1; index >= 0; index -= 1) {
+      if (remaining[index].termId === termId) {
+        insertAt = index + 1;
+        break;
+      }
+    }
+    remaining.splice(insertAt, 0, next);
+  }
+  return remaining;
+}
+
+const GUEST_PLAN_FULL: CoursemapActionResult = {
+  ok: false,
+  message:
+    "This plan is too large to keep in your browser. Create an account to keep adding to it.",
+};
+
 export function AppProvider({
   children,
   viewer,
   canAccessAdmin,
+  guest = false,
+  guestPlanToTransfer = false,
   initialState: suppliedInitialState,
 }: {
   children: React.ReactNode;
   viewer: AuthViewer | null;
   canAccessAdmin: boolean;
+  /** A signed-out visitor planning without an account. */
+  guest?: boolean;
+  /** A signed-in student still has a guest plan in this browser. */
+  guestPlanToTransfer?: boolean;
   initialState?: AppState;
 }) {
   useInputModality();
@@ -118,11 +194,71 @@ export function AppProvider({
   const { forcedTheme, resolvedTheme } = useTheme();
   const toastTheme = forcedTheme ?? resolvedTheme;
   const initialState = useMemo(
-    () => suppliedInitialState ?? createInitialState(viewer),
-    [suppliedInitialState, viewer],
+    () => suppliedInitialState ?? createInitialState(viewer, guest),
+    [suppliedInitialState, viewer, guest],
   );
   const [state, setState] = useState<AppState>(initialState);
   const [ready, setReady] = useState(false);
+  // Guest changes build on the latest plan, even between renders, so two
+  // quick edits never save over one another.
+  const latestState = useRef(state);
+  useLayoutEffect(() => {
+    latestState.current = state;
+  }, [state]);
+
+  /** Saves a guest's next plan to the cookie and shows it. */
+  const commitGuest = useCallback(
+    (
+      change: (current: AppState) => AppState,
+      message: string,
+    ): CoursemapActionResult => {
+      const next = change(latestState.current);
+      if (!writeGuestPlanCookie(next)) return GUEST_PLAN_FULL;
+      latestState.current = next;
+      setState(next);
+      return { ok: true, message };
+    },
+    [],
+  );
+
+  const saveGuestResult = useCallback(
+    (
+      attemptId: string,
+      change: { status: AttemptStatus; mark?: number } | null,
+    ) =>
+      commitGuest(
+        (current) => ({
+          ...current,
+          attempts: change
+            ? current.attempts.map((item) =>
+                item.id === attemptId
+                  ? {
+                      ...item,
+                      status: change.status,
+                      mark:
+                        change.status === "planned" ? undefined : change.mark,
+                      ...(change.status === "planned"
+                        ? { unitsAttempted: undefined, unitsEarned: undefined }
+                        : {}),
+                    }
+                  : item,
+              )
+            : current.attempts.filter((item) => item.id !== attemptId),
+        }),
+        change === null
+          ? "Course removed."
+          : change.status === "planned"
+            ? "Result cleared."
+            : "Result saved.",
+      ),
+    [commitGuest],
+  );
+
+  const leaveGuestMode = useCallback(() => {
+    clearGuestPlanCookie();
+    router.replace("/");
+    router.refresh();
+  }, [router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -139,14 +275,14 @@ export function AppProvider({
   }, [initialState]);
 
   useEffect(() => {
-    if (!viewer) return;
+    if (!viewer && !guest) return;
 
     const refreshRestoredPage = (event: PageTransitionEvent) => {
       if (event.persisted) window.location.reload();
     };
     window.addEventListener("pageshow", refreshRestoredPage);
     return () => window.removeEventListener("pageshow", refreshRestoredPage);
-  }, [viewer]);
+  }, [guest, viewer]);
 
   const notify = useCallback((message: string, tone: ToastTone = "success") => {
     showToast(message, tone);
@@ -155,13 +291,22 @@ export function AppProvider({
   const updateProfile = useCallback(
     async (profile: Partial<Profile>) => {
       const nextProfile = { ...state.profile, ...profile };
+      if (guest) {
+        return commitGuest(
+          (current) => ({
+            ...current,
+            profile: { ...current.profile, ...profile },
+          }),
+          "Profile saved",
+        );
+      }
 
       const result = await saveProfileAndPlan(nextProfile);
       if (!result.ok) return result;
       setState((current) => ({ ...current, profile: nextProfile }));
       return { ok: true, message: "Profile saved" };
     },
-    [state.profile],
+    [commitGuest, guest, state.profile],
   );
 
   const addCourse = useCallback(
@@ -172,14 +317,36 @@ export function AppProvider({
       if (occurrenceCount >= 1) {
         return { ok: false, message: `${courseCode} is already in your plan` };
       }
-      const result = await addPlanCourse(courseCode, termId, academicYear);
-      if (!result.ok || !result.id) return result;
+      if (guest) {
+        const result = commitGuest(
+          (current) => ({
+            ...current,
+            attempts: [
+              ...current.attempts,
+              {
+                id: guestAttemptId(),
+                academicYear: courseYearForTerm(termId, academicYear),
+                courseCode,
+                termId,
+                status: "planned",
+              },
+            ],
+          }),
+          `${courseCode} added to the plan`,
+        );
+        // The server loads the course versions a plan names from the cookie.
+        if (result.ok) router.refresh();
+        return result;
+      }
+      // The course shows at once under a temporary id, which the saved id
+      // replaces; a failed save takes it back out.
+      const pendingId = `pending-${guestAttemptId()}`;
       setState((current) => ({
         ...current,
         attempts: [
           ...current.attempts,
           {
-            id: result.id!,
+            id: pendingId,
             academicYear: courseYearForTerm(termId, academicYear),
             courseCode,
             termId,
@@ -187,69 +354,97 @@ export function AppProvider({
           },
         ],
       }));
+      const result = await addPlanCourse(courseCode, termId, academicYear);
+      setState((current) => ({
+        ...current,
+        attempts:
+          result.ok && result.id
+            ? current.attempts.map((attempt) =>
+                attempt.id === pendingId
+                  ? { ...attempt, id: result.id! }
+                  : attempt,
+              )
+            : current.attempts.filter((attempt) => attempt.id !== pendingId),
+      }));
+      if (!result.ok || !result.id) return result;
       router.refresh();
       return result;
     },
-    [router, state.attempts],
+    [commitGuest, guest, router, state.attempts],
   );
 
-  const setPlanExtensionYears = useCallback(async (extensionYears: number) => {
-    const nextExtensionYears = Math.max(0, Math.min(10, extensionYears));
+  const setPlanExtensionYears = useCallback(
+    async (extensionYears: number) => {
+      const nextExtensionYears = Math.max(0, Math.min(10, extensionYears));
 
-    const result = await setCurrentUserPlanExtensionYears(nextExtensionYears);
-    if (!result.ok) return result;
-    setState((current) => ({
-      ...current,
-      profile: {
-        ...current.profile,
-        extensionYears: nextExtensionYears,
-      },
-    }));
-    return {
-      ok: true,
-      message:
-        nextExtensionYears === 0
-          ? "Plan timeline restored to the programme duration"
-          : `Plan extended by ${nextExtensionYears} ${nextExtensionYears === 1 ? "year" : "years"}`,
-    };
-  }, []);
+      const result = guest
+        ? commitGuest(
+            (current) => ({
+              ...current,
+              profile: {
+                ...current.profile,
+                extensionYears: nextExtensionYears,
+              },
+            }),
+            "Plan timeline updated",
+          )
+        : await setCurrentUserPlanExtensionYears(nextExtensionYears);
+      if (!result.ok) return result;
+      setState((current) => ({
+        ...current,
+        profile: {
+          ...current.profile,
+          extensionYears: nextExtensionYears,
+        },
+      }));
+      return {
+        ok: true,
+        message:
+          nextExtensionYears === 0
+            ? "Plan timeline restored to the programme duration"
+            : `Plan extended by ${nextExtensionYears} ${nextExtensionYears === 1 ? "year" : "years"}`,
+      };
+    },
+    [commitGuest, guest],
+  );
 
   const reorderAttempt = useCallback(
     async (attemptId: string, termId: string, beforeAttemptId?: string) => {
       const previousAttempts = state.attempts;
-      setState((current) => {
-        const moving = current.attempts.find(
+      if (guest) {
+        const result = commitGuest(
+          (current) => ({
+            ...current,
+            attempts: moveAttempt(
+              current.attempts,
+              attemptId,
+              termId,
+              beforeAttemptId,
+            ),
+          }),
+          "Course moved",
+        );
+        const moved = previousAttempts.find(
           (attempt) => attempt.id === attemptId,
         );
-        if (!moving || beforeAttemptId === attemptId) return current;
-
-        const remaining = current.attempts.filter(
-          (attempt) => attempt.id !== attemptId,
-        );
-        const next = {
-          ...moving,
+        // Another year's version may not be in the loaded catalogue yet.
+        if (
+          result.ok &&
+          moved &&
+          moved.academicYear !== courseYearForTerm(termId, moved.academicYear)
+        )
+          router.refresh();
+        return result;
+      }
+      setState((current) => ({
+        ...current,
+        attempts: moveAttempt(
+          current.attempts,
+          attemptId,
           termId,
-          academicYear: courseYearForTerm(termId, moving.academicYear),
-        };
-        const beforeIndex = beforeAttemptId
-          ? remaining.findIndex((attempt) => attempt.id === beforeAttemptId)
-          : -1;
-
-        if (beforeIndex >= 0) {
-          remaining.splice(beforeIndex, 0, next);
-        } else {
-          let insertAt = remaining.length;
-          for (let index = remaining.length - 1; index >= 0; index -= 1) {
-            if (remaining[index].termId === termId) {
-              insertAt = index + 1;
-              break;
-            }
-          }
-          remaining.splice(insertAt, 0, next);
-        }
-
-        return { ...current, attempts: remaining };
-      });
+          beforeAttemptId,
+        ),
+      }));
 
       const result = await movePlanCourse(attemptId, termId, beforeAttemptId);
       if (!result.ok) {
@@ -268,7 +463,7 @@ export function AppProvider({
       }
       return result;
     },
-    [router, state.attempts],
+    [commitGuest, guest, router, state.attempts],
   );
 
   const updateAttempt = useCallback(
@@ -295,6 +490,31 @@ export function AppProvider({
       }
       const savedMark =
         status === "completed" || status === "failed" ? mark : undefined;
+      if (guest) {
+        const units = attemptedUnits ?? attempt.unitsAttempted;
+        return commitGuest(
+          (current) => ({
+            ...current,
+            attempts: current.attempts.map((item) =>
+              item.id === attemptId
+                ? {
+                    ...item,
+                    status,
+                    mark: savedMark,
+                    unitsAttempted: units,
+                    unitsEarned:
+                      units === undefined
+                        ? undefined
+                        : status === "completed"
+                          ? units
+                          : 0,
+                  }
+                : item,
+            ),
+          }),
+          "Academic history updated",
+        );
+      }
       const result = await recordCourseAttempt(
         attemptId,
         status,
@@ -329,7 +549,7 @@ export function AppProvider({
       }));
       return result;
     },
-    [state.attempts],
+    [commitGuest, guest, state.attempts],
   );
 
   const removeAttempt = useCallback(
@@ -347,6 +567,15 @@ export function AppProvider({
       }
       if (!attempt)
         return { ok: false, message: "That course is no longer in your plan" };
+      if (guest) {
+        return commitGuest(
+          (current) => ({
+            ...current,
+            attempts: current.attempts.filter((item) => item.id !== attemptId),
+          }),
+          "Course removed from the plan",
+        );
+      }
       // An enrolment is a recorded attempt rather than a plan item, and has
       // no result yet, so it is removed from the academic record instead.
       const result =
@@ -365,7 +594,7 @@ export function AppProvider({
       }));
       return result;
     },
-    [state.attempts],
+    [commitGuest, guest, state.attempts],
   );
 
   const togglePermission = useCallback((attemptId: string) => {
@@ -388,6 +617,19 @@ export function AppProvider({
       const others = previous.filter(
         (choice) => choice.courseCode !== courseCode,
       );
+      if (guest) {
+        return commitGuest(
+          (current) => ({
+            ...current,
+            placements: placement
+              ? [...others, { courseCode, ...placement }]
+              : others,
+          }),
+          placement
+            ? `${courseCode} moved`
+            : `${courseCode} placed automatically`,
+        );
+      }
       // The page reallocates at once; a failed save puts the choice back.
       setState((current) => ({
         ...current,
@@ -401,13 +643,24 @@ export function AppProvider({
       }
       return result;
     },
-    [state.placements],
+    [commitGuest, guest, state.placements],
   );
 
   const toggleStar = useCallback(
     async (courseCode: string) => {
       const previous = state.starredCourses ?? [];
       const starred = !previous.includes(courseCode);
+      if (guest) {
+        return commitGuest(
+          (current) => ({
+            ...current,
+            starredCourses: starred
+              ? [...previous, courseCode]
+              : previous.filter((code) => code !== courseCode),
+          }),
+          starred ? `${courseCode} starred` : `${courseCode} unstarred`,
+        );
+      }
       // The star shows at once; a failed save takes it back.
       setState((current) => ({
         ...current,
@@ -421,7 +674,7 @@ export function AppProvider({
       }
       return result;
     },
-    [state.starredCourses],
+    [commitGuest, guest, state.starredCourses],
   );
 
   const toggleOverloadApproval = useCallback((attemptId: string) => {
@@ -440,6 +693,9 @@ export function AppProvider({
       state,
       ready,
       canAccessAdmin,
+      guest,
+      leaveGuestMode,
+      saveGuestResult,
       updateProfile,
       setPlanExtensionYears,
       addCourse,
@@ -456,6 +712,9 @@ export function AppProvider({
       state,
       ready,
       canAccessAdmin,
+      guest,
+      leaveGuestMode,
+      saveGuestResult,
       updateProfile,
       setPlanExtensionYears,
       addCourse,
@@ -473,6 +732,7 @@ export function AppProvider({
   return (
     <AppContext.Provider value={value}>
       {children}
+      {guestPlanToTransfer ? <GuestPlanTransfer /> : null}
       <Toaster
         theme={
           toastTheme === "dark" || toastTheme === "light"

@@ -1,6 +1,8 @@
 .art {
-  width: 240px;
-  height: 170px;
+  width: 300px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 240 / 170;
   flex-shrink: 0;
   stroke-width: 1.6;
 }

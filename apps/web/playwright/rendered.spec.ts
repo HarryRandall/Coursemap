@@ -14,20 +14,24 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
   try {
     await login(page, planner);
     await page.goto("/profile");
-    const mode = page.getByRole("button", {
+    await page
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill("Enrolment browser student");
+    await page
+      .getByRole("tab", { name: "Course of study", exact: true })
+      .click();
+    const mode = page.getByRole("radiogroup", {
       name: "Enrolment mode",
       exact: true,
     });
-    await expect(mode).toContainText("Not specified");
-    await page
-      .getByLabel("Name", { exact: true })
-      .fill("Enrolment browser student");
-    await mode.click();
-    await page
-      .getByRole("button", { name: "Flexible Double Degree", exact: true })
+    await expect(
+      mode.getByRole("radio", { name: "Not specified", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
+    await mode
+      .getByRole("radio", { name: "Flexible Double Degree", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Save details", exact: true })
+      .getByRole("button", { name: "Save changes", exact: true })
       .click();
     await expect
       .poll(async () => {
@@ -37,7 +41,9 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
       })
       .toBe("flexible_double_degree");
     await page.reload();
-    await expect(mode).toContainText("Flexible Double Degree");
+    await expect(
+      mode.getByRole("radio", { name: "Flexible Double Degree", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(mode).toBeVisible();
     await expect
@@ -51,12 +57,11 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
       path: test.info().outputPath("enrolment-mode-mobile.png"),
       fullPage: true,
     });
-    await mode.click();
-    await page
-      .getByRole("button", { name: "Not specified", exact: true })
+    await mode
+      .getByRole("radio", { name: "Not specified", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Save details", exact: true })
+      .getByRole("button", { name: "Save changes", exact: true })
       .click();
     await expect
       .poll(async () => {
@@ -66,7 +71,9 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
       })
       .toBe(null);
     await page.reload();
-    await expect(mode).toContainText("Not specified");
+    await expect(
+      mode.getByRole("radio", { name: "Not specified", exact: true }),
+    ).toHaveAttribute("aria-checked", "true");
   } finally {
     await sql.end();
   }

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 import { OnboardingForm } from "@/app/onboarding/onboarding-form";
+import { AppProvider } from "@/app/providers";
 import type { OnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
 
 const actions = vi.hoisted(() => ({ saveProfileAndPlan: vi.fn() }));
@@ -9,6 +10,7 @@ const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("@/lib/coursemap/actions", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("next/image", () => ({ default: () => null }));
+vi.mock("@coursemap/ui/primitives/sonner", () => ({ Toaster: () => null }));
 
 // cmdk scrolls the active option into view, which jsdom does not implement.
 Element.prototype.scrollIntoView = () => {};
@@ -47,11 +49,16 @@ beforeEach(() => vi.resetAllMocks());
 
 function renderForm() {
   return render(
-    <OnboardingForm
-      catalogue={catalogue}
-      currentYear={2026}
-      email="s@x.test"
-    />,
+    <AppProvider
+      viewer={{ id: "student", email: "s@x.test" }}
+      canAccessAdmin={false}
+    >
+      <OnboardingForm
+        catalogue={catalogue}
+        currentYear={2026}
+        email="s@x.test"
+      />
+    </AppProvider>,
   );
 }
 

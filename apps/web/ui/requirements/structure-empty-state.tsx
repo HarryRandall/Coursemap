@@ -30,29 +30,29 @@ export function StructureEmptyState({
   onChoose?: () => void;
 }) {
   return (
-    <Empty className="min-h-96 flex-1 gap-5 rounded-xl border bg-card px-6 py-12">
+    <Empty className="w-full max-w-xl flex-none gap-6 rounded-2xl border bg-card px-8 py-10 shadow-xl">
       <StructureEmptyIllustration kind={kind} />
       <EmptyHeader>
-        <EmptyTitle className="text-xl">
+        <EmptyTitle className="text-2xl font-semibold">
           {available || needsDegree
             ? `No ${kind} selected yet`
             : `No ${kind} options available`}
         </EmptyTitle>
-        <EmptyDescription className="max-w-sm">
+        <EmptyDescription className="max-w-sm text-base">
           {available || needsDegree
             ? descriptions[kind]
             : `There are no ${kind} options to show for this degree.`}
         </EmptyDescription>
       </EmptyHeader>
       {needsDegree ? (
-        <Button asChild>
+        <Button asChild size="lg" className="h-11 px-5">
           <Link href="/onboarding">
             Set up your plan
             <ArrowRight aria-hidden="true" />
           </Link>
         </Button>
       ) : available && onChoose ? (
-        <Button onClick={onChoose}>
+        <Button onClick={onChoose} size="lg" className="h-11 px-5">
           Choose a {kind}
           <ArrowRight aria-hidden="true" />
         </Button>

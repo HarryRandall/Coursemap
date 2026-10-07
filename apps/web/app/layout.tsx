@@ -10,6 +10,7 @@ import { SIDEBAR_STATE_COOKIE } from "@/ui/shell/sidebar-cookie";
 import { SidebarPreferenceProvider } from "@/ui/shell/sidebar-preference";
 import { getAuthContext } from "@/lib/auth/viewer";
 import { loadCoursemapState } from "@/lib/coursemap/state";
+import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { getCanonicalSiteOrigin } from "@/lib/supabase/config";
 import "./globals.css";
 import { AppProvider } from "./providers";
@@ -63,7 +64,10 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const { viewer, canAccessAdmin } = await getAuthContext();
-  const initialState = viewer ? await loadCoursemapState(viewer) : undefined;
+  const guestPlan = await readGuestPlan();
+  const initialState = viewer
+    ? await loadCoursemapState(viewer)
+    : (guestPlan ?? undefined);
   // The sidebar writes its open state to a cookie; reading it here keeps a
   // collapsed rail collapsed on the next server render.
   const sidebarDefaultOpen =
@@ -92,6 +96,8 @@ export default async function RootLayout({
           <AppProvider
             viewer={viewer}
             canAccessAdmin={canAccessAdmin}
+            guest={!viewer && Boolean(guestPlan)}
+            guestPlanToTransfer={Boolean(viewer && guestPlan)}
             initialState={initialState}
           >
             <SidebarPreferenceProvider defaultOpen={sidebarDefaultOpen}>

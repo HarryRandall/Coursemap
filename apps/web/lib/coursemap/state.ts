@@ -100,7 +100,7 @@ export async function loadCoursemapState(
     const [{ data: profile }, { data: plan }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("display_name,student_number")
+        .select("display_name,student_number,preferred_name,pronouns")
         .eq("id", viewer.id)
         .maybeSingle(),
       supabase
@@ -119,6 +119,8 @@ export async function loadCoursemapState(
         ...fallback.profile,
         name: profile?.display_name ?? "",
         studentId: profile?.student_number ?? "",
+        preferredName: profile?.preferred_name ?? "",
+        pronouns: profile?.pronouns ?? "",
       },
     };
     if (!plan) return state;
