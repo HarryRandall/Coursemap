@@ -7,6 +7,7 @@ import {
   recentDays,
   recentWeeks,
 } from "@/lib/admin/dashboard-series";
+import { canReadStudentRecords } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import { readAllRows, readRowsForIds } from "@/lib/supabase/read-all-rows";
 
@@ -50,7 +51,8 @@ export type AdminDashboardData = {
     newThisWeek: number;
     weeks: string[];
     cumulative: number[];
-    active: number[];
+    /** Null when the viewer cannot read student plans. */
+    active: number[] | null;
   };
   /** Null when the viewer cannot read catalogue syncs. */
   syncs: SyncOutcomeDay[] | null;
@@ -62,7 +64,8 @@ export type AdminDashboardData = {
   }[];
   /** Null when the viewer cannot read catalogue change history. */
   changes: { day: string; count: number }[] | null;
-  topCourses: { code: string; students: number }[];
+  /** Null when the viewer cannot read student plans. */
+  topCourses: { code: string; students: number }[] | null;
   /** Null until the SELT tables exist and the viewer can read them. */
   selt: {
     publishedCourses: number;
@@ -93,7 +96,7 @@ function daysAgo(now: Date, days: number) {
   return new Date(now.getTime() - days * 86_400_000).toISOString();
 }
 
-async function loadUsers(now: Date) {
+async function loadUsers(now: Date, canReadPlans: boolean) {
   const supabase = await createClient();
   const weeks = recentWeeks(now, USER_WEEKS);
   // One spare week covers the partial first week; bucketing drops the excess.
@@ -106,22 +109,26 @@ async function loadUsers(now: Date) {
         .order("user_id")
         .range(from, to),
     ),
-    allRows<{ owner_id: string; updated_at: string }>((from, to) =>
-      supabase
-        .from("plans")
-        .select("id,owner_id,updated_at")
-        .gte("updated_at", since)
-        .order("id")
-        .range(from, to),
-    ),
-    allRows<{ owner_id: string; updated_at: string }>((from, to) =>
-      supabase
-        .from("plan_items")
-        .select("id,owner_id,updated_at")
-        .gte("updated_at", since)
-        .order("id")
-        .range(from, to),
-    ),
+    canReadPlans
+      ? allRows<{ owner_id: string; updated_at: string }>((from, to) =>
+          supabase
+            .from("plans")
+            .select("id,owner_id,updated_at")
+            .gte("updated_at", since)
+            .order("id")
+            .range(from, to),
+        )
+      : null,
+    canReadPlans
+      ? allRows<{ owner_id: string; updated_at: string }>((from, to) =>
+          supabase
+            .from("plan_items")
+            .select("id,owner_id,updated_at")
+            .gte("updated_at", since)
+            .order("id")
+            .range(from, to),
+        )
+      : null,
   ]);
   const created = accounts
     .map((row) => row.created_at)
@@ -132,13 +139,16 @@ async function loadUsers(now: Date) {
     newThisWeek: cumulative.at(-1)! - (cumulative.at(-2) ?? 0),
     weeks,
     cumulative,
-    active: distinctActorsByWeek(
-      [...plans, ...items].map((row) => ({
-        actorId: row.owner_id,
-        at: row.updated_at,
-      })),
-      weeks,
-    ),
+    active:
+      plans && items
+        ? distinctActorsByWeek(
+            [...plans, ...items].map((row) => ({
+              actorId: row.owner_id,
+              at: row.updated_at,
+            })),
+            weeks,
+          )
+        : null,
   };
 }
 
@@ -376,6 +386,7 @@ async function loadPendingKeyDateReviews() {
 export async function loadAdminDashboard(
   now = new Date(),
 ): Promise<AdminDashboardData> {
+  const canReadPlans = await canReadStudentRecords();
   const [
     users,
     syncs,
@@ -385,11 +396,11 @@ export async function loadAdminDashboard(
     keyDateReviews,
     publishedCourses,
   ] = await Promise.all([
-    loadUsers(now),
+    loadUsers(now, canReadPlans),
     optional(() => loadSyncs(now)),
     loadReadiness(now),
     optional(() => loadChanges(now)),
-    loadTopCourses(),
+    canReadPlans ? loadTopCourses() : null,
     optional(loadPendingKeyDateReviews),
     loadPublishedCourses(now),
   ]);

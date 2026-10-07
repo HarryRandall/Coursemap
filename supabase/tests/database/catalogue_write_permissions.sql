@@ -1,8 +1,8 @@
 -- Writing catalogue content is an administrative act.
 --
 -- private.can_manage_catalogue() once gated every catalogue write policy while
--- returning true for courses.read_drafts, which the default `user` role grants
--- to every sign-up. Combined with insert and update grants to `authenticated`,
+-- returning true for courses.read_drafts, which the default `user` role granted
+-- every sign-up until 042. Combined with insert and update grants to `authenticated`,
 -- any signed-in account could publish arbitrary content to the anonymous
 -- catalogue. Nothing asserted otherwise, so nothing caught it.
 
@@ -63,8 +63,8 @@ select set_config(
 );
 
 select extensions.ok(
-  private.can_read_catalogue_drafts(),
-  'a student still reads catalogue drafts'
+  not private.can_read_catalogue_drafts(),
+  'a student does not read catalogue drafts'
 );
 
 select extensions.ok(
