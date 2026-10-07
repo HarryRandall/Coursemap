@@ -1,3 +1,5 @@
+import "server-only";
+
 import { SyncStoreError, type SyncSql } from "./sync-store.ts";
 import type {
   CatalogueProviderPause,

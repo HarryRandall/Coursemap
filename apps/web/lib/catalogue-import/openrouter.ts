@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getCanonicalSiteOrigin } from "../supabase/config.ts";
 import {
   repairStructuredResponse,

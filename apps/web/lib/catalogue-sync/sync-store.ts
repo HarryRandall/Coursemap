@@ -1,3 +1,5 @@
+import "server-only";
+
 import type postgres from "postgres";
 import {
   createHostedSyncDatabaseClient,
