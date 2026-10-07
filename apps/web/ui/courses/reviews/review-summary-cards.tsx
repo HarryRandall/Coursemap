@@ -12,9 +12,9 @@ import {
 import { ReviewOverallSparkline } from "@/ui/courses/reviews/review-overall-sparkline";
 import { ReviewRangeBar } from "@/ui/courses/reviews/review-range-bar";
 import { ReviewResponseColumns } from "@/ui/courses/reviews/review-response-columns";
-import { ReviewResponseRing } from "@/ui/courses/reviews/review-response-ring";
 import { ReviewSessionComparison } from "@/ui/courses/reviews/review-session-comparison";
 import { ReviewThemeColumns } from "@/ui/courses/reviews/review-theme-columns";
+import { ShareRing } from "@/ui/common/share-ring";
 
 export function ReviewSummaryCards({
   results,
@@ -84,7 +84,15 @@ export function ReviewSummaryCards({
             of {latest.enrolments}
           </span>
         }
-        corner={<ReviewResponseRing percent={responseRate} />}
+        corner={
+          <ShareRing
+            size={48}
+            thickness={5}
+            values={[{ share: responseRate / 100, tone: "primary" }]}
+            centre={`${responseRate}%`}
+            label={`${responseRate}% response rate`}
+          />
+        }
         chart={<ReviewResponseColumns results={results} />}
       />
     </dl>
