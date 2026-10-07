@@ -33,6 +33,8 @@ import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-databa
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 const YEAR = 2026;
+// Fixture syncs are held by this worker so fenced persistence accepts them.
+const FIXTURE_WORKER = "99000000-0000-4000-8000-000000000091";
 const EMPTY_CODE = "TSTC9101";
 const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
@@ -97,11 +99,13 @@ async function createSyncFixture(code, contentHash) {
   const [sync] = await sql`
     insert into public.catalogue_syncs (
       record_id, trigger, status, requested_model, parser_version,
-      prompt_version, schema_version, previous_source_version_id
+      prompt_version, schema_version, previous_source_version_id,
+      worker_id, lock_version, lease_expires_at
     ) values (
       ${recordId}, 'manual', 'running',
       (select id from public.import_models where enabled order by id limit 1),
-      'test-parser', 'test-prompt', 'test-schema', ${record.latest_source_version_id}
+      'test-parser', 'test-prompt', 'test-schema', ${record.latest_source_version_id},
+      ${FIXTURE_WORKER}::uuid, 1, now() + interval '1 hour'
     ) returning id
   `;
   const [insertedDocument] = await sql`
@@ -142,6 +146,7 @@ async function createSyncFixture(code, contentHash) {
       sourceId: Number(sourceId),
       attemptCount: 1,
       lockVersion: 1,
+      workerId: FIXTURE_WORKER,
     },
   };
 }

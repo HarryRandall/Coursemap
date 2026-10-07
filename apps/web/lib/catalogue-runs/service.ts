@@ -264,7 +264,8 @@ export async function cancelCourseRun(runId: string) {
   await withSyncDatabaseClient((sql) =>
     sql.begin(async (tx) => {
       await tx`update public.catalogue_course_runs set state = 'cancelled' where id = ${runId}::uuid`;
-      await tx`update public.catalogue_syncs set status = 'cancelled', completed_at = now() where id in (select sync_id from public.catalogue_course_run_items where run_id = ${runId}::uuid) and status = 'queued'`;
+      // A running sync whose worker stopped would otherwise stay active forever.
+      await tx`update public.catalogue_syncs set status = 'cancelled', completed_at = now(), worker_id = null, lease_expires_at = null, lock_version = lock_version + 1 where id in (select sync_id from public.catalogue_course_run_items where run_id = ${runId}::uuid) and (status = 'queued' or (status = 'running' and lease_expires_at < now()))`;
     }),
   );
 }

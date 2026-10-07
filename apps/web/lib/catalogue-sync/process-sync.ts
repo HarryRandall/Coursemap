@@ -60,6 +60,7 @@ import {
   recordSyncArtifact,
   recordExtractionRequestFailure,
   releaseCatalogueSyncForRetry,
+  renewCatalogueSyncLease,
   reserveExtraction,
   startSyncStage,
   withSyncDatabaseClient,
@@ -74,7 +75,7 @@ import {
   extractWithOpenRouter,
   restoreOpenRouterExtraction,
 } from "../catalogue-import/openrouter.ts";
-import { persistSourceVersion } from "./persist-source-version.ts";
+import { persistSourceVersionAndFinishSync } from "./persist-source-version.ts";
 import type { CatalogueKind } from "../catalogue/content.ts";
 
 const TERMINAL_SYNC_STATUSES = new Set([
@@ -245,10 +246,9 @@ export async function processCatalogueSync({
       finalDelivery: deliveryCount >= maxDeliveries,
       signal,
     });
-    if (
-      claim.parserVersion === COMPACT_COURSE_PARSER_VERSION &&
-      process.env.COURSEMAP_QUEUE_SYNCS_ENABLED === "true"
-    ) {
+    // Any sync that belongs to a run, course or structure, starts the next
+    // item itself in queue mode; inline runs are advanced by the browser.
+    if (process.env.COURSEMAP_QUEUE_SYNCS_ENABLED === "true") {
       const [item] =
         await sql`select run_id from public.catalogue_course_run_items where sync_id = ${syncId}::uuid`;
       if (item) {
@@ -293,6 +293,13 @@ async function processClaimedSync({
     work: (stageId: string) => Promise<T>,
   ) => {
     signal?.throwIfAborted();
+    // Each stage starts with a fresh lease, and a worker that has lost its
+    // lease stops before fetching, paying for a model call or writing.
+    await renewCatalogueSyncLease(sql, {
+      syncId: claim.syncId,
+      workerId,
+      expectedLockVersion: claim.lockVersion,
+    });
     const stageId = await startSyncStage(sql, {
       syncId: claim.syncId,
       stageName,
@@ -751,27 +758,18 @@ async function processClaimedSync({
       return result;
     });
 
-    const persisted = await runStage("source_version_persist", async () => {
+    await runStage("source_version_persist", async () => {
       if (sourceDocumentId === null) {
         throw new Error("The ANU source document was not preserved.");
       }
-      return persistSourceVersion(sql, {
+      // Records the sync result in the same transaction.
+      return persistSourceVersionAndFinishSync(sql, {
         claim,
         sourceDocumentId,
         write,
       });
     });
 
-    await finishCatalogueSync(sql, {
-      syncId: claim.syncId,
-      workerId,
-      expectedLockVersion: claim.lockVersion,
-      status: persisted.status,
-      sourceDocumentId,
-      sourceVersionId: persisted.sourceVersionId,
-      errorCode: null,
-      errorMessage: null,
-    });
     if (sourceFirst) {
       const { publishVerifiedRunCandidate } =
         await import("../catalogue-runs/publication.ts");

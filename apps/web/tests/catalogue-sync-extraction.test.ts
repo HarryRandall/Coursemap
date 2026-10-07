@@ -29,6 +29,8 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   reject: vi.fn(),
   release: vi.fn(),
+  renew: vi.fn(),
+  advance: vi.fn(),
   hold: vi.fn(),
   pause: vi.fn(),
   providerPause: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
   attachExtractionResponse: mocks.attach,
   recordExtractionRequestFailure: mocks.reject,
   releaseCatalogueSyncForRetry: mocks.release,
+  renewCatalogueSyncLease: mocks.renew,
   completeExtraction: mocks.complete,
   finishCatalogueSync: mocks.finish,
   readListingTitle: vi.fn(async () => "Relational Databases"),
@@ -67,7 +70,10 @@ vi.mock("@/lib/catalogue-sync/artifact-store", async (importOriginal) => ({
   readSyncArtifact: mocks.read,
 }));
 vi.mock("@/lib/catalogue-sync/persist-source-version", () => ({
-  persistSourceVersion: mocks.persist,
+  persistSourceVersionAndFinishSync: mocks.persist,
+}));
+vi.mock("@/lib/catalogue-runs/advance", () => ({
+  advanceCourseRun: mocks.advance,
 }));
 vi.mock("@/lib/catalogue-import/openrouter", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -123,6 +129,7 @@ beforeEach(() => {
   mocks.reserve.mockResolvedValue({ id: "extraction", created: true });
   mocks.reuse.mockResolvedValue(null);
   mocks.hold.mockResolvedValue(false);
+  mocks.renew.mockResolvedValue(undefined);
   mocks.providerPause.mockResolvedValue(null);
   mocks.providerControl.mockResolvedValue({ revision: 0, pause: null });
   mocks.sql.mockImplementation(async (strings) => {
@@ -467,11 +474,9 @@ test("a definitive retryable HTTP rejection can recover on the next delivery", a
   expect(mocks.persist).not.toHaveBeenCalled();
   await processCatalogueSync({ syncId: "sync", deliveryCount: 2 });
   expect(mocks.extract).toHaveBeenCalledTimes(2);
+  // Persistence records the result in its own fenced transaction.
   expect(mocks.persist).toHaveBeenCalledTimes(1);
-  expect(mocks.finish).toHaveBeenCalledWith(
-    expect.anything(),
-    expect.objectContaining({ status: "applied" }),
-  );
+  expect(mocks.finish).not.toHaveBeenCalled();
 });
 
 test("a request without a definitive response remains uncertain and is not retried", async () => {
@@ -579,10 +584,61 @@ test("a complete response proceeds to source persistence", async () => {
       costSource: "unknown",
     }),
   );
-  expect(mocks.finish).toHaveBeenCalledWith(
+  expect(mocks.persist).toHaveBeenCalledWith(
     expect.anything(),
-    expect.objectContaining({ status: "applied", sourceVersionId: 10 }),
+    expect.objectContaining({
+      claim: expect.objectContaining({ syncId: "sync", lockVersion: 1 }),
+      sourceDocumentId: 1,
+    }),
   );
+  expect(mocks.finish).not.toHaveBeenCalled();
+});
+
+test("a worker that has lost its lease stops before paying for a model call", async () => {
+  mocks.renew.mockImplementation(async () => {
+    if (mocks.store.mock.calls.length >= 2)
+      throw Object.assign(new Error("The catalogue sync lease was lost."), {
+        code: "LEASE_LOST",
+      });
+  });
+  await expect(processCatalogueSync({ syncId: "sync" })).rejects.toThrow(
+    "lease was lost",
+  );
+  expect(mocks.renew).toHaveBeenCalledWith(expect.anything(), {
+    syncId: "sync",
+    workerId: expect.any(String),
+    expectedLockVersion: 1,
+  });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.reserve).not.toHaveBeenCalled();
+  expect(mocks.persist).not.toHaveBeenCalled();
+});
+
+test("any queued sync that belongs to a run advances the run, whatever its parser", async () => {
+  vi.stubEnv("COURSEMAP_QUEUE_SYNCS_ENABLED", "true");
+  try {
+    mocks.extract.mockResolvedValue({
+      parsed: extraction,
+      responseError: null,
+      finishReason: "stop",
+      responseForAudit: {},
+      usage: unknownUsage,
+    });
+    const query = mocks.sql.getMockImplementation()!;
+    mocks.sql.mockImplementation(async (strings, ...values) => {
+      const text = Array.from(strings as unknown as readonly string[]).join("");
+      if (text.includes("from public.catalogue_course_run_items"))
+        return [{ run_id: "run" }];
+      return query(strings, ...values);
+    });
+    // The full course parser stands in for structure runs: neither is the
+    // compact course parser that used to be the only one to chain.
+    await processCatalogueSync({ syncId: "sync" });
+    expect(mocks.persist).toHaveBeenCalledTimes(1);
+    expect(mocks.advance).toHaveBeenCalledWith("run");
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
 
 test("the worker gives the model calendar identities and holds unrecognised periods", async () => {

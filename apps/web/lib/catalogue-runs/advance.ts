@@ -1,4 +1,8 @@
-import { withSyncDatabaseClient } from "../catalogue-sync/sync-store.ts";
+import {
+  CATALOGUE_SYNC_MAX_RETRIES,
+  failExhaustedExpiredSyncs,
+  withSyncDatabaseClient,
+} from "../catalogue-sync/sync-store.ts";
 import { dispatchCatalogueSync } from "../catalogue-sync/sync-queue.ts";
 
 /** A lease marker prevents two browsers or queue callbacks advancing one run twice. */
@@ -8,9 +12,11 @@ export async function advanceCourseRun(runId: string) {
       const [run] =
         await tx`select id from public.catalogue_course_runs where id = ${runId}::uuid and state = 'active' for update`;
       if (!run) return null;
+      // A final attempt whose worker stopped can never be claimed again.
+      await failExhaustedExpiredSyncs(tx, { runId });
       await tx`update public.catalogue_syncs set status = 'queued', worker_id = null, lease_expires_at = null, dispatched_at = null, lock_version = lock_version + 1
         where id in (select sync_id from public.catalogue_course_run_items where run_id = ${runId}::uuid)
-          and status = 'running' and lease_expires_at < now() and retry_count < 5`;
+          and status = 'running' and lease_expires_at < now() and retry_count < ${CATALOGUE_SYNC_MAX_RETRIES}`;
       const [busy] =
         await tx`select 1 from public.catalogue_course_run_items items join public.catalogue_syncs syncs on syncs.id = items.sync_id where items.run_id = ${runId}::uuid and (syncs.status = 'running' or (syncs.status = 'queued' and syncs.dispatched_at > now() - interval '10 minutes'))`;
       if (busy) return null;

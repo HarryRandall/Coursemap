@@ -6,10 +6,9 @@ import {
 } from "../catalogue-sync/artifact-store.ts";
 import {
   claimCatalogueSync,
-  finishCatalogueSync,
   type SyncSql,
 } from "../catalogue-sync/sync-store.ts";
-import { persistSourceVersion } from "../catalogue-sync/persist-source-version.ts";
+import { persistSourceVersionAndFinishSync } from "../catalogue-sync/persist-source-version.ts";
 import { resolveSourceChange } from "../catalogue/source-review-decisions.ts";
 import { courseKindAdapter } from "../catalogue-import/kinds/course/adapter.ts";
 import { parseCourseSource } from "../catalogue-import/kinds/course/source-parser.ts";
@@ -107,18 +106,10 @@ export async function repairCourseRunOfferings(
     });
     if (!claim)
       throw new Error("The calendar repair could not claim its sync.");
-    const result = await persistSourceVersion(sql, {
+    await persistSourceVersionAndFinishSync(sql, {
       claim,
       sourceDocumentId: Number(row.source_document_id),
       write: courseKindAdapter.project(extraction),
-    });
-    await finishCatalogueSync(sql, {
-      syncId: claim.syncId,
-      workerId,
-      expectedLockVersion: claim.lockVersion,
-      status: result.status,
-      sourceDocumentId: Number(row.source_document_id),
-      sourceVersionId: result.sourceVersionId,
     });
     const changes =
       await sql`select id, field_path, classification from public.catalogue_sync_changes where sync_id = ${sync.id}::uuid and decision is null and superseded_at is null and field_path in ('course.sessions', 'course.offering')`;
