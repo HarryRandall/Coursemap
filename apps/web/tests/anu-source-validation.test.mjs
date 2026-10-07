@@ -150,14 +150,24 @@ test("course fetch follows a redirect to the same course page", async () => {
   const sourceUrl =
     "https://programsandcourses.anu.edu.au/2025/course/MGMT2007";
   const calls = [];
+  const cancelled = [];
   const page = await fetchAnuCoursePage(2025, "MGMT2007", {
+    // ANU serves the page only at the trailing slash address and redirects
+    // every other spelling there.
     fetchImpl: async (url) => {
       calls.push(url);
-      if (calls.length === 1)
-        return new Response(null, {
+      if (url !== `${sourceUrl}/`) {
+        const response = new Response("Moved", {
           status: 301,
-          headers: { location: "/2025/course/mgmt2007/" },
+          headers: { location: "/2025/course/MGMT2007/" },
         });
+        const cancel = response.body.cancel.bind(response.body);
+        response.body.cancel = async (reason) => {
+          cancelled.push(url);
+          return cancel(reason);
+        };
+        return response;
+      }
       return {
         url,
         status: 200,
@@ -168,8 +178,6 @@ test("course fetch follows a redirect to the same course page", async () => {
     },
   });
   assert.equal(page.validation.valid, true);
-  assert.deepEqual(calls, [
-    sourceUrl,
-    "https://programsandcourses.anu.edu.au/2025/course/mgmt2007",
-  ]);
+  assert.deepEqual(calls, [sourceUrl, `${sourceUrl}/`]);
+  assert.deepEqual(cancelled, [sourceUrl]);
 });

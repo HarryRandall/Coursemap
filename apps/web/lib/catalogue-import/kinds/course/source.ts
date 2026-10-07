@@ -340,21 +340,24 @@ async function fetchSelectedCoursePage(
   for (let redirects = 0; ; redirects += 1) {
     const response = await fetchImpl(url, { ...init, redirect: "manual" });
     if (!isRedirectStatus(response.status)) return response;
+    await response.body?.cancel();
     const location = response.headers.get("location");
-    let target: string | null = null;
+    let target: URL | null = null;
     try {
-      target = location
-        ? normaliseOfficialUrl(new URL(location, url).toString())
-        : null;
+      target = location ? new URL(location, url) : null;
     } catch {
       target = null;
     }
+    // The normalised form decides whether this is the same course; the raw
+    // target is what is requested, so a trailing slash redirect converges.
     if (
       redirects >= MAX_COURSE_SOURCE_REDIRECTS ||
-      target?.toLowerCase() !== sourceUrl.toLowerCase()
+      !target ||
+      normaliseOfficialUrl(target.toString())?.toLowerCase() !==
+        sourceUrl.toLowerCase()
     )
       throw redirectMismatch();
-    url = target;
+    url = target.toString();
   }
 }
 
