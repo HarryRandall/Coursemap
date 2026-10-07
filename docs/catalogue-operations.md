@@ -195,13 +195,24 @@ inputs can reuse the stored response. Queue workers claim one record with a
 lease that is renewed at every stage; expired work is retryable up to five
 attempts, persistence and terminal completion are lease-checked in one
 transaction, and cancellation prevents unfinished work from completing. A
-scheduled sweep fails syncs whose final lease expired and re-dispatches queued
-syncs that were never sent; it needs `CRON_SECRET` in hosted environments.
+scheduled sweep fails syncs whose final lease expired, re-dispatches queued
+syncs that were never sent and advances unfinished runs; it needs `CRON_SECRET`
+in hosted environments.
 
 Local development processes syncs after the request using the local database.
 Hosted environments set `COURSEMAP_SYNC_DATABASE_URL` and
 `COURSEMAP_QUEUE_SYNCS_ENABLED=true`; the queue topic is
 `catalogue-sync-v1`. See `apps/web/.env.example`.
+
+### Deploying a change to the sync worker
+
+Workers from the previous deployment keep running until their queue messages
+are finished. Before deploying a change to leases or persistence, let the queue
+drain: stop or cancel active import runs and wait until no sync is queued or
+running, or pause the provider so queued work is held. Resume after the new
+deployment is live. In particular, workers deployed before lease renewal hold
+an unrenewed 120 second lease and persist without checking it, so they can
+overwrite work that a new worker has taken over.
 
 ## Limit a bulk import to named codes
 
