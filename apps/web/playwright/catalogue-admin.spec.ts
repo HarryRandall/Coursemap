@@ -113,7 +113,7 @@ test("stopped bulk imports show imported counts and linked results on desktop an
 test("administrators upload, review and revoke local SELT imports", async ({
   page,
   administrator,
-}) => {
+}, testInfo) => {
   const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
     max: 1,
   });
@@ -151,7 +151,7 @@ test("administrators upload, review and revoke local SELT imports", async ({
     await entry.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(entry.getByText("Published", { exact: true })).toBeVisible();
     await page.screenshot({
-      path: "/private/tmp/selt-admin-desktop.png",
+      path: testInfo.outputPath("selt-admin-desktop.png"),
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -159,7 +159,7 @@ test("administrators upload, review and revoke local SELT imports", async ({
       page.getByRole("button", { name: "Create local import token" }),
     ).toBeVisible();
     await page.screenshot({
-      path: "/private/tmp/selt-admin-mobile.png",
+      path: testInfo.outputPath("selt-admin-mobile.png"),
       fullPage: true,
     });
     const [run] =
