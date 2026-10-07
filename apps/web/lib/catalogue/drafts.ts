@@ -111,6 +111,61 @@ export async function catalogueRecordForUpdate(sql: Sql, recordId: number) {
   return record;
 }
 
+export type CatalogueRecordIdentity = {
+  kind: CatalogueKind;
+  academicYear: number;
+  code: string;
+};
+
+function recordIdentity(
+  record: Record<string, unknown>,
+): CatalogueRecordIdentity {
+  return {
+    kind: record.kind as CatalogueKind,
+    academicYear: Number(record.year),
+    code: String(record.code),
+  };
+}
+
+/** Returns null when no catalogue record has this id. */
+export async function loadCatalogueRecordIdentity(
+  recordId: number,
+  sql?: SyncSql,
+): Promise<CatalogueRecordIdentity | null> {
+  const work = async (client: SyncSql) => {
+    const [record] = await client`
+      select records.kind, codes.code, academic_years.year
+      from public.catalogue_records as records
+      join public.catalogue_codes as codes on codes.id = records.code_id
+      join public.academic_years on academic_years.id = records.academic_year_id
+      where records.id = ${recordId}
+    `;
+    return record ? recordIdentity(record) : null;
+  };
+  return sql ? work(sql) : withSyncDatabaseClient(work);
+}
+
+/**
+ * These mutations run as the database owner, so row-level security never sees
+ * the editor. Check the record kind's write permission as them before a manual
+ * change reaches what students can see or the record's history.
+ */
+async function assertRecordWritePermission(
+  tx: Sql,
+  record: Record<string, unknown>,
+  userId: string,
+) {
+  await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
+  const [permission] = await tx`
+    select private.has_permission(${importPublicationPermission(record.kind as CatalogueKind)}) as allowed
+  `;
+  if (!permission?.allowed)
+    throw new CatalogueDraftError(
+      "You do not have permission to change this record.",
+      "FORBIDDEN",
+    );
+}
+
 function assertContentIdentity(
   content: CatalogueContent,
   record: Record<string, unknown>,
@@ -655,6 +710,7 @@ export async function publishCatalogueDraft({
           "Archived records cannot be published.",
           "ARCHIVED",
         );
+      if (!importRunId) await assertRecordWritePermission(tx, record, userId);
       const [row] = await tx`
         select * from public.catalogue_drafts where record_id = ${recordId} for update
       `;
@@ -770,7 +826,7 @@ export async function publishCatalogueDraft({
       if (importRunId)
         await tx`update public.catalogue_course_run_items set published_version_id = ${versionId} where run_id = ${importRunId}::uuid and record_id = ${recordId}`;
       await tx`delete from public.catalogue_drafts where record_id = ${recordId}`;
-      return { versionId };
+      return { versionId, record: recordIdentity(record) };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
 }
@@ -790,6 +846,7 @@ export async function unpublishCatalogueRecord({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.published_version_id === null)
         throw new CatalogueDraftError(
           "The record is not published.",
@@ -810,7 +867,7 @@ export async function unpublishCatalogueRecord({
           ${editingSessionId}::uuid, ${versionId}
         )
       `;
-      return { versionId };
+      return { versionId, record: recordIdentity(record) };
     });
   return sql ? work(sql) : withSyncDatabaseClient(work);
 }
@@ -850,6 +907,7 @@ export async function discardCatalogueDraft({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       const [row] = await tx`
         select * from public.catalogue_drafts where record_id = ${recordId} for update
       `;
@@ -906,6 +964,7 @@ export async function restoreCatalogueVersion({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       const content = await readVersionContent(tx, versionId);
       if (!content)
         throw new CatalogueDraftError(

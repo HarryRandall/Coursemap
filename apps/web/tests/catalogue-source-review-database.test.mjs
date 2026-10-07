@@ -183,6 +183,8 @@ beforeAll(async () => {
       now(), now()
     ) on conflict (id) do nothing
   `;
+  // Manual publication checks the editor's own permission for the record kind.
+  await sql`insert into private.user_roles (user_id, role_id) select ${ADMIN_ID}::uuid, id from private.app_roles where key = 'admin' on conflict (user_id) do update set role_id = excluded.role_id`;
   await removeFixtures();
   [{ id: yearId }] = await sql`
     select id from public.academic_years where year = ${YEAR}

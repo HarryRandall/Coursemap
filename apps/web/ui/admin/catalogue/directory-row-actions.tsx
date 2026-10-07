@@ -51,7 +51,6 @@ export function DirectoryRowActions({
   const busy = syncing || record.sourceState === "syncing";
   const kindLabel = labels.singular.toLowerCase();
   const recordPath = adminCatalogueRecordPath(kind, academicYear, record.code);
-  const publishedRecord = { kind, academicYear, code: record.code };
   // A row acts on the draft the list last read. Publishing or discarding a
   // revision that has since moved on is refused by the action rather than
   // overwriting whoever is editing it in another tab. An opened draft can
@@ -105,8 +104,6 @@ export function DirectoryRowActions({
         recordId,
         expectedRevision: record.draftRevision as number,
         editingSessionId,
-        path: recordPath,
-        record: publishedRecord,
       });
     else if (action === "discard")
       result = await discardDraftAction({
@@ -119,8 +116,6 @@ export function DirectoryRowActions({
       result = await unpublishAction({
         recordId,
         editingSessionId,
-        path: recordPath,
-        record: publishedRecord,
       });
     if (result.ok) showToast(result.message ?? "Saved");
     else showToast(result.error, "error");

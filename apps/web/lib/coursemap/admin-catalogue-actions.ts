@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { canWriteCatalogue, getAuthViewer } from "@/lib/auth/viewer";
+import {
+  type AuthViewer,
+  canWriteCatalogueRecord,
+  getAuthViewer,
+} from "@/lib/auth/viewer";
 import type { CatalogueContent } from "@/lib/catalogue/content";
 import {
   beginCatalogueDraft,
   CatalogueDraftConflictError,
   CatalogueDraftError,
+  type CatalogueRecordIdentity,
   discardCatalogueDraft,
+  loadCatalogueRecordIdentity,
   publishCatalogueDraft,
   restoreCatalogueVersion,
   resolveDraftExtractionError,
@@ -18,15 +24,9 @@ import {
   markFieldForReview,
   resolveSourceChange,
 } from "@/lib/catalogue/source-review-decisions";
-import type { CatalogueKind } from "@/lib/coursemap/catalogue-kinds";
+import { adminCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { revalidatePublishedRecord } from "@/lib/coursemap/published-cache";
 import type { SourceReviewDecision } from "@/lib/catalogue/source-review-store";
-
-type PublishedRecord = {
-  kind: CatalogueKind;
-  academicYear: number;
-  code: string;
-};
 
 export type DraftActionResult =
   | { ok: true; message?: string; revision?: number; unchanged?: boolean }
@@ -45,6 +45,57 @@ export type DraftActionResult =
  */
 function revalidateRecord(path: string) {
   revalidatePath(path.split("?")[0] ?? path);
+}
+
+/**
+ * Courses need courses.write and academic structures catalogue.write, so the
+ * permission follows the record the server finds for the id, never anything
+ * the browser says about it.
+ */
+async function requireCatalogueWrite(
+  recordId: number,
+): Promise<
+  | { ok: true; viewer: AuthViewer; record: CatalogueRecordIdentity }
+  | { ok: false; result: DraftActionResult }
+> {
+  const viewer = await getAuthViewer();
+  if (!viewer)
+    return {
+      ok: false,
+      result: { ok: false, error: "Authentication is required." },
+    };
+  const record = Number.isSafeInteger(recordId)
+    ? await loadCatalogueRecordIdentity(recordId)
+    : null;
+  if (!record)
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error: "The catalogue record does not exist.",
+        code: "NOT_FOUND",
+      },
+    };
+  if (!(await canWriteCatalogueRecord(record.kind)))
+    return {
+      ok: false,
+      result: {
+        ok: false,
+        error:
+          record.kind === "course"
+            ? "Course write permission is required."
+            : "Catalogue write permission is required.",
+      },
+    };
+  return { ok: true, viewer, record };
+}
+
+/** Drops the admin record page and the public reads for one publication change. */
+function revalidatePublication(record: CatalogueRecordIdentity) {
+  revalidatePath(
+    adminCatalogueRecordPath(record.kind, record.academicYear, record.code),
+  );
+  revalidatePublishedRecord(record);
 }
 
 function draftFailure(error: unknown, fallback: string): DraftActionResult {
@@ -68,28 +119,22 @@ export async function publishDraftAction({
   recordId,
   expectedRevision,
   editingSessionId,
-  path,
-  record,
 }: {
   recordId: number;
   expectedRevision: number;
   editingSessionId: string;
-  path: string;
-  record: PublishedRecord;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
-    await publishCatalogueDraft({
+    const published = await publishCatalogueDraft({
       recordId,
       expectedRevision,
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
-    revalidatePublishedRecord(record);
+    revalidatePublication(published.record);
     return { ok: true, message: "Published. Students now see this version." };
   } catch (error) {
     return draftFailure(error, "The draft could not be published.");
@@ -99,26 +144,20 @@ export async function publishDraftAction({
 export async function unpublishAction({
   recordId,
   editingSessionId,
-  path,
-  record,
 }: {
   recordId: number;
   editingSessionId: string;
-  path: string;
-  record: PublishedRecord;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
-    await unpublishCatalogueRecord({
+    const unpublished = await unpublishCatalogueRecord({
       recordId,
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
-    revalidatePublishedRecord(record);
+    revalidatePublication(unpublished.record);
     return {
       ok: true,
       message: "Unpublished. Students no longer see this record for the year.",
@@ -141,10 +180,9 @@ export async function beginCatalogueDraftAction({
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const { draft } = await beginCatalogueDraft({
       recordId,
@@ -171,10 +209,9 @@ export async function saveCatalogueDraftAction({
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const result = await saveCatalogueDraft({
       recordId,
@@ -210,10 +247,9 @@ export async function resolveDraftExtractionErrorAction({
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const result = await resolveDraftExtractionError({
       recordId,
@@ -246,10 +282,9 @@ export async function discardDraftAction({
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const result = await discardCatalogueDraft({
       recordId,
@@ -284,10 +319,9 @@ export async function restoreCatalogueVersionAction({
   editingSessionId: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const result = await restoreCatalogueVersion({
       recordId,
@@ -321,10 +355,9 @@ export async function resolveSourceChangeAction({
   decision: SourceReviewDecision;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   try {
     const resolved = await resolveSourceChange({
       recordId,
@@ -360,10 +393,9 @@ export async function approveFirstReadAction({
   changeIds: number[];
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
-  const viewer = await getAuthViewer();
-  if (!viewer) return { ok: false, error: "Authentication is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
+  const { viewer } = access;
   let revision: number | undefined;
   try {
     for (const changeId of changeIds) {
@@ -400,8 +432,8 @@ export async function markFieldForReviewAction({
   fieldPath: string;
   path: string;
 }): Promise<DraftActionResult> {
-  if (!(await canWriteCatalogue()))
-    return { ok: false, error: "Catalogue write permission is required." };
+  const access = await requireCatalogueWrite(recordId);
+  if (!access.ok) return access.result;
   try {
     const marked = await markFieldForReview({ recordId, fieldPath });
     revalidateRecord(path);

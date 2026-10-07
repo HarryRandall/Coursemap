@@ -142,13 +142,6 @@ export function CatalogueEditorProvider({
       }
     }
   }
-  // Publication is the only action here that changes a public page, so it is
-  // also the only one that has to drop the cached public reads.
-  const publishedRecord = {
-    kind: initial.kind,
-    academicYear: initial.academicYear,
-    code: initial.code,
-  };
 
   useEffect(() => {
     const inactivityTimeout = window.setTimeout(
@@ -211,8 +204,6 @@ export function CatalogueEditorProvider({
       recordId,
       expectedRevision: revision,
       editingSessionId,
-      path,
-      record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
     showToast(result.message ?? "Published");
@@ -228,8 +219,6 @@ export function CatalogueEditorProvider({
     const result = await unpublishAction({
       recordId,
       editingSessionId,
-      path,
-      record: publishedRecord,
     });
     if (!result.ok) throw new Error(result.error);
     showToast(result.message ?? "Unpublished");
