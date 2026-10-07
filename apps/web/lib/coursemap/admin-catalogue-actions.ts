@@ -38,16 +38,6 @@ export type DraftActionResult =
     };
 
 /**
- * The record page identifies itself with a URL carrying the academic year, but
- * revalidatePath matches a route path. Passing the query string made every
- * revalidation silently miss, so an accepted change only appeared after a
- * manual reload.
- */
-function revalidateRecord(path: string) {
-  revalidatePath(path.split("?")[0] ?? path);
-}
-
-/**
  * Courses need courses.write and academic structures catalogue.write, so the
  * permission follows the record the server finds for the id, never anything
  * the browser says about it.
@@ -90,11 +80,20 @@ async function requireCatalogueWrite(
   return { ok: true, viewer, record };
 }
 
-/** Drops the admin record page and the public reads for one publication change. */
-function revalidatePublication(record: CatalogueRecordIdentity) {
+/**
+ * Refreshes the admin record page. The path comes from the record the server
+ * found, never from the browser, and carries no query string, because
+ * revalidatePath matches a route path rather than a URL.
+ */
+function revalidateRecord(record: CatalogueRecordIdentity) {
   revalidatePath(
     adminCatalogueRecordPath(record.kind, record.academicYear, record.code),
   );
+}
+
+/** Drops the admin record page and the public reads for one publication change. */
+function revalidatePublication(record: CatalogueRecordIdentity) {
+  revalidateRecord(record);
   revalidatePublishedRecord(record);
 }
 
@@ -174,11 +173,9 @@ export async function unpublishAction({
 export async function beginCatalogueDraftAction({
   recordId,
   editingSessionId,
-  path,
 }: {
   recordId: number;
   editingSessionId: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -189,7 +186,7 @@ export async function beginCatalogueDraftAction({
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return { ok: true, revision: draft.revision };
   } catch (error) {
     return draftFailure(error, "The draft could not be opened.");
@@ -201,13 +198,11 @@ export async function saveCatalogueDraftAction({
   expectedRevision,
   content,
   editingSessionId,
-  path,
 }: {
   recordId: number;
   expectedRevision: number;
   content: CatalogueContent;
   editingSessionId: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -220,7 +215,7 @@ export async function saveCatalogueDraftAction({
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return {
       ok: true,
       revision: result.draft.revision,
@@ -238,14 +233,12 @@ export async function resolveDraftExtractionErrorAction({
   flagIndex,
   reviewReason,
   editingSessionId,
-  path,
 }: {
   recordId: number;
   expectedRevision: number;
   flagIndex: number;
   reviewReason?: string;
   editingSessionId: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -259,7 +252,7 @@ export async function resolveDraftExtractionErrorAction({
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return {
       ok: true,
       revision: result.revision,
@@ -275,12 +268,10 @@ export async function discardDraftAction({
   recordId,
   expectedRevision,
   editingSessionId,
-  path,
 }: {
   recordId: number;
   expectedRevision: number;
   editingSessionId: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -292,7 +283,7 @@ export async function discardDraftAction({
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return {
       ok: true,
       message: result.meaningful
@@ -310,14 +301,12 @@ export async function restoreCatalogueVersionAction({
   expectedRevision,
   replaceExistingDraft,
   editingSessionId,
-  path,
 }: {
   recordId: number;
   versionId: number;
   expectedRevision: number | null;
   replaceExistingDraft: boolean;
   editingSessionId: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -331,7 +320,7 @@ export async function restoreCatalogueVersionAction({
       editingSessionId,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return {
       ok: true,
       revision: result.revision,
@@ -348,12 +337,10 @@ export async function resolveSourceChangeAction({
   recordId,
   changeId,
   decision,
-  path,
 }: {
   recordId: number;
   changeId: number;
   decision: SourceReviewDecision;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -365,7 +352,7 @@ export async function resolveSourceChangeAction({
       decision,
       userId: viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return {
       ok: true,
       revision: resolved.revision,
@@ -387,11 +374,9 @@ export async function resolveSourceChangeAction({
 export async function approveFirstReadAction({
   recordId,
   changeIds,
-  path,
 }: {
   recordId: number;
   changeIds: number[];
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -408,10 +393,10 @@ export async function approveFirstReadAction({
       revision = resolved.revision;
     }
   } catch (error) {
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return draftFailure(error, "The ANU reading could not be approved.");
   }
-  revalidateRecord(path);
+  revalidateRecord(access.record);
   return {
     ok: true,
     revision,
@@ -426,11 +411,9 @@ export async function approveFirstReadAction({
 export async function markFieldForReviewAction({
   recordId,
   fieldPath,
-  path,
 }: {
   recordId: number;
   fieldPath: string;
-  path: string;
 }): Promise<DraftActionResult> {
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
@@ -440,7 +423,7 @@ export async function markFieldForReviewAction({
       fieldPath,
       userId: access.viewer.id,
     });
-    revalidateRecord(path);
+    revalidateRecord(access.record);
     return { ok: true, message: `${marked.label} is back up for review.` };
   } catch (error) {
     return draftFailure(error, "The field could not be marked for review.");

@@ -110,7 +110,6 @@ export function DirectoryRowActions({
         recordId,
         expectedRevision: record.draftRevision as number,
         editingSessionId,
-        path: recordPath,
       });
     else
       result = await unpublishAction({

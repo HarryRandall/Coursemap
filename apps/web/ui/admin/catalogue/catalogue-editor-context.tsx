@@ -75,7 +75,6 @@ export function CatalogueEditorProvider({
   initiallyPublished,
   initialHasDraft,
   initialHasUnpublishedChanges,
-  path,
   children,
 }: {
   initial: CatalogueContent;
@@ -85,7 +84,6 @@ export function CatalogueEditorProvider({
   /** False until a change worth keeping has been saved against this record. */
   initialHasDraft: boolean;
   initialHasUnpublishedChanges: boolean;
-  path: string;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -169,7 +167,6 @@ export function CatalogueEditorProvider({
         expectedRevision: revision,
         content: snapshot,
         editingSessionId,
-        path,
       });
       if (result.ok) {
         setRevision(result.revision ?? revision);
@@ -192,7 +189,6 @@ export function CatalogueEditorProvider({
     dirty,
     editingSessionId,
     failedContent,
-    path,
     recordId,
     revision,
     saveState,
@@ -232,7 +228,6 @@ export function CatalogueEditorProvider({
       recordId,
       expectedRevision: revision,
       editingSessionId,
-      path,
     });
     if (!result.ok) throw new Error(result.error);
     showToast(result.message ?? "Draft discarded");
@@ -258,7 +253,6 @@ export function CatalogueEditorProvider({
       flagIndex,
       reviewReason,
       editingSessionId,
-      path,
     });
     if (!result.ok) throw new Error(result.error);
     const next = {
@@ -285,7 +279,6 @@ export function CatalogueEditorProvider({
     const result = await beginCatalogueDraftAction({
       recordId,
       editingSessionId,
-      path,
     });
     setOpening(false);
     if (!result.ok) {

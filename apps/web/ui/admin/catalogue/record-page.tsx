@@ -170,7 +170,6 @@ export async function CatalogueRecordPage({
       initiallyPublished={record.publishedVersionId !== null}
       initialHasDraft={hasDraft}
       initialHasUnpublishedChanges={hasUnpublishedChanges}
-      path={path}
     >
       <RecordTabs value={section} path={path}>
         <AppShell

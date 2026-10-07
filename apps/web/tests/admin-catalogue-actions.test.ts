@@ -93,7 +93,6 @@ test("catalogue.write alone cannot publish, unpublish or discard a course", asyn
       recordId: 1,
       expectedRevision: 1,
       editingSessionId: SESSION,
-      path: "/admin/courses/2026/comp1100",
     }),
   ]);
 
@@ -164,4 +163,23 @@ test("an unknown record is refused before any permission is assumed", async () =
 
   expect(result).toMatchObject({ ok: false, code: "NOT_FOUND" });
   expect(mocks.unpublish).not.toHaveBeenCalled();
+});
+
+test("draft actions refresh the record the server found, not a path the browser sent", async () => {
+  mocks.permissions = new Set(["courses.write"]);
+
+  const result = await discardDraftAction({
+    recordId: 1,
+    expectedRevision: 1,
+    editingSessionId: SESSION,
+    ...({ path: "/admin/courses/2026/math1013" } as object),
+  });
+
+  expect(result.ok).toBe(true);
+  expect(mocks.revalidatePath).toHaveBeenCalledWith(
+    "/admin/courses/2026/comp1100",
+  );
+  expect(mocks.revalidatePath).not.toHaveBeenCalledWith(
+    "/admin/courses/2026/math1013",
+  );
 });
