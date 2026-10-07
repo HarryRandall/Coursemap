@@ -13,11 +13,30 @@ export function requestSiteOrigin(request: Request) {
 }
 
 /**
+ * The deployment's own URLs. Vercel sets these hostnames in the server
+ * environment, so a preview deployment can accept its own pages without
+ * trusting anything the request says about where it came from.
+ */
+function vercelDeploymentOrigins() {
+  return [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL].flatMap(
+    (host) => {
+      const trimmed = host?.trim();
+      if (!trimmed || !/^[a-z0-9.-]+$/iu.test(trimmed)) return [];
+      return [`https://${trimmed.toLowerCase()}`];
+    },
+  );
+}
+
+/**
  * Cookie-authenticated mutations must come from a Coursemap page. A browser
  * always sends Origin on a cross-site POST or DELETE, so a missing or foreign
  * value is refused rather than trusted.
  */
 export function isSameOriginRequest(request: Request) {
-  const siteOrigin = requestSiteOrigin(request);
-  return Boolean(siteOrigin) && request.headers.get("origin") === siteOrigin;
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  return (
+    origin === requestSiteOrigin(request) ||
+    vercelDeploymentOrigins().includes(origin)
+  );
 }

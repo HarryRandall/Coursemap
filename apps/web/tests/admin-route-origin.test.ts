@@ -62,3 +62,27 @@ test("the application's own origin reaches the permission check", async () => {
   expect(response.status).toBe(403);
   expect(mocks.operations).toHaveBeenCalledOnce();
 });
+
+test("a Vercel deployment accepts its own deployment and branch URLs", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://coursemap.example");
+  vi.stubEnv("VERCEL_URL", "coursemap-abc123.vercel.app");
+  vi.stubEnv("VERCEL_BRANCH_URL", "coursemap-git-fix.vercel.app");
+  mocks.operations.mockResolvedValue(false);
+
+  for (const origin of [
+    "https://coursemap-abc123.vercel.app",
+    "https://coursemap-git-fix.vercel.app",
+  ]) {
+    await provider(request("POST", origin));
+  }
+  expect(mocks.operations).toHaveBeenCalledTimes(2);
+
+  mocks.operations.mockClear();
+  for (const origin of [
+    "http://coursemap-abc123.vercel.app",
+    "https://other.vercel.app",
+  ]) {
+    expect((await provider(request("POST", origin))).status).toBe(403);
+  }
+  expect(mocks.operations).not.toHaveBeenCalled();
+});
