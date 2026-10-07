@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
@@ -16,6 +17,11 @@ function json(data: unknown, status = 200) {
 
 /** Creates one record sync. Inline processing continues after the response. */
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return json(
+      { error: "Use the Coursemap admin page for this action." },
+      403,
+    );
   if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }
@@ -52,6 +58,11 @@ export async function POST(request: Request) {
 
 /** Stops an unfinished record sync. */
 export async function DELETE(request: Request) {
+  if (!isSameOriginRequest(request))
+    return json(
+      { error: "Use the Coursemap admin page for this action." },
+      403,
+    );
   if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }

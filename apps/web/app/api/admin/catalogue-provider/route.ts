@@ -1,3 +1,4 @@
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { recoverCatalogueImports } from "@/lib/catalogue-sync/provider-recovery";
 
@@ -5,6 +6,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return Response.json(
+      { error: "Use the Coursemap admin page for this action." },
+      { status: 403 },
+    );
   if (!(await canManageCatalogueOperations()))
     return Response.json(
       { error: "Catalogue sync permission is required." },

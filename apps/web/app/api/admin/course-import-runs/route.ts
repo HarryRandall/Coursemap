@@ -1,4 +1,5 @@
 import { after } from "next/server";
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import {
   advanceCourseRun,
   cancelCourseRun,
@@ -111,6 +112,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return Response.json(
+      { error: "Use the Coursemap admin page for this action." },
+      { status: 403 },
+    );
   try {
     await requireCourseRunAdministrator();
   } catch {

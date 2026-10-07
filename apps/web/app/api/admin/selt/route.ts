@@ -1,4 +1,4 @@
-import { getSiteOriginForRequest } from "@/lib/supabase/config";
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canWriteCourses } from "@/lib/auth/viewer";
 import { requireCourseRunAdministrator } from "@/lib/catalogue-runs/service";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
@@ -15,13 +15,7 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  // Cookie-authenticated mutations must originate from the same application.
-  const siteOrigin = getSiteOriginForRequest(
-    new URL(request.url),
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
-    request.headers.get("x-forwarded-proto"),
-  );
-  if (!siteOrigin || request.headers.get("origin") !== siteOrigin)
+  if (!isSameOriginRequest(request))
     return Response.json(
       { error: "Use the Coursemap admin page for this action." },
       { status: 403 },
