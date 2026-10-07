@@ -1,22 +1,30 @@
 "use client";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, GripVertical, Plus } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  GripVertical,
+  Plus,
+} from "lucide-react";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
+import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
 import { sessionShortName } from "@/lib/coursemap/academic-periods";
 import type {
   CourseToPlan,
+  RuleCourse,
   RuleToPlan,
   StructureToPlan,
 } from "@/ui/plan/plan-suggestions";
-import { CoursePeek } from "@/ui/plan/course-peek";
 
 type DragStart = (
   event: ReactPointerEvent<HTMLButtonElement>,
@@ -37,39 +45,61 @@ function sessionSummary(sessions: readonly string[]) {
   return more > 0 ? `${shown} +${more}` : shown;
 }
 
+/**
+ * One course a rule lists. A course already in the plan shows where it
+ * stands; one that is not can be dragged into a semester or added to the
+ * open year.
+ */
 function CourseRow({
   item,
+  status,
   onAdd,
   onOpen,
   onDragStart,
 }: {
   item: CourseToPlan;
+  status: RuleCourse["status"];
   onAdd: (course: Course) => void;
   onOpen: (course: Course) => void;
   onDragStart: DragStart;
 }) {
+  const inPlan = status !== null;
   return (
     <li
       data-drag-row
       className="group grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center rounded-lg transition hover:bg-muted/60"
     >
-      <button
-        type="button"
-        aria-label={`Drag ${item.course.code} into a semester`}
-        onPointerDown={(event) => onDragStart(event, item)}
-        className="grid h-full cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/30 group-hover:text-muted-foreground active:cursor-grabbing"
-      >
-        <GripVertical size={12} aria-hidden="true" />
-      </button>
+      {inPlan ? (
+        <span />
+      ) : (
+        <button
+          type="button"
+          aria-label={`Drag ${item.course.code} into a semester`}
+          onPointerDown={(event) => onDragStart(event, item)}
+          className="grid h-full cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/30 group-hover:text-muted-foreground active:cursor-grabbing"
+        >
+          <GripVertical size={12} aria-hidden="true" />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onOpen(item.course)}
         className="grid min-w-0 cursor-pointer grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-x-1.5 py-1.5 text-left"
       >
-        <span className="font-mono text-[11px] text-muted-foreground">
+        <span
+          className={cn(
+            "font-mono text-[11px]",
+            inPlan ? "text-muted-foreground/70" : "text-muted-foreground",
+          )}
+        >
           {item.course.code}
         </span>
-        <span className="truncate text-[13px] text-foreground">
+        <span
+          className={cn(
+            "truncate text-[13px]",
+            inPlan ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
           {item.course.name}
         </span>
         <span
@@ -79,52 +109,41 @@ function CourseRow({
           {sessionSummary(item.course.sessions)}
         </span>
       </button>
-      <button
-        type="button"
-        onClick={() => onAdd(item.course)}
-        aria-label={`Add ${item.course.code} to this year`}
-        title="Add to this year"
-        className="mx-1 grid size-7 place-items-center rounded-md text-muted-foreground opacity-0 transition group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-muted hover:text-foreground [@media(hover:none)]:opacity-100"
-      >
-        <Plus size={14} aria-hidden="true" />
-      </button>
+      {status === "completed" ? (
+        <span
+          className="mx-1 grid size-7 place-items-center text-emerald-600 dark:text-emerald-400"
+          title="Completed"
+        >
+          <CheckCircle2 size={14} aria-label="Completed" />
+        </span>
+      ) : inPlan ? (
+        <span
+          className="mx-1 grid size-7 place-items-center text-primary"
+          title="In your plan"
+        >
+          <Check size={14} aria-label="In your plan" />
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onAdd(item.course)}
+          aria-label={`Add ${item.course.code} to this year`}
+          title="Add to this year"
+          className="mx-1 grid size-7 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
+      )}
     </li>
   );
 }
 
 /**
- * Where the student settles a rule the planner will not decide for them:
- * the Requirements tab for a list of options, or the course directory
- * filtered to what counts.
+ * A rule as a group that opens to its courses, with how much of it the plan
+ * covers. Rules that count units by filter name no courses, so they point to
+ * the course directory instead.
  */
-function RuleChoiceLink({
-  rule,
-  kind,
-}: {
-  rule: RuleToPlan;
-  kind: PlanStructureKind;
-}) {
-  const [href, label] =
-    rule.options > 0
-      ? [
-          `/requirements?tab=${kind}`,
-          `Choose from ${rule.options} in Requirements`,
-        ]
-      : rule.browse
-        ? [`/courses?${rule.browse}`, "Browse courses that count"]
-        : ["/courses", "Browse courses"];
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-1 rounded-md px-1 py-1 text-[12px] text-muted-foreground transition hover:text-foreground"
-    >
-      {label}
-      <ArrowRight size={12} aria-hidden="true" />
-    </Link>
-  );
-}
-
-function RuleSection({
+function RuleGroup({
   rule,
   kind,
   onAdd,
@@ -137,41 +156,113 @@ function RuleSection({
   onOpen: (course: Course) => void;
   onDragStart: DragStart;
 }) {
+  const [open, setOpen] = useState(
+    () => !rule.covered && rule.courses.length > 0 && rule.courses.length <= 12,
+  );
+  const expandable = rule.courses.length > 0;
+  const header = (
+    <>
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        {rule.covered ? (
+          <CheckCircle2
+            size={13}
+            aria-label="Covered"
+            className="shrink-0 text-emerald-600 dark:text-emerald-400"
+          />
+        ) : null}
+        <span className="truncate text-xs font-semibold text-foreground">
+          {rule.heading}
+        </span>
+      </span>
+      {rule.count ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums",
+            rule.covered
+              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "bg-primary/10 text-primary",
+          )}
+        >
+          {rule.count}
+        </span>
+      ) : null}
+      {expandable ? (
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={cn(
+            "shrink-0 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      ) : null}
+    </>
+  );
   return (
     <section aria-label={rule.detail} className="space-y-1">
-      <div className="px-1" title={rule.detail}>
-        <div className="flex items-baseline justify-between gap-3">
-          <h3 className="truncate text-xs font-semibold text-foreground">
-            {rule.heading}
-          </h3>
-          <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
-            {rule.left}
-          </span>
-        </div>
-        <div
-          aria-hidden="true"
-          className="mt-1.5 h-0.5 overflow-hidden rounded-full bg-muted"
+      {expandable ? (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          title={rule.detail}
+          className="flex w-full cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/50"
         >
-          <div
-            className="h-full rounded-full bg-primary/60"
-            style={{ width: `${rule.progress * 100}%` }}
-          />
+          {header}
+        </button>
+      ) : (
+        <div className="flex items-center gap-2 px-1 py-1" title={rule.detail}>
+          {header}
         </div>
-      </div>
-      {rule.courses.length > 0 ? (
+      )}
+      <p className="px-1 text-[11px] text-muted-foreground">{rule.detail}</p>
+      {expandable && open ? (
         <ul>
-          {rule.courses.map((item) => (
-            <CourseRow
-              key={item.course.code}
-              item={item}
-              onAdd={onAdd}
-              onOpen={onOpen}
-              onDragStart={onDragStart}
-            />
-          ))}
+          {rule.courses.map(({ code, course, status }) =>
+            course ? (
+              <CourseRow
+                key={code}
+                item={{
+                  course,
+                  required: rule.compulsory,
+                  tag: rule.heading,
+                  structureKind: kind,
+                }}
+                status={status}
+                onAdd={onAdd}
+                onOpen={onOpen}
+                onDragStart={onDragStart}
+              />
+            ) : (
+              <li
+                key={code}
+                className="grid grid-cols-[1.5rem_4.25rem_minmax(0,1fr)] items-center gap-x-1.5 py-1.5"
+              >
+                <span />
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {code}
+                </span>
+                <span className="truncate text-[12px] text-muted-foreground">
+                  Not published for this year
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       ) : null}
-      {rule.compulsory ? null : <RuleChoiceLink rule={rule} kind={kind} />}
+      {rule.note ? (
+        <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
+          {rule.note}
+        </p>
+      ) : !expandable ? (
+        <Link
+          href={rule.browse ? `/courses?${rule.browse}` : "/courses"}
+          className="flex items-center gap-1 rounded-md px-1 py-1 text-[12px] text-primary transition hover:underline"
+        >
+          {rule.browse ? "Browse courses that count" : "Browse courses"}
+          <ArrowRight size={12} aria-hidden="true" />
+        </Link>
+      ) : null}
     </section>
   );
 }
@@ -184,19 +275,24 @@ const KIND_LABELS: Record<PlanStructureKind, string> = {
 };
 
 /**
- * What the plan still needs, one tab per part of the degree: compulsory
- * courses and the student's own picks to drag into a semester, a link to
- * settle each open choice, and the rules already covered folded into one line.
+ * Each part of the degree as a tab of its rules, in the style of a course
+ * selector: every rule opens to the courses it names, marked as done or in
+ * the plan, with the rest ready to drag into a semester or add.
  */
 export function CoursesToPlan({
   structures,
   starred,
+  inPlan,
   onAdd,
+  onOpen,
   onDragStart,
 }: {
   structures: StructureToPlan[];
   starred: CourseToPlan[];
+  /** Where each course in the plan stands, for the starred list. */
+  inPlan: ReadonlyMap<string, RuleCourse["status"]>;
   onAdd: (course: Course) => void;
+  onOpen: (course: Course) => void;
   onDragStart: DragStart;
 }) {
   const kindCount = (kind: PlanStructureKind) =>
@@ -210,7 +306,6 @@ export function CoursesToPlan({
     item,
   }));
   const [tab, setTab] = useState(() => tabs[0]?.value ?? "starred");
-  const [peek, setPeek] = useState<Course | null>(null);
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card lg:max-h-[calc(100dvh-12rem)]">
       <Tabs
@@ -228,9 +323,9 @@ export function CoursesToPlan({
                 className="max-w-[10rem]"
               >
                 <span className="truncate">{label}</span>
-                {item.rules.length > 0 ? (
+                {item.openCount > 0 ? (
                   <span className="text-[11px] text-muted-foreground tabular-nums">
-                    {item.rules.length}
+                    {item.openCount}
                   </span>
                 ) : (
                   <Check
@@ -256,27 +351,20 @@ export function CoursesToPlan({
             <TabsContent key={value} value={value} className="mt-0 space-y-4">
               {item.rules.length === 0 ? (
                 <p className="px-1 py-1 text-xs text-muted-foreground">
-                  Everything for the {item.structure.name} is in your plan.
+                  The {item.structure.name} has no rules to plan against yet.
                 </p>
               ) : (
                 item.rules.map((rule) => (
-                  <RuleSection
+                  <RuleGroup
                     key={rule.key}
                     rule={rule}
                     kind={item.structure.kind}
                     onAdd={onAdd}
-                    onOpen={setPeek}
+                    onOpen={onOpen}
                     onDragStart={onDragStart}
                   />
                 ))
               )}
-              {item.doneCount > 0 ? (
-                <p className="flex items-center gap-1.5 border-t border-border px-1 pt-3 text-[11px] text-emerald-700 dark:text-emerald-400">
-                  <Check size={12} aria-hidden="true" />
-                  {item.doneCount} {item.doneCount === 1 ? "rule" : "rules"}{" "}
-                  covered
-                </p>
-              ) : null}
             </TabsContent>
           ))}
           <TabsContent value="starred" className="mt-0">
@@ -290,8 +378,9 @@ export function CoursesToPlan({
                   <CourseRow
                     key={item.course.code}
                     item={item}
+                    status={inPlan.get(item.course.code) ?? null}
                     onAdd={onAdd}
-                    onOpen={setPeek}
+                    onOpen={onOpen}
                     onDragStart={onDragStart}
                   />
                 ))}
@@ -300,14 +389,6 @@ export function CoursesToPlan({
           </TabsContent>
         </div>
       </Tabs>
-      {peek ? (
-        <CoursePeek
-          course={peek}
-          addLabel="Add to this year"
-          onAdd={() => onAdd(peek)}
-          onClose={() => setPeek(null)}
-        />
-      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
   PlanStructureKind,
@@ -33,26 +33,6 @@ export type CourseToPlan = {
   structureKind: PlanStructureKind;
 };
 
-/**
- * Rules that still need courses, from the top of the tree down. The whole
- * structure reads as planned once its unit total is, so the root is always
- * opened; a group within it is skipped once it is planned or complete.
- */
-function rulesToPlan(
-  node: RequirementTreeNode,
-  context: TreeContext,
-  root = true,
-): RequirementTreeCondition[] {
-  if (node.type === "group") {
-    return root || requirementRowStatus(node, context).kind === "todo"
-      ? node.children.flatMap((child) => rulesToPlan(child, context, false))
-      : [];
-  }
-  if (hidesCondition(node, context) || conditionTone(node) !== "requirement")
-    return [];
-  return requirementRowStatus(node, context).kind === "todo" ? [node] : [];
-}
-
 /** The version of a course to plan in a semester: that year's, or the latest. */
 export function courseForTerm(
   code: string,
@@ -66,34 +46,45 @@ export function courseForTerm(
   );
 }
 
-/** One open rule with the courses the student has already settled on for it. */
+/** A course a rule lists, and where it stands in the student's plan. */
+export type RuleCourse = {
+  code: string;
+  /** Null when the catalogue year the plan uses does not publish it. */
+  course: Course | null;
+  /** Completed, planned or enrolled; null while it is not in the plan. */
+  status: AttemptStatus | null;
+};
+
+/** One rule of a structure with the courses it lists, if any. */
 export type RuleToPlan = {
   key: string;
-  /** A few words, such as "COMP 3000+" or "Pick one". */
+  /** A few words, such as "Core courses" or "Pick one". */
   heading: string;
   /** The rule in full, for a tooltip. */
   detail: string;
-  /** What is left, such as "18 units to plan". */
-  left: string;
+  /** How far it has come, such as "6 / 30 units". */
+  count: string;
   /** Share of the rule completed or planned, from 0 to 1. */
   progress: number;
+  /** Whether the plan already covers the rule. */
+  covered: boolean;
   compulsory: boolean;
-  /**
-   * Compulsory courses still to place, or the options the student starred.
-   * The planner never chooses between options on the student's behalf.
-   */
-  courses: CourseToPlan[];
-  /** How many courses the rule lists to choose from; 0 when it names none. */
-  options: number;
+  /** Every course the rule names. Rules counting units by filter name none. */
+  courses: RuleCourse[];
   /** Course directory filters for a rule that names no courses. */
   browse: string | null;
+  /**
+   * A line on what counts, for a rule whose heading cannot say it, such as
+   * a degree total that every course adds to.
+   */
+  note: string | null;
 };
 
 export type StructureToPlan = {
   structure: PlannedStructure;
   rules: RuleToPlan[];
-  /** Rules already covered by completed or planned courses. */
-  doneCount: number;
+  /** Rules the plan does not cover yet. */
+  openCount: number;
 };
 
 /**
@@ -136,12 +127,14 @@ function shortHeading(rule: RequirementTreeCondition, compulsory: boolean) {
         ? `${rule.minimumLevel}-level courses`
         : "Course level";
     case "course_set_units": {
-      if (compulsory) return "Compulsory";
+      if (compulsory) return "Core courses";
       const count = rule.minimumCourses ?? 1;
       return count === 1 ? "Pick one" : `Pick ${count}`;
     }
     case "elective_units":
       return "Electives";
+    case "units_total":
+      return "Total units";
     default:
       return conditionHeading(rule);
   }
@@ -159,87 +152,64 @@ function requirementRules(
 }
 
 /**
- * Each structure's open rules in requirement order, with the compulsory
- * courses still to place and any options the student starred. A course can
- * count for more than one structure, so it may appear under each of them.
+ * Each structure's rules in requirement order, with every course a rule
+ * lists and whether it is in the plan, so required courses can be read and
+ * added in one place. A total reads last, because every other rule fills it.
  */
 export function structuresToPlan({
   structures,
-  attempts,
   catalogue,
-  starred,
 }: {
   structures: PlannedStructure[];
-  attempts: Attempt[];
   catalogue: PlanCatalogue;
-  /** Codes of the courses the student starred. */
-  starred: readonly string[];
 }): StructureToPlan[] {
-  const planned = new Set(
-    attempts
-      .filter((attempt) => attempt.status !== "withdrawn")
-      .map((attempt) => attempt.courseCode),
-  );
-  const starredCodes = new Set(starred);
+  const courseFor = (code: string) =>
+    catalogue.courses.find(
+      (item) => item.code === code && item.year === catalogue.academicYear,
+    ) ??
+    catalogue.courses.find((item) => item.code === code) ??
+    null;
   return structures.map((structure) => {
     const { context } = structure;
-    const open = rulesToPlan(structure.root, context);
-    const seen = new Set<string>();
-    const rules = open.flatMap((rule): RuleToPlan[] => {
+    const ordered = requirementRules(structure.root, context).sort(
+      (left, right) =>
+        Number(left.conditionKind === "units_total") -
+        Number(right.conditionKind === "units_total"),
+    );
+    const rules = ordered.map((rule): RuleToPlan => {
       const listed = listedCourseCounts(rule, context);
       const compulsory = listed.codes.length > 0 && listed.required;
-      // A choice the student already made, counted under another rule,
-      // is theirs to move rather than a reason to list the alternatives.
-      if (
-        !compulsory &&
-        listed.codes.some((code) => context.attemptStatusByCode.has(code))
-      )
-        return [];
-      const heading = shortHeading(rule, compulsory);
-      const courses = listed.codes
-        .filter((code) => compulsory || starredCodes.has(code))
-        .flatMap((code) => {
-          const course = catalogue.courses.find(
-            (item) =>
-              item.code === code && item.year === catalogue.academicYear,
-          );
-          return course ? [course] : [];
-        })
-        .filter((course) => !planned.has(course.code) && !seen.has(course.code))
-        .map((course) => {
-          seen.add(course.code);
-          return {
-            course,
-            required: compulsory,
-            tag: compulsory ? "Required" : heading,
-            structureKind: structure.kind,
-          };
-        });
       const status = requirementRowStatus(rule, context);
       const figure = status.kind === "unmeasured" ? null : status.figure;
-      return [
-        {
-          key: `${structure.code}:${rule.id}`,
-          heading,
-          detail: conditionSummary(rule),
-          left: status.kind === "unmeasured" ? "" : status.label,
-          progress:
-            figure && figure.target > 0
-              ? Math.min(1, figure.value / figure.target)
-              : 0,
-          compulsory,
-          courses,
-          options: listed.codes.length,
-          browse: listed.codes.length > 0 ? null : ruleSearchParams(rule),
-        },
-      ];
+      return {
+        key: `${structure.code}:${rule.id}`,
+        heading: shortHeading(rule, compulsory),
+        detail: conditionSummary(rule),
+        count: figure
+          ? `${Math.min(figure.value, figure.target)} / ${figure.target} ${figure.unit}`
+          : "",
+        progress:
+          figure && figure.target > 0
+            ? Math.min(1, figure.value / figure.target)
+            : 0,
+        covered: status.kind === "planned" || status.kind === "complete",
+        compulsory,
+        courses: listed.codes.map((code) => ({
+          code,
+          course: courseFor(code),
+          status: context.attemptStatusByCode.get(code) ?? null,
+        })),
+        browse: listed.codes.length > 0 ? null : ruleSearchParams(rule),
+        note:
+          rule.conditionKind === "units_total"
+            ? "Every course counts here, core and elective alike, so the rules above fill it as you plan."
+            : null,
+      };
     });
-    const measured = requirementRules(structure.root, context).filter(
-      (rule) => {
-        const kind = requirementRowStatus(rule, context).kind;
-        return kind === "planned" || kind === "complete";
-      },
-    );
-    return { structure, rules, doneCount: measured.length };
+    return {
+      structure,
+      rules,
+      openCount: rules.filter((rule) => !rule.covered).length,
+    };
   });
 }

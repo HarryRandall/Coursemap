@@ -39,6 +39,16 @@ export async function saveProfileAndPlan(
   profile: Profile,
 ): Promise<CoursemapActionResult> {
   try {
+    if (
+      (profile.preferredName?.trim().length ?? 0) > 80 ||
+      (profile.pronouns?.trim().length ?? 0) > 40
+    ) {
+      return {
+        ok: false,
+        message:
+          "Use up to 80 characters for your preferred name and 40 for your pronouns.",
+      };
+    }
     const studentNumber = normaliseStudentNumber(profile.studentId);
     if (studentNumber === null) {
       return {
@@ -65,6 +75,19 @@ export async function saveProfileAndPlan(
       },
     );
     if (error) throw error;
+    const { data: claims } = await supabase.auth.getClaims();
+    const ownerId = claims?.claims.sub;
+    if (ownerId) {
+      // Optional details the plan RPC does not take; blank clears them.
+      const { error: detailsError } = await supabase
+        .from("profiles")
+        .update({
+          preferred_name: profile.preferredName?.trim() || null,
+          pronouns: profile.pronouns?.trim() || null,
+        })
+        .eq("id", ownerId);
+      if (detailsError) throw detailsError;
+    }
     revalidatePath("/", "layout");
     return { ok: true, id: data, message: "Profile saved" };
   } catch (error) {

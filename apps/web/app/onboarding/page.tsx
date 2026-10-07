@@ -6,14 +6,18 @@ import { redirect } from "next/navigation";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { loadOnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
 import { hasPrimaryPlan } from "@/lib/coursemap/state";
+import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { OnboardingForm } from "./onboarding-form";
 
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingPage() {
   const viewer = await getAuthViewer();
-  if (!viewer) redirect("/login?next=%2Fonboarding");
-  if (await hasPrimaryPlan(viewer)) redirect("/dashboard");
+  if (!viewer) {
+    const guestPlan = await readGuestPlan();
+    if (!guestPlan) redirect("/login?next=%2Fonboarding");
+    if (guestPlan.profile.degreeCode) redirect("/dashboard");
+  } else if (await hasPrimaryPlan(viewer)) redirect("/dashboard");
 
   let catalogue;
   try {
@@ -40,7 +44,7 @@ export default async function OnboardingPage() {
     <OnboardingForm
       catalogue={catalogue}
       currentYear={new Date().getFullYear()}
-      email={viewer.email ?? ""}
+      email={viewer?.email ?? ""}
     />
   );
 }

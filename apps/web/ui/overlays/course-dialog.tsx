@@ -15,6 +15,7 @@ import { cn } from "@/lib/cn";
 import {
   AlertTriangle,
   Check,
+  Plus,
   ExternalLink,
   ShieldCheck,
   Trash2,
@@ -24,7 +25,7 @@ import { useState } from "react";
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
-import type { Attempt } from "@/lib/coursemap/types";
+import type { Attempt, Course } from "@/lib/coursemap/types";
 import {
   attemptedUnitsError,
   attemptedUnitsFromInput,
@@ -119,17 +120,27 @@ function planStudentRecord(
   };
 }
 
+/** A course that is not in the plan yet, opened to read before adding it. */
+export type CoursePreview = {
+  course: Course;
+  addLabel: string;
+  onAdd: () => void;
+};
+
 /**
  * A planned or recorded course: the key facts up top, its description and
  * requisites a tab apart, and the result actions along the bottom. A missing
  * prerequisite shows above the tabs so it is seen without looking for it.
+ * Given a preview instead, the same view offers to add the course.
  */
 export function CourseDialog({
   attemptId,
+  preview,
   catalogue: suppliedCatalogue,
   onClose,
 }: {
-  attemptId: string;
+  attemptId?: string;
+  preview?: CoursePreview;
   catalogue?: PlanCatalogue;
   onClose: () => void;
 }) {
@@ -146,10 +157,22 @@ export function CourseDialog({
           : [],
       }
     : undefined;
-  const attempt = state.attempts.find((item) => item.id === attemptId);
-  const course = attempt
-    ? planningCourseForAttempt(attempt, catalogue)
-    : undefined;
+  // A preview reads as a course placed after everything already planned,
+  // so its requisites are checked against the whole plan.
+  const attempt: Attempt | undefined = preview
+    ? {
+        id: "preview",
+        academicYear: preview.course.year,
+        courseCode: preview.course.code,
+        termId: "unscheduled",
+        status: "planned",
+      }
+    : state.attempts.find((item) => item.id === attemptId);
+  const course = preview
+    ? preview.course
+    : attempt
+      ? planningCourseForAttempt(attempt, catalogue)
+      : undefined;
   const [attemptedUnitsInput, setAttemptedUnitsInput] = useState(() =>
     attempt?.unitsAttempted === undefined ? "" : String(attempt.unitsAttempted),
   );
@@ -178,7 +201,7 @@ export function CourseDialog({
   const submittedAttemptedUnits = unitSelectionRequired
     ? (selectedAttemptedUnits ?? undefined)
     : undefined;
-  const showUnits = !recorded && unitSelectionRequired;
+  const showUnits = !preview && !recorded && unitSelectionRequired;
   const facts = [
     ["Units", String(unitsForAttempt(attempt, course))],
     ["Level", String(course.level)],
@@ -254,7 +277,13 @@ export function CourseDialog({
               <p className="font-mono text-[11px] font-medium text-muted-foreground">
                 {course.code}
               </p>
-              <StatusPill status={status} />
+              {preview ? (
+                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Not in your plan
+                </span>
+              ) : (
+                <StatusPill status={status} />
+              )}
             </div>
             <DialogTitle asChild>
               <h2
@@ -284,7 +313,7 @@ export function CourseDialog({
           </Button>
         </header>
 
-        {!prereqsMet ? (
+        {!prereqsMet && !preview ? (
           <div className="mx-5 mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 sm:mx-6 dark:bg-rose-950/60 dark:text-rose-300">
             <AlertTriangle size={14} className="shrink-0" />
             <p className="min-w-0 flex-1 text-xs font-medium">
@@ -302,7 +331,7 @@ export function CourseDialog({
             <TabsTrigger value="about">About</TabsTrigger>
             <TabsTrigger value="requisites">
               Requisites
-              {!prereqsMet ? (
+              {!prereqsMet && !preview ? (
                 <span
                   aria-label="needs attention"
                   className="size-1.5 rounded-full bg-rose-500"
@@ -427,24 +456,26 @@ export function CourseDialog({
                   <p className="mt-1 text-xs text-muted-foreground">
                     {permissions.join("\n\n")}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="mt-1 -ml-2 h-7 px-2 text-[11px] text-primary hover:text-primary"
-                    onClick={() => {
-                      togglePermission(attempt.id);
-                      notify(
-                        attempt.permissionApproved
-                          ? "Permission approval removed"
-                          : "Permission approval recorded",
-                      );
-                    }}
-                    type="button"
-                  >
-                    {attempt.permissionApproved
-                      ? "Remove approval"
-                      : "Record approval"}
-                  </Button>
+                  {preview ? null : (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="mt-1 -ml-2 h-7 px-2 text-[11px] text-primary hover:text-primary"
+                      onClick={() => {
+                        togglePermission(attempt.id);
+                        notify(
+                          attempt.permissionApproved
+                            ? "Permission approval removed"
+                            : "Permission approval recorded",
+                        );
+                      }}
+                      type="button"
+                    >
+                      {attempt.permissionApproved
+                        ? "Remove approval"
+                        : "Record approval"}
+                    </Button>
+                  )}
                 </section>
               )}
             </TabsContent>
@@ -540,87 +571,103 @@ export function CourseDialog({
           </div>
         ) : null}
         <footer className="border-t border-border/60 bg-muted/40 px-5 py-3 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={final}
-              onClick={() => void remove()}
-              className="mr-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
-              type="button"
-            >
-              <Trash2 size={14} />
-              Remove
-            </Button>
-            {enrolled ? (
-              <Button asChild variant="outline" size="sm">
-                <ReuiLink href="/academic">Add result</ReuiLink>
+          {preview ? (
+            <div className="flex justify-end">
+              <Button
+                size="sm"
+                type="button"
+                onClick={() => {
+                  preview.onAdd();
+                  onClose();
+                }}
+              >
+                <Plus size={14} aria-hidden="true" />
+                {preview.addLabel}
               </Button>
-            ) : (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={recorded || unitSelectionMissing}
-                  aria-pressed={attempt.status === "completed"}
-                  className={cn(
-                    attempt.status === "completed"
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-                      : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
-                  )}
-                  onClick={async () => {
-                    const result = await updateAttempt(
-                      attempt.id,
-                      "completed",
-                      undefined,
-                      submittedAttemptedUnits,
-                    );
-                    notify(
-                      result.ok
-                        ? `${course.code} marked as completed`
-                        : result.message,
-                      result.ok ? "success" : "error",
-                    );
-                  }}
-                  type="button"
-                >
-                  <Check size={14} />
-                  Completed
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={final}
+                onClick={() => void remove()}
+                className="mr-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                type="button"
+              >
+                <Trash2 size={14} />
+                Remove
+              </Button>
+              {enrolled ? (
+                <Button asChild variant="outline" size="sm">
+                  <ReuiLink href="/academic">Add result</ReuiLink>
                 </Button>
-                <Button
-                  variant={
-                    attempt.status === "failed" ? "destructive" : "outline"
-                  }
-                  size="sm"
-                  disabled={recorded || unitSelectionMissing}
-                  aria-pressed={attempt.status === "failed"}
-                  className={cn(
-                    attempt.status === "failed"
-                      ? "disabled:opacity-100"
-                      : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
-                  )}
-                  onClick={async () => {
-                    const result = await updateAttempt(
-                      attempt.id,
-                      "failed",
-                      undefined,
-                      submittedAttemptedUnits,
-                    );
-                    notify(
-                      result.ok
-                        ? `${course.code} marked as failed`
-                        : result.message,
-                      result.ok ? "success" : "error",
-                    );
-                  }}
-                  type="button"
-                >
-                  <X size={14} />
-                  Failed
-                </Button>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={recorded || unitSelectionMissing}
+                    aria-pressed={attempt.status === "completed"}
+                    className={cn(
+                      attempt.status === "completed"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
+                        : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
+                    )}
+                    onClick={async () => {
+                      const result = await updateAttempt(
+                        attempt.id,
+                        "completed",
+                        undefined,
+                        submittedAttemptedUnits,
+                      );
+                      notify(
+                        result.ok
+                          ? `${course.code} marked as completed`
+                          : result.message,
+                        result.ok ? "success" : "error",
+                      );
+                    }}
+                    type="button"
+                  >
+                    <Check size={14} />
+                    Completed
+                  </Button>
+                  <Button
+                    variant={
+                      attempt.status === "failed" ? "destructive" : "outline"
+                    }
+                    size="sm"
+                    disabled={recorded || unitSelectionMissing}
+                    aria-pressed={attempt.status === "failed"}
+                    className={cn(
+                      attempt.status === "failed"
+                        ? "disabled:opacity-100"
+                        : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
+                    )}
+                    onClick={async () => {
+                      const result = await updateAttempt(
+                        attempt.id,
+                        "failed",
+                        undefined,
+                        submittedAttemptedUnits,
+                      );
+                      notify(
+                        result.ok
+                          ? `${course.code} marked as failed`
+                          : result.message,
+                        result.ok ? "success" : "error",
+                      );
+                    }}
+                    type="button"
+                  >
+                    <X size={14} />
+                    Failed
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </footer>
       </DialogContent>
     </Dialog>

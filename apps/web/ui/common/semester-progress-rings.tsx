@@ -195,7 +195,18 @@ export function SemesterProgressRings({
         fill="none"
         strokeWidth="4"
       >
-        <g transform="rotate(-90 32 32)">
+        {/* Without a unit target there is nothing to divide into
+            semesters, so both rings show as empty tracks. */}
+        {target > 0 ? null : (
+          <g className="stroke-muted-foreground/20">
+            <circle cx="32" cy="32" r={29} />
+            <circle cx="32" cy="32" r={23.5} />
+          </g>
+        )}
+        <g
+          transform="rotate(-90 32 32)"
+          className={target > 0 ? undefined : "hidden"}
+        >
           <SegmentedRing
             ring={0}
             radius={29}

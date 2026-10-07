@@ -103,6 +103,9 @@ export type Relation = {
 
 export type Profile = {
   name: string;
+  /** What the student would like to be called, if not their name. */
+  preferredName?: string;
+  pronouns?: string;
   studentId: string;
   email: string;
   commencementYear: number;

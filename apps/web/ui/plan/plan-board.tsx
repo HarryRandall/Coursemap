@@ -6,6 +6,7 @@ import {
   Circle,
   GripVertical,
   Plus,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -19,14 +20,9 @@ import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
+import { PlannerSkeleton } from "@/ui/plan/planner-skeleton";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@coursemap/ui/primitives/dropdown-menu";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 import {
   Dialog,
@@ -55,6 +51,7 @@ import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
 import { isSemesterTerm } from "@/lib/coursemap/academic-periods";
 import {
+  MAX_PLAN_EXTENSION_YEARS,
   planTimelineTerms,
   planTimelineYears,
 } from "@/lib/coursemap/plan-timeline";
@@ -93,13 +90,32 @@ export type PickerState = { termId: string; intent: "all" | "recommended" };
 const SUGGESTION_DRAG = "suggestion:";
 /** Where a planned course dropped on the courses to plan box goes: out of the plan. */
 const REMOVE_DROP = "remove";
-/**
- * The short sessions share one row, so a drop there names the year and the
- * session is chosen from where the course runs, as in "short:2026".
- */
-const SHORT_DROP = "short:";
-export /** Single muted status mark - the only colour on the board. */
-function StatusMark({
+/** Short sessions a student opened on the board, kept between visits. */
+const OPEN_SESSIONS_KEY = "coursemap.plan.open-sessions";
+
+function readOpenSessions(): string[] {
+  try {
+    const stored: unknown = JSON.parse(
+      window.localStorage.getItem(OPEN_SESSIONS_KEY) ?? "[]",
+    );
+    return Array.isArray(stored)
+      ? stored.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveOpenSessions(termIds: readonly string[]) {
+  try {
+    window.localStorage.setItem(OPEN_SESSIONS_KEY, JSON.stringify(termIds));
+  } catch {
+    // Without storage an opened session lasts until the page is left.
+  }
+}
+
+/** Single muted status mark - the only colour on the board. */
+export function StatusMark({
   status,
   size = 15,
 }: {
@@ -122,9 +138,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     addCourse,
     removeAttempt,
     setPlacement,
+    setPlanExtensionYears,
     notify,
   } = useCoursemap();
   const [selectedYearKey, setSelectedYearKey] = useState<string | null>(null);
+  const [openSessions, setOpenSessions] = useState<string[]>([]);
+  useEffect(() => {
+    // Storage is read after hydration so the server and client agree.
+    window.queueMicrotask(() => setOpenSessions(readOpenSessions()));
+  }, []);
+  const toggleSession = (termId: string, open: boolean) => {
+    setOpenSessions((current) => {
+      const next = open
+        ? [...new Set([...current, termId])]
+        : current.filter((item) => item !== termId);
+      saveOpenSessions(next);
+      return next;
+    });
+  };
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
@@ -132,6 +163,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const [overloadTerm, setOverloadTerm] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
   const [selectedAttempt, setSelectedAttempt] = useState<string | null>(null);
+  const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragPreview, setDragPreview] = useState<PendingDrop | null>(null);
   const [dragPointer, setDragPointer] = useState<DragPointer | null>(null);
@@ -164,24 +196,56 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     () => planTimelineTerms({ terms: catalogue.terms, years: degreeYears }),
     [catalogue.terms, degreeYears],
   );
-  const planningCatalogue = useMemo(
-    () => ({
+  const planningCatalogue = useMemo(() => {
+    const known = [
+      ...catalogue.courses,
+      ...fetchedCourses.filter(
+        (course) =>
+          !catalogue.courses.some((item) => item.code === course.code),
+      ),
+    ];
+    const base = {
       ...catalogue,
+      courses: known,
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
       enrolmentMode: state.profile.enrolmentMode,
       programmeCodes: state.profile.degreeCode
         ? [state.profile.degreeCode]
         : [],
-    }),
-    [
-      catalogue,
-      timelineTerms,
-      state.profile.commencementYear,
-      state.profile.enrolmentMode,
-      state.profile.degreeCode,
-    ],
-  );
+    };
+    // A course just placed in another year has no version for that year
+    // until the server sends one, so the nearest loaded version stands in
+    // and the course shows, with its requisites, the moment it lands.
+    const standIns = new Map<string, Course>();
+    state.attempts.forEach((attempt) => {
+      if (
+        attempt.status === "withdrawn" ||
+        attempt.snapshotId !== undefined ||
+        attempt.academicYear === undefined ||
+        planningCourseForAttempt(attempt, base)
+      )
+        return;
+      const year = attempt.academicYear;
+      const [nearest] = known
+        .filter((course) => course.code === attempt.courseCode)
+        .sort(
+          (left, right) =>
+            Math.abs(left.year - year) - Math.abs(right.year - year),
+        );
+      if (nearest)
+        standIns.set(`${nearest.code}:${year}`, { ...nearest, year });
+    });
+    return { ...base, courses: [...known, ...standIns.values()] };
+  }, [
+    catalogue,
+    fetchedCourses,
+    timelineTerms,
+    state.attempts,
+    state.profile.commencementYear,
+    state.profile.enrolmentMode,
+    state.profile.degreeCode,
+  ]);
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),
     [catalogue, state.profile, state.attempts],
@@ -232,10 +296,8 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     term.id === "unscheduled" ||
     entriesFor(term.id).length < STANDARD_COURSE_SLOTS;
   const termsFor = (key: string) =>
-    timelineTerms.filter((term) =>
-      key === "later"
-        ? term.id === "unscheduled"
-        : term.id !== "unscheduled" && String(term.year) === key,
+    timelineTerms.filter(
+      (term) => term.id !== "unscheduled" && String(term.year) === key,
     );
   const yearTabs: YearTab[] = [
     ...[
@@ -260,18 +322,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           entries.every((entry) => entry.attempt.status === "completed"),
       };
     }),
-    ...(timelineTerms.some((term) => term.id === "unscheduled")
-      ? [
-          {
-            key: "later",
-            label: "Later",
-            detail: "Not scheduled",
-            units: unitsOf(entriesFor("unscheduled")),
-            target: 0,
-            finished: false,
-          },
-        ]
-      : []),
   ];
   // Opens on the first year with room that is not already behind the
   // student, so the page starts where there is planning to do.
@@ -279,7 +329,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     yearTabs.find((year) => year.key === selectedYearKey) ??
     yearTabs.find(
       (year) =>
-        year.key !== "later" &&
         !year.finished &&
         termsFor(year.key).filter(isSemesterTerm).some(hasRoom),
     ) ??
@@ -287,9 +336,37 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     yearTabs[0];
   const selectedTerms = selectedYear ? termsFor(selectedYear.key) : [];
   const semesterTerms = selectedTerms.filter(isSemesterTerm);
-  const shortTerms = selectedTerms.filter(
-    (term) => term.id !== "unscheduled" && !isSemesterTerm(term),
+  const shortTerms = selectedTerms.filter((term) => !isSemesterTerm(term));
+  // A short session shows once it holds a course or the student opens it,
+  // so a year starts as its two semesters.
+  const shownTerms = selectedTerms.filter(
+    (term) =>
+      isSemesterTerm(term) ||
+      openSessions.includes(term.id) ||
+      entriesFor(term.id).length > 0,
   );
+  const hiddenSessions = shortTerms.filter(
+    (term) => !shownTerms.includes(term),
+  );
+  const unscheduledTerm = timelineTerms.find(
+    (term) => term.id === "unscheduled",
+  );
+  const unscheduledEntries = unscheduledTerm
+    ? entriesFor(unscheduledTerm.id)
+    : [];
+  // Years past the programme's length were added by the student, and the
+  // last one can be taken away again while it is empty.
+  const lastYear = yearTabs.at(-1);
+  const canRemoveYear =
+    state.profile.extensionYears > 0 &&
+    selectedYear !== undefined &&
+    selectedYear.key === lastYear?.key &&
+    selectedTerms.every((term) => entriesFor(term.id).length === 0);
+  const changeYears = async (extensionYears: number, select?: string) => {
+    const result = await setPlanExtensionYears(extensionYears);
+    notify(result.message, result.ok ? "success" : "warning");
+    if (result.ok && select) setSelectedYearKey(select);
+  };
 
   const requestAddSuggested = async (picked: Course, term: Term) => {
     const course =
@@ -337,10 +414,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   };
   const addToSelectedYear = (course: Course) => {
     // Semesters come first so a course that also runs in Summer lands in S1.
-    const candidates =
-      selectedYear?.key === "later"
-        ? selectedTerms
-        : [...semesterTerms, ...shortTerms];
+    const candidates = [...semesterTerms, ...shortTerms];
     const term =
       candidates.find((item) => hasRoom(item) && offeredIn(course, item)) ??
       candidates.find((item) => offeredIn(course, item));
@@ -409,12 +483,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   );
   const toPlan = structuresToPlan({
     structures,
-    attempts: state.attempts,
     catalogue: planningCatalogue,
-    starred: state.starredCourses ?? [],
   });
 
-  // Starred courses the planner has not loaded are fetched by code.
+  // Starred and planned courses the planner has not loaded, such as one
+  // just added from search, are fetched by code.
   const findCourse = (code: string) =>
     planningCatalogue.courses.find(
       (course) =>
@@ -423,7 +496,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     planningCatalogue.courses.find((course) => course.code === code) ??
     fetchedCourses.find((course) => course.code === code);
   const starredCodes = state.starredCourses ?? [];
-  const missingStarred = starredCodes
+  const missingStarred = [
+    ...new Set([
+      ...starredCodes,
+      ...state.attempts
+        .filter((attempt) => attempt.status !== "withdrawn")
+        .map((attempt) => attempt.courseCode),
+    ]),
+  ]
     .filter((code) => !findCourse(code))
     .join(",");
   useEffect(() => {
@@ -465,6 +545,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         ]
       : [];
   });
+
+  /** A course in the plan opens as itself; any other opens to be added. */
+  const openCourse = (course: Course) => {
+    const attempt = state.attempts.find(
+      (item) => item.courseCode === course.code && item.status !== "withdrawn",
+    );
+    if (attempt) setSelectedAttempt(attempt.id);
+    else setPreviewCourse(course);
+  };
 
   const issueNote = (entry: Entry) => {
     if (entry.status === "blocked") {
@@ -569,7 +658,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   };
 
   const finishPointerDrag = (cancelled = false) => {
-    let drop = dragPreviewRef.current;
+    const drop = dragPreviewRef.current;
     pointerCleanupRef.current?.();
     pointerCleanupRef.current = null;
     dragPreviewRef.current = null;
@@ -585,38 +674,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         notify(result.message, result.ok ? "success" : "error"),
       );
       return;
-    }
-    if (drop.termId.startsWith(SHORT_DROP)) {
-      const { attemptId } = drop;
-      const attempt = state.attempts.find((item) => item.id === attemptId);
-      const course =
-        suggestion?.course ??
-        (attempt ? planningCourseForAttempt(attempt, planningCatalogue) : null);
-      const year = Number(drop.termId.slice(SHORT_DROP.length));
-      const sessions = timelineTerms.filter(
-        (term) =>
-          term.year === year &&
-          term.id !== "unscheduled" &&
-          !isSemesterTerm(term),
-      );
-      // A course already in one of the year's short sessions stays put.
-      if (attempt && sessions.some((term) => term.id === attempt.termId))
-        return;
-      const term = course
-        ? sessions.find((item) => {
-            const version = courseForTerm(course.code, item, planningCatalogue);
-            return courseIsAvailable(version ?? course, item.name);
-          })
-        : undefined;
-      if (!course) return;
-      if (!term) {
-        notify(
-          `${course.code} does not run in a ${year} short session.`,
-          "warning",
-        );
-        return;
-      }
-      drop = { ...drop, termId: term.id };
     }
     if (suggestion && drop.attemptId.startsWith(SUGGESTION_DRAG)) {
       const term = timelineTerms.find((item) => item.id === drop.termId);
@@ -881,6 +938,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const renderLane = (term: Term) => {
     const entries = entriesFor(term.id);
     const units = unitsOf(entries);
+    const semester = isSemesterTerm(term);
+    // Short sessions and unscheduled courses keep one empty slot rather than
+    // a full semester's four.
+    const slotCount = semester ? STANDARD_COURSE_SLOTS : 1;
     const previewApplies = Boolean(
       draggedEntry && dragPreview?.termId === term.id,
     );
@@ -888,21 +949,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       dragging && entries.some((entry) => entry.attempt.id === dragging),
     );
     const previewUsesEmptySlot = Boolean(
-      previewApplies &&
-      !containsDragged &&
-      (term.id === "unscheduled" || entries.length < STANDARD_COURSE_SLOTS),
+      previewApplies && !containsDragged && entries.length < slotCount,
     );
-    const emptySlots =
-      term.id === "unscheduled"
-        ? entries.length === 0 && !previewUsesEmptySlot
-          ? 1
-          : 0
-        : Math.max(
-            0,
-            STANDARD_COURSE_SLOTS -
-              entries.length -
-              Number(previewUsesEmptySlot),
-          );
+    const emptySlots = Math.max(
+      0,
+      slotCount - entries.length - Number(previewUsesEmptySlot),
+    );
+    const removableSession =
+      !semester && term.id !== "unscheduled" && entries.length === 0;
 
     return (
       <div
@@ -910,7 +964,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         data-testid={`term-${term.id}`}
         data-drop-term={term.id}
         className={cn(
-          "flex min-h-44 flex-col rounded-xl bg-card p-2.5 ring-1 transition",
+          "flex flex-col rounded-xl bg-card p-2.5 ring-1 transition",
           dragging && dragPreview?.termId === term.id
             ? "ring-2 ring-primary/40"
             : "ring-border",
@@ -918,9 +972,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       >
         <header className="flex items-center justify-between gap-2 px-1 pb-2">
           <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
-            {term.name}
+            {term.id === "unscheduled" ? "Not scheduled yet" : term.name}
             <span className="ml-2 font-normal text-muted-foreground">
-              {term.dates}
+              {term.id === "unscheduled"
+                ? "Drag each course into a semester"
+                : term.dates}
             </span>
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -932,155 +988,91 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                   : "text-muted-foreground",
               )}
             >
-              {term.id === "unscheduled"
-                ? `${units} units`
-                : `${units} / 24 units`}
+              {semester ? `${units} / 24 units` : `${units} units`}
               {units > 24 && " · Overload"}
             </span>
-            <button
-              type="button"
-              onClick={() => requestAddCourse(term)}
-              aria-label={`Add a course to ${term.name} ${term.year}`}
-              className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-            >
-              <Plus size={14} />
-            </button>
+            {term.id === "unscheduled" ? null : (
+              <button
+                type="button"
+                onClick={() => requestAddCourse(term)}
+                aria-label={`Add a course to ${term.name} ${term.year}`}
+                className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <Plus size={14} />
+              </button>
+            )}
+            {removableSession ? (
+              <button
+                type="button"
+                onClick={() => toggleSession(term.id, false)}
+                aria-label={`Remove ${term.name} ${term.year}`}
+                className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            ) : null}
           </div>
         </header>
 
         <div className="flex flex-1 flex-col gap-1">
           {entries.map((entry) => renderEntry(entry, term))}
           {previewUsesEmptySlot && renderDropPreview(term.id)}
-          {Array.from({ length: emptySlots }, (_, index) => (
-            <button
-              key={`${term.id}-empty-${index}`}
-              type="button"
-              onClick={() => requestAddCourse(term)}
-              aria-label={
-                term.id === "unscheduled"
-                  ? "Add an unscheduled course"
-                  : `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
-              }
-              className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
-            >
-              <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
-                <Plus size={10} />
-              </span>
-              <span>Add course</span>
-            </button>
-          ))}
+          {term.id === "unscheduled"
+            ? null
+            : Array.from({ length: emptySlots }, (_, index) => (
+                <button
+                  key={`${term.id}-empty-${index}`}
+                  type="button"
+                  onClick={() => requestAddCourse(term)}
+                  aria-label={
+                    semester
+                      ? `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
+                      : `Add a course to ${term.name} ${term.year}`
+                  }
+                  className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
+                >
+                  <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
+                    <Plus size={10} />
+                  </span>
+                  <span>Add course</span>
+                </button>
+              ))}
         </div>
       </div>
     );
   };
 
   /**
-   * Summer, Autumn, Winter and Spring as one row under the semesters. It
-   * holds one empty slot and grows by a row for each course placed in it.
+   * The short sessions this year does not show yet. Choosing one opens its
+   * lane straight away; courses go in from there.
    */
-  const renderShortSessions = (terms: Term[]) => {
-    const dropId = `${SHORT_DROP}${terms[0].year}`;
-    const termIds = new Set(terms.map((term) => term.id));
-    const placed = terms.flatMap((term) =>
-      entriesFor(term.id).map((entry) => ({ entry, term })),
-    );
-    const units = unitsOf(placed.map(({ entry }) => entry));
-    const targeted =
-      Boolean(dragging) &&
-      (dragPreview?.termId === dropId ||
-        termIds.has(dragPreview?.termId ?? ""));
-    const showPreview =
-      dragPreview?.termId === dropId &&
-      !placed.some(({ entry }) => entry.attempt.id === dragging);
-    return (
-      <div
-        key={dropId}
-        data-testid="short-sessions"
-        data-drop-term={dropId}
-        className={cn(
-          "flex flex-col rounded-xl bg-card p-2.5 ring-1 transition",
-          targeted ? "ring-2 ring-primary/40" : "ring-border",
-        )}
-      >
-        <header className="flex items-center justify-between gap-2 px-1 pb-2">
-          <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
-            Short sessions
-            <span className="ml-2 font-normal text-muted-foreground">
-              {terms.map((term) => term.shortName).join(" · ")}
-            </span>
-          </p>
-          {units > 0 ? (
-            <span className="shrink-0 text-[11px] font-medium text-muted-foreground">
-              {units} units
-            </span>
-          ) : null}
-        </header>
-        <div className="flex flex-col gap-1">
-          {placed.map(({ entry, term }) =>
-            renderEntry(entry, term, term.shortName),
-          )}
-          {showPreview && renderDropPreview(dropId)}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label={`Add a course to a ${terms[0].year} short session`}
-                className="group flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
-              >
-                <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
-                  <Plus size={10} />
-                </span>
-                <span>Add a short-session course</span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="min-w-56">
-              {terms.map((term) => (
-                <DropdownMenuItem
-                  key={term.id}
-                  onSelect={() => requestAddCourse(term)}
-                >
-                  <span className="flex-1">{term.name}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {term.dates}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+  const renderAddSession = () =>
+    hiddenSessions.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
+        <span className="mr-1 text-[12px] text-muted-foreground">
+          Add a session
+        </span>
+        {hiddenSessions.map((term) => (
+          <Button
+            key={term.id}
+            variant="outline"
+            size="sm"
+            onClick={() => toggleSession(term.id, true)}
+            aria-label={`Add ${term.name} ${term.year}`}
+            title={term.dates}
+          >
+            <Plus aria-hidden="true" />
+            {term.shortName}
+          </Button>
+        ))}
       </div>
-    );
-  };
+    ) : null;
 
   if (!degree) {
     return (
       <AppShell fill fullWidth>
-        <div className="workspace-scroll flex flex-col gap-5">
-          <OnboardingPrompt className="min-h-0 flex-none" />
-          <div aria-hidden="true" className="flex flex-col gap-5 opacity-40">
-            {[1, 2, 3].map((studyYear) => (
-              <section key={studyYear}>
-                <h2 className="mb-2 px-1 text-sm font-semibold text-foreground">
-                  Year {studyYear}
-                </h2>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {["First Semester", "Second Semester"].map((name) => (
-                    <div
-                      key={name}
-                      className="flex min-h-44 items-start justify-between rounded-xl bg-card p-3.5 ring-1 ring-border"
-                    >
-                      <p className="text-[13px] font-semibold text-foreground">
-                        {name}
-                      </p>
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        0 / 24 units
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+        <div className="workspace-scroll flex flex-col">
+          <OnboardingPrompt backdrop={<PlannerSkeleton />} />
         </div>
       </AppShell>
     );
@@ -1094,6 +1086,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           years={yearTabs}
           selectedKey={selectedYear?.key ?? ""}
           onSelect={setSelectedYearKey}
+          onAddYear={
+            state.profile.extensionYears < MAX_PLAN_EXTENSION_YEARS
+              ? () =>
+                  void changeYears(
+                    state.profile.extensionYears + 1,
+                    String(Number(lastYear?.key ?? 0) + 1),
+                  )
+              : undefined
+          }
         />
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <section
@@ -1101,16 +1102,28 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             data-testid="roadmap-board"
             className="flex min-w-0 flex-1 flex-col gap-3"
           >
-            {selectedYear?.key === "later" ? (
-              selectedTerms.map(renderLane)
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                  {semesterTerms.map(renderLane)}
-                </div>
-                {shortTerms.length > 0 && renderShortSessions(shortTerms)}
-              </>
-            )}
+            {unscheduledTerm && unscheduledEntries.length > 0
+              ? renderLane(unscheduledTerm)
+              : null}
+            {shownTerms.map(renderLane)}
+            {renderAddSession()}
+            {canRemoveYear && selectedYear ? (
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    void changeYears(
+                      state.profile.extensionYears - 1,
+                      String(Number(selectedYear.key) - 1),
+                    )
+                  }
+                >
+                  <X aria-hidden="true" />
+                  Remove {selectedYear.label}
+                </Button>
+              </div>
+            ) : null}
           </section>
           <aside
             aria-label="Courses to plan"
@@ -1124,7 +1137,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             <CoursesToPlan
               structures={toPlan}
               starred={starred}
+              inPlan={statuses}
               onAdd={addToSelectedYear}
+              onOpen={openCourse}
               onDragStart={startSuggestionDrag}
             />
           </aside>
@@ -1234,6 +1249,17 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           attemptId={selectedAttempt}
           catalogue={planningCatalogue}
           onClose={() => setSelectedAttempt(null)}
+        />
+      )}
+      {previewCourse && (
+        <CourseDialog
+          preview={{
+            course: previewCourse,
+            addLabel: `Add to ${selectedYear?.label ?? "this year"}`,
+            onAdd: () => addToSelectedYear(previewCourse),
+          }}
+          catalogue={planningCatalogue}
+          onClose={() => setPreviewCourse(null)}
         />
       )}
     </AppShell>

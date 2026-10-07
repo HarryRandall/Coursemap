@@ -8,6 +8,7 @@ import {
   getSupabaseConfig,
 } from "@/lib/supabase/config";
 import { createRequestClient } from "@/lib/supabase/request";
+import { GUEST_PLAN_COOKIE } from "@/lib/coursemap/guest-plan";
 
 const PROTECTED_ROUTE_PREFIXES = [
   "/compass",
@@ -28,6 +29,14 @@ const PROTECTED_ROUTE_PREFIXES = [
   "/timetable",
 ] as const;
 
+/**
+ * Guests can use everything except administration. Pages that need an
+ * account for one feature, such as Compass, say so themselves.
+ */
+const GUEST_ROUTE_PREFIXES = PROTECTED_ROUTE_PREFIXES.filter(
+  (prefix) => prefix !== "/admin",
+);
+
 function privateNoStore(response: NextResponse) {
   response.headers.set(
     "Cache-Control",
@@ -40,6 +49,12 @@ function privateNoStore(response: NextResponse) {
 
 function isProtectedRoute(pathname: string) {
   return PROTECTED_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+function isGuestRoute(pathname: string) {
+  return GUEST_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
@@ -78,7 +93,11 @@ export async function proxy(request: NextRequest) {
   const { data, error } = await supabase.auth.getClaims();
   const authenticated = !error && Boolean(data?.claims.sub);
 
-  if (protectedRoute && !authenticated) {
+  const guest =
+    !authenticated &&
+    Boolean(request.cookies.get(GUEST_PLAN_COOKIE)?.value) &&
+    isGuestRoute(request.nextUrl.pathname);
+  if (protectedRoute && !authenticated && !guest) {
     return applyTo(signInRedirect(request));
   }
 
@@ -88,7 +107,7 @@ export async function proxy(request: NextRequest) {
     }),
   );
 
-  return authenticated
+  return authenticated || guest
     ? privateNoStore(downstreamResponse)
     : downstreamResponse;
 }

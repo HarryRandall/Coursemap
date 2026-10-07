@@ -3558,6 +3558,8 @@ export type Database = {
           display_name: string
           email: string | null
           id: string
+          preferred_name: string | null
+          pronouns: string | null
           student_number: string | null
           updated_at: string
         }
@@ -3566,6 +3568,8 @@ export type Database = {
           display_name: string
           email?: string | null
           id: string
+          preferred_name?: string | null
+          pronouns?: string | null
           student_number?: string | null
           updated_at?: string
         }
@@ -3574,6 +3578,8 @@ export type Database = {
           display_name?: string
           email?: string | null
           id?: string
+          preferred_name?: string | null
+          pronouns?: string | null
           student_number?: string | null
           updated_at?: string
         }

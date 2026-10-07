@@ -1,6 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth/viewer";
 import { AssistantWorkspace } from "@/ui/assistant/assistant-workspace";
+import { CompassSignInPrompt } from "@/ui/assistant/compass-sign-in-prompt";
 
 export default async function CompassChatPage({
   params,
@@ -16,7 +17,7 @@ export default async function CompassChatPage({
   )
     notFound();
   const { viewer } = await getAuthContext();
-  if (!viewer)
-    redirect(`/login?next=${encodeURIComponent(`/compass/${chatId}`)}`);
+  // Compass runs a paid model, so guests are asked for an account first.
+  if (!viewer) return <CompassSignInPrompt />;
   return <AssistantWorkspace />;
 }

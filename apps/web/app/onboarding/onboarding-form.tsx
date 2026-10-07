@@ -29,7 +29,7 @@ import {
 import { OnboardingProgress } from "@/ui/onboarding/onboarding-progress";
 import { OnboardingPlanPreview } from "@/ui/onboarding/onboarding-plan-preview";
 import { StructureMultiSelect } from "@/ui/profile/structure-multi-select";
-import { saveProfileAndPlan } from "@/lib/coursemap/actions";
+import { useCoursemap } from "@/app/providers";
 import {
   commencementYearOptions,
   rulesYearForCommencement,
@@ -83,6 +83,7 @@ export function OnboardingForm({
   email,
 }: OnboardingFormProps) {
   const router = useRouter();
+  const { guest, updateProfile } = useCoursemap();
   const nameId = useId();
   const studentNumberId = useId();
   const messageId = useId();
@@ -223,7 +224,7 @@ export function OnboardingForm({
 
     setSubmitting(true);
     setMessage(null);
-    const result = await saveProfileAndPlan({
+    const result = await updateProfile({
       name: name.trim(),
       studentId: studentNumber,
       email,
@@ -534,7 +535,9 @@ export function OnboardingForm({
         />
         <div className="relative w-full max-w-md">{preview}</div>
         <p className="relative max-w-md text-center text-xs text-muted-foreground">
-          Signed in as {email || "your account"}. Only you can see your plan.
+          {guest
+            ? "Saved in this browser. Create an account to keep it everywhere."
+            : `Signed in as ${email || "your account"}. Only you can see your plan.`}
         </p>
       </aside>
     </main>

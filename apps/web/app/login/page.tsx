@@ -1,7 +1,8 @@
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import Link from "next/link";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert, UserRound } from "lucide-react";
 import { AuthShell } from "@/app/auth/auth-shell";
+import { ContinueAsGuest } from "@/ui/common/continue-as-guest";
 import { SignInForm } from "@/app/auth/sign-in/sign-in-form";
 import { SocialSignIn } from "@/app/auth/social-sign-in";
 
@@ -48,8 +49,12 @@ export default async function LoginPage({
         </Alert>
       )}
 
-      <div className="mt-7">
+      <div className="mt-7 space-y-2.5">
         <SocialSignIn disabled={!configured} />
+        <ContinueAsGuest size="lg" className="min-h-11 w-full">
+          <UserRound aria-hidden="true" />
+          Continue as a guest
+        </ContinueAsGuest>
       </div>
 
       <div className="my-6 flex items-center gap-3" aria-hidden="true">

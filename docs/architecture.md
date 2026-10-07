@@ -23,6 +23,7 @@ Next.js owns routing, server rendering and mutations. Supabase Auth owns identit
 - Route components load data on the server by default.
 - Client components are limited to interaction boundaries such as search, drag-and-drop and graph exploration.
 - Onboarding is optional. New sign-ups are offered `/onboarding`, which creates the profile and primary plan in one server action; students without a plan otherwise see the dashboard empty state.
+- Guests plan without an account. `/auth/guest` starts a plan kept in the `coursemap-guest` cookies (`lib/coursemap/guest-plan.ts`), which the proxy accepts on student routes. The server reads the cookie to render the plan; the browser rewrites it on every change. After sign-in, `transferGuestPlan` moves it into an account without a plan, or asks before replacing an existing one, then clears the cookie after a successful transfer. Failed transfers retain the browser copy. Guest results remain in the browser; Compass and admin still require an account.
 - Domain rules remain framework-independent and operate on typed inputs.
 - Supabase clients are request-scoped. Server and browser clients live behind separate modules.
 - Generated database types are committed and used at every query boundary.

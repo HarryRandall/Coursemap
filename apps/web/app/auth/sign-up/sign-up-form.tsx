@@ -1,13 +1,17 @@
 "use client";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
-import { Field, FieldDescription } from "@coursemap/ui/primitives/field";
+import { Field } from "@coursemap/ui/primitives/field";
 import { Input } from "@coursemap/ui/primitives/input";
 
-import { CircleAlert, LockKeyhole, Mail } from "lucide-react";
+import { CircleAlert, Info, LockKeyhole, Mail } from "lucide-react";
 import { useId, useRef, useState, type FormEvent } from "react";
 
 import { createClient } from "@/lib/supabase/browser";
+import { Hint } from "@/ui/common/hint";
+
+const PASSWORD_HINT =
+  "Use at least 8 characters and do not reuse your ANU password.";
 
 export function SignUpForm({
   next,
@@ -24,6 +28,7 @@ export function SignUpForm({
   const [notice, setNotice] = useState<string | null>(null);
   const errorId = useId();
   const passwordHintId = useId();
+  const passwordId = useId();
   const confirmationRef = useRef<HTMLInputElement>(null);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -108,14 +113,28 @@ export function SignUpForm({
       </Field>
 
       <Field>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm font-medium">{"Password"}</span>
+        <div className="flex flex-col gap-2">
+          <span className="flex items-center gap-1.5">
+            <label htmlFor={passwordId} className="text-sm font-medium">
+              Password
+            </label>
+            <Hint label={PASSWORD_HINT}>
+              <button
+                type="button"
+                aria-label="Password requirements"
+                className="grid size-5 place-items-center rounded-full text-muted-foreground hover:text-foreground"
+              >
+                <Info className="size-3.5" aria-hidden="true" />
+              </button>
+            </Hint>
+          </span>
           <span className="relative block">
             <LockKeyhole
               className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
             />
             <Input
+              id={passwordId}
               type="password"
               name="password"
               value={password}
@@ -133,10 +152,10 @@ export function SignUpForm({
               className="min-h-11 pl-10"
             />
           </span>
-        </label>
-        <FieldDescription id={passwordHintId}>
-          Use at least 8 characters and do not reuse your ANU password.
-        </FieldDescription>
+        </div>
+        <span id={passwordHintId} className="sr-only">
+          {PASSWORD_HINT}
+        </span>
       </Field>
 
       <Field>

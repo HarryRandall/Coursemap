@@ -1,5 +1,6 @@
 import { Button } from "@coursemap/ui/primitives/button";
 import Link from "next/link";
+import { ContinueAsGuest } from "@/ui/common/continue-as-guest";
 import { Suspense, type CSSProperties } from "react";
 import { ArrowRight } from "lucide-react";
 import { LandingGridBackground } from "@/ui/landing/landing-grid-background";
@@ -46,9 +47,9 @@ export function LandingHero({ today }: { today: string }) {
                   <ArrowRight className="size-4" aria-hidden="true" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="h-11 px-5">
-                <Link href="/courses">Explore courses</Link>
-              </Button>
+              <ContinueAsGuest size="lg" className="h-11 px-5">
+                Try it as a guest
+              </ContinueAsGuest>
             </div>
           </div>
         </div>

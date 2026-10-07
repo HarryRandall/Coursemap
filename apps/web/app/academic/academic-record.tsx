@@ -12,6 +12,7 @@ import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { showToast } from "@/ui/common/toast";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
+import { AcademicSkeleton } from "@/ui/academic/academic-skeleton";
 import { ResultsEmptyState } from "@/ui/academic/results-empty-state";
 import { PreviewLayout } from "@/ui/academic/previews/preview-layout";
 import { PreviewMarkEntry } from "@/ui/academic/previews/preview-mark-entry";
@@ -29,7 +30,7 @@ import {
 import { planningCourseForAttempt, unitsForAttempt } from "@/lib/planner";
 
 export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
-  const { state, notify } = useCoursemap();
+  const { guest, saveGuestResult, state, notify } = useCoursemap();
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,6 +87,23 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
     result?: PreviewResult,
   ) {
     if (pending) return;
+    if (guest) {
+      // A guest's results live in their browser copy of the plan.
+      const failed =
+        (result?.mark !== undefined && result.mark < 50) ||
+        ["N", "NCN", "F"].includes(result?.resultCode ?? "");
+      const response = saveGuestResult(
+        id,
+        operation === "remove"
+          ? null
+          : operation === "clear"
+            ? { status: "planned" }
+            : { status: failed ? "failed" : "completed", mark: result?.mark },
+      );
+      setSelected(null);
+      notify(response.message, response.ok ? "success" : "error");
+      return;
+    }
     startTransition(async () => {
       try {
         const response = await saveAcademicResult(
@@ -110,6 +128,16 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
         notify("Couldn't save that result. Try again.", "error");
       }
     });
+  }
+  // With no degree and nothing recorded, the whole page is its outline
+  // behind the set-up prompt, as on the dashboard, rather than empty figures.
+  if (!state.profile.degreeCode && courses.length === 0) {
+    return (
+      <AppShell fill>
+        <h1 className="sr-only">Academic history</h1>
+        <OnboardingPrompt backdrop={<AcademicSkeleton />} />
+      </AppShell>
+    );
   }
   return (
     <AppShell fill>

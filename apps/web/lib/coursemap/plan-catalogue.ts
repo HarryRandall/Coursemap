@@ -6,7 +6,13 @@ import {
 import "server-only";
 import { academicPeriodTerm } from "@/lib/coursemap/academic-periods";
 import type { Database } from "@/types/database";
-import type { Course, Degree, Major, Term } from "@/lib/coursemap/types";
+import type {
+  AppState,
+  Course,
+  Degree,
+  Major,
+  Term,
+} from "@/lib/coursemap/types";
 import { createPublicClient } from "@/lib/supabase/public-server";
 import {
   courseFromSnapshotProjection,
@@ -14,6 +20,7 @@ import {
 } from "@/lib/coursemap/published-courses";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { getAuthViewer } from "@/lib/auth/viewer";
+import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { createClient } from "@/lib/supabase/server";
 import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
 
@@ -341,6 +348,8 @@ export async function loadPublishedPlanCatalogue(
   catalogueYear?: number,
   courseSelections: readonly { code: string; year: number }[] = [],
   selectedStructureYearIds: readonly number[] = [],
+  /** Structures chosen by code, for a guest plan that has no record ids. */
+  selectedStructureCodes: readonly string[] = [],
 ): Promise<PlanCatalogue> {
   const supabase = createPublicClient();
   const academicYearRecord = await loadAcademicYearRecord(
@@ -433,9 +442,12 @@ export async function loadPublishedPlanCatalogue(
         Number.isInteger(structureYearId) && structureYearId > 0,
     ),
   );
+  const selectedCodes = new Set(selectedStructureCodes);
   const requirementsSnapshotIds = structureYears.flatMap((structureYear) => {
-    const kind = identitiesById.get(structureYear.code_id)?.kind;
-    return selectedStructureYears.has(structureYear.id) &&
+    const identity = identitiesById.get(structureYear.code_id);
+    const kind = identity?.kind;
+    return (selectedStructureYears.has(structureYear.id) ||
+      selectedCodes.has(identity?.code ?? "")) &&
       kind !== undefined &&
       isPlanStructureKind(kind)
       ? [structureYear.published_version_id]
@@ -609,10 +621,37 @@ export async function loadPublishedPlanCatalogue(
   };
 }
 
+/** The catalogue for a guest's plan, kept in their cookies. */
+async function loadGuestPlanCatalogue(guest: AppState) {
+  const { profile } = guest;
+  const catalogue = await loadPublishedPlanCatalogue(
+    profile.catalogueYear,
+    guest.attempts.map((attempt) => ({
+      code: attempt.courseCode,
+      year: attempt.academicYear ?? profile.catalogueYear,
+    })),
+    [],
+    [
+      profile.degreeCode,
+      profile.majorCode,
+      ...profile.minorCodes,
+      ...profile.specialisationCodes,
+    ].filter(Boolean),
+  );
+  return {
+    ...catalogue,
+    commencementYear: profile.commencementYear,
+    enrolmentMode: profile.enrolmentMode ?? null,
+  };
+}
+
 /** Loads the academic rules year saved on the signed-in user's primary plan. */
 export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const viewer = await getAuthViewer();
-  if (!viewer) return loadPublishedPlanCatalogue();
+  if (!viewer) {
+    const guest = await readGuestPlan();
+    return guest ? loadGuestPlanCatalogue(guest) : loadPublishedPlanCatalogue();
+  }
 
   const supabase = await createClient();
   const { data: plan, error } = await supabase

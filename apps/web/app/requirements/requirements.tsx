@@ -9,6 +9,8 @@ import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
 import { OutlinedTabsList } from "@/ui/common/outlined-tabs-list";
 import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
+import { SkeletonBackdrop } from "@/ui/common/skeleton-backdrop";
+import { RequirementsSkeleton } from "@/ui/requirements/requirements-skeleton";
 import type {
   PlanCatalogue,
   PlanStructureKind,
@@ -130,6 +132,16 @@ export function Requirements({
       setPending(false);
     }
   }
+  // Without a degree the whole page is its outline behind the set-up
+  // prompt, as on the dashboard, rather than empty figures and tabs.
+  if (!degree) {
+    return (
+      <AppShell fill>
+        <h1 className="sr-only">Requirements</h1>
+        <OnboardingPrompt backdrop={<RequirementsSkeleton />} />
+      </AppShell>
+    );
+  }
   const fillEmpty =
     tab === "programme" ? !degree : selected[tab].length === 0 && !choosing;
   return (
@@ -200,12 +212,14 @@ export function Requirements({
             {kind !== "programme" &&
             selected[kind].length === 0 &&
             !choosing ? (
-              <StructureEmptyState
-                kind={kind}
-                available={options[kind].length > 0}
-                needsDegree={!degree}
-                onChoose={() => setChoosing(true)}
-              />
+              <SkeletonBackdrop backdrop={<RequirementsSkeleton rulesOnly />}>
+                <StructureEmptyState
+                  kind={kind}
+                  available={options[kind].length > 0}
+                  needsDegree={!degree}
+                  onChoose={() => setChoosing(true)}
+                />
+              </SkeletonBackdrop>
             ) : null}
             {kind !== "programme" && choosing ? (
               <StructureChoices
@@ -218,7 +232,6 @@ export function Requirements({
                 onSelect={(option) => void chooseStructure(kind, option)}
               />
             ) : null}
-            {kind === "programme" && !degree ? <OnboardingPrompt /> : null}
             {selected[kind].map((code) => {
               const requirements = catalogue.structureRequirements.find(
                 (item) =>
