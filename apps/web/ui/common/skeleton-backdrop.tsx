@@ -6,6 +6,10 @@ import type { ReactNode } from "react";
  * screen tall, so the prompt always sits in the middle of the page however
  * long the outline is. The outline is hidden from assistive technology and
  * cannot be focused.
+ *
+ * The height must not flex: a zero flex basis on a page without a fixed
+ * height falls back to the outline's full length and pushes the prompt
+ * below the fold. Desktop subtracts a further 1rem for the inset margins.
  */
 export function SkeletonBackdrop({
   backdrop,
@@ -15,7 +19,7 @@ export function SkeletonBackdrop({
   children: ReactNode;
 }) {
   return (
-    <div className="relative isolate h-[calc(100dvh-7rem)] min-h-[34rem] flex-1 overflow-hidden">
+    <div className="relative isolate h-[calc(100dvh-7rem)] min-h-[34rem] flex-none overflow-hidden md:h-[calc(100dvh-8rem)]">
       <div
         aria-hidden="true"
         inert
