@@ -2,11 +2,16 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
+  markFieldForReview,
+  resolveSourceChange,
+} from "../lib/catalogue/source-review-decisions.ts";
+import {
   beginCatalogueDraft,
   CatalogueDraftConflictError,
   loadCatalogueEditorState,
   discardCatalogueDraft,
   loadCatalogueRecordIdentity,
+  resolveDraftExtractionError,
   publishCatalogueDraft,
   restoreCatalogueVersion,
   saveCatalogueDraft,
@@ -585,7 +590,7 @@ test("asking to edit a record opens a draft on it, unchanged", async () => {
   assert.equal(await draftRowCount(), 0);
 });
 
-test("catalogue.write alone cannot change a course's publication or history", async () => {
+test("catalogue.write alone cannot change a course's draft, publication or history", async () => {
   assert.deepEqual(await loadCatalogueRecordIdentity(recordId, sql), {
     kind: "course",
     academicYear: YEAR,
@@ -613,6 +618,39 @@ test("catalogue.write alone cannot change a course's publication or history", as
     await assert.rejects(unpublishCatalogueRecord(common), refused);
     await assert.rejects(
       discardCatalogueDraft({ ...common, expectedRevision: 0 }),
+      refused,
+    );
+    const { content } = (await loadCatalogueEditorState(recordId, sql)).draft;
+    await assert.rejects(beginCatalogueDraft(common), refused);
+    await assert.rejects(
+      saveCatalogueDraft({ ...common, expectedRevision: 0, content }),
+      refused,
+    );
+    await assert.rejects(
+      resolveDraftExtractionError({
+        ...common,
+        expectedRevision: 0,
+        flagIndex: 0,
+      }),
+      refused,
+    );
+    await assert.rejects(
+      resolveSourceChange({
+        recordId,
+        changeId: 0,
+        decision: "use_source",
+        userId: ADMIN_ID,
+        sql,
+      }),
+      refused,
+    );
+    await assert.rejects(
+      markFieldForReview({
+        recordId,
+        fieldPath: "course.details.title",
+        userId: ADMIN_ID,
+        sql,
+      }),
       refused,
     );
     await assert.rejects(

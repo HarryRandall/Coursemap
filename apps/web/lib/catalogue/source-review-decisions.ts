@@ -16,6 +16,7 @@ import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { fieldLabel } from "@/lib/coursemap/catalogue-kinds";
 import { validateCatalogueContent, type CatalogueContent } from "./content";
 import {
+  assertRecordWritePermission,
   CatalogueDraftError,
   catalogueRecordForUpdate,
   createDraftInTransaction,
@@ -85,6 +86,7 @@ export async function resolveSourceChange({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
@@ -226,12 +228,18 @@ export async function resolveSourceChange({
 export async function markFieldForReview({
   recordId,
   fieldPath,
+  userId,
+  sql,
 }: {
   recordId: number;
   fieldPath: string;
+  userId: string;
+  sql?: SyncSql;
 }) {
-  return withSyncDatabaseClient((client) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
+      const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       const rows = await tx`
         update public.catalogue_sync_changes
         set decision = null, resolved_by = null, resolved_at = null,
@@ -251,6 +259,6 @@ export async function markFieldForReview({
           "NOT_FOUND",
         );
       return { label: fieldLabel(fieldPath) };
-    }),
-  );
+    });
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }

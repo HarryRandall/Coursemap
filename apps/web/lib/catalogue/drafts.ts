@@ -150,7 +150,7 @@ export async function loadCatalogueRecordIdentity(
  * the editor. Check the record kind's write permission as them before a manual
  * change reaches what students can see or the record's history.
  */
-async function assertRecordWritePermission(
+export async function assertRecordWritePermission(
   tx: Sql,
   record: Record<string, unknown>,
   userId: string,
@@ -378,6 +378,7 @@ export async function beginCatalogueDraft({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
@@ -417,6 +418,7 @@ export async function saveCatalogueDraft({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
@@ -520,6 +522,7 @@ export async function resolveDraftExtractionError({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.archived_at) {
         throw new CatalogueDraftError(
           "Archived records cannot be reviewed.",

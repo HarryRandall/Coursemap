@@ -435,7 +435,11 @@ export async function markFieldForReviewAction({
   const access = await requireCatalogueWrite(recordId);
   if (!access.ok) return access.result;
   try {
-    const marked = await markFieldForReview({ recordId, fieldPath });
+    const marked = await markFieldForReview({
+      recordId,
+      fieldPath,
+      userId: access.viewer.id,
+    });
     revalidateRecord(path);
     return { ok: true, message: `${marked.label} is back up for review.` };
   } catch (error) {
