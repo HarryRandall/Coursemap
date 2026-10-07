@@ -4,6 +4,7 @@ import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
 import { startCatalogueSync } from "@/lib/catalogue-sync/sync-service";
+import { publicErrorMessage } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -79,6 +80,15 @@ export async function DELETE(request: Request) {
   const { data, error } = await supabase.rpc("cancel_catalogue_sync", {
     p_sync_id: payload.syncId,
   });
-  if (error) return json({ error: error.message }, 400);
+  if (error)
+    return json(
+      {
+        error: publicErrorMessage(error, "The sync could not be stopped.", {
+          "28000": "Authentication is required.",
+          "42501": "Catalogue sync permission is required.",
+        }),
+      },
+      400,
+    );
   return json({ cancelled: data });
 }
