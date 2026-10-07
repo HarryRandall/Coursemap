@@ -251,6 +251,7 @@ fetching ANU again. Staged reviews and archived events do not supply dates.
 - Functions in `public` are not executable by `anon` or `authenticated` unless a migration grants them.
 - Every exposed table has RLS and explicit Data API grants.
 - Privileged functions have a deliberate `search_path`, minimal execution grants and database tests.
+- Sealed versions, their child rows, publications, change events and field changes are guarded by triggers: child rows cannot move between versions, a publication can only be closed, the change log is append-only and none of these tables can be truncated. Tests that clean up fixtures disable the named triggers around the cleanup.
 
 ## Delivery
 
