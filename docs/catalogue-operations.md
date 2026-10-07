@@ -197,7 +197,10 @@ attempts, persistence and terminal completion are lease-checked in one
 transaction, and cancellation prevents unfinished work from completing. A
 scheduled sweep fails syncs whose final lease expired, re-dispatches queued
 syncs that were never sent and advances unfinished runs; it needs `CRON_SECRET`
-in hosted environments.
+in hosted environments. It runs daily at 03:00 Canberra standard time (17:00
+UTC), the most often the Vercel Hobby plan allows; on Pro, tighten the schedule
+in `apps/web/vercel.json`. Between sweeps, an open import page and each
+finished queue delivery still advance their runs.
 
 Local development processes syncs after the request using the local database.
 Hosted environments set `COURSEMAP_SYNC_DATABASE_URL` and

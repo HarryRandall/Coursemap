@@ -17,7 +17,7 @@
   "crons": [
     {
       "path": "/api/cron/catalogue-syncs",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 17 * * *"
     }
   ]
 }
