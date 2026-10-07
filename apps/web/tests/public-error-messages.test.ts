@@ -116,7 +116,36 @@ test("planning actions keep authored messages and hide the rest", async () => {
   );
   mocks.rpc.mockResolvedValue({
     data: null,
-    error: { code: "P0002", message: PRIVATE },
+    error: { code: "42P01", message: PRIVATE },
   });
   expect((await removePlanCourse("item")).message).not.toContain(PRIVATE);
+});
+
+test.each([
+  ["P0002", "COMP1100 for 2027 isn't imported yet."],
+  ["P0002", "The selected major is not published for that academic year."],
+  ["22023", "The selected minor is not an explicit option for that programme."],
+  [
+    "40001",
+    "A selected academic structure changed while the plan was being saved. Please try again.",
+  ],
+])(
+  "planning messages built with format() reach the student (%s)",
+  async (code, message) => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code, message } });
+    expect((await setCourseStar("COMP1100", true)).message).toBe(message);
+    // The templates are recognised even when the SQLSTATE is lost.
+    mocks.rpc.mockResolvedValue({ data: null, error: { message } });
+    expect((await setCourseStar("COMP1100", true)).message).toBe(message);
+  },
+);
+
+test("permission errors never pass their database text through", async () => {
+  mocks.rpc.mockResolvedValue({
+    data: null,
+    error: { code: "42501", message: 'permission denied for table "plans"' },
+  });
+  expect((await setCourseStar("COMP1100", true)).message).toBe(
+    "Couldn't save that change. Try again.",
+  );
 });
