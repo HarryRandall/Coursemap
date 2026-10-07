@@ -181,7 +181,8 @@ export type CatalogueTableLayout =
   | "operations-discovery"
   | "import-courses"
   | "import-review"
-  | "operations-imports";
+  | "operations-imports"
+  | "selt-reports";
 
 export type CatalogueDirectoryPage = {
   kind: CatalogueKind;
@@ -198,11 +199,6 @@ export type CatalogueDirectoryPage = {
   page: number;
   pageSize: number;
 };
-
-export type AdminCatalogueSummary = Record<
-  CatalogueKind,
-  { published: number; drafts: number; identities: number }
->;
 
 /** Administrator-facing names for stored catalogue content paths. */
 export const FIELD_LABELS: Record<string, string> = {
@@ -271,20 +267,4 @@ export const FIELD_LABELS: Record<string, string> = {
 
 export function fieldLabel(fieldPath: string) {
   return FIELD_LABELS[fieldPath] ?? fieldPath;
-}
-
-/**
- * A readable name for a key the label map does not carry, such as a field
- * inside a collection row. Prefer FIELD_LABELS; this is the fallback, not a
- * substitute for naming a field properly.
- */
-export function humaniseKey(key: string) {
-  const known = FIELD_LABELS[key];
-  if (known) return known;
-  const spaced = key
-    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .toLowerCase()
-    .trim();
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

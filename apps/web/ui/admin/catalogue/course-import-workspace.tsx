@@ -1,17 +1,9 @@
 "use client";
 
 import {
-  BULK_IMPORT_KINDS,
   importKindLabel,
   type BulkImportKind,
 } from "@/lib/catalogue-runs/kinds";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@coursemap/ui/primitives/select";
 import { YearPicker } from "@/ui/common/year-picker";
 import { adminCourseImportPath } from "@/lib/coursemap/catalogue-kinds";
 import { useRouter } from "next/navigation";
@@ -22,29 +14,19 @@ import {
   TabsTrigger,
 } from "@coursemap/ui/primitives/tabs";
 import { AppShell } from "@/ui/shell";
+import { CourseImportSetup } from "./course-import-setup";
+import { ImportKindPicker } from "./import-kind-picker";
 import { CourseRunReview } from "./course-run-review";
 import { CourseRunResults } from "./course-run-results";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@coursemap/ui/primitives/button";
 import { Checkbox } from "@coursemap/ui/primitives/checkbox";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@coursemap/ui/primitives/input-group";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@coursemap/ui/primitives/tooltip";
-import { Textarea } from "@coursemap/ui/primitives/textarea";
-import { Label } from "@coursemap/ui/primitives/label";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@coursemap/ui/components/alert";
-import { Info, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 
 import { CourseRunHeader, CourseRunProgress } from "./course-run-progress";
 import {
@@ -63,9 +45,6 @@ type Preview = {
   estimateBasis: string;
   budgetUsd: number;
 };
-const budgetPrice = (value: number) => `US$${value.toFixed(2)}`;
-const maximumPrice = (value: number) =>
-  budgetPrice(Math.ceil(value * 100) / 100);
 
 function importTab(value: string | null) {
   return value === "courses" || value === "review" ? value : "overview";
@@ -102,7 +81,6 @@ export function CourseImportWorkspace({
   const router = useRouter();
   const plural = importKindLabel(kind);
   const label = plural.charAt(0).toUpperCase() + plural.slice(1);
-  const id = useId();
   const [publicationBusy, setPublicationBusy] = useState(false);
   const [publicationMessage, setPublicationMessage] = useState<string | null>(
     null,
@@ -151,6 +129,10 @@ export function CourseImportWorkspace({
   const [budget, setBudget] = useState(0.5);
   const [allowAi, setAllowAi] = useState(true);
   const [publishVerified, setPublishVerified] = useState(false);
+  // False while a degree or major is still resolving to its course codes.
+  // An empty code list means every missing record, so nothing may preview
+  // or start until the chosen scope is known.
+  const [scopeReady, setScopeReady] = useState(true);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [runs, setRuns] = useState<Run[]>(initialRun ? [initialRun] : []);
   const [viewRunId, setViewRunId] = useState<string | null>(
@@ -199,7 +181,7 @@ export function CourseImportWorkspace({
   }, [viewRunId, active, year, kind, estimateAttempt]);
 
   useEffect(() => {
-    if (active || viewRunId) return;
+    if (active || viewRunId || !scopeReady) return;
     let stopped = false;
     const timeout = setTimeout(async () => {
       setEstimating(true);
@@ -238,7 +220,16 @@ export function CourseImportWorkspace({
       stopped = true;
       clearTimeout(timeout);
     };
-  }, [active, viewRunId, year, kind, allowAi, codeFilter, estimateAttempt]);
+  }, [
+    active,
+    viewRunId,
+    year,
+    kind,
+    allowAi,
+    codeFilter,
+    estimateAttempt,
+    scopeReady,
+  ]);
 
   async function startImport() {
     setPending(true);
@@ -530,23 +521,12 @@ export function CourseImportWorkspace({
               </h1>
               {!progressScreen && (
                 <div className="flex items-center gap-2">
-                  <Select
+                  <ImportKindPicker
                     value={kind}
-                    onValueChange={(value) =>
+                    onChange={(value) =>
                       router.push(adminCourseImportPath("new", year, value))
                     }
-                  >
-                    <SelectTrigger aria-label="Import type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BULK_IMPORT_KINDS.map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {importKindLabel(value)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  />
                   <YearPicker
                     value={year}
                     years={years}
@@ -558,11 +538,6 @@ export function CourseImportWorkspace({
                 </div>
               )}
             </div>
-            {!progressScreen && (
-              <p className="text-sm text-muted-foreground">
-                Existing imports and drafts are skipped.
-              </p>
-            )}
           </header>
           <div
             className={
@@ -649,236 +624,64 @@ export function CourseImportWorkspace({
                 </TabsContent>
               </>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor={`${id}-codes`}>Only these codes</Label>
-                  <Textarea
-                    id={`${id}-codes`}
-                    value={codeFilter}
-                    disabled={pending}
-                    aria-describedby={`${id}-codes-help`}
-                    onChange={(event) => {
-                      setCodeFilter(event.target.value);
-                      setPreview(null);
-                    }}
-                  />
-                  <p
-                    id={`${id}-codes-help`}
-                    className="text-xs text-muted-foreground"
+              <CourseImportSetup
+                kind={kind}
+                label={label}
+                plural={plural}
+                year={year}
+                preview={preview}
+                estimating={estimating}
+                locked={pending || Boolean(active)}
+                available={available}
+                selected={selected}
+                limit={limit}
+                onLimitChange={setLimit}
+                presets={presets}
+                codeFilter={codeFilter}
+                onCodeFilterChange={(value) => {
+                  setCodeFilter(value);
+                  setPreview(null);
+                }}
+                budget={budget}
+                onBudgetChange={setBudget}
+                allowAi={allowAi}
+                onAllowAiChange={setAllowAi}
+                publishVerified={publishVerified}
+                onPublishVerifiedChange={setPublishVerified}
+                estimated={estimated}
+                maximum={maximum}
+                overBudget={overBudget}
+                onScopeReadyChange={(ready) => {
+                  setScopeReady(ready);
+                  if (!ready) setPreview(null);
+                }}
+                start={
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    disabled={
+                      pending ||
+                      estimating ||
+                      !scopeReady ||
+                      !preview ||
+                      !valid ||
+                      Boolean(error) ||
+                      Boolean(active)
+                    }
+                    onClick={() => void startImport()}
                   >
-                    Separate codes with commas or spaces. Leave blank to include
-                    all missing records.
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <Label htmlFor={`${id}-slider`}>{label}</Label>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {preview
-                        ? `${selected} of ${available} missing`
-                        : `Loading ${plural}...`}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <input
-                      id={`${id}-slider`}
-                      aria-label={`${label} to import`}
-                      className="min-w-0 flex-1 cursor-pointer accent-primary"
-                      type="range"
-                      min={available ? 1 : 0}
-                      max={Math.max(1, available)}
-                      value={selected}
-                      disabled={
-                        !preview ||
-                        available === 0 ||
-                        pending ||
-                        Boolean(active)
-                      }
-                      onChange={(event) => setLimit(Number(event.target.value))}
-                    />
-                    <InputGroup className="w-24 shrink-0">
-                      <InputGroupInput
-                        aria-label={`Exact ${kind} count`}
-                        type="number"
-                        min={available ? 1 : 0}
-                        max={available || undefined}
-                        value={limit}
-                        disabled={
-                          !preview ||
-                          available === 0 ||
-                          pending ||
-                          Boolean(active)
-                        }
-                        onChange={(event) =>
-                          setLimit(Number(event.target.value))
-                        }
-                      />
-                    </InputGroup>
-                  </div>
-                  <div className="flex gap-2">
-                    {presets.map((preset) => (
-                      <Button
-                        key={preset.label}
-                        size="sm"
-                        variant={
-                          selected === preset.value ? "secondary" : "outline"
-                        }
-                        aria-pressed={selected === preset.value}
-                        disabled={
-                          !preview ||
-                          available === 0 ||
-                          pending ||
-                          Boolean(active)
-                        }
-                        onClick={() => setLimit(preset.value)}
-                      >
-                        {preset.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor={`${id}-budget`}>Spending limit</Label>
-                    <InputGroup>
-                      <InputGroupAddon>US$</InputGroupAddon>
-                      <InputGroupInput
-                        id={`${id}-budget`}
-                        type="number"
-                        min={allowAi ? 0.01 : 0}
-                        max={10}
-                        step={0.01}
-                        value={allowAi ? budget : 0}
-                        disabled={!allowAi || pending || Boolean(active)}
-                        onChange={(event) =>
-                          setBudget(Number(event.target.value))
-                        }
-                      />
-                    </InputGroup>
-                  </div>
-                  <div className="space-y-1.5 sm:pt-7">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id={`${id}-publish`}
-                        disabled={pending || Boolean(active)}
-                        checked={publishVerified}
-                        onCheckedChange={(checked) =>
-                          setPublishVerified(checked === true)
-                        }
-                      />
-                      <Label htmlFor={`${id}-publish`}>
-                        Auto-publish verified {plural}
-                      </Label>
-                    </div>
-                    <p className="pl-6 text-xs text-muted-foreground">
-                      Uncertain fields stay in drafts.
-                    </p>
-                  </div>
-                </div>
-                <section
-                  aria-label="AI requirements interpretation"
-                  className="rounded-lg border p-4"
-                >
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Checkbox
-                      id={`${id}-ai`}
-                      checked={allowAi}
-                      disabled={pending || Boolean(active)}
-                      onCheckedChange={(checked) =>
-                        setAllowAi(checked === true)
-                      }
-                    />
-                    <Label htmlFor={`${id}-ai`}>
-                      Use AI for ambiguous requirements
-                    </Label>
-                  </div>
-                  <p className="mt-2 pl-6 text-xs text-muted-foreground">
-                    {allowAi
-                      ? "Coursemap uses deterministic source data first, then asks AI only to interpret requirements it cannot safely parse."
-                      : "AI is disabled. Coursemap imports deterministic source data only and keeps ambiguous requirements for review."}
-                  </p>
-                </section>
-                <section
-                  aria-label="Import costs"
-                  aria-busy={estimating}
-                  className="space-y-3 rounded-lg border bg-muted/30 p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium">Cost</h3>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label="Estimate details"
-                          className="h-auto gap-1 p-0 text-xs text-muted-foreground"
-                        >
-                          {preview?.estimateKind === "measured"
-                            ? "Measured"
-                            : preview?.estimateKind === "not_used"
-                              ? "AI disabled"
-                              : preview?.estimateKind === "unavailable"
-                                ? "No sample"
-                                : "Provisional"}
-                          <Info className="size-3" aria-hidden="true" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {preview?.estimateBasis ??
-                          "Loading current model prices."}{" "}
-                        {preview?.estimateKind !== "not_used" &&
-                          " Min assumes no paid requests; Max assumes every request uses its token allowance."}
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <dl className="grid grid-cols-3 gap-3 tabular-nums">
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Estimated
-                      </dt>
-                      <dd className="mt-1 text-lg font-semibold">
-                        {estimated === null
-                          ? preview
-                            ? "--"
-                            : "..."
-                          : budgetPrice(estimated)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">Min</dt>
-                      <dd className="mt-1 text-lg">
-                        {preview ? "US$0.00" : "..."}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-muted-foreground">Max</dt>
-                      <dd className="mt-1 text-lg">
-                        {maximum === null ? "..." : maximumPrice(maximum)}
-                      </dd>
-                    </div>
-                  </dl>
-                  <p
-                    role={overBudget ? "alert" : "status"}
-                    className={`flex min-h-10 items-start gap-2 text-xs ${overBudget ? "text-warning" : "text-muted-foreground"}`}
-                  >
-                    {overBudget && (
-                      <TriangleAlert
-                        className="mt-0.5 size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {!preview
-                      ? "Loading current prices..."
-                      : !allowAi
-                        ? "AI is disabled. This import has no AI spend."
-                        : available === 0
-                          ? `No missing ${plural}. Refresh the ANU listing if you expect more.`
-                          : overBudget
-                            ? `May pause at your ${budgetPrice(budget)} spending limit.`
-                            : `Within your ${budgetPrice(budget)} spending limit.`}
-                  </p>
-                </section>
-              </>
+                    {pending
+                      ? "Starting..."
+                      : active
+                        ? "Importing..."
+                        : available === 0 && preview
+                          ? "Nothing to import"
+                          : `Import ${selected || limit} ${
+                              (selected || limit) === 1 ? kind : plural
+                            }`}
+                  </Button>
+                }
+              />
             )}
             {error && (
               <Alert variant="destructive">
@@ -908,60 +711,33 @@ export function CourseImportWorkspace({
               </Alert>
             )}
           </div>
-          {(!progressScreen || unfinished) && (
+          {progressScreen && unfinished && (
             <footer className="flex shrink-0 flex-wrap items-center justify-end gap-3 py-4">
-              {progressScreen ? (
-                <>
-                  {unfinished && current.state === "active" && !active && (
-                    <Button onClick={() => setActive(current.id)}>
-                      Continue import
-                    </Button>
-                  )}
-                  {unfinished && (
-                    <Button
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => {
-                        void action({ action: "cancel", runId: current.id })
-                          .then(() => {
-                            setRuns((items) =>
-                              items.map((run) =>
-                                run.id === current.id
-                                  ? { ...run, state: "cancelled" }
-                                  : run,
-                              ),
-                            );
-                            setActive(null);
-                          })
-                          .catch((cause: Error) => setError(cause.message));
-                      }}
-                    >
-                      Stop remaining
-                    </Button>
-                  )}
-                </>
-              ) : (
-                <Button
-                  className="w-full sm:w-auto"
-                  disabled={
-                    pending ||
-                    estimating ||
-                    !preview ||
-                    !valid ||
-                    Boolean(error) ||
-                    Boolean(active)
-                  }
-                  onClick={() => void startImport()}
-                >
-                  {pending
-                    ? "Starting..."
-                    : active
-                      ? "Importing..."
-                      : available === 0 && preview
-                        ? "Nothing to import"
-                        : `Import ${selected || limit} ${plural}`}
+              {current.state === "active" && !active && (
+                <Button onClick={() => setActive(current.id)}>
+                  Continue import
                 </Button>
               )}
+              <Button
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  void action({ action: "cancel", runId: current.id })
+                    .then(() => {
+                      setRuns((items) =>
+                        items.map((run) =>
+                          run.id === current.id
+                            ? { ...run, state: "cancelled" }
+                            : run,
+                        ),
+                      );
+                      setActive(null);
+                    })
+                    .catch((cause: Error) => setError(cause.message));
+                }}
+              >
+                Stop remaining
+              </Button>
             </footer>
           )}
         </div>

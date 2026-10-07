@@ -51,12 +51,6 @@ export type SurveyThemeSummary = {
   max: number;
 };
 
-/**
- * Below this many respondents the 90% interval is wider than about plus or
- * minus 12 points, so a single semester says little on its own.
- */
-export const LOW_RESPONSE_COUNT = 40;
-
 export const OVERALL_THEME: SurveyThemeKey = "overall_learning_experience";
 
 export function surveyLabel(survey: SurveySemester) {

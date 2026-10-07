@@ -24,7 +24,8 @@ export type CatalogueLoadingLayout =
   | "import-records"
   | "operations-syncs"
   | "operations-imports"
-  | "operations-discovery";
+  | "operations-discovery"
+  | "selt-reports";
 
 /**
  * A skeleton cell per real cell. The kind decides the shape, so a placeholder
@@ -36,6 +37,15 @@ type Column = {
 };
 
 function columnsFor(noun: string, layout: CatalogueLoadingLayout): Column[] {
+  if (layout === "selt-reports")
+    return [
+      { label: "Course", kind: "identity" },
+      { label: "Semesters", kind: "text" },
+      { label: "Overall experience", kind: "text" },
+      { label: "Latest", kind: "text" },
+      { label: "Status", kind: "text" },
+      { label: "Uploaded", kind: "text" },
+    ];
   if (layout === "operations-imports")
     return [
       { label: "Import", kind: "identity" },
@@ -219,27 +229,5 @@ export function CatalogueLoading({
       <h1 className="sr-only">Loading {noun}</h1>
       <CatalogueTableLoading noun={noun} layout={layout} />
     </AppShell>
-  );
-}
-
-/** A whole `loading.tsx` route for the imports page. */
-export function ImportRecordsLoading({ noun }: { noun: string }) {
-  return (
-    <AppShell loading admin fill>
-      <h1 className="sr-only">Loading {noun}</h1>
-      <ImportRecordsSkeleton />
-    </AppShell>
-  );
-}
-
-/**
- * The imports page is one table of records with a filter bar above it, so its
- * skeleton is the record table and nothing else. It previously drew a run
- * table and a card beneath it, which is the stacked layout the page no longer
- * has; the route skeleton and the in-page Suspense boundary share this shape.
- */
-export function ImportRecordsSkeleton() {
-  return (
-    <CatalogueTableLoading noun="import records" layout="import-records" />
   );
 }

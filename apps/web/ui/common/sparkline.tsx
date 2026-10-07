@@ -42,11 +42,11 @@ function LastDot({
   );
 }
 
-function axes(peak: number) {
+function axes(domain: [number, number]) {
   return (
     <>
       <XAxis dataKey="index" hide />
-      <YAxis domain={[0, peak]} hide />
+      <YAxis domain={domain} hide />
       <Tooltip
         content={
           <ChartHoverCard
@@ -68,15 +68,29 @@ export function Sparkline({
   label,
   values,
   variant = "area",
+  baseline = "zero",
 }: {
   className?: string;
   label: string;
   values: readonly number[];
   variant?: SparklineVariant;
+  /**
+   * "zero" draws growth from nothing, prepending a zero when the series does
+   * not start there. "data" fits the scale to the values, for a series such
+   * as a running total or a score where the shape matters, not the size.
+   */
+  baseline?: "zero" | "data";
 }) {
   if (values.length === 0) return null;
-  const series = values[0] === 0 ? values : [0, ...values];
-  const peak = Math.max(...series, 1);
+  const fitted = baseline === "data" && variant !== "bar";
+  const series = fitted || values[0] === 0 ? values : [0, ...values];
+  const low = Math.min(...series);
+  const high = Math.max(...series, 1);
+  // A tenth of the range above and below keeps the line off the edges.
+  const padding = Math.max((high - low) * 0.1, 1);
+  const domain: [number, number] = fitted
+    ? [low - padding, high + padding]
+    : [0, high];
   const data: Point[] = series.map((value, index) => ({ index, value }));
   const lastIndex = data.length - 1;
   const lastDot = (props: { cx?: number; cy?: number; index?: number }) => (
@@ -95,7 +109,7 @@ export function Sparkline({
             data={data}
             margin={{ bottom: 2, left: 0, right: 4, top: 2 }}
           >
-            {axes(peak)}
+            {axes(domain)}
             <Bar
               dataKey="value"
               fill={BRAND}
@@ -109,7 +123,7 @@ export function Sparkline({
             data={data}
             margin={{ bottom: 2, left: 0, right: 6, top: 4 }}
           >
-            {axes(peak)}
+            {axes(domain)}
             <Line
               activeDot={false}
               dataKey="value"
@@ -131,7 +145,7 @@ export function Sparkline({
                 <stop offset="100%" stopColor={BRAND} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            {axes(peak)}
+            {axes(domain)}
             <Area
               activeDot={false}
               dataKey="value"

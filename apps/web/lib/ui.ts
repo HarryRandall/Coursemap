@@ -65,28 +65,6 @@ export const statusTone: Record<EffectiveStatus, Tone> = {
   review: "warning",
 };
 
-/** Build simple {value,label} options from a list of years. */
-export function yearOptions(years: number[], suffix = "") {
-  return years.map((year) => ({ value: year, label: `${year}${suffix}` }));
-}
-
-/** Map a parse/review state string to a tone. */
-export function parseTone(state: string): Tone {
-  switch (state.toLowerCase()) {
-    case "verified":
-    case "complete":
-      return "success";
-    case "review":
-      return "warning";
-    case "failed":
-      return "danger";
-    case "automatic":
-      return "brand";
-    default:
-      return "neutral";
-  }
-}
-
 /** Map Coursemap statuses onto the standard ReUI badge variants. */
 export const badgeVariantForTone = {
   neutral: "outline",

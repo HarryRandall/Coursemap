@@ -285,19 +285,6 @@ export function addChild(
   );
 }
 
-/** Add a condition and set whether it joins with and or or. */
-export function addJoinedCondition(
-  tree: ReviewedGroupNode,
-  groupId: string,
-  operator: Extract<ReviewedOperator, "all_of" | "any_of">,
-): ReviewedGroupNode {
-  return addChild(
-    setGroupOperator(tree, groupId, operator),
-    groupId,
-    createConditionNode("course"),
-  );
-}
-
 /** Add a nested group that can be switched between and and or afterwards. */
 export function addNestedSection(
   tree: ReviewedGroupNode,
@@ -1075,10 +1062,6 @@ export function applyCourseMatch(
   };
 }
 
-export function conditionKindLabel(kind: ReviewedConditionKind) {
-  return CONDITION_KIND_LABELS[kind] ?? "Condition";
-}
-
 /** True once a condition carries every value the validator needs. */
 export function isConditionComplete(condition: ReviewedConditionView) {
   switch (condition.kind) {
@@ -1214,16 +1197,6 @@ export function conditionSummary(condition: ReviewedConditionView) {
   }
 }
 
-/** How a group reads as a heading above its own children. */
-export function groupTitle(group: {
-  minimumCount: number | null;
-  operator: ReviewedOperator;
-}) {
-  if (group.operator === "all_of") return "AND";
-  if (group.operator === "any_of") return "OR";
-  return `At least ${group.minimumCount ?? 1}`;
-}
-
 /** Airtable-style sentence for a nested group. */
 export function groupSentence(group: {
   minimumCount: number | null;
@@ -1242,18 +1215,4 @@ export function operatorJoiner(group: {
   if (group.operator === "all_of") return "AND";
   if (group.operator === "any_of") return "OR";
   return `at least ${group.minimumCount ?? 1}`;
-}
-
-/** How a group reads as a single line inside its parent. */
-export function groupSummary(group: ReviewedGroupNode) {
-  const count = group.children.length;
-  if (count === 0) return "Nothing to match yet";
-  const items = count === 1 ? "1 condition" : `${count} conditions`;
-  if (group.operator === "all_of") return `${items}, all must match`;
-  if (group.operator === "any_of") return `${items}, any may match`;
-  return `${items}, ${group.minimumCount ?? 1} must match`;
-}
-
-export function preservedRuleField(ruleKind: string) {
-  return `course.requisites.${ruleKind}`;
 }

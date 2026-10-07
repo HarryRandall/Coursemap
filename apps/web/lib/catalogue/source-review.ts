@@ -18,10 +18,6 @@ import type { CatalogueContent } from "./content.ts";
 export type SourceChangeClassification =
   "source_change" | "local_override" | "conflict" | "converged" | "first_read";
 
-/** Classifications that ask the administrator for a decision. */
-export const ACTIONABLE_SOURCE_CLASSIFICATIONS: readonly SourceChangeClassification[] =
-  ["source_change", "conflict"];
-
 export type ClassifiedSourceChange = {
   fieldPath: string;
   unitKind: CatalogueReviewUnitKind;

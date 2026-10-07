@@ -2,8 +2,6 @@ import { type CheerioAPI, load } from "cheerio";
 import type { AnyNode } from "domhandler";
 import { ANU_PROGRAMS_AND_COURSES_SOURCE } from "./import-source.ts";
 
-export const ANU_PAGE_MARKDOWN_VERSION = "anu-page-markdown.v3" as const;
-
 const ANU_ORIGIN = ANU_PROGRAMS_AND_COURSES_SOURCE.baseUrl;
 
 /**

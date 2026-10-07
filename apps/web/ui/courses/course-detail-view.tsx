@@ -67,13 +67,14 @@ import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
 import { RequisiteExpressionSummary } from "@/ui/courses/requisite-summary";
 import dynamic from "next/dynamic";
+import { CourseSurveySkeleton } from "@/ui/courses/reviews/course-survey-skeleton";
 import type { PublishedSurveyReport } from "@/lib/course-surveys/report-model";
 const CourseSurveyPanel = dynamic(
   () =>
     import("@/ui/courses/reviews/course-survey-panel").then(
       (module) => module.CourseSurveyPanel,
     ),
-  { loading: () => <p role="status">Loading survey charts...</p> },
+  { loading: () => <CourseSurveySkeleton /> },
 );
 
 export const courseDetailTabs = [

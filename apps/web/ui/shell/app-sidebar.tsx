@@ -137,6 +137,11 @@ function adminNavigation(catalogueYear: number): NavSection[] {
           icon: routeIcons["key-dates"],
         },
         {
+          href: "/admin/selt",
+          label: "SELT surveys",
+          icon: routeIcons.selt,
+        },
+        {
           href: "/admin/operations/catalogue",
           label: "Activity",
           icon: routeIcons.sync,

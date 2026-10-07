@@ -121,12 +121,10 @@ test("administrators upload, review and revoke local SELT imports", async ({
   let runId: string | undefined;
   try {
     await login(page, administrator);
-    await page.goto("/admin/selt");
-    await page
-      .getByRole("button", { name: "Create local import token" })
-      .click();
-    const token = await page.getByRole("main").locator("code").innerText();
-    await page.getByRole("button", { name: "Hide token" }).click();
+    await page.goto("/admin/selt/access");
+    await page.getByRole("button", { name: "Create token" }).click();
+    const token = await page.getByTestId("selt-token").innerText();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
     const headers = { Authorization: `Bearer ${token}` };
     const manifest = await page.request.get("/api/selt/import", { headers });
     expect(manifest.status()).toBe(200);
@@ -140,7 +138,6 @@ test("administrators upload, review and revoke local SELT imports", async ({
     await expect(
       page.getByRole("tab", { name: "Overview", exact: true }),
     ).toHaveAttribute("aria-selected", "true");
-    await page.goto("/admin/selt");
     const report = syntheticSeltReport();
     report.report.course_code = "COMP1100";
     report.source.filename = "COMP1100_Time_Series_LRN.pdf";
@@ -167,11 +164,17 @@ test("administrators upload, review and revoke local SELT imports", async ({
     });
     expect(uploaded.status()).toBe(200);
     expect((await uploaded.json()).outcome).toBe("imported");
-    await page.getByRole("button", { name: "Refresh", exact: true }).click();
-    const entry = page.locator("article").filter({ hasText: "COMP1100" });
-    await entry.getByRole("button", { name: "Review", exact: true }).click();
-    await expect(page.getByRole("table")).toContainText("Sem 1 2025");
-    await expect(page.getByRole("table")).toContainText("75");
+    await page.goto("/admin/selt?q=COMP1100");
+    await page
+      .getByRole("link", { name: /COMP1100/ })
+      .first()
+      .click();
+    const entry = page.getByRole("dialog");
+    const extracted = entry.getByRole("table", {
+      name: "Extracted survey values by semester",
+    });
+    await expect(extracted).toContainText("Sem 1 2025");
+    await expect(extracted).toContainText("75");
     expect(
       (await page.request.get("/api/courses/COMP1100/surveys")).status(),
     ).toBe(200);
@@ -186,8 +189,9 @@ test("administrators upload, review and revoke local SELT imports", async ({
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/admin/selt/access");
     await expect(
-      page.getByRole("button", { name: "Create local import token" }),
+      page.getByRole("button", { name: "Create token" }),
     ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath("selt-admin-mobile.png"),

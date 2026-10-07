@@ -1,4 +1,3 @@
-import { cumulativeGrowthSeries } from "@/lib/coursemap/admin-catalogue-history";
 import { createClient } from "@/lib/supabase/server";
 
 export type AdminUser = {
@@ -228,28 +227,6 @@ function courseStatus(value: string): AdminUserCourseStatus | null {
   )
     ? (value as AdminUserCourseStatus)
     : null;
-}
-
-export type AdminUserSummary = {
-  history: number[];
-  users: number;
-};
-
-export async function loadAdminUserSummary(): Promise<AdminUserSummary> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("created_at");
-  if (error) throw new Error("Coursemap could not load user totals.");
-  const rows = data ?? [];
-  return {
-    history: cumulativeGrowthSeries(
-      rows
-        .map((row) => row.created_at)
-        .filter((value): value is string => typeof value === "string"),
-    ),
-    users: rows.length,
-  };
 }
 
 export async function loadAdminUserManagement(): Promise<AdminUserManagementData> {

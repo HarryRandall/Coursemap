@@ -203,8 +203,6 @@ function retrySyncQueueMessage(
   return { afterSeconds: Math.min(300, 5 * 2 ** (metadata.deliveryCount - 1)) };
 }
 
-export const syncQueueInternals = { retrySyncQueueMessage };
-
 export function createSyncQueueConsumer(
   process: (
     input: ProcessCatalogueSyncInput,

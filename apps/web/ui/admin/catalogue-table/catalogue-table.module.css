@@ -222,3 +222,11 @@ a.title:focus-visible {
   min-width: 480px;
   grid-template-columns: minmax(300px, 1fr) 150px;
 }
+
+/* SELT reports: course, semesters, trend, latest, status, uploaded. */
+.shell[data-layout="selt-reports"] tr {
+  min-width: 860px;
+  grid-template-columns:
+    minmax(240px, 1fr) 110px 140px 70px minmax(150px, 190px)
+    80px;
+}
