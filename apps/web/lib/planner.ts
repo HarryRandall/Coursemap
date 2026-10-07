@@ -185,6 +185,10 @@ type PlannedRecord = {
   student: StudentRecord;
   /** The same record with every course of unknown units counted in full. */
   withUnknownUnits: StudentRecord | null;
+  /** A course before the term is missing from the catalogue, so its tags are unknown. */
+  hasUnknownTags: boolean;
+  /** A course before the term has no result yet, so averages can still move. */
+  hasPendingResults: boolean;
 };
 
 /**
@@ -205,18 +209,24 @@ function plannedStudentRecord(
   );
   const done = new Map<
     string,
-    { units: number; tags: string[]; isUnitsKnown: boolean }
+    {
+      units: number;
+      tags: string[];
+      isUnitsKnown: boolean;
+      isTagsKnown: boolean;
+    }
   >();
   for (const candidate of before.filter(countsTowardsRules)) {
     const course = planningCourseForAttempt(candidate, catalogue);
     const units = unitsForAttempt(candidate, course);
     const previous = done.get(candidate.courseCode);
     // A course missing from the catalogue still has a subject and level in
-    // its code. Only its units can be unknown.
+    // its code. Its units and tags can be unknown.
     done.set(candidate.courseCode, {
       units: (previous?.units ?? 0) + units,
       tags: course?.tags ?? previous?.tags ?? [],
       isUnitsKnown: (previous?.isUnitsKnown ?? true) && (!!course || units > 0),
+      isTagsKnown: (previous?.isTagsKnown ?? true) && !!course,
     });
   }
   const commencementYear = catalogue?.commencementYear ?? null;
@@ -259,6 +269,14 @@ function plannedStudentRecord(
     withUnknownUnits: hasUnknownUnits
       ? recordWith(Number.MAX_SAFE_INTEGER)
       : null,
+    hasUnknownTags: [...done.values()].some((course) => !course.isTagsKnown),
+    hasPendingResults: before
+      .filter(countsTowardsRules)
+      .some(
+        (candidate) =>
+          candidate.status !== "completed" ||
+          (candidate.mark === undefined && candidate.resultCode === undefined),
+      ),
   };
 }
 
@@ -267,6 +285,13 @@ function evaluatePlannedCondition(
   condition: CourseRuleCondition,
   record: PlannedRecord,
 ): PrerequisiteEvaluation {
+  // Planned and unmarked courses before the term will move the average
+  // either way, so a recorded average cannot settle it.
+  if (
+    (condition.kind === "wam" || condition.kind === "gpa") &&
+    record.hasPendingResults
+  )
+    return { state: "unknown", missingCodes: [] };
   const result = evaluateCondition(condition, record.student);
   if (result.status === "met") return { state: "satisfied", missingCodes: [] };
   if (result.status === "unknown")
@@ -277,6 +302,9 @@ function evaluatePlannedCondition(
     record.withUnknownUnits &&
     evaluateCondition(condition, record.withUnknownUnits).status === "met"
   )
+    return { state: "unknown", missingCodes: [] };
+  // Tags the catalogue cannot supply might reach the target.
+  if (condition.kind === "tagged_units" && record.hasUnknownTags)
     return { state: "unknown", missingCodes: [] };
   // The plan names only the programme, so a structure it does not list may
   // still be one the student is enrolled in.
