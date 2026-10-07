@@ -1,8 +1,14 @@
 import { revalidateTag } from "next/cache";
 import { publishedRecordTags } from "../coursemap/published-cache.ts";
 import type { SyncSql } from "../catalogue-sync/sync-store.ts";
-import { publishCatalogueDraft } from "../catalogue/drafts.ts";
-import type { CatalogueContent } from "../catalogue/content.ts";
+import {
+  publishCatalogueDraft,
+  type CatalogueRecordIdentity,
+} from "../catalogue/drafts.ts";
+import {
+  validateCatalogueContent,
+  type CatalogueContent,
+} from "../catalogue/content.ts";
 
 import { sourceFirstPublicationEligible } from "./eligibility.ts";
 
@@ -25,6 +31,31 @@ export async function setCourseRunAutoPublish(
         "Only the import's initiator with catalogue publication permission can change auto-publish.",
       );
   });
+}
+
+/**
+ * Runs after the publication has committed, so a cache failure must not be
+ * reported as a failed publication: the version is already what students see
+ * once the cache expires.
+ */
+function invalidatePublishedRecord(record: CatalogueRecordIdentity) {
+  try {
+    for (const tag of publishedRecordTags(record))
+      revalidateTag(tag, { expire: 0 });
+  } catch (error) {
+    console.error(
+      `The published cache for ${record.kind} ${record.code} (${record.academicYear}) could not be invalidated.`,
+      error,
+    );
+  }
+}
+
+function isDraftRefusal(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === "CatalogueDraftError" ||
+      error.name === "CatalogueDraftConflictError")
+  );
 }
 
 /** Bounded batches reuse saved candidates and never submit extraction requests. */
@@ -56,13 +87,22 @@ export async function publishSavedCourseRunDrafts(
   let held = 0;
   const batch = rows.slice(0, 10);
   for (const row of batch) {
-    const content = row.content as CatalogueContent;
+    let content: CatalogueContent;
+    try {
+      content = validateCatalogueContent(row.content);
+    } catch {
+      // A draft that is not a catalogue aggregate cannot be a verified
+      // candidate. It stays held for a person rather than stopping the batch.
+      held++;
+      continue;
+    }
     if (!sourceFirstPublicationEligible(content)) {
       held++;
       continue;
     }
+    let result: Awaited<ReturnType<typeof publishCatalogueDraft>>;
     try {
-      await publishCatalogueDraft({
+      result = await publishCatalogueDraft({
         recordId: Number(row.record_id),
         expectedRevision: Number(row.revision),
         userId,
@@ -70,22 +110,15 @@ export async function publishSavedCourseRunDrafts(
         importPublicationMode: "verified-draft",
         sql,
       });
-      published++;
-      for (const tag of publishedRecordTags({
-        kind: content.kind,
-        academicYear: content.academicYear,
-        code: content.code,
-      }))
-        revalidateTag(tag, { expire: 0 });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        (error.name === "CatalogueDraftError" ||
-          error.name === "CatalogueDraftConflictError")
-      )
+      if (isDraftRefusal(error)) {
         held++;
-      else throw error;
+        continue;
+      }
+      throw error;
     }
+    published++;
+    invalidatePublishedRecord(result.record);
   }
   return {
     published,
@@ -110,30 +143,21 @@ export async function publishVerifiedRunCandidate(
     where items.sync_id = ${syncId}::uuid and runs.publish_verified and runs.state = 'active'
   `;
   if (!candidate) return;
+  let result: Awaited<ReturnType<typeof publishCatalogueDraft>>;
   try {
-    const result = await publishCatalogueDraft({
+    result = await publishCatalogueDraft({
       recordId: Number(candidate.record_id),
       expectedRevision: Number(candidate.revision),
       userId: String(candidate.requested_by),
       importRunId: String(candidate.id),
       sql,
     });
-    for (const tag of publishedRecordTags({
-      kind: content.kind,
-      academicYear: content.academicYear,
-      code: content.code,
-    }))
-      revalidateTag(tag, { expire: 0 });
-    return result;
   } catch (error) {
     // A concurrent edit or review blocks publication, not the imported source.
-    if (
-      error instanceof Error &&
-      (error.name === "CatalogueDraftError" ||
-        error.name === "CatalogueDraftConflictError")
-    )
-      return;
+    if (isDraftRefusal(error)) return;
     await sql`update public.catalogue_course_runs set state = 'paused', pause_reason = 'Publication needs attention. The imported source and draft have been preserved.' where id = ${candidate.id}::uuid`;
     return;
   }
+  invalidatePublishedRecord(result.record);
+  return result;
 }

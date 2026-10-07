@@ -14,7 +14,7 @@ import type {
 } from "@/lib/catalogue-sync/sync-store";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { fieldLabel } from "@/lib/coursemap/catalogue-kinds";
-import type { CatalogueContent } from "./content";
+import { validateCatalogueContent, type CatalogueContent } from "./content";
 import {
   CatalogueDraftError,
   catalogueRecordForUpdate,
@@ -118,7 +118,7 @@ export async function resolveSourceChange({
       `;
       const draft = draftRow
         ? {
-            content: draftRow.content as CatalogueContent,
+            content: validateCatalogueContent(draftRow.content),
             revision: Number(draftRow.revision),
           }
         : await createDraftInTransaction(tx, record, userId).then(
