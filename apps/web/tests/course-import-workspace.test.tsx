@@ -769,6 +769,7 @@ it("re-previews listed codes and uses the same selection when creating a free ru
   await user.click(
     screen.getByRole("checkbox", { name: "Use AI for ambiguous requirements" }),
   );
+  await user.click(screen.getByRole("button", { name: "Specific codes" }));
   fireEvent.change(screen.getByLabelText("Only these codes"), {
     target: { value: "STAT1008, MATH1013" },
   });
@@ -792,6 +793,83 @@ it("re-previews listed codes and uses the same selection when creating a free ru
     allowAi: false,
     budgetUsd: 0,
     publishVerified: false,
+    limit: 2,
+  });
+});
+
+it("scopes an import to the courses a chosen degree names", async () => {
+  const requests: Record<string, unknown>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, options?: RequestInit) => {
+      if (!options) {
+        if (url.includes("scope=structures"))
+          return Response.json({
+            structures: [
+              {
+                recordId: 41,
+                kind: "programme",
+                code: "BCOMP",
+                name: "Bachelor of Computing",
+                courseCount: 2,
+              },
+              {
+                recordId: 42,
+                kind: "major",
+                code: "ACCT-MAJ",
+                name: "Accounting",
+                courseCount: 14,
+              },
+            ],
+          });
+        if (url.includes("scopeRecords=41"))
+          return Response.json({ codes: ["COMP1100", "COMP1110"] });
+        return Response.json({ runs: [] });
+      }
+      const body = JSON.parse(options.body as string);
+      requests.push(body);
+      return Response.json(
+        body.action === "preview"
+          ? {
+              count: body.codes ? 2 : 10,
+              availableCount: body.codes ? 2 : 10,
+              minimumUsd: 0,
+              estimatedUsd: 0,
+              maximumUsd: 0,
+              estimateKind: "not_used",
+              estimateBasis: "AI disabled.",
+              budgetUsd: 0,
+            }
+          : { runId: "scoped-run" },
+      );
+    }),
+  );
+  const user = userEvent.setup();
+  render(
+    <TooltipProvider>
+      <CourseImportWorkspace year={2026} />
+    </TooltipProvider>,
+  );
+  await screen.findByRole("button", { name: "Import 10 courses" });
+  await user.click(
+    screen.getByRole("button", { name: "From a degree or major" }),
+  );
+  // Nothing is chosen yet, so an import of every missing course is not offered.
+  expect(
+    screen.getByRole("button", { name: /Import \d+ courses/ }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole("button", { name: "Majors" }));
+  expect(screen.queryByText("Bachelor of Computing")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "All types" }));
+  await user.click(
+    await screen.findByRole("checkbox", { name: /Bachelor of Computing/ }),
+  );
+  const start = await screen.findByRole("button", { name: "Import 2 courses" });
+  await waitFor(() => expect(start).toBeEnabled());
+  expect(screen.getByText(/2 courses are named/)).toBeInTheDocument();
+  await user.click(start);
+  expect(requests.find((body) => body.action === "create")).toMatchObject({
+    codes: ["COMP1100", "COMP1110"],
     limit: 2,
   });
 });

@@ -9,6 +9,11 @@ import {
   readCourseRunItems,
   requireCourseRunAdministrator,
 } from "@/lib/catalogue-runs/service";
+import { MAX_SCOPE_STRUCTURES } from "@/lib/catalogue-runs/scope";
+import {
+  importScopeCourseCodes,
+  listImportScopeStructures,
+} from "@/lib/catalogue-runs/structure-scope";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import {
@@ -28,6 +33,28 @@ export async function GET(request: Request) {
       year: Number(new URL(request.url).searchParams.get("year")),
     });
     const params = new URL(request.url).searchParams;
+    // Programmes, majors, minors and specialisations that name courses, so
+    // an import can be scoped to the courses one of them requires.
+    if (params.get("scope") === "structures") {
+      return Response.json({
+        structures: await listImportScopeStructures(options.year),
+      });
+    }
+    const scopeRecords = params.get("scopeRecords");
+    if (scopeRecords !== null) {
+      const recordIds = scopeRecords.split(",").map(Number);
+      if (
+        recordIds.length === 0 ||
+        recordIds.length > MAX_SCOPE_STRUCTURES ||
+        !recordIds.every((id) => Number.isSafeInteger(id) && id > 0)
+      )
+        throw new TypeError(
+          `Choose between 1 and ${MAX_SCOPE_STRUCTURES} degrees or majors.`,
+        );
+      return Response.json({
+        codes: await importScopeCourseCodes(options.year, recordIds),
+      });
+    }
     const runId = params.get("runId");
     if (runId) {
       const page = Number(params.get("page") ?? 1);
