@@ -14,49 +14,87 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
 
 const SYNC_ID = "10000000-0000-4000-8000-000000000001";
 
+function sweepRows(runs: string[], syncs: Record<string, unknown>[]) {
+  mocks.sql.mockImplementation(async (strings: TemplateStringsArray) =>
+    strings.join("").includes("from public.catalogue_course_runs")
+      ? runs.map((id) => ({ id }))
+      : syncs,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
   mocks.failExpired.mockResolvedValue(["expired"]);
-  mocks.sql.mockResolvedValue([{ id: SYNC_ID, dispatch_generation: 2 }]);
+  sweepRows(["run"], [{ id: SYNC_ID, dispatch_generation: 2 }]);
 });
 
 test("a sync whose dispatch never completed is sent again under its generation", async () => {
   const dispatch = vi.fn(async () => ({ mode: "queue" as const }));
-  expect(await sweepCatalogueSyncs({ dispatch, queueEnabled: true })).toEqual({
-    failedExpired: 1,
-    redispatched: 1,
-    errors: [],
-  });
+  const advance = vi.fn(async () => null);
+  expect(
+    await sweepCatalogueSyncs({ dispatch, advance, queueEnabled: true }),
+  ).toEqual({ failedExpired: 1, redispatched: 1, advancedRuns: 1, errors: [] });
   expect(mocks.failExpired).toHaveBeenCalledWith(mocks.sql, "all");
   expect(dispatch).toHaveBeenCalledWith({ syncId: SYNC_ID, generation: 2 });
 });
 
+test("a run whose worker stopped before advancing it is advanced by the sweep", async () => {
+  sweepRows(["stalled", "unavailable"], []);
+  const advance = vi
+    .fn()
+    .mockResolvedValueOnce({ syncId: SYNC_ID, mode: "queue" })
+    .mockRejectedValueOnce(new Error("Run unavailable."));
+  expect(
+    await sweepCatalogueSyncs({
+      dispatch: vi.fn(),
+      advance,
+      queueEnabled: true,
+    }),
+  ).toEqual({
+    failedExpired: 1,
+    redispatched: 0,
+    advancedRuns: 1,
+    errors: ["Run unavailable."],
+  });
+  expect(advance.mock.calls).toEqual([["stalled"], ["unavailable"]]);
+});
+
 test("a failed redispatch is reported without stopping the sweep", async () => {
-  mocks.sql.mockResolvedValue([
-    { id: SYNC_ID, dispatch_generation: 0 },
-    { id: "second", dispatch_generation: 0 },
-  ]);
+  sweepRows(
+    [],
+    [
+      { id: SYNC_ID, dispatch_generation: 0 },
+      { id: "second", dispatch_generation: 0 },
+    ],
+  );
   const dispatch = vi
     .fn()
     .mockRejectedValueOnce(new Error("Queue unavailable."))
     .mockResolvedValueOnce({ mode: "queue" });
-  expect(await sweepCatalogueSyncs({ dispatch, queueEnabled: true })).toEqual({
+  expect(
+    await sweepCatalogueSyncs({
+      dispatch,
+      advance: vi.fn(),
+      queueEnabled: true,
+    }),
+  ).toEqual({
     failedExpired: 1,
     redispatched: 1,
+    advancedRuns: 0,
     errors: ["Queue unavailable."],
   });
 });
 
 test("inline mode only fails exhausted syncs", async () => {
   const dispatch = vi.fn();
-  expect(await sweepCatalogueSyncs({ dispatch, queueEnabled: false })).toEqual({
-    failedExpired: 1,
-    redispatched: 0,
-    errors: [],
-  });
+  const advance = vi.fn();
+  expect(
+    await sweepCatalogueSyncs({ dispatch, advance, queueEnabled: false }),
+  ).toEqual({ failedExpired: 1, redispatched: 0, advancedRuns: 0, errors: [] });
   expect(mocks.sql).not.toHaveBeenCalled();
   expect(dispatch).not.toHaveBeenCalled();
+  expect(advance).not.toHaveBeenCalled();
 });
 
 test.each([
@@ -86,6 +124,7 @@ test("the sweep runs for Vercel Cron's bearer secret", async () => {
   expect(await response.json()).toEqual({
     failedExpired: 1,
     redispatched: 0,
+    advancedRuns: 0,
     errors: [],
   });
 });

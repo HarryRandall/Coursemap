@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
+import { SyncStoreError } from "@/lib/catalogue-sync/sync-store";
 import {
   OpenRouterRequestError,
   restoreOpenRouterExtraction,
@@ -683,4 +684,43 @@ test("course processing records and sends the same increased reasoning budget", 
     effort: "low",
     exclude: true,
   });
+});
+
+test("a redelivery that finds its run item finished still advances the run", async () => {
+  vi.stubEnv("COURSEMAP_QUEUE_SYNCS_ENABLED", "true");
+  try {
+    mocks.claim.mockResolvedValueOnce(null);
+    mocks.sql.mockImplementation(async (strings) => {
+      const text = Array.from(strings as unknown as readonly string[]).join("");
+      if (text.includes("select status from public.catalogue_syncs"))
+        return [{ status: "applied" }];
+      if (text.includes("from public.catalogue_course_run_items"))
+        return [{ run_id: "run" }];
+      return [];
+    });
+    await processCatalogueSync({ syncId: "sync", deliveryCount: 2 });
+    expect(mocks.advance).toHaveBeenCalledWith("run");
+    expect(mocks.extract).not.toHaveBeenCalled();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
+test("a worker that lost its lease during a failure records nothing about it", async () => {
+  const timeout = new DOMException("The request timed out.", "TimeoutError");
+  mocks.extract.mockRejectedValue(timeout);
+  mocks.renew.mockImplementation(async () => {
+    // The lease is lost while the model request is outstanding.
+    if (mocks.extract.mock.calls.length > 0)
+      throw new SyncStoreError(
+        "The catalogue sync lease was lost.",
+        "LEASE_LOST",
+      );
+  });
+  await expect(processCatalogueSync({ syncId: "sync" })).rejects.toThrow(
+    "may have reached the provider",
+  );
+  expect(mocks.finish).not.toHaveBeenCalled();
+  expect(mocks.release).not.toHaveBeenCalled();
+  expect(mocks.pause).not.toHaveBeenCalled();
 });

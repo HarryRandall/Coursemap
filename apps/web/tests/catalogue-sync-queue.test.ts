@@ -5,7 +5,9 @@ import {
   createSyncQueueMessage,
   handleSyncQueueDelivery,
   parseSyncQueueMessage,
+  processCatalogueSyncInline,
 } from "@/lib/catalogue-sync/sync-queue";
+import { SyncClaimUnavailableError } from "@/lib/catalogue-sync/process-sync";
 
 const SYNC_ID = "10000000-0000-4000-8000-000000000001";
 
@@ -98,5 +100,47 @@ describe("catalogue sync queue deliveries", () => {
     ).rejects.toThrow("Sync queue syncId must be a UUID.");
     expect(failSync).toHaveBeenCalledTimes(1);
     expect(process).not.toHaveBeenCalled();
+  });
+});
+
+describe("inline catalogue sync processing", () => {
+  it("backs off between attempts like queue redelivery", async () => {
+    vi.useFakeTimers();
+    try {
+      const process = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("ANU is unavailable."))
+        .mockRejectedValueOnce(new Error("ANU is unavailable."))
+        .mockResolvedValueOnce(undefined);
+      const done = processCatalogueSyncInline({
+        syncId: SYNC_ID,
+        process,
+        retryDelayMs: 100,
+      });
+      await vi.advanceTimersByTimeAsync(99);
+      expect(process).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(process).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(199);
+      expect(process).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(1);
+      await done;
+      expect(process).toHaveBeenCalledTimes(3);
+      expect(process.mock.calls.map(([input]) => input.deliveryCount)).toEqual([
+        1, 2, 3,
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops when another worker holds the sync", async () => {
+    const process = vi.fn().mockRejectedValue(new SyncClaimUnavailableError());
+    await processCatalogueSyncInline({
+      syncId: SYNC_ID,
+      process,
+      retryDelayMs: 0,
+    });
+    expect(process).toHaveBeenCalledTimes(1);
   });
 });

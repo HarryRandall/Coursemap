@@ -9,6 +9,7 @@ import {
   holdCatalogueSyncAfterDispatchFailure,
 } from "./provider-store.ts";
 import {
+  SyncClaimUnavailableError,
   processCatalogueSync,
   safeErrorSummary,
   type ProcessCatalogueSyncInput,
@@ -167,14 +168,35 @@ export async function dispatchCatalogueSync({
   return { mode: "inline" as const };
 }
 
+function waitBeforeRetry(milliseconds: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, milliseconds);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Processes a sync in this process with the queue's delivery budget. Attempts
+ * back off exponentially from `retryDelayMs`, and stop once another worker
+ * holds the sync or it can no longer be claimed.
+ */
 export async function processCatalogueSyncInline({
   syncId,
   process = processCatalogueSync,
   signal,
+  retryDelayMs = 1_000,
 }: {
   syncId: string;
   process?: (input: ProcessCatalogueSyncInput) => Promise<void>;
   signal?: AbortSignal;
+  retryDelayMs?: number;
 }) {
   for (
     let deliveryCount = 1;
@@ -190,9 +212,14 @@ export async function processCatalogueSyncInline({
         signal,
       });
       return;
-    } catch {
-      if (deliveryCount === SYNC_QUEUE_MAX_DELIVERIES) return;
+    } catch (error) {
+      if (
+        error instanceof SyncClaimUnavailableError ||
+        deliveryCount === SYNC_QUEUE_MAX_DELIVERIES
+      )
+        return;
     }
+    await waitBeforeRetry(retryDelayMs * 2 ** (deliveryCount - 1), signal);
   }
 }
 
