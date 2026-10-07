@@ -327,11 +327,13 @@ function evaluateRelationalPrerequisite(
     return { state: unknown ? "unknown" : "satisfied", missingCodes: [] };
   }
   if (expression.kind === "incompatible") {
-    return prerequisiteAttempts(attempt, attempts, catalogue, false).some(
+    // A plan holding both courses breaks the exclusion whichever comes first,
+    // so a planned or enrolled attempt in any term conflicts like a result.
+    return attempts.some(
       (candidate) =>
         candidate.id !== attempt.id &&
         candidate.courseCode === expression.code &&
-        candidate.status === "completed",
+        isActiveAttempt(candidate),
     )
       ? { state: "unsatisfied", missingCodes: [] }
       : { state: "satisfied", missingCodes: [] };

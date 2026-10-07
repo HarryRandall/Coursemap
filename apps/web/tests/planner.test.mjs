@@ -908,3 +908,41 @@ test("an exclusion listed as either course blocks a plan holding either course",
     );
   }
 });
+
+test("an excluded course planned in either semester blocks the plan", () => {
+  const catalogue = catalogueWithExclusion({
+    kind: "incompatible",
+    code: "COMP1100",
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Incompatible with COMP1100.",
+  });
+  const target = attempt("target", "COMP1110", "2026-s2");
+  for (const [termId, status] of [
+    ["2026-s1", "planned"],
+    ["2026-s1", "enrolled"],
+    ["2027-s1", "planned"],
+    ["unscheduled", "planned"],
+  ]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", termId, status), target],
+        catalogue,
+      ),
+      "blocked",
+      `${status} in ${termId}`,
+    );
+  }
+  for (const status of ["failed", "withdrawn"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", "2026-s1", status), target],
+        catalogue,
+      ),
+      "planned",
+    );
+  }
+});
