@@ -313,6 +313,51 @@ function wait(milliseconds: number, signal?: AbortSignal) {
   });
 }
 
+const MAX_COURSE_SOURCE_REDIRECTS = 3;
+
+function isRedirectStatus(status: number) {
+  return status >= 300 && status < 400 && status !== 304;
+}
+
+function redirectMismatch() {
+  return new CourseSourceError(
+    "SOURCE_REDIRECT_MISMATCH",
+    "ANU redirected to a different course page.",
+  );
+}
+
+/**
+ * Follows a redirect only when its Location is the selected ANU course page
+ * itself, such as a trailing slash or a change of case. Any other target,
+ * including another host, is refused before it is requested.
+ */
+async function fetchSelectedCoursePage(
+  fetchImpl: typeof fetch,
+  sourceUrl: string,
+  init: RequestInit,
+) {
+  let url = sourceUrl;
+  for (let redirects = 0; ; redirects += 1) {
+    const response = await fetchImpl(url, { ...init, redirect: "manual" });
+    if (!isRedirectStatus(response.status)) return response;
+    const location = response.headers.get("location");
+    let target: string | null = null;
+    try {
+      target = location
+        ? normaliseOfficialUrl(new URL(location, url).toString())
+        : null;
+    } catch {
+      target = null;
+    }
+    if (
+      redirects >= MAX_COURSE_SOURCE_REDIRECTS ||
+      target?.toLowerCase() !== sourceUrl.toLowerCase()
+    )
+      throw redirectMismatch();
+    url = target;
+  }
+}
+
 function sourceLastModified(value: string | null) {
   if (!value) return null;
   const parsed = new Date(value);
@@ -352,22 +397,18 @@ export async function fetchAnuCoursePage(
   for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
     signal?.throwIfAborted();
     try {
-      const response = await fetchImpl(sourceUrl, {
+      const response = await fetchSelectedCoursePage(fetchImpl, sourceUrl, {
         headers: {
           Accept: "text/html",
           "User-Agent": "Coursemap course importer",
         },
-        redirect: "follow",
         signal: combineSignal(requestTimeoutMs, signal),
       });
       if (
         normaliseOfficialUrl(response.url)?.toLowerCase() !==
         sourceUrl.toLowerCase()
       ) {
-        throw new CourseSourceError(
-          "SOURCE_REDIRECT_MISMATCH",
-          "ANU redirected to a different course page.",
-        );
+        throw redirectMismatch();
       }
 
       if (
