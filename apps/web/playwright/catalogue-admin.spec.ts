@@ -133,10 +133,34 @@ test("administrators upload, review and revoke local SELT imports", async ({
     expect((await manifest.json()).codes).toContain("COMP1100");
     const { syntheticSeltReport } =
       await import("../tests/fixtures/selt/report");
+    await page.goto("/courses/2026/comp1100?tab=student-review");
+    await expect(
+      page.getByRole("tab", { name: "Student review", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("tab", { name: "Overview", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await page.goto("/admin/selt");
     const report = syntheticSeltReport();
     report.report.course_code = "COMP1100";
     report.source.filename = "COMP1100_Time_Series_LRN.pdf";
     report.source.sha256 = hash;
+    report.surveys = [2023, 2024, 2025].map((year) => ({
+      ...structuredClone(report.surveys[0]!),
+      year,
+      label: `Sem 1 ${year}`,
+    }));
+    const suppressed = structuredClone(report.surveys[0]!);
+    suppressed.year = 2025;
+    suppressed.session = "sem_2";
+    suppressed.label = "Sem 2 2025";
+    suppressed.respondents = null;
+    suppressed.response_rate_percent = null;
+    for (const key of Object.keys(suppressed.agreement_percent) as Array<
+      keyof typeof suppressed.agreement_percent
+    >)
+      suppressed.agreement_percent[key] = null;
+    report.surveys.push(suppressed);
     const uploaded = await page.request.post("/api/selt/import", {
       headers,
       data: report,
@@ -148,6 +172,13 @@ test("administrators upload, review and revoke local SELT imports", async ({
     await entry.getByRole("button", { name: "Review", exact: true }).click();
     await expect(page.getByRole("table")).toContainText("Sem 1 2025");
     await expect(page.getByRole("table")).toContainText("75");
+    expect(
+      (await page.request.get("/api/courses/COMP1100/surveys")).status(),
+    ).toBe(200);
+    expect(
+      (await (await page.request.get("/api/courses/COMP1100/surveys")).json())
+        .report,
+    ).toBeNull();
     await entry.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(entry.getByText("Published", { exact: true })).toBeVisible();
     await page.screenshot({
@@ -162,6 +193,33 @@ test("administrators upload, review and revoke local SELT imports", async ({
       path: testInfo.outputPath("selt-admin-mobile.png"),
       fullPage: true,
     });
+    await sql`delete from private.user_roles where user_id = ${administrator.id}`;
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/courses/2026/comp1100");
+    await page
+      .getByRole("tab", { name: "Student review", exact: true })
+      .click();
+    const values = page.getByRole("table", { name: "Reported survey values" });
+    await expect(values).toContainText("Semester 2 2025");
+    await expect(values).toContainText("Unavailable");
+    await expect(page.getByText(/Charts include 3 of 4 periods/)).toBeVisible();
+    await page.getByRole("tab", { name: "Feedback", exact: true }).click();
+    await expect(values).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("selt-charts-desktop.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(values).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await page
+      .locator('section[aria-labelledby="course-survey-heading"]')
+      .screenshot({ path: testInfo.outputPath("selt-charts-mobile.png") });
+    await sql`insert into private.user_roles (user_id, role_id) select ${administrator.id}, id from private.app_roles where key = 'admin'`;
     const [run] =
       await sql`select import_run_id from public.selt_reports where source_sha256 = ${hash}`;
     runId = run.import_run_id;

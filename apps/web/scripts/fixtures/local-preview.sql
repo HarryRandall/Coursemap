@@ -630,7 +630,9 @@ select
   '2026-05-30',
   'In person',
   'Acton',
-  'https://coursemap.local.test/2026/classes/' || lower(items.code),
+  'https://programsandcourses.anu.edu.au/2026/course/' || items.code
+    || '/First%20Semester/'
+    || case items.code when 'COMP1100' then '11001' else '11101' end,
   'Semester 1, in person at Acton'
 from public.catalogue_versions as snapshots
 join pg_temp.local_preview_versions as preview on preview.id = snapshots.id

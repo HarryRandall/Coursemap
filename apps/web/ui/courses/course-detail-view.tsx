@@ -6,11 +6,6 @@ import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@coursemap/ui/components/alert";
-import {
   Card,
   CardContent,
   CardFooter,
@@ -38,7 +33,6 @@ import {
   CalendarClock,
   ChevronRight,
   ArrowUpRight,
-  ClipboardCheck,
   GitBranch,
   GraduationCap,
   Library,
@@ -70,6 +64,15 @@ import { CourseReferenceText } from "@/ui/courses/course-reference";
 import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
 import { RequisiteExpressionSummary } from "@/ui/courses/requisite-summary";
+import dynamic from "next/dynamic";
+import type { PublishedSurveyReport } from "@/lib/course-surveys/report-model";
+const CourseSurveyPanel = dynamic(
+  () =>
+    import("@/ui/courses/reviews/course-survey-panel").then(
+      (module) => module.CourseSurveyPanel,
+    ),
+  { loading: () => <p role="status">Loading survey charts...</p> },
+);
 
 export const courseDetailTabs = [
   { id: "overview", label: "Overview", icon: BookOpen },
@@ -94,22 +97,26 @@ export function courseTabFromSearch(value: string | null): CourseTab {
  */
 export function CourseDetailTabsList({
   disabled = false,
+  showStudentReview = false,
 }: {
   disabled?: boolean;
+  showStudentReview?: boolean;
 }) {
   return (
     <TabsList variant="line">
-      {courseDetailTabs.map(({ id, label, icon: Icon }) => (
-        <TabsTrigger
-          className={disabled ? "disabled:opacity-100" : undefined}
-          disabled={disabled}
-          key={id}
-          value={id}
-        >
-          <Icon size={15} aria-hidden="true" className="hidden sm:block" />
-          {label}
-        </TabsTrigger>
-      ))}
+      {courseDetailTabs
+        .filter((tab) => tab.id !== "student-review" || showStudentReview)
+        .map(({ id, label, icon: Icon }) => (
+          <TabsTrigger
+            className={disabled ? "disabled:opacity-100" : undefined}
+            disabled={disabled}
+            key={id}
+            value={id}
+          >
+            <Icon size={15} aria-hidden="true" className="hidden sm:block" />
+            {label}
+          </TabsTrigger>
+        ))}
     </TabsList>
   );
 }
@@ -124,6 +131,7 @@ export function CourseDetailView({
   attempts = NO_ATTEMPTS,
   commencementYear = null,
   course,
+  surveyReport = null,
   onAddToPlan,
   yearPicker,
   previewStudent,
@@ -134,6 +142,7 @@ export function CourseDetailView({
   /** The year the reader started their degree, for year-standing rules. */
   commencementYear?: number | null;
   course: CourseDetails;
+  surveyReport?: PublishedSurveyReport | null;
   onAddToPlan?: () => void;
   yearPicker?: ReactNode;
   /**
@@ -834,64 +843,11 @@ export function CourseDetailView({
         </Card>
       </TabsContent>
 
-      <TabsContent value="student-review" className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{"Student experience and self-review"}</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5 border-t border-border/60 pt-5">
-            <Alert className="rounded-xl p-4" variant={"default"}>
-              <MessageSquareText aria-hidden="true" />
-              <AlertTitle className="text-[13px]">
-                No course-specific ratings are shown yet
-              </AlertTitle>
-              <AlertDescription className="text-[13px] text-muted-foreground">
-                No student ratings are available for this course.
-              </AlertDescription>
-            </Alert>
-            <div>
-              <h3 className="text-[13px] font-semibold text-foreground">
-                A useful self-review after taking the course
-              </h3>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                {[
-                  [
-                    "Workload",
-                    "Were the weekly study hours manageable for the unit value?",
-                  ],
-                  [
-                    "Assessment",
-                    "Did the assessment types build the skills the course promised?",
-                  ],
-                  [
-                    "Teaching",
-                    "Were lectures, tutorials and feedback helpful when you needed them?",
-                  ],
-                ].map(([title, description]) => (
-                  <div
-                    key={title}
-                    className="rounded-xl border border-border p-4"
-                  >
-                    <ClipboardCheck
-                      size={17}
-                      className="text-primary"
-                      aria-hidden="true"
-                    />
-                    <h4 className="mt-2 text-[13px] font-semibold text-foreground/90">
-                      {title}
-                    </h4>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
+      {surveyReport && (
+        <TabsContent value="student-review" className="flex flex-col gap-4">
+          <CourseSurveyPanel report={surveyReport} />
+        </TabsContent>
+      )}
     </div>
   );
 }

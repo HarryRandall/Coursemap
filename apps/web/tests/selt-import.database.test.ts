@@ -80,7 +80,7 @@ it("rolls back invalid survey inserts and blocks publication with warnings", asy
     "Resolve extraction warnings",
   );
 });
-it("publishes one report per course and hides reports and tokens from students", async () => {
+it("publishes one report per course and exposes only published values to students", async () => {
   const run = await createSeltRun(sql, userId);
   const report = syntheticSeltReport();
   report.source.sha256 = "d".repeat(64);
@@ -96,7 +96,18 @@ it("publishes one report per course and hides reports and tokens from students",
   await sql
     .begin(async (tx) => {
       await tx`set local role authenticated`;
-      expect(await tx`select id from public.selt_reports`).toEqual([]);
+      expect(
+        await tx`select id from public.selt_reports where code_id = ${codeId}`,
+      ).toEqual([{ id: replacement.id }]);
+      expect(
+        await tx`select report_id from public.selt_surveys where report_id in (${saved.id!}, ${replacement.id!})`,
+      ).toEqual([{ report_id: replacement.id }]);
+      expect(
+        await tx`select key from public.selt_question_themes where report_id = ${replacement.id!}`,
+      ).toHaveLength(5);
+      expect(
+        await tx`select key from public.selt_question_themes where report_id = ${saved.id!}`,
+      ).toEqual([]);
       await expect(tx`select * from public.selt_import_runs`).rejects.toThrow();
     })
     .catch((error) => {
