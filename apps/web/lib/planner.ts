@@ -30,7 +30,7 @@ export type PlanningCatalogue = {
 };
 
 export type EffectiveStatus =
-  Attempt["status"] | "blocked" | "approval" | "review";
+  Attempt["status"] | "blocked" | "approval" | "review" | "unpublished";
 
 export const STANDARD_COURSE_SLOTS = 4;
 export const STANDARD_TERM_UNITS = 24;
@@ -88,11 +88,13 @@ export function planningCourseByCode(
 /**
  * A pinned snapshot must resolve exactly; it never falls back to a newer course.
  * Unpinned attempts use their academic year, then the scheduled term's year.
+ * A planned course that is no longer published resolves to nothing.
  */
 export function planningCourseForAttempt(
   attempt: Attempt,
   catalogue?: PlanningCatalogue,
 ) {
+  if (attempt.isPublished === false) return undefined;
   if (attempt.snapshotId !== undefined) {
     const matches = [
       ...coursesFor(catalogue),
@@ -146,6 +148,15 @@ export function isActiveAttempt(attempt: Attempt) {
   return attempt.status !== "failed" && attempt.status !== "withdrawn";
 }
 
+/**
+ * Whether an attempt can satisfy or conflict with another course's rule. A
+ * planned course that is no longer published cannot be taken, so it does
+ * neither until the student replaces it.
+ */
+function countsTowardsRules(attempt: Attempt) {
+  return isActiveAttempt(attempt) && attempt.isPublished !== false;
+}
+
 type PrerequisiteEvaluation = {
   missingCodes: string[];
   state: "satisfied" | "unsatisfied" | "unknown";
@@ -162,7 +173,7 @@ function prerequisiteAttempts(
   return attempts.filter(
     (candidate) =>
       candidate.id !== attempt.id &&
-      isActiveAttempt(candidate) &&
+      countsTowardsRules(candidate) &&
       (allowConcurrent
         ? orderOf(candidate.termId, catalogue) <= targetOrder
         : orderOf(candidate.termId, catalogue) < targetOrder),
@@ -298,6 +309,7 @@ function evaluateRelationalPrerequisite(
       (candidate) =>
         candidate.id !== attempt.id &&
         candidate.courseCode === expression.code &&
+        candidate.isPublished !== false &&
         (candidate.status === "planned" || candidate.status === "enrolled"),
     );
     let unknown = false;
@@ -333,7 +345,7 @@ function evaluateRelationalPrerequisite(
       (candidate) =>
         candidate.id !== attempt.id &&
         candidate.courseCode === expression.code &&
-        isActiveAttempt(candidate),
+        countsTowardsRules(candidate),
     )
       ? { state: "unsatisfied", missingCodes: [] }
       : { state: "satisfied", missingCodes: [] };
@@ -473,7 +485,8 @@ export function evaluateCoursePrerequisites(
   catalogue?: PlanningCatalogue,
 ): PrerequisiteEvaluation {
   const course = planningCourseForAttempt(attempt, catalogue);
-  if (!course) return { state: "satisfied", missingCodes: [] };
+  // Without the course its requisites cannot be read, so nothing is known.
+  if (!course) return { state: "unknown", missingCodes: [] };
   if (course.prerequisiteRule === undefined) {
     const earlier = prerequisiteAttempts(attempt, attempts, catalogue, false);
     const missingCodes = course.prerequisiteCodes.filter(
@@ -549,8 +562,9 @@ export function effectiveStatus(
   catalogue?: PlanningCatalogue,
 ): EffectiveStatus {
   if (attempt.status !== "planned") return attempt.status;
+  if (attempt.isPublished === false) return "unpublished";
   const course = planningCourseForAttempt(attempt, catalogue);
-  if (!course) return attempt.status;
+  if (!course) return "review";
   const prerequisites = evaluateCoursePrerequisites(
     attempt,
     attempts,
@@ -582,6 +596,7 @@ export function statusLabel(status: EffectiveStatus) {
     blocked: "Blocked",
     approval: "Approval needed",
     review: "Review needed",
+    unpublished: "No longer published",
   }[status];
 }
 

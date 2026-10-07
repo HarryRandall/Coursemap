@@ -1,9 +1,9 @@
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
-import type { AppState } from "@/lib/coursemap/types";
+import type { AppState, Attempt } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 
-type PlanItemRow = {
+export type PlanItemRow = {
   catalogue_record_id: number;
   id: string;
   planned_calendar_year: number | null;
@@ -88,6 +88,47 @@ export function planStructureCodes(
     minorCodes: codesFor("minor"),
     specialisationCodes: codesFor("specialisation"),
   };
+}
+
+export type PlanItemRecord = {
+  academic_year_id: number;
+  archived_at: string | null;
+  code_id: number;
+  published_version_id: number | null;
+};
+
+/**
+ * Planned courses follow the latest publication of their catalogue year, so
+ * an item whose year is no longer published stays in the plan marked
+ * unpublished. Only an item whose course cannot be identified is left out;
+ * the owner can always read the record and code their plan references.
+ */
+export function plannedAttemptsFromItems(
+  items: readonly PlanItemRow[],
+  recordById: ReadonlyMap<number, PlanItemRecord>,
+  courseCodeById: ReadonlyMap<number, string>,
+  academicYearById: ReadonlyMap<number, number>,
+): Attempt[] {
+  return items.flatMap((item) => {
+    const record = recordById.get(item.catalogue_record_id);
+    const code = record ? courseCodeById.get(record.code_id) : undefined;
+    if (!record || !code) return [];
+    const isPublished =
+      record.published_version_id !== null && record.archived_at === null;
+    return [
+      {
+        id: item.id,
+        academicYear: academicYearById.get(record.academic_year_id),
+        courseCode: code,
+        termId:
+          item.planned_calendar_year && item.planned_period_code
+            ? `${item.planned_calendar_year}-${item.planned_period_code.toLowerCase()}`
+            : "unscheduled",
+        status: "planned" as const,
+        ...(isPublished ? {} : { isPublished: false }),
+      },
+    ];
+  });
 }
 
 export async function loadCoursemapState(
@@ -202,7 +243,9 @@ export async function loadCoursemapState(
     const { data: records } = recordIds.length
       ? await supabase
           .from("catalogue_records")
-          .select("id,code_id,academic_year_id")
+          .select(
+            "id,code_id,academic_year_id,published_version_id,archived_at",
+          )
           .in("id", recordIds)
       : { data: [] };
     const codeIds = [
@@ -259,25 +302,12 @@ export async function loadCoursemapState(
       (periods ?? []).map((period) => [period.id, period]),
     );
 
-    const plannedAttempts = items.flatMap((item) => {
-      const record = recordById.get(item.catalogue_record_id);
-      const code = record ? courseCode.get(record.code_id) : undefined;
-      if (!code) return [];
-      return [
-        {
-          id: item.id,
-          academicYear: record
-            ? academicYearById.get(record.academic_year_id)
-            : undefined,
-          courseCode: code,
-          termId:
-            item.planned_calendar_year && item.planned_period_code
-              ? `${item.planned_calendar_year}-${item.planned_period_code.toLowerCase()}`
-              : "unscheduled",
-          status: "planned" as const,
-        },
-      ];
-    });
+    const plannedAttempts = plannedAttemptsFromItems(
+      items,
+      recordById,
+      courseCode,
+      academicYearById,
+    );
     const recordedAttempts = attempts.flatMap((attempt) => {
       const recordId = versionRecordId.get(attempt.catalogue_version_id);
       const record = recordId ? recordById.get(recordId) : undefined;

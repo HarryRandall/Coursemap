@@ -114,6 +114,34 @@ function saveOpenSessions(termIds: readonly string[]) {
   }
 }
 
+/**
+ * Stands in for a planned course whose year is no longer published, so the
+ * row stays on the board with its code until the student removes it.
+ */
+function unpublishedCourse(attempt: Attempt): Course {
+  return {
+    code: attempt.courseCode,
+    name: "No longer published",
+    year: attempt.academicYear ?? 0,
+    units: 0,
+    level: 0,
+    subject: "",
+    school: "",
+    convener: "",
+    sessions: [],
+    delivery: "",
+    description: "",
+    prerequisiteText: "",
+    prerequisiteCodes: [],
+    incompatibilities: [],
+    countsTowards: [],
+    sourceUrl: "",
+    lastChanged: "",
+    parseState: "Review",
+    accent: "amber",
+  };
+}
+
 /** Single muted status mark - the only colour on the board. */
 export function StatusMark({
   status,
@@ -126,7 +154,12 @@ export function StatusMark({
     return <CheckCircle2 size={size} className="shrink-0 text-emerald-500" />;
   if (status === "failed")
     return <XCircle size={size} className="shrink-0 text-rose-500" />;
-  if (status === "blocked" || status === "approval" || status === "review")
+  if (
+    status === "blocked" ||
+    status === "approval" ||
+    status === "review" ||
+    status === "unpublished"
+  )
     return <AlertTriangle size={size} className="shrink-0 text-amber-500" />;
   return <Circle size={size} className="shrink-0 text-muted-foreground/40" />;
 }
@@ -221,6 +254,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     state.attempts.forEach((attempt) => {
       if (
         attempt.status === "withdrawn" ||
+        attempt.isPublished === false ||
         attempt.snapshotId !== undefined ||
         attempt.academicYear === undefined ||
         planningCourseForAttempt(attempt, base)
@@ -267,7 +301,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           attempt.termId === termId && attempt.status !== "withdrawn",
       )
       .map((attempt) => {
-        const course = planningCourseForAttempt(attempt, planningCatalogue);
+        const course =
+          planningCourseForAttempt(attempt, planningCatalogue) ??
+          (attempt.isPublished === false
+            ? unpublishedCourse(attempt)
+            : undefined);
         return course
           ? {
               attempt,
@@ -567,6 +605,8 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         : "A required eligibility condition is not met";
     }
     if (entry.status === "approval") return "Course permission is required";
+    if (entry.status === "unpublished")
+      return "No longer published for this year. Remove it or choose another course";
     if (entry.status === "review") return "Check the course requirements";
     if (entry.status === "failed") return "Failed attempt with 0 units earned";
     return null;
@@ -929,6 +969,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               attempt={entry.attempt}
               catalogue={planningCatalogue}
             />
+          </div>
+        )}
+        {entry.status === "unpublished" && (
+          <div className="col-span-2 flex justify-end px-2 pb-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="min-h-9"
+              aria-label={`Remove ${entry.course.code} from the plan`}
+              onClick={() =>
+                void removeAttempt(entry.attempt.id).then((result) =>
+                  notify(result.message, result.ok ? "success" : "error"),
+                )
+              }
+            >
+              Remove
+            </Button>
           </div>
         )}
       </div>
