@@ -44,6 +44,7 @@ const COURSE_W = 160;
 const UNLOCK_GAP = 64;
 const UNLOCK_W = 150;
 const EMPTY_H = 46;
+const MAX_VISIBLE_UNLOCKS = 7;
 
 type Group = Extract<CourseRuleExpression, { kind: "group" }>;
 
@@ -380,8 +381,11 @@ export function RequisiteDiagram({
     ? heights.reduce((total, height) => total + height, 0) +
       (requirements.length - 1) * ENTRY_GAP
     : EMPTY_H;
-  const unlockTotal = unlocks.length
-    ? unlocks.length * CARD + (unlocks.length - 1) * CARD_GAP
+  const visibleUnlocks = unlocks.slice(0, MAX_VISIBLE_UNLOCKS);
+  const hiddenUnlockCount = unlocks.length - visibleUnlocks.length;
+  const unlockRows = visibleUnlocks.length + (hiddenUnlockCount ? 1 : 0);
+  const unlockTotal = unlockRows
+    ? unlockRows * CARD + (unlockRows - 1) * CARD_GAP
     : EMPTY_H;
   // Room below the course for the permission badge.
   const courseTotal = COURSE_H + (permissions.length ? 2 * 40 : 0);
@@ -477,18 +481,29 @@ export function RequisiteDiagram({
                 <Head met={allMet} x={courseX - 2} y={mid} />
               </>
             ) : null}
-            {unlocks.length === 1 ? (
+            {unlockRows === 1 ? (
               <>
                 <Line d={`M ${courseX + COURSE_W} ${mid} H ${unlockX - 2}`} />
                 <Head x={unlockX - 2} y={mid} />
               </>
-            ) : unlocks.length > 1 ? (
+            ) : unlockRows > 1 ? (
               <>
                 <Line d={`M ${courseX + COURSE_W} ${mid} H ${spineX}`} />
                 <Line
-                  d={`M ${spineX} ${unlockCentre(0)} V ${unlockCentre(unlocks.length - 1)}`}
+                  d={`M ${spineX} ${unlockCentre(0)} V ${unlockCentre(unlockRows - 1)}`}
                 />
-                {unlocks.map((unlock, index) => (
+                {hiddenUnlockCount ? (
+                  <>
+                    <Line
+                      d={`M ${spineX} ${unlockCentre(visibleUnlocks.length)} H ${unlockX - 2}`}
+                    />
+                    <Head
+                      x={unlockX - 2}
+                      y={unlockCentre(visibleUnlocks.length)}
+                    />
+                  </>
+                ) : null}
+                {visibleUnlocks.map((unlock, index) => (
                   <g key={unlock.code}>
                     <Line
                       d={`M ${spineX} ${unlockCentre(index)} H ${unlockX - 2}`}
@@ -556,7 +571,7 @@ export function RequisiteDiagram({
             ) : null}
           </div>
 
-          {unlocks.map((unlock, index) => (
+          {visibleUnlocks.map((unlock, index) => (
             <CourseCard
               key={unlock.code}
               code={unlock.code}
@@ -573,6 +588,22 @@ export function RequisiteDiagram({
               }}
             />
           ))}
+          {hiddenUnlockCount ? (
+            <Link
+              href={`/courses?${new URLSearchParams({ year: String(academicYear), prerequisite: code })}`}
+              aria-label={`See all ${unlocks.length} courses listing ${code} as a prerequisite in ${academicYear}`}
+              className="absolute flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 text-sm font-medium text-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              style={{
+                left: unlockX,
+                width: UNLOCK_W,
+                height: CARD,
+                top: unlockCentre(visibleUnlocks.length) - CARD / 2,
+              }}
+            >
+              + {hiddenUnlockCount} more
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            </Link>
+          ) : null}
         </div>
 
         {concurrentIncompatible.length ? (

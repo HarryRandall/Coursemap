@@ -8,6 +8,19 @@ const { tables, failures } = vi.hoisted(() => ({
 vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
 vi.mock("../lib/supabase/public-server", () => ({
   createPublicClient: () => ({
+    async rpc(
+      _name: string,
+      args: { p_academic_year: number; p_course_code: string },
+    ) {
+      return {
+        data: (tables.get("graph") ?? []).filter(
+          (row) =>
+            row.year === args.p_academic_year &&
+            row.from_code === args.p_course_code,
+        ),
+        error: failures.get("graph") ?? null,
+      };
+    },
     from(table: string) {
       let rows = tables.get(table) ?? [];
       let bounded = table === "catalogue_records";
@@ -143,4 +156,82 @@ describe("published course directory loading", () => {
       code: "57014",
     });
   });
+});
+
+it("filters the complete directory by published prerequisite edges in the requested year before pagination", async () => {
+  const summaries = [
+    {
+      version_id: 1,
+      code: "COMP2000",
+      academic_year: 2026,
+      academic_year_id: 26,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 2,
+      code: "COMP2000",
+      academic_year: 2027,
+      academic_year_id: 27,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 3,
+      code: "COMP3000",
+      academic_year: 2027,
+      academic_year_id: 27,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 4,
+      code: "COMP4000",
+      academic_year: 2027,
+      academic_year_id: 27,
+      subject_code: "COMP",
+    },
+  ];
+  tables.set(
+    "catalogue_records",
+    summaries.map((row) => ({
+      id: row.version_id,
+      kind: "course",
+      archived_at: null,
+      published_version_id: row.version_id,
+    })),
+  );
+  tables.set("published_course_summaries", summaries);
+  tables.set("graph", [
+    { year: 2027, from_code: "COMP1000", to_code: "COMP2000" },
+    { year: 2027, from_code: "COMP1000", to_code: "COMP3000" },
+    { year: 2026, from_code: "COMP1000", to_code: "COMP4000" },
+    { year: 2027, from_code: "COMP9999", to_code: "COMP4000" },
+  ]);
+  tables.set("course_areas_of_interest", []);
+  tables.set("course_tags", []);
+  const result = await loadPublishedCourseDirectoryPage({
+    academicYear: 2027,
+    filters: { prerequisite: "COMP1000" },
+    page: 2,
+    pageSize: 1,
+  });
+  expect(result.total).toBe(2);
+  expect(result.courses.map((course) => [course.code, course.year])).toEqual([
+    ["COMP3000", 2027],
+  ]);
+});
+
+it("does not broaden an invalid prerequisite filter or hide graph failures", async () => {
+  expect(
+    (
+      await loadPublishedCourseDirectoryPage({
+        filters: { prerequisite: "invalid" },
+      })
+    ).total,
+  ).toBe(0);
+  failures.set("graph", { code: "57014", message: "statement timeout" });
+  await expect(
+    loadPublishedCourseDirectoryPage({
+      academicYear: 2027,
+      filters: { prerequisite: "COMP1000" },
+    }),
+  ).rejects.toMatchObject({ code: "57014" });
 });

@@ -23,6 +23,7 @@ export function CourseDirectory({
   total,
   filtered = false,
   searchParams,
+  showRequisites = false,
 }: {
   courses: CourseDetails[];
   page: number;
@@ -30,6 +31,7 @@ export function CourseDirectory({
   total: number;
   filtered?: boolean;
   searchParams: Record<string, string | undefined>;
+  showRequisites?: boolean;
 }) {
   return (
     <DataTableShell
@@ -69,7 +71,7 @@ export function CourseDirectory({
           </TableHeader>
           <TableBody>
             {courses.map((course) => {
-              const href = `/courses/${course.year}/${course.code.toLowerCase()}`;
+              const href = `/courses/${course.year}/${course.code.toLowerCase()}${showRequisites ? "?tab=requisites" : ""}`;
               return (
                 <LinkedTableRow key={course.code} className="group">
                   <TableCell>

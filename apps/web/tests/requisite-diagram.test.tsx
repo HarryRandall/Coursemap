@@ -160,3 +160,44 @@ test("partway marks the completed alternative and labels concurrent enrolment", 
     screen.getByRole("link", { name: /MATH1014.*Completed or concurrent/u }),
   ).toBeInTheDocument();
 });
+
+test("caps unlocked course cards at seven and links the full list in the same year", () => {
+  renderDiagram({
+    academicYear: 2027,
+    unlocks: Array.from({ length: 12 }, (_, index) => ({
+      code: `COMP${4500 + index}`,
+      isAvailable: true,
+    })),
+  });
+  expect(screen.getByRole("link", { name: /COMP4506/u })).toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: /COMP4507/u }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("link", {
+      name: "See all 12 courses listing COMP3500 as a prerequisite in 2027",
+    }),
+  ).toHaveAttribute("href", "/courses?year=2027&prerequisite=COMP3500");
+  expect(screen.getByText("+ 5 more")).toBeInTheDocument();
+  const svg = screen.getByTestId("requisite-diagram").querySelector("svg")!;
+  expect(
+    [...svg.querySelectorAll("path")].filter((path) =>
+      path.getAttribute("d")?.endsWith("z"),
+    ),
+  ).toHaveLength(9);
+});
+
+test.each([0, 1, 7])(
+  "does not show an overflow link for %s unlocked courses",
+  (count) => {
+    renderDiagram({
+      unlocks: Array.from({ length: count }, (_, index) => ({
+        code: `COMP${4500 + index}`,
+        isAvailable: true,
+      })),
+    });
+    expect(
+      screen.queryByRole("link", { name: /See all/u }),
+    ).not.toBeInTheDocument();
+  },
+);
