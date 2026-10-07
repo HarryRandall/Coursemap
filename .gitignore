@@ -60,3 +60,7 @@ yarn-error.log*
 **/dist/
 
 /apps/web/.catalogue-cache/
+
+# Local Python caches
+__pycache__/
+*.py[cod]

@@ -3944,6 +3944,215 @@ export type Database = {
           },
         ]
       }
+      selt_import_runs: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          requested_by: string
+          revoked_at: string | null
+          token_sha256: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          requested_by: string
+          revoked_at?: string | null
+          token_sha256: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          requested_by?: string
+          revoked_at?: string | null
+          token_sha256?: string
+        }
+        Relationships: []
+      }
+      selt_question_themes: {
+        Row: {
+          introduced_year: number
+          key: string
+          label: string
+          report_id: string
+        }
+        Insert: {
+          introduced_year: number
+          key: string
+          label: string
+          report_id: string
+        }
+        Update: {
+          introduced_year?: number
+          key?: string
+          label?: string
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selt_question_themes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "selt_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selt_reports: {
+        Row: {
+          chart_extractor: string
+          code_id: number
+          course_name: string
+          created_at: string
+          id: string
+          import_run_id: string
+          notes: string[]
+          page_count: number
+          parser_version: string
+          published_at: string | null
+          published_by: string | null
+          report_run_at: string | null
+          report_run_at_raw: string | null
+          schema_version: string
+          source_bytes: number
+          source_contact: string | null
+          source_filename: string
+          source_name: string | null
+          source_sha256: string
+          source_url: string
+          subject_owner: string | null
+          text_extractor: string
+          warnings: string[]
+        }
+        Insert: {
+          chart_extractor: string
+          code_id: number
+          course_name: string
+          created_at?: string
+          id?: string
+          import_run_id: string
+          notes?: string[]
+          page_count: number
+          parser_version: string
+          published_at?: string | null
+          published_by?: string | null
+          report_run_at?: string | null
+          report_run_at_raw?: string | null
+          schema_version: string
+          source_bytes: number
+          source_contact?: string | null
+          source_filename: string
+          source_name?: string | null
+          source_sha256: string
+          source_url: string
+          subject_owner?: string | null
+          text_extractor: string
+          warnings?: string[]
+        }
+        Update: {
+          chart_extractor?: string
+          code_id?: number
+          course_name?: string
+          created_at?: string
+          id?: string
+          import_run_id?: string
+          notes?: string[]
+          page_count?: number
+          parser_version?: string
+          published_at?: string | null
+          published_by?: string | null
+          report_run_at?: string | null
+          report_run_at_raw?: string | null
+          schema_version?: string
+          source_bytes?: number
+          source_contact?: string | null
+          source_filename?: string
+          source_name?: string | null
+          source_sha256?: string
+          source_url?: string
+          subject_owner?: string | null
+          text_extractor?: string
+          warnings?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selt_reports_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "catalogue_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "selt_reports_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "published_course_summaries"
+            referencedColumns: ["code_id"]
+          },
+          {
+            foreignKeyName: "selt_reports_import_run_id_fkey"
+            columns: ["import_run_id"]
+            isOneToOne: false
+            referencedRelation: "selt_import_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      selt_surveys: {
+        Row: {
+          analytical_development: number | null
+          enrolments: number | null
+          feedback: number | null
+          label: string
+          overall_learning_experience: number | null
+          report_id: string
+          respondents: number | null
+          response_rate_percent: number | null
+          session: string
+          teaching_and_learning_activities: number | null
+          workload: number | null
+          year: number
+        }
+        Insert: {
+          analytical_development?: number | null
+          enrolments?: number | null
+          feedback?: number | null
+          label: string
+          overall_learning_experience?: number | null
+          report_id: string
+          respondents?: number | null
+          response_rate_percent?: number | null
+          session: string
+          teaching_and_learning_activities?: number | null
+          workload?: number | null
+          year: number
+        }
+        Update: {
+          analytical_development?: number | null
+          enrolments?: number | null
+          feedback?: number | null
+          label?: string
+          overall_learning_experience?: number | null
+          report_id?: string
+          respondents?: number | null
+          response_rate_percent?: number | null
+          session?: string
+          teaching_and_learning_activities?: number | null
+          workload?: number | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selt_surveys_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "selt_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       societies: {
         Row: {
           category: string

@@ -109,3 +109,76 @@ test("stopped bulk imports show imported counts and linked results on desktop an
     await sql.end();
   }
 });
+
+test("administrators upload, review and revoke local SELT imports", async ({
+  page,
+  administrator,
+}, testInfo) => {
+  const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+    max: 1,
+  });
+  const hash = randomUUID().replaceAll("-", "").repeat(2);
+  let runId: string | undefined;
+  try {
+    await login(page, administrator);
+    await page.goto("/admin/selt");
+    await page
+      .getByRole("button", { name: "Create local import token" })
+      .click();
+    const token = await page.getByRole("main").locator("code").innerText();
+    await page.getByRole("button", { name: "Hide token" }).click();
+    const headers = { Authorization: `Bearer ${token}` };
+    const manifest = await page.request.get("/api/selt/import", { headers });
+    expect(manifest.status()).toBe(200);
+    expect((await manifest.json()).codes).toContain("COMP1100");
+    const { syntheticSeltReport } =
+      await import("../tests/fixtures/selt/report");
+    const report = syntheticSeltReport();
+    report.report.course_code = "COMP1100";
+    report.source.filename = "COMP1100_Time_Series_LRN.pdf";
+    report.source.sha256 = hash;
+    const uploaded = await page.request.post("/api/selt/import", {
+      headers,
+      data: report,
+    });
+    expect(uploaded.status()).toBe(200);
+    expect((await uploaded.json()).outcome).toBe("imported");
+    await page.getByRole("button", { name: "Refresh", exact: true }).click();
+    const entry = page.locator("article").filter({ hasText: "COMP1100" });
+    await entry.getByRole("button", { name: "Review", exact: true }).click();
+    await expect(page.getByRole("table")).toContainText("Sem 1 2025");
+    await expect(page.getByRole("table")).toContainText("75");
+    await entry.getByRole("button", { name: "Publish", exact: true }).click();
+    await expect(entry.getByText("Published", { exact: true })).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("selt-admin-desktop.png"),
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.getByRole("button", { name: "Create local import token" }),
+    ).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("selt-admin-mobile.png"),
+      fullPage: true,
+    });
+    const [run] =
+      await sql`select import_run_id from public.selt_reports where source_sha256 = ${hash}`;
+    runId = run.import_run_id;
+    const revoked = await page.request.post("/api/admin/selt", {
+      headers: { Origin: new URL(page.url()).origin },
+      data: { action: "revoke", id: runId },
+    });
+    expect(revoked.status()).toBe(200);
+    expect(
+      (await page.request.get("/api/selt/import", { headers })).status(),
+    ).toBe(401);
+  } finally {
+    await sql`delete from public.selt_reports where source_sha256 = ${hash}`;
+    if (runId)
+      await sql`delete from public.selt_import_runs where id = ${runId}`;
+    // Includes tokens created before a failed upload, which otherwise retain the fixture user.
+    await sql`delete from public.selt_import_runs where requested_by = ${administrator.id}`;
+    await sql.end();
+  }
+});
