@@ -105,6 +105,7 @@ const SNAPSHOT_LIST_SELECT =
   "version_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,workload_hours_basis,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
 
 export type PublishedCourseFilters = {
+  prerequisite?: string;
   query?: string;
   subject?: string;
   /** A level digit, such as 2, or that level or higher, such as 2+. */
@@ -286,10 +287,12 @@ export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOp
 }
 
 export async function loadPublishedCourseDirectoryPage({
+  academicYear,
   filters = {},
   page = 1,
   pageSize = 24,
 }: {
+  academicYear?: number;
   filters?: PublishedCourseFilters;
   page?: number;
   pageSize?: number;
@@ -305,6 +308,43 @@ export async function loadPublishedCourseDirectoryPage({
   const tag = firstFilterValue(filters.tag);
   const supabase = createPublicClient();
   const directory = await cachedDirectoryRows();
+  const prerequisite = firstFilterValue(filters.prerequisite).toUpperCase();
+  let unlockedCodes: Set<string> | null = null;
+  if (prerequisite) {
+    unlockedCodes = new Set();
+    if (COURSE_CODE_PATTERN.test(prerequisite)) {
+      const edges = await unstable_cache(
+        async () => {
+          const { data, error } = await supabase.rpc(
+            "published_requirement_graph",
+            {
+              p_course_code: prerequisite,
+              p_academic_year: academicYear ?? 2026,
+            },
+          );
+          if (error) throw error;
+          return data ?? [];
+        },
+        [
+          "published-course-unlocks",
+          prerequisite,
+          String(academicYear ?? 2026),
+        ],
+        {
+          revalidate: 300,
+          tags: [
+            PUBLISHED_COURSE_PAGE_TAG,
+            publishedCourseYearTag(academicYear ?? 2026),
+          ],
+        },
+      )();
+      for (const edge of edges) {
+        if (edge.from_code === prerequisite && edge.to_code !== prerequisite) {
+          unlockedCodes.add(edge.to_code);
+        }
+      }
+    }
+  }
   const versionsFor = async (
     table: "course_areas_of_interest" | "course_tags" | "offering_sessions",
     value: string,
@@ -352,7 +392,13 @@ export async function loadPublishedCourseDirectoryPage({
     area ? versionsFor("course_areas_of_interest", area) : null,
     tag ? versionsFor("course_tags", tag) : null,
   ]);
-  const matches = selectPreferredCourseYears(directory).filter((row) => {
+  // Relationship links keep the year of the diagram, including older catalogues.
+  const selectedYears =
+    academicYear === undefined
+      ? selectPreferredCourseYears(directory)
+      : directory.filter((row) => row.academic_year === academicYear);
+  const matches = selectedYears.filter((row) => {
+    if (unlockedCodes && !unlockedCodes.has(row.code)) return false;
     if (subject && row.subject_code !== subject) return false;
     if (
       level &&

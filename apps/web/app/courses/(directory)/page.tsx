@@ -14,6 +14,8 @@ import {
 import { CourseDirectory } from "../course-directory";
 
 type CoursesSearchParams = {
+  year?: string | string[];
+  prerequisite?: string | string[];
   q?: string | string[];
   subject?: string | string[];
   level?: string | string[];
@@ -36,6 +38,16 @@ export default async function CoursesPage({
   const params = await searchParams;
   const page = Math.max(1, Number(firstParam(params.page)) || 1);
   const query = firstParam(params.q).slice(0, 100);
+  const prerequisiteParam = firstParam(params.prerequisite).toUpperCase();
+  const prerequisite = /^[A-Z]{4}\d{4}[A-Z]?$/u.test(prerequisiteParam)
+    ? prerequisiteParam
+    : "";
+  const yearParam = firstParam(params.year);
+  const academicYear = /^(202[0-9]|2030)$/u.test(yearParam)
+    ? Number(yearParam)
+    : prerequisite
+      ? 2026
+      : undefined;
   const levelParam = firstParam(params.level);
   // A digit is that level; a digit and + is that level or higher, which is
   // how degree rules ask for units ("2000-level or higher").
@@ -49,7 +61,16 @@ export default async function CoursesPage({
   const college = firstParam(params.college).slice(0, 120);
   const area = firstParam(params.area).slice(0, 120);
   const tag = firstParam(params.tag).slice(0, 120);
-  const filters = { query, subject, level, session, college, area, tag };
+  const filters = {
+    query,
+    subject,
+    level,
+    session,
+    college,
+    area,
+    tag,
+    prerequisite,
+  };
   let filterOptions: CourseFilterOptions = {
     subjects: [],
     colleges: [],
@@ -65,7 +86,7 @@ export default async function CoursesPage({
   let catalogueUnavailable = false;
   try {
     [result, filterOptions] = await Promise.all([
-      loadPublishedCourseDirectoryPage({ page, filters }),
+      loadPublishedCourseDirectoryPage({ academicYear, page, filters }),
       loadCourseDirectoryFilterOptions(),
     ]);
   } catch {
@@ -73,6 +94,8 @@ export default async function CoursesPage({
     catalogueUnavailable = true;
   }
   const paginationSearchParams = {
+    year: academicYear === undefined ? undefined : String(academicYear),
+    prerequisite: prerequisite || undefined,
     q: query || undefined,
     subject: subject || undefined,
     level: level || undefined,
@@ -118,9 +141,23 @@ export default async function CoursesPage({
     <AppShell fill>
       <h1 className="sr-only">Explore courses</h1>
       <div className="mx-auto flex min-h-0 w-full flex-1 flex-col gap-5">
+        {prerequisite ? (
+          <p className="text-sm text-muted-foreground">
+            Courses listing {prerequisite} as a prerequisite in {academicYear}
+          </p>
+        ) : null}
         <FilterBar
           searchPlaceholder="Search by course code, name or school"
           filters={[
+            ...(prerequisite
+              ? [
+                  {
+                    key: "prerequisite",
+                    label: "Prerequisite",
+                    options: [{ value: prerequisite, label: prerequisite }],
+                  },
+                ]
+              : []),
             {
               key: "subject",
               label: "Subject",
@@ -178,6 +215,7 @@ export default async function CoursesPage({
           total={result.total}
           filtered={Object.values(filters).some(Boolean)}
           searchParams={paginationSearchParams}
+          showRequisites={Boolean(prerequisite)}
         />
       </div>
     </AppShell>
