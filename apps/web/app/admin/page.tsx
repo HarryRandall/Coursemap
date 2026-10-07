@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { UsersRound } from "lucide-react";
 import { ImportModelCard } from "@/ui/admin/imports/import-model-card";
 import { loadImportModelSetting } from "@/lib/admin/settings";
@@ -19,6 +20,11 @@ export default async function AdminOverviewPage() {
     <AppShell admin>
       <div className="mx-auto w-full space-y-5">
         <h1 className="sr-only">Administration overview</h1>
+        {canManageImports && (
+          <Link className="underline" href="/admin/selt">
+            SELT imports
+          </Link>
+        )}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             href="/admin/users"
