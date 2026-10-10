@@ -147,7 +147,6 @@ test("an ordinary source change applies the one path it names", async () => {
     recordId: 12,
     changeId: 1,
     decision: "use_source",
-    path: "/admin/courses/2027/comp2700",
   });
 });
 

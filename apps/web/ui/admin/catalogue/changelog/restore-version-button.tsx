@@ -38,7 +38,6 @@ export function RestoreVersionButton({
         expectedRevision: draftRevision,
         replaceExistingDraft: draftRevision !== null,
         editingSessionId: crypto.randomUUID(),
-        path,
       });
       if (!result.ok) {
         showToast(result.error, "error");
