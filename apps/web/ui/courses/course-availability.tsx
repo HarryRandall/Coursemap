@@ -1,4 +1,12 @@
+"use client";
+
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@coursemap/ui/components/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@coursemap/ui/primitives/tooltip";
 import { sessionLabel } from "@/ui/courses/course-detail-format";
 
 const PERIOD_ORDER: Record<string, number> = {
@@ -10,49 +18,123 @@ const PERIOD_ORDER: Record<string, number> = {
   "Spring Session": 5,
 };
 
-function PeriodBadges({ periods }: { periods: string[] }) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {periods.map((period) => (
-        <Badge key={period} variant="outline">
-          {sessionLabel(period)}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
 export function CourseAvailability({
   sessions,
 }: {
   sessions: readonly string[];
 }) {
-  const periods = [...new Set(sessions)].sort(
-    (left, right) =>
-      (PERIOD_ORDER[left] ?? Number.MAX_SAFE_INTEGER) -
-        (PERIOD_ORDER[right] ?? Number.MAX_SAFE_INTEGER) ||
-      left.localeCompare(right),
+  const periods = useMemo(
+    () =>
+      [...new Set(sessions)].sort(
+        (left, right) =>
+          (PERIOD_ORDER[left] ?? Number.MAX_SAFE_INTEGER) -
+            (PERIOD_ORDER[right] ?? Number.MAX_SAFE_INTEGER) ||
+          left.localeCompare(right),
+      ),
+    [sessions],
   );
-  const semesters = periods.filter(
-    (period) => (PERIOD_ORDER[period] ?? Number.MAX_SAFE_INTEGER) < 2,
-  );
-  const others = periods.filter(
-    (period) => (PERIOD_ORDER[period] ?? Number.MAX_SAFE_INTEGER) >= 2,
-  );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(0);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+    function update() {
+      if (!container || !measure) return;
+      const badges = Array.from(measure.children);
+      const gap = Number.parseFloat(getComputedStyle(measure).columnGap) || 4;
+      const width = container.getBoundingClientRect().width;
+      let used = 0;
+      let count = 0;
+      for (let index = 0; index < periods.length; index++) {
+        used +=
+          badges[index].getBoundingClientRect().width + (index > 0 ? gap : 0);
+        const remaining = periods.length - index - 1;
+        const moreWidth =
+          remaining > 0
+            ? gap +
+              badges[periods.length + remaining - 1].getBoundingClientRect()
+                .width
+            : 0;
+        if (used + moreWidth <= width) count = index + 1;
+      }
+      setVisibleCount(count);
+    }
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(container);
+    observer.observe(measure);
+    return () => observer.disconnect();
+  }, [periods]);
 
   if (periods.length === 0) {
     return (
       <span className="text-[13px] text-muted-foreground/80">Not listed</span>
     );
   }
+  const count = Math.min(visibleCount, periods.length);
+  const remaining = periods.length - count;
 
   return (
     <div
-      className="flex flex-col gap-1 py-1"
+      ref={containerRef}
+      className="relative min-w-0 py-1"
       aria-label="Available study periods"
     >
-      {semesters.length > 0 ? <PeriodBadges periods={semesters} /> : null}
-      {others.length > 0 ? <PeriodBadges periods={others} /> : null}
+      {/* Measure every label without letting it set the table column's width. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute inset-0 overflow-hidden"
+      >
+        <div ref={measureRef} className="flex w-max gap-1">
+          {periods.map((period) => (
+            <Badge key={period} variant="outline">
+              {sessionLabel(period)}
+            </Badge>
+          ))}
+          {periods.map((period, index) => (
+            <Badge key={`more-${period}`} variant="outline">
+              +{index + 1}
+            </Badge>
+          ))}
+        </div>
+      </div>
+      <div data-periods className="flex min-w-0 flex-nowrap items-center gap-1">
+        {periods.slice(0, count).map((period) => (
+          <Badge key={period} variant="outline">
+            {sessionLabel(period)}
+          </Badge>
+        ))}
+        {remaining > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge asChild variant="outline">
+                <button
+                  type="button"
+                  className="cursor-default hover:bg-accent hover:text-accent-foreground"
+                  aria-label={`Show ${remaining} more available study periods`}
+                >
+                  +{remaining}
+                </button>
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              align="start"
+              collisionPadding={8}
+              className="w-max max-w-[calc(100vw-2rem)]"
+            >
+              <ul className="space-y-1">
+                {periods.slice(count).map((period) => (
+                  <li key={period}>{period}</li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
     </div>
   );
 }
