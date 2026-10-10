@@ -5,6 +5,7 @@ import {
   formatBytes,
   formatCost,
   formatDuration,
+  formatTimestamp,
   syncStatusLabel,
   syncStatusTone,
 } from "../ui/admin/operations/operations-format.ts";
@@ -37,4 +38,8 @@ test("a failed sync reads as a failure and an unknown status is not dressed up",
   assert.equal(syncStatusTone("unchanged"), "success");
   assert.equal(syncStatusTone("something_new"), "neutral");
   assert.equal(syncStatusLabel("review_required"), "review required");
+});
+
+test("operations timestamps use Canberra time across the UTC day boundary", () => {
+  assert.equal(formatTimestamp("2026-10-09T15:30:00Z"), "10 Oct 2026, 2:30 am");
 });
