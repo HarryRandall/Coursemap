@@ -323,3 +323,28 @@ export async function loadCampusMapData(
     };
   }
 }
+
+/** Reads only published routing endpoints, without geometry or indoor documents. */
+export async function loadCampusRoutePlaces(slugs: readonly string[]) {
+  if (!getSupabaseConfig()) {
+    return { places: [], error: "Room Finder data is not configured." };
+  }
+  try {
+    const { data, error } = await createPublicClient()
+      .from("campus_map_places")
+      .select("id,slug,longitude,latitude,is_routable")
+      .in("slug", [...slugs]);
+    if (error) throw error;
+    return {
+      places: (data ?? []).map((place) => ({
+        id: place.id,
+        slug: place.slug,
+        coordinates: [place.longitude, place.latitude] as [number, number],
+        isRoutable: place.is_routable,
+      })),
+      error: null,
+    };
+  } catch {
+    return { places: [], error: "Room Finder data could not be loaded." };
+  }
+}
