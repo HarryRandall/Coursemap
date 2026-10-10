@@ -242,6 +242,29 @@ describe("catalogue retention candidates", () => {
     snapshot.stages[0].status = "running";
     expect(plan(snapshot).candidates.objects).toHaveLength(0);
   });
+  test("a shared response object's old owning sync cannot authorise deleting a live extraction's bytes", () => {
+    const snapshot = fixture();
+    const liveSync = "22222222-2222-4222-8222-222222222222";
+    snapshot.syncs.push({ id: liveSync, status: "queued", completed_at: null });
+    snapshot.artifacts.push({
+      ...snapshot.artifacts[0],
+      id: "shared-response",
+      sync_id: liveSync,
+      stage_id: "live-stage",
+    });
+    snapshot.extractions.push({
+      id: "new-extraction",
+      response_artifact_id: "shared-response",
+    });
+    const result = plan(snapshot);
+    expect(result.candidates.artifacts.map((row) => row.id)).toEqual([
+      "artifact",
+    ]);
+    expect(result.candidates.objects).toHaveLength(0);
+    expect(result.rejected.objects[0].reason).toBe(
+      "retained_artifact_reference",
+    );
+  });
 });
 
 describe("approval and execution", () => {

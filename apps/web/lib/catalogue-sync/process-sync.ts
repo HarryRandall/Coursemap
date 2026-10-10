@@ -478,13 +478,29 @@ async function processClaimedSync({
           claim.requestedModel,
           adapter.schemaName,
         );
-        const responseArtifact = await persistArtifact({
-          stageId,
-          stageName: "model_extract",
-          kind: "model_response",
-          mediaType: "application/json",
-          body: stableStringify(result.responseForAudit),
-        });
+        const responseBody = stableStringify(result.responseForAudit);
+        // Keep this attempt's audit row while sharing verified immutable bytes.
+        // Older audits may gain fields during restoration and still need a new object.
+        const responseArtifact =
+          responseBody === body
+            ? await recordSyncArtifact(sql, {
+                syncId: claim.syncId,
+                stageId,
+                kind: "model_response",
+                attemptNumber: claim.attemptCount,
+                mediaType: reusable.responseArtifact.mediaType,
+                contentSha256: reusable.responseArtifact.contentSha256,
+                byteSize: reusable.responseArtifact.byteSize,
+                storageBucket: reusable.responseArtifact.bucket,
+                storagePath: reusable.responseArtifact.path,
+              })
+            : await persistArtifact({
+                stageId,
+                stageName: "model_extract",
+                kind: "model_response",
+                mediaType: "application/json",
+                body: responseBody,
+              });
         responseArtifactId = responseArtifact.id;
         reusedFromExtractionId =
           reusable.id === reservation.id ? null : reusable.id;
