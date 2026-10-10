@@ -16,7 +16,7 @@ import {
   importScopeCourseCodes,
   listImportScopeStructures,
 } from "@/lib/catalogue-runs/structure-scope";
-import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
+import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import {
   publishSavedCourseRunDrafts,
@@ -173,10 +173,9 @@ export async function POST(request: Request) {
     }
     if (value.action === "advance") {
       const next = await advanceCourseRun(value.runId);
+      // Inline runs retry with the same delivery budget as the hosted queue.
       if (next?.mode === "inline")
-        after(() =>
-          processCatalogueSync({ syncId: next.syncId, maxDeliveries: 1 }),
-        );
+        after(() => processCatalogueSyncInline({ syncId: next.syncId }));
       return Response.json({ dispatched: Boolean(next) });
     }
     throw new TypeError("Choose a supported import action.");

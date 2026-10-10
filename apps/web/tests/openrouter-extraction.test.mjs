@@ -111,7 +111,10 @@ test("sends one schema-guided, low-cost extraction and strips model reasoning fr
     effort: "minimal",
     exclude: true,
   });
-  assert.equal(requestBody.provider.require_parameters, true);
+  assert.deepEqual(requestBody.provider, {
+    require_parameters: true,
+    data_collection: "deny",
+  });
   assert.deepEqual(requestBody.response_format, { type: "json_object" });
   assert.equal(
     requestBody.messages[0].content,

@@ -149,12 +149,15 @@ export function CourseImportWorkspace({
   const [estimateAttempt, setEstimateAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Keep the guard active until the server finishes an advance.
+  const advancing = useRef(false);
+
   const current = runs.find((run) => run.id === viewRunId);
   const terminalRun =
     current !== undefined &&
     (current.state !== "active" || current.finished >= current.total);
   const summaryWatchKey = viewRunId
-    ? `${viewRunId}:${active}:${estimateAttempt}`
+    ? `${year}:${kind}:${viewRunId}:${active}:${estimateAttempt}`
     : null;
   const summaryAttemptedKey = useRef<string | null>(null);
   const summaryFingerprint = useRef("");
@@ -186,7 +189,14 @@ export function CourseImportWorkspace({
         running.state !== "active" ||
         running.finished >= running.total;
       if (!done && active && document.visibilityState === "visible") {
-        await action({ action: "advance", runId: active });
+        if (!advancing.current) {
+          advancing.current = true;
+          try {
+            await action({ action: "advance", runId: active });
+          } finally {
+            advancing.current = false;
+          }
+        }
       } else if (active && !signal.aborted) setActive(null);
       return { changed, done };
     },

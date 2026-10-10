@@ -61,8 +61,21 @@ export async function withSyncDatabaseClient<T>(
   }
 }
 
+/** Claims, run advances and the sweeper stop retrying a sync after this many claims. */
+export const CATALOGUE_SYNC_MAX_RETRIES = 5;
+
+/**
+ * A worker renews its lease at the start of every stage, so the lease only has
+ * to outlast the longest single stage: a 150 s structure model request, or a
+ * source fetch with its retry, plus the database and storage writes around it.
+ * An expired lease therefore means the worker has stopped, not that it is slow.
+ */
+export const CATALOGUE_SYNC_LEASE_SECONDS = 240;
+
 export type ClaimedCatalogueSync = {
   syncId: string;
+  /** The worker that holds the lease; persistence is fenced on it and `lockVersion`. */
+  workerId: string;
   kind: CatalogueKind;
   code: string;
   academicYear: number;
@@ -101,7 +114,7 @@ export async function claimCatalogueSync(
   {
     syncId,
     workerId,
-    leaseSeconds = 120,
+    leaseSeconds = CATALOGUE_SYNC_LEASE_SECONDS,
   }: {
     syncId: string;
     workerId: string;
@@ -121,7 +134,7 @@ export async function claimCatalogueSync(
       join public.catalogue_codes as codes on codes.id = records.code_id
       join public.academic_years as years on years.id = records.academic_year_id
       where syncs.id = ${syncId}::uuid and records.id = syncs.record_id
-        and syncs.retry_count < 5
+        and syncs.retry_count < ${CATALOGUE_SYNC_MAX_RETRIES}
         and not exists (select 1 from public.catalogue_provider_controls where provider = 'openrouter' and paused)
         and (syncs.status = 'queued'
           or (syncs.status = 'running' and syncs.lease_expires_at < now()))
@@ -136,6 +149,7 @@ export async function claimCatalogueSync(
     if (!row) return null;
     return {
       syncId: String(row.id),
+      workerId,
       kind: row.kind as CatalogueKind,
       code: String(row.code),
       academicYear: Number(row.academic_year),
@@ -431,22 +445,59 @@ function assertLeaseHeld(count: number) {
     );
 }
 
-export async function finishCatalogueSync(
-  sql: SyncSql,
-  input: {
-    syncId: string;
-    workerId: string;
-    expectedLockVersion: number;
-    status: "unchanged" | "review_required" | "applied" | "failed";
-    sourceDocumentId: number | null;
-    sourceVersionId: number | null;
-    errorCode?: string | null;
-    errorMessage?: string | null;
-  },
+type CatalogueSyncLease = {
+  syncId: string;
+  workerId: string;
+  expectedLockVersion: number;
+};
+
+/**
+ * Locks the sync row for the rest of the transaction when this worker still
+ * holds its lease. A run advance or a later claim waits on the lock, so every
+ * write in the transaction is fenced. Throws LEASE_LOST otherwise.
+ */
+export async function lockCatalogueSyncLease(
+  tx: SyncTransactionSql,
+  lease: CatalogueSyncLease,
 ) {
-  const rows = await sql.begin(async (tx) => {
-    const finished =
-      await tx`update public.catalogue_syncs set status = ${input.status},
+  const rows = await tx`select id from public.catalogue_syncs
+    where id = ${lease.syncId}::uuid and status = 'running'
+      and worker_id = ${lease.workerId}::uuid and lock_version = ${lease.expectedLockVersion}
+    for update`;
+  assertLeaseHeld(rows.length);
+}
+
+/** Extends a held lease before a stage starts. Throws LEASE_LOST otherwise. */
+export async function renewCatalogueSyncLease(
+  sql: AnySyncSql,
+  lease: CatalogueSyncLease & { leaseSeconds?: number },
+) {
+  const rows = await sql`update public.catalogue_syncs
+    set lease_expires_at = now() + make_interval(secs => ${lease.leaseSeconds ?? CATALOGUE_SYNC_LEASE_SECONDS})
+    where id = ${lease.syncId}::uuid and status = 'running'
+      and worker_id = ${lease.workerId}::uuid and lock_version = ${lease.expectedLockVersion}
+    returning id`;
+  assertLeaseHeld(rows.length);
+}
+
+export type CatalogueSyncResult = {
+  syncId: string;
+  workerId: string;
+  expectedLockVersion: number;
+  status: "unchanged" | "review_required" | "applied" | "failed";
+  sourceDocumentId: number | null;
+  sourceVersionId: number | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+};
+
+/** Records a result inside the caller's transaction. Throws LEASE_LOST. */
+export async function finishCatalogueSyncInTransaction(
+  tx: SyncTransactionSql,
+  input: CatalogueSyncResult,
+) {
+  const finished =
+    await tx`update public.catalogue_syncs set status = ${input.status},
     source_document_id = ${input.sourceDocumentId}, source_version_id = ${input.sourceVersionId},
     checked_at = case when ${input.status} <> 'failed' then now() else checked_at end,
     completed_at = now(), worker_id = null, lease_expires_at = null,
@@ -454,14 +505,75 @@ export async function finishCatalogueSync(
     where id = ${input.syncId}::uuid and status = 'running'
       and worker_id = ${input.workerId}::uuid and lock_version = ${input.expectedLockVersion}
     returning id, record_id, requested_by`;
-    if (finished.length === 1 && input.status === "failed") {
-      await tx`insert into public.catalogue_change_events (
-        record_id, event_kind, origin, actor_id
-      ) values (${finished[0].record_id}, 'sync_failed', 'source', ${finished[0].requested_by})`;
-    }
-    return finished;
+  assertLeaseHeld(finished.length);
+  if (input.status === "failed") {
+    await tx`insert into public.catalogue_change_events (
+      record_id, event_kind, origin, actor_id
+    ) values (${finished[0].record_id}, 'sync_failed', 'source', ${finished[0].requested_by})`;
+  }
+}
+
+export async function finishCatalogueSync(
+  sql: SyncSql,
+  input: CatalogueSyncResult,
+) {
+  await sql.begin((tx) => finishCatalogueSyncInTransaction(tx, input));
+}
+
+/**
+ * Fails running syncs whose lease expired after their final claim, which no
+ * claim or run advance would otherwise pick up again. Scoped to one sync, one
+ * run or every sync. Returns the failed sync identifiers.
+ */
+export async function failExhaustedExpiredSyncs(
+  sql: AnySyncSql,
+  scope: { syncId: string } | { runId: string } | "all",
+) {
+  const scoped =
+    scope === "all"
+      ? sql``
+      : "syncId" in scope
+        ? sql`and syncs.id = ${scope.syncId}::uuid`
+        : sql`and syncs.id in (select sync_id from public.catalogue_course_run_items where run_id = ${scope.runId}::uuid)`;
+  const failed = await sql`with failed as (
+      update public.catalogue_syncs as syncs set status = 'failed',
+        worker_id = null, lease_expires_at = null, completed_at = now(),
+        error_code = 'LEASE_EXPIRED',
+        error_message = 'The worker lease expired after the final attempt.'
+      where syncs.status = 'running' and syncs.lease_expires_at < now()
+        and syncs.retry_count >= ${CATALOGUE_SYNC_MAX_RETRIES} ${scoped}
+      returning syncs.id, syncs.record_id, syncs.requested_by
+    ), events as (
+      insert into public.catalogue_change_events (record_id, event_kind, origin, actor_id)
+      select record_id, 'sync_failed', 'source', requested_by from failed
+    ) select id from failed`;
+  return failed.map((row) => String(row.id));
+}
+
+/**
+ * Fails a sync that no worker can still be processing: queued, or running
+ * with an expired lease. Used when its queue message can no longer deliver it.
+ * A provider pause holds work rather than failing it. Returns whether it failed.
+ */
+export async function failAbandonedCatalogueSync(
+  sql: SyncSql,
+  input: { syncId: string; errorCode: string; errorMessage: string },
+) {
+  return sql.begin(async (tx) => {
+    const [failed] =
+      await tx`update public.catalogue_syncs set status = 'failed',
+        worker_id = null, lease_expires_at = null, completed_at = now(),
+        error_code = ${input.errorCode}, error_message = ${input.errorMessage}
+      where id = ${input.syncId}::uuid
+        and (status = 'queued' or (status = 'running' and lease_expires_at < now()))
+        and not exists (select 1 from public.catalogue_provider_controls where provider = 'openrouter' and paused)
+      returning record_id, requested_by`;
+    if (!failed) return false;
+    await tx`insert into public.catalogue_change_events (
+      record_id, event_kind, origin, actor_id
+    ) values (${failed.record_id}, 'sync_failed', 'source', ${failed.requested_by})`;
+    return true;
   });
-  assertLeaseHeld(rows.length);
 }
 
 export async function releaseCatalogueSyncForRetry(

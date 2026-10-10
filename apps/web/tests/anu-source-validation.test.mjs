@@ -103,7 +103,7 @@ test("course fetch requests HTML and follows only redirects to the selected ANU 
   const page = await fetchAnuCoursePage(2025, "MGMT2007", { fetchImpl });
   assert.equal(page.validation.valid, true);
   assert.deepEqual(calls, [
-    { url: sourceUrl, accept: "text/html", redirect: "follow" },
+    { url: sourceUrl, accept: "text/html", redirect: "manual" },
   ]);
 
   await assert.rejects(
@@ -118,4 +118,66 @@ test("course fetch requests HTML and follows only redirects to the selected ANU 
     }),
     { code: "SOURCE_REDIRECT_MISMATCH" },
   );
+});
+
+test("course fetch refuses a redirect off the ANU course without requesting it", async () => {
+  const sourceUrl =
+    "https://programsandcourses.anu.edu.au/2025/course/MGMT2007";
+  for (const location of [
+    "http://169.254.169.254/latest/meta-data/",
+    "https://programsandcourses.anu.edu.au/2025/course/MGMT2008",
+  ]) {
+    const calls = [];
+    await assert.rejects(
+      fetchAnuCoursePage(2025, "MGMT2007", {
+        fetchImpl: async (url, options) => {
+          calls.push({ url, redirect: options.redirect });
+          return new Response(null, { status: 302, headers: { location } });
+        },
+      }),
+      { code: "SOURCE_REDIRECT_MISMATCH" },
+    );
+    assert.deepEqual(calls, [{ url: sourceUrl, redirect: "manual" }]);
+  }
+});
+
+test("course fetch follows a redirect to the same course page", async () => {
+  const html = `<html><head>
+    <meta name="course-code" content="MGMT2007">
+    <meta name="course-name" content="Organisational Behaviour">
+    <meta name="course-year" content="2025">
+  </head><body><h1>Organisational Behaviour</h1></body></html>`;
+  const sourceUrl =
+    "https://programsandcourses.anu.edu.au/2025/course/MGMT2007";
+  const calls = [];
+  const cancelled = [];
+  const page = await fetchAnuCoursePage(2025, "MGMT2007", {
+    // ANU serves the page only at the trailing slash address and redirects
+    // every other spelling there.
+    fetchImpl: async (url) => {
+      calls.push(url);
+      if (url !== `${sourceUrl}/`) {
+        const response = new Response("Moved", {
+          status: 301,
+          headers: { location: "/2025/course/MGMT2007/" },
+        });
+        const cancel = response.body.cancel.bind(response.body);
+        response.body.cancel = async (reason) => {
+          cancelled.push(url);
+          return cancel(reason);
+        };
+        return response;
+      }
+      return {
+        url,
+        status: 200,
+        ok: true,
+        headers: new Headers({ "content-type": "text/html" }),
+        text: async () => html,
+      };
+    },
+  });
+  assert.equal(page.validation.valid, true);
+  assert.deepEqual(calls, [sourceUrl, `${sourceUrl}/`]);
+  assert.deepEqual(cancelled, [sourceUrl]);
 });

@@ -233,6 +233,40 @@ export type FetchUniversityCalendarOptions = {
   signal?: AbortSignal;
 };
 
+/** The calendar page is far smaller; a larger response is not the calendar. */
+export const MAX_UNIVERSITY_CALENDAR_BYTES = 5 * 1024 * 1024;
+
+function calendarTooLarge() {
+  return new Error(
+    `The ANU university calendar exceeds ${MAX_UNIVERSITY_CALENDAR_BYTES} bytes.`,
+  );
+}
+
+async function readCalendarHtml(response: Response) {
+  const declaredBytes = Number(response.headers.get("content-length"));
+  if (
+    Number.isFinite(declaredBytes) &&
+    declaredBytes > MAX_UNIVERSITY_CALENDAR_BYTES
+  )
+    throw calendarTooLarge();
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteSize = 0;
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      byteSize += value.byteLength;
+      if (byteSize > MAX_UNIVERSITY_CALENDAR_BYTES) throw calendarTooLarge();
+      chunks.push(value);
+    }
+  } finally {
+    await reader.cancel();
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export async function fetchUniversityCalendarManifest({
   calendarYear,
   fetchImpl = fetch,
@@ -240,19 +274,24 @@ export async function fetchUniversityCalendarManifest({
   signal,
 }: FetchUniversityCalendarOptions): Promise<UniversityCalendarManifest> {
   const canonicalUrl = createUniversityCalendarUrl(calendarYear);
+  // Like the other ANU sources, the calendar is read only from its canonical
+  // address, so the recorded URL is always the one that was fetched.
   const response = await fetchImpl(canonicalUrl, {
     headers: { accept: "text/html" },
-    redirect: "follow",
+    redirect: "error",
     signal,
   });
 
+  if (response.status >= 300 && response.status < 400) {
+    throw new Error("The ANU university calendar redirected elsewhere.");
+  }
   if (!response.ok) {
     throw new Error(
       `The ANU university calendar responded with HTTP ${response.status}.`,
     );
   }
 
-  const html = await response.text();
+  const html = await readCalendarHtml(response);
   const { events, diagnostics } = parseUniversityCalendarHtml(
     html,
     calendarYear,
