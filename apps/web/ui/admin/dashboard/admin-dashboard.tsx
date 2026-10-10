@@ -65,7 +65,8 @@ export function AdminDashboard({
   const thisYear = courses?.years[0];
   const publishedCourses = publishedCourseCount(data);
   const waiting = data.queues.reduce((sum, queue) => sum + queue.count, 0);
-  const activeThisWeek = data.users.active.at(-1) ?? 0;
+  const active = data.users.active;
+  const activeThisWeek = active?.at(-1) ?? 0;
   const publishedTotals = data.publishedCourses.cumulative;
   const publishedThisWeek =
     (publishedTotals.at(-1) ?? 0) - (publishedTotals.at(-2) ?? 0);
@@ -94,23 +95,25 @@ export function AdminDashboard({
             />
           }
         />
-        <KpiTile
-          label="Planned this week"
-          value={formatCount(activeThisWeek)}
-          detail={
-            data.users.total
-              ? `${Math.round((activeThisWeek / data.users.total) * 100)}% of accounts`
-              : "No accounts yet"
-          }
-          visual={
-            <Sparkline
-              variant="bar"
-              className="h-12"
-              label="Students who changed a plan each week"
-              values={data.users.active}
-            />
-          }
-        />
+        {active ? (
+          <KpiTile
+            label="Planned this week"
+            value={formatCount(activeThisWeek)}
+            detail={
+              data.users.total
+                ? `${Math.round((activeThisWeek / data.users.total) * 100)}% of accounts`
+                : "No accounts yet"
+            }
+            visual={
+              <Sparkline
+                variant="bar"
+                className="h-12"
+                label="Students who changed a plan each week"
+                values={active}
+              />
+            }
+          />
+        ) : null}
         <KpiTile
           href={`/admin/courses/${thisYear?.year ?? ""}`}
           label={`Courses published, ${thisYear?.year ?? ""}`}
@@ -168,12 +171,17 @@ export function AdminDashboard({
             <ChangeCalendar days={data.changes} />
           </Panel>
         ) : null}
-        <Panel title="Accounts and planning" aside="Last 12 weeks">
+        <Panel
+          title={active ? "Accounts and planning" : "Accounts"}
+          aside="Last 12 weeks"
+        >
           <UserActivityChart users={data.users} />
         </Panel>
-        <Panel title="Most planned courses" aside="Students">
-          <TopCoursesChart courses={data.topCourses} />
-        </Panel>
+        {data.topCourses ? (
+          <Panel title="Most planned courses" aside="Students">
+            <TopCoursesChart courses={data.topCourses} />
+          </Panel>
+        ) : null}
       </div>
     </div>
   );
