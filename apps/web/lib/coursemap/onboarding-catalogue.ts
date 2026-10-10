@@ -1,4 +1,6 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
+import { PUBLISHED_STRUCTURE_DETAIL_TAG } from "@/lib/coursemap/published-cache";
 
 import {
   collectSelectableStructureCodes,
@@ -40,7 +42,7 @@ export type OnboardingCatalogue = {
  * Student choices come only from published versions. Students call a
  * programme a degree, so the component boundary keeps `degrees`.
  */
-export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
+async function readOnboardingCatalogue(): Promise<OnboardingCatalogue> {
   const supabase = createPublicClient();
   const { data: structureYears, error: structureYearsError } =
     await readAllRows((from, to) =>
@@ -227,3 +229,9 @@ export async function loadOnboardingCatalogue(): Promise<OnboardingCatalogue> {
     specialisations: options("specialisation"),
   };
 }
+
+export const loadOnboardingCatalogue = unstable_cache(
+  readOnboardingCatalogue,
+  ["published-onboarding-catalogue"],
+  { revalidate: 300, tags: [PUBLISHED_STRUCTURE_DETAIL_TAG] },
+);

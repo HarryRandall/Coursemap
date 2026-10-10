@@ -3,6 +3,7 @@
 ## Current guides
 
 - [Code conventions](conventions.md): naming, comments, modules and file placement.
+- [Navigation prefetching](navigation-prefetching.md): link choices, loading boundaries and preview comparison.
 - [Architecture](architecture.md): application boundaries and the data model.
 - [Catalogue operations](catalogue-operations.md): importing, reviewing, editing and publishing catalogue records.
 - [Environment template](../apps/web/.env.example): required settings, optional services and defaults.

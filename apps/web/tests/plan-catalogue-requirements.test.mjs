@@ -163,7 +163,11 @@ test("selects the latest year through published programme pointers and loads rel
   assert.match(source, /\.eq\("kind", "programme"\)/u);
   assert.match(source, /\.not\("published_version_id", "is", null\)/u);
   assert.match(source, /\.order\("year", \{ ascending: false \}\)/u);
-  assert.match(source, /from\("plan_structures"\)/u);
+  const privateReads = await readFile(
+    new URL("../lib/coursemap/plan-reads.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(privateReads, /from\("plan_structures"\)/u);
   assert.match(source, /selectedStructureYears\.has\(structureYear\.id\)/u);
   for (const table of [
     "requirement_groups",

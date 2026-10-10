@@ -17,6 +17,7 @@ vi.mock("@/lib/auth/viewer", () => ({
 }));
 vi.mock("@/lib/coursemap/state", () => ({
   loadCoursemapState: async () => undefined,
+  loadProfileState: async () => undefined,
 }));
 vi.mock("@/lib/supabase/config", () => ({
   getCanonicalSiteOrigin: () => null,

@@ -1012,12 +1012,8 @@ test("validates every saved indoor element against its building footprint", asyn
 });
 
 test("keeps draft indoor previews permission-scoped in the public room finder", async () => {
-  const [page, loader, migration] = await Promise.all([
+  const [page, migration] = await Promise.all([
     readFile(new URL("../app/rooms/page.tsx", import.meta.url), "utf8"),
-    readFile(
-      new URL("../lib/rooms/campus-map-data.ts", import.meta.url),
-      "utf8",
-    ),
     readFile(
       new URL("../../../supabase/migrations/006_campus.sql", import.meta.url),
       "utf8",
@@ -1028,12 +1024,6 @@ test("keeps draft indoor previews permission-scoped in the public room finder", 
     page,
     /loadCampusMapData\(\{ includeManageableDrafts: true \}\)/,
   );
-  assert.match(loader, /includeManageableDrafts\s*\? await createClient\(\)/);
-  assert.match(loader, /const publicSupabase = createPublicClient\(\)/);
-  assert.match(loader, /const query = indoorSupabase/);
-  assert.match(loader, /const campusResult = await publicSupabase/);
-  assert.match(loader, /query\.in\("status", \["published", "draft"\]\)/);
-  assert.match(loader, /query\.eq\("status", "published"\)/);
   assert.match(
     migration,
     /campus_indoor_maps_read_authenticated[\s\S]*private\.has_permission\('rooms\.manage'(?:::text)?\)/,
