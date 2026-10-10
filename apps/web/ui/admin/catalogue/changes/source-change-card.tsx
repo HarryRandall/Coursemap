@@ -50,14 +50,12 @@ const CLASSIFICATION_LABELS: Partial<
 export function SourceChangeCard({
   change,
   recordId,
-  path,
   canWrite,
   subject = null,
   notes = [],
 }: {
   change: SourceReviewChange;
   recordId: number;
-  path: string;
   canWrite: boolean;
   subject?: ReviewSubject | null;
   notes?: readonly ReviewNote[];
@@ -72,7 +70,6 @@ export function SourceChangeCard({
         recordId,
         changeId: change.id,
         decision,
-        path,
       });
       if (!result.ok) {
         showToast(result.error, "error");

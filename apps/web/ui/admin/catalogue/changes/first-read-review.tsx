@@ -29,7 +29,7 @@ export function confidenceLabel(confidence: number | null) {
     : `${Math.round(confidence * 100)}% source confidence`;
 }
 
-function useResolve(recordId: number, path: string) {
+function useResolve(recordId: number) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const run = (work: () => ReturnType<typeof approveFirstReadAction>) =>
@@ -45,14 +45,13 @@ function useResolve(recordId: number, path: string) {
   return {
     isPending,
     approve: (changeIds: number[]) =>
-      run(() => approveFirstReadAction({ recordId, changeIds, path })),
+      run(() => approveFirstReadAction({ recordId, changeIds })),
     keepEdit: (changeId: number) =>
       run(() =>
         resolveSourceChangeAction({
           recordId,
           changeId,
           decision: "keep_local",
-          path,
         }),
       ),
   };
@@ -73,7 +72,7 @@ function FirstReadCard({
   subject: ReviewSubject | null;
   notes: readonly ReviewNote[];
 }) {
-  const { isPending, approve, keepEdit } = useResolve(recordId, path);
+  const { isPending, approve, keepEdit } = useResolve(recordId);
   const band = BAND_BADGE[change.band ?? "check"];
   return (
     <article className="rounded-xl border border-border bg-card p-4">
@@ -160,15 +159,13 @@ function FirstReadCard({
 function BulkApprove({
   changes,
   recordId,
-  path,
   label,
 }: {
   changes: SourceReviewChange[];
   recordId: number;
-  path: string;
   label: string;
 }) {
-  const { isPending, approve } = useResolve(recordId, path);
+  const { isPending, approve } = useResolve(recordId);
   const approvable = changes.filter((change) => !change.isStale);
   if (approvable.length === 0) return null;
   return (
@@ -254,7 +251,6 @@ export function FirstReadReview({
               <BulkApprove
                 changes={check}
                 label={`Approve all ${check.length}`}
-                path={path}
                 recordId={recordId}
               />
             ) : null}
@@ -283,7 +279,6 @@ export function FirstReadReview({
                 <BulkApprove
                   changes={accepted}
                   label={`Approve all ${accepted.length} stated plainly`}
-                  path={path}
                   recordId={recordId}
                 />
               </div>

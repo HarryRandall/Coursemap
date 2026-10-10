@@ -1,10 +1,17 @@
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { recoverCatalogueImports } from "@/lib/catalogue-sync/provider-recovery";
+import { publicErrorMessage } from "@/lib/public-errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return Response.json(
+      { error: "Use the Coursemap admin page for this action." },
+      { status: 403 },
+    );
   if (!(await canManageCatalogueOperations()))
     return Response.json(
       { error: "Catalogue sync permission is required." },
@@ -44,10 +51,15 @@ export async function POST(request: Request) {
   } catch (error) {
     return Response.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "The imports could not be resumed.",
+        error: publicErrorMessage(error, "The imports could not be resumed.", {
+          messages: {
+            "28000": "Authentication is required.",
+            "42501": "Catalogue sync permission is required.",
+            "40001": "The provider state changed. Refresh before resuming.",
+            "55000":
+              "The provider state changed. Refresh to see what still needs recovering.",
+          },
+        }),
       },
       { status: 400 },
     );

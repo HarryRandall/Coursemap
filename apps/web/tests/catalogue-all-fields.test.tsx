@@ -42,15 +42,8 @@ it("expands every collection item and edits just the selected field in a saving 
         initiallyPublished={false}
         initialHasDraft
         initialHasUnpublishedChanges
-        path="/admin/courses/2026/comp1000"
       >
-        <AllFields
-          items={items}
-          open={{}}
-          recordId={42}
-          path="/admin/courses/2026/comp1000"
-          canWrite
-        />
+        <AllFields items={items} open={{}} recordId={42} canWrite />
       </CatalogueEditorProvider>
     </TooltipProvider>,
   );

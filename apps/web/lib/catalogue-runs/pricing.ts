@@ -1,3 +1,4 @@
+import { UserFacingError } from "../public-errors";
 import type { ImportModel } from "../admin/import-model";
 
 /** Refresh the free public price catalogue before reserving paid work. */
@@ -37,7 +38,7 @@ export async function ensureCourseRunPricing(
       visible: model.visible,
     };
   } catch {
-    throw new Error(
+    throw new UserFacingError(
       "Current model prices could not be loaded. Retry the estimate when OpenRouter is available. No import has started.",
     );
   }
