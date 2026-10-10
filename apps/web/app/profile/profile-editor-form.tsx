@@ -50,6 +50,7 @@ import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { rulesYearForCommencement } from "@/lib/coursemap/commencement";
 import { nominalProgrammeDuration } from "@/lib/coursemap/plan-timeline";
 import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
+import { reconcileProfileDraft } from "@/lib/coursemap/profile-draft";
 
 const sections = [
   { value: "about", label: "About you", icon: UserRound },
@@ -77,7 +78,17 @@ export function ProfileEditorForm({
     useCoursemap();
   const searchParams = useSearchParams();
   const section = sectionFromParam(searchParams.get("tab"));
-  const [draft, setDraft] = useState<Profile>(state.profile);
+  const [form, setForm] = useState({
+    profile: state.profile,
+    draft: state.profile,
+  });
+  const { draft } = form;
+  if (form.profile !== state.profile) {
+    setForm({
+      profile: state.profile,
+      draft: reconcileProfileDraft(draft, form.profile, state.profile),
+    });
+  }
   const [saving, setSaving] = useState(false);
   const [choosingDegree, setChoosingDegree] = useState(false);
   const ids = useId();
@@ -91,7 +102,10 @@ export function ProfileEditorForm({
   };
 
   const patch = (changes: Partial<Profile>) =>
-    setDraft((current) => ({ ...current, ...changes }));
+    setForm((current) => ({
+      ...current,
+      draft: { ...current.draft, ...changes },
+    }));
 
   const catalogueYears = catalogue.catalogueYears.map((item) => item.year);
   const latestYear = Math.max(new Date().getFullYear(), ...catalogueYears);
@@ -186,16 +200,16 @@ export function ProfileEditorForm({
       return;
     }
     setSaving(true);
-    const result = await updateProfile({
+    const submittedProfile = {
       ...draft,
       studentId: studentNumber ?? "",
-    });
+    };
+    const result = await updateProfile(submittedProfile);
     if (result.ok) {
-      setDraft((current) =>
-        current.studentId === draft.studentId
-          ? { ...current, studentId: studentNumber ?? "" }
-          : current,
-      );
+      setForm((current) => ({
+        profile: submittedProfile,
+        draft: reconcileProfileDraft(current.draft, draft, submittedProfile),
+      }));
     }
     setSaving(false);
     notify(result.message, result.ok ? "success" : "error");
@@ -708,7 +722,9 @@ export function ProfileEditorForm({
               <div className="flex items-center gap-2">
                 <Button
                   disabled={saving}
-                  onClick={() => setDraft(state.profile)}
+                  onClick={() =>
+                    setForm({ profile: state.profile, draft: state.profile })
+                  }
                   type="button"
                   variant="ghost"
                 >
