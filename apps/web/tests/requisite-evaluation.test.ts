@@ -680,3 +680,47 @@ test("literal source requirements remain unknown even with permission approval",
     evaluateRule(rule, { ...student, permissionApproved: false }).status,
   ).toBe("unknown");
 });
+
+test("an exclusion listed as either course is broken by either course", () => {
+  const exclusion = (code: string): CourseRuleExpression => ({
+    ...base,
+    kind: "incompatible",
+    code,
+  });
+  // Imported as ANTH2025: "completed GEND2035 or ANTH6025".
+  const rule: CourseRuleExpression = {
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [exclusion("GEND2035"), exclusion("ANTH6025")],
+  };
+  const record = (codes: string[]): StudentRecord => ({
+    ...student,
+    completed: new Map(codes.map((code) => [code, { units: 6, mark: 70 }])),
+  });
+  expect(evaluateRule(rule, record([])).status).toBe("met");
+  for (const codes of [["GEND2035"], ["ANTH6025"]])
+    expect(evaluateRule(rule, record(codes)).status).not.toBe("met");
+  expect(
+    evaluateRule(
+      { ...rule, operator: "at_least", minimumCount: 1 },
+      record(["GEND2035"]),
+    ).status,
+  ).not.toBe("met");
+
+  const waiver: CourseRuleExpression = {
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [
+      exclusion("GEND2035"),
+      { ...base, kind: "permission", text: "Permission of the convener" },
+    ],
+  };
+  expect(
+    evaluateRule(waiver, {
+      ...record(["GEND2035"]),
+      permissionApproved: true,
+    }).status,
+  ).toBe("met");
+});

@@ -1,6 +1,7 @@
 import { enrolmentModeConditionLabel } from "@/lib/academic/enrolment-mode";
 import { commencementYearLabel } from "@/lib/academic/commencement-year";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
+import { groupOperator } from "@/lib/coursemap/requisite-evaluation";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
 type Group = Extract<CourseRuleExpression, { kind: "group" }>;
@@ -30,7 +31,7 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
     else if (node.kind === "incompatible_concurrent")
       concurrentIncompatible.push(node.code);
     else if (node.kind === "incompatible") incompatible.push(node.code);
-    else if (node.kind === "group" && node.operator === "all_of")
+    else if (node.kind === "group" && groupOperator(node) === "all_of")
       node.conditions.forEach(visit);
     else if (node.kind === "group" && node.conditions.length === 1)
       visit(node.conditions[0]!);
@@ -50,8 +51,9 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
 /** The heading on a group box: how many of its children are needed. */
 export function groupLabel(group: Group) {
   const count = group.conditions.length;
-  if (group.operator === "all_of") return count === 2 ? "Both" : `All ${count}`;
-  if (group.operator === "any_of") return `Any 1 of ${count}`;
+  const operator = groupOperator(group);
+  if (operator === "all_of") return count === 2 ? "Both" : `All ${count}`;
+  if (operator === "any_of") return `Any 1 of ${count}`;
   return `Any ${group.minimumCount ?? 1} of ${count}`;
 }
 
@@ -190,8 +192,9 @@ export function groupSentence(group: Group) {
     group.conditions[0].minimumMark === null;
   const noun = allCourses ? "these courses" : "these";
   const verb = allCourses ? "Complete" : "Meet";
-  if (group.operator === "all_of") return `${verb} all of ${noun}`;
-  if (group.operator === "any_of") return `${verb} one of ${noun}`;
+  const operator = groupOperator(group);
+  if (operator === "all_of") return `${verb} all of ${noun}`;
+  if (operator === "any_of") return `${verb} one of ${noun}`;
   return `${verb} any ${group.minimumCount ?? 1} of ${noun}`;
 }
 

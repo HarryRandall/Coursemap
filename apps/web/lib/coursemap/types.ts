@@ -75,6 +75,11 @@ export type Attempt = {
   resultCode?: string;
   permissionApproved?: boolean;
   overloadApproved?: boolean;
+  /**
+   * False when a planned course's catalogue year is no longer published. The
+   * plan keeps it for the student to review rather than dropping it.
+   */
+  isPublished?: boolean;
 };
 
 export type Term = {
