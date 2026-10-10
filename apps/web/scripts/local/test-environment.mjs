@@ -30,5 +30,6 @@ export function localTestEnvironment() {
       status.PUBLISHABLE_KEY ?? status.ANON_KEY,
     SUPABASE_SECRET_KEY: status.SECRET_KEY ?? status.SERVICE_ROLE_KEY,
     OPENROUTER_API_KEY: "",
+    ROOM_MAP_ROUTING_URL: "http://127.0.0.1:4320/routed-foot/route/v1/driving",
   };
 }

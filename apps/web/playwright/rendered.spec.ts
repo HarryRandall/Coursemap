@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import postgres from "postgres";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
+import { stubRoomMapRequests } from "./room-map-stubs";
 import { expectRoundedCorners } from "./rounded-corners";
 import { test, expect, login } from "./fixtures";
+
+test.beforeEach(async ({ page }) => {
+  await stubRoomMapRequests(page);
+});
 
 test("students save and clear explicit enrolment mode across desktop and mobile", async ({
   page,
