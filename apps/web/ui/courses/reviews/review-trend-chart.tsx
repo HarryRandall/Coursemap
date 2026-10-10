@@ -13,7 +13,12 @@ import {
 } from "recharts";
 import { cn } from "@coursemap/ui/lib/utils";
 import { ChartContainer } from "@coursemap/ui/primitives/chart";
-import { Tabs, TabsList, TabsTrigger } from "@coursemap/ui/primitives/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@coursemap/ui/primitives/tabs";
 import {
   type CourseSurveyResults,
   type SurveyThemeKey,
@@ -75,74 +80,77 @@ export function ReviewTrendChart({
             </TabsTrigger>
           ))}
         </TabsList>
-      </Tabs>
-      <ChartContainer
-        config={{
-          agreement: { label: theme.label, color: "var(--color-primary)" },
-        }}
-        className="aspect-auto h-64 w-full"
-        aria-label={points
-          .map((point) => `${point.fullLabel}: ${point.agreement}%`)
-          .join(", ")}
-      >
-        <ComposedChart
-          data={points}
-          margin={{ top: 10, right: 16, bottom: 0, left: -14 }}
-          accessibilityLayer
-        >
-          <CartesianGrid
-            vertical={false}
-            stroke="var(--color-border)"
-            strokeDasharray="3 5"
-          />
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-            minTickGap={16}
-            tickMargin={10}
-          />
-          <YAxis
-            domain={[0, 100]}
-            ticks={[0, 25, 50, 75, 100]}
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-          />
-          <ReferenceLine
-            y={usual}
-            stroke="var(--color-muted-foreground)"
-            strokeDasharray="4 5"
-            strokeOpacity={0.6}
-          />
-          <Tooltip
-            content={<TrendHoverCard />}
-            cursor={{
-              stroke: "var(--color-muted-foreground)",
-              strokeDasharray: "3 4",
+        <TabsContent value={themeKey} className="space-y-4">
+          <ChartContainer
+            role="img"
+            config={{
+              agreement: { label: theme.label, color: "var(--color-primary)" },
             }}
-          />
-          <Area
-            type="linear"
-            dataKey="range"
-            stroke="none"
-            fill="var(--color-primary)"
-            fillOpacity={0.14}
-            activeDot={false}
-            isAnimationActive={false}
-          />
-          <Line
-            type="linear"
-            dataKey="agreement"
-            stroke="var(--color-primary)"
-            strokeWidth={2}
-            dot={<SessionDot />}
-            activeDot={{ r: 6 }}
-            isAnimationActive={false}
-          />
-        </ComposedChart>
-      </ChartContainer>
+            className="aspect-auto h-64 w-full"
+            aria-label={points
+              .map((point) => `${point.fullLabel}: ${point.agreement}%`)
+              .join(", ")}
+          >
+            <ComposedChart
+              data={points}
+              margin={{ top: 10, right: 16, bottom: 0, left: -14 }}
+              accessibilityLayer
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--color-border)"
+                strokeDasharray="3 5"
+              />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                minTickGap={16}
+                tickMargin={10}
+              />
+              <YAxis
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+              />
+              <ReferenceLine
+                y={usual}
+                stroke="var(--color-muted-foreground)"
+                strokeDasharray="4 5"
+                strokeOpacity={0.6}
+              />
+              <Tooltip
+                content={<TrendHoverCard />}
+                cursor={{
+                  stroke: "var(--color-muted-foreground)",
+                  strokeDasharray: "3 4",
+                }}
+              />
+              <Area
+                type="linear"
+                dataKey="range"
+                stroke="none"
+                fill="var(--color-primary)"
+                fillOpacity={0.14}
+                activeDot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="linear"
+                dataKey="agreement"
+                stroke="var(--color-primary)"
+                strokeWidth={2}
+                dot={<SessionDot />}
+                activeDot={{ r: 6 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ChartContainer>
+        </TabsContent>
+      </Tabs>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {hasBothSessions ? (
           <>

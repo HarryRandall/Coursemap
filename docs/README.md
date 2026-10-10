@@ -12,6 +12,7 @@
 - [SELT imports](selt-imports.md): authenticated local downloads, resumable uploads and report review.
 - [Societies](societies.md): club and event snapshots, local and production imports and calendar sources.
 - [Database setup](../supabase/README.md): local services and database operations.
+- [Backup and restore](operations/backups.md): independent database exports, Storage copies and restore drills.
 - [Contributing](../CONTRIBUTING.md): workflow and verification requirements.
 
 ## Proposals

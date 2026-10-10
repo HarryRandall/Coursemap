@@ -64,6 +64,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -91,7 +93,17 @@ jobs:
         run: pnpm --filter @coursemap/web test:build:auth && pnpm --filter @coursemap/web test:auth-access
 
       - name: Check for whitespace errors
-        run: git diff --check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check "origin/${BASE_REF}...HEAD"
+          elif [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${PUSH_BEFORE}^{commit}" 2>/dev/null; then
+            git diff --check "$PUSH_BEFORE" HEAD
+          else
+            git show --format= --check HEAD
+          fi
 
       - name: Upload route-test report and traces
         if: always()
@@ -239,6 +251,7 @@ jobs:
           node -e 'const fs = require("node:fs"); const url = new
           URL(process.env.SUPABASE_POOLER_URL); url.password =
           process.env.SUPABASE_DB_PASSWORD;
+          console.log(`::add-mask::${url.password.replaceAll("%", "%25")}`);
           fs.appendFileSync(process.env.GITHUB_ENV,
           `SUPABASE_DB_URL=${url.href}\n`);'
 

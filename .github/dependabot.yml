@@ -7,6 +7,8 @@ updates:
       day: monday
       time: "08:00"
       timezone: Australia/Sydney
+    cooldown:
+      default-days: 1
     open-pull-requests-limit: 5
     groups:
       npm-production:

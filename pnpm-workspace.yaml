@@ -2,6 +2,9 @@ packages:
   - apps/*
   - packages/*
 
+# pnpm 12 treats an explicit age in minutes as a strict release gate.
+minimumReleaseAge: 1440
+
 # Keep the queue's transitive brace parser on a release patched for nested groups.
 overrides:
   "brace-expansion@>=5.0.0 <5.0.11": "catalog:"
@@ -40,7 +43,6 @@ catalog:
 
   # Interface and visualisation
   "@date-fns/tz": 1.5.0
-  "@xyflow/react": 12.12.0
   class-variance-authority: 0.7.1
   clsx: 2.1.1
   cmdk: 1.1.1
@@ -78,6 +80,7 @@ catalog:
   typescript: 5.9.3
 
   # Testing
+  "@axe-core/playwright": 4.11.1
   "@playwright/test": 1.63.0
   "@testing-library/jest-dom": 6.9.1
   "@testing-library/react": 16.3.3

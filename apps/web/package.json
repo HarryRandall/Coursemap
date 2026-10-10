@@ -35,7 +35,6 @@
     "@supabase/ssr": "catalog:",
     "@supabase/supabase-js": "catalog:",
     "@vercel/queue": "catalog:",
-    "@xyflow/react": "catalog:",
     "cheerio": "catalog:",
     "clsx": "catalog:",
     "cmdk": "catalog:",
@@ -56,6 +55,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@playwright/test": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@testing-library/jest-dom": "catalog:",

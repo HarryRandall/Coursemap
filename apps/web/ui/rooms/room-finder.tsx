@@ -287,7 +287,7 @@ function LayerToggleRow({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="min-h-11 min-w-11 text-muted-foreground/80"
+              className="min-h-11 min-w-11 text-muted-foreground"
               aria-label={`About ${layer.name}`}
               type="button"
             >
@@ -997,7 +997,7 @@ export function RoomFinder({
                 >
                   <Layers3 aria-hidden="true" size={14} />
                   Layers
-                  <span className="text-muted-foreground/80">
+                  <span className="text-muted-foreground">
                     {visibleMapLayerCount}/{mapLayers.length}
                   </span>
                 </Button>
@@ -1130,7 +1130,7 @@ export function RoomFinder({
                             ? `${level.ref} · ${level.name}`
                             : level.name}
                         </h3>
-                        <span className="text-[10px] text-muted-foreground/80">
+                        <span className="text-[10px] text-muted-foreground">
                           {rooms.length} room{rooms.length === 1 ? "" : "s"}
                         </span>
                       </div>
@@ -1162,7 +1162,7 @@ export function RoomFinder({
                                   </span>
                                   <span
                                     className={cn(
-                                      "shrink-0 text-[10px] font-medium text-muted-foreground/80",
+                                      "shrink-0 text-[10px] font-medium text-muted-foreground",
                                       destination && "text-primary",
                                     )}
                                   >
