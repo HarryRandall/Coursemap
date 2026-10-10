@@ -1,7 +1,9 @@
+import AxeBuilder from "@axe-core/playwright";
 import postgres from "postgres";
 import { randomUUID } from "node:crypto";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { expect, login, test } from "./fixtures";
+import { assertNoSeriousAccessibilityViolations } from "./accessibility-violations";
 
 test("administrators browse year-first catalogue records", async ({
   page,
@@ -209,6 +211,8 @@ test("administrators upload, review and revoke local SELT imports", async ({
     await expect(page.getByText(/Charts include 3 of 4 periods/)).toBeVisible();
     await page.getByRole("tab", { name: "Feedback", exact: true }).click();
     await expect(values).toBeVisible();
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    assertNoSeriousAccessibilityViolations(accessibility.violations);
     await page.screenshot({
       path: testInfo.outputPath("selt-charts-desktop.png"),
       fullPage: true,
