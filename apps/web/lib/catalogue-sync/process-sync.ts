@@ -60,8 +60,10 @@ import {
   recordSyncArtifact,
   recordExtractionRequestFailure,
   releaseCatalogueSyncForRetry,
+  renewCatalogueSyncLease,
   reserveExtraction,
   startSyncStage,
+  SyncStoreError,
   withSyncDatabaseClient,
 } from "./sync-store.ts";
 import type { CatalogueSyncAdapter, PromptContext } from "./kind-adapter.ts";
@@ -74,7 +76,7 @@ import {
   extractWithOpenRouter,
   restoreOpenRouterExtraction,
 } from "../catalogue-import/openrouter.ts";
-import { persistSourceVersion } from "./persist-source-version.ts";
+import { persistSourceVersionAndFinishSync } from "./persist-source-version.ts";
 import type { CatalogueKind } from "../catalogue/content.ts";
 
 const TERMINAL_SYNC_STATUSES = new Set([
@@ -118,6 +120,16 @@ export class SyncVersionMismatchError extends TypeError {
       "The queued sync was created for a different pipeline version. Start a new sync with the deployed worker.",
     );
     this.name = "SyncVersionMismatchError";
+  }
+}
+
+/** Another worker holds a live lease, or the sync cannot be claimed again. */
+export class SyncClaimUnavailableError extends Error {
+  readonly code = "SYNC_NOT_CLAIMABLE";
+
+  constructor() {
+    super("The catalogue sync could not be claimed.");
+    this.name = "SyncClaimUnavailableError";
   }
 }
 
@@ -235,8 +247,11 @@ export async function processCatalogueSync({
     const claim = await claimCatalogueSync(sql, { syncId, workerId });
     if (claim === null) {
       const status = await getCatalogueSyncStatus(sql, syncId);
-      if (status && TERMINAL_SYNC_STATUSES.has(status)) return;
-      throw new Error("The catalogue sync could not be claimed.");
+      if (status && TERMINAL_SYNC_STATUSES.has(status)) {
+        await advanceRunOfSync(sql, syncId);
+        return;
+      }
+      throw new SyncClaimUnavailableError();
     }
     await processClaimedSync({
       sql,
@@ -245,19 +260,44 @@ export async function processCatalogueSync({
       finalDelivery: deliveryCount >= maxDeliveries,
       signal,
     });
-    if (
-      claim.parserVersion === COMPACT_COURSE_PARSER_VERSION &&
-      process.env.COURSEMAP_QUEUE_SYNCS_ENABLED === "true"
-    ) {
-      const [item] =
-        await sql`select run_id from public.catalogue_course_run_items where sync_id = ${syncId}::uuid`;
-      if (item) {
-        const { advanceCourseRun } =
-          await import("../catalogue-runs/advance.ts");
-        await advanceCourseRun(String(item.run_id));
-      }
-    }
+    // Course and structure run items alike; inline runs are advanced by the
+    // browser.
+    await advanceRunOfSync(sql, syncId);
   });
+}
+
+async function holdsLease(
+  sql: SyncSql,
+  claim: ClaimedCatalogueSync,
+  workerId: string,
+) {
+  try {
+    await renewCatalogueSyncLease(sql, {
+      syncId: claim.syncId,
+      workerId,
+      expectedLockVersion: claim.lockVersion,
+    });
+    return true;
+  } catch (error) {
+    if (error instanceof SyncStoreError && error.code === "LEASE_LOST")
+      return false;
+    throw error;
+  }
+}
+
+/**
+ * In queue mode a finished run item starts the run's next item. Every way a
+ * delivery ends without more work for this sync calls it, including a
+ * redelivery that finds the sync already finished, so a worker stopped
+ * between its finish and this call does not strand the run.
+ */
+async function advanceRunOfSync(sql: SyncSql, syncId: string) {
+  if (process.env.COURSEMAP_QUEUE_SYNCS_ENABLED !== "true") return;
+  const [item] =
+    await sql`select run_id from public.catalogue_course_run_items where sync_id = ${syncId}::uuid`;
+  if (!item) return;
+  const { advanceCourseRun } = await import("../catalogue-runs/advance.ts");
+  await advanceCourseRun(String(item.run_id));
 }
 
 async function processClaimedSync({
@@ -293,6 +333,13 @@ async function processClaimedSync({
     work: (stageId: string) => Promise<T>,
   ) => {
     signal?.throwIfAborted();
+    // Each stage starts with a fresh lease, and a worker that has lost its
+    // lease stops before fetching, paying for a model call or writing.
+    await renewCatalogueSyncLease(sql, {
+      syncId: claim.syncId,
+      workerId,
+      expectedLockVersion: claim.lockVersion,
+    });
     const stageId = await startSyncStage(sql, {
       syncId: claim.syncId,
       stageName,
@@ -751,33 +798,27 @@ async function processClaimedSync({
       return result;
     });
 
-    const persisted = await runStage("source_version_persist", async () => {
+    await runStage("source_version_persist", async () => {
       if (sourceDocumentId === null) {
         throw new Error("The ANU source document was not preserved.");
       }
-      return persistSourceVersion(sql, {
+      // Records the sync result in the same transaction.
+      return persistSourceVersionAndFinishSync(sql, {
         claim,
         sourceDocumentId,
         write,
       });
     });
 
-    await finishCatalogueSync(sql, {
-      syncId: claim.syncId,
-      workerId,
-      expectedLockVersion: claim.lockVersion,
-      status: persisted.status,
-      sourceDocumentId,
-      sourceVersionId: persisted.sourceVersionId,
-      errorCode: null,
-      errorMessage: null,
-    });
     if (sourceFirst) {
       const { publishVerifiedRunCandidate } =
         await import("../catalogue-runs/publication.ts");
       await publishVerifiedRunCandidate(sql, claim.syncId, write);
     }
   } catch (error) {
+    // A worker that lost its lease leaves run spending, pauses and the sync's
+    // outcome to the worker that holds it now.
+    if (!(await holdsLease(sql, claim, workerId))) throw error;
     if (sourceFirst && error instanceof SyncPaidOutcomeUncertainError)
       await settleCourseRunSpend(sql, claim.syncId, null);
     if (sourceFirst && error instanceof CourseRunBudgetError)

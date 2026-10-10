@@ -192,13 +192,30 @@ nothing, and a review with nothing to decide, say nothing at all.
 Each sync records immutable fetched source material, stage artefacts, parser and
 model versions, validation results and model usage. Identical valid extraction
 inputs can reuse the stored response. Queue workers claim one record with a
-lease; expired work is retryable up to five attempts, terminal completion is
-lease-checked, and cancellation prevents unfinished work from completing.
+lease that is renewed at every stage; expired work is retryable up to five
+attempts, persistence and terminal completion are lease-checked in one
+transaction, and cancellation prevents unfinished work from completing. A
+scheduled sweep fails syncs whose final lease expired, re-dispatches queued
+syncs that were never sent and advances unfinished runs; it needs `CRON_SECRET`
+in hosted environments. It runs daily at 03:00 Canberra standard time (17:00
+UTC), the most often the Vercel Hobby plan allows; on Pro, tighten the schedule
+in `apps/web/vercel.json`. Between sweeps, an open import page and each
+finished queue delivery still advance their runs.
 
 Local development processes syncs after the request using the local database.
 Hosted environments set `COURSEMAP_SYNC_DATABASE_URL` and
 `COURSEMAP_QUEUE_SYNCS_ENABLED=true`; the queue topic is
 `catalogue-sync-v1`. See `apps/web/.env.example`.
+
+### Deploying a change to the sync worker
+
+Workers from the previous deployment keep running until their queue messages
+are finished. Before deploying a change to leases or persistence, let the queue
+drain: stop or cancel active import runs and wait until no sync is queued or
+running, or pause the provider so queued work is held. Resume after the new
+deployment is live. In particular, workers deployed before lease renewal hold
+an unrenewed 120 second lease and persist without checking it, so they can
+overwrite work that a new worker has taken over.
 
 ## Limit a bulk import to named codes
 

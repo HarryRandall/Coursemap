@@ -1,5 +1,10 @@
 import type postgres from "postgres";
-import type { ClaimedCatalogueSync, SyncSql } from "./sync-store.ts";
+import {
+  type ClaimedCatalogueSync,
+  type SyncSql,
+  finishCatalogueSyncInTransaction,
+  lockCatalogueSyncLease,
+} from "./sync-store.ts";
 import type {
   CatalogueKind,
   CatalogueContent,
@@ -499,19 +504,13 @@ export async function insertVersionContent(
   }
 }
 
-/** Persists one semantic ANU observation without changing local content. */
-export async function persistSourceVersion(
-  sql: SyncSql,
-  {
-    claim,
-    sourceDocumentId,
-    write,
-  }: {
-    claim: ClaimedCatalogueSync;
-    sourceDocumentId: number;
-    write: CatalogueContent;
-  },
-): Promise<PersistedSourceVersion> {
+type PersistSourceVersionInput = {
+  claim: ClaimedCatalogueSync;
+  sourceDocumentId: number;
+  write: CatalogueContent;
+};
+
+function assertWriteMatchesClaim({ claim, write }: PersistSourceVersionInput) {
   if (
     write.kind !== claim.kind ||
     write.code !== claim.code ||
@@ -521,9 +520,63 @@ export async function persistSourceVersion(
       "The source content does not match its catalogue sync.",
     );
   }
+}
 
+/**
+ * Persists one semantic ANU observation without changing local content.
+ * Every write is fenced on the claim's lease: a worker whose lease was taken
+ * over gets LEASE_LOST and writes nothing.
+ */
+export async function persistSourceVersion(
+  sql: SyncSql,
+  input: PersistSourceVersionInput,
+): Promise<PersistedSourceVersion> {
+  assertWriteMatchesClaim(input);
   return sql.begin(async (tx) => {
-    const [record] = await tx`
+    await lockCatalogueSyncLease(tx, leaseForClaim(input.claim));
+    return persistUnderLease(tx, input);
+  });
+}
+
+/**
+ * Persists the observation and records the sync result in one transaction, so
+ * a lease cannot expire between the two and send a second worker through the
+ * same sync.
+ */
+export async function persistSourceVersionAndFinishSync(
+  sql: SyncSql,
+  input: PersistSourceVersionInput,
+): Promise<PersistedSourceVersion> {
+  assertWriteMatchesClaim(input);
+  return sql.begin(async (tx) => {
+    const lease = leaseForClaim(input.claim);
+    await lockCatalogueSyncLease(tx, lease);
+    const persisted = await persistUnderLease(tx, input);
+    await finishCatalogueSyncInTransaction(tx, {
+      ...lease,
+      status: persisted.status,
+      sourceDocumentId: input.sourceDocumentId,
+      sourceVersionId: persisted.sourceVersionId,
+      errorCode: null,
+      errorMessage: null,
+    });
+    return persisted;
+  });
+}
+
+function leaseForClaim(claim: ClaimedCatalogueSync) {
+  return {
+    syncId: claim.syncId,
+    workerId: claim.workerId,
+    expectedLockVersion: claim.lockVersion,
+  };
+}
+
+async function persistUnderLease(
+  tx: Tx,
+  { claim, sourceDocumentId, write }: PersistSourceVersionInput,
+): Promise<PersistedSourceVersion> {
+  const [record] = await tx`
       select records.id, records.published_version_id, records.latest_source_version_id,
         codes.code, years.year, listings.title as listing_title
       from public.catalogue_records as records
@@ -535,57 +588,57 @@ export async function persistSourceVersion(
       where records.id = ${claim.recordId}
       for update of records
     `;
-    if (!record) throw new Error("The catalogue record was not resolved.");
-    const [existing] = await tx`
+  if (!record) throw new Error("The catalogue record was not resolved.");
+  const [existing] = await tx`
       select versions.id
       from public.catalogue_versions as versions
       where versions.sync_id = ${claim.syncId}::uuid
       limit 1
     `;
-    if (existing) {
-      const sourceVersionId = Number(existing.id);
-      const [draftFromSource] = await tx`
+  if (existing) {
+    const sourceVersionId = Number(existing.id);
+    const [draftFromSource] = await tx`
         select 1 from public.catalogue_drafts
         where record_id = ${claim.recordId} and base_version_id = ${sourceVersionId}
       `;
-      return {
-        status: draftFromSource ? "applied" : "review_required",
-        sourceVersionId,
-        populatedDraft: Boolean(draftFromSource),
-      };
-    }
-    const lockDraft = async () => {
-      const [row] =
-        await tx`select content, content_hash from public.catalogue_drafts
+    return {
+      status: draftFromSource ? "applied" : "review_required",
+      sourceVersionId,
+      populatedDraft: Boolean(draftFromSource),
+    };
+  }
+  const lockDraft = async () => {
+    const [row] =
+      await tx`select content, content_hash from public.catalogue_drafts
         where record_id = ${claim.recordId} for update`;
-      return row;
-    };
-    const hasMeaningfulLocalContent = (
-      draft: Record<string, unknown> | undefined,
-    ) => {
-      const empty = emptyCatalogueContent({
-        kind: claim.kind,
-        code: claim.code,
-        academicYear: claim.academicYear,
-        title:
-          record.listing_title === null ? null : String(record.listing_title),
-      });
-      return (
-        record.published_version_id !== null ||
-        (draft !== undefined &&
-          String(draft.content_hash) !== contentHashForCatalogueContent(empty))
-      );
-    };
-    /**
-     * Fills the draft from a source version and queues every part of it for
-     * a person. Review rows belong to the sync that made the version, so
-     * they stay joined to it when this sync found nothing new.
-     */
-    const populateDraft = async (
-      sourceVersionId: number,
-      reviewSyncId: string,
-    ) => {
-      await tx`insert into public.catalogue_drafts (
+    return row;
+  };
+  const hasMeaningfulLocalContent = (
+    draft: Record<string, unknown> | undefined,
+  ) => {
+    const empty = emptyCatalogueContent({
+      kind: claim.kind,
+      code: claim.code,
+      academicYear: claim.academicYear,
+      title:
+        record.listing_title === null ? null : String(record.listing_title),
+    });
+    return (
+      record.published_version_id !== null ||
+      (draft !== undefined &&
+        String(draft.content_hash) !== contentHashForCatalogueContent(empty))
+    );
+  };
+  /**
+   * Fills the draft from a source version and queues every part of it for
+   * a person. Review rows belong to the sync that made the version, so
+   * they stay joined to it when this sync found nothing new.
+   */
+  const populateDraft = async (
+    sourceVersionId: number,
+    reviewSyncId: string,
+  ) => {
+    await tx`insert into public.catalogue_drafts (
         record_id, base_version_id, content, content_hash, content_schema_version,
         revision, updated_by
       ) values (${claim.recordId}, ${sourceVersionId}, ${tx.json(write as never)},
@@ -595,57 +648,57 @@ export async function persistSourceVersion(
         content_schema_version = excluded.content_schema_version,
         revision = public.catalogue_drafts.revision + 1, updated_by = null,
         updated_at = now()`;
-      await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
-      // Preserve every source excerpt while choosing one conservative draft pointer per field.
-      await tx`insert into public.catalogue_draft_provenance (
+    await tx`delete from public.catalogue_draft_provenance where record_id = ${claim.recordId}`;
+    // Preserve every source excerpt while choosing one conservative draft pointer per field.
+    await tx`insert into public.catalogue_draft_provenance (
         record_id, field_path, origin, source_version_id, source_evidence_id
       ) select distinct on (field_path) ${claim.recordId}, field_path, method, ${sourceVersionId}, id
         from public.catalogue_version_provenance where version_id = ${sourceVersionId}
         order by field_path, confidence asc nulls last, id`;
-      await tx`insert into public.catalogue_change_events (
+    await tx`insert into public.catalogue_change_events (
         record_id, draft_revision, event_kind, origin, version_id
       ) select ${claim.recordId}, revision, 'source_draft_created', 'source', ${sourceVersionId}
         from public.catalogue_drafts where record_id = ${claim.recordId}`;
-      // The draft took the model's reading whole, so every part of it is
-      // queued for a person, rated by how sure the reading is.
-      await generateFirstReadReview(tx, {
-        syncId: reviewSyncId,
-        recordId: claim.recordId,
-        content: write,
-      });
-    };
-    const previousSourceVersionId =
-      record.latest_source_version_id === null
-        ? null
-        : Number(record.latest_source_version_id);
-    const [previous] = previousSourceVersionId
-      ? await tx`select content_hash, sync_id from public.catalogue_versions where id = ${previousSourceVersionId}`
-      : [];
-    if (previous && String(previous.content_hash) === write.contentHash) {
-      await tx`update public.catalogue_records set source_checked_at = now()
+    // The draft took the model's reading whole, so every part of it is
+    // queued for a person, rated by how sure the reading is.
+    await generateFirstReadReview(tx, {
+      syncId: reviewSyncId,
+      recordId: claim.recordId,
+      content: write,
+    });
+  };
+  const previousSourceVersionId =
+    record.latest_source_version_id === null
+      ? null
+      : Number(record.latest_source_version_id);
+  const [previous] = previousSourceVersionId
+    ? await tx`select content_hash, sync_id from public.catalogue_versions where id = ${previousSourceVersionId}`
+    : [];
+  if (previous && String(previous.content_hash) === write.contentHash) {
+    await tx`update public.catalogue_records set source_checked_at = now()
         where id = ${claim.recordId}`;
-      // ANU has not changed, but a record whose draft was discarded still
-      // wants the reading back.
-      const draft = await lockDraft();
-      if (!hasMeaningfulLocalContent(draft) && previous.sync_id !== null) {
-        await populateDraft(previousSourceVersionId!, String(previous.sync_id));
-        return {
-          status: "applied",
-          sourceVersionId: previousSourceVersionId!,
-          populatedDraft: true,
-        };
-      }
-      await tx`insert into public.catalogue_change_events (
-        record_id, event_kind, origin, actor_id, version_id
-      ) values (${claim.recordId}, 'source_checked', 'source', null, ${previousSourceVersionId})`;
+    // ANU has not changed, but a record whose draft was discarded still
+    // wants the reading back.
+    const draft = await lockDraft();
+    if (!hasMeaningfulLocalContent(draft) && previous.sync_id !== null) {
+      await populateDraft(previousSourceVersionId!, String(previous.sync_id));
       return {
-        status: "unchanged",
+        status: "applied",
         sourceVersionId: previousSourceVersionId!,
-        populatedDraft: false,
+        populatedDraft: true,
       };
     }
+    await tx`insert into public.catalogue_change_events (
+        record_id, event_kind, origin, actor_id, version_id
+      ) values (${claim.recordId}, 'source_checked', 'source', null, ${previousSourceVersionId})`;
+    return {
+      status: "unchanged",
+      sourceVersionId: previousSourceVersionId!,
+      populatedDraft: false,
+    };
+  }
 
-    const [version] = await tx`
+  const [version] = await tx`
       insert into public.catalogue_versions (
         record_id, kind, academic_year_id, origin, based_on_version_id,
         source_document_id, content_hash, sync_id
@@ -655,58 +708,57 @@ export async function persistSourceVersion(
       )
       returning id
     `;
-    const sourceVersionId = Number(version.id);
-    await insertVersionContent(tx, {
-      snapshotId: sourceVersionId,
-      kind: claim.kind,
-      academicYearId: claim.academicYearId,
-      sourcePageId: null,
-      sourceDocumentId,
-      write,
-    });
-    await tx`
+  const sourceVersionId = Number(version.id);
+  await insertVersionContent(tx, {
+    snapshotId: sourceVersionId,
+    kind: claim.kind,
+    academicYearId: claim.academicYearId,
+    sourcePageId: null,
+    sourceDocumentId,
+    write,
+  });
+  await tx`
       update public.catalogue_versions
       set sealed_at = greatest(statement_timestamp(), created_at)
       where id = ${sourceVersionId}
     `;
-    await tx`update public.catalogue_records set
+  await tx`update public.catalogue_records set
       latest_source_version_id = ${sourceVersionId}, source_checked_at = now()
       where id = ${claim.recordId}`;
 
-    const draft = await lockDraft();
-    // A record with nothing of its own, never read or discarded since, takes
-    // the reading whole rather than comparing it with nothing.
-    if (!hasMeaningfulLocalContent(draft)) {
-      await populateDraft(sourceVersionId, claim.syncId);
-      return { status: "applied", sourceVersionId, populatedDraft: true };
-    }
+  const draft = await lockDraft();
+  // A record with nothing of its own, never read or discarded since, takes
+  // the reading whole rather than comparing it with nothing.
+  if (!hasMeaningfulLocalContent(draft)) {
+    await populateDraft(sourceVersionId, claim.syncId);
+    return { status: "applied", sourceVersionId, populatedDraft: true };
+  }
 
-    await tx`insert into public.catalogue_change_events (
+  await tx`insert into public.catalogue_change_events (
       record_id, event_kind, origin, version_id
     ) values (${claim.recordId}, 'source_changed', 'source', ${sourceVersionId})`;
 
-    // The local side of the comparison is whatever an administrator would see
-    // if they opened the record now: the draft, or the publication a draft
-    // would be created from.
-    const baseSource = previousSourceVersionId
-      ? await readVersionContent(tx, previousSourceVersionId)
+  // The local side of the comparison is whatever an administrator would see
+  // if they opened the record now: the draft, or the publication a draft
+  // would be created from.
+  const baseSource = previousSourceVersionId
+    ? await readVersionContent(tx, previousSourceVersionId)
+    : null;
+  const local = draft
+    ? validateCatalogueContent(draft.content)
+    : record.published_version_id !== null
+      ? await readVersionContent(tx, Number(record.published_version_id))
       : null;
-    const local = draft
-      ? validateCatalogueContent(draft.content)
-      : record.published_version_id !== null
-        ? await readVersionContent(tx, Number(record.published_version_id))
-        : null;
-    await generateSourceReview(tx, {
-      syncId: claim.syncId,
-      recordId: claim.recordId,
-      baseSource,
-      local,
-      incomingSource: write,
-    });
-    return {
-      status: "review_required",
-      sourceVersionId,
-      populatedDraft: false,
-    };
+  await generateSourceReview(tx, {
+    syncId: claim.syncId,
+    recordId: claim.recordId,
+    baseSource,
+    local,
+    incomingSource: write,
   });
+  return {
+    status: "review_required",
+    sourceVersionId,
+    populatedDraft: false,
+  };
 }

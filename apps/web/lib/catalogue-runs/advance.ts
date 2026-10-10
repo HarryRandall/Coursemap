@@ -1,4 +1,8 @@
-import { withSyncDatabaseClient } from "../catalogue-sync/sync-store.ts";
+import {
+  CATALOGUE_SYNC_MAX_RETRIES,
+  failExhaustedExpiredSyncs,
+  withSyncDatabaseClient,
+} from "../catalogue-sync/sync-store.ts";
 import { dispatchCatalogueSync } from "../catalogue-sync/sync-queue.ts";
 
 /** A lease marker prevents two browsers or queue callbacks advancing one run twice. */
@@ -8,20 +12,30 @@ export async function advanceCourseRun(runId: string) {
       const [run] =
         await tx`select id from public.catalogue_course_runs where id = ${runId}::uuid and state = 'active' for update`;
       if (!run) return null;
-      await tx`update public.catalogue_syncs set status = 'queued', worker_id = null, lease_expires_at = null, dispatched_at = null, lock_version = lock_version + 1
+      // A final attempt whose worker stopped can never be claimed again.
+      await failExhaustedExpiredSyncs(tx, { runId });
+      // A new dispatch generation gives the re-send its own queue idempotency
+      // key, so the queue cannot discard it as a duplicate of the first send.
+      await tx`update public.catalogue_syncs set status = 'queued', worker_id = null, lease_expires_at = null, dispatched_at = null, lock_version = lock_version + 1, dispatch_generation = dispatch_generation + 1, queue_message_id = null
         where id in (select sync_id from public.catalogue_course_run_items where run_id = ${runId}::uuid)
-          and status = 'running' and lease_expires_at < now() and retry_count < 5`;
+          and status = 'running' and lease_expires_at < now() and retry_count < ${CATALOGUE_SYNC_MAX_RETRIES}`;
       const [busy] =
         await tx`select 1 from public.catalogue_course_run_items items join public.catalogue_syncs syncs on syncs.id = items.sync_id where items.run_id = ${runId}::uuid and (syncs.status = 'running' or (syncs.status = 'queued' and syncs.dispatched_at > now() - interval '10 minutes'))`;
       if (busy) return null;
       const [row] =
         await tx`select syncs.id from public.catalogue_course_run_items items join public.catalogue_syncs syncs on syncs.id = items.sync_id where items.run_id = ${runId}::uuid and syncs.status = 'queued' and (syncs.dispatched_at is null or syncs.dispatched_at < now() - interval '10 minutes') order by items.record_id limit 1 for update of syncs`;
       if (!row) return null;
-      await tx`update public.catalogue_syncs set dispatched_at = now() where id = ${row.id}::uuid`;
-      return String(row.id);
+      // Sending a previously dispatched sync again also needs a new key.
+      const [dispatch] =
+        await tx`update public.catalogue_syncs set dispatched_at = now(),
+          dispatch_generation = dispatch_generation + case when dispatched_at is null then 0 else 1 end,
+          queue_message_id = case when dispatched_at is null then queue_message_id else null end
+        where id = ${row.id}::uuid returning dispatch_generation`;
+      return {
+        syncId: String(row.id),
+        generation: Number(dispatch.dispatch_generation),
+      };
     }),
   );
-  return item
-    ? { syncId: item, ...(await dispatchCatalogueSync({ syncId: item })) }
-    : null;
+  return item ? { ...item, ...(await dispatchCatalogueSync(item)) } : null;
 }

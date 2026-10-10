@@ -7,6 +7,7 @@ import {
   ANU_UNIVERSITY_CALENDAR_SOURCE,
   createUniversityCalendarUrl,
   fetchUniversityCalendarManifest,
+  MAX_UNIVERSITY_CALENDAR_BYTES,
   parseUniversityCalendarHtml,
   parseUniversityCalendarManifest,
   universityCalendarExternalKey,
@@ -191,6 +192,39 @@ test("builds a validated manifest from a fetched page", async () => {
   );
   assert.equal(manifest.events.length, 55);
   assert.deepEqual(universityCalendarErrorDiagnostics(manifest), []);
+});
+
+test("refuses a redirect without requesting its target", async () => {
+  const calls = [];
+  await assert.rejects(
+    fetchUniversityCalendarManifest({
+      calendarYear: 2026,
+      fetchImpl: async (url, options) => {
+        calls.push({ url, redirect: options.redirect });
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://169.254.169.254/latest/meta-data/" },
+        });
+      },
+    }),
+    /redirected elsewhere/,
+  );
+  assert.deepEqual(calls, [
+    { url: createUniversityCalendarUrl(2026), redirect: "error" },
+  ]);
+});
+
+test("refuses a source larger than the calendar could be", async () => {
+  const oversized = "x".repeat(MAX_UNIVERSITY_CALENDAR_BYTES + 1);
+  for (const headers of [{}, { "content-length": String(oversized.length) }])
+    await assert.rejects(
+      fetchUniversityCalendarManifest({
+        calendarYear: 2026,
+        fetchImpl: async () =>
+          new Response(oversized, { status: 200, headers }),
+      }),
+      /exceeds/,
+    );
 });
 
 test("refuses a failed source response", async () => {
