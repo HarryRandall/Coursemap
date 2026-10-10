@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
 import type { AppState, Attempt } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
@@ -128,34 +129,22 @@ export function plannedAttemptsFromItems(
   });
 }
 
-export async function loadCoursemapState(
-  viewer: AuthViewer,
-): Promise<AppState> {
-  const fallback = emptyCoursemapState(viewer);
-
+// React cache is scoped to the server render, including the root shell.
+const loadProfile = cache(async (ownerId: string) => {
   const supabase = await createClient();
-  const [profileResult, planResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name,student_number,preferred_name,pronouns")
-      .eq("id", viewer.id)
-      .maybeSingle(),
-    supabase
-      .from("plans")
-      .select(
-        "academic_year_id,id,commencement_year,enrolment_mode,study_load,extension_years",
-      )
-      .eq("owner_id", viewer.id)
-      .eq("is_primary", true)
-      .maybeSingle(),
-  ]);
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("display_name,student_number,preferred_name,pronouns")
+    .eq("id", ownerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+});
 
-  if (profileResult.error) throw profileResult.error;
-  if (planResult.error) throw planResult.error;
-  const profile = profileResult.data;
-  const plan = planResult.data;
-
-  const state: AppState = {
+export async function loadProfileState(viewer: AuthViewer): Promise<AppState> {
+  const fallback = emptyCoursemapState(viewer);
+  const profile = await loadProfile(viewer.id);
+  return {
     ...fallback,
     profile: {
       ...fallback.profile,
@@ -165,6 +154,25 @@ export async function loadCoursemapState(
       pronouns: profile?.pronouns ?? "",
     },
   };
+}
+
+export async function loadCoursemapState(
+  viewer: AuthViewer,
+): Promise<AppState> {
+  const supabase = await createClient();
+  const [state, planResult] = await Promise.all([
+    loadProfileState(viewer),
+    supabase
+      .from("plans")
+      .select(
+        "academic_year_id,id,commencement_year,enrolment_mode,study_load,extension_years",
+      )
+      .eq("owner_id", viewer.id)
+      .eq("is_primary", true)
+      .maybeSingle(),
+  ]);
+  if (planResult.error) throw planResult.error;
+  const plan = planResult.data;
   if (!plan) return state;
 
   const [
@@ -379,5 +387,27 @@ export async function loadCoursemapState(
       requirementKey: row.requirement_key,
     })),
     starredCourses: (starsResult.data ?? []).map((row) => row.course_code),
+  };
+}
+
+/** Admin links use the student's rules year without loading the plan's courses. */
+export async function loadAdminShellState(viewer: AuthViewer): Promise<AppState> {
+  const supabase = await createClient();
+  const [state, result] = await Promise.all([
+    loadProfileState(viewer),
+    supabase
+      .from("plans")
+      .select("academic_years(year)")
+      .eq("owner_id", viewer.id)
+      .eq("is_primary", true)
+      .maybeSingle(),
+  ]);
+  if (result.error) throw result.error;
+  return {
+    ...state,
+    profile: {
+      ...state.profile,
+      catalogueYear: result.data?.academic_years?.year ?? state.profile.catalogueYear,
+    },
   };
 }

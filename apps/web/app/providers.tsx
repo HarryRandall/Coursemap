@@ -1,19 +1,15 @@
 "use client";
-import { useInputModality } from "@/lib/browser/use-input-modality";
-import { Toaster } from "@coursemap/ui/primitives/sonner";
-import type { CSSProperties } from "react";
 import { showToast, type ToastTone } from "@/ui/common/toast";
-import { useTheme } from "next-themes";
 import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { AppGlobalUi } from "@/ui/shell/app-global-ui";
 import { useRouter } from "next/navigation";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { saveAcademicResult } from "@/lib/academic/actions";
@@ -28,7 +24,6 @@ import {
   clearGuestPlanCookie,
   writeGuestPlanCookie,
 } from "@/lib/coursemap/guest-plan-cookie";
-import { GuestPlanTransfer } from "@/ui/shell/guest-plan-transfer";
 
 export type { AppState, Profile } from "@/lib/coursemap/types";
 import {
@@ -177,6 +172,7 @@ export function AppProvider({
   canAccessAdmin,
   guest = false,
   guestPlanToTransfer = false,
+  renderGlobalUi = true,
   initialState: suppliedInitialState,
 }: {
   children: React.ReactNode;
@@ -187,12 +183,10 @@ export function AppProvider({
   /** A signed-in student still has a guest plan in this browser. */
   guestPlanToTransfer?: boolean;
   initialState?: AppState;
+  /** Route plan providers reuse the root toast and guest transfer UI. */
+  renderGlobalUi?: boolean;
 }) {
-  useInputModality();
   const router = useRouter();
-  // The vendored Toaster reads the stored theme, which ignores a forced one.
-  const { forcedTheme, resolvedTheme } = useTheme();
-  const toastTheme = forcedTheme ?? resolvedTheme;
   const initialState = useMemo(
     () => suppliedInitialState ?? createInitialState(viewer, guest),
     [suppliedInitialState, viewer, guest],
@@ -267,16 +261,6 @@ export function AppProvider({
     router.replace("/");
     router.refresh();
   }, [router]);
-
-  useEffect(() => {
-    if (!viewer && !guest) return;
-
-    const refreshRestoredPage = (event: PageTransitionEvent) => {
-      if (event.persisted) window.location.reload();
-    };
-    window.addEventListener("pageshow", refreshRestoredPage);
-    return () => window.removeEventListener("pageshow", refreshRestoredPage);
-  }, [guest, viewer]);
 
   const notify = useCallback((message: string, tone: ToastTone = "success") => {
     showToast(message, tone);
@@ -788,18 +772,13 @@ export function AppProvider({
   return (
     <AppContext.Provider value={value}>
       {children}
-      {guestPlanToTransfer ? <GuestPlanTransfer /> : null}
-      <Toaster
-        theme={
-          toastTheme === "dark" || toastTheme === "light"
-            ? toastTheme
-            : "system"
-        }
-        position="top-center"
-        style={{ "--width": "420px" } as CSSProperties}
-        closeButton
-        visibleToasts={3}
-      />
+      {renderGlobalUi ? (
+        <AppGlobalUi
+          authenticated={Boolean(viewer)}
+          guest={guest}
+          guestPlanToTransfer={guestPlanToTransfer}
+        />
+      ) : null}
     </AppContext.Provider>
   );
 }

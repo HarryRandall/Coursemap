@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { canberraTodayIso } from "@/lib/canberra-format";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
@@ -41,7 +42,7 @@ async function upcomingKeyDates(todayIso: string) {
  * Student home. Students without a primary plan see the dashboard empty state,
  * which offers onboarding, rather than being redirected into it.
  */
-export default async function DashboardPage() {
+async function DashboardPage() {
   const todayIso = canberraTodayIso();
   let data;
   try {
@@ -58,3 +59,5 @@ export default async function DashboardPage() {
   }
   return <Dashboard {...data} />;
 }
+
+export default withPlanningState(DashboardPage);

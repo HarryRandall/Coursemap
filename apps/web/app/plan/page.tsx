@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { withRequirementCourses } from "@/lib/coursemap/requirement-courses";
@@ -5,7 +6,7 @@ import { PlanClient } from "./plan-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlanPage() {
+async function PlanPage() {
   let catalogue;
   try {
     catalogue = await withRequirementCourses(
@@ -16,3 +17,5 @@ export default async function PlanPage() {
   }
   return <PlanClient catalogue={catalogue} />;
 }
+
+export default withPlanningState(PlanPage);

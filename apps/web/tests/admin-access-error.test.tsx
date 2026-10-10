@@ -10,7 +10,17 @@ const { getAuthContext, redirect } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/viewer", () => ({ getAuthContext }));
-vi.mock("next/navigation", () => ({ redirect }));
+vi.mock("@/lib/coursemap/state", () => ({
+  loadAdminShellState: async () => ({
+    schemaVersion: 1,
+    profile: {},
+    attempts: [],
+  }),
+}));
+vi.mock("next/navigation", () => ({
+  redirect,
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 test("signed-in users without admin permission see the access error instead of protected content", async () => {
   getAuthContext.mockResolvedValue({

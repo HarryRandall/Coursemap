@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { Button } from "@coursemap/ui/primitives/button";
 import Link from "next/link";
 import { ErrorPageLayout } from "@/ui/common/error-page-layout";
@@ -11,7 +12,7 @@ import { OnboardingForm } from "./onboarding-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function OnboardingPage() {
+async function OnboardingPage() {
   const viewer = await getAuthViewer();
   if (!viewer) {
     const guestPlan = await readGuestPlan();
@@ -48,3 +49,5 @@ export default async function OnboardingPage() {
     />
   );
 }
+
+export default withPlanningState(OnboardingPage);
