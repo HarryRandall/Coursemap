@@ -116,10 +116,12 @@ function initialMonth(
 
 export function MonthCalendar({
   events,
+  todayIso,
 }: {
+  todayIso: string;
   events: readonly DashboardCalendarEvent[];
 }) {
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const today = useMemo(() => atLocalDay(todayIso)!, [todayIso]);
   const [focus, setFocus] = useState(() => initialMonth(events, today));
   const cells = monthCells(focus);
 

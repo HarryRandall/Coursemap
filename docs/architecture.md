@@ -128,6 +128,13 @@ their children, identities with a published year, and identities referenced
 as placeholders by a published rule. Students keep reading the exact version
 their recorded attempts point at.
 
+Plans always evaluate against the latest published catalogue. A plan item
+references a catalogue record, not a version, so a planned course follows that
+record's current publication; a recorded attempt stays pinned to its version.
+When a planned course's record is unpublished or archived, the item stays in
+the plan and is shown as "No longer published" for the student to review. It
+is never dropped and never counts as satisfying a requisite.
+
 User-owned planning data is also separate:
 
 - `profiles`

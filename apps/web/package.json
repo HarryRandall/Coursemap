@@ -26,7 +26,9 @@
     "calendar:import": "node scripts/catalogue/import-calendar.mjs",
     "course-import:benchmark": "node --env-file-if-exists=.env.local scripts/catalogue/benchmark-course-models.mjs",
     "rooms:buildings:fetch": "node scripts/rooms/sync-anu-buildings.mjs fetch",
-    "rooms:buildings:generate": "node scripts/rooms/sync-anu-buildings.mjs generate"
+    "rooms:buildings:generate": "node scripts/rooms/sync-anu-buildings.mjs generate",
+    "test:dates": "vitest run --project unit --project component tests/canberra-dates.test.ts tests/dashboard-calendar-dates.test.tsx tests/catalogue-changelog-timeline.test.tsx tests/academic-record-dates.test.tsx tests/catalogue-directory-dates.test.tsx tests/dashboard-series.test.mjs tests/admin-dashboard-series.test.ts tests/society-calendar.test.ts",
+    "test:dates:utc": "TZ=UTC corepack pnpm test:dates"
   },
   "dependencies": {
     "@coursemap/ui": "workspace:*",

@@ -1,3 +1,4 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import {
   CircleCheck,
   CircleX,
@@ -22,7 +23,7 @@ import { routeIcons } from "@/ui/shell/route-icons";
 const timestampFormat = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "medium",
   timeStyle: "short",
-  timeZone: "Australia/Sydney",
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 
 function shortDate(date: string) {

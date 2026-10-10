@@ -107,10 +107,7 @@ test("dashboard calendar events retain imported study-period dates", () => {
       endsOn: "2026-10-30",
     },
   ]);
-  assert.equal(
-    currentDashboardTermId(terms, new Date("2026-08-17T12:00:00")),
-    "2026-s2",
-  );
+  assert.equal(currentDashboardTermId(terms, "2026-08-17"), "2026-s2");
 });
 
 test("dashboard summaries use the attempt snapshot and its recorded units", () => {
