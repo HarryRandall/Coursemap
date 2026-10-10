@@ -244,11 +244,14 @@ fetching ANU again. Staged reviews and archived events do not supply dates.
 
 ## Access model
 
-- Published catalogue rows may be readable publicly.
-- Draft catalogue and source-sync operations require database-backed application roles.
-- A user can access only their own profile, plans, items and attempts.
+- Published catalogue rows may be readable publicly. Records for unpublished years are not, except the ones a student's own plan or results name.
+- Draft catalogue and source-sync operations require database-backed application roles. The default `user` role holds no catalogue permission, so a sign-up reads published content only.
+- A user can access only their own profile, plans, items and attempts. Rows that hang off a plan reference `(plan_id, owner_id)`, so they cannot be attached to someone else's plan.
+- Reading another student's plan, results or student number takes `students.read`. `admin.access` opens administration and account management but does not imply it.
+- Functions in `public` are not executable by `anon` or `authenticated` unless a migration grants them.
 - Every exposed table has RLS and explicit Data API grants.
 - Privileged functions have a deliberate `search_path`, minimal execution grants and database tests.
+- Sealed versions, their child rows, publications, change events and field changes are guarded by triggers: child rows cannot move between versions, a publication can only be closed, the change log is append-only and none of these tables can be truncated. Tests that clean up fixtures disable the named triggers around the cleanup.
 
 ## Delivery
 
