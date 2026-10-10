@@ -46,10 +46,14 @@ test.each(["authenticated", "access"])(
 
 test("authenticated execution still loads its dedicated local database environment", async () => {
   process.argv = ["node", "playwright", "test"];
-  expect((await profileConfig("authenticated")).webServer).toMatchObject({
-    reuseExistingServer: false,
-    url: "http://127.0.0.1:4319/login",
-  });
+  expect((await profileConfig("authenticated")).webServer).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        reuseExistingServer: false,
+        url: "http://127.0.0.1:4319/login",
+      }),
+    ]),
+  );
   expect(mocks.environment).toHaveBeenCalledOnce();
 });
 

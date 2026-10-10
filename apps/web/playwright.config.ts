@@ -15,29 +15,16 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: origin,
+    timezoneId: "Australia/Sydney",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   projects: [
     {
       name: profile,
-      testMatch:
-        profile === "authenticated"
-          ? [
-              "authenticated.spec.*",
-              "rendered.spec.*",
-              "catalogue-admin.spec.*",
-              "catalogue-review.spec.*",
-              "catalogue-workspace.spec.*",
-              "catalogue-workload.spec.*",
-              "catalogue-course-count.spec.*",
-              "catalogue-exclusions.spec.*",
-              "college-enrolment.spec.*",
-              "academic-averages.spec.*",
-              "catalogue-usage.spec.*",
-              "catalogue-provider.spec.*",
-            ]
-          : "access.spec.*",
+      testMatch: profile === "authenticated" ? "**/*.spec.*" : "access.spec.*",
+      // Access tests deliberately run without a database and have their own build.
+      testIgnore: profile === "authenticated" ? "**/access.spec.*" : [],
     },
   ],
   // Listing tests does not launch servers or require a running Supabase stack.
