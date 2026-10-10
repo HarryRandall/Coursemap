@@ -2,12 +2,8 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@coursemap/ui/components/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@coursemap/ui/primitives/tooltip";
 import { sessionLabel } from "@/ui/courses/course-detail-format";
+import { StudyPeriodOverflow } from "@/ui/courses/study-period-overflow";
 
 const PERIOD_ORDER: Record<string, number> = {
   "First Semester": 0,
@@ -108,31 +104,7 @@ export function CourseAvailability({
           </Badge>
         ))}
         {remaining > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge asChild variant="outline">
-                <button
-                  type="button"
-                  className="cursor-default hover:bg-accent hover:text-accent-foreground"
-                  aria-label={`Show ${remaining} more available study periods`}
-                >
-                  +{remaining}
-                </button>
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent
-              side="bottom"
-              align="start"
-              collisionPadding={8}
-              className="w-max max-w-[calc(100vw-2rem)]"
-            >
-              <ul className="space-y-1">
-                {periods.slice(count).map((period) => (
-                  <li key={period}>{period}</li>
-                ))}
-              </ul>
-            </TooltipContent>
-          </Tooltip>
+          <StudyPeriodOverflow periods={periods.slice(count)} />
         )}
       </div>
     </div>

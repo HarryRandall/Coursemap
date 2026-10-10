@@ -3,6 +3,7 @@ import {
   render as renderComponent,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import userEvent from "@testing-library/user-event";
@@ -102,17 +103,20 @@ test("reserves room for +N, reveals hidden periods on focus, and responds to res
   expect(more).toHaveTextContent("+4");
   expect(visibleBadges().queryByText("Summer")).toBeNull();
   await user.hover(more);
-  expect(await screen.findByRole("tooltip")).toHaveTextContent(
-    "Summer Session",
-  );
+  expect(
+    await screen.findByRole("dialog", { name: "More available study periods" }),
+  ).toHaveTextContent("Summer Session");
   await user.unhover(more);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   await user.tab();
   expect(more).toHaveFocus();
-  expect(await screen.findByRole("tooltip")).toHaveTextContent(
+  expect(
+    await screen.findByRole("dialog", { name: "More available study periods" }),
+  ).toHaveTextContent(
     "Summer SessionAutumn SessionWinter SessionSpring Session",
   );
   await user.keyboard("{Escape}");
-  expect(screen.queryByRole("tooltip")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
   resize(40);
   expect(
     screen.getByRole("button", { name: "Show 6 more available study periods" }),
@@ -139,3 +143,70 @@ test("deduplicates sessions and handles missing availability", () => {
   );
   expect(screen.getByText("Not listed")).toBeVisible();
 });
+
+test.each(["click", "touch"])(
+  "opens hidden periods on %s activation",
+  async (activation) => {
+    measure(40);
+    const user = userEvent.setup();
+    render(<CourseAvailability sessions={sessions} />);
+    const more = screen.getByRole("button", {
+      name: "Show 6 more available study periods",
+    });
+    if (activation === "touch") {
+      await user.pointer([
+        { keys: "[TouchA>]", target: more },
+        { keys: "[/TouchA]" },
+      ]);
+    } else {
+      await user.click(more);
+    }
+    const list = await screen.findByRole("dialog", {
+      name: "More available study periods",
+    });
+    expect(list).toHaveTextContent(
+      "First SemesterSecond SemesterSummer SessionAutumn SessionWinter SessionSpring Session",
+    );
+    expect(more).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(more).toHaveFocus();
+    expect(more).toHaveAttribute("aria-expanded", "false");
+  },
+);
+
+test.each(["{Enter}", " "])(
+  "keeps the focus preview open on %s and reopens it after Escape",
+  async (key) => {
+    measure(140);
+    const user = userEvent.setup();
+    render(<CourseAvailability sessions={sessions} />);
+    const more = screen.getByRole("button", {
+      name: "Show 4 more available study periods",
+    });
+    await user.tab();
+    expect(
+      await screen.findByRole("dialog", {
+        name: "More available study periods",
+      }),
+    ).toBeInTheDocument();
+    await user.keyboard(key);
+    expect(
+      screen.getByRole("dialog", { name: "More available study periods" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    expect(more).toHaveFocus();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await user.keyboard(key);
+    expect(
+      await screen.findByRole("dialog", {
+        name: "More available study periods",
+      }),
+    ).toHaveTextContent(
+      "Summer SessionAutumn SessionWinter SessionSpring Session",
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(more).toHaveFocus();
+  },
+);
