@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import {
   CATALOGUE_CONTENT_SCHEMA_VERSION,
   emptyCatalogueContent,
@@ -85,7 +85,10 @@ test("workload basis survives editing and qualifies student-facing hours", async
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
