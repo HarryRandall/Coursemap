@@ -1,15 +1,10 @@
-import { getAuthViewer } from "@/lib/auth/viewer";
 import { loadPublishedSurveyReport } from "@/lib/course-surveys/published-surveys";
 const HEADERS = { "Cache-Control": "private, no-store" };
+const PUBLIC_HEADERS = { "Cache-Control": "public, max-age=0, s-maxage=60" };
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ code: string }> },
 ) {
-  if (!(await getAuthViewer()))
-    return Response.json(
-      { error: "Sign in to view student survey results." },
-      { status: 401, headers: HEADERS },
-    );
   const code = (await params).code.trim().toUpperCase();
   if (!/^[A-Z]{4}[0-9]{4}$/u.test(code))
     return Response.json(
@@ -19,7 +14,7 @@ export async function GET(
   try {
     return Response.json(
       { report: await loadPublishedSurveyReport(code) },
-      { headers: HEADERS },
+      { headers: PUBLIC_HEADERS },
     );
   } catch {
     return Response.json(

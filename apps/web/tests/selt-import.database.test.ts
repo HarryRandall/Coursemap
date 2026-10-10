@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { createLocalDatabaseClient } from "../scripts/catalogue/lib/local-database.mjs";
 import {
@@ -80,7 +81,7 @@ it("rolls back invalid survey inserts and blocks publication with warnings", asy
     "Resolve extraction warnings",
   );
 });
-it("publishes one report per course and exposes only published values to students", async () => {
+it("publishes one report per course and hides it from students until catalogue publication", async () => {
   const run = await createSeltRun(sql, userId);
   const report = syntheticSeltReport();
   report.source.sha256 = "d".repeat(64);
@@ -95,6 +96,27 @@ it("publishes one report per course and exposes only published values to student
   expect(published!.total).toBe(1);
   await sql
     .begin(async (tx) => {
+      await tx`set local role authenticated`;
+      expect(
+        await tx`select id from public.selt_reports where code_id = ${codeId}`,
+      ).toEqual([]);
+      expect(
+        await tx`select report_id from public.selt_surveys where report_id = ${replacement.id!}`,
+      ).toEqual([]);
+      expect(
+        await tx`select key from public.selt_question_themes where report_id = ${replacement.id!}`,
+      ).toEqual([]);
+      await tx`reset role`;
+      await tx.unsafe(
+        await readFile(
+          new URL(
+            "../../../supabase/tests/helpers/catalogue-fixtures.inc",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+      await tx`select pg_temp.publish_course('TEST1234'::text, 2027::smallint)`;
       await tx`set local role authenticated`;
       expect(
         await tx`select id from public.selt_reports where code_id = ${codeId}`,
