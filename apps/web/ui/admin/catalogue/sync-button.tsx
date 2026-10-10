@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CatalogueKind } from "@/lib/catalogue/content";
 import type { CatalogueSync } from "@/lib/coursemap/admin-catalogue-record";
 import { startTask, type TaskHandle } from "@/ui/common/task-toast";
+import { useCataloguePoll } from "./use-catalogue-poll";
+import { SyncPollNotice } from "./sync-poll-notice";
 
 /**
  * A record sync is queued and worked on elsewhere, so each status owns a
@@ -59,21 +61,71 @@ export function useCatalogueSync({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [startedSyncId, setStartedSyncId] = useState<string | null>(null);
+  const [polledSync, setPolledSync] = useState<
+    | (Pick<CatalogueSync, "id" | "status" | "errorMessage"> & {
+        baselineStatus: CatalogueSync["status"] | null;
+      })
+    | null
+  >(null);
+  const syncId = startedSyncId ?? latestSync?.id ?? null;
+  const observedSync =
+    polledSync?.id === syncId &&
+    polledSync.baselineStatus === (latestSync?.status ?? null)
+      ? polledSync
+      : latestSync;
   const task = useRef<TaskHandle | null>(null);
   const reportedStatus = useRef<string | null>(null);
   const awaitingStartedSync =
-    startedSyncId !== null && latestSync?.id !== startedSyncId;
+    startedSyncId !== null && observedSync?.id !== startedSyncId;
   const isActive =
     awaitingStartedSync ||
-    latestSync?.status === "queued" ||
-    latestSync?.status === "running";
-  const isPaused = latestSync?.status === "paused";
+    observedSync?.status === "queued" ||
+    observedSync?.status === "running";
+  const isPaused = observedSync?.status === "paused";
+
+  const pollingStopped = useCataloguePoll({
+    watchKey: syncId,
+    enabled: isActive,
+    async poll(signal) {
+      const response = await fetch(
+        `/api/admin/catalogue-syncs?syncId=${syncId}`,
+        { signal, cache: "no-store" },
+      );
+      const result = (await response.json()) as {
+        sync?: Pick<CatalogueSync, "id" | "status" | "errorMessage">;
+        error?: string;
+      };
+      if (!response.ok || !result.sync)
+        throw new Error(result.error ?? "The sync status could not be loaded.");
+      if (signal.aborted) return { changed: false, done: true };
+      const changed = result.sync.status !== observedSync?.status;
+      setPolledSync({
+        ...result.sync,
+        baselineStatus: latestSync?.status ?? null,
+      });
+      if (changed) router.refresh();
+      return {
+        changed,
+        done: !["queued", "running"].includes(result.sync.status),
+      };
+    },
+    onError() {
+      task.current?.abandon({
+        title: "Sync still running",
+        detail: "Refresh the record to check its status.",
+      });
+      task.current = null;
+    },
+  });
 
   useEffect(() => {
-    if (!isActive) return;
-    const timer = window.setInterval(() => router.refresh(), 1500);
-    return () => window.clearInterval(timer);
-  }, [isActive, router]);
+    if (!pollingStopped) return;
+    task.current?.abandon({
+      title: "Sync still running",
+      detail: "Refresh the record to check its status.",
+    });
+    task.current = null;
+  }, [pollingStopped]);
 
   // The retry offered by a failed sync restarts this same handler, so it is
   // reached through a ref rather than the handler referring to itself.
@@ -108,10 +160,16 @@ export function useCatalogueSync({
         return;
       }
       task.current?.step(SYNC_PROGRESS.queued);
+      setPolledSync({
+        id: result.syncId,
+        status: "queued",
+        errorMessage: null,
+        baselineStatus: latestSync?.status ?? null,
+      });
       setStartedSyncId(result.syncId);
       router.refresh();
     });
-  }, [code, kind, recordId, retrySync, router]);
+  }, [code, kind, latestSync?.status, recordId, retrySync, router]);
 
   useEffect(() => {
     startSyncRef.current = startSync;
@@ -132,8 +190,8 @@ export function useCatalogueSync({
   // Only a sync started from this button owns a toast; a scheduled one running
   // in the background should not interrupt whoever opened the page.
   useEffect(() => {
-    if (!startedSyncId || latestSync?.id !== startedSyncId) return;
-    const status = latestSync.status;
+    if (!startedSyncId || observedSync?.id !== startedSyncId) return;
+    const status = observedSync.status;
     if (status === reportedStatus.current) return;
     reportedStatus.current = status;
     const running = SYNC_PROGRESS[status];
@@ -144,7 +202,7 @@ export function useCatalogueSync({
     if (status === "failed") {
       task.current?.fail({
         title: `${code} sync failed`,
-        detail: latestSync.errorMessage ?? "The sync did not finish.",
+        detail: observedSync.errorMessage ?? "The sync did not finish.",
         retry: retrySync,
       });
     } else if (status === "paused") {
@@ -160,7 +218,7 @@ export function useCatalogueSync({
       task.current?.done(syncOutcome(code, status));
     }
     task.current = null;
-  }, [code, latestSync, retrySync, startedSyncId]);
+  }, [code, observedSync, retrySync, startedSyncId]);
 
   // A sync whose worker went away, such as a dev server that restarted
   // mid-read, never finishes on its own, so an active one can be stopped.
@@ -192,9 +250,11 @@ export function useCatalogueSync({
     busy: isPending || isActive || isPaused,
     isActive,
     isPaused,
+    pollingStopped,
+    refresh: () => router.refresh(),
     label: isPaused
       ? "Sync paused"
-      : latestSync?.status === "failed" && !isActive
+      : observedSync?.status === "failed" && !isActive
         ? "Retry sync"
         : hasSynced
           ? "Resync"
@@ -205,21 +265,24 @@ export function useCatalogueSync({
 export function CatalogueSyncButton(target: CatalogueSyncTarget) {
   const sync = useCatalogueSync(target);
   return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={sync.start}
-      disabled={sync.busy}
-      aria-busy={sync.isActive}
-    >
-      {sync.isPaused ? (
-        <Pause aria-hidden="true" />
-      ) : sync.isActive ? (
-        <LoaderCircle className="animate-spin" aria-hidden="true" />
-      ) : (
-        <RefreshCw aria-hidden="true" />
-      )}
-      {sync.label}
-    </Button>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={sync.start}
+        disabled={sync.busy}
+        aria-busy={sync.isActive}
+      >
+        {sync.isPaused ? (
+          <Pause aria-hidden="true" />
+        ) : sync.isActive ? (
+          <LoaderCircle className="animate-spin" aria-hidden="true" />
+        ) : (
+          <RefreshCw aria-hidden="true" />
+        )}
+        {sync.label}
+      </Button>
+      {sync.pollingStopped && <SyncPollNotice onRefresh={sync.refresh} />}
+    </>
   );
 }
