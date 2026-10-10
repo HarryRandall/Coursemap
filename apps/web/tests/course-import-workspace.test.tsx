@@ -36,7 +36,7 @@ it("shows a 100-course default, automatically previews costs before enabling Sta
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) return Response.json({ runs: [] });
+      if (options?.method !== "POST") return Response.json({ runs: [] });
       const body = JSON.parse(options.body as string);
       requests.push(body);
       return Response.json(
@@ -88,7 +88,7 @@ it("shows errors without starting a paid run", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) =>
-      options
+      options?.method === "POST"
         ? Response.json(
             { error: "Refresh model pricing first." },
             { status: 400 },
@@ -114,7 +114,7 @@ it("creates an AI-free import without a spending limit", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) return Response.json({ runs: [] });
+      if (options?.method !== "POST") return Response.json({ runs: [] });
       const body = JSON.parse(options.body as string);
       requests.push(body);
       return Response.json(
@@ -165,7 +165,7 @@ it("retries a failed estimate and enables Start after recovery", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) return Response.json({ runs: [] });
+      if (options?.method !== "POST") return Response.json({ runs: [] });
       attempts++;
       return attempts === 1
         ? Response.json(
@@ -231,7 +231,7 @@ it("opens a paused import on the progress screen with exact live costs", async (
     "fetch",
     vi.fn(async (url: string, options?: RequestInit) =>
       Response.json(
-        options
+        options?.method === "POST"
           ? {
               count: 100,
               availableCount: 1000,
@@ -288,6 +288,10 @@ it("opens a paused import on the progress screen with exact live costs", async (
       expect.stringContaining(
         "outcome=review&issue=A%20printed%20class%20date",
       ),
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
     ),
   );
 });
@@ -297,7 +301,7 @@ it("keeps costs mounted when no missing courses are found", async () => {
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) =>
       Response.json(
-        options
+        options?.method === "POST"
           ? {
               count: 0,
               availableCount: 0,
@@ -331,7 +335,7 @@ it("keeps costs mounted when no missing courses are found", async () => {
 it("selects beyond 100 without refetching or remounting the cost panel", async () => {
   const fetch = vi.fn(async (_url: string, options?: RequestInit) =>
     Response.json(
-      options
+      options?.method === "POST"
         ? {
             count: 100,
             availableCount: 1000,
@@ -391,7 +395,7 @@ it("switches to progress when starting and updates actual costs while importing"
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) {
+      if (options?.method !== "POST") {
         if (!created) return Response.json({ runs: [] });
         polls++;
         return Response.json({
@@ -542,7 +546,16 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   const originalFetch = fetch;
   vi.stubGlobal(
     "fetch",
-    vi.fn(() => new Promise(() => {})),
+    vi.fn(
+      (_url: string, options?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    ),
   );
   await user.click(screen.getByRole("tab", { name: "Courses (2)" }));
   expect(screen.getByRole("link", { name: "Programming" })).toBeVisible();
@@ -555,7 +568,13 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   expect(screen.getByRole("table", { name: "Imported courses" })).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Next page" }));
   await waitFor(() =>
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("page=2&")),
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("page=2&"),
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
+    ),
   );
   await user.type(
     screen.getByPlaceholderText("Search courses by code or title"),
@@ -564,6 +583,10 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("page=1&q=COMP1100"),
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
     ),
   );
   await user.click(screen.getByRole("button", { name: "Filter" }));
@@ -572,6 +595,10 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   await waitFor(() =>
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("outcome=review"),
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      }),
     ),
   );
   expect(
@@ -580,9 +607,9 @@ it("keeps the summary on Overview and paginates linked course results", async ()
   expect(
     screen.queryByRole("link", { name: "New import" }),
   ).not.toBeInTheDocument();
-  expect(vi.mocked(fetch).mock.calls.every((call) => call.length === 1)).toBe(
-    true,
-  );
+  expect(
+    vi.mocked(fetch).mock.calls.every((call) => call[1]?.method !== "POST"),
+  ).toBe(true);
   await user.click(screen.getByRole("tab", { name: "Courses (2)" }));
   await user.keyboard("{ArrowLeft}");
   expect(window.location.search).toBe("?tab=overview");
@@ -617,7 +644,7 @@ it("enables future auto-publication separately from publishing saved verified dr
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, options?: RequestInit) => {
-      if (!options)
+      if (options?.method !== "POST")
         return Response.json(
           url.includes("runId=")
             ? { items: [], page: 1, pageSize: 25, total: 0 }
@@ -699,7 +726,7 @@ it("previews the selected structure kind and uses its available count", async ()
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) return Response.json({ runs: [] });
+      if (options?.method !== "POST") return Response.json({ runs: [] });
       const body = JSON.parse(options.body as string);
       requests.push(body);
       return Response.json({
@@ -740,7 +767,7 @@ it("re-previews listed codes and uses the same selection when creating a free ru
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, options?: RequestInit) => {
-      if (!options) return Response.json({ runs: [] });
+      if (options?.method !== "POST") return Response.json({ runs: [] });
       const body = JSON.parse(options.body as string);
       requests.push(body);
       return Response.json(
@@ -802,7 +829,7 @@ it("scopes an import to the courses a chosen degree names", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, options?: RequestInit) => {
-      if (!options) {
+      if (options?.method !== "POST") {
         if (url.includes("scope=structures"))
           return Response.json({
             structures: [

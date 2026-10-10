@@ -27,6 +27,8 @@ import {
   AlertTitle,
 } from "@coursemap/ui/components/alert";
 import { TriangleAlert } from "lucide-react";
+import { useCataloguePoll } from "./use-catalogue-poll";
+import { SyncPollNotice } from "./sync-poll-notice";
 
 import { CourseRunHeader, CourseRunProgress } from "./course-run-progress";
 import {
@@ -118,6 +120,9 @@ export function CourseImportWorkspace({
     return () => window.removeEventListener("popstate", restoreTab);
   }, []);
   const refreshedRun = useRef<string | null>(null);
+  const lastRunState = useRef(
+    initialRun ? { id: initialRun.id, state: initialRun.state } : null,
+  );
   const [limit, setLimit] = useState(100);
   const [codeFilter, setCodeFilter] = useState("");
   const codes = codeFilter.trim()
@@ -144,54 +149,66 @@ export function CourseImportWorkspace({
   const [estimateAttempt, setEstimateAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // Shared by every run of the polling effect, so a restarted effect cannot
-  // start an advance while an earlier one is still on its way.
+  // Keep the guard active until the server finishes an advance.
   const advancing = useRef(false);
 
-  useEffect(() => {
-    if (!viewRunId) return;
-    let stopped = false;
-    let timeout: ReturnType<typeof setTimeout>;
-    async function poll() {
-      try {
-        const response = await fetch(
-          `/api/admin/course-import-runs?year=${year}&summary=${viewRunId}`,
-        );
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (stopped) return;
-        setRuns(data.runs);
-        const running = (data.runs as Run[]).find((run) => run.id === active);
-        if (running?.state === "active" && running.finished < running.total) {
-          // The advance is not aborted with the effect: the server finishes
-          // it either way, and the guard has to cover it until it does.
-          if (!advancing.current) {
-            advancing.current = true;
-            try {
-              await action({ action: "advance", runId: active });
-            } finally {
-              advancing.current = false;
-            }
+  const current = runs.find((run) => run.id === viewRunId);
+  const terminalRun =
+    current !== undefined &&
+    (current.state !== "active" || current.finished >= current.total);
+  const summaryWatchKey = viewRunId
+    ? `${viewRunId}:${active}:${estimateAttempt}`
+    : null;
+  const summaryAttemptedKey = useRef<string | null>(null);
+  const summaryFingerprint = useRef("");
+  const summaryPollingStopped = useCataloguePoll({
+    watchKey: summaryWatchKey,
+    enabled: viewRunId !== null,
+    initialDelayMs: 0,
+    async poll(signal) {
+      if (terminalRun && summaryAttemptedKey.current === summaryWatchKey)
+        return { changed: false, done: true };
+      summaryAttemptedKey.current = summaryWatchKey;
+      const response = await fetch(
+        `/api/admin/course-import-runs?year=${year}&summary=${viewRunId}`,
+        { signal, cache: "no-store" },
+      );
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error ?? "Import progress could not be loaded.");
+      if (signal.aborted) return { changed: false, done: true };
+      if (!Array.isArray(data.runs))
+        throw new Error("Import progress could not be loaded.");
+      const fingerprint = JSON.stringify(data.runs);
+      const changed = summaryFingerprint.current !== fingerprint;
+      summaryFingerprint.current = fingerprint;
+      setRuns(data.runs);
+      const running = (data.runs as Run[]).find((run) => run.id === viewRunId);
+      const done =
+        !running ||
+        running.state !== "active" ||
+        running.finished >= running.total;
+      if (!done && active && document.visibilityState === "visible") {
+        if (!advancing.current) {
+          advancing.current = true;
+          try {
+            await action({ action: "advance", runId: active });
+          } finally {
+            advancing.current = false;
           }
-        } else if (active) setActive(null);
-      } catch (cause) {
-        if (!stopped) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Import progress could not be loaded.",
-          );
-          setActive(null);
         }
-      }
-      if (!stopped) timeout = setTimeout(poll, active ? 1000 : 3000);
-    }
-    void poll();
-    return () => {
-      stopped = true;
-      clearTimeout(timeout);
-    };
-  }, [viewRunId, active, year, kind, estimateAttempt]);
+      } else if (active && !signal.aborted) setActive(null);
+      return { changed, done };
+    },
+    onError(cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Import progress could not be loaded.",
+      );
+      setActive(null);
+    },
+  });
 
   useEffect(() => {
     if (active || viewRunId || !scopeReady) return;
@@ -278,7 +295,6 @@ export function CourseImportWorkspace({
     }
   }
 
-  const current = runs.find((run) => run.id === viewRunId);
   const progressScreen = viewRunId !== null;
   const unfinished =
     current &&
@@ -364,7 +380,7 @@ export function CourseImportWorkspace({
 
   // Warm both lists while the overview is open so tab changes need no round trip.
   useEffect(() => {
-    if (!viewRunId) return;
+    if (!viewRunId || document.visibilityState !== "visible") return;
     let stopped = false;
     void Promise.all(
       [allResultsUrl, reviewResultsUrl].map(async (url) => {
@@ -387,50 +403,54 @@ export function CourseImportWorkspace({
     };
   }, [viewRunId, allResultsUrl, reviewResultsUrl, estimateAttempt]);
 
-  useEffect(() => {
-    if (!viewRunId || resultTab === "overview") return;
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function load() {
-      try {
-        const response = await fetch(resultUrl);
-        const data = await response.json();
-        if (!response.ok)
-          throw new Error(data.error ?? "Course results could not be loaded.");
-        if (!stopped) {
-          setResultCache((cache) => ({ ...cache, [resultKey]: data }));
-          if (data.page !== resultPage) setResultPage(data.page);
-        }
-      } catch (cause) {
-        if (!stopped) {
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Course results could not be loaded.",
-          );
-        }
-      }
-      if (!stopped) timer = setTimeout(load, 3000);
-    }
-    timer = setTimeout(load, resultQuery ? 200 : 0);
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-    };
-  }, [
-    viewRunId,
-    resultPage,
-    year,
-    resultQuery,
-    resultOutcome,
-    resultIssue,
-    resultTab,
-    estimateAttempt,
-    resultUrl,
-    resultKey,
-  ]);
+  const resultAttemptedKey = useRef<string | null>(null);
+  const resultFingerprint = useRef("");
+  const resultPollingStopped = useCataloguePoll({
+    watchKey: resultTab !== "overview" && viewRunId ? resultKey : null,
+    enabled: viewRunId !== null && resultTab !== "overview",
+    initialDelayMs: resultQuery ? 200 : 0,
+    async poll(signal) {
+      // A results check can remain scheduled when the last summary finishes.
+      if (terminalRun && resultAttemptedKey.current === resultKey)
+        return { changed: false, done: true };
+      resultAttemptedKey.current = resultKey;
+      const response = await fetch(resultUrl, { signal, cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error ?? "Course results could not be loaded.");
+      if (signal.aborted) return { changed: false, done: true };
+      const fingerprint = JSON.stringify(data);
+      const changed = resultFingerprint.current !== fingerprint;
+      resultFingerprint.current = fingerprint;
+      setResultCache((cache) => ({ ...cache, [resultKey]: data }));
+      if (data.page !== resultPage) setResultPage(data.page);
+      return {
+        changed,
+        done:
+          !current ||
+          current.state !== "active" ||
+          current.finished >= current.total,
+      };
+    },
+    onError(cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Course results could not be loaded.",
+      );
+    },
+  });
 
   useEffect(() => {
+    if (current) {
+      if (
+        lastRunState.current?.id === current.id &&
+        lastRunState.current.state !== current.state &&
+        current.finished < current.total
+      )
+        router.refresh();
+      lastRunState.current = { id: current.id, state: current.state };
+    }
     if (
       current &&
       current.finished === current.total &&
@@ -694,6 +714,14 @@ export function CourseImportWorkspace({
                             }`}
                   </Button>
                 }
+              />
+            )}
+            {(summaryPollingStopped || resultPollingStopped) && (
+              <SyncPollNotice
+                onRefresh={() => {
+                  router.refresh();
+                  setEstimateAttempt((value) => value + 1);
+                }}
               />
             )}
             {error && (

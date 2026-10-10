@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tables, failures } = vi.hoisted(() => ({
+const { tables, failures, reads } = vi.hoisted(() => ({
   tables: new Map<string, Array<Record<string, unknown>>>(),
   failures: new Map<string, { code: string; message: string }>(),
+  reads: [] as Array<{
+    table: string;
+    columns?: string;
+    named?: string;
+    ids?: unknown[];
+  }>,
 }));
 
 vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
@@ -24,9 +30,15 @@ vi.mock("../lib/supabase/public-server", () => ({
     from(table: string) {
       let rows = tables.get(table) ?? [];
       let bounded = table === "catalogue_records";
+      const read: (typeof reads)[number] = { table };
+      reads.push(read);
       const query = {
-        select: () => query,
+        select: (columns: string) => {
+          read.columns = columns;
+          return query;
+        },
         eq(column: string, value: unknown) {
+          if (column === "code") bounded = true;
           rows = rows.filter((row) => row[column] === value);
           return query;
         },
@@ -39,11 +51,13 @@ vi.mock("../lib/supabase/public-server", () => ({
           return query;
         },
         in(column: string, values: unknown[]) {
+          read.ids = values;
           bounded = values.length <= 100;
           rows = rows.filter((row) => values.includes(row[column]));
           return query;
         },
         ilike(column: string, value: string) {
+          read.named = value;
           rows = rows.filter(
             (row) => String(row[column]).toLowerCase() === value.toLowerCase(),
           );
@@ -78,6 +92,7 @@ import {
 } from "../lib/coursemap/published-courses";
 
 beforeEach(() => {
+  reads.length = 0;
   tables.clear();
   failures.clear();
   const records: Array<{
@@ -234,4 +249,69 @@ it("does not broaden an invalid prerequisite filter or hide graph failures", asy
       filters: { prerequisite: "COMP1000" },
     }),
   ).rejects.toMatchObject({ code: "57014" });
+});
+
+it("loads one course's years without a cold fill of the entire directory", async () => {
+  expect(await loadPublishedCourseYears("ECON1101")).toHaveLength(1001);
+  expect(
+    reads.every(
+      (read) =>
+        read.table === "published_course_summaries" &&
+        read.columns === "academic_year",
+    ),
+  ).toBe(true);
+});
+
+it("reuses bounded published name batches instead of scanning tags by name", async () => {
+  await loadPublishedCourseDirectoryPage({
+    academicYear: 2026,
+    filters: { tag: "bUsInEsS" },
+  });
+  expect(
+    reads
+      .filter((read) => read.table === "course_tags")
+      .every((read) => !read.named && (read.ids?.length ?? 0) <= 100),
+  ).toBe(true);
+});
+
+it("bounds catalogue code lookups even when one page references hundreds of courses", async () => {
+  tables.set("requirement_rules", [
+    {
+      id: 1,
+      version_id: 1,
+      rule_kind: "prerequisite",
+      source_text: "Required courses",
+      confidence: 1,
+      review_state: "verified",
+    },
+  ]);
+  tables.set(
+    "requirement_item_references",
+    Array.from({ length: 201 }, (_, index) => ({
+      rule_id: 1,
+      code_id: index + 1,
+    })),
+  );
+  tables.set(
+    "catalogue_codes",
+    Array.from({ length: 201 }, (_, index) => ({
+      id: index + 1,
+      code: `COMP${1100 + index}`,
+    })),
+  );
+  const result = await loadPublishedCourseDirectoryPage({ pageSize: 1 });
+  expect(result.courses[0]?.prerequisiteCodes).toHaveLength(201);
+  expect(
+    reads
+      .filter((read) => read.table === "catalogue_codes")
+      .map((read) => read.ids?.length),
+  ).toEqual([100, 100, 1]);
+});
+
+it("shares publication IDs between both name batches on a cold filter-options fill", async () => {
+  await loadCourseDirectoryFilterOptions();
+  // Two publication pages each for the directory and the shared name lookup.
+  expect(
+    reads.filter((read) => read.table === "catalogue_records"),
+  ).toHaveLength(4);
 });
