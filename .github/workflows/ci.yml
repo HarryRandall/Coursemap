@@ -260,3 +260,25 @@ jobs:
 
       - name: Apply production migrations
         run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
+
+  production-deploy:
+    name: Deploy production application
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: production-database
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: Production
+
+    steps:
+      - name: Trigger production deployment
+        env:
+          VERCEL_PRODUCTION_DEPLOY_HOOK: ${{ secrets.VERCEL_PRODUCTION_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$VERCEL_PRODUCTION_DEPLOY_HOOK" ]; then
+            echo "::error::VERCEL_PRODUCTION_DEPLOY_HOOK is not configured."
+            exit 1
+          fi
+          if ! curl -fsS -X POST "$VERCEL_PRODUCTION_DEPLOY_HOOK" --output /dev/null 2>/dev/null; then
+            echo "::error::The Vercel production deploy hook request failed."
+            exit 1
+          fi

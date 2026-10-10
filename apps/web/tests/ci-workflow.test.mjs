@@ -11,10 +11,14 @@ const workflow = readFileSync(
 );
 const roots = [];
 
+function jobSource(name) {
+  return workflow.split(`  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
+}
+
 function stepSource(name) {
   return workflow
     .split(`      - name: ${name}\n`)[1]
-    .split("\n      - name:")[0];
+    .split(/\n(?:      - name:|  [\w-]+:\n)/)[0];
 }
 
 function stepCommand(name) {
@@ -156,4 +160,89 @@ test("masks the encoded database password before exporting the connection URL", 
   expect(masked).toBe(url.password);
   expect(url.password).toContain("%0A");
   expect(exported.endsWith("\n")).toBe(true);
+});
+
+test("production deploys only after successful migrations on a push to main", () => {
+  const deploy = jobSource("production-deploy");
+  expect(deploy).toBeDefined();
+  expect(deploy).toMatch(
+    /if: github.event_name == 'push' && github.ref == 'refs\/heads\/main'/,
+  );
+  expect(deploy).toMatch(/needs: production-database\n/);
+  expect(deploy).toMatch(/environment: Production\n/);
+  expect(deploy).not.toMatch(/always\(|uses:|paths:|migrations.*outputs/);
+  expect(stepSource("Trigger production deployment")).toContain(
+    "${{ secrets.VERCEL_PRODUCTION_DEPLOY_HOOK }}",
+  );
+  expect(stepCommand("Apply production migrations")).toBe(
+    'supabase db push --db-url "$SUPABASE_DB_URL" --yes',
+  );
+});
+
+test("Vercel disables automatic main deployments and keeps branch previews", () => {
+  const config = JSON.parse(
+    readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
+  );
+  // Any matching true rule enables main; unspecified branches already deploy.
+  expect(config.git?.deploymentEnabled).toEqual({ main: false });
+});
+
+function deployRequest(hook, curlStatus = 0) {
+  const root = mkdtempSync(join(tmpdir(), "coursemap-deploy-"));
+  roots.push(root);
+  const argumentsFile = join(root, "curl-arguments");
+  writeFileSync(
+    join(root, "curl"),
+    `#!/bin/bash\nprintf '%s\\n' "$@" > "$CURL_ARGUMENTS"\nif [ "$CURL_STATUS" != 0 ]; then\n  printf 'Request failed: %s\\n' "$VERCEL_PRODUCTION_DEPLOY_HOOK" >&2\nfi\nexit "$CURL_STATUS"\n`,
+    { mode: 0o755 },
+  );
+  const result = spawnSync(
+    "bash",
+    ["-e", "-c", stepCommand("Trigger production deployment")],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${root}:${process.env.PATH}`,
+        VERCEL_PRODUCTION_DEPLOY_HOOK: hook,
+        CURL_ARGUMENTS: argumentsFile,
+        CURL_STATUS: String(curlStatus),
+      },
+    },
+  );
+  return { result, argumentsFile };
+}
+
+test("a missing production deploy hook fails clearly without making a request", () => {
+  const { result, argumentsFile } = deployRequest("");
+  expect(result.status).not.toBe(0);
+  expect(result.stdout).toContain(
+    "::error::VERCEL_PRODUCTION_DEPLOY_HOOK is not configured.",
+  );
+  expect(() => readFileSync(argumentsFile)).toThrow();
+});
+
+test("production deployment posts to the hook without logging its URL", () => {
+  const hook = "https://example.test/deploy/private-test-hook";
+  const { result, argumentsFile } = deployRequest(hook);
+  expect(result.status).toBe(0);
+  expect(readFileSync(argumentsFile, "utf8").trim().split("\n")).toEqual([
+    "-fsS",
+    "-X",
+    "POST",
+    hook,
+    "--output",
+    "/dev/null",
+  ]);
+  expect(result.stdout + result.stderr).not.toContain(hook);
+});
+
+test("a failed production deploy request fails without leaking curl diagnostics", () => {
+  const hook = "https://example.test/deploy/private-test-hook";
+  const { result } = deployRequest(hook, 22);
+  expect(result.status).not.toBe(0);
+  expect(result.stdout).toContain(
+    "::error::The Vercel production deploy hook request failed.",
+  );
+  expect(result.stdout + result.stderr).not.toContain(hook);
 });
