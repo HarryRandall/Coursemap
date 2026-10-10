@@ -31,7 +31,7 @@ export function CourseDetailClient({
     isAuthenticated: boolean;
   };
 }) {
-  const surveyReport = usePublishedSurvey(course.code);
+  const survey = usePublishedSurvey(course.code);
   const { state } = useCoursemap();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,21 +63,23 @@ export function CourseDetailClient({
   return (
     <Tabs
       value={
-        activeTab === "student-review" && !surveyReport ? "overview" : activeTab
+        activeTab === "student-review" && survey.status === "empty"
+          ? "overview"
+          : activeTab
       }
       onValueChange={(value) => selectTab(value as CourseTab)}
       className="gap-0"
     >
       <AppShell
         tabs={
-          <CourseDetailTabsList showStudentReview={Boolean(surveyReport)} />
+          <CourseDetailTabsList showStudentReview={survey.status !== "empty"} />
         }
       >
         <CourseDetailView
           attempts={state.attempts}
           commencementYear={state.profile.commencementYear}
           course={course}
-          surveyReport={surveyReport}
+          survey={survey}
           onAddToPlan={() => setPlanOpen(true)}
           requisiteCompletion={requisiteCompletion}
           yearPicker={
