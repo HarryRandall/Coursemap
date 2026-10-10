@@ -218,9 +218,10 @@ export function AppProvider({
       if (!writeGuestPlanCookie(next)) return GUEST_PLAN_FULL;
       latestState.current = next;
       setState(next);
+      router.refresh();
       return { ok: true, message };
     },
-    [],
+    [router],
   );
 
   const saveGuestResult = useCallback(
@@ -312,8 +313,6 @@ export function AppProvider({
           }),
           `${courseCode} added to the plan`,
         );
-        // The server loads the course versions a plan names from the cookie.
-        if (result.ok) router.refresh();
         return result;
       }
       // The course shows at once under a temporary id, which the saved id
@@ -402,16 +401,6 @@ export function AppProvider({
           }),
           "Course moved",
         );
-        const moved = previousAttempts.find(
-          (attempt) => attempt.id === attemptId,
-        );
-        // Another year's version may not be in the loaded catalogue yet.
-        if (
-          result.ok &&
-          moved &&
-          moved.academicYear !== courseYearForTerm(termId, moved.academicYear)
-        )
-          router.refresh();
         return result;
       }
       setState((current) => ({

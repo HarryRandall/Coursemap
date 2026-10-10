@@ -181,7 +181,7 @@ export async function addPlanCourse(
       p_planned_period_code: period,
     });
     if (error) throw error;
-    revalidatePath("/plan");
+    revalidatePath("/", "layout");
     return { ok: true, id: data, message: `${courseCode} added to the plan` };
   } catch (error) {
     return failure(error);
@@ -200,8 +200,7 @@ export async function setCurrentUserPlanExtensionYears(
       },
     );
     if (error) throw error;
-    revalidatePath("/plan");
-    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
     return { ok: true, message: "Plan timeline updated" };
   } catch (error) {
     return failure(error);
@@ -223,7 +222,7 @@ export async function movePlanCourse(
       p_before_plan_item_id: beforePlanItemId,
     });
     if (error) throw error;
-    revalidatePath("/plan");
+    revalidatePath("/", "layout");
     return { ok: true, message: "Course moved" };
   } catch (error) {
     return failure(error);
@@ -240,7 +239,7 @@ export async function removePlanCourse(
       { p_plan_item_id: planItemId },
     );
     if (error) throw error;
-    if (data) revalidatePath("/plan");
+    if (data) revalidatePath("/", "layout");
     return data
       ? { ok: true, message: "Course removed from the plan" }
       : { ok: false, message: "That course is no longer in your plan" };
@@ -273,7 +272,7 @@ export async function recordCourseAttempt(
       .eq("id", data)
       .single();
     if (storedAttemptError) throw storedAttemptError;
-    revalidatePath("/plan");
+    revalidatePath("/", "layout");
     return {
       ok: true,
       id: data,
@@ -299,6 +298,7 @@ export async function setCourseStar(
       p_starred: starred,
     });
     if (error) throw error;
+    revalidatePath("/", "layout");
     return {
       ok: true,
       message: starred ? `${courseCode} starred` : `${courseCode} unstarred`,
@@ -327,7 +327,7 @@ export async function setRequirementPlacement(
       },
     );
     if (error) throw error;
-    revalidatePath("/requirements");
+    revalidatePath("/", "layout");
     return {
       ok: true,
       message: placement
