@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import { CATALOGUE_CONTENT_SCHEMA_VERSION } from "../lib/catalogue/content";
 import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
@@ -132,7 +132,10 @@ test("enrolment mode scope retains its grouping and authority through editor sav
   } finally {
     if (codeId) {
       await sql`delete from public.catalogue_listings where code_id = ${codeId}`;
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     }
     await sql.end();
   }
@@ -240,7 +243,10 @@ test("concurrent exclusions retain timing and advisory scope through editor save
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
@@ -341,7 +347,10 @@ test("a conditional permission exclusion preserves alternatives in desktop and m
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
@@ -462,7 +471,10 @@ test("commencement-year waiver bounds render and autosave without losing the sch
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });

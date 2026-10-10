@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 test("student course eligibility uses published programme college metadata and preserves missing data", async ({
@@ -33,7 +33,7 @@ test("student course eligibility uses published programme college metadata and p
     );
     const programme = await createProgramme(codes[0], college);
     const missing = await createProgramme(codes[1], null);
-    await sql.begin(async (tx) => {
+    await cleanCatalogueFixtures(sql, async (tx) => {
       const [course] =
         await tx`select pg_temp.create_course_snapshot(${codes[2]},2026::smallint,'College eligibility browser test',p_level => 9000::smallint) as id`;
       const [rule] =
@@ -87,11 +87,8 @@ test("student course eligibility uses published programme college metadata and p
   } finally {
     await sql`delete from public.plan_structures where owner_id = ${planner.id}::uuid`;
     await sql`delete from public.catalogue_listings where code in ${sql(codes)}`;
-    await sql.begin(async (tx) => {
-      // Only synthetic local fixtures are removed; rollback restores the guard on failure.
-      await tx`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+    await cleanCatalogueFixtures(sql, async (tx) => {
       await tx`delete from public.catalogue_codes where code in ${tx(codes)}`;
-      await tx`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     });
     await sql.end();
   }

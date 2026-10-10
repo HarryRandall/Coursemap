@@ -61,8 +61,16 @@ export const test = base.extend<{
     try {
       await provide({ email, password, id: data.user.id });
     } finally {
-      const result = await client.auth.admin.deleteUser(data.user.id);
-      if (result.error) throw result.error;
+      const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+        max: 1,
+      });
+      try {
+        await cleanCatalogueFixtures(sql, async (tx) => {
+          await tx`delete from auth.users where id = ${data.user.id}::uuid`;
+        });
+      } finally {
+        await sql.end();
+      }
     }
   },
   planner: async ({ student }, provide) => {
@@ -125,4 +133,24 @@ export async function login(
     .fill(account.password);
   await page.getByRole("button", { name: /sign in|log in/i }).click();
   await expect(page).not.toHaveURL(/\/login/);
+}
+
+/** Remove synthetic local fixtures without rewriting the production history rules. */
+export async function cleanCatalogueFixtures(
+  sql: ReturnType<typeof postgres>,
+  remove: (tx: postgres.TransactionSql) => Promise<void>,
+) {
+  localTestEnvironment();
+  await sql.begin(async (tx) => {
+    // Transactional DDL restores every guard if cleanup fails.
+    await tx`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+    await tx`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
+    await tx`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+    await tx`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
+    await remove(tx);
+    await tx`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await tx`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+    await tx`alter table public.catalogue_publications enable trigger catalogue_publications_guard_history`;
+    await tx`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
+  });
 }

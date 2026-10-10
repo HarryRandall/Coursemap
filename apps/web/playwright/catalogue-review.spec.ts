@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import {
   CATALOGUE_CONTENT_SCHEMA_VERSION,
   emptyCatalogueContent,
@@ -110,7 +110,10 @@ test("a failed ANU reading cannot claim a match or publish its incomplete draft"
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
