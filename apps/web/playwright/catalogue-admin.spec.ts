@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { randomUUID } from "node:crypto";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 import { seltTokenHandle } from "../lib/selt/admin-format";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 
 test("administrators browse year-first catalogue records", async ({
   page,
@@ -106,7 +106,10 @@ test("stopped bulk imports show imported counts and linked results on desktop an
     await sql`delete from public.catalogue_course_runs where id = ${runId}`;
     await sql`delete from public.catalogue_syncs where id = any(${sql.array(syncIds)}::uuid[])`;
     if (codeId)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
