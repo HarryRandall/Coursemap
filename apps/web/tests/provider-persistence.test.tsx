@@ -307,3 +307,67 @@ test("replacing a plan with the same contents resets optimistic state", async ()
     await move;
   });
 });
+
+test.each(["moved", "removed"])(
+  "a failed move skips an original successor that was %s",
+  async (successorChange) => {
+    const second = {
+      ...initialState.attempts[0],
+      id: "second-course",
+      courseCode: "COMP1110",
+    };
+    const third = {
+      ...initialState.attempts[0],
+      id: "third-course",
+      courseCode: "COMP1140",
+    };
+    render(
+      <AppProvider
+        viewer={null}
+        canAccessAdmin={false}
+        initialState={{
+          ...initialState,
+          attempts: [...initialState.attempts, second, third],
+        }}
+      >
+        <Consumer />
+      </AppProvider>,
+    );
+    await waitFor(() => expect(context.ready).toBe(true));
+    const first = deferredResult();
+    actions.movePlanCourse
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValueOnce({ ok: true, message: "Saved." });
+    actions.removePlanCourse.mockResolvedValueOnce({
+      ok: true,
+      message: "Removed.",
+    });
+    let pending!: ReturnType<typeof context.reorderAttempt>;
+    await act(async () => {
+      pending = context.reorderAttempt("saved-course", "2026-s2");
+    });
+    await act(async () => {
+      if (successorChange === "moved")
+        await context.reorderAttempt("second-course", "2026-s2");
+      else await context.removeAttempt("second-course");
+    });
+    await act(async () => {
+      first.resolve({ ok: false, message: "Failed." });
+      await pending;
+    });
+    expect(
+      context.state.attempts
+        .filter((item) => item.termId === "2026-s1")
+        .map((item) => item.id),
+    ).toEqual(["saved-course", "third-course"]);
+    if (successorChange === "moved")
+      expect(
+        context.state.attempts.find((item) => item.id === "second-course")
+          ?.termId,
+      ).toBe("2026-s2");
+    else
+      expect(
+        context.state.attempts.some((item) => item.id === "second-course"),
+      ).toBe(false);
+  },
+);

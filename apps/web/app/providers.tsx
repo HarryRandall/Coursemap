@@ -456,7 +456,15 @@ export function AppProvider({
           );
           const nextId = previousAttempts
             .slice(previousIndex + 1)
-            .find((item) => item.termId === previous.termId)?.id;
+            .find(
+              (item) =>
+                item.termId === previous.termId &&
+                current.attempts.some(
+                  (attempt) =>
+                    attempt.id === item.id &&
+                    attempt.termId === previous.termId,
+                ),
+            )?.id;
           return {
             ...current,
             attempts: moveAttempt(
