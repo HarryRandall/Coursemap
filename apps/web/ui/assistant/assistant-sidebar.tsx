@@ -5,7 +5,6 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, SquarePen, ChartNoAxesColumn } from "lucide-react";
 import {
   Sidebar,
-  SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarGroup,
@@ -17,6 +16,7 @@ import {
 } from "@coursemap/ui/primitives/sidebar";
 import { BrandMark } from "@/ui/brand-mark";
 import { CourseFind } from "@/ui/course-find";
+import { SidebarScrollContent } from "@/ui/shell/sidebar-scroll-content";
 import { AccountMenu } from "@/ui/shell/account-menu";
 import { sectionLabel } from "@/ui/shell/breadcrumbs";
 import { usePathname } from "next/navigation";
@@ -50,12 +50,12 @@ export function AssistantSidebar() {
   const history = chats.filter((chat) => chat.messages.length > 0);
   return (
     <Sidebar variant="inset" collapsible="icon" className="select-none">
-      <SidebarHeader className="gap-3 px-3 pb-3 group-data-[collapsible=icon]:px-2">
+      <SidebarHeader className="gap-3 pr-3 pb-3 pl-0 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 motion-reduce:transition-none md:pr-1.5">
         <Link
           href="/dashboard"
           aria-label="Coursemap home"
           onClick={close}
-          className="flex h-12 items-center gap-2.5 overflow-hidden rounded-md px-1.5 group-data-[collapsible=icon]:px-0"
+          className="flex h-12 items-center gap-2.5 overflow-hidden rounded-md px-3 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-0 motion-reduce:transition-none"
         >
           <BrandMark className="size-8 shrink-0" />
           <strong className="brand-wordmark shrink-0 text-[17px] group-data-[collapsible=icon]:opacity-0">
@@ -64,8 +64,8 @@ export function AssistantSidebar() {
         </Link>
         <CourseFind onNavigate={close} />
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup className="px-3 py-2 group-data-[collapsible=icon]:px-2">
+      <SidebarScrollContent>
+        <SidebarGroup className="px-0 py-2 group-data-[collapsible=icon]:px-2">
           <SidebarMenu className="gap-1">
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -95,7 +95,7 @@ export function AssistantSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
-        <SidebarGroup className="px-3 py-2 group-data-[collapsible=icon]:hidden">
+        <SidebarGroup className="px-0 py-2 group-data-[collapsible=icon]:hidden">
           <SidebarGroupLabel>Recent chats</SidebarGroupLabel>
           <SidebarMenu>
             {history.map((chat) => (
@@ -119,8 +119,8 @@ export function AssistantSidebar() {
             </p>
           )}
         </SidebarGroup>
-      </SidebarContent>
-      <SidebarFooter>
+      </SidebarScrollContent>
+      <SidebarFooter className="pr-3 pl-0 group-data-[collapsible=icon]:px-2 md:pr-1.5">
         {/* Leaving Compass sits with the account row, as the admin shell's
             way back does, and names the page it returns to. */}
         <SidebarMenu>
