@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 test("operations distinguishes unknown usage, partial totals and cached zero", async ({
@@ -71,7 +71,10 @@ test("operations distinguishes unknown usage, partial totals and cached zero", a
     expect(errors).toEqual([]);
   } finally {
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });
