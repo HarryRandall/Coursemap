@@ -21,8 +21,10 @@ Both production jobs use the protected GitHub `Production` environment.
    and the project's settings as part of setup.
 4. Validate `apps/web/vercel.json` against its
    [Vercel schema](https://openapi.vercel.sh/vercel.json). Its
-   `git.deploymentEnabled` branch map sets `main` to `false` and `*` to `true`
-   for previews. Confirm a push to `main` causes no immediate Git deployment
+   `git.deploymentEnabled` branch map sets only `main` to `false`. Unspecified
+   branches default to enabled for previews. Do not add an enabling wildcard:
+   any matching true rule would re-enable `main` deployments. Confirm a push
+   to `main` causes no immediate Git deployment
    and that the hook still starts a production build
    after migrations succeed. Confirm another branch still gets a preview.
 5. Check GitHub's deploy job and Vercel's deployment separately. A successful

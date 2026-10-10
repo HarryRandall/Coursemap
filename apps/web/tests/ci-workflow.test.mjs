@@ -183,7 +183,8 @@ test("Vercel disables automatic main deployments and keeps branch previews", () 
   const config = JSON.parse(
     readFileSync(new URL("../vercel.json", import.meta.url), "utf8"),
   );
-  expect(config.git?.deploymentEnabled).toEqual({ "*": true, main: false });
+  // Any matching true rule enables main; unspecified branches already deploy.
+  expect(config.git?.deploymentEnabled).toEqual({ main: false });
 });
 
 function deployRequest(hook, curlStatus = 0) {
