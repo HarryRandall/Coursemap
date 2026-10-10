@@ -3950,6 +3950,30 @@ export type Database = {
           },
         ]
       }
+      room_route_cache: {
+        Row: {
+          cached_at: string
+          coordinates: Json
+          distance_metres: number
+          duration_seconds: number
+          route_key: string
+        }
+        Insert: {
+          cached_at?: string
+          coordinates: Json
+          distance_metres: number
+          duration_seconds: number
+          route_key: string
+        }
+        Update: {
+          cached_at?: string
+          coordinates?: Json
+          distance_metres?: number
+          duration_seconds?: number
+          route_key?: string
+        }
+        Relationships: []
+      }
       selt_import_runs: {
         Row: {
           created_at: string
@@ -4899,6 +4923,10 @@ export type Database = {
       catalogue_publish_blockers: {
         Args: { p_record_id: number }
         Returns: string[]
+      }
+      claim_room_route_request: {
+        Args: never
+        Returns: boolean
       }
       current_user_course_attempt_version_projections: {
         Args: { p_version_ids: number[] }
