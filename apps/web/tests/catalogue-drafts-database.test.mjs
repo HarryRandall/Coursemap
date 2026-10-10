@@ -2,10 +2,16 @@ import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
+  markFieldForReview,
+  resolveSourceChange,
+} from "../lib/catalogue/source-review-decisions.ts";
+import {
   beginCatalogueDraft,
   CatalogueDraftConflictError,
   loadCatalogueEditorState,
   discardCatalogueDraft,
+  loadCatalogueRecordIdentity,
+  resolveDraftExtractionError,
   publishCatalogueDraft,
   restoreCatalogueVersion,
   saveCatalogueDraft,
@@ -29,9 +35,15 @@ let recordId;
 async function removeFixture() {
   await sql`delete from public.catalogue_listings where kind = 'course' and code = ${CODE}`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+  await sql`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
+  await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+  await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
     await sql`delete from public.catalogue_codes where kind = 'course' and code = ${CODE}`;
   } finally {
+    await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+    await sql`alter table public.catalogue_publications enable trigger catalogue_publications_guard_history`;
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
   }
 }
@@ -52,6 +64,8 @@ beforeAll(async () => {
       now(), now()
     ) on conflict (id) do nothing
   `;
+  // Manual publication checks the editor's own permission for the record kind.
+  await sql`insert into private.user_roles (user_id, role_id) select ${ADMIN_ID}::uuid, id from private.app_roles where key = 'admin' on conflict (user_id) do update set role_id = excluded.role_id`;
   await removeFixture();
   const [year] =
     await sql`select id from public.academic_years where year = ${YEAR}`;
@@ -580,6 +594,84 @@ test("asking to edit a record opens a draft on it, unchanged", async () => {
   assert.equal(discarded.meaningful, false);
   assert.equal(discarded.checkpointVersionId, null);
   assert.equal(await draftRowCount(), 0);
+});
+
+test("catalogue.write alone cannot change a course's draft, publication or history", async () => {
+  assert.deepEqual(await loadCatalogueRecordIdentity(recordId, sql), {
+    kind: "course",
+    academicYear: YEAR,
+    code: CODE,
+  });
+  const [role] = await sql`
+    insert into private.app_roles (key, name, description)
+    values (${`test_structures_${Date.now()}`}, 'Test structure editor', 'Isolated course permission test')
+    returning id
+  `;
+  try {
+    await sql`insert into private.role_permissions (role_id, permission_id) select ${role.id}, id from private.app_permissions where key = 'catalogue.write'`;
+    await sql`update private.user_roles set role_id = ${role.id} where user_id = ${ADMIN_ID}::uuid`;
+    const refused = { code: "FORBIDDEN" };
+    const common = {
+      recordId,
+      userId: ADMIN_ID,
+      editingSessionId: SESSION_ID,
+      sql,
+    };
+    await assert.rejects(
+      publishCatalogueDraft({ ...common, expectedRevision: 0 }),
+      refused,
+    );
+    await assert.rejects(unpublishCatalogueRecord(common), refused);
+    await assert.rejects(
+      discardCatalogueDraft({ ...common, expectedRevision: 0 }),
+      refused,
+    );
+    const { content } = (await loadCatalogueEditorState(recordId, sql)).draft;
+    await assert.rejects(beginCatalogueDraft(common), refused);
+    await assert.rejects(
+      saveCatalogueDraft({ ...common, expectedRevision: 0, content }),
+      refused,
+    );
+    await assert.rejects(
+      resolveDraftExtractionError({
+        ...common,
+        expectedRevision: 0,
+        flagIndex: 0,
+      }),
+      refused,
+    );
+    await assert.rejects(
+      resolveSourceChange({
+        recordId,
+        changeId: 0,
+        decision: "use_source",
+        userId: ADMIN_ID,
+        sql,
+      }),
+      refused,
+    );
+    await assert.rejects(
+      markFieldForReview({
+        recordId,
+        fieldPath: "course.details.title",
+        userId: ADMIN_ID,
+        sql,
+      }),
+      refused,
+    );
+    await assert.rejects(
+      restoreCatalogueVersion({
+        ...common,
+        versionId: 1,
+        expectedRevision: null,
+        replaceExistingDraft: false,
+      }),
+      refused,
+    );
+  } finally {
+    await sql`update private.user_roles set role_id = (select id from private.app_roles where key = 'admin') where user_id = ${ADMIN_ID}::uuid`;
+    await sql`delete from private.app_roles where id = ${role.id}`;
+  }
 });
 
 test("published permission exceptions retain their nested exclusion groups and exact authority", async () => {

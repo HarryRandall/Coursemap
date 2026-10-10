@@ -14,8 +14,9 @@ import type {
 } from "@/lib/catalogue-sync/sync-store";
 import { withSyncDatabaseClient } from "@/lib/catalogue-sync/sync-store";
 import { fieldLabel } from "@/lib/coursemap/catalogue-kinds";
-import type { CatalogueContent } from "./content";
+import { validateCatalogueContent, type CatalogueContent } from "./content";
 import {
+  assertRecordWritePermission,
   CatalogueDraftError,
   catalogueRecordForUpdate,
   createDraftInTransaction,
@@ -85,13 +86,16 @@ export async function resolveSourceChange({
   const work = (client: SyncSql) =>
     client.begin(async (tx) => {
       const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       if (record.archived_at)
         throw new CatalogueDraftError(
           "The catalogue record is archived.",
           "ARCHIVED",
         );
       const [row] = await tx`
-        select changes.*, versions.id as source_version_id
+        select changes.field_path, changes.superseded_at, changes.decision,
+          changes.local_value, changes.incoming_source_value,
+          versions.id as source_version_id
         from public.catalogue_sync_changes as changes
         join public.catalogue_versions as versions on versions.sync_id = changes.sync_id
         where changes.id = ${changeId} and changes.record_id = ${recordId}
@@ -118,7 +122,7 @@ export async function resolveSourceChange({
       `;
       const draft = draftRow
         ? {
-            content: draftRow.content as CatalogueContent,
+            content: validateCatalogueContent(draftRow.content),
             revision: Number(draftRow.revision),
           }
         : await createDraftInTransaction(tx, record, userId).then(
@@ -226,12 +230,18 @@ export async function resolveSourceChange({
 export async function markFieldForReview({
   recordId,
   fieldPath,
+  userId,
+  sql,
 }: {
   recordId: number;
   fieldPath: string;
+  userId: string;
+  sql?: SyncSql;
 }) {
-  return withSyncDatabaseClient((client) =>
+  const work = (client: SyncSql) =>
     client.begin(async (tx) => {
+      const record = await catalogueRecordForUpdate(tx, recordId);
+      await assertRecordWritePermission(tx, record, userId);
       const rows = await tx`
         update public.catalogue_sync_changes
         set decision = null, resolved_by = null, resolved_at = null,
@@ -251,6 +261,6 @@ export async function markFieldForReview({
           "NOT_FOUND",
         );
       return { label: fieldLabel(fieldPath) };
-    }),
-  );
+    });
+  return sql ? work(sql) : withSyncDatabaseClient(work);
 }

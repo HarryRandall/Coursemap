@@ -68,7 +68,8 @@ import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
 import { RequisiteExpressionSummary } from "@/ui/courses/requisite-summary";
 import dynamic from "next/dynamic";
 import { CourseSurveySkeleton } from "@/ui/courses/reviews/course-survey-skeleton";
-import type { PublishedSurveyReport } from "@/lib/course-surveys/report-model";
+import type { PublishedSurveyState } from "@/lib/course-surveys/use-published-survey";
+import { CourseSurveyError } from "@/ui/courses/reviews/course-survey-error";
 const CourseSurveyPanel = dynamic(
   () =>
     import("@/ui/courses/reviews/course-survey-panel").then(
@@ -134,7 +135,7 @@ export function CourseDetailView({
   attempts = NO_ATTEMPTS,
   commencementYear = null,
   course,
-  surveyReport = null,
+  survey = { status: "empty", report: null },
   onAddToPlan,
   yearPicker,
   previewStudent,
@@ -145,7 +146,7 @@ export function CourseDetailView({
   /** The year the reader started their degree, for year-standing rules. */
   commencementYear?: number | null;
   course: CourseDetails;
-  surveyReport?: PublishedSurveyReport | null;
+  survey?: PublishedSurveyState;
   onAddToPlan?: () => void;
   yearPicker?: ReactNode;
   /**
@@ -840,9 +841,15 @@ export function CourseDetailView({
         </Card>
       </TabsContent>
 
-      {surveyReport && (
+      {survey.status !== "empty" && (
         <TabsContent value="student-review" className="flex flex-col gap-4">
-          <CourseSurveyPanel report={surveyReport} />
+          {survey.status === "error" ? (
+            <CourseSurveyError onRetry={survey.retry} />
+          ) : survey.status === "ready" ? (
+            <CourseSurveyPanel report={survey.report} />
+          ) : (
+            <CourseSurveySkeleton />
+          )}
         </TabsContent>
       )}
     </div>

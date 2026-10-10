@@ -91,6 +91,16 @@ type RoomFinderUrlState = {
 
 const SEARCH_RESULT_LIMIT = 8;
 const ROOM_RESULT_LIMIT = 6;
+const MAX_WALKING_ROUTE_RETRIES = 3;
+const MAX_WALKING_ROUTE_RETRY_WAIT_MS = 30_000;
+
+function walkingRouteRetryDelayMs(retryAfter: string | null) {
+  const value = retryAfter?.trim() ?? "";
+  if (/^\d+$/.test(value)) return Math.max(1000, Number(value) * 1000);
+  const delayMs = Date.parse(value) - Date.now();
+  return Number.isFinite(delayMs) ? Math.max(1000, delayMs) : 1000;
+}
+
 /**
  * Floors stay at their real heights. Opening a building up is the shell turning
  * to glass, not the floors flying apart: pulling them beyond the real roof puts
@@ -554,42 +564,67 @@ export function RoomFinder({
     if (!routeEndpoints) return;
 
     const controller = new AbortController();
+    const params = new URLSearchParams({
+      from: routeEndpoints.from.slug,
+      to: routeEndpoints.to.slug,
+    });
+    let retryCount = 0;
+    let retryWaitMs = 0;
 
-    const timeout = window.setTimeout(() => {
-      setRouteState({ status: "loading", route: null, message: null });
-      const params = new URLSearchParams({
-        from: routeEndpoints.from.slug,
-        to: routeEndpoints.to.slug,
-      });
-      void fetch(`/api/rooms/directions?${params}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          const body: unknown = await response.json();
-          if (!response.ok || !isCampusWalkingRoute(body)) {
-            const message =
-              body && typeof body === "object"
-                ? Reflect.get(body, "error")
-                : undefined;
-            throw new Error(
-              typeof message === "string"
-                ? message
-                : "Walking directions could not be loaded.",
-            );
-          }
-          setRouteState({ status: "success", route: body, message: null });
-        })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted) return;
-          setRouteState({
-            status: "error",
-            route: null,
-            message:
-              error instanceof Error
-                ? error.message
-                : "Walking directions could not be loaded.",
-          });
+    async function loadRoute() {
+      if (controller.signal.aborted) return;
+      try {
+        const response = await fetch(`/api/rooms/directions?${params}`, {
+          signal: controller.signal,
         });
+        if (controller.signal.aborted) return;
+        if (response.status === 429) {
+          const delayMs = walkingRouteRetryDelayMs(
+            response.headers.get("Retry-After"),
+          );
+          // Do not shorten the provider's wait or keep retrying indefinitely.
+          if (
+            retryCount < MAX_WALKING_ROUTE_RETRIES &&
+            retryWaitMs + delayMs <= MAX_WALKING_ROUTE_RETRY_WAIT_MS
+          ) {
+            retryCount += 1;
+            retryWaitMs += delayMs;
+            timeout = window.setTimeout(() => {
+              void loadRoute();
+            }, delayMs);
+            return;
+          }
+        }
+        const body: unknown = await response.json();
+        if (controller.signal.aborted) return;
+        if (!response.ok || !isCampusWalkingRoute(body)) {
+          const message =
+            body && typeof body === "object"
+              ? Reflect.get(body, "error")
+              : undefined;
+          throw new Error(
+            typeof message === "string"
+              ? message
+              : "Walking directions could not be loaded.",
+          );
+        }
+        setRouteState({ status: "success", route: body, message: null });
+      } catch (error: unknown) {
+        if (controller.signal.aborted) return;
+        setRouteState({
+          status: "error",
+          route: null,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Walking directions could not be loaded.",
+        });
+      }
+    }
+
+    let timeout = window.setTimeout(() => {
+      setRouteState({ status: "loading", route: null, message: null });
+      void loadRoute();
     }, 250);
 
     return () => {

@@ -3411,11 +3411,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "plan_requirement_placements_plan_id_fkey"
-            columns: ["plan_id"]
+            foreignKeyName: "plan_requirement_placements_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -3443,11 +3443,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "plan_starred_courses_plan_id_fkey"
-            columns: ["plan_id"]
+            foreignKeyName: "plan_starred_courses_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -3496,6 +3496,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "published_course_summaries"
             referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "plan_structures_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -3949,6 +3956,30 @@ export type Database = {
             referencedColumns: ["id", "academic_year_id"]
           },
         ]
+      }
+      room_route_cache: {
+        Row: {
+          cached_at: string
+          coordinates: Json
+          distance_metres: number
+          duration_seconds: number
+          route_key: string
+        }
+        Insert: {
+          cached_at?: string
+          coordinates: Json
+          distance_metres: number
+          duration_seconds: number
+          route_key: string
+        }
+        Update: {
+          cached_at?: string
+          coordinates?: Json
+          distance_metres?: number
+          duration_seconds?: number
+          route_key?: string
+        }
+        Relationships: []
       }
       selt_import_runs: {
         Row: {
@@ -4739,7 +4770,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
-          student_number?: string | null
+          student_number?: never
           updated_at?: string | null
           user_id?: string | null
         }
@@ -4747,7 +4778,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
-          student_number?: string | null
+          student_number?: never
           updated_at?: string | null
           user_id?: string | null
         }
@@ -4900,6 +4931,7 @@ export type Database = {
         Args: { p_record_id: number }
         Returns: string[]
       }
+      claim_room_route_request: { Args: never; Returns: boolean }
       current_user_course_attempt_version_projections: {
         Args: { p_version_ids: number[] }
         Returns: {
@@ -5241,3 +5273,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

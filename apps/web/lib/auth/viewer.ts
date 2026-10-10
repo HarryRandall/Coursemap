@@ -1,4 +1,6 @@
 import { cache } from "react";
+import type { CatalogueKind } from "@/lib/catalogue/content";
+import { importPublicationPermission } from "@/lib/catalogue-runs/kinds";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -86,6 +88,22 @@ export async function canWriteCourses() {
 /** Check the permission required to edit and publish academic structures. */
 export async function canWriteCatalogue() {
   return currentUserHasPermission("catalogue.write");
+}
+
+/**
+ * Check the permission required to edit and publish one kind of record:
+ * courses.write for courses, catalogue.write for academic structures.
+ */
+export async function canWriteCatalogueRecord(kind: CatalogueKind) {
+  return currentUserHasPermission(importPublicationPermission(kind));
+}
+
+/**
+ * Check the permission to read other students' plans, results and student
+ * numbers. Opening administration does not imply it.
+ */
+export async function canReadStudentRecords() {
+  return currentUserHasPermission("students.read");
 }
 
 /** Check the narrower permission required to manage Room Finder data. */

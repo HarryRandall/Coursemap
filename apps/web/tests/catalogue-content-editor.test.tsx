@@ -60,7 +60,6 @@ function renderEditor({ hasDraft = true } = {}) {
         initiallyPublished
         initialHasDraft={hasDraft}
         initialHasUnpublishedChanges={hasDraft}
-        path="/admin/courses/2026/comp1000"
       >
         <RecordActions canWrite />
         <CatalogueContentEditor />
@@ -265,7 +264,6 @@ test("server autosave refresh preserves later typing and expanded sections", asy
         initiallyPublished
         initialHasDraft
         initialHasUnpublishedChanges
-        path="/admin/courses/2026/comp1000"
       >
         <RecordActions canWrite />
         <RecordTabs value="content" path="/admin/courses/2026/comp1000">
@@ -325,7 +323,6 @@ test("a clean editor adopts a reviewed server draft without remounting its secti
       initiallyPublished
       initialHasDraft
       initialHasUnpublishedChanges
-      path="/admin/courses/2026/comp1000"
     >
       <CatalogueContentEditor />
     </CatalogueEditorProvider>
@@ -389,7 +386,6 @@ test("editing recorded source wording preserves unsupported condition kinds and 
       initiallyPublished
       initialHasDraft
       initialHasUnpublishedChanges
-      path="/admin/courses/2026/comp1000"
     >
       <CatalogueContentEditor />
     </CatalogueEditorProvider>,
@@ -476,7 +472,6 @@ test("recorded JSON waits for Apply and merges with later ordinary edits", async
       initiallyPublished
       initialHasDraft
       initialHasUnpublishedChanges
-      path="/admin/programmes/2027/bstat"
     >
       <CatalogueContentEditor />
     </CatalogueEditorProvider>,
@@ -542,7 +537,6 @@ test("supported text rules keep the visual editor and offer recorded editing on 
       initiallyPublished
       initialHasDraft
       initialHasUnpublishedChanges
-      path="/admin/courses/2026/comp1000"
     >
       <CatalogueContentEditor />
     </CatalogueEditorProvider>,

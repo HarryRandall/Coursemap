@@ -163,7 +163,10 @@ export async function loadSeltAdminReports({
         periods: row.periods,
         firstYear: row.first_year,
         lastYear: row.last_year,
-        overall: row.overall ?? [],
+        // Postgres.js decodes NULL in integer arrays as NaN.
+        overall: (row.overall ?? []).map((value: number | null) =>
+          Number.isNaN(value) ? null : value,
+        ),
         sourceUrl: row.source_url,
       })),
       total: rows[0]?.total ?? 0,

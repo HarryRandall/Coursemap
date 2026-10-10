@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getSiteOriginForRequest } from "@/lib/supabase/config";
+import { requestSiteOrigin } from "@/lib/auth/request-origin";
 import {
   GUEST_PLAN_COOKIE,
   GUEST_PLAN_MAX_AGE,
@@ -12,12 +12,7 @@ import {
  * button doubles as a way back in; a new one starts at onboarding.
  */
 export async function POST(request: NextRequest) {
-  const siteOrigin =
-    getSiteOriginForRequest(
-      request.nextUrl,
-      request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
-      request.headers.get("x-forwarded-proto"),
-    ) ?? request.nextUrl.origin;
+  const siteOrigin = requestSiteOrigin(request) ?? request.nextUrl.origin;
   if (request.headers.get("origin") !== siteOrigin) {
     return new NextResponse("Invalid request origin.", {
       status: 403,

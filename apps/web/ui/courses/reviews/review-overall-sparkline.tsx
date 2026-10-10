@@ -26,6 +26,7 @@ export function ReviewOverallSparkline({
   const gradient = useId().replace(/:/g, "");
   return (
     <ChartContainer
+      role="img"
       config={{
         agreement: { label: "Overall", color: "var(--color-primary)" },
       }}

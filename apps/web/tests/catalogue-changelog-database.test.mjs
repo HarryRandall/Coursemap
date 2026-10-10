@@ -25,9 +25,15 @@ let recordId;
 async function removeFixture() {
   await sql`delete from public.catalogue_listings where kind = 'course' and code = ${CODE}`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+  await sql`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
+  await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+  await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
     await sql`delete from public.catalogue_codes where kind = 'course' and code = ${CODE}`;
   } finally {
+    await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+    await sql`alter table public.catalogue_publications enable trigger catalogue_publications_guard_history`;
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
   }
 }
@@ -58,6 +64,8 @@ beforeAll(async () => {
       now(), now()
     ) on conflict (id) do nothing
   `;
+  // Manual publication checks the editor's own permission for the record kind.
+  await sql`insert into private.user_roles (user_id, role_id) select ${ADMIN_ID}::uuid, id from private.app_roles where key = 'admin' on conflict (user_id) do update set role_id = excluded.role_id`;
   await removeFixture();
   const [year] =
     await sql`select id from public.academic_years where year = ${YEAR}`;

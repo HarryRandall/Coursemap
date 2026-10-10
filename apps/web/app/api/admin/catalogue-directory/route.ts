@@ -1,3 +1,4 @@
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { refreshCatalogueDirectory } from "@/lib/catalogue-import/directory";
 import { isCatalogueKind } from "@/lib/catalogue/content";
@@ -20,6 +21,14 @@ function eventResponse(data: unknown, status: number) {
 
 /** Streams directory refresh progress as server-sent events. */
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return eventResponse(
+      {
+        type: "error",
+        message: "Use the Coursemap admin page for this action.",
+      },
+      403,
+    );
   if (!(await canManageCatalogueOperations())) {
     return eventResponse(
       { type: "error", message: "Import permission is required." },

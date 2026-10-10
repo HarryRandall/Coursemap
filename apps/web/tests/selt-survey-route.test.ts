@@ -15,21 +15,40 @@ beforeEach(() => {
   mocks.viewer.mockResolvedValue({ id: "student" });
   mocks.load.mockResolvedValue(null);
 });
-it("requires sign-in before looking up survey reports", async () => {
+it("returns a published report to anonymous viewers without reading their session", async () => {
   mocks.viewer.mockResolvedValue(null);
-  expect((await request()).status).toBe(401);
-  expect(mocks.load).not.toHaveBeenCalled();
-});
-it("returns an explicit empty result and prevents shared caching", async () => {
+  const report = { courseCode: "COMP1100", surveys: [] };
+  mocks.load.mockResolvedValue(report);
   const response = await request();
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ report });
+  expect(mocks.viewer).not.toHaveBeenCalled();
+  expect(mocks.load).toHaveBeenCalledWith("COMP1100");
+});
+it("returns an explicit empty result for unpublished reports", async () => {
+  mocks.viewer.mockResolvedValue(null);
+  const response = await request();
+  expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ report: null });
-  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("cache-control")).toBe(
+    "public, max-age=0, s-maxage=60",
+  );
+  expect(mocks.load).toHaveBeenCalledWith("COMP1100");
+});
+it("uses the same public read for signed-in viewers", async () => {
+  const response = await request();
+  expect(response.status).toBe(200);
+  expect(mocks.viewer).not.toHaveBeenCalled();
   expect(mocks.load).toHaveBeenCalledWith("COMP1100");
 });
 it("validates course codes and sanitises database failures", async () => {
-  expect((await request("invalid")).status).toBe(400);
+  const invalid = await request("invalid");
+  expect(invalid.status).toBe(400);
+  expect(invalid.headers.get("cache-control")).toBe("private, no-store");
+  expect(mocks.load).not.toHaveBeenCalled();
   mocks.load.mockRejectedValue(new Error("private database details"));
   const response = await request();
   expect(response.status).toBe(503);
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
   expect(await response.text()).not.toContain("private database");
 });

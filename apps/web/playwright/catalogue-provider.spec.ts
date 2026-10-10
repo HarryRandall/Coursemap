@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
 
 test("an administrator resumes held imports across inline batches", async ({
@@ -97,7 +97,9 @@ test("an administrator resumes held imports across inline batches", async ({
     expect(extractions.count).toBe(0);
   } finally {
     if (codeIds.length)
-      await sql`delete from public.catalogue_codes where id in ${sql(codeIds)}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        await tx`delete from public.catalogue_codes where id in ${tx(codeIds)}`;
+      });
     await sql`update public.catalogue_provider_controls set ${sql(original, "paused", "revision", "paused_at", "pause_reason", "error_message", "source_sync_id", "resumed_at", "resumed_by")} where provider = 'openrouter'`;
     await sql.end();
   }

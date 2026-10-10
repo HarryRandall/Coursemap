@@ -81,6 +81,7 @@ function adminUserData(): AdminUserDetailData {
     roles: [],
     permissions: [],
     assignments: [],
+    canReadStudy: true,
     study: {
       plan: {
         id: "plan-1",
@@ -130,4 +131,18 @@ test("the administrator view lists every minor and specialisation a student sele
   expect(screen.getByText("Specialisations")).toBeInTheDocument();
   expect(screen.getByText("Cyber Security (CYBER-SPEC)")).toBeInTheDocument();
   expect(screen.getByText("Major")).toBeInTheDocument();
+});
+
+test("without students.read the administrator view hides study records", () => {
+  render(
+    <AdminUserDetail
+      data={{ ...adminUserData(), canReadStudy: false }}
+      currentUserId="admin-1"
+      accountAgeDays={30}
+    />,
+  );
+
+  expect(screen.getByText("Study records hidden")).toBeInTheDocument();
+  expect(screen.queryByText("Minors")).not.toBeInTheDocument();
+  expect(screen.queryByText("u7499609")).not.toBeInTheDocument();
 });
