@@ -11,6 +11,7 @@ export const test = base.extend<{
   student: Account;
   administrator: Account;
   planner: Account;
+  seltImport: { sql: ReturnType<typeof postgres>; sourceHash: string };
 }>({
   page: async ({ page }, provide) => {
     const errors: string[] = [];
@@ -86,6 +87,25 @@ export const test = base.extend<{
       await provide(student);
     } finally {
       await sql.end();
+    }
+  },
+  seltImport: async ({ administrator }, provide) => {
+    const sql = postgres(localTestEnvironment().COURSEMAP_DATABASE_URL, {
+      max: 1,
+    });
+    try {
+      await provide({
+        sql,
+        sourceHash: randomUUID().replaceAll("-", "").repeat(2),
+      });
+    } finally {
+      // Fixture teardown precedes user deletion even when the test body times out.
+      try {
+        await sql`delete from public.selt_reports where import_run_id in (select id from public.selt_import_runs where requested_by = ${administrator.id})`;
+        await sql`delete from public.selt_import_runs where requested_by = ${administrator.id}`;
+      } finally {
+        await sql.end();
+      }
     }
   },
 });
