@@ -1,3 +1,4 @@
+import { canberraTodayIso } from "@/lib/canberra-format";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { AcademicRecord } from "./academic-record";
@@ -16,5 +17,5 @@ export default async function AcademicPage() {
       />
     );
   }
-  return <AcademicRecord catalogue={catalogue} />;
+  return <AcademicRecord catalogue={catalogue} todayIso={canberraTodayIso()} />;
 }

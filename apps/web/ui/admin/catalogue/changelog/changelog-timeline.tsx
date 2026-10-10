@@ -1,3 +1,4 @@
+import { ACADEMIC_TIME_ZONE, canberraTodayIso } from "@/lib/canberra-format";
 import Link from "next/link";
 import {
   CHANGELOG_PAGE_SIZE,
@@ -7,16 +8,21 @@ import { CatalogueEmpty } from "@/ui/admin/catalogue-table/catalogue-empty";
 import { ChangelogEntry } from "./changelog-entry";
 
 function dayKey(value: string) {
-  return new Date(value).toDateString();
+  return canberraTodayIso(new Date(value));
 }
 
 function dayLabel(value: string, today: Date) {
-  const day = new Date(value);
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  if (day.toDateString() === today.toDateString()) return "Today";
-  if (day.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return new Intl.DateTimeFormat("en-AU", { dateStyle: "long" }).format(day);
+  const todayIso = canberraTodayIso(today);
+  const yesterday = new Date(`${todayIso}T00:00:00Z`);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const yesterdayIso = yesterday.toISOString().slice(0, 10);
+  const key = dayKey(value);
+  if (key === todayIso) return "Today";
+  if (key === yesterdayIso) return "Yesterday";
+  return new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "long",
+    timeZone: ACADEMIC_TIME_ZONE,
+  }).format(new Date(value));
 }
 
 /**

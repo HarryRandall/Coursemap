@@ -7,12 +7,11 @@ import type {
 } from "@/lib/catalogue/changelog";
 import { ChangelogTimeline } from "@/ui/admin/catalogue/changelog/changelog-timeline";
 
-// Local dates, so the day grouping under test does not depend on the runner's
-// time zone.
-const TODAY = new Date(2026, 8, 22, 12, 0);
-const TODAY_AT = new Date(2026, 8, 22, 10, 42).toISOString();
-const TODAY_STARTED_AT = new Date(2026, 8, 22, 10, 38).toISOString();
-const YESTERDAY_AT = new Date(2026, 8, 21, 15, 10).toISOString();
+// Fixtures name Canberra instants explicitly in either runner time zone.
+const TODAY = new Date("2026-09-22T12:00:00+10:00");
+const TODAY_AT = "2026-09-22T10:42:00+10:00";
+const TODAY_STARTED_AT = "2026-09-22T10:38:00+10:00";
+const YESTERDAY_AT = "2026-09-21T15:10:00+10:00";
 const PATH = "/admin/courses/2027/comp2700";
 
 function entry(
@@ -159,4 +158,36 @@ test("a long history offers the rest of itself", () => {
   renderTimeline({ entries: [entry()], shown: 40, hasMore: true });
   const link = screen.getByRole("link", { name: "Show earlier history" });
   expect(link.getAttribute("href")).toBe(`${PATH}/changelog?events=80`);
+});
+
+test("Sydney midnight groups Today and Yesterday across the DST change", () => {
+  render(
+    <ChangelogTimeline
+      changelog={{
+        entries: [
+          entry({
+            id: "today",
+            at: "2026-10-04T13:05:00Z",
+            startedAt: "2026-10-04T13:05:00Z",
+          }),
+          entry({
+            id: "yesterday",
+            at: "2026-10-04T12:55:00Z",
+            startedAt: "2026-10-04T12:55:00Z",
+          }),
+        ],
+        shown: 2,
+        hasMore: false,
+      }}
+      path={PATH}
+      today={new Date("2026-10-04T13:10:00Z")}
+      versionOrdinals={new Map()}
+    />,
+  );
+  expect(
+    screen.getByRole("list", { name: "Changelog for Today" }).children,
+  ).toHaveLength(1);
+  expect(
+    screen.getByRole("list", { name: "Changelog for Yesterday" }).children,
+  ).toHaveLength(1);
 });

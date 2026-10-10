@@ -1,5 +1,7 @@
 "use client";
 
+import { ACADEMIC_TIME_ZONE, canberraTodayIso } from "@/lib/canberra-format";
+
 import { Button } from "@coursemap/ui/primitives/button";
 import { LoaderCircle, RefreshCw } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,7 +45,8 @@ function shortDate(value: string) {
   return new Intl.DateTimeFormat("en-AU", {
     day: "numeric",
     month: "short",
-    ...(date.getFullYear() === new Date().getFullYear()
+    timeZone: ACADEMIC_TIME_ZONE,
+    ...(canberraTodayIso(date).slice(0, 4) === canberraTodayIso().slice(0, 4)
       ? {}
       : { year: "numeric" }),
   }).format(date);
@@ -53,6 +56,7 @@ function shortDate(value: string) {
 function fullDate(value: string) {
   return new Intl.DateTimeFormat("en-AU", {
     dateStyle: "medium",
+    timeZone: ACADEMIC_TIME_ZONE,
     timeStyle: "short",
   }).format(new Date(value));
 }
