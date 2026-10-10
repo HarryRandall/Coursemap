@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
 import type { AttemptStatus, Profile } from "@/lib/coursemap/types";
+import { publicErrorMessage } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
 
 export type CoursemapActionResult = {
@@ -24,15 +25,85 @@ function termParts(termId: string) {
   return { year: Number(match[1]), period: match[2].toUpperCase() };
 }
 
+/**
+ * SQLSTATEs the planning functions raise with text written for the student,
+ * including messages built with format(). PostgreSQL's own errors under these
+ * codes describe the request rather than the schema; permission (42501) and
+ * constraint errors can name tables, so they are never passed through.
+ */
+const STUDENT_FACING_SQLSTATES = new Set(["22023", "28000", "40001", "P0002"]);
+
+/** Messages the planning functions raise for the student under other codes. */
+const PLANNING_MESSAGES = new Set([
+  "A course academic year is required.",
+  "A selected academic structure changed while the plan was being saved. Please try again.",
+  "Attempt mark must be between 0 and 100.",
+  "Attempt status must be enrolled, completed or failed.",
+  "Attempted units cannot change after an attempt is recorded.",
+  "Attempted units must be a positive value with at most two decimal places.",
+  "Attempted units must be within the published course range.",
+  "Attempted units must match a published course unit option.",
+  "Attempted units must match the fixed course value.",
+  "Authentication is required.",
+  "Choose a valid enrolment mode.",
+  "Choose the attempted units for this course.",
+  "Display name is required.",
+  "Plan extensions must be between zero and ten years.",
+  "Plan item not found.",
+  "Planned year and period must be supplied together.",
+  "Save a primary degree plan before adding courses.",
+  "Schedule the course in an academic period before recording an attempt.",
+  "Select each academic structure only once.",
+  "Selected minor and specialisation codes cannot be blank.",
+  "That study period is not valid.",
+  "The academic period is not available for recorded history.",
+  "The authenticated profile is missing.",
+  "The course has no published units for the attempted year.",
+  "The plan could not be updated.",
+  "The requested destination item was not found.",
+  "The selected academic year is not available.",
+  "The selected programme does not include duration or unit information for planning.",
+  "The selected programme is not published for that academic year.",
+  "You must be signed in to update a plan.",
+  "Your primary plan was not found.",
+]);
+
+/** The format() templates, for errors that arrive without their SQLSTATE. */
+const PLANNING_MESSAGE_PATTERNS = [
+  /^\S+ for \d* ?isn't imported yet\.$/u,
+  /^The selected [a-z]+ is not published for that academic year\.$/u,
+  /^The selected [a-z]+ is not an explicit option for that programme\.$/u,
+];
+
+function isStudentFacing(error: unknown, message: string) {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? error.code
+      : undefined;
+  return (
+    (typeof code === "string" && STUDENT_FACING_SQLSTATES.has(code)) ||
+    PLANNING_MESSAGES.has(message) ||
+    PLANNING_MESSAGE_PATTERNS.some((pattern) => pattern.test(message))
+  );
+}
+
 function failure(error: unknown): CoursemapActionResult {
   const rawMessage =
     error && typeof error === "object" && "message" in error
       ? String(error.message)
-      : "Couldn't save that change. Try again.";
-  const message = rawMessage.includes("profiles_student_number_format_check")
-    ? "Enter a student number in the format u1234567, or leave it blank."
-    : rawMessage;
-  return { ok: false, message };
+      : "";
+  if (rawMessage.includes("profiles_student_number_format_check"))
+    return {
+      ok: false,
+      message:
+        "Enter a student number in the format u1234567, or leave it blank.",
+    };
+  if (rawMessage && isStudentFacing(error, rawMessage))
+    return { ok: false, message: rawMessage };
+  return {
+    ok: false,
+    message: publicErrorMessage(error, "Couldn't save that change. Try again."),
+  };
 }
 
 export async function saveProfileAndPlan(

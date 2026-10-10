@@ -202,7 +202,6 @@ export function CatalogueChangesPanel({
                 change={change}
                 key={change.id}
                 notes={notesFor(change.fieldPath)}
-                path={path}
                 recordId={recordId}
                 subject={subject}
               />
@@ -219,7 +218,6 @@ export function CatalogueChangesPanel({
                 change={change}
                 key={change.id}
                 notes={notesFor(change.fieldPath)}
-                path={path}
                 recordId={recordId}
                 subject={subject}
               />
@@ -242,7 +240,6 @@ export function CatalogueChangesPanel({
                 change={change}
                 key={change.id}
                 notes={notesFor(change.fieldPath)}
-                path={path}
                 recordId={recordId}
                 subject={subject}
               />
@@ -302,7 +299,6 @@ export function CatalogueChangesPanel({
           canWrite={canWrite}
           items={allFields}
           open={openFields}
-          path={path}
           recordId={recordId}
         />
       </TabsContent>

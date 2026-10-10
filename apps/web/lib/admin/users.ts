@@ -1,3 +1,5 @@
+import "server-only";
+
 import { canReadStudentRecords } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 

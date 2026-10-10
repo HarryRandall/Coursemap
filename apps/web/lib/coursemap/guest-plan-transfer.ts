@@ -79,10 +79,19 @@ export async function transferGuestPlan(
     if (accountHasPlan && choice === "if-empty") return { status: "conflict" };
 
     const account = await loadCoursemapState(viewer);
+    // The account's own details win, because anyone with the browser can
+    // write the guest cookie; it only fills what the account has not set.
+    // Every account starts with a display name taken from its email, so that
+    // one only counts as chosen once the account has saved a plan.
     const saved = await saveProfileAndPlan({
       ...guest.profile,
-      name: guest.profile.name || account.profile.name,
-      studentId: guest.profile.studentId || account.profile.studentId,
+      name: accountHasPlan
+        ? account.profile.name || guest.profile.name
+        : guest.profile.name || account.profile.name,
+      studentId: account.profile.studentId || guest.profile.studentId,
+      preferredName:
+        account.profile.preferredName || guest.profile.preferredName,
+      pronouns: account.profile.pronouns || guest.profile.pronouns,
       email: viewer.email ?? "",
     });
     if (!saved.ok) return { status: "failed", message: saved.message };

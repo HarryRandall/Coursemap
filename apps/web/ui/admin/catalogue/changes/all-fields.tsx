@@ -57,13 +57,11 @@ function StatusSelect({
   item,
   open,
   recordId,
-  path,
   canWrite,
 }: {
   item: FirstReadItem;
   open: OpenField | undefined;
   recordId: number;
-  path: string;
   canWrite: boolean;
 }) {
   const router = useRouter();
@@ -78,12 +76,10 @@ function StatusSelect({
           ? await markFieldForReviewAction({
               recordId,
               fieldPath: item.fieldPath,
-              path,
             })
           : await approveFirstReadAction({
               recordId,
               changeIds: [open!.changeId],
-              path,
             });
       if (!result.ok) {
         showToast(result.error, "error");
@@ -119,14 +115,12 @@ export function AllFields({
   items,
   open,
   recordId,
-  path,
   canWrite,
 }: {
   items: readonly FirstReadItem[];
   /** Fields with a change still waiting on a decision, by field path. */
   open: Readonly<Record<string, OpenField>>;
   recordId: number;
-  path: string;
   canWrite: boolean;
 }) {
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -202,7 +196,6 @@ export function AllFields({
                     canWrite={canWrite}
                     item={item}
                     open={open[item.fieldPath]}
-                    path={path}
                     recordId={recordId}
                   />
                 </TableCell>

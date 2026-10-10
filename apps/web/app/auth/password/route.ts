@@ -1,10 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { safeInternalRedirect } from "@/lib/auth/redirect";
-import {
-  getSiteOriginForRequest,
-  getSupabaseConfig,
-} from "@/lib/supabase/config";
+import { requestSiteOrigin } from "@/lib/auth/request-origin";
+import { getSupabaseConfig } from "@/lib/supabase/config";
 import { createRequestClient } from "@/lib/supabase/request";
 
 function noStore(response: NextResponse) {
@@ -25,11 +23,7 @@ function loginRedirect(origin: string, next: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const siteOrigin = getSiteOriginForRequest(
-    request.nextUrl,
-    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
-    request.headers.get("x-forwarded-proto"),
-  );
+  const siteOrigin = requestSiteOrigin(request);
   if (!siteOrigin || !getSupabaseConfig()) {
     return new NextResponse("Coursemap authentication is not configured.", {
       status: 503,
