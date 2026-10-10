@@ -4924,10 +4924,7 @@ export type Database = {
         Args: { p_record_id: number }
         Returns: string[]
       }
-      claim_room_route_request: {
-        Args: never
-        Returns: boolean
-      }
+      claim_room_route_request: { Args: never; Returns: boolean }
       current_user_course_attempt_version_projections: {
         Args: { p_version_ids: number[] }
         Returns: {
@@ -5269,3 +5266,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
