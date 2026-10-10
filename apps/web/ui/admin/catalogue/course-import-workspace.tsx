@@ -157,7 +157,7 @@ export function CourseImportWorkspace({
     current !== undefined &&
     (current.state !== "active" || current.finished >= current.total);
   const summaryWatchKey = viewRunId
-    ? `${viewRunId}:${active}:${estimateAttempt}`
+    ? `${year}:${kind}:${viewRunId}:${active}:${estimateAttempt}`
     : null;
   const summaryAttemptedKey = useRef<string | null>(null);
   const summaryFingerprint = useRef("");

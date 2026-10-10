@@ -924,13 +924,16 @@ it("never starts a second advance while one is still on its way", async () => {
   };
   let summaries = 0;
   const advances: RequestInit[] = [];
+  let finishAdvance!: (response: Response) => void;
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, options?: RequestInit) => {
-      if (options) {
+      if (options?.method === "POST") {
         advances.push(options);
         // The server is still choosing and dispatching the next course.
-        return new Promise<Response>(() => {});
+        return new Promise<Response>((resolve) => {
+          finishAdvance = resolve;
+        });
       }
       if (url.includes("summary=")) summaries += 1;
       return Promise.resolve(
@@ -959,7 +962,11 @@ it("never starts a second advance while one is still on its way", async () => {
       <CourseImportWorkspace year={2027} initialRun={run} />
     </TooltipProvider>,
   );
-  await waitFor(() => expect(summaries).toBeGreaterThan(polled));
   await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(summaries).toBe(polled);
+  expect(advances).toHaveLength(1);
+  run.state = "completed";
+  finishAdvance(Response.json({}));
+  await waitFor(() => expect(summaries).toBeGreaterThan(polled));
   expect(advances).toHaveLength(1);
 });
