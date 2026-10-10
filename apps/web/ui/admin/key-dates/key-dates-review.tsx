@@ -1,4 +1,5 @@
 "use client";
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -39,7 +40,7 @@ import { showToast } from "@/ui/common/toast";
 const timestampFormat = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "medium",
   timeStyle: "short",
-  timeZone: "Australia/Sydney",
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 
 function plural(count: number, noun: string) {

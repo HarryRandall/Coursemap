@@ -80,6 +80,7 @@ vi.mock("@/ui/academic/previews/preview-layout", () => ({
 test("academic page keeps real attempt IDs, grades, unit loads and periods while excluding future plans", () => {
   render(
     <AcademicRecord
+      todayIso="2026-10-10"
       catalogue={{ degrees: [], terms: [] } as unknown as PlanCatalogue}
     />,
   );
@@ -105,6 +106,7 @@ test("academic page keeps real attempt IDs, grades, unit loads and periods while
 test("save failures close the result form and display a toast", async () => {
   render(
     <AcademicRecord
+      todayIso="2026-10-10"
       catalogue={{ degrees: [], terms: [] } as unknown as PlanCatalogue}
     />,
   );
@@ -131,6 +133,7 @@ for (const dismissal of ["Close", "Cancel", "Escape"]) {
     try {
       render(
         <AcademicRecord
+          todayIso="2026-10-10"
           catalogue={{ degrees: [], terms: [] } as unknown as PlanCatalogue}
         />,
       );

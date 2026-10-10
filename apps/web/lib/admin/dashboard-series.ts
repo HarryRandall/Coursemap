@@ -1,7 +1,8 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 // Dashboard buckets follow the Canberra calendar so "today" and "this week"
 // match what an operator in Australia sees, not the server's UTC day.
 const CANBERRA_DAY = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Australia/Sydney",
+  timeZone: ACADEMIC_TIME_ZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",

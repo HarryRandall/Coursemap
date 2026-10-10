@@ -1,24 +1,36 @@
-// Admin timestamps are read in Canberra time whatever the server's zone, so a
-// row uploaded at 9am says 9am to the operator who uploaded it.
-const TIME_ZONE = "Australia/Sydney";
+// Academic dates and admin timestamps follow Canberra time whatever the
+// server or browser time zone.
+export const ACADEMIC_TIME_ZONE = "Australia/Sydney";
+
+const ISO_DAY = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: ACADEMIC_TIME_ZONE,
+});
+
+/** The academic calendar date of an instant, as YYYY-MM-DD. */
+export function canberraTodayIso(now: Date = new Date()) {
+  return ISO_DAY.format(now);
+}
 
 const DAY = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",
-  timeZone: TIME_ZONE,
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 const DATE = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",
   year: "numeric",
-  timeZone: TIME_ZONE,
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 const DATE_TIME = new Intl.DateTimeFormat("en-AU", {
   day: "numeric",
   month: "short",
   hour: "numeric",
   minute: "2-digit",
-  timeZone: TIME_ZONE,
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 const COUNT = new Intl.NumberFormat("en-AU");
 

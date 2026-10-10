@@ -1,4 +1,5 @@
 import "server-only";
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import type { UniversityCalendarEventRecord } from "@/lib/coursemap/university-calendar";
 import { createPublicClient } from "@/lib/supabase/public-server";
 
@@ -15,7 +16,7 @@ function emptyData(requestedYear?: number): UniversityCalendarData {
 function currentCanberraYear() {
   return Number.parseInt(
     new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Australia/Sydney",
+      timeZone: ACADEMIC_TIME_ZONE,
       year: "numeric",
     }).format(new Date()),
     10,

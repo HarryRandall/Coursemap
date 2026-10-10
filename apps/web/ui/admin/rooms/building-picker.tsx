@@ -1,4 +1,5 @@
 "use client";
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import { badgeVariantForTone } from "@/lib/ui";
 
 import { Badge } from "@coursemap/ui/components/badge";
@@ -54,7 +55,7 @@ function formatUpdatedAt(value: string | null) {
   return new Intl.DateTimeFormat("en-AU", {
     day: "numeric",
     month: "short",
-    timeZone: "Australia/Sydney",
+    timeZone: ACADEMIC_TIME_ZONE,
   }).format(date);
 }
 
