@@ -149,12 +149,23 @@ export function CourseImportWorkspace({
   const [estimateAttempt, setEstimateAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const current = runs.find((run) => run.id === viewRunId);
+  const terminalRun =
+    current !== undefined &&
+    (current.state !== "active" || current.finished >= current.total);
+  const summaryWatchKey = viewRunId
+    ? `${viewRunId}:${active}:${estimateAttempt}`
+    : null;
+  const summaryAttemptedKey = useRef<string | null>(null);
   const summaryFingerprint = useRef("");
   const summaryPollingStopped = useCataloguePoll({
-    watchKey: viewRunId ? `${viewRunId}:${active}:${estimateAttempt}` : null,
+    watchKey: summaryWatchKey,
     enabled: viewRunId !== null,
     initialDelayMs: 0,
     async poll(signal) {
+      if (terminalRun && summaryAttemptedKey.current === summaryWatchKey)
+        return { changed: false, done: true };
+      summaryAttemptedKey.current = summaryWatchKey;
       const response = await fetch(
         `/api/admin/course-import-runs?year=${year}&summary=${viewRunId}`,
         { signal, cache: "no-store" },
@@ -274,7 +285,6 @@ export function CourseImportWorkspace({
     }
   }
 
-  const current = runs.find((run) => run.id === viewRunId);
   const progressScreen = viewRunId !== null;
   const unfinished =
     current &&
@@ -383,12 +393,17 @@ export function CourseImportWorkspace({
     };
   }, [viewRunId, allResultsUrl, reviewResultsUrl, estimateAttempt]);
 
+  const resultAttemptedKey = useRef<string | null>(null);
   const resultFingerprint = useRef("");
   const resultPollingStopped = useCataloguePoll({
     watchKey: resultTab !== "overview" && viewRunId ? resultKey : null,
     enabled: viewRunId !== null && resultTab !== "overview",
     initialDelayMs: resultQuery ? 200 : 0,
     async poll(signal) {
+      // A results check can remain scheduled when the last summary finishes.
+      if (terminalRun && resultAttemptedKey.current === resultKey)
+        return { changed: false, done: true };
+      resultAttemptedKey.current = resultKey;
       const response = await fetch(resultUrl, { signal, cache: "no-store" });
       const data = await response.json();
       if (!response.ok)

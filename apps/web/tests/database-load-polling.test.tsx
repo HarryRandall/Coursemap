@@ -311,3 +311,57 @@ test("a paused import refreshes the page once and stops watching", async () => {
   await tick(60000);
   expect(fetch).toHaveBeenCalledTimes(count);
 });
+
+test("summary and result polling stop when the selected import finishes", async () => {
+  let summary = run;
+  const fetch = vi.fn(async (url: string) =>
+    Response.json(
+      url.includes("summary=")
+        ? { runs: [summary] }
+        : { items: [], total: 0, page: 1, pageSize: 24 },
+    ),
+  );
+  vi.stubGlobal("fetch", fetch);
+  workspace("courses");
+  await tick(0);
+  summary = { ...run, finished: run.total };
+  await tick(10000);
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("tab", { name: /Courses/ })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  const calls = fetch.mock.calls.length;
+  await tick(60000);
+  visibility("hidden");
+  await tick(60000);
+  visibility("visible");
+  await tick(60000);
+  expect(fetch).toHaveBeenCalledTimes(calls);
+  expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+test.each([
+  { state: "active", finished: run.total },
+  { state: "paused", finished: 0 },
+  { state: "cancelled", finished: 0 },
+])(
+  "terminal imports do not retry failed reads automatically ($state, $finished)",
+  async (terminal) => {
+    const fetch = vi.fn(async () =>
+      Response.json(
+        { error: "Import progress could not be loaded." },
+        { status: 500 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+    workspace("courses", { ...run, ...terminal });
+    await tick(0);
+    expect(
+      screen.getByText("Import progress could not be loaded."),
+    ).toBeInTheDocument();
+    const calls = fetch.mock.calls.length;
+    await tick(60000);
+    expect(fetch).toHaveBeenCalledTimes(calls);
+  },
+);
