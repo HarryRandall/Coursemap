@@ -3,13 +3,13 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select extensions.plan(14);
 
-select extensions.has_index('public', 'catalogue_versions', 'catalogue_versions_sync_idx');
-select extensions.has_index('public', 'catalogue_sync_changes', 'catalogue_sync_changes_current_record_position_idx');
-select extensions.has_index('public', 'catalogue_records', 'catalogue_records_live_code_idx');
+select extensions.has_index('public', 'catalogue_versions', 'catalogue_versions_sync_idx', 'source versions have a sync lookup index');
+select extensions.has_index('public', 'catalogue_sync_changes', 'catalogue_sync_changes_current_record_position_idx', 'current review rows have an ordered record index');
+select extensions.has_index('public', 'catalogue_records', 'catalogue_records_live_code_idx', 'live publications have a code lookup index');
 
-select extensions.has_index('public', 'requirement_condition_options', 'requirement_condition_options_version_idx');
-select extensions.has_index('public', 'requirement_item_references', 'requirement_item_references_version_idx');
-select extensions.has_index('public', 'course_assessment_outcomes', 'course_assessment_outcomes_version_idx');
+select extensions.has_index('public', 'requirement_condition_options', 'requirement_condition_options_version_idx', 'requirement options have a version lookup index');
+select extensions.has_index('public', 'requirement_item_references', 'requirement_item_references_version_idx', 'requirement references have a version lookup index');
+select extensions.has_index('public', 'course_assessment_outcomes', 'course_assessment_outcomes_version_idx', 'assessment links have a version lookup index');
 
 select extensions.ok((
   select indisvalid and pg_get_expr(indpred, indrelid) = '(sync_id IS NOT NULL)'
