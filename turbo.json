@@ -33,6 +33,11 @@
     },
     "test:unit": {
       "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/workflows/ci.yml",
+        "$TURBO_ROOT$/.github/dependabot.yml"
+      ],
       "outputs": []
     },
     "test:catalogue-db": {

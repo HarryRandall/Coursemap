@@ -15,59 +15,49 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: origin,
+    timezoneId: "Australia/Sydney",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   projects: [
     {
       name: profile,
-      testMatch:
-        profile === "authenticated"
+      testMatch: profile === "authenticated" ? "**/*.spec.*" : "access.spec.*",
+      // Access tests deliberately run without a database and have their own build.
+      testIgnore: profile === "authenticated" ? "**/access.spec.*" : [],
+    },
+  ],
+  // Listing tests does not launch servers or require a running Supabase stack.
+  webServer: process.argv.includes("--list")
+    ? undefined
+    : [
+        ...(profile === "authenticated"
           ? [
-              "authenticated.spec.*",
-              "rendered.spec.*",
-              "catalogue-admin.spec.*",
-              "catalogue-review.spec.*",
-              "catalogue-workspace.spec.*",
-              "catalogue-workload.spec.*",
-              "catalogue-course-count.spec.*",
-              "catalogue-exclusions.spec.*",
-              "college-enrolment.spec.*",
-              "academic-averages.spec.*",
-              "catalogue-usage.spec.*",
-              "catalogue-provider.spec.*",
+              {
+                command: "node scripts/local/room-routing-stub.mjs",
+                url: "http://127.0.0.1:4320/health",
+                reuseExistingServer: false,
+                timeout: 10_000,
+              },
             ]
-          : "access.spec.*",
-    },
-  ],
-  webServer: [
-    ...(profile === "authenticated"
-      ? [
-          {
-            command: "node scripts/local/room-routing-stub.mjs",
-            url: "http://127.0.0.1:4320/health",
-            reuseExistingServer: false,
-            timeout: 10_000,
+          : []),
+        {
+          // Both profiles use the production build in .next, so run them sequentially.
+          command: `pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
+          url: `${origin}/login`,
+          // Start a test-owned server so a developer session cannot change the test environment.
+          reuseExistingServer: false,
+          timeout: 60_000,
+          env: {
+            ...(profile === "authenticated" ? localTestEnvironment() : {}),
+            NEXT_PUBLIC_SITE_URL: origin,
+            ...(profile === "access"
+              ? {
+                  NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
+                  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+                }
+              : {}),
           },
-        ]
-      : []),
-    {
-      // Both profiles use the production build in .next, so run them sequentially.
-      command: `pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
-      url: `${origin}/login`,
-      // Start a test-owned server so a developer session cannot change the test environment.
-      reuseExistingServer: false,
-      timeout: 60_000,
-      env: {
-        ...(profile === "authenticated" ? localTestEnvironment() : {}),
-        NEXT_PUBLIC_SITE_URL: origin,
-        ...(profile === "access"
-          ? {
-              NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
-              NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
-            }
-          : {}),
-      },
-    },
-  ],
+        },
+      ],
 });

@@ -1,3 +1,5 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
+
 /** Shared formatting for the operations tables, where precision matters. */
 export function formatDuration(durationMs: number | null) {
   if (durationMs === null) return "—";
@@ -23,6 +25,7 @@ export function formatTimestamp(value: string | null) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-AU", {
     dateStyle: "medium",
+    timeZone: ACADEMIC_TIME_ZONE,
     timeStyle: "short",
   }).format(new Date(value));
 }

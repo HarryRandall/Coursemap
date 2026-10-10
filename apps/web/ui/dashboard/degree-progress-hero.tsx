@@ -97,6 +97,7 @@ export function DegreeProgressHero({
               .map((segment) => (
                 <span
                   key={segment.id}
+                  role="img"
                   tabIndex={0}
                   aria-label={`${segment.label}: ${segment.units} units`}
                   style={{ flex: segment.units }}

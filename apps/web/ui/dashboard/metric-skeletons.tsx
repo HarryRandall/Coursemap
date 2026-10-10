@@ -48,7 +48,7 @@ export const gradesSkeleton = (
         />
       ))}
     </div>
-    <div className="flex h-5 items-end justify-around text-[10px] text-muted-foreground/60">
+    <div className="flex h-5 items-end justify-around text-[10px] text-muted-foreground">
       {["N", "Pass", "CR", "D", "HD"].map((label) => (
         <span key={label} className="w-6 text-center">
           {label}
