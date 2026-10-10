@@ -255,24 +255,27 @@ test("removes only approved old rows while publication, audit, reuse and live wo
     const objects = retry.candidates.objects.filter(
       (row) => row.id === disposable.objectId,
     );
+    const removedPaths = [];
     const storage = {
       storage: {
         from: (bucket) => ({
           remove: async (paths) => {
             expect(bucket).toBe("course-import-artifacts");
             // Simulate only the Storage API boundary; no network or payload calls.
-            await tx`delete from storage.objects where bucket_id = ${bucket} and name = any(${tx.array(paths)}::text[])`;
+            removedPaths.push(...paths);
             return { error: null };
           },
         }),
       },
     };
-    expect(
-      await removeRetentionObjectsInTransaction(tx, retry, objects, storage),
-    ).toBe(1);
+    // The fake leaves metadata intact, so the real post-removal check must fail.
+    await expect(
+      removeRetentionObjectsInTransaction(tx, retry, objects, storage),
+    ).rejects.toThrow("The Storage API did not remove every approved object.");
+    expect(removedPaths).toEqual([disposable.path]);
     expect(
       await tx`select id from storage.objects where id = ${disposable.objectId}::uuid`,
-    ).toHaveLength(0);
+    ).toHaveLength(1);
   });
 });
 
