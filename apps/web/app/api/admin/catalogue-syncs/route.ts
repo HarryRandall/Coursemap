@@ -92,3 +92,40 @@ export async function DELETE(request: Request) {
     );
   return json({ cancelled: data });
 }
+
+/** Reads one indexed sync row without loading its record or review. */
+export async function GET(request: Request) {
+  if (!(await canManageCatalogueOperations())) {
+    return json({ error: "Catalogue sync permission is required." }, 403);
+  }
+  const syncId = new URL(request.url).searchParams.get("syncId");
+  if (
+    !syncId ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu.test(
+      syncId,
+    )
+  ) {
+    return json({ error: "A sync identifier is required." }, 400);
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("catalogue_syncs")
+    .select("id,status,error_message")
+    .eq("id", syncId)
+    .maybeSingle();
+  if (error)
+    return json({ error: "The sync status could not be loaded." }, 500);
+  if (!data) return json({ error: "The sync could not be found." }, 404);
+  return Response.json(
+    {
+      sync: {
+        id: data.id,
+        status: data.status,
+        errorMessage: data.error_message,
+      },
+    },
+    {
+      headers: { "cache-control": "private, no-store" },
+    },
+  );
+}
