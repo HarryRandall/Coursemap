@@ -21,6 +21,7 @@ export function ReviewResponseColumns({
   const lastIndex = points.length - 1;
   return (
     <ChartContainer
+      role="img"
       config={{
         respondents: { label: "Responses", color: "var(--color-primary)" },
       }}

@@ -40,22 +40,34 @@ export default defineConfig({
           : "access.spec.*",
     },
   ],
-  webServer: {
-    // Both profiles use the production build in .next, so run them sequentially.
-    command: `pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
-    url: `${origin}/login`,
-    // Start a test-owned server so a developer session cannot change the test environment.
-    reuseExistingServer: false,
-    timeout: 60_000,
-    env: {
-      ...(profile === "authenticated" ? localTestEnvironment() : {}),
-      NEXT_PUBLIC_SITE_URL: origin,
-      ...(profile === "access"
-        ? {
-            NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
-          }
-        : {}),
+  webServer: [
+    ...(profile === "authenticated"
+      ? [
+          {
+            command: "node scripts/local/room-routing-stub.mjs",
+            url: "http://127.0.0.1:4320/health",
+            reuseExistingServer: false,
+            timeout: 10_000,
+          },
+        ]
+      : []),
+    {
+      // Both profiles use the production build in .next, so run them sequentially.
+      command: `pnpm exec next start --hostname 127.0.0.1 --port ${port}`,
+      url: `${origin}/login`,
+      // Start a test-owned server so a developer session cannot change the test environment.
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: {
+        ...(profile === "authenticated" ? localTestEnvironment() : {}),
+        NEXT_PUBLIC_SITE_URL: origin,
+        ...(profile === "access"
+          ? {
+              NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
+              NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+            }
+          : {}),
+      },
     },
-  },
+  ],
 });
