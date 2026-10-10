@@ -1,8 +1,10 @@
 import { after } from "next/server";
+import { isSameOriginRequest } from "@/lib/auth/request-origin";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import { isCatalogueKind } from "@/lib/catalogue/content";
 import { processCatalogueSyncInline } from "@/lib/catalogue-sync/sync-queue";
 import { startCatalogueSync } from "@/lib/catalogue-sync/sync-service";
+import { publicErrorMessage, UserFacingError } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -16,6 +18,11 @@ function json(data: unknown, status = 200) {
 
 /** Creates one record sync. Inline processing continues after the response. */
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request))
+    return json(
+      { error: "Use the Coursemap admin page for this action." },
+      403,
+    );
   if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }
@@ -40,18 +47,21 @@ export async function POST(request: Request) {
     }
     return json(result);
   } catch (error) {
+    // Refusals from startCatalogueSync are UserFacingErrors and keep their copy.
     return json(
-      {
-        error:
-          error instanceof Error ? error.message : "The sync could not start.",
-      },
-      400,
+      { error: publicErrorMessage(error, "The sync could not start.") },
+      error instanceof UserFacingError ? 400 : 500,
     );
   }
 }
 
 /** Stops an unfinished record sync. */
 export async function DELETE(request: Request) {
+  if (!isSameOriginRequest(request))
+    return json(
+      { error: "Use the Coursemap admin page for this action." },
+      403,
+    );
   if (!(await canManageCatalogueOperations())) {
     return json({ error: "Catalogue sync permission is required." }, 403);
   }
@@ -68,7 +78,18 @@ export async function DELETE(request: Request) {
   const { data, error } = await supabase.rpc("cancel_catalogue_sync", {
     p_sync_id: payload.syncId,
   });
-  if (error) return json({ error: error.message }, 400);
+  if (error)
+    return json(
+      {
+        error: publicErrorMessage(error, "The sync could not be stopped.", {
+          messages: {
+            "28000": "Authentication is required.",
+            "42501": "Catalogue sync permission is required.",
+          },
+        }),
+      },
+      400,
+    );
   return json({ cancelled: data });
 }
 

@@ -1,3 +1,5 @@
+import "server-only";
+
 import { canReadStudentRecords } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 
@@ -454,7 +456,9 @@ export async function loadAdminUserDetail(
     const recordsResult = recordIds.length
       ? await supabase
           .from("catalogue_records")
-          .select("id,published_version_id,code_id,academic_year_id")
+          .select(
+            "id,published_version_id,archived_at,code_id,academic_year_id",
+          )
           .in("id", recordIds)
       : { data: [], error: null };
     if (recordsResult.error) {
@@ -537,11 +541,15 @@ export async function loadAdminUserDetail(
     const plannedCourses: AdminUserCourse[] = itemRows.flatMap((item) => {
       const record = recordById.get(item.catalogue_record_id);
       const code = record ? courseCodeById.get(record.code_id) : undefined;
-      if (!code) return [];
-      const publishedSnapshotId = record?.published_version_id;
-      const snapshot = publishedSnapshotId
-        ? snapshotById.get(publishedSnapshotId)
-        : null;
+      if (!record || !code) return [];
+      // As in the student's plan, an unpublished or archived year keeps its
+      // place but no longer has a version to count units from.
+      const isPublished =
+        record.published_version_id !== null && record.archived_at === null;
+      const snapshot =
+        isPublished && record.published_version_id
+          ? snapshotById.get(record.published_version_id)
+          : null;
       const period = item.academic_period_id
         ? periodById.get(item.academic_period_id)
         : null;
@@ -549,7 +557,9 @@ export async function loadAdminUserDetail(
         {
           id: item.id,
           code,
-          title: snapshot?.title ?? "Course details unavailable",
+          title: isPublished
+            ? (snapshot?.title ?? "Course details unavailable")
+            : "No longer published",
           units: Number(
             snapshot?.units ??
               snapshot?.minimum_units ??

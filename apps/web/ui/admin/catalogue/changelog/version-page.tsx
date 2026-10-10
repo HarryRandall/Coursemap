@@ -5,7 +5,7 @@ import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   canManageCatalogueOperations,
-  canWriteCatalogue,
+  canWriteCatalogueRecord,
 } from "@/lib/auth/viewer";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
 import { loadCatalogueDraft } from "@/lib/catalogue/drafts";
@@ -51,7 +51,7 @@ export async function CatalogueVersionPage({
 }) {
   const [canManageImports, canWrite] = await Promise.all([
     canManageCatalogueOperations(),
-    canWriteCatalogue(),
+    canWriteCatalogueRecord(kind),
   ]);
   if (!canManageImports && !canWrite) return <AccessDeniedError />;
   const record = await loadCatalogueRecord({ kind, code, academicYear });

@@ -1,4 +1,4 @@
-import { beforeEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { recoverCatalogueImports } from "@/lib/catalogue-sync/provider-recovery";
 import { POST } from "@/app/api/admin/catalogue-provider/route";
 const mocks = vi.hoisted(() => ({
@@ -37,7 +37,9 @@ beforeEach(() => {
   mocks.rpc.mockResolvedValue({ data: { syncs }, error: null });
   mocks.dispatch.mockResolvedValue({ mode: "queue" });
   mocks.state.mockResolvedValue({ paused: false, revision: 2, heldCount: 0 });
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost");
 });
+afterEach(() => vi.unstubAllEnvs());
 test("dispatches bounded queue batches after an authorised atomic recovery", async () => {
   expect(
     await recoverCatalogueImports({ revision: 1, resume: true }),
@@ -86,6 +88,7 @@ test("permission denial prevents both database recovery and dispatch", async () 
   const result = await POST(
     new Request("http://localhost/api/admin/catalogue-provider", {
       method: "POST",
+      headers: { Origin: "http://localhost" },
       body: JSON.stringify({ revision: 1, resume: true }),
     }),
   );
@@ -106,6 +109,7 @@ test("invalid revisions or recovery actions cannot reach the database", async ()
     const result = await POST(
       new Request("http://localhost/api/admin/catalogue-provider", {
         method: "POST",
+        headers: { Origin: "http://localhost" },
         body,
       }),
     );

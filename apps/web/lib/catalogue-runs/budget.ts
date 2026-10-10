@@ -1,4 +1,5 @@
 import type { SyncSql } from "../catalogue-sync/sync-store.ts";
+import { UserFacingError } from "../public-errors.ts";
 import { bulkImportAdapter, bulkImportInputCap } from "./adapter.ts";
 import type { BulkImportKind } from "./kinds.ts";
 
@@ -21,7 +22,7 @@ export function courseRunAllowance(
   );
 }
 
-export class CourseRunBudgetError extends Error {
+export class CourseRunBudgetError extends UserFacingError {
   readonly code = "COURSE_RUN_BUDGET_HELD";
   readonly retryable = false;
 }

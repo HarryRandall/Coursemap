@@ -1,4 +1,5 @@
 import "server-only";
+import { UserFacingError } from "../public-errors";
 import type { CourseRunProgress } from "./progress";
 import {
   canManageCatalogueOperations,
@@ -17,9 +18,9 @@ import { fetchCatalogueModel } from "../admin/model-catalogue";
 
 export async function requireCourseRunAdministrator() {
   if (!(await canManageCatalogueOperations()))
-    throw new Error("Catalogue import permission is required.");
+    throw new UserFacingError("Catalogue import permission is required.");
   const viewer = await getAuthViewer();
-  if (!viewer) throw new Error("Authentication is required.");
+  if (!viewer) throw new UserFacingError("Authentication is required.");
   return viewer;
 }
 
@@ -29,7 +30,8 @@ import type { parseCourseRunOptions } from "./options";
 async function runModel({ allowAi }: { allowAi: boolean }) {
   const setting = await loadImportModelSetting();
   const model = setting.models.find((item) => item.id === setting.model);
-  if (!model) throw new Error("Choose an enabled import model first.");
+  if (!model)
+    throw new UserFacingError("Choose an enabled import model first.");
   if (!allowAi) return model;
   return ensureCourseRunPricing(model, {
     fetchModel: fetchCatalogueModel,
@@ -38,7 +40,7 @@ async function runModel({ allowAi }: { allowAi: boolean }) {
         const rows =
           await sql`update public.import_models set input_usd_per_million = ${fresh.input_usd_per_million}, output_usd_per_million = ${fresh.output_usd_per_million}, pricing_updated_at = ${fresh.pricing_updated_at}::timestamptz where id = ${fresh.id} and enabled returning id`;
         if (!rows.length)
-          throw new Error("The import model is no longer enabled.");
+          throw new UserFacingError("The import model is no longer enabled.");
       });
     },
   });
@@ -121,11 +123,11 @@ export async function createCourseRun(
       ? canWriteCourses()
       : canWriteCatalogue()))
   )
-    throw new Error("Catalogue publication permission is required.");
+    throw new UserFacingError("Catalogue publication permission is required.");
   const preview = await previewCourseRun(options);
   const adapter = bulkImportAdapter(options.kind);
   if (!preview.count)
-    throw new Error(
+    throw new UserFacingError(
       "No unimported records match this year and selection. Refresh the ANU listing or change the selected codes.",
     );
   const runId = await withSyncDatabaseClient((sql) =>

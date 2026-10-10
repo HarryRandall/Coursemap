@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/lib/public-errors";
 import { assertOpenRouterModel } from "@/lib/catalogue-import/openrouter";
 import type { ImportModel } from "@/lib/admin/import-model";
 
@@ -17,12 +18,14 @@ export function readCatalogueModel(
 ): ImportModel {
   const id = assertOpenRouterModel(requested);
   if (!isRecord(payload) || !Array.isArray(payload.data))
-    throw new Error("The model catalogue could not be read.");
+    throw new UserFacingError("The model catalogue could not be read.");
   const model = payload.data.find(
     (item: unknown) => isRecord(item) && item.id === id,
   );
   if (!isRecord(model) || typeof model.name !== "string")
-    throw new Error("The model was not found in OpenRouter's catalogue.");
+    throw new UserFacingError(
+      "The model was not found in OpenRouter's catalogue.",
+    );
   const pricing = isRecord(model.pricing) ? model.pricing : {};
   const [provider, ...name] = model.name.split(": ");
   return {
@@ -44,6 +47,6 @@ export async function fetchCatalogueModel(id: string) {
     signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok)
-    throw new Error("OpenRouter's model catalogue is unavailable.");
+    throw new UserFacingError("OpenRouter's model catalogue is unavailable.");
   return readCatalogueModel(await response.json(), id);
 }

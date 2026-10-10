@@ -327,9 +327,33 @@ export function evaluateCondition(
 
 type Group = Extract<CourseRuleExpression, { kind: "group" }>;
 
+function onlyIncompatibleConditions(expression: CourseRuleExpression): boolean {
+  if (expression.kind === "group")
+    return (
+      expression.conditions.length > 0 &&
+      expression.conditions.every(onlyIncompatibleConditions)
+    );
+  return (
+    expression.kind === "incompatible" ||
+    expression.kind === "incompatible_concurrent"
+  );
+}
+
+/**
+ * The operator a group is evaluated with. A group of nothing but exclusions
+ * lists courses the student must avoid, so "incompatible with A or B" is
+ * broken by either course whatever operator the source wording produced.
+ * A group that mixes in another condition, such as a permission waiver,
+ * keeps its operator.
+ */
+export function groupOperator(group: Group): Group["operator"] {
+  return onlyIncompatibleConditions(group) ? "all_of" : group.operator;
+}
+
 export function groupRequiredCount(group: Group) {
-  if (group.operator === "all_of") return group.conditions.length;
-  if (group.operator === "any_of") return 1;
+  const operator = groupOperator(group);
+  if (operator === "all_of") return group.conditions.length;
+  if (operator === "any_of") return 1;
   return group.minimumCount ?? 1;
 }
 

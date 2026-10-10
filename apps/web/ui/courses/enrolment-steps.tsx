@@ -12,6 +12,7 @@ import { cn } from "@/lib/cn";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   evaluateRule,
+  groupOperator,
   groupRequiredCount,
   type ConditionEvaluation,
   type RequisiteStatus,
@@ -413,7 +414,7 @@ export function EnrolmentSteps({
         </div>
       );
     }
-    const choice = group.operator !== "all_of";
+    const choice = groupOperator(group) !== "all_of";
     return (
       <div className="flex max-w-xl flex-col">
         {group.conditions.map((child, index) => {
