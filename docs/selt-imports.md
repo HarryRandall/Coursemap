@@ -14,7 +14,8 @@ python3 -m venv ~/.venvs/coursemap-selt
 ~/.venvs/coursemap-selt/bin/python -m pip install -r apps/web/scripts/selt/requirements.txt
 ```
 
-Apply migrations `039_selt_imports.sql` and `040_selt_published_reads.sql` through the normal reviewed database rollout.
+Apply migrations `039_selt_imports.sql`, `040_selt_published_reads.sql` and
+`045_public_selt_reads.sql` through the normal reviewed database rollout.
 The upload routes use the existing server-only `COURSEMAP_SYNC_DATABASE_URL`.
 The local CLI needs neither a database password nor a Supabase service key.
 
@@ -66,9 +67,18 @@ bump its version and re-extract the retained PDFs before attempting publication.
 Publication also requires `courses.write` and selects one report per stable course.
 
 This delivery stores reviewed reports and survey metrics in dedicated relational
-SELT tables. Drafts remain admin-only. Signed-in users can view the published report in the
-course Student review tab. Courses without published reports do not show that tab. The table includes all periods; charts include only periods
-with complete counts and theme values. Missing and suppressed values remain
+SELT tables. Drafts remain admin-only. Published reviews are public, including for
+anonymous visitors and guest planners, in the course Student review tab. Public
+reads require a readable course code with a published, unarchived catalogue record.
+Anonymous report reads expose only public report fields, excluding import metadata,
+diagnostics and publisher attribution. The API uses the cookie-free public client
+for every viewer. Successful responses may be cached for 60 seconds by shared
+caches, so publication or unpublication can take that long to appear. Browser
+caches must revalidate and failed requests are not cached.
+
+Courses without published reports do not show the tab. Loading and failed requests
+retain it, with a loading state or a retry action. The table includes all periods;
+charts include only periods with complete counts and theme values. Missing and suppressed values remain
 unavailable. Approximate intervals use rounded percentages and total respondents,
 which can differ from question-level counts. The catalogue
 and student plans are not rewritten by a SELT import. Raw PDFs remain local.

@@ -245,6 +245,10 @@ fetching ANU again. Staged reviews and archived events do not supply dates.
 ## Access model
 
 - Published catalogue rows may be readable publicly.
+- Published SELT reviews are public, including for anonymous visitors and guest
+  planners. Unpublished reports remain admin-only, and public report reads exclude
+  import metadata and diagnostics. The survey API uses a cookie-free public client
+  for all viewers and requires a published, unarchived course catalogue record.
 - Draft catalogue and source-sync operations require database-backed application roles.
 - A user can access only their own profile, plans, items and attempts.
 - Every exposed table has RLS and explicit Data API grants.
