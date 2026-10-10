@@ -65,9 +65,17 @@ async function clear(sql) {
   await sql`
     delete from public.selt_import_runs
     where requested_by::text like ${userPattern}`;
-  await sql`
-    delete from public.catalogue_change_events
-    where editing_session_id = ${DEMO_SESSION}`;
+  // The change log is append-only; demo rows are the one local exception.
+  await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+  await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
+  try {
+    await sql`
+      delete from public.catalogue_change_events
+      where editing_session_id = ${DEMO_SESSION}`;
+  } finally {
+    await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+  }
   await sql`
     delete from public.catalogue_syncs
     where parser_version = ${DEMO_PARSER_VERSION}`;

@@ -121,15 +121,15 @@ select extensions.ok(
     from pg_policies
     where schemaname = 'public'
       and policyname in (
-        'plans_owner_or_admin_select',
-        'plan_structures_owner_or_admin_select',
-        'plan_items_owner_or_admin_select',
-        'course_attempts_owner_or_admin_select'
+        'plans_owner_or_reader_select',
+        'plan_structures_owner_or_reader_select',
+        'plan_items_owner_or_reader_select',
+        'course_attempts_owner_or_reader_select'
       )
       and cmd = 'SELECT'
       and roles = array['authenticated']::name[]
   ) = 4,
-  'student planning records have explicit administrator read policies'
+  'student planning records have explicit student-record read policies'
 );
 
 insert into auth.users (
