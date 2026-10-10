@@ -23,7 +23,7 @@ export type OpenRouterRequestBody = {
   max_tokens: number;
   stream: false;
   reasoning: { effort: OpenRouterReasoningEffort; exclude: true };
-  provider: { require_parameters: true };
+  provider: { require_parameters: true; data_collection: "deny" };
   response_format: { type: "json_object" };
 };
 
@@ -330,7 +330,12 @@ export function buildOpenRouterRequestBody({
     max_tokens: maxOutputTokens,
     stream: false,
     reasoning: { effort: reasoningEffort, exclude: true },
-    provider: { require_parameters: true },
+    // ANU source text is public, but prompts and responses are still kept
+    // away from providers that retain or train on request data.
+    provider: { require_parameters: true, data_collection: "deny" },
+    // Strict json_schema is not used: the extraction schemas rely on oneOf,
+    // optional properties and recursive rules, which strict mode rejects.
+    // Output is validated against the schema after the response instead.
     response_format: { type: "json_object" },
   };
 }

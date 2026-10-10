@@ -170,9 +170,13 @@ kind adapter. The model owns every field. The adapter keeps each part of the
 response that fits the extraction contract, leaves the rest empty with an error
 flag, and warns about wording the page does not contain; nothing is rejected
 for review to see. The projection is then validated and persisted as an
-immutable source version. Queue retries reuse safe completed evidence and
-cannot finish after losing a lease. Expired work is recovered up to five
-attempts. Hosted syncs use the `catalogue-sync-v1` Vercel Queue topic; local
+immutable source version. The worker renews its lease at every stage, and the
+source version, draft, review rows and sync result are written in one
+transaction fenced on that lease, so a worker that lost it writes nothing.
+Queue retries reuse safe completed evidence. Expired work is recovered up to
+five attempts; after the last, the run advance or the scheduled sweep
+(`app/api/cron/catalogue-syncs`) fails it, and the sweep re-dispatches queued
+syncs whose dispatch never completed. Hosted syncs use the `catalogue-sync-v1` Vercel Queue topic; local
 development processes the same sync inline after responding.
 
 The record keeps `latest_source_version_id` and `source_checked_at` separately
