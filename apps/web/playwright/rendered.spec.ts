@@ -324,6 +324,7 @@ test("rounded table and map surfaces keep all four corners", async ({
     const buildingPicker = page.locator(
       '[data-slot="building-picker"]:not([aria-busy="true"])',
     );
+    await expect(buildingPicker).toHaveCount(1);
     await expect(buildingPicker).toBeVisible();
     await expectRoundedCorners(
       buildingPicker.locator('[data-slot="building-picker-rail"]'),
