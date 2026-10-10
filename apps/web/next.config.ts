@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: { staleTimes: { dynamic: 30, static: 180 } },
   // The shared UI package exports TypeScript source rather than prebuilt JavaScript.
   transpilePackages: ["@coursemap/ui"],
   // Repository-owned instructions take precedence over Next.js-generated agent guides.

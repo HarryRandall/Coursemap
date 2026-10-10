@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { canberraTodayIso } from "@/lib/canberra-format";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
@@ -5,7 +6,7 @@ import { AcademicRecord } from "./academic-record";
 
 export const dynamic = "force-dynamic";
 
-export default async function AcademicPage() {
+async function AcademicPage() {
   let catalogue;
   try {
     catalogue = await loadCurrentUserPlanCatalogue();
@@ -19,3 +20,5 @@ export default async function AcademicPage() {
   }
   return <AcademicRecord catalogue={catalogue} todayIso={canberraTodayIso()} />;
 }
+
+export default withPlanningState(AcademicPage);

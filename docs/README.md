@@ -3,6 +3,7 @@
 ## Current guides
 
 - [Code conventions](conventions.md): naming, comments, modules and file placement.
+- [Navigation prefetching](navigation-prefetching.md): link choices, loading boundaries and preview comparison.
 - [Architecture](architecture.md): application boundaries and the data model.
 - [Catalogue operations](catalogue-operations.md): importing, reviewing, editing and publishing catalogue records.
 - [Import retention](operations/import-retention.md): owner-approved dry runs, protected evidence and batch cleanup.
