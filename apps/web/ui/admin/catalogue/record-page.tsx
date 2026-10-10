@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { TabsContent } from "@coursemap/ui/primitives/tabs";
 import {
   canManageCatalogueOperations,
-  canWriteCatalogue,
+  canWriteCatalogueRecord,
 } from "@/lib/auth/viewer";
 import { loadCatalogueEditorState } from "@/lib/catalogue/drafts";
 import { diffSnapshotWrites } from "@/lib/catalogue-import/changes";
@@ -71,7 +71,7 @@ export async function CatalogueRecordPage({
 }) {
   const [canManageImports, canWrite] = await Promise.all([
     canManageCatalogueOperations(),
-    canWriteCatalogue(),
+    canWriteCatalogueRecord(kind),
   ]);
   if (!canManageImports && !canWrite) return <AccessDeniedError />;
   if (
@@ -170,7 +170,6 @@ export async function CatalogueRecordPage({
       initiallyPublished={record.publishedVersionId !== null}
       initialHasDraft={hasDraft}
       initialHasUnpublishedChanges={hasUnpublishedChanges}
-      path={path}
     >
       <RecordTabs value={section} path={path}>
         <AppShell

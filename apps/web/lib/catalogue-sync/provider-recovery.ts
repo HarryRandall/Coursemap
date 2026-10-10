@@ -22,7 +22,8 @@ export async function recoverCatalogueImports(input: {
     p_resume: input.resume,
     p_limit: queued ? 10 : 1,
   });
-  if (error) throw new Error(error.message);
+  // The route chooses public copy from the SQLSTATE, so keep the error whole.
+  if (error) throw error;
   if (
     !data ||
     typeof data !== "object" ||

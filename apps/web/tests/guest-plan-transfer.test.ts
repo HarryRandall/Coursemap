@@ -173,6 +173,40 @@ test("replacing clears the account's planned courses but keeps recorded results"
   ]);
 });
 
+test("an account's own name and student number survive a transfer", async () => {
+  mocks.accountHasPlan = true;
+  mocks.account = {
+    ...emptyGuestState(2026),
+    profile: {
+      ...emptyGuestState(2026).profile,
+      name: "Grace",
+      studentId: "u7654321",
+      pronouns: "she/her",
+    },
+  };
+  mocks.guest = {
+    ...guestPlan,
+    profile: {
+      ...guestPlan.profile,
+      studentId: "u1234567",
+      pronouns: "they/them",
+      preferredName: "Addie",
+    },
+  };
+
+  expect((await transferGuestPlan("replace")).status).toBe("imported");
+  expect(mocks.saveProfileAndPlan).toHaveBeenCalledWith(
+    expect.objectContaining({
+      name: "Grace",
+      studentId: "u7654321",
+      pronouns: "she/her",
+      // Only what the account has not set comes from the guest plan.
+      preferredName: "Addie",
+      degreeCode: "BFINN",
+    }),
+  );
+});
+
 test("discarding forgets the guest plan without touching the account", async () => {
   const result = await transferGuestPlan("discard");
 

@@ -5,8 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 import { dispatchCatalogueSync } from "./sync-queue";
 import { syncAdapterForKind } from "./process-sync";
 import type { CatalogueKind } from "../catalogue/content";
+import { publicErrorMessage, UserFacingError } from "../public-errors";
 
-export class CatalogueSyncStartError extends Error {
+export class CatalogueSyncStartError extends UserFacingError {
   constructor(message: string) {
     super(message);
     this.name = "CatalogueSyncStartError";
@@ -45,7 +46,19 @@ export async function startCatalogueSync({
     p_prompt_version: adapter.promptVersion,
     p_schema_version: adapter.schemaVersion,
   });
-  if (error) throw new CatalogueSyncStartError(error.message);
+  // start_catalogue_sync raises its refusals with text written for the page.
+  if (error)
+    throw new CatalogueSyncStartError(
+      publicErrorMessage(error, "The sync could not start.", {
+        authoredSqlStates: new Set([
+          "22023",
+          "28000",
+          "42501",
+          "55000",
+          "P0002",
+        ]),
+      }),
+    );
   const syncId = data as string;
   const dispatch = await dispatchCatalogueSync({ syncId });
   return { syncId, mode: dispatch.mode };
