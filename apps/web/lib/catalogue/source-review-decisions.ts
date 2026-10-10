@@ -91,7 +91,9 @@ export async function resolveSourceChange({
           "ARCHIVED",
         );
       const [row] = await tx`
-        select changes.*, versions.id as source_version_id
+        select changes.field_path, changes.superseded_at, changes.decision,
+          changes.local_value, changes.incoming_source_value,
+          versions.id as source_version_id
         from public.catalogue_sync_changes as changes
         join public.catalogue_versions as versions on versions.sync_id = changes.sync_id
         where changes.id = ${changeId} and changes.record_id = ${recordId}

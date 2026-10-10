@@ -110,10 +110,25 @@ export async function loadSourceReview(
 ): Promise<SourceReview | null> {
   return withSyncDatabaseClient(async (sql) => {
     const rows = await sql`
-      select changes.*, versions.id as source_version_id,
+      with current_review as materialized (
+        select sync_id from public.catalogue_sync_changes
+        where record_id = ${recordId} and superseded_at is null
+        order by position limit 1
+      ), source_version as materialized (
+        select versions.id, versions.based_on_version_id
+        from public.catalogue_versions as versions
+        join current_review on current_review.sync_id = versions.sync_id
+      )
+      select changes.id, changes.sync_id, changes.created_at, changes.field_path,
+        changes.review_unit_kind, changes.classification, changes.base_source_value,
+        changes.local_value, changes.incoming_source_value, changes.local_value_hash,
+        changes.decision, changes.resolved_at, changes.confidence,
+        changes.review_band, changes.review_reason,
+        versions.id as source_version_id,
         versions.based_on_version_id as previous_source_version_id
-      from public.catalogue_sync_changes as changes
-      join public.catalogue_versions as versions on versions.sync_id = changes.sync_id
+      from current_review
+      join source_version as versions on true
+      join public.catalogue_sync_changes as changes on changes.sync_id = current_review.sync_id
       where changes.record_id = ${recordId} and changes.superseded_at is null
       order by changes.position
     `;
