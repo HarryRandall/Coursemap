@@ -14,6 +14,7 @@ import {
 } from "@coursemap/ui/primitives/collapsible";
 import { ChevronDown, CircleAlert, RefreshCw } from "lucide-react";
 import { createContext, type ReactNode, useContext } from "react";
+import { SyncPollNotice } from "./sync-poll-notice";
 import { type CatalogueSyncTarget, useCatalogueSync } from "./sync-button";
 
 export type RecordSync = ReturnType<typeof useCatalogueSync>;
@@ -35,6 +36,7 @@ export function RecordSyncProvider({
   return (
     <RecordSyncContext.Provider value={sync}>
       {children}
+      {sync.pollingStopped && <SyncPollNotice onRefresh={sync.refresh} />}
     </RecordSyncContext.Provider>
   );
 }
