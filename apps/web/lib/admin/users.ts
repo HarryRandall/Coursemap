@@ -1,5 +1,6 @@
 import "server-only";
 
+import { canReadStudentRecords } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 
 export type AdminUser = {
@@ -95,6 +96,8 @@ export type AdminUserDetailData = {
   roles: AdminRole[];
   permissions: AdminPermission[];
   assignments: AdminUserRole[];
+  /** False when the viewer lacks students.read; study is then empty. */
+  canReadStudy: boolean;
   study: AdminUserStudy;
 };
 
@@ -271,6 +274,7 @@ export async function loadAdminUserDetail(
   userId: string,
 ): Promise<AdminUserDetailData | null> {
   const supabase = await createClient();
+  const canReadStudy = await canReadStudentRecords();
   const [
     userResult,
     rolesResult,
@@ -298,14 +302,16 @@ export async function loadAdminUserDetail(
       .from("admin_user_roles")
       .select("user_id,role_key,granted_by,granted_at")
       .eq("user_id", userId),
-    supabase
-      .from("plans")
-      .select(
-        "academic_year_id,id,name,status,commencement_year,study_load,extension_years,created_at,updated_at",
-      )
-      .eq("owner_id", userId)
-      .eq("is_primary", true)
-      .maybeSingle(),
+    canReadStudy
+      ? supabase
+          .from("plans")
+          .select(
+            "academic_year_id,id,name,status,commencement_year,study_load,extension_years,created_at,updated_at",
+          )
+          .eq("owner_id", userId)
+          .eq("is_primary", true)
+          .maybeSingle()
+      : { data: null, error: null },
   ]);
 
   const error =
@@ -649,6 +655,7 @@ export async function loadAdminUserDetail(
       return mapped ? [mapped] : [];
     }),
     assignments: assignmentsWithGrantors,
+    canReadStudy,
     study,
   };
 }
