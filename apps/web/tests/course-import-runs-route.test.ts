@@ -1,4 +1,4 @@
-import { expect, test, vi } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { POST } from "@/app/api/admin/course-import-runs/route";
 
 const mocks = vi.hoisted(() => ({
@@ -38,13 +38,17 @@ vi.mock("@/lib/catalogue-sync/process-sync", () => ({
   processCatalogueSync: mocks.process,
 }));
 
+afterEach(() => vi.unstubAllEnvs());
+
 const RUN_ID = "10000000-0000-4000-8000-000000000001";
 
 test("an inline run advance retries with the hosted queue's delivery budget", async () => {
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost");
   mocks.advance.mockResolvedValue({ syncId: "sync", mode: "inline" });
   const response = await POST(
     new Request("http://localhost/api/admin/course-import-runs", {
       method: "POST",
+      headers: { Origin: "http://localhost" },
       body: JSON.stringify({ action: "advance", runId: RUN_ID }),
     }),
   );
