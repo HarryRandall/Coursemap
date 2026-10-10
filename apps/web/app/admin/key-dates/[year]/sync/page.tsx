@@ -1,3 +1,4 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import { Card } from "@coursemap/ui/primitives/card";
 import {
   Empty,
@@ -20,7 +21,7 @@ export const dynamic = "force-dynamic";
 
 const dayFormat = new Intl.DateTimeFormat("en-AU", {
   dateStyle: "medium",
-  timeZone: "Australia/Sydney",
+  timeZone: ACADEMIC_TIME_ZONE,
 });
 
 export default async function AdminKeyDatesSyncPage({

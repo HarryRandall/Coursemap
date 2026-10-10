@@ -81,3 +81,88 @@ test("admin term loads exclude failed and unscheduled records", () => {
     ],
   );
 });
+
+test("admin study progress counts units exactly as the student's plan does", async () => {
+  const { degreeUnitProgress } = await import("../lib/planner.ts");
+  const catalogue = {
+    courses: [
+      { code: "COMP1100", year: 2026, units: 6 },
+      { code: "COMP1110", year: 2026, units: 6 },
+      { code: "MATH1005", year: 2026, units: 6 },
+      { code: "COMP2100", year: 2026, units: 6 },
+      { code: "COMP2120", year: 2026, units: 12 },
+    ],
+    terms: [],
+  };
+  const rows = [
+    course({ id: "plan", code: "COMP2120", units: 12, periodCode: "S2" }),
+    course({
+      id: "fail",
+      code: "COMP1100",
+      status: "failed",
+      units: 6,
+      unitsEarned: 0,
+      calendarYear: 2025,
+    }),
+    course({
+      id: "pass",
+      code: "COMP1100",
+      status: "completed",
+      units: 6,
+      unitsEarned: 6,
+    }),
+    course({
+      id: "credit",
+      code: "MATH1005",
+      status: "credited",
+      units: 6,
+      unitsEarned: 6,
+    }),
+    // A recorded completion that earned no credit adds no units.
+    course({
+      id: "no-credit",
+      code: "COMP1110",
+      status: "completed",
+      units: 6,
+      unitsEarned: 0,
+    }),
+    course({
+      id: "enrolled",
+      code: "COMP2100",
+      status: "enrolled",
+      units: 6,
+      periodCode: "S2",
+    }),
+  ];
+  const studentAttempts = [
+    {
+      id: "plan",
+      academicYear: 2026,
+      courseCode: "COMP2120",
+      termId: "2026-s2",
+      status: "planned",
+    },
+    ...rows
+      .filter((row) => row.status !== "planned")
+      .map((row) => ({
+        id: row.id,
+        courseCode: row.code,
+        termId: `${row.calendarYear}-${row.periodCode.toLowerCase()}`,
+        status: row.status === "credited" ? "completed" : row.status,
+        unitsAttempted: row.units,
+        unitsEarned: row.unitsEarned,
+      })),
+  ];
+  const study = {
+    plan: null,
+    structures: [
+      { role: "programme", code: "BCOMP", name: "Computing", units: 144 },
+    ],
+    courses: rows,
+  };
+
+  const student = degreeUnitProgress(studentAttempts, 144, catalogue);
+  assert.deepEqual(adminUserStudyProgress(study), student);
+  assert.equal(student.completed, 12);
+  assert.equal(student.mapped, 30);
+});

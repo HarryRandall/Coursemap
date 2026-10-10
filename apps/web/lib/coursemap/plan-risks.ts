@@ -51,25 +51,33 @@ export function planRisks({
 
   const courseIssues = attempts.flatMap((attempt) => {
     const status = effectiveStatus(attempt, attempts, catalogue);
-    if (status !== "blocked" && status !== "approval" && status !== "review")
+    if (
+      status !== "blocked" &&
+      status !== "approval" &&
+      status !== "review" &&
+      status !== "unpublished"
+    )
       return [];
     const course = planningCourseForAttempt(attempt, catalogue);
-    if (!course) return [];
     const missing = missingPrereqs(attempt, attempts, catalogue);
     return [
       {
         id: `attempt-${attempt.id}`,
-        title: `${course.code} ${course.name}`,
+        title: course ? `${course.code} ${course.name}` : attempt.courseCode,
         detail:
-          status === "blocked"
-            ? missing.length > 0
-              ? `Prerequisites not met in the plan: ${missing.join(", ")}.`
-              : "A required eligibility condition is not met."
-            : status === "approval"
-              ? "Course permission is required before enrolment."
-              : "Check the course requirements against your record before enrolment.",
+          status === "unpublished"
+            ? "No longer published for this year. Remove it or choose another course."
+            : status === "blocked"
+              ? missing.length > 0
+                ? `Prerequisites not met in the plan: ${missing.join(", ")}.`
+                : "A required eligibility condition is not met."
+              : status === "approval"
+                ? "Course permission is required before enrolment."
+                : "Check the course requirements against your record before enrolment.",
         severity:
-          status === "blocked" ? ("warning" as const) : ("info" as const),
+          status === "blocked" || status === "unpublished"
+            ? ("warning" as const)
+            : ("info" as const),
       },
     ];
   });

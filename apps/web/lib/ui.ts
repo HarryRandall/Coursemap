@@ -63,6 +63,7 @@ export const statusTone: Record<EffectiveStatus, Tone> = {
   blocked: "warning",
   approval: "warning",
   review: "warning",
+  unpublished: "warning",
 };
 
 /** Map Coursemap statuses onto the standard ReUI badge variants. */

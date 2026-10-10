@@ -1,3 +1,4 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import type { UniversityCalendarEvent } from "@/lib/coursemap/university-calendar";
 import type { SocietyEvent } from "@/lib/society-events";
 import type { Society } from "@/lib/societies";
@@ -18,7 +19,7 @@ export type KeyDateEvent =
 /** Use the event's Canberra day, including dates after daylight saving starts. */
 export function societyEventDay(startsAt: string) {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
+    timeZone: ACADEMIC_TIME_ZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

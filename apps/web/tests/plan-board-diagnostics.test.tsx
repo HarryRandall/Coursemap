@@ -12,6 +12,7 @@ const fixtures = vi.hoisted(() => ({
   starredCourses: [] as string[],
   extensionYears: 0,
   addCourse: vi.fn(async () => ({ ok: true })),
+  removeAttempt: vi.fn(async () => ({ ok: true, message: "Course removed" })),
   setPlanExtensionYears: vi.fn(async () => ({ ok: true, message: "" })),
 }));
 
@@ -27,6 +28,7 @@ vi.mock("@/app/providers", () => ({
       starredCourses: fixtures.starredCourses,
     },
     addCourse: fixtures.addCourse,
+    removeAttempt: fixtures.removeAttempt,
     setPlanExtensionYears: fixtures.setPlanExtensionYears,
     reorderAttempt: vi.fn(),
     notify: vi.fn(),
@@ -212,4 +214,32 @@ test("a starred course added to the open year lands in a semester it runs in", a
     ),
   );
   fixtures.starredCourses = [];
+});
+
+test("a planned course that is no longer published stays on the board to remove", async () => {
+  fixtures.attempts = [
+    {
+      id: "unpublished-course",
+      courseCode: "COMP1100",
+      termId: "2026-s1",
+      academicYear: 2026,
+      status: "planned",
+      isPublished: false,
+    },
+  ];
+  fixtures.removeAttempt.mockClear();
+  render(
+    <TooltipProvider>
+      <PlanBoard catalogue={{ ...catalogue, courses, terms }} />
+    </TooltipProvider>,
+  );
+  const lane = screen.getByTestId("term-2026-s1");
+  expect(lane).toHaveTextContent("COMP1100");
+  expect(lane).toHaveTextContent("No longer published");
+  fireEvent.click(
+    screen.getByRole("button", { name: "Remove COMP1100 from the plan" }),
+  );
+  await waitFor(() =>
+    expect(fixtures.removeAttempt).toHaveBeenCalledWith("unpublished-course"),
+  );
 });
