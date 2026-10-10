@@ -34,6 +34,7 @@ import {
   type UniversityCalendarCategory,
   type UniversityCalendarEventRecord,
 } from "@/lib/coursemap/university-calendar";
+import { studyPeriodMarkers } from "@/lib/coursemap/study-period-markers";
 import { CalendarFilters } from "@/ui/key-dates/calendar-filters";
 
 const CATEGORY_COLORS: Record<UniversityCalendarCategory, string> = {
@@ -104,26 +105,19 @@ export function StudyCalendar({
     const termEvents: CalendarEvent[] =
       category && category !== PLAN_TERM_FILTER
         ? []
-        : timelineTerms
-            .filter((term) => term.id !== "unscheduled")
-            .filter((term) => term.startsOn && term.endsOn)
-            .map((term) => {
-              const courses = courseCountByTerm.get(term.id) ?? 0;
-              return {
-                id: `term-${term.id}`,
-                title: `${term.name} ${term.year}${
-                  courses > 0
-                    ? ` · ${courses} course${courses === 1 ? "" : "s"}`
-                    : ""
-                }`,
-                start: localMidnight(term.startsOn as string),
-                end: addDays(localMidnight(term.endsOn as string), 1),
-                allDay: true,
-                readOnly: true,
-                color: "var(--primary)",
-                priority: 10,
-              };
-            });
+        : studyPeriodMarkers(timelineTerms, courseCountByTerm).map((marker) => {
+            const start = localMidnight(marker.date);
+            return {
+              id: marker.id,
+              title: marker.title,
+              start,
+              end: addDays(start, 1),
+              allDay: true,
+              readOnly: true,
+              color: "var(--primary)",
+              priority: 10,
+            };
+          });
 
     const keyDateEvents: CalendarEvent[] = decorateUniversityCalendarEvents(
       keyDates,

@@ -291,6 +291,17 @@
   outline-offset: 2px;
 }
 
+/* Dropdowns and submenus share the solid surface used by popover filters. */
+@layer base {
+  .style-nova .cn-menu-translucent {
+    background-color: var(--popover);
+  }
+
+  .style-nova .cn-menu-translucent::before {
+    display: none;
+  }
+}
+
 /* Nova's translucent menu preset forces every item to the accent colour with
    !important, including data-[variant=destructive]. That silently defeats the
    destructive variant on every dropdown in the application, so a destructive

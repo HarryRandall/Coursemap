@@ -28,7 +28,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@coursemap/ui/primitives/dropdown-menu"
 import {
@@ -368,16 +367,7 @@ function EventCalendarViewSwitcher({
         align="start"
         className={cn("min-w-44", viewConfig.classNames?.viewSwitcherContent)}
       >
-        {/* Keep the label inside the group so it stays associated with its items */}
         <DropdownMenuGroup>
-          <DropdownMenuLabel
-            className={cn(
-              "text-muted-foreground font-normal",
-              viewConfig.classNames?.viewSwitcherLabel
-            )}
-          >
-            {settings.i18n.labels.selectView}
-          </DropdownMenuLabel>
           {availableViews.map((v) =>
             v === "days" ? (
               viewConfig.dayCountPresets.map((count) => (

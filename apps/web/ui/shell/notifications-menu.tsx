@@ -330,7 +330,18 @@ export function NotificationsMenu() {
             </EmptyHeader>
           </Empty>
         ) : (
-          <ScrollArea className="[&_[data-slot=scroll-area-viewport]]:max-h-96 [&_[data-slot=scroll-area-viewport]]:overscroll-contain">
+          <ScrollArea
+            viewportProps={{
+              role: "region",
+              "aria-label": "Notification list",
+              className: "overscroll-contain",
+              style: {
+                height: "auto",
+                maxHeight:
+                  "min(24rem, calc(var(--radix-popover-content-available-height, 100vh) - 3.5rem))",
+              },
+            }}
+          >
             <ul className="flex flex-col p-1.5">
               {notifications.map((notification, index) => {
                 const group = groupOf(notification.createdAt);
