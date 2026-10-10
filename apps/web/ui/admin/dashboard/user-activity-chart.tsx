@@ -25,7 +25,7 @@ export function UserActivityChart({
   const points = users.weeks.map((week, index) => ({
     label: shortDayLabel(week),
     accounts: users.cumulative[index],
-    active: users.active[index],
+    active: users.active?.[index],
   }));
   return (
     <figure className="space-y-3">
@@ -35,7 +35,11 @@ export function UserActivityChart({
           active: { label: "Planned that week", color: "var(--color-chart-2)" },
         }}
         className="aspect-auto h-48 w-full"
-        aria-label={`${users.total} accounts. ${users.active.at(-1) ?? 0} students changed a plan this week.`}
+        aria-label={
+          users.active
+            ? `${users.total} accounts. ${users.active.at(-1) ?? 0} students changed a plan this week.`
+            : `${users.total} accounts.`
+        }
       >
         <ComposedChart
           data={points}
@@ -92,15 +96,17 @@ export function UserActivityChart({
             fill={`url(#${gradient})`}
             isAnimationActive={false}
           />
-          <Line
-            type="monotone"
-            dataKey="active"
-            name="Planned that week"
-            stroke="var(--color-chart-2)"
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-          />
+          {users.active ? (
+            <Line
+              type="monotone"
+              dataKey="active"
+              name="Planned that week"
+              stroke="var(--color-chart-2)"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+          ) : null}
         </ComposedChart>
       </ChartContainer>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
@@ -108,14 +114,16 @@ export function UserActivityChart({
           <span aria-hidden="true" className="size-2.5 rounded-sm bg-primary" />
           Accounts
         </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            aria-hidden="true"
-            className="size-2.5 rounded-sm"
-            style={{ backgroundColor: "var(--color-chart-2)" }}
-          />
-          Changed a plan that week
-        </span>
+        {users.active ? (
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="size-2.5 rounded-sm"
+              style={{ backgroundColor: "var(--color-chart-2)" }}
+            />
+            Changed a plan that week
+          </span>
+        ) : null}
       </figcaption>
     </figure>
   );

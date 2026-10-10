@@ -3411,11 +3411,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "plan_requirement_placements_plan_id_fkey"
-            columns: ["plan_id"]
+            foreignKeyName: "plan_requirement_placements_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -3443,11 +3443,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "plan_starred_courses_plan_id_fkey"
-            columns: ["plan_id"]
+            foreignKeyName: "plan_starred_courses_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "plans"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -3496,6 +3496,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "published_course_summaries"
             referencedColumns: ["record_id"]
+          },
+          {
+            foreignKeyName: "plan_structures_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id", "owner_id"]
           },
         ]
       }
@@ -4763,7 +4770,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
-          student_number?: string | null
+          student_number?: never
           updated_at?: string | null
           user_id?: string | null
         }
@@ -4771,7 +4778,7 @@ export type Database = {
           created_at?: string | null
           display_name?: string | null
           email?: string | null
-          student_number?: string | null
+          student_number?: never
           updated_at?: string | null
           user_id?: string | null
         }

@@ -321,11 +321,15 @@ test("rounded table and map surfaces keep all four corners", async ({
       await expectRoundedCorners(surface);
     }
     await page.goto("/admin/rooms");
+    const buildingPicker = page.locator(
+      '[data-slot="building-picker"]:not([aria-busy="true"])',
+    );
+    await expect(buildingPicker).toBeVisible();
     await expectRoundedCorners(
-      page.locator('[data-slot="building-picker-rail"]'),
+      buildingPicker.locator('[data-slot="building-picker-rail"]'),
     );
     await expectRoundedCorners(
-      page.locator('[data-slot="building-picker-map"]'),
+      buildingPicker.locator('[data-slot="building-picker-map"]'),
     );
   }
 });
