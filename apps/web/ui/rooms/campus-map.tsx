@@ -552,7 +552,7 @@ export function CampusMap({
             type: "raster-dem",
             url: TERRAIN_URL,
             tileSize: 512,
-            attribution: "",
+            attribution: '<a href="https://mapterhorn.com">Mapterhorn</a>',
           });
           map.addLayer(
             {
