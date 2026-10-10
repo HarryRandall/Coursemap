@@ -1,4 +1,4 @@
-import "server-only";
+// Local preview scripts and database tests also load this module under plain Node.
 
 import type postgres from "postgres";
 import {

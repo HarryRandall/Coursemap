@@ -1,4 +1,4 @@
-import "server-only";
+// Catalogue workers and database tests also load this module under plain Node.
 
 import { getCanonicalSiteOrigin } from "../supabase/config.ts";
 import {
