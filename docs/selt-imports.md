@@ -15,7 +15,7 @@ python3 -m venv ~/.venvs/coursemap-selt
 ```
 
 Apply migrations `039_selt_imports.sql`, `040_selt_published_reads.sql` and
-`045_public_selt_reads.sql` through the normal reviewed database rollout.
+`046_public_selt_reads.sql` through the normal reviewed database rollout.
 The upload routes use the existing server-only `COURSEMAP_SYNC_DATABASE_URL`.
 The local CLI needs neither a database password nor a Supabase service key.
 
