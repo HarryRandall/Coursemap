@@ -12,12 +12,15 @@ function isCoordinate(value: unknown): value is [number, number] {
 }
 
 export function buildWalkingRouteUrl(
-  from: CampusMapPlace,
-  to: CampusMapPlace,
+  from: Pick<CampusMapPlace, "coordinates">,
+  to: Pick<CampusMapPlace, "coordinates">,
   routingUrl = process.env.ROOM_MAP_ROUTING_URL ?? DEFAULT_ROUTING_URL,
 ) {
   const baseUrl = new URL(routingUrl);
-  if (baseUrl.protocol !== "https:") {
+  const localHttp =
+    baseUrl.protocol === "http:" &&
+    ["localhost", "127.0.0.1", "[::1]"].includes(baseUrl.hostname);
+  if (baseUrl.protocol !== "https:" && !localHttp) {
     throw new Error("The Room Finder routing URL must use HTTPS.");
   }
 

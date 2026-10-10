@@ -20,6 +20,7 @@ export function ReviewThemeColumns({
   }));
   return (
     <ChartContainer
+      role="img"
       config={{
         agreement: { label: "Agreement", color: "var(--color-primary)" },
       }}
