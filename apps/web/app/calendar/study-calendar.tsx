@@ -1,4 +1,5 @@
 "use client";
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -49,11 +50,11 @@ const PLAN_TERM_FILTER = "plan-terms" as const;
 
 /** Canberra midnight for an ISO day, independent of the browser time zone. */
 function localMidnight(isoDay: string) {
-  return zonedStartOfDay(new Date(`${isoDay}T12:00:00Z`), "Australia/Sydney");
+  return zonedStartOfDay(new Date(`${isoDay}T12:00:00Z`), ACADEMIC_TIME_ZONE);
 }
 
 function addDays(date: Date, days: number) {
-  const next = toZoned(date, "Australia/Sydney");
+  const next = toZoned(date, ACADEMIC_TIME_ZONE);
   next.setDate(next.getDate() + days);
   return next;
 }
@@ -189,7 +190,7 @@ export function StudyCalendar({
                   `/societies/events/${event.id.slice("society-event-".length)}`,
                 );
             }}
-            timeZone="Australia/Sydney"
+            timeZone={ACADEMIC_TIME_ZONE}
             defaultView="month"
             views={["month", "agenda"]}
             interactions={{ drag: false, resize: false, selectSlot: false }}

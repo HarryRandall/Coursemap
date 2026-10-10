@@ -1,22 +1,17 @@
-import {
-  collegeEnrolmentStatus,
-  type ProgrammeCollege,
-} from "@/lib/academic/college-enrolment";
-import {
-  validEnrolmentMode,
-  type EnrolmentMode,
-} from "@/lib/academic/enrolment-mode";
-import {
-  validCommencementYear,
-  validCommencementYearBounds,
-} from "@/lib/academic/commencement-year";
-import {
-  courseLevelForCode,
-  courseSubjectForCode,
-} from "@/lib/academic/course-code";
+import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
+import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
+import { validCommencementYear } from "@/lib/academic/commencement-year";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
+import {
+  evaluateCondition,
+  groupOperator,
+  groupRequiredCount,
+  studentRecord,
+  type StudentRecord,
+} from "@/lib/coursemap/requisite-evaluation";
+import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
 export type PlanningCatalogue = {
   courses: readonly Course[];
@@ -29,7 +24,7 @@ export type PlanningCatalogue = {
 };
 
 export type EffectiveStatus =
-  Attempt["status"] | "blocked" | "approval" | "review";
+  Attempt["status"] | "blocked" | "approval" | "review" | "unpublished";
 
 export const STANDARD_COURSE_SLOTS = 4;
 export const STANDARD_TERM_UNITS = 24;
@@ -87,11 +82,13 @@ export function planningCourseByCode(
 /**
  * A pinned snapshot must resolve exactly; it never falls back to a newer course.
  * Unpinned attempts use their academic year, then the scheduled term's year.
+ * A planned course that is no longer published resolves to nothing.
  */
 export function planningCourseForAttempt(
   attempt: Attempt,
   catalogue?: PlanningCatalogue,
 ) {
+  if (attempt.isPublished === false) return undefined;
   if (attempt.snapshotId !== undefined) {
     const matches = [
       ...coursesFor(catalogue),
@@ -113,7 +110,44 @@ export function planningCourseForAttempt(
   );
 }
 
-export function unitsForAttempt(attempt: Attempt, course: Course | undefined) {
+/**
+ * The course to show for an attempt. A planned course that is no longer
+ * published shows as a placeholder carrying its code and no units, so it
+ * stays visible until the student removes it.
+ */
+export function displayCourseForAttempt(
+  attempt: Attempt,
+  catalogue?: PlanningCatalogue,
+): Course | undefined {
+  if (attempt.isPublished !== false)
+    return planningCourseForAttempt(attempt, catalogue);
+  return {
+    code: attempt.courseCode,
+    name: "No longer published",
+    year: attempt.academicYear ?? 0,
+    units: 0,
+    level: 0,
+    subject: "",
+    school: "",
+    convener: "",
+    sessions: [],
+    delivery: "",
+    description: "",
+    prerequisiteText: "",
+    prerequisiteCodes: [],
+    incompatibilities: [],
+    countsTowards: [],
+    sourceUrl: "",
+    lastChanged: "",
+    parseState: "Review",
+    accent: "amber",
+  };
+}
+
+export function unitsForAttempt(
+  attempt: Attempt,
+  course: Pick<Course, "units"> | undefined,
+) {
   if (
     attempt.status === "completed" &&
     attempt.unitsEarned !== undefined &&
@@ -145,6 +179,15 @@ export function isActiveAttempt(attempt: Attempt) {
   return attempt.status !== "failed" && attempt.status !== "withdrawn";
 }
 
+/**
+ * Whether an attempt can satisfy or conflict with another course's rule. A
+ * planned course that is no longer published cannot be taken, so it does
+ * neither until the student replaces it.
+ */
+function countsTowardsRules(attempt: Attempt) {
+  return isActiveAttempt(attempt) && attempt.isPublished !== false;
+}
+
 type PrerequisiteEvaluation = {
   missingCodes: string[];
   state: "satisfied" | "unsatisfied" | "unknown";
@@ -161,7 +204,7 @@ function prerequisiteAttempts(
   return attempts.filter(
     (candidate) =>
       candidate.id !== attempt.id &&
-      isActiveAttempt(candidate) &&
+      countsTowardsRules(candidate) &&
       (allowConcurrent
         ? orderOf(candidate.termId, catalogue) <= targetOrder
         : orderOf(candidate.termId, catalogue) < targetOrder),
@@ -172,17 +215,157 @@ function uniqueCodes(values: readonly string[]) {
   return [...new Set(values)].sort();
 }
 
+type PlannedRecord = {
+  student: StudentRecord;
+  /** The same record with every course of unknown units counted in full. */
+  withUnknownUnits: StudentRecord | null;
+  /** A course before the term is missing from the catalogue, so its tags are unknown. */
+  hasUnknownTags: boolean;
+  /** A course before the term has no result yet, so averages can still move. */
+  hasPendingResults: boolean;
+};
+
+/**
+ * The student as the plan describes them when the attempt's term begins:
+ * everything active in an earlier term counts as done, the same term counts as
+ * concurrent, averages come from results recorded before it, and standing is
+ * the term's year of study.
+ */
+function plannedStudentRecord(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): PlannedRecord {
+  const targetOrder = orderOf(attempt.termId, catalogue);
+  const others = attempts.filter((candidate) => candidate.id !== attempt.id);
+  const before = others.filter(
+    (candidate) => orderOf(candidate.termId, catalogue) < targetOrder,
+  );
+  const done = new Map<
+    string,
+    {
+      units: number;
+      tags: string[];
+      isUnitsKnown: boolean;
+      isTagsKnown: boolean;
+    }
+  >();
+  for (const candidate of before.filter(countsTowardsRules)) {
+    const course = planningCourseForAttempt(candidate, catalogue);
+    const units = unitsForAttempt(candidate, course);
+    const previous = done.get(candidate.courseCode);
+    // A course missing from the catalogue still has a subject and level in
+    // its code. Its units and tags can be unknown.
+    done.set(candidate.courseCode, {
+      units: (previous?.units ?? 0) + units,
+      tags: course?.tags ?? previous?.tags ?? [],
+      isUnitsKnown: (previous?.isUnitsKnown ?? true) && (!!course || units > 0),
+      isTagsKnown: (previous?.isTagsKnown ?? true) && !!course,
+    });
+  }
+  const commencementYear = catalogue?.commencementYear ?? null;
+  const term = termsFor(catalogue).find(
+    (item) => item.id === attempt.termId && item.id !== "unscheduled",
+  );
+  const recordWith = (unknownUnits: number): StudentRecord => ({
+    ...studentRecord({
+      attempts: before,
+      commencementYear,
+      enrolmentMode: catalogue?.enrolmentMode,
+      completedCourses: [...done].map(([code, course]) => ({
+        code,
+        units: course.isUnitsKnown ? course.units : unknownUnits,
+        tags: course.tags,
+      })),
+      programmeCodes: catalogue?.programmeCodes ?? [],
+      programmeColleges: catalogue?.programmeColleges,
+    }),
+    enrolled: new Set(
+      others
+        .filter(
+          (candidate) =>
+            countsTowardsRules(candidate) &&
+            orderOf(candidate.termId, catalogue) === targetOrder,
+        )
+        .map((candidate) => candidate.courseCode),
+    ),
+    studyYear:
+      term && validCommencementYear(commencementYear)
+        ? Math.max(1, term.year - commencementYear + 1)
+        : null,
+    permissionApproved: attempt.permissionApproved ?? false,
+  });
+  const hasUnknownUnits = [...done.values()].some(
+    (course) => !course.isUnitsKnown,
+  );
+  return {
+    student: recordWith(0),
+    withUnknownUnits: hasUnknownUnits
+      ? recordWith(Number.MAX_SAFE_INTEGER)
+      : null,
+    hasUnknownTags: [...done.values()].some((course) => !course.isTagsKnown),
+    hasPendingResults: before
+      .filter(countsTowardsRules)
+      .some(
+        (candidate) =>
+          candidate.status !== "completed" ||
+          (candidate.mark === undefined && candidate.resultCode === undefined),
+      ),
+  };
+}
+
+/** A condition with no planner-specific meaning, judged as the course page does. */
+function evaluatePlannedCondition(
+  condition: CourseRuleCondition,
+  record: PlannedRecord,
+): PrerequisiteEvaluation {
+  // Planned and unmarked courses before the term will move the average
+  // either way, so a recorded average cannot settle it.
+  if (
+    (condition.kind === "wam" || condition.kind === "gpa") &&
+    record.hasPendingResults
+  )
+    return { state: "unknown", missingCodes: [] };
+  const result = evaluateCondition(condition, record.student);
+  if (result.status === "met") return { state: "satisfied", missingCodes: [] };
+  if (result.status === "unknown")
+    return { state: "unknown", missingCodes: [] };
+  // Units the catalogue cannot supply might reach the target.
+  if (
+    result.measure?.kind === "units" &&
+    record.withUnknownUnits &&
+    evaluateCondition(condition, record.withUnknownUnits).status === "met"
+  )
+    return { state: "unknown", missingCodes: [] };
+  // Tags the catalogue cannot supply might reach the target.
+  if (condition.kind === "tagged_units" && record.hasUnknownTags)
+    return { state: "unknown", missingCodes: [] };
+  // The plan names only the programme, so a structure it does not list may
+  // still be one the student is enrolled in.
+  if (condition.kind === "structure" || condition.kind === "structure_set")
+    return { state: "unknown", missingCodes: [] };
+  return { state: "unsatisfied", missingCodes: [] };
+}
+
 function evaluateRelationalPrerequisite(
   expression: CourseRuleExpression,
   attempt: Attempt,
   attempts: Attempt[],
-  catalogue?: PlanningCatalogue,
+  catalogue: PlanningCatalogue | undefined,
+  record: () => PlannedRecord,
 ): PrerequisiteEvaluation {
   if (expression.kind === "group") {
     const children = expression.conditions.map((condition) =>
-      evaluateRelationalPrerequisite(condition, attempt, attempts, catalogue),
+      evaluateRelationalPrerequisite(
+        condition,
+        attempt,
+        attempts,
+        catalogue,
+        record,
+      ),
     );
-    if (expression.operator === "all_of") {
+    const operator = groupOperator(expression);
+    if (operator === "all_of") {
       const unsatisfied = children.filter(
         (child) => child.state === "unsatisfied",
       );
@@ -207,10 +390,7 @@ function evaluateRelationalPrerequisite(
         : { state: "satisfied", missingCodes: [] };
     }
 
-    const required =
-      expression.operator === "any_of"
-        ? 1
-        : Math.max(1, expression.minimumCount ?? Number.POSITIVE_INFINITY);
+    const required = groupRequiredCount(expression);
     const satisfied = children.filter(
       (child) => child.state === "satisfied",
     ).length;
@@ -296,6 +476,7 @@ function evaluateRelationalPrerequisite(
       (candidate) =>
         candidate.id !== attempt.id &&
         candidate.courseCode === expression.code &&
+        candidate.isPublished !== false &&
         (candidate.status === "planned" || candidate.status === "enrolled"),
     );
     let unknown = false;
@@ -325,11 +506,13 @@ function evaluateRelationalPrerequisite(
     return { state: unknown ? "unknown" : "satisfied", missingCodes: [] };
   }
   if (expression.kind === "incompatible") {
-    return prerequisiteAttempts(attempt, attempts, catalogue, false).some(
+    // A plan holding both courses breaks the exclusion whichever comes first,
+    // so a planned or enrolled attempt in any term conflicts like a result.
+    return attempts.some(
       (candidate) =>
         candidate.id !== attempt.id &&
         candidate.courseCode === expression.code &&
-        candidate.status === "completed",
+        countsTowardsRules(candidate),
     )
       ? { state: "unsatisfied", missingCodes: [] }
       : { state: "satisfied", missingCodes: [] };
@@ -345,122 +528,17 @@ function evaluateRelationalPrerequisite(
         };
   }
 
-  const earlier = prerequisiteAttempts(attempt, attempts, catalogue, false);
-  // A course missing from the catalogue still has a subject and level in its
-  // code. Only its units can be unknown, and then only an unmet target is.
-  const earlierCourses = earlier.map((candidate) => {
-    const course = planningCourseForAttempt(candidate, catalogue);
-    const units = unitsForAttempt(candidate, course);
-    return {
-      code: candidate.courseCode,
-      subject: course?.subject ?? courseSubjectForCode(candidate.courseCode),
-      level: course?.level ?? courseLevelForCode(candidate.courseCode),
-      units: course || units > 0 ? units : null,
-    };
-  });
-  type EarlierCourse = (typeof earlierCourses)[number];
-  const unitsState = (
-    include: (course: EarlierCourse) => boolean,
-    target: number,
-  ): PrerequisiteEvaluation => {
-    const matching = earlierCourses.filter(include);
-    const units = matching.reduce(
-      (total, course) => total + (course.units ?? 0),
-      0,
-    );
-    if (units >= target) return { state: "satisfied", missingCodes: [] };
-    return {
-      state: matching.some((course) => course.units === null)
-        ? "unknown"
-        : "unsatisfied",
-      missingCodes: [],
-    };
-  };
+  return evaluatePlannedCondition(expression, record());
+}
 
-  if (expression.kind === "units_total") {
-    return unitsState(() => true, expression.units);
-  }
-  if (expression.kind === "subject_units") {
-    return unitsState(
-      (course) => course.subject === expression.subject,
-      expression.units,
-    );
-  }
-  if (expression.kind === "subject_courses") {
-    const codes = new Set(
-      earlierCourses
-        .filter((course) => course.subject === expression.subject)
-        .map((course) => course.code),
-    );
-    return codes.size >= expression.minimumCount
-      ? { state: "satisfied", missingCodes: [] }
-      : { state: "unsatisfied", missingCodes: [] };
-  }
-  if (expression.kind === "level_units") {
-    return unitsState(
-      (course) =>
-        course.level !== null &&
-        course.level >= expression.minimumLevel &&
-        (expression.maximumLevel === null ||
-          course.level <= expression.maximumLevel) &&
-        (expression.subject === null || course.subject === expression.subject),
-      expression.units,
-    );
-  }
-  if (expression.kind === "course_set_units") {
-    return unitsState(
-      (course) => expression.courseCodes.includes(course.code),
-      expression.units,
-    );
-  }
-
-  if (expression.kind === "college_enrolment") {
-    const status = collegeEnrolmentStatus(
-      expression.college,
-      catalogue?.programmeCodes ?? [],
-      catalogue?.programmeColleges,
-    );
-    return {
-      state:
-        status === "met"
-          ? "satisfied"
-          : status === "unmet"
-            ? "unsatisfied"
-            : "unknown",
-      missingCodes: [],
-    };
-  }
-  if (expression.kind === "enrolment_mode") {
-    const mode = catalogue?.enrolmentMode;
-    if (!validEnrolmentMode(mode))
-      return { state: "unknown", missingCodes: [] };
-    return {
-      state:
-        (mode === expression.enrolmentMode) === expression.matchesEnrolmentMode
-          ? "satisfied"
-          : "unsatisfied",
-      missingCodes: [],
-    };
-  }
-  if (expression.kind === "commencement_year") {
-    const year = catalogue?.commencementYear;
-    if (
-      !validCommencementYear(year) ||
-      !validCommencementYearBounds(expression)
-    )
-      return { state: "unknown", missingCodes: [] };
-    const matches =
-      (expression.minimumCommencementYear === null ||
-        year >= expression.minimumCommencementYear) &&
-      (expression.maximumCommencementYear === null ||
-        year <= expression.maximumCommencementYear);
-    return { state: matches ? "satisfied" : "unsatisfied", missingCodes: [] };
-  }
-
-  // Admission, standing, GPA, WAM, incompatibility and free-text conditions
-  // require student context that the planner does not yet hold. Keep them
-  // visible as review work instead of pretending they passed or failed.
-  return { state: "unknown", missingCodes: [] };
+/** Builds the planned record once, and only when a condition needs it. */
+function lazyPlannedRecord(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+) {
+  let record: PlannedRecord | undefined;
+  return () => (record ??= plannedStudentRecord(attempt, attempts, catalogue));
 }
 
 export function evaluateCoursePrerequisites(
@@ -469,7 +547,8 @@ export function evaluateCoursePrerequisites(
   catalogue?: PlanningCatalogue,
 ): PrerequisiteEvaluation {
   const course = planningCourseForAttempt(attempt, catalogue);
-  if (!course) return { state: "satisfied", missingCodes: [] };
+  // Without the course its requisites cannot be read, so nothing is known.
+  if (!course) return { state: "unknown", missingCodes: [] };
   if (course.prerequisiteRule === undefined) {
     const earlier = prerequisiteAttempts(attempt, attempts, catalogue, false);
     const missingCodes = course.prerequisiteCodes.filter(
@@ -502,6 +581,7 @@ export function evaluateCoursePrerequisites(
     attempt,
     attempts,
     catalogue,
+    lazyPlannedRecord(attempt, attempts, catalogue),
   );
 }
 
@@ -523,6 +603,7 @@ export function evaluateCourseIncompatibilities(
     attempt,
     attempts,
     catalogue,
+    lazyPlannedRecord(attempt, attempts, catalogue),
   );
 }
 
@@ -545,8 +626,9 @@ export function effectiveStatus(
   catalogue?: PlanningCatalogue,
 ): EffectiveStatus {
   if (attempt.status !== "planned") return attempt.status;
+  if (attempt.isPublished === false) return "unpublished";
   const course = planningCourseForAttempt(attempt, catalogue);
-  if (!course) return attempt.status;
+  if (!course) return "review";
   const prerequisites = evaluateCoursePrerequisites(
     attempt,
     attempts,
@@ -578,36 +660,52 @@ export function statusLabel(status: EffectiveStatus) {
     blocked: "Blocked",
     approval: "Approval needed",
     review: "Review needed",
+    unpublished: "No longer published",
   }[status];
+}
+
+type AttemptUnits = (attempt: Attempt) => number;
+
+function catalogueUnits(catalogue?: PlanningCatalogue): AttemptUnits {
+  return (attempt) =>
+    unitsForAttempt(attempt, planningCourseForAttempt(attempt, catalogue));
+}
+
+function earnedUnitsBy(attempts: readonly Attempt[], unitsOf: AttemptUnits) {
+  const completed = new Map(
+    attempts
+      .filter((attempt) => attempt.status === "completed")
+      .map((attempt) => [attempt.courseCode, attempt]),
+  );
+  return [...completed.values()].reduce(
+    (total, attempt) => total + unitsOf(attempt),
+    0,
+  );
+}
+
+function mappedUnitsBy(attempts: readonly Attempt[], unitsOf: AttemptUnits) {
+  const latest = new Map<string, Attempt>();
+  attempts
+    .filter(isActiveAttempt)
+    .forEach((attempt) => latest.set(attempt.courseCode, attempt));
+  return [...latest.values()].reduce(
+    (total, attempt) => total + unitsOf(attempt),
+    0,
+  );
 }
 
 export function earnedUnits(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ) {
-  const completed = new Map(
-    attempts
-      .filter((attempt) => attempt.status === "completed")
-      .map((attempt) => [attempt.courseCode, attempt]),
-  );
-  return [...completed.values()].reduce((total, attempt) => {
-    const course = planningCourseForAttempt(attempt, catalogue);
-    return total + unitsForAttempt(attempt, course);
-  }, 0);
+  return earnedUnitsBy(attempts, catalogueUnits(catalogue));
 }
 
 export function mappedUnits(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ) {
-  const latest = new Map<string, Attempt>();
-  attempts
-    .filter(isActiveAttempt)
-    .forEach((attempt) => latest.set(attempt.courseCode, attempt));
-  return [...latest.values()].reduce((total, attempt) => {
-    const course = planningCourseForAttempt(attempt, catalogue);
-    return total + unitsForAttempt(attempt, course);
-  }, 0);
+  return mappedUnitsBy(attempts, catalogueUnits(catalogue));
 }
 
 export function unitsByCalendarYear(
@@ -653,8 +751,21 @@ export function degreeUnitProgress(
   totalUnits: number,
   catalogue?: PlanningCatalogue,
 ): DegreeUnitProgress {
-  const completed = earnedUnits(attempts, catalogue);
-  const mapped = mappedUnits(attempts, catalogue);
+  return degreeUnitProgressBy(attempts, totalUnits, catalogueUnits(catalogue));
+}
+
+/**
+ * Degree progress when each attempt's units come from somewhere other than
+ * the planning catalogue, such as the admin view of a student's plan. The
+ * counting rules match the student's own view.
+ */
+export function degreeUnitProgressBy(
+  attempts: readonly Attempt[],
+  totalUnits: number,
+  unitsOf: AttemptUnits,
+): DegreeUnitProgress {
+  const completed = earnedUnitsBy(attempts, unitsOf);
+  const mapped = mappedUnitsBy(attempts, unitsOf);
   const planned = Math.max(0, mapped - completed);
   const remaining = Math.max(0, totalUnits - mapped);
   return {

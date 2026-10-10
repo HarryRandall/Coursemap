@@ -879,3 +879,153 @@ test("cohort approval can waive one course without waiving the cohort or other c
     );
   }
 });
+
+test("an exclusion listed as either course blocks a plan holding either course", () => {
+  const exclusion = (code) => ({
+    kind: "incompatible",
+    code,
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Incompatible with COMP1100 or MATH1005.",
+  });
+  const catalogue = catalogueWithExclusion({
+    kind: "group",
+    operator: "any_of",
+    minimumCount: null,
+    conditions: [exclusion("COMP1100"), exclusion("MATH1005")],
+  });
+  const target = attempt("target", "COMP1110", "2026-s2");
+  assert.equal(effectiveStatus(target, [target], catalogue), "planned");
+  for (const code of ["COMP1100", "MATH1005"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", code, "2026-s1", "completed"), target],
+        catalogue,
+      ),
+      "blocked",
+    );
+  }
+});
+
+test("an excluded course planned in either semester blocks the plan", () => {
+  const catalogue = catalogueWithExclusion({
+    kind: "incompatible",
+    code: "COMP1100",
+    hardness: "hard",
+    reviewState: "verified",
+    confidence: 1,
+    sourceText: "Incompatible with COMP1100.",
+  });
+  const target = attempt("target", "COMP1110", "2026-s2");
+  for (const [termId, status] of [
+    ["2026-s1", "planned"],
+    ["2026-s1", "enrolled"],
+    ["2027-s1", "planned"],
+    ["unscheduled", "planned"],
+  ]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", termId, status), target],
+        catalogue,
+      ),
+      "blocked",
+      `${status} in ${termId}`,
+    );
+  }
+  for (const status of ["failed", "withdrawn"]) {
+    assert.equal(
+      effectiveStatus(
+        target,
+        [attempt("other", "COMP1100", "2026-s1", status), target],
+        catalogue,
+      ),
+      "planned",
+    );
+  }
+});
+
+function catalogueWithCondition(condition) {
+  return {
+    ...demoCatalogue,
+    commencementYear: 2026,
+    courses: demoCatalogue.courses.map((course) =>
+      course.code === "COMP1110"
+        ? {
+            ...course,
+            prerequisiteCodes: [],
+            prerequisiteRule: {
+              confidence: 1,
+              expression: null,
+              hardness: "hard",
+              relationalExpression: {
+                hardness: "hard",
+                reviewState: "verified",
+                confidence: 1,
+                sourceText: "",
+                ...condition,
+              },
+              reviewState: "verified",
+              sourceText: "",
+            },
+          }
+        : course,
+    ),
+  };
+}
+
+test("a recorded average cannot settle a WAM or GPA gate while earlier courses are only planned", () => {
+  const target = attempt("target", "COMP1110", "2027-s2");
+  const recorded = {
+    ...attempt("recorded", "COMP1100", "2026-s1", "completed"),
+    mark: 63,
+    unitsAttempted: 6,
+    unitsEarned: 6,
+  };
+  const later = attempt("later", "MATH1005", "2027-s1");
+  for (const condition of [
+    { kind: "wam", minimumWam: 65 },
+    { kind: "gpa", minimumGpa: 6 },
+  ]) {
+    const catalogue = catalogueWithCondition(condition);
+    assert.equal(
+      effectiveStatus(target, [recorded, later, target], catalogue),
+      "review",
+      `${condition.kind} with a planned course before the term`,
+    );
+    assert.equal(
+      effectiveStatus(target, [recorded, target], catalogue),
+      "blocked",
+      `${condition.kind} with every earlier result recorded`,
+    );
+  }
+  assert.equal(
+    effectiveStatus(
+      target,
+      [{ ...recorded, mark: 80 }, later, target],
+      catalogueWithCondition({ kind: "wam", minimumWam: 65 }),
+    ),
+    "review",
+  );
+});
+
+test("a course missing from the catalogue leaves a tagged-unit gate for review", () => {
+  const target = attempt("target", "COMP1110", "2026-s2");
+  const uncatalogued = {
+    ...attempt("old", "ZZZZ1000", "2026-s1", "completed"),
+    mark: 70,
+    unitsEarned: 6,
+  };
+  const catalogue = catalogueWithCondition({
+    kind: "tagged_units",
+    tag: "Science",
+    units: 6,
+  });
+  assert.equal(
+    effectiveStatus(target, [uncatalogued, target], catalogue),
+    "review",
+  );
+  assert.equal(effectiveStatus(target, [target], catalogue), "blocked");
+});

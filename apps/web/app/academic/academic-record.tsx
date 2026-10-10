@@ -29,7 +29,13 @@ import {
 } from "@/lib/coursemap/plan-timeline";
 import { planningCourseForAttempt, unitsForAttempt } from "@/lib/planner";
 
-export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
+export function AcademicRecord({
+  catalogue,
+  todayIso,
+}: {
+  catalogue: PlanCatalogue;
+  todayIso: string;
+}) {
   const { guest, saveGuestResult, state, notify } = useCoursemap();
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
@@ -45,14 +51,13 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
     });
     const terms = planTimelineTerms({ terms: catalogue.terms, years });
     const planning = { ...catalogue, terms };
-    const now = new Date();
-    const today = now.toISOString().slice(0, 10);
-    const currentFallback = `${now.getFullYear()}-s${now.getMonth() < 6 ? 1 : 2}`;
+    const [year, month] = todayIso.split("-").map(Number);
+    const currentFallback = `${year}-s${month <= 6 ? 1 : 2}`;
     return state.attempts.flatMap((attempt) => {
       const term = terms.find((item) => item.id === attempt.termId);
       const current =
         term?.startsOn && term.endsOn
-          ? term.startsOn <= today && today <= term.endsOn
+          ? term.startsOn <= todayIso && todayIso <= term.endsOn
           : attempt.termId === currentFallback;
       if (attempt.status === "planned" && !current) return [];
       const course = planningCourseForAttempt(attempt, planning);
@@ -79,7 +84,7 @@ export function AcademicRecord({ catalogue }: { catalogue: PlanCatalogue }) {
         },
       ];
     });
-  }, [catalogue, state]);
+  }, [catalogue, state, todayIso]);
   const course = courses.find((item) => item.id === selected);
   function mutate(
     id: string,

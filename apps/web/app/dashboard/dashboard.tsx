@@ -46,8 +46,8 @@ import {
 } from "@/lib/academic/metrics";
 import {
   degreeUnitProgress,
+  displayCourseForAttempt,
   effectiveStatus,
-  planningCourseForAttempt,
   statusLabel,
   unitsForAttempt,
 } from "@/lib/planner";
@@ -116,7 +116,7 @@ export function Dashboard({
       state.attempts
         .map((attempt) => ({
           attempt,
-          course: planningCourseForAttempt(attempt, planningCatalogue),
+          course: displayCourseForAttempt(attempt, planningCatalogue),
           term: timelineTerms.find((term) => term.id === attempt.termId),
         }))
         .filter(
@@ -124,7 +124,7 @@ export function Dashboard({
             item,
           ): item is {
             attempt: (typeof state.attempts)[number];
-            course: NonNullable<ReturnType<typeof planningCourseForAttempt>>;
+            course: NonNullable<ReturnType<typeof displayCourseForAttempt>>;
             term: (typeof timelineTerms)[number] | undefined;
           } => Boolean(item.course),
         ),
@@ -150,8 +150,8 @@ export function Dashboard({
     [planningCatalogue, state.attempts],
   );
   const currentTermId = useMemo(
-    () => currentDashboardTermId(timelineTerms),
-    [timelineTerms],
+    () => currentDashboardTermId(timelineTerms, todayIso),
+    [timelineTerms, todayIso],
   );
   const buckets = useMemo(
     () =>
@@ -331,7 +331,7 @@ export function Dashboard({
               ]),
             )}
           />
-          <MonthCalendar events={calendarEvents} />
+          <MonthCalendar events={calendarEvents} todayIso={todayIso} />
         </div>
 
         <div

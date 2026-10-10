@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   evaluateRule,
+  groupOperator,
   type StudentRecord,
 } from "@/lib/coursemap/requisite-evaluation";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -265,7 +266,7 @@ function GroupBox({
   style?: CSSProperties;
   className?: string;
 }) {
-  const choice = group.operator !== "all_of";
+  const choice = groupOperator(group) !== "all_of";
   const met = isMet(group, shared.student);
   return (
     <div

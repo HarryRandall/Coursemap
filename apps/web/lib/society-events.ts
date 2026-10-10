@@ -1,3 +1,4 @@
+import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import type { Society } from "@/lib/societies";
 
 export type SocietyEvent = {
@@ -25,7 +26,7 @@ export function formatEventDate(value: string) {
     month: "short",
     hour: "numeric",
     minute: "2-digit",
-    timeZone: "Australia/Sydney",
+    timeZone: ACADEMIC_TIME_ZONE,
   }).format(new Date(value));
 }
 

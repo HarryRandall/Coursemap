@@ -1,3 +1,4 @@
+import { canberraTodayIso } from "@/lib/canberra-format";
 import type { Accent, Attempt, Course, Term } from "@/lib/coursemap/types";
 import { isSemesterTerm } from "@/lib/coursemap/academic-periods";
 import {
@@ -144,13 +145,10 @@ export function dashboardCalendarEvents({
 
 export function currentDashboardTermId(
   terms: readonly Term[],
-  today = new Date(),
+  todayIso = canberraTodayIso(),
 ) {
-  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return scheduledTerms(terms).find((term) => {
     if (!term.startsOn || !term.endsOn) return false;
-    const start = new Date(`${term.startsOn}T00:00:00`);
-    const end = new Date(`${term.endsOn}T23:59:59`);
-    return day >= start && day <= end;
+    return term.startsOn <= todayIso && todayIso <= term.endsOn;
   })?.id;
 }
