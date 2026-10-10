@@ -1,11 +1,11 @@
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public-server";
 import type { PublishedSurveyReport } from "./report-model";
 
 export async function loadPublishedSurveyReport(
   code: string,
 ): Promise<PublishedSurveyReport | null> {
-  const client = await createClient();
+  const client = createPublicClient();
   const { data: identity, error: identityError } = await client
     .from("catalogue_codes")
     .select("id")
@@ -14,6 +14,17 @@ export async function loadPublishedSurveyReport(
     .maybeSingle();
   if (identityError) throw new Error("The survey course could not be loaded.");
   if (!identity) return null;
+  // Public code visibility also includes placeholders referenced by requisites.
+  const { data: record, error: recordError } = await client
+    .from("catalogue_records")
+    .select("id")
+    .eq("code_id", identity.id)
+    .not("published_version_id", "is", null)
+    .is("archived_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (recordError) throw new Error("The survey course could not be loaded.");
+  if (!record) return null;
   const { data: report, error } = await client
     .from("selt_reports")
     .select("id, source_name, source_url, report_run_at, notes")
