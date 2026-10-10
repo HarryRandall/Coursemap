@@ -229,6 +229,7 @@ function NavMenuItem({
         tooltip={item.label}
         className="h-10 gap-3 px-3 data-[active=true]:bg-sidebar-primary data-[active=true]:text-sidebar-primary-foreground data-[active=true]:hover:bg-sidebar-primary data-[active=true]:hover:text-sidebar-primary-foreground"
       >
+        {/* Default prefetch stops dynamic navigation at loading.tsx. */}
         <Link href={item.href} onClick={onNavigate}>
           <Icon aria-hidden="true" />
           <span>{item.label}</span>

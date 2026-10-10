@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { loadPublishedUniversityCalendar } from "@/lib/coursemap/university-calendar-data";
@@ -27,7 +28,7 @@ async function loadAllPublishedKeyDates(): Promise<
   }
 }
 
-export default async function CalendarPage() {
+async function CalendarPage() {
   let catalogue;
   try {
     catalogue = await loadCurrentUserPlanCatalogue();
@@ -53,3 +54,5 @@ export default async function CalendarPage() {
     />
   );
 }
+
+export default withPlanningState(CalendarPage);
