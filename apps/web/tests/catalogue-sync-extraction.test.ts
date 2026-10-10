@@ -1,5 +1,7 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { beforeEach, expect, test, vi } from "vitest";
+import { stableStringify } from "@/lib/catalogue-import/canonical";
 import { processCatalogueSync } from "@/lib/catalogue-sync/process-sync";
 import { SyncStoreError } from "@/lib/catalogue-sync/sync-store";
 import {
@@ -24,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   persist: vi.fn(),
   extract: vi.fn(),
   store: vi.fn(),
+  recordArtifact: vi.fn(),
   reserve: vi.fn(),
   reuse: vi.fn(),
   attach: vi.fn(),
@@ -54,7 +57,7 @@ vi.mock("@/lib/catalogue-sync/sync-store", async (importOriginal) => ({
   finishSyncStage: vi.fn(),
   failSyncStage: mocks.failStage,
   recordSourceDocument: vi.fn(async () => 1),
-  recordSyncArtifact: vi.fn(async () => ({ id: "artifact" })),
+  recordSyncArtifact: mocks.recordArtifact,
   reserveExtraction: mocks.reserve,
   findReusableExtraction: mocks.reuse,
   attachExtractionResponse: mocks.attach,
@@ -127,6 +130,7 @@ function failedResponseAudit(error: Partial<OpenRouterProviderError>) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.recordArtifact.mockResolvedValue({ id: "artifact" });
   mocks.reserve.mockResolvedValue({ id: "extraction", created: true });
   mocks.reuse.mockResolvedValue(null);
   mocks.hold.mockResolvedValue(false);
@@ -684,6 +688,86 @@ test("course processing records and sends the same increased reasoning budget", 
     effort: "low",
     exclude: true,
   });
+});
+
+function reusableResponse(normalised: boolean) {
+  const audit = {
+    model: "google/gemini-3.1-flash-lite",
+    finishReason: "stop",
+    content: JSON.stringify(extraction),
+    latencyMilliseconds: 100,
+    usage: {
+      inputTokens: 12,
+      outputTokens: 3,
+      totalTokens: 15,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+      costUsd: 0.03,
+    },
+  };
+  const body = stableStringify(
+    normalised
+      ? restoreOpenRouterExtraction(audit, audit.model).responseForAudit
+      : audit,
+  );
+  const responseArtifact = {
+    bucket: "course-import-artifacts",
+    path: "2026/previous-sync/model_extract/response.json",
+    mediaType: "application/json",
+    contentSha256: createHash("sha256").update(body).digest("hex"),
+    byteSize: Buffer.byteLength(body),
+  };
+  mocks.reuse.mockResolvedValue({
+    id: "previous-extraction",
+    responseArtifact,
+  });
+  mocks.read.mockResolvedValue(body);
+  return responseArtifact;
+}
+
+test("an identical reused response keeps per-sync audit rows without uploading another object", async () => {
+  const responseArtifact = reusableResponse(true);
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.store.mock.calls.map(([input]) => input.kind)).not.toContain(
+    "model_response",
+  );
+  expect(mocks.recordArtifact).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      syncId: "sync",
+      stageId: "stage",
+      kind: "model_response",
+      attemptNumber: 1,
+      storageBucket: responseArtifact.bucket,
+      storagePath: responseArtifact.path,
+      contentSha256: responseArtifact.contentSha256,
+      byteSize: responseArtifact.byteSize,
+    }),
+  );
+  expect(mocks.attach).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({
+      responseArtifactId: "artifact",
+      reusedFromExtractionId: "previous-extraction",
+      costUsd: 0,
+      costSource: "cache",
+    }),
+  );
+  expect(mocks.persist).toHaveBeenCalledTimes(1);
+});
+
+test("a reused response whose audit normalisation changes bytes still stores its exact new audit", async () => {
+  reusableResponse(false);
+  await processCatalogueSync({ syncId: "sync" });
+  expect(mocks.extract).not.toHaveBeenCalled();
+  expect(mocks.store).toHaveBeenCalledWith(
+    expect.objectContaining({
+      kind: "model_response",
+      body: expect.stringContaining('"nativeFinishReason":null'),
+    }),
+  );
+  expect(mocks.persist).toHaveBeenCalledTimes(1);
 });
 
 test("a redelivery that finds its run item finished still advances the run", async () => {
