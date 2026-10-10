@@ -88,6 +88,14 @@ export async function canWriteCatalogue() {
   return currentUserHasPermission("catalogue.write");
 }
 
+/**
+ * Check the permission to read other students' plans, results and student
+ * numbers. Opening administration does not imply it.
+ */
+export async function canReadStudentRecords() {
+  return currentUserHasPermission("students.read");
+}
+
 /** Check the narrower permission required to manage Room Finder data. */
 export async function canManageRooms() {
   if (!getSupabaseConfig()) return false;

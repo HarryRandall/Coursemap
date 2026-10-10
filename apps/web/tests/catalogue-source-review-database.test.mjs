@@ -61,9 +61,15 @@ async function removeFixtures() {
   await sql`delete from public.catalogue_listings where code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE}, ${TAG_REMOVAL_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+  await sql`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
+  await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+  await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${CONFLICT_CODE}, ${CHANGE_CODE}, ${FIRST_READ_CODE}, ${EXTRACTION_ERROR_CODE}, ${AMBIGUOUS_ERROR_CODE}, ${TAG_REMOVAL_CODE})`;
   } finally {
+    await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+    await sql`alter table public.catalogue_publications enable trigger catalogue_publications_guard_history`;
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
   }
