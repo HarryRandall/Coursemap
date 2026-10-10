@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidatePublishedCampusMap } from "@/lib/rooms/published-cache";
 import { canManageRooms } from "@/lib/auth/viewer";
 import {
   isCampusMapBuildingGeometry,
@@ -379,6 +380,7 @@ export async function saveCampusIndoorMap(
       savedRevision = inserted.revision;
     }
 
+    revalidatePublishedCampusMap();
     revalidatePath("/admin/rooms");
     revalidatePath("/rooms");
 

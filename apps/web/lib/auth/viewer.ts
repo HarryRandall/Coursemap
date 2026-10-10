@@ -14,60 +14,47 @@ export type AuthContext = {
   canAccessAdmin: boolean;
 };
 
-export const getAuthContext = cache(async (): Promise<AuthContext> => {
-  if (!getSupabaseConfig()) {
-    return { viewer: null, canAccessAdmin: false };
-  }
-
+const loadVerifiedViewer = cache(async (): Promise<AuthViewer | null> => {
+  if (!getSupabaseConfig()) return null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.getClaims();
     const subject = data?.claims.sub;
-
-    if (error || typeof subject !== "string" || !subject) {
-      return { viewer: null, canAccessAdmin: false };
-    }
-
-    const viewer = {
+    if (error || typeof subject !== "string" || !subject) return null;
+    return {
       id: subject,
       email: typeof data.claims.email === "string" ? data.claims.email : null,
     };
-    const { data: canAccessAdmin, error: permissionError } = await supabase.rpc(
-      "current_user_has_permission",
-      {
-        required_permission: "admin.access",
-      },
-    );
-
-    return {
-      viewer,
-      canAccessAdmin: !permissionError && canAccessAdmin === true,
-    };
   } catch {
-    return { viewer: null, canAccessAdmin: false };
+    return null;
   }
+});
+
+const currentUserHasPermission = cache(async (requiredPermission: string) => {
+  if (!(await loadVerifiedViewer())) return false;
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("current_user_has_permission", {
+      required_permission: requiredPermission,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
+});
+
+export const getAuthContext = cache(async (): Promise<AuthContext> => {
+  const viewer = await loadVerifiedViewer();
+  return {
+    viewer,
+    canAccessAdmin: viewer
+      ? await currentUserHasPermission("admin.access")
+      : false,
+  };
 });
 
 export async function getAuthViewer(): Promise<AuthViewer | null> {
   return (await getAuthContext()).viewer;
-}
-
-async function currentUserHasPermission(requiredPermission: string) {
-  if (!getSupabaseConfig()) return false;
-
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.getClaims();
-    if (error || typeof data?.claims.sub !== "string") return false;
-
-    const { data: allowed, error: permissionError } = await supabase.rpc(
-      "current_user_has_permission",
-      { required_permission: requiredPermission },
-    );
-    return !permissionError && allowed === true;
-  } catch {
-    return false;
-  }
 }
 
 /** Check the permission required to run programme and calendar imports. */
@@ -108,19 +95,5 @@ export async function canReadStudentRecords() {
 
 /** Check the narrower permission required to manage Room Finder data. */
 export async function canManageRooms() {
-  if (!getSupabaseConfig()) return false;
-
-  try {
-    const supabase = await createClient();
-    const { data, error } = await supabase.auth.getClaims();
-    if (error || typeof data?.claims.sub !== "string") return false;
-
-    const { data: allowed, error: permissionError } = await supabase.rpc(
-      "current_user_has_permission",
-      { required_permission: "rooms.manage" },
-    );
-    return !permissionError && allowed === true;
-  } catch {
-    return false;
-  }
+  return currentUserHasPermission("rooms.manage");
 }
