@@ -198,7 +198,15 @@ export function AppProvider({
     [suppliedInitialState, viewer, guest],
   );
   const [state, setState] = useState<AppState>(initialState);
-  const [ready, setReady] = useState(false);
+  const ready = true;
+  // Compare the server plan's contents, not the new object each refresh sends.
+  const serverRevision = JSON.stringify([viewer?.id, guest, initialState]);
+  const [previousServerRevision, setPreviousServerRevision] =
+    useState(serverRevision);
+  if (previousServerRevision !== serverRevision) {
+    setPreviousServerRevision(serverRevision);
+    setState(initialState);
+  }
   // Guest changes build on the latest plan, even between renders, so two
   // quick edits never save over one another.
   const latestState = useRef(state);
@@ -259,20 +267,6 @@ export function AppProvider({
     router.replace("/");
     router.refresh();
   }, [router]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    window.queueMicrotask(() => {
-      if (!cancelled) {
-        setState(initialState);
-        setReady(true);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialState]);
 
   useEffect(() => {
     if (!viewer && !guest) return;
@@ -448,7 +442,31 @@ export function AppProvider({
 
       const result = await movePlanCourse(attemptId, termId, beforeAttemptId);
       if (!result.ok) {
-        setState((current) => ({ ...current, attempts: previousAttempts }));
+        setState((current) => {
+          const previous = previousAttempts.find(
+            (item) => item.id === attemptId,
+          );
+          if (
+            !previous ||
+            !current.attempts.some((item) => item.id === attemptId)
+          )
+            return current;
+          const previousIndex = previousAttempts.findIndex(
+            (item) => item.id === attemptId,
+          );
+          const nextId = previousAttempts
+            .slice(previousIndex + 1)
+            .find((item) => item.termId === previous.termId)?.id;
+          return {
+            ...current,
+            attempts: moveAttempt(
+              current.attempts,
+              attemptId,
+              previous.termId,
+              nextId,
+            ).map((item) => (item.id === attemptId ? previous : item)),
+          };
+        });
         return result;
       }
       const moved = previousAttempts.find(
@@ -634,12 +652,27 @@ export function AppProvider({
       setState((current) => ({
         ...current,
         placements: placement
-          ? [...others, { courseCode, ...placement }]
-          : others,
+          ? [
+              ...(current.placements ?? []).filter(
+                (choice) => choice.courseCode !== courseCode,
+              ),
+              { courseCode, ...placement },
+            ]
+          : (current.placements ?? []).filter(
+              (choice) => choice.courseCode !== courseCode,
+            ),
       }));
       const result = await setRequirementPlacement(courseCode, placement);
       if (!result.ok) {
-        setState((current) => ({ ...current, placements: previous }));
+        setState((current) => ({
+          ...current,
+          placements: [
+            ...(current.placements ?? []).filter(
+              (choice) => choice.courseCode !== courseCode,
+            ),
+            ...previous.filter((choice) => choice.courseCode === courseCode),
+          ],
+        }));
       }
       return result;
     },
@@ -665,12 +698,27 @@ export function AppProvider({
       setState((current) => ({
         ...current,
         starredCourses: starred
-          ? [...previous, courseCode]
-          : previous.filter((code) => code !== courseCode),
+          ? [
+              ...(current.starredCourses ?? []).filter(
+                (code) => code !== courseCode,
+              ),
+              courseCode,
+            ]
+          : (current.starredCourses ?? []).filter(
+              (code) => code !== courseCode,
+            ),
       }));
       const result = await setCourseStar(courseCode, starred);
       if (!result.ok) {
-        setState((current) => ({ ...current, starredCourses: previous }));
+        setState((current) => ({
+          ...current,
+          starredCourses: [
+            ...(current.starredCourses ?? []).filter(
+              (code) => code !== courseCode,
+            ),
+            ...(starred ? [] : [courseCode]),
+          ],
+        }));
       }
       return result;
     },
