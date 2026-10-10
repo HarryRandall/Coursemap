@@ -2,9 +2,19 @@ begin;
 \ir ../helpers/catalogue-fixtures.inc
 
 create extension if not exists pgtap with schema extensions;
-select extensions.plan(38);
+select extensions.plan(56);
 
 select pg_temp.publish_course('TSTS1000'::text, 2027::smallint);
+select pg_temp.create_course_snapshot('TSTS1000'::text, 2028::smallint);
+select pg_temp.publish_course('TSTS1000'::text, 2029::smallint);
+select pg_temp.create_course_snapshot('TSTS1001'::text, 2027::smallint);
+select pg_temp.publish_course('TSTS1002'::text, 2027::smallint);
+update public.catalogue_records records
+set archived_at = now()
+from public.catalogue_codes codes, public.academic_years years
+where records.code_id = codes.id and records.academic_year_id = years.id
+  and codes.kind = 'course'
+  and (codes.code = 'TSTS1002' or (codes.code = 'TSTS1000' and years.year = 2029));
 
 insert into auth.users (id, email)
 values ('c0000000-0000-4000-8000-000000000045', 'public-selt-test@example.test');
@@ -27,10 +37,12 @@ select
   fixture.published_at, 'c0000000-0000-4000-8000-000000000045'
 from public.catalogue_codes codes
 cross join (values
-  ('c2000000-0000-4000-8000-000000000045'::uuid, 'b', now()),
-  ('c2000000-0000-4000-8000-000000000046'::uuid, 'c', null::timestamptz)
-) fixture(id, hash, published_at)
-where codes.kind = 'course' and codes.code = 'TSTS1000';
+  ('TSTS1000', 'c2000000-0000-4000-8000-000000000045'::uuid, 'b', now()),
+  ('TSTS1000', 'c2000000-0000-4000-8000-000000000046'::uuid, 'c', null::timestamptz),
+  ('TSTS1001', 'c2000000-0000-4000-8000-000000000047'::uuid, 'd', now()),
+  ('TSTS1002', 'c2000000-0000-4000-8000-000000000048'::uuid, 'e', now())
+) fixture(code, id, hash, published_at)
+where codes.kind = 'course' and codes.code = fixture.code;
 
 insert into public.selt_surveys (
   report_id, year, session, label, enrolments, respondents,
@@ -38,11 +50,17 @@ insert into public.selt_surveys (
 )
 select id, 2025, 'sem_1', 'Semester 1 2025', 100, 20, 20, 75
 from public.selt_reports
-where id in ('c2000000-0000-4000-8000-000000000045', 'c2000000-0000-4000-8000-000000000046');
+where id in (
+  'c2000000-0000-4000-8000-000000000045', 'c2000000-0000-4000-8000-000000000046',
+  'c2000000-0000-4000-8000-000000000047', 'c2000000-0000-4000-8000-000000000048'
+);
 insert into public.selt_question_themes (report_id, key, label, introduced_year)
 select id, 'overall_learning_experience', 'Overall learning experience', 2025
 from public.selt_reports
-where id in ('c2000000-0000-4000-8000-000000000045', 'c2000000-0000-4000-8000-000000000046');
+where id in (
+  'c2000000-0000-4000-8000-000000000045', 'c2000000-0000-4000-8000-000000000046',
+  'c2000000-0000-4000-8000-000000000047', 'c2000000-0000-4000-8000-000000000048'
+);
 
 select set_config('request.jwt.claims', '{}', true);
 select set_config('request.jwt.claim.sub', '', true);
@@ -80,6 +98,30 @@ select extensions.ok(
   not has_table_privilege('anon', 'public.selt_reports', 'select'),
   'anonymous readers have column grants rather than a report table grant'
 );
+select extensions.is(
+  (select count(id)::integer from public.selt_reports where id = fixture.id),
+  0, 'anonymous readers cannot see a published report for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_surveys where report_id = fixture.id),
+  0, 'anonymous readers cannot see surveys for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_question_themes where report_id = fixture.id),
+  0, 'anonymous readers cannot see question themes for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
 
 -- Exercise each internal column, including on a report that is otherwise public.
 select extensions.throws_ok(
@@ -129,6 +171,63 @@ select extensions.is(
   (select count(id)::integer from public.selt_reports where id = 'c2000000-0000-4000-8000-000000000046'),
   0, 'authenticated non-admin readers cannot see drafts'
 );
+select extensions.is(
+  (select count(id)::integer from public.selt_reports where id = fixture.id),
+  0, 'authenticated non-admin readers cannot see a published report for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_surveys where report_id = fixture.id),
+  0, 'authenticated non-admin readers cannot see surveys for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_question_themes where report_id = fixture.id),
+  0, 'authenticated non-admin readers cannot see question themes for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+reset role;
+
+insert into private.user_roles (user_id, role_id, granted_by)
+select 'c0000000-0000-4000-8000-000000000045', id, 'c0000000-0000-4000-8000-000000000045'
+from private.app_roles where key = 'admin'
+on conflict (user_id) do update set role_id = excluded.role_id;
+select set_config('request.jwt.claims', '{"sub":"c0000000-0000-4000-8000-000000000045","role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', 'c0000000-0000-4000-8000-000000000045', true);
+set local role authenticated;
+select extensions.is(
+  (select count(id)::integer from public.selt_reports where id = fixture.id),
+  1, 'import administrators can still review reports for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_surveys where report_id = fixture.id),
+  1, 'import administrators can still review surveys for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
+select extensions.is(
+  (select count(*)::integer from public.selt_question_themes where report_id = fixture.id),
+  1, 'import administrators can still review question themes for ' || fixture.description
+)
+from (values
+  ('c2000000-0000-4000-8000-000000000047'::uuid, 'a draft-only course'),
+  ('c2000000-0000-4000-8000-000000000048'::uuid, 'an archived-only course')
+) fixture(id, description);
 reset role;
 
 select * from extensions.finish();

@@ -70,6 +70,11 @@ This delivery stores reviewed reports and survey metrics in dedicated relational
 SELT tables. Drafts remain admin-only. Published reviews are public, including for
 anonymous visitors and guest planners, in the course Student review tab. Public
 reads require a readable course code with a published, unarchived catalogue record.
+Database policies enforce this requirement for anonymous and authenticated
+non-admin readers, including survey periods and question themes. Administrators
+can still review and publish a report before catalogue publication; it remains
+hidden from public reads until the course has an eligible record. Archiving or
+unpublishing every course record hides the report again without deleting it.
 Anonymous report reads expose only public report fields, excluding import metadata,
 diagnostics and publisher attribution. The API uses the cookie-free public client
 for every viewer. Successful responses may be cached for 60 seconds by shared
