@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { expect, login, test } from "./fixtures";
+import { cleanCatalogueFixtures, expect, login, test } from "./fixtures";
 import { CATALOGUE_CONTENT_SCHEMA_VERSION } from "../lib/catalogue/content";
 import { contentHashForCatalogueContent } from "../lib/catalogue-import/version-content";
 import { localTestEnvironment } from "../scripts/local/test-environment.mjs";
@@ -92,7 +92,10 @@ test("subject course counts survive editor saves and student previews", async ({
   } finally {
     await sql`delete from public.catalogue_listings where code = ${code}`;
     if (codeId !== undefined)
-      await sql`delete from public.catalogue_codes where id = ${codeId}`;
+      await cleanCatalogueFixtures(sql, async (tx) => {
+        if (codeId !== undefined)
+          await tx`delete from public.catalogue_codes where id = ${codeId}`;
+      });
     await sql.end();
   }
 });

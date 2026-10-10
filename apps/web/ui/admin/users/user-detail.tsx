@@ -289,7 +289,9 @@ export function AdminUserDetail({
                   {data.user.email ?? "Not supplied"}
                 </Detail>
                 <Detail label="Student number">
-                  {data.user.studentNumber ?? "Not supplied"}
+                  {data.canReadStudy
+                    ? (data.user.studentNumber ?? "Not supplied")
+                    : "Hidden"}
                 </Detail>
                 <Detail label="Joined">
                   {formatDate(data.user.createdAt)}
@@ -323,268 +325,295 @@ export function AdminUserDetail({
             </Panel>
           </TabsContent>
           <TabsContent value="study" className="space-y-5">
-            {plan ? (
-              <section aria-labelledby="details-heading" className="space-y-5">
-                <h2 id="details-heading" className="text-sm font-semibold">
-                  Degree details
-                </h2>
-                <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {plan ? (
-                    <>
-                      <Detail label="Programme">
-                        {programme
-                          ? `${programme.name} (${programme.code})`
-                          : plan.name}
-                      </Detail>
-                      <Detail label="Study load">
-                        {plan.studyLoad === "full_time"
-                          ? "Full time"
-                          : "Part time"}
-                      </Detail>
-                      <Detail label="Commencement">
-                        {plan.commencementYear}
-                      </Detail>
-                      <Detail label="Catalogue">{plan.catalogueYear}</Detail>
-                      {studyAreas
-                        .filter((area) => area.structures.length > 0)
-                        .map((area) => (
-                          <Detail key={area.label} label={area.label}>
-                            {area.structures
-                              .map(
-                                (structure) =>
-                                  `${structure.name} (${structure.code})`,
-                              )
-                              .join(", ")}
-                          </Detail>
-                        ))}
-                    </>
-                  ) : null}
-                </dl>
-              </section>
-            ) : null}
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {metrics.map((metric) => (
-                <Panel key={metric.label}>
-                  <dl>
-                    <dt className="text-xs font-medium text-muted-foreground">
-                      {metric.label}
-                    </dt>
-                    <dd className="mt-2 flex flex-wrap items-baseline gap-1.5 text-2xl font-semibold tracking-tight tabular-nums">
-                      {metric.value}
-                    </dd>
-                    <dd className="mt-2 text-xs text-muted-foreground">
-                      {metric.detail}
-                    </dd>
-                  </dl>
-                </Panel>
-              ))}
-            </div>
-
-            {plan && terms.length > 0 ? (
-              <section aria-labelledby="study-load-heading">
-                <Panel>
-                  <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                    <h2
-                      id="study-load-heading"
-                      className="text-sm font-semibold"
-                    >
-                      Study load by semester
-                    </h2>
-                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                      {Object.entries(chartConfig).map(([key, item]) => (
-                        <span key={key} className="flex items-center gap-1.5">
-                          <span
-                            aria-hidden="true"
-                            className="size-2 rounded-full"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          {item.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <ChartContainer config={chartConfig} className="h-64 w-full">
-                    <BarChart
-                      accessibilityLayer
-                      data={terms}
-                      margin={{ left: 0, right: 12, top: 8, bottom: 0 }}
-                    >
-                      <CartesianGrid vertical={false} />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={10}
-                      />
-                      <YAxis
-                        width={34}
-                        allowDecimals={false}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent />}
-                      />
-                      <Bar
-                        dataKey="completed"
-                        stackId="units"
-                        fill="var(--color-completed)"
-                        maxBarSize={48}
-                        isAnimationActive={false}
-                      />
-                      <Bar
-                        dataKey="planned"
-                        stackId="units"
-                        fill="var(--color-planned)"
-                        radius={[4, 4, 0, 0]}
-                        maxBarSize={48}
-                        isAnimationActive={false}
-                      />
-                    </BarChart>
-                  </ChartContainer>
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Units per semester. Unscheduled, failed and withdrawn
-                    records are excluded.
-                  </p>
-                  <table className="sr-only">
-                    <caption>Study load in units by semester</caption>
-                    <thead>
-                      <tr>
-                        <th>Semester</th>
-                        <th>Completed or credited</th>
-                        <th>Planned or enrolled</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {terms.map((term) => (
-                        <tr key={term.id}>
-                          <th>{term.label}</th>
-                          <td>{term.completed}</td>
-                          <td>{term.planned}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Panel>
-              </section>
-            ) : !plan ? (
-              <p className="text-sm text-muted-foreground">
-                This user has not saved a primary degree plan yet.
-              </p>
-            ) : null}
-
-            {plan || data.study.courses.length > 0 ? (
-              <section
-                id="courses"
-                aria-labelledby="courses-heading"
-                className="space-y-4"
-              >
-                <h2 id="courses-heading" className="text-sm font-semibold">
-                  Courses
-                </h2>
-                {data.study.courses.length > 8 ? (
-                  <FilterBar
-                    searchPlaceholder="Search courses"
-                    filters={[
-                      {
-                        key: "status",
-                        label: "Status",
-                        options: Object.entries(statuses).map(
-                          ([value, item]) => ({
-                            value,
-                            label: item.label,
-                          }),
-                        ),
-                      },
-                    ]}
-                    state={{
-                      query,
-                      values: { status },
-                      onQueryChange: setQuery,
-                      onFilterChange: (_, value) => setStatus(value),
-                    }}
-                  />
-                ) : null}
-                <DataTableShell>
-                  <div
-                    className="max-h-[32rem] overflow-auto"
-                    role="region"
-                    aria-label="User courses"
-                    tabIndex={0}
+            {data.canReadStudy ? (
+              <>
+                {plan ? (
+                  <section
+                    aria-labelledby="details-heading"
+                    className="space-y-5"
                   >
-                    <Table className="min-w-[640px] text-sm">
-                      <caption className="sr-only">
-                        Planned courses and recorded course attempts
-                      </caption>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="pl-5">Course</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Semester</TableHead>
-                          <TableHead className="text-right">Units</TableHead>
-                          <TableHead className="pr-5 text-right">
-                            Mark
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredCourses.length ? (
-                          filteredCourses.map((course) => (
-                            <TableRow key={course.id}>
-                              <TableCell className="py-4 pl-5">
-                                <CatalogueIdentity
-                                  code={course.code}
-                                  title={course.title}
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant={
-                                    badgeVariantForTone[
-                                      statuses[
-                                        course.status as AdminUserCourseStatus
-                                      ].tone
-                                    ]
-                                  }
-                                >
-                                  {statuses[course.status].label}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {course.calendarYear !== null &&
-                                course.periodCode
-                                  ? `${course.periodShortName ?? course.periodName ?? course.periodCode} ${course.calendarYear}`
-                                  : "Unscheduled"}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums">
-                                {course.units}
-                              </TableCell>
-                              <TableCell className="pr-5 text-right tabular-nums">
-                                {course.mark ?? (
-                                  <span aria-label="No mark recorded">-</span>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="h-24 text-center text-muted-foreground"
+                    <h2 id="details-heading" className="text-sm font-semibold">
+                      Degree details
+                    </h2>
+                    <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                      {plan ? (
+                        <>
+                          <Detail label="Programme">
+                            {programme
+                              ? `${programme.name} (${programme.code})`
+                              : plan.name}
+                          </Detail>
+                          <Detail label="Study load">
+                            {plan.studyLoad === "full_time"
+                              ? "Full time"
+                              : "Part time"}
+                          </Detail>
+                          <Detail label="Commencement">
+                            {plan.commencementYear}
+                          </Detail>
+                          <Detail label="Catalogue">
+                            {plan.catalogueYear}
+                          </Detail>
+                          {studyAreas
+                            .filter((area) => area.structures.length > 0)
+                            .map((area) => (
+                              <Detail key={area.label} label={area.label}>
+                                {area.structures
+                                  .map(
+                                    (structure) =>
+                                      `${structure.name} (${structure.code})`,
+                                  )
+                                  .join(", ")}
+                              </Detail>
+                            ))}
+                        </>
+                      ) : null}
+                    </dl>
+                  </section>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {metrics.map((metric) => (
+                    <Panel key={metric.label}>
+                      <dl>
+                        <dt className="text-xs font-medium text-muted-foreground">
+                          {metric.label}
+                        </dt>
+                        <dd className="mt-2 flex flex-wrap items-baseline gap-1.5 text-2xl font-semibold tracking-tight tabular-nums">
+                          {metric.value}
+                        </dd>
+                        <dd className="mt-2 text-xs text-muted-foreground">
+                          {metric.detail}
+                        </dd>
+                      </dl>
+                    </Panel>
+                  ))}
+                </div>
+
+                {plan && terms.length > 0 ? (
+                  <section aria-labelledby="study-load-heading">
+                    <Panel>
+                      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                        <h2
+                          id="study-load-heading"
+                          className="text-sm font-semibold"
+                        >
+                          Study load by semester
+                        </h2>
+                        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                          {Object.entries(chartConfig).map(([key, item]) => (
+                            <span
+                              key={key}
+                              className="flex items-center gap-1.5"
                             >
-                              {data.study.courses.length
-                                ? "No matching courses"
-                                : "No courses recorded yet"}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </DataTableShell>
-              </section>
-            ) : null}
+                              <span
+                                aria-hidden="true"
+                                className="size-2 rounded-full"
+                                style={{ backgroundColor: item.color }}
+                              />
+                              {item.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <ChartContainer
+                        config={chartConfig}
+                        className="h-64 w-full"
+                      >
+                        <BarChart
+                          accessibilityLayer
+                          data={terms}
+                          margin={{ left: 0, right: 12, top: 8, bottom: 0 }}
+                        >
+                          <CartesianGrid vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={10}
+                          />
+                          <YAxis
+                            width={34}
+                            allowDecimals={false}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent />}
+                          />
+                          <Bar
+                            dataKey="completed"
+                            stackId="units"
+                            fill="var(--color-completed)"
+                            maxBarSize={48}
+                            isAnimationActive={false}
+                          />
+                          <Bar
+                            dataKey="planned"
+                            stackId="units"
+                            fill="var(--color-planned)"
+                            radius={[4, 4, 0, 0]}
+                            maxBarSize={48}
+                            isAnimationActive={false}
+                          />
+                        </BarChart>
+                      </ChartContainer>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Units per semester. Unscheduled, failed and withdrawn
+                        records are excluded.
+                      </p>
+                      <table className="sr-only">
+                        <caption>Study load in units by semester</caption>
+                        <thead>
+                          <tr>
+                            <th>Semester</th>
+                            <th>Completed or credited</th>
+                            <th>Planned or enrolled</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {terms.map((term) => (
+                            <tr key={term.id}>
+                              <th>{term.label}</th>
+                              <td>{term.completed}</td>
+                              <td>{term.planned}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </Panel>
+                  </section>
+                ) : !plan ? (
+                  <p className="text-sm text-muted-foreground">
+                    This user has not saved a primary degree plan yet.
+                  </p>
+                ) : null}
+
+                {plan || data.study.courses.length > 0 ? (
+                  <section
+                    id="courses"
+                    aria-labelledby="courses-heading"
+                    className="space-y-4"
+                  >
+                    <h2 id="courses-heading" className="text-sm font-semibold">
+                      Courses
+                    </h2>
+                    {data.study.courses.length > 8 ? (
+                      <FilterBar
+                        searchPlaceholder="Search courses"
+                        filters={[
+                          {
+                            key: "status",
+                            label: "Status",
+                            options: Object.entries(statuses).map(
+                              ([value, item]) => ({
+                                value,
+                                label: item.label,
+                              }),
+                            ),
+                          },
+                        ]}
+                        state={{
+                          query,
+                          values: { status },
+                          onQueryChange: setQuery,
+                          onFilterChange: (_, value) => setStatus(value),
+                        }}
+                      />
+                    ) : null}
+                    <DataTableShell>
+                      <div
+                        className="max-h-[32rem] overflow-auto"
+                        role="region"
+                        aria-label="User courses"
+                        tabIndex={0}
+                      >
+                        <Table className="min-w-[640px] text-sm">
+                          <caption className="sr-only">
+                            Planned courses and recorded course attempts
+                          </caption>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="pl-5">Course</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Semester</TableHead>
+                              <TableHead className="text-right">
+                                Units
+                              </TableHead>
+                              <TableHead className="pr-5 text-right">
+                                Mark
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredCourses.length ? (
+                              filteredCourses.map((course) => (
+                                <TableRow key={course.id}>
+                                  <TableCell className="py-4 pl-5">
+                                    <CatalogueIdentity
+                                      code={course.code}
+                                      title={course.title}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge
+                                      variant={
+                                        badgeVariantForTone[
+                                          statuses[
+                                            course.status as AdminUserCourseStatus
+                                          ].tone
+                                        ]
+                                      }
+                                    >
+                                      {statuses[course.status].label}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground">
+                                    {course.calendarYear !== null &&
+                                    course.periodCode
+                                      ? `${course.periodShortName ?? course.periodName ?? course.periodCode} ${course.calendarYear}`
+                                      : "Unscheduled"}
+                                  </TableCell>
+                                  <TableCell className="text-right tabular-nums">
+                                    {course.units}
+                                  </TableCell>
+                                  <TableCell className="pr-5 text-right tabular-nums">
+                                    {course.mark ?? (
+                                      <span aria-label="No mark recorded">
+                                        -
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={5}
+                                  className="h-24 text-center text-muted-foreground"
+                                >
+                                  {data.study.courses.length
+                                    ? "No matching courses"
+                                    : "No courses recorded yet"}
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </DataTableShell>
+                  </section>
+                ) : null}
+              </>
+            ) : (
+              <Panel>
+                <h2 className="text-sm font-semibold">Study records hidden</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Viewing a student&apos;s plan and results needs the View
+                  student records permission.
+                </p>
+              </Panel>
+            )}
           </TabsContent>
           <TabsContent value="activity">
             <UserActivityTimeline />

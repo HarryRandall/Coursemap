@@ -252,6 +252,9 @@ afterAll(async () => {
   await sql`delete from public.catalogue_course_runs where id = any(${sql.array(runs.map((run) => run.id))}::uuid[])`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
+  await sql`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
+  await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
+  await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
     await sql`delete from public.catalogue_drafts where record_id in (select id from public.catalogue_records where code_id = any(${sql.array(codeIds)}::bigint[]))`;
     await sql`delete from public.catalogue_publications where record_id in (select id from public.catalogue_records where code_id = any(${sql.array(codeIds)}::bigint[]))`;
@@ -261,6 +264,9 @@ afterAll(async () => {
     await sql`delete from public.catalogue_versions where record_id in (select id from public.catalogue_records where code_id = any(${sql.array(codeIds)}::bigint[]))`;
     await sql`delete from public.catalogue_codes where id = any(${sql.array(codeIds)}::bigint[])`;
   } finally {
+    await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
+    await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
+    await sql`alter table public.catalogue_publications enable trigger catalogue_publications_guard_history`;
     await sql`alter table public.catalogue_versions enable trigger catalogue_versions_enforce_immutability`;
     await sql`alter table public.catalogue_source_documents enable trigger catalogue_source_documents_reject_mutation`;
   }
