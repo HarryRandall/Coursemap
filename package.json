@@ -42,7 +42,8 @@
     "rooms:buildings:generate": "pnpm --filter @coursemap/web rooms:buildings:generate",
     "check:repository": "node scripts/check-repository.mjs",
     "societies:import": "node apps/web/scripts/societies/import.mjs",
-    "societies:export": "node apps/web/scripts/societies/export-sql.mjs"
+    "societies:export": "node apps/web/scripts/societies/export-sql.mjs",
+    "catalogue:retention": "node --env-file-if-exists=apps/web/.env.local apps/web/scripts/catalogue/retention.mjs"
   },
   "devDependencies": {
     "prettier": "catalog:",
