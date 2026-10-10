@@ -136,6 +136,8 @@ export type RequirementPlacementChoice = {
 
 export type AppState = {
   schemaVersion: 1;
+  /** Identifies the server plan across refreshes and plan replacements. */
+  planId?: string;
   profile: Profile;
   attempts: Attempt[];
   /** Courses the student moved to a part of their degree themselves. */
