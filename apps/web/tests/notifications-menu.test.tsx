@@ -139,3 +139,27 @@ test("an unreachable inbox says so and offers another attempt", async () => {
   await user.click(screen.getByRole("button", { name: "Try again" }));
   expect(await screen.findByText("You are all caught up")).toBeInTheDocument();
 });
+
+test("bounds the keyboard-scrollable notification viewport inside the available popover height", async () => {
+  inbox.loadNotifications.mockResolvedValue({
+    notifications: Array.from({ length: 30 }, (_, index) =>
+      notification({ id: `run-${index}` }),
+    ),
+    unreadCount: 30,
+  });
+  const user = userEvent.setup();
+  render(<NotificationsMenu />);
+  await user.click(
+    await screen.findByRole("button", { name: "Notifications, 30 unread" }),
+  );
+  const viewport = await screen.findByRole("region", {
+    name: "Notification list",
+  });
+  expect(viewport).toHaveAttribute("data-slot", "scroll-area-viewport");
+  expect(viewport).toHaveStyle({ height: "auto" });
+  expect(viewport.style.maxHeight).toContain(
+    "--radix-popover-content-available-height",
+  );
+  viewport.focus();
+  expect(viewport).toHaveFocus();
+});

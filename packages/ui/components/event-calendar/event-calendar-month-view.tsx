@@ -1262,7 +1262,8 @@ function EventCalendarMoreDefaultContent({
       {viewConfig.scrollbars === "native" ? (
         <div
           data-ec-native-scroll=""
-          className="-me-2 max-h-(--ec-more-max-height,16rem) min-h-0 overflow-y-auto"
+          className="-me-2 min-h-0 overflow-y-auto"
+          style={{ maxHeight: "min(var(--ec-more-max-height, 16rem), calc(var(--radix-popover-content-available-height, 100vh) - 4rem))" }}
         >
           <div className="flex flex-col gap-1 py-1 ps-1 pe-4">
             {segments.map((segment) => (
@@ -1275,7 +1276,17 @@ function EventCalendarMoreDefaultContent({
           </div>
         </div>
       ) : (
-        <ScrollArea className="-me-2 min-h-0 **:data-[slot=scroll-area-viewport]:max-h-(--ec-more-max-height,16rem)">
+        <ScrollArea
+          className="-me-2 min-h-0"
+          viewportProps={{
+            role: "region",
+            "aria-label": settings.i18n.labels.more(segments.length),
+            style: {
+              height: "auto",
+              maxHeight: "min(var(--ec-more-max-height, 16rem), calc(var(--radix-popover-content-available-height, 100vh) - 4rem))",
+            },
+          }}
+        >
           <div className="flex flex-col gap-1 py-1 ps-1 pe-4">
             {segments.map((segment) => (
               <EventCalendarEvent
