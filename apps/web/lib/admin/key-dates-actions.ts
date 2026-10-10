@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePublishedUniversityCalendar } from "@/lib/coursemap/calendar-cache";
 import { revalidatePath } from "next/cache";
 import { canManageCatalogueOperations } from "@/lib/auth/viewer";
 import {
@@ -23,6 +24,7 @@ function isCalendarYear(year: number) {
 }
 
 function refreshKeyDates(year: number) {
+  revalidatePublishedUniversityCalendar();
   revalidatePath(`/admin/key-dates/${year}`, "layout");
   revalidatePath("/key-dates");
   revalidatePath("/plan");

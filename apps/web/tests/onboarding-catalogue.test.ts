@@ -1,5 +1,7 @@
 import { beforeEach, expect, test, vi } from "vitest";
 
+vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
+
 type Row = Record<string, unknown>;
 const tables = new Map<string, Row[]>();
 const requests: { table: string; ids: number; from: number }[] = [];

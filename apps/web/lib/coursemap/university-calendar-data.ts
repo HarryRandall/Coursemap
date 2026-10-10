@@ -1,4 +1,6 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
+import { PUBLISHED_UNIVERSITY_CALENDAR_TAG } from "@/lib/coursemap/calendar-cache";
 import { ACADEMIC_TIME_ZONE } from "@/lib/canberra-format";
 import type { UniversityCalendarEventRecord } from "@/lib/coursemap/university-calendar";
 import { createPublicClient } from "@/lib/supabase/public-server";
@@ -30,8 +32,9 @@ function currentCanberraYear() {
  * public catalogue data. Without an explicit year the current Canberra year
  * is served when it has published events, otherwise the latest year that has.
  */
-export async function loadPublishedUniversityCalendar(
-  requestedYear?: number,
+async function readPublishedUniversityCalendar(
+  requestedYear: number | undefined,
+  currentYear: number,
 ): Promise<UniversityCalendarData> {
   const client = createPublicClient();
   const { data: yearRows, error: yearsError } = await client
@@ -48,8 +51,8 @@ export async function loadPublishedUniversityCalendar(
   ];
   if (availableYears.length === 0) return emptyData(requestedYear);
 
-  const fallbackYear = availableYears.includes(currentCanberraYear())
-    ? currentCanberraYear()
+  const fallbackYear = availableYears.includes(currentYear)
+    ? currentYear
     : availableYears[0];
   const year = requestedYear ?? fallbackYear;
   if (!availableYears.includes(year)) {
@@ -76,4 +79,15 @@ export async function loadPublishedUniversityCalendar(
       title: row.title,
     })),
   };
+}
+
+const loadCalendar = unstable_cache(
+  readPublishedUniversityCalendar,
+  ["published-university-calendar"],
+  { revalidate: 300, tags: [PUBLISHED_UNIVERSITY_CALENDAR_TAG] },
+);
+
+export function loadPublishedUniversityCalendar(requestedYear?: number) {
+  // Include the current year in the key so the default changes at New Year.
+  return loadCalendar(requestedYear, currentCanberraYear());
 }

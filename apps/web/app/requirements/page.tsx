@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import {
   isPlanStructureKind,
@@ -9,7 +10,7 @@ import { Requirements } from "./requirements";
 
 export const dynamic = "force-dynamic";
 
-export default async function RequirementsPage({
+async function RequirementsPage({
   searchParams,
 }: {
   searchParams: Promise<{ tab?: string }>;
@@ -41,3 +42,5 @@ export default async function RequirementsPage({
     />
   );
 }
+
+export default withPlanningState(RequirementsPage);

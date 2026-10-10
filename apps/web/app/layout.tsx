@@ -9,7 +9,7 @@ import { AppThemeProvider } from "@/ui/shell/app-theme-provider";
 import { SIDEBAR_STATE_COOKIE } from "@/ui/shell/sidebar-cookie";
 import { SidebarPreferenceProvider } from "@/ui/shell/sidebar-preference";
 import { getAuthContext } from "@/lib/auth/viewer";
-import { loadCoursemapState } from "@/lib/coursemap/state";
+import { loadProfileState } from "@/lib/coursemap/state";
 import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { getCanonicalSiteOrigin } from "@/lib/supabase/config";
 import "./globals.css";
@@ -66,7 +66,7 @@ export default async function RootLayout({
   const { viewer, canAccessAdmin } = await getAuthContext();
   const guestPlan = await readGuestPlan();
   const initialState = viewer
-    ? await loadCoursemapState(viewer)
+    ? await loadProfileState(viewer)
     : (guestPlan ?? undefined);
   // The sidebar writes its open state to a cookie; reading it here keeps a
   // collapsed rail collapsed on the next server render.

@@ -78,12 +78,17 @@ test("student course eligibility uses published programme college metadata and p
     await page.reload();
     await page.getByRole("tab", { name: "Requisites", exact: true }).click();
     await expect(
-      page.getByText(
-        "Programme college information is missing or conflicting.",
-        { exact: true },
-      ),
+      page
+        .getByRole("tabpanel", { name: "Requisites", exact: true })
+        .getByText("Programme college information is missing or conflicting.", {
+          exact: true,
+        }),
     ).toBeVisible();
-    await expect(page.getByText("0 of 1 met", { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole("tabpanel", { name: "Requisites", exact: true })
+        .getByText("0 of 1 met", { exact: true }),
+    ).toBeVisible();
   } finally {
     await sql`delete from public.plan_structures where owner_id = ${planner.id}::uuid`;
     await sql`delete from public.catalogue_listings where code in ${sql(codes)}`;

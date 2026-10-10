@@ -13,13 +13,14 @@ const actions = vi.hoisted(() => ({
   setCourseStar: vi.fn(),
   setCurrentUserPlanExtensionYears: vi.fn(),
   setRequirementPlacement: vi.fn(),
+  refresh: vi.fn(),
 }));
 vi.mock("@/lib/coursemap/actions", () => actions);
 vi.mock("@/lib/coursemap/guest-plan-transfer", () => ({
   transferGuestPlan: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ refresh: actions.refresh, replace: vi.fn() }),
 }));
 vi.mock("@coursemap/ui/primitives/sonner", () => ({ Toaster: () => null }));
 
@@ -103,9 +104,9 @@ test("a guest's changes are kept in this browser, not sent to an account", async
     extensionYears: 1,
   });
   expect(context.state.attempts).toEqual(saved?.attempts);
-  Object.values(actions).forEach((action) =>
-    expect(action).not.toHaveBeenCalled(),
-  );
+  Object.entries(actions)
+    .filter(([name]) => name !== "refresh")
+    .forEach(([, action]) => expect(action).not.toHaveBeenCalled());
 });
 
 test("a guest can remove a course and record a result", async () => {
@@ -127,4 +128,45 @@ test("a guest can remove a course and record a result", async () => {
       unitsEarned: 6,
     }),
   ]);
+});
+
+test("every successful guest cookie change clears cached route state", async () => {
+  await mount();
+  const changes = [
+    () => context.updateProfile({ name: "Ada" }),
+    () => context.addCourse("COMP1100", "2026-s1", 2026),
+    () => context.reorderAttempt(context.state.attempts[0].id, "2026-s2"),
+    () => context.setPlanExtensionYears(1),
+    () => context.toggleStar("COMP1110"),
+    () =>
+      context.setPlacement("COMP1100", {
+        structureCode: "BCOMP",
+        requirementKey: "core",
+      }),
+    () =>
+      context.saveGuestResult(context.state.attempts[0].id, {
+        status: "completed",
+        mark: 80,
+      }),
+    () => context.saveGuestResult(context.state.attempts[0].id, null),
+  ];
+  for (const change of changes) {
+    actions.refresh.mockClear();
+    await act(async () => {
+      expect((await change()).ok).toBe(true);
+    });
+    expect(actions.refresh).toHaveBeenCalledTimes(1);
+  }
+});
+
+test("a guest cookie that cannot be saved leaves both state and cached routes intact", async () => {
+  await mount();
+  const before = context.state;
+  await act(async () => {
+    expect((await context.updateProfile({ name: "A".repeat(50_000) })).ok).toBe(
+      false,
+    );
+  });
+  expect(context.state).toBe(before);
+  expect(actions.refresh).not.toHaveBeenCalled();
 });

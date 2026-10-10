@@ -1,3 +1,4 @@
+import { withPlanningState } from "@/ui/plan/planning-page";
 import { Button } from "@coursemap/ui/primitives/button";
 import ReuiLink from "next/link";
 import { AppShell } from "@/ui/shell";
@@ -30,7 +31,7 @@ function firstParam(value?: string | string[]) {
   return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
 }
 
-export default async function CoursesPage({
+async function CoursesPage({
   searchParams,
 }: {
   searchParams: Promise<CoursesSearchParams>;
@@ -223,3 +224,5 @@ export default async function CoursesPage({
 }
 
 export const dynamic = "force-dynamic";
+
+export default withPlanningState(CoursesPage);

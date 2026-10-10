@@ -22,6 +22,14 @@ import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  loadPrimaryPlan,
+  loadPlanItems,
+  loadPlanStructures,
+  loadCourseAttempts,
+  loadPlanYear,
+  loadAttemptVersions,
+} from "@/lib/coursemap/plan-reads";
 import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
 
 export type PlanCatalogue = {
@@ -654,36 +662,20 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   }
 
   const supabase = await createClient();
-  const { data: plan, error } = await supabase
-    .from("plans")
-    .select("academic_year_id,id,commencement_year,enrolment_mode")
-    .eq("owner_id", viewer.id)
-    .eq("is_primary", true)
-    .maybeSingle();
+  const { data: plan, error } = await loadPrimaryPlan(viewer.id);
   if (error) throw error;
   if (!plan) return loadPublishedPlanCatalogue();
 
-  const { data: year, error: yearError } = await supabase
-    .from("academic_years")
-    .select("year")
-    .eq("id", plan.academic_year_id)
-    .maybeSingle();
+  const { data: year, error: yearError } = await loadPlanYear(
+    plan.academic_year_id,
+  );
   if (yearError) throw yearError;
   if (!year) throw new Error("The plan catalogue year could not be found.");
 
   const [itemsResult, attemptsResult, structuresResult] = await Promise.all([
-    supabase
-      .from("plan_items")
-      .select("catalogue_record_id")
-      .eq("plan_id", plan.id),
-    supabase
-      .from("course_attempts")
-      .select("catalogue_version_id")
-      .eq("owner_id", viewer.id),
-    supabase
-      .from("plan_structures")
-      .select("catalogue_record_id")
-      .eq("plan_id", plan.id),
+    loadPlanItems(plan.id),
+    loadCourseAttempts(viewer.id),
+    loadPlanStructures(plan.id),
   ]);
   for (const result of [itemsResult, attemptsResult, structuresResult]) {
     if (result.error) throw result.error;
@@ -699,10 +691,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
     ...new Set(courseAttempts.map((attempt) => attempt.catalogue_version_id)),
   ];
   const versionsResult = versionIds.length
-    ? await supabase
-        .from("catalogue_versions")
-        .select("id,record_id")
-        .in("id", versionIds)
+    ? await loadAttemptVersions(versionIds)
     : { data: [], error: null };
   if (versionsResult.error) throw versionsResult.error;
   const attemptVersions = (versionsResult.data ?? []) as AttemptVersionRow[];
@@ -724,18 +713,17 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
   const allAcademicYearIds = [
     ...new Set(records.map((record) => record.academic_year_id)),
   ];
-  const coursesResult = courseIds.length
-    ? await supabase
-        .from("catalogue_codes")
-        .select("id,code")
-        .in("id", courseIds)
-    : { data: [], error: null };
-  const academicYearsResult = allAcademicYearIds.length
-    ? await supabase
-        .from("academic_years")
-        .select("id,year")
-        .in("id", allAcademicYearIds)
-    : { data: [], error: null };
+  const [coursesResult, academicYearsResult] = await Promise.all([
+    courseIds.length
+      ? supabase.from("catalogue_codes").select("id,code").in("id", courseIds)
+      : { data: [], error: null },
+    allAcademicYearIds.length
+      ? supabase
+          .from("academic_years")
+          .select("id,year")
+          .in("id", allAcademicYearIds)
+      : { data: [], error: null },
+  ]);
   if (coursesResult.error) throw coursesResult.error;
   if (academicYearsResult.error) throw academicYearsResult.error;
   const codeByCourseId = new Map(
