@@ -1,4 +1,12 @@
 import { cache } from "react";
+import {
+  loadPrimaryPlan,
+  loadPlanItems,
+  loadPlanStructures,
+  loadCourseAttempts,
+  loadPlanYear,
+  loadAttemptVersions,
+} from "@/lib/coursemap/plan-reads";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
 import type { AppState, Attempt } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
@@ -43,13 +51,7 @@ export function emptyCoursemapState(viewer: AuthViewer): AppState {
 }
 
 export async function hasPrimaryPlan(viewer: AuthViewer) {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("plans")
-    .select("id")
-    .eq("owner_id", viewer.id)
-    .eq("is_primary", true)
-    .maybeSingle();
+  const { data, error } = await loadPrimaryPlan(viewer.id);
   if (error) throw error;
   return Boolean(data);
 }
@@ -162,14 +164,7 @@ export async function loadCoursemapState(
   const supabase = await createClient();
   const [state, planResult] = await Promise.all([
     loadProfileState(viewer),
-    supabase
-      .from("plans")
-      .select(
-        "academic_year_id,id,commencement_year,enrolment_mode,study_load,extension_years",
-      )
-      .eq("owner_id", viewer.id)
-      .eq("is_primary", true)
-      .maybeSingle(),
+    loadPrimaryPlan(viewer.id),
   ]);
   if (planResult.error) throw planResult.error;
   const plan = planResult.data;
@@ -183,30 +178,10 @@ export async function loadCoursemapState(
     placementsResult,
     starsResult,
   ] = await Promise.all([
-    supabase
-      .from("academic_years")
-      .select("year")
-      .eq("id", plan.academic_year_id)
-      .maybeSingle(),
-    supabase
-      .from("plan_structures")
-      .select("role,catalogue_record_id")
-      .eq("plan_id", plan.id)
-      .order("position"),
-    supabase
-      .from("plan_items")
-      .select(
-        "id,catalogue_record_id,planned_calendar_year,planned_period_code,sort_order",
-      )
-      .eq("plan_id", plan.id)
-      .order("sort_order"),
-    supabase
-      .from("course_attempts")
-      .select(
-        "id,catalogue_version_id,academic_period_id,status,mark,grade,units_attempted,units_earned",
-      )
-      .eq("owner_id", viewer.id)
-      .order("created_at"),
+    loadPlanYear(plan.academic_year_id),
+    loadPlanStructures(plan.id),
+    loadPlanItems(plan.id),
+    loadCourseAttempts(viewer.id),
     supabase
       .from("plan_requirement_placements")
       .select("course_code,structure_code,requirement_key")
@@ -246,10 +221,7 @@ export async function loadCoursemapState(
           .in("id", periodIds)
       : Promise.resolve({ data: [], error: null }),
     snapshotIds.length
-      ? supabase
-          .from("catalogue_versions")
-          .select("id,record_id,academic_year_id")
-          .in("id", snapshotIds)
+      ? loadAttemptVersions(snapshotIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (periodsResult.error) throw periodsResult.error;
@@ -271,11 +243,6 @@ export async function loadCoursemapState(
   if (recordsResult.error) throw recordsResult.error;
   const records = recordsResult.data;
   const codeIds = [...new Set((records ?? []).map((record) => record.code_id))];
-  const identitiesResult = codeIds.length
-    ? await supabase.from("catalogue_codes").select("id,code").in("id", codeIds)
-    : { data: [], error: null };
-  if (identitiesResult.error) throw identitiesResult.error;
-  const courseIdentities = identitiesResult.data;
   const recordById = new Map(
     (records ?? []).map((record) => [record.id, record]),
   );
@@ -293,13 +260,20 @@ export async function loadCoursemapState(
       ),
     ]),
   ];
-  const academicYearsResult = academicYearIds.length
-    ? await supabase
-        .from("academic_years")
-        .select("id,year")
-        .in("id", academicYearIds)
-    : { data: [], error: null };
+  const [identitiesResult, academicYearsResult] = await Promise.all([
+    codeIds.length
+      ? supabase.from("catalogue_codes").select("id,code").in("id", codeIds)
+      : { data: [], error: null },
+    academicYearIds.length
+      ? supabase
+          .from("academic_years")
+          .select("id,year")
+          .in("id", academicYearIds)
+      : { data: [], error: null },
+  ]);
+  if (identitiesResult.error) throw identitiesResult.error;
   if (academicYearsResult.error) throw academicYearsResult.error;
+  const courseIdentities = identitiesResult.data;
   const academicYears = academicYearsResult.data;
   const academicYearById = new Map(
     (academicYears ?? []).map((year) => [year.id, year.year]),
@@ -391,7 +365,9 @@ export async function loadCoursemapState(
 }
 
 /** Admin links use the student's rules year without loading the plan's courses. */
-export async function loadAdminShellState(viewer: AuthViewer): Promise<AppState> {
+export async function loadAdminShellState(
+  viewer: AuthViewer,
+): Promise<AppState> {
   const supabase = await createClient();
   const [state, result] = await Promise.all([
     loadProfileState(viewer),
@@ -407,7 +383,8 @@ export async function loadAdminShellState(viewer: AuthViewer): Promise<AppState>
     ...state,
     profile: {
       ...state.profile,
-      catalogueYear: result.data?.academic_years?.year ?? state.profile.catalogueYear,
+      catalogueYear:
+        result.data?.academic_years?.year ?? state.profile.catalogueYear,
     },
   };
 }
