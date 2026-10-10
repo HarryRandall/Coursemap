@@ -5,6 +5,9 @@ import { loadAdminUserDetail } from "@/lib/admin/users";
 const database = vi.hoisted(() => ({
   rows: {} as Record<string, unknown[]>,
 }));
+vi.mock("@/lib/auth/viewer", () => ({
+  canReadStudentRecords: async () => true,
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => ({
     from(table: string) {
