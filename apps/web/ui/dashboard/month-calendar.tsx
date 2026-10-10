@@ -155,7 +155,7 @@ export function MonthCalendar({
           {weekdayLabels.map((label) => (
             <div
               key={label}
-              className="pb-1 text-center text-[10px] font-semibold tracking-wide text-muted-foreground/70 uppercase"
+              className="pb-1 text-center text-[10px] font-semibold tracking-wide text-muted-foreground uppercase"
             >
               {label}
             </div>

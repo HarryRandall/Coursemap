@@ -115,18 +115,18 @@ function SummaryCard({
 }) {
   return (
     <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <dt className="text-xs text-muted-foreground">{label}</dt>
-          <dd className="mt-1 flex min-w-0 items-baseline gap-2">
+          <div className="flex min-w-0 items-baseline gap-2">
             <span className="text-2xl font-semibold tracking-tight tabular-nums">
               {value}
             </span>
             {aside}
-          </dd>
+          </div>
         </div>
-        {corner ? <dd className="shrink-0">{corner}</dd> : null}
-      </div>
+        {corner ? <div className="shrink-0">{corner}</div> : null}
+      </dd>
       <dd className="mt-3">{chart}</dd>
     </div>
   );
