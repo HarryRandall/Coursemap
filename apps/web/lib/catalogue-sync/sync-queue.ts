@@ -1,10 +1,15 @@
 import type { MessageMetadata, RetryDirective } from "@vercel/queue";
-import { recordSyncDispatch, withSyncDatabaseClient } from "./sync-store.ts";
+import {
+  failAbandonedCatalogueSync,
+  recordSyncDispatch,
+  withSyncDatabaseClient,
+} from "./sync-store.ts";
 import {
   catalogueSyncDispatchAllowed,
   holdCatalogueSyncAfterDispatchFailure,
 } from "./provider-store.ts";
 import {
+  SyncClaimUnavailableError,
   processCatalogueSync,
   safeErrorSummary,
   type ProcessCatalogueSyncInput,
@@ -163,14 +168,35 @@ export async function dispatchCatalogueSync({
   return { mode: "inline" as const };
 }
 
+function waitBeforeRetry(milliseconds: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, milliseconds);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Processes a sync in this process with the queue's delivery budget. Attempts
+ * back off exponentially from `retryDelayMs`, and stop once another worker
+ * holds the sync or it can no longer be claimed.
+ */
 export async function processCatalogueSyncInline({
   syncId,
   process = processCatalogueSync,
   signal,
+  retryDelayMs = 1_000,
 }: {
   syncId: string;
   process?: (input: ProcessCatalogueSyncInput) => Promise<void>;
   signal?: AbortSignal;
+  retryDelayMs?: number;
 }) {
   for (
     let deliveryCount = 1;
@@ -186,9 +212,14 @@ export async function processCatalogueSyncInline({
         signal,
       });
       return;
-    } catch {
-      if (deliveryCount === SYNC_QUEUE_MAX_DELIVERIES) return;
+    } catch (error) {
+      if (
+        error instanceof SyncClaimUnavailableError ||
+        deliveryCount === SYNC_QUEUE_MAX_DELIVERIES
+      )
+        return;
     }
+    await waitBeforeRetry(retryDelayMs * 2 ** (deliveryCount - 1), signal);
   }
 }
 
@@ -203,6 +234,79 @@ function retrySyncQueueMessage(
   return { afterSeconds: Math.min(300, 5 * 2 ** (metadata.deliveryCount - 1)) };
 }
 
+type SyncQueueDeliveryDependencies = {
+  process: (input: ProcessCatalogueSyncInput) => void | Promise<void>;
+  failSync: (input: {
+    syncId: string;
+    errorCode: string;
+    errorMessage: string;
+  }) => Promise<unknown>;
+};
+
+function failAbandonedSync(input: {
+  syncId: string;
+  errorCode: string;
+  errorMessage: string;
+}) {
+  return withSyncDatabaseClient((sql) =>
+    failAbandonedCatalogueSync(sql, input),
+  );
+}
+
+/** The sync a rejected message still names, when it names one. */
+function syncIdFromRejectedMessage(value: unknown) {
+  return isRecord(value) &&
+    typeof value.syncId === "string" &&
+    UUID_PATTERN.test(value.syncId)
+    ? value.syncId
+    : null;
+}
+
+/**
+ * Processes one queue delivery. A message the queue is about to acknowledge
+ * without success leaves a terminal status first, so its sync never stays
+ * queued or running with nothing left to deliver it. The original error is
+ * rethrown for the retry policy.
+ */
+export async function handleSyncQueueDelivery(
+  value: unknown,
+  metadata: Pick<MessageMetadata, "deliveryCount">,
+  {
+    process = processCatalogueSync,
+    failSync = failAbandonedSync,
+  }: Partial<SyncQueueDeliveryDependencies> = {},
+) {
+  let message: SyncQueueMessage;
+  try {
+    message = parseSyncQueueMessage(value);
+  } catch (error) {
+    const syncId = syncIdFromRejectedMessage(value);
+    if (syncId)
+      await failSync({
+        syncId,
+        errorCode: "QUEUE_MESSAGE_INVALID",
+        errorMessage: safeErrorSummary(error),
+      });
+    throw error;
+  }
+  try {
+    await process({
+      syncId: message.syncId,
+      deliveryCount: metadata.deliveryCount,
+      maxDeliveries: SYNC_QUEUE_MAX_DELIVERIES,
+      signal: AbortSignal.timeout(SYNC_QUEUE_DELIVERY_BUDGET_MS),
+    });
+  } catch (error) {
+    if (metadata.deliveryCount >= SYNC_QUEUE_MAX_CALLBACK_DELIVERIES)
+      await failSync({
+        syncId: message.syncId,
+        errorCode: "QUEUE_EXHAUSTED",
+        errorMessage: `The queue stopped delivering this sync after ${metadata.deliveryCount} attempts. ${safeErrorSummary(error)}`,
+      });
+    throw error;
+  }
+}
+
 export function createSyncQueueConsumer(
   process: (
     input: ProcessCatalogueSyncInput,
@@ -211,15 +315,8 @@ export function createSyncQueueConsumer(
   return async (request: Request) => {
     const { handleCallback } = await import("@vercel/queue");
     const consume = handleCallback<unknown>(
-      async (value, metadata) => {
-        const message = parseSyncQueueMessage(value);
-        await process({
-          syncId: message.syncId,
-          deliveryCount: metadata.deliveryCount,
-          maxDeliveries: SYNC_QUEUE_MAX_DELIVERIES,
-          signal: AbortSignal.timeout(SYNC_QUEUE_DELIVERY_BUDGET_MS),
-        });
-      },
+      (value, metadata) =>
+        handleSyncQueueDelivery(value, metadata, { process }),
       {
         visibilityTimeoutSeconds: SYNC_QUEUE_VISIBILITY_TIMEOUT_SECONDS,
         retry: retrySyncQueueMessage,
