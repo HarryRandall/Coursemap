@@ -7,6 +7,7 @@ const state = vi.hoisted(() => ({
   theme: undefined as string | undefined,
   events: new Map<string, () => void>(),
   create: vi.fn(),
+  addSource: vi.fn(),
 }));
 vi.mock("next-themes", () => ({
   useTheme: () => ({ resolvedTheme: state.theme }),
@@ -40,7 +41,9 @@ vi.mock("maplibre-gl", () => ({
     getStyle() {
       return { layers: [] };
     }
-    addSource() {}
+    addSource(...args: unknown[]) {
+      state.addSource(...args);
+    }
     addLayer() {}
     moveLayer() {}
     getLayer() {
@@ -98,6 +101,7 @@ beforeEach(() => {
   state.theme = "dark";
   state.events.clear();
   state.create.mockClear();
+  state.addSource.mockClear();
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -139,4 +143,17 @@ test("replaces a stalled loader with an error without exposing the unfinished ma
     screen.queryByText("The vector map could not be loaded."),
   ).not.toBeInTheDocument();
   expect(screen.getByLabelText(/Interactive vector map/)).toBeVisible();
+});
+
+test("credits Mapterhorn on the terrain source", async () => {
+  render(mapView());
+  await waitFor(() => expect(state.create).toHaveBeenCalledOnce());
+  act(() => state.events.get("style.load")?.());
+  expect(state.addSource).toHaveBeenCalledWith(
+    "coursemap-terrain-hillshade-source",
+    expect.objectContaining({
+      type: "raster-dem",
+      attribution: '<a href="https://mapterhorn.com">Mapterhorn</a>',
+    }),
+  );
 });
