@@ -1,4 +1,7 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
+import { canManageRooms } from "@/lib/auth/viewer";
+import { PUBLISHED_CAMPUS_MAP_TAG } from "@/lib/rooms/published-cache";
 import type {
   CampusMapCampus,
   CampusMapData,
@@ -169,9 +172,7 @@ function mapIndoorMap(row: IndoorMapRow) {
   };
 }
 
-export async function loadCampusMapData(
-  options: LoadCampusMapDataOptions = {},
-): Promise<CampusMapLoadResult> {
+async function readPublishedCampusMapData(): Promise<CampusMapLoadResult> {
   if (!getSupabaseConfig()) {
     return {
       data: EMPTY_CAMPUS_MAP_DATA,
@@ -180,13 +181,7 @@ export async function loadCampusMapData(
   }
 
   try {
-    // Base-map data remains identical for every viewer. Only the indoor-map
-    // query needs request auth so its existing RLS policy can add manager
-    // drafts without also exposing draft campuses, layers or features.
     const publicSupabase = createPublicClient();
-    const indoorSupabase = options.includeManageableDrafts
-      ? await createClient()
-      : publicSupabase;
     const campusResult = await publicSupabase
       .from("campus_map_campuses")
       .select(
@@ -267,17 +262,13 @@ export async function loadCampusMapData(
       ),
       Promise.all(
         placeIdBatches.map((placeIdBatch) => {
-          const query = indoorSupabase
+          const query = publicSupabase
             .from("campus_indoor_maps")
             .select(
               "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
             )
             .in("building_place_id", placeIdBatch);
-          return (
-            options.includeManageableDrafts
-              ? query.in("status", ["published", "draft"])
-              : query.eq("status", "published")
-          ).order("name");
+          return query.eq("status", "published").order("name");
         }),
       ),
     ]);
@@ -346,5 +337,65 @@ export async function loadCampusRoutePlaces(slugs: readonly string[]) {
     };
   } catch {
     return { places: [], error: "Room Finder data could not be loaded." };
+  }
+}
+
+const loadPublishedCampusMapData = unstable_cache(
+  async () => {
+    const result = await readPublishedCampusMapData();
+    // Failed reads must be retried on the next request, not cached as empty maps.
+    if (result.error) throw new Error(result.error);
+    return result.data;
+  },
+  ["published-campus-map"],
+  { revalidate: 300, tags: [PUBLISHED_CAMPUS_MAP_TAG] },
+);
+
+export async function loadCampusMapData(
+  options: LoadCampusMapDataOptions = {},
+): Promise<CampusMapLoadResult> {
+  if (!getSupabaseConfig()) {
+    return {
+      data: EMPTY_CAMPUS_MAP_DATA,
+      error: "Room Finder data is not configured.",
+    };
+  }
+  try {
+    const data = await loadPublishedCampusMapData();
+    if (!options.includeManageableDrafts || !(await canManageRooms())) {
+      return { data, error: null };
+    }
+    // Only the manager's indoor preview uses auth. It never enters the shared cache.
+    const indoorSupabase = await createClient();
+    const results = await Promise.all(
+      batchCampusMapQueryValues(data.places.map((place) => place.id)).map(
+        (ids) =>
+          indoorSupabase
+            .from("campus_indoor_maps")
+            .select(
+              "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
+            )
+            .in("building_place_id", ids)
+            .in("status", ["published", "draft"])
+            .order("name"),
+      ),
+    );
+    for (const result of results) if (result.error) throw result.error;
+    const indoorMaps = results
+      .flatMap((result) => result.data ?? [])
+      .map(mapIndoorMap);
+    return {
+      data: {
+        ...data,
+        indoorMaps,
+        rooms: buildCampusRoomIndex(indoorMaps, data.places),
+      },
+      error: null,
+    };
+  } catch {
+    return {
+      data: EMPTY_CAMPUS_MAP_DATA,
+      error: "Room Finder data could not be loaded.",
+    };
   }
 }
