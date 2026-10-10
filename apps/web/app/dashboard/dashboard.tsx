@@ -150,8 +150,8 @@ export function Dashboard({
     [planningCatalogue, state.attempts],
   );
   const currentTermId = useMemo(
-    () => currentDashboardTermId(timelineTerms),
-    [timelineTerms],
+    () => currentDashboardTermId(timelineTerms, todayIso),
+    [timelineTerms, todayIso],
   );
   const buckets = useMemo(
     () =>
@@ -331,7 +331,7 @@ export function Dashboard({
               ]),
             )}
           />
-          <MonthCalendar events={calendarEvents} />
+          <MonthCalendar events={calendarEvents} todayIso={todayIso} />
         </div>
 
         <div

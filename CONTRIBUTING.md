@@ -34,6 +34,11 @@ passed, failed or did not run. Do not run production builds concurrently because
 they share `apps/web/.next`. Database resets require a task-owned local stack.
 Documentation-only changes do not require a database reset.
 
+Run `corepack pnpm --filter @coursemap/web test:dates:utc` for the focused
+academic date regressions in UTC, alongside the normal unit suite. Check the
+same subset in Sydney with
+`TZ=Australia/Sydney corepack pnpm --filter @coursemap/web test:dates`.
+
 ## Database changes
 
 - Put forward-only SQL migrations in `supabase/migrations`.

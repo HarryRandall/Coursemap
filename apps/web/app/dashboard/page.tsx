@@ -1,3 +1,4 @@
+import { canberraTodayIso } from "@/lib/canberra-format";
 import { PlanningCatalogueError } from "@/ui/plan/planning-catalogue-error";
 import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { loadOnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
@@ -41,9 +42,7 @@ async function upcomingKeyDates(todayIso: string) {
  * which offers onboarding, rather than being redirected into it.
  */
 export default async function DashboardPage() {
-  const todayIso = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
-  }).format(new Date());
+  const todayIso = canberraTodayIso();
   let data;
   try {
     const [catalogue, choices, keyDates] = await Promise.all([

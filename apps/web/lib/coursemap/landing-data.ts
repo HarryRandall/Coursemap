@@ -1,4 +1,5 @@
 import "server-only";
+import { canberraTodayIso } from "@/lib/canberra-format";
 import { cache } from "react";
 import { loadSocieties } from "@/lib/societies-data";
 import type { Society } from "@/lib/societies";
@@ -11,9 +12,7 @@ import { loadPublishedUniversityCalendar } from "@/lib/coursemap/university-cale
 
 /** Today in Canberra as an ISO day, the calendar's own time zone. */
 export function canberraToday() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
-  }).format(new Date());
+  return canberraTodayIso();
 }
 
 /**

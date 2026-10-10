@@ -1,3 +1,4 @@
+import { canberraTodayIso } from "@/lib/canberra-format";
 import {
   Alert,
   AlertDescription,
@@ -174,12 +175,7 @@ export default async function KeyDatesPage({
     calendarUnavailable = true;
   }
 
-  const todayIso = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  const todayIso = canberraTodayIso();
   const includeSocieties = firstParam(params.societies) === "1";
   const year = data.year ?? requestedYear ?? Number(todayIso.slice(0, 4));
   let societyDates: ReturnType<typeof societyKeyDates> = [];

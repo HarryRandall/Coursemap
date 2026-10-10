@@ -660,14 +660,16 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
     .eq("owner_id", viewer.id)
     .eq("is_primary", true)
     .maybeSingle();
-  if (error || !plan) return loadPublishedPlanCatalogue();
+  if (error) throw error;
+  if (!plan) return loadPublishedPlanCatalogue();
 
   const { data: year, error: yearError } = await supabase
     .from("academic_years")
     .select("year")
     .eq("id", plan.academic_year_id)
     .maybeSingle();
-  if (yearError || !year) return loadPublishedPlanCatalogue();
+  if (yearError) throw yearError;
+  if (!year) throw new Error("The plan catalogue year could not be found.");
 
   const [itemsResult, attemptsResult, structuresResult] = await Promise.all([
     supabase
@@ -683,8 +685,8 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
       .select("catalogue_record_id")
       .eq("plan_id", plan.id),
   ]);
-  if (itemsResult.error || attemptsResult.error || structuresResult.error) {
-    return loadPublishedPlanCatalogue(year.year);
+  for (const result of [itemsResult, attemptsResult, structuresResult]) {
+    if (result.error) throw result.error;
   }
   // These columns are introduced by the clean snapshot cutover migration.
   // Keep the row contract local while generated database types are refreshed.
@@ -702,9 +704,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
         .select("id,record_id")
         .in("id", versionIds)
     : { data: [], error: null };
-  if (versionsResult.error) {
-    return loadPublishedPlanCatalogue(year.year);
-  }
+  if (versionsResult.error) throw versionsResult.error;
   const attemptVersions = (versionsResult.data ?? []) as AttemptVersionRow[];
   const recordIds = collectPlanCatalogueRecordIds(
     planItems,
@@ -718,7 +718,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
         .select("id,code_id,academic_year_id")
         .in("id", recordIds)
     : { data: [], error: null };
-  if (recordsResult.error) return loadPublishedPlanCatalogue(year.year);
+  if (recordsResult.error) throw recordsResult.error;
   const records = (recordsResult.data ?? []) as CatalogueRecordRow[];
   const courseIds = [...new Set(records.map((record) => record.code_id))];
   const allAcademicYearIds = [
@@ -736,9 +736,8 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
         .select("id,year")
         .in("id", allAcademicYearIds)
     : { data: [], error: null };
-  if (coursesResult.error || academicYearsResult.error) {
-    return loadPublishedPlanCatalogue(year.year);
-  }
+  if (coursesResult.error) throw coursesResult.error;
+  if (academicYearsResult.error) throw academicYearsResult.error;
   const codeByCourseId = new Map(
     (coursesResult.data ?? []).map((course) => [course.id, course.code]),
   );
@@ -797,7 +796,7 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
         p_version_ids: historicalSnapshotIds,
       })
     : { data: [], error: null };
-  if (projectionsResult.error) return catalogue;
+  if (projectionsResult.error) throw projectionsResult.error;
 
   const snapshotCourses = (projectionsResult.data ?? []).flatMap((row) => {
     const course = courseFromSnapshotProjection(row.projection, row.version_id);
