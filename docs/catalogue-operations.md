@@ -216,6 +216,15 @@ running, or pause the provider so queued work is held. Resume after the new
 deployment is live. In particular, workers deployed before lease renewal hold
 an unrenewed 120 second lease and persist without checking it, so they can
 overwrite work that a new worker has taken over.
+### Drain old queue consumers
+
+A new deployment does not stop old queue consumers. Messages and retries pinned
+to an earlier deployment can still execute its code against the current database.
+Before removing a schema or payload contract, stop publishing work that needs it
+and confirm that the old deployment has no queued, running or retryable work.
+Allow in-flight handlers to finish and verify the queue and sync diagnostics;
+deployment success alone is not evidence that consumers have drained. Keep
+destructive migrations for a later release after this check.
 
 ## Limit a bulk import to named codes
 

@@ -270,7 +270,24 @@ fetching ANU again. Staged reviews and archived events do not supply dates.
 
 ## Delivery
 
-Changes move through focused branches and pull requests. GitHub Actions checks formatting, linting, types, tests and the production build. Vercel creates preview deployments and promotes `main` after checks. Supabase schema changes remain forward-only migrations in the same pull request as their application code. Pull requests exercise the complete migration history locally. After every gate passes on `main`, the production database job previews and applies pending migrations through the protected GitHub `Production` environment.
+Changes move through focused branches and pull requests. GitHub Actions checks
+formatting, linting, types, tests and the production build. Vercel creates preview
+deployments for other branches; automatic Git deployments from `main` are disabled
+in `apps/web/vercel.json`. Supabase schema changes remain forward-only migrations
+in the same pull request as their application code. Pull requests exercise the
+complete migration history locally. After every gate passes on a push to `main`,
+the production database job previews and applies pending migrations through the
+protected GitHub `Production` environment. Only after that job succeeds does the
+production deploy job request a Vercel deployment, including when there are no
+pending migrations. See [production deployment](operations/deployment.md) for
+owner setup and emergency deployment.
+
+Migrations must remain backward compatible with the currently deployed code.
+Follow expand → deploy → contract: add compatible schema first, deploy code that
+uses it, then remove obsolete columns, tables or contracts in a later release.
+Old queue consumers keep running after deployment, so retain their schema and
+payload contracts until they have drained. See the
+[queue consumer drain note](catalogue-operations.md#drain-old-queue-consumers).
 
 `supabase/migrations/` is an eight-part baseline that states the schema as it
 is rather than the ninety-five migrations that reached it. The hosted project

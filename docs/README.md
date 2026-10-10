@@ -11,6 +11,7 @@
 - [Societies](societies.md): club and event snapshots, local and production imports and calendar sources.
 - [Database setup](../supabase/README.md): local services and database operations.
 - [Backup and restore](operations/backups.md): independent database exports, Storage copies and restore drills.
+- [Production deployment](operations/deployment.md): migration ordering, deploy hook setup and emergency deployment.
 - [Contributing](../CONTRIBUTING.md): workflow and verification requirements.
 
 ## Proposals
