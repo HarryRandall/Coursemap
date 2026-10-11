@@ -26,7 +26,6 @@ import { PlannerSkeleton } from "@/ui/plan/planner-skeleton";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
 import { PlanRowMenu } from "@/ui/plan/plan-row-menu";
-import { ResolveSteps } from "@/ui/plan/resolve-steps";
 import { usePlanFix } from "@/ui/plan/use-plan-fix";
 import {
   Dialog,
@@ -52,7 +51,7 @@ import {
   attemptStatusByCode,
   planTreeContext,
 } from "@/ui/requirements/plan-tree-context";
-import { TakeAnywayForm } from "@/ui/plan/take-anyway-form";
+import { ResolvePanel } from "@/ui/plan/resolve-panel";
 import { OVERRIDE_REASONS } from "@/lib/coursemap/plan-overrides";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
@@ -1058,32 +1057,18 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           <div className="min-h-0 overflow-hidden">
             {isResolving ? (
               <div className="px-2 pb-2">
-                {fixPreview ? (
-                  <ResolveSteps
-                    steps={fixPreview}
-                    catalogue={planningCatalogue}
-                    busy={resolving.busy}
-                    onApply={() =>
-                      void resolving
-                        .apply()
-                        .then((done) => done && setResolvingId(null))
-                    }
-                    onDismiss={() => setResolvingId(null)}
-                    footer={
-                      <TakeAnywayForm
-                        courseCode={entry.course.code}
-                        onDone={() => setResolvingId(null)}
-                      />
-                    }
-                  />
-                ) : (
-                  <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
-                    <TakeAnywayForm
-                      courseCode={entry.course.code}
-                      onDone={() => setResolvingId(null)}
-                    />
-                  </div>
-                )}
+                <ResolvePanel
+                  courseCode={entry.course.code}
+                  proposal={resolving.proposal}
+                  catalogue={planningCatalogue}
+                  busy={resolving.busy}
+                  onApply={() =>
+                    void resolving
+                      .apply()
+                      .then((done) => done && setResolvingId(null))
+                  }
+                  onClose={() => setResolvingId(null)}
+                />
               </div>
             ) : null}
           </div>
