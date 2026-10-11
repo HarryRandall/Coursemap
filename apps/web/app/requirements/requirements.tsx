@@ -31,6 +31,7 @@ import {
   unitsForAttempt,
 } from "@/lib/planner";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
+import { creditedRequirementUnits } from "@/lib/coursemap/requirement-progress";
 import { StructureProgress } from "@/ui/requirements/structure-progress";
 import { StructureEmptyState } from "@/ui/requirements/structure-empty-state";
 import { StructureChoices } from "@/ui/requirements/structure-choices";
@@ -161,11 +162,14 @@ export function Requirements({
               const course = planningCourseForAttempt(attempt, catalogue);
               return course ? total + unitsForAttempt(attempt, course) : total;
             }, 0)}
-          progress={degreeUnitProgress(
-            state.attempts,
-            degree?.units ?? 0,
-            catalogue,
-          )}
+          progress={degreeUnitProgress(state.attempts, degree?.units ?? 0, {
+            ...catalogue,
+            creditedRequirementUnits: creditedRequirementUnits(
+              catalogue.structureRequirements,
+              state.requirementOverrides ?? [],
+              selectedCodes,
+            ),
+          })}
         />
         <OutlinedTabsList className="mb-5" aria-label="Requirement sections">
           {sections.map(({ kind, label }) => (
