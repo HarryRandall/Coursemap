@@ -28,6 +28,10 @@ export function PlacementControl({
     );
   }
   const options = placement.optionsFor(courseCode);
+  // A course already counting somewhere, such as a degree-wide rule with no
+  // choice to offer, has nothing to move, so it shows nothing rather than
+  // claiming it does not count.
+  if (options.length === 0 && current.nodeKey) return null;
   if (options.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -35,6 +39,7 @@ export function PlacementControl({
       </p>
     );
   }
+  if (options.length === 1) return null;
   if (placement.readOnly) {
     return (
       <span className="text-xs text-muted-foreground">
@@ -53,11 +58,11 @@ export function PlacementControl({
   ];
   return (
     <OptionPicker
-      aria-label={`Where ${courseCode} counts`}
+      aria-label={`Counts towards for ${courseCode}`}
+      variant="ghost"
+      triggerLabel={`Counts towards: ${current.nodeKey ? placement.labelFor(current.nodeKey).split(" · ").slice(1).join(" · ") || placement.labelFor(current.nodeKey) : "Nothing yet"}`}
       title={
-        current.pinned
-          ? "You chose where this course counts"
-          : "Where this course counts"
+        current.pinned ? "You chose where this course counts" : "Counts towards"
       }
       className="relative z-10 h-7 min-w-0 gap-1 px-2 text-xs"
       items={items}
