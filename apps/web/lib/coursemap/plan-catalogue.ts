@@ -604,13 +604,6 @@ export async function loadPublishedPlanCatalogue(
   const terms: Term[] = ((periodsResult.data ?? []) as AcademicPeriodRow[]).map(
     academicPeriodTerm,
   );
-  terms.push({
-    id: "unscheduled",
-    year: 9999,
-    name: "Later",
-    shortName: "Later",
-    dates: "Choose when ready",
-  });
 
   return {
     academicYear: academicYearRecord.year,

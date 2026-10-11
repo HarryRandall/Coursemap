@@ -18,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@coursemap/ui/primitives/dialog";
-import { YearPicker } from "@/ui/common/year-picker";
 import { FilterBar } from "@/ui/common/filter-bar";
 import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
@@ -54,13 +53,11 @@ const LEVELS = [1, 2, 3, 4] as const;
 export function CoursePicker({
   term,
   intent = "all",
-  academicYears = [],
   recommendedCodes = [],
   onClose,
 }: {
   term?: Term;
   intent?: "all" | "recommended";
-  academicYears?: number[];
   /** Courses the student's chosen structures still need, shown before a search. */
   recommendedCodes?: string[];
   onClose: () => void;
@@ -76,30 +73,12 @@ export function CoursePicker({
   const [retryCount, setRetryCount] = useState(0);
   const [addingCode, setAddingCode] = useState<string | null>(null);
   // Offered in the destination semester by default; cleared to show any.
-  const [session, setSession] = useState(() =>
-    term && term.id !== "unscheduled" ? term.name : "",
-  );
+  const [session, setSession] = useState(() => term?.name ?? "");
   const [level, setLevel] = useState<number | null>(null);
   const [recommendations, setRecommendations] = useState<{
     key: string;
     courses: Course[];
   } | null>(null);
-  const selectableAcademicYears = useMemo(
-    () =>
-      [
-        ...new Set(
-          academicYears.length > 0
-            ? academicYears
-            : [state.profile.catalogueYear],
-        ),
-      ].sort((left, right) => left - right),
-    [academicYears, state.profile.catalogueYear],
-  );
-  const [unscheduledAcademicYear, setUnscheduledAcademicYear] = useState(() =>
-    selectableAcademicYears.includes(state.profile.catalogueYear)
-      ? state.profile.catalogueYear
-      : (selectableAcademicYears[0] ?? state.profile.catalogueYear),
-  );
   const openerRef = useRef<HTMLElement | null>(
     typeof document !== "undefined" &&
       document.activeElement instanceof HTMLElement
@@ -111,12 +90,8 @@ export function CoursePicker({
   const trimmedQuery = query.trim();
   // Under two characters the picker browses the filtered catalogue instead.
   const searchQuery = trimmedQuery.length >= 2 ? trimmedQuery : "";
-  const academicYear =
-    term?.id === "unscheduled"
-      ? unscheduledAcademicYear
-      : (term?.year ?? state.profile.catalogueYear);
-  const sessionFilter = term?.id === "unscheduled" ? "" : session;
-  const filterKey = `${sessionFilter}|${level ?? ""}`;
+  const academicYear = term?.year ?? state.profile.catalogueYear;
+  const filterKey = `${session}|${level ?? ""}`;
   const currentRequestKey = requestKey(
     searchQuery,
     page,
@@ -142,7 +117,7 @@ export function CoursePicker({
           pageSize: "10",
           year: String(academicYear),
         });
-        if (sessionFilter) params.set("session", sessionFilter);
+        if (session) params.set("session", session);
         if (level) params.set("level", String(level));
         const result = await fetch(`/api/courses/search?${params}`, {
           signal: controller.signal,
@@ -198,7 +173,7 @@ export function CoursePicker({
     level,
     page,
     retryCount,
-    sessionFilter,
+    session,
     term,
     searchQuery,
   ]);
@@ -254,7 +229,7 @@ export function CoursePicker({
     recommendations?.key === recommendationKey
       ? recommendations.courses.filter(
           (course) =>
-            (!sessionFilter || course.sessions.includes(sessionFilter)) &&
+            (!session || course.sessions.includes(session)) &&
             (!level || course.level === level * 1000),
         )
       : [];
@@ -311,7 +286,7 @@ export function CoursePicker({
     (recommendationsLoading || (page === 1 && !activeResponse && !failed));
   const firstPageFailed =
     courses.length === 0 && failed && page === 1 && !activeResponse;
-  const filtersActive = Boolean(sessionFilter || level);
+  const filtersActive = Boolean(session || level);
   const changeFilters = (next: () => void) => {
     next();
     setPage(1);
@@ -353,8 +328,7 @@ export function CoursePicker({
 
   const renderCourse = (course: Course) => {
     const inPlan = (courseCounts.get(course.code) ?? 0) > 0;
-    const available =
-      course.sessions.includes(term.name) || term.id === "unscheduled";
+    const available = course.sessions.includes(term.name);
 
     return (
       <CommandItem
@@ -447,18 +421,12 @@ export function CoursePicker({
                 autoFocus
                 searchPlaceholder={`Search ${academicYear} courses by code or name`}
                 filters={[
-                  ...(term.id !== "unscheduled"
-                    ? [
-                        {
-                          key: "session",
-                          label: "Offered in",
-                          allLabel: "Any semester",
-                          options: [
-                            { value: term.name, label: term.shortName },
-                          ],
-                        },
-                      ]
-                    : []),
+                  {
+                    key: "session",
+                    label: "Offered in",
+                    allLabel: "Any semester",
+                    options: [{ value: term.name, label: term.shortName }],
+                  },
                   {
                     key: "level",
                     label: "Level",
@@ -492,23 +460,6 @@ export function CoursePicker({
                 }}
               />
             </div>
-            {term.id === "unscheduled" ? (
-              <YearPicker
-                ariaLabel="Course year"
-                years={selectableAcademicYears}
-                value={academicYear}
-                onChange={(year) => {
-                  if (year === "all" || !selectableAcademicYears.includes(year))
-                    return;
-                  setUnscheduledAcademicYear(year);
-                  setPage(1);
-                  setResponse(null);
-                  setSelectedCode(null);
-                  setMobilePreviewOpen(false);
-                  setFailedKey(null);
-                }}
-              />
-            ) : null}
             <DialogClose asChild>
               <Button
                 type="button"
@@ -558,7 +509,7 @@ export function CoursePicker({
                         heading={
                           !browsing
                             ? `${activeResponse?.total ?? results.length} results`
-                            : sessionFilter
+                            : session
                               ? `Offered in ${term.shortName}`
                               : "All courses"
                         }

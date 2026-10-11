@@ -41,7 +41,7 @@ test("only First and Second Semester are standard semesters", () => {
   expect(isSemesterTerm({ id: "2026-s1" })).toBe(true);
   expect(isSemesterTerm({ id: "2026-s2" })).toBe(true);
   expect(isSemesterTerm({ id: "2026-summer" })).toBe(false);
-  expect(isSemesterTerm({ id: "unscheduled" })).toBe(false);
+  expect(isSemesterTerm({ id: "missing-period" })).toBe(false);
 });
 
 test("course sessions shorten to the planner's labels", () => {

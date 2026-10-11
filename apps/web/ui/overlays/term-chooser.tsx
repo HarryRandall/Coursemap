@@ -128,14 +128,9 @@ export function TermChooser({
             </div>
           ) : (
             terms
-              .filter(
-                (term) =>
-                  term.id === "unscheduled" || term.year === course.year,
-              )
+              .filter((term) => term.year === course.year)
               .map((term) => {
-                const unscheduled = term.id === "unscheduled";
-                const available =
-                  unscheduled || course.sessions.includes(term.name);
+                const available = course.sessions.includes(term.name);
                 return (
                   <Button
                     key={term.id}
@@ -158,7 +153,7 @@ export function TermChooser({
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px] font-semibold text-foreground">
                         {term.name}
-                        {unscheduled ? "" : ` ${term.year}`}
+                        {` ${term.year}`}
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {term.dates}
@@ -169,11 +164,7 @@ export function TermChooser({
                         badgeVariantForTone[available ? "success" : "neutral"]
                       }
                     >
-                      {unscheduled
-                        ? "Choose later"
-                        : available
-                          ? "Offered"
-                          : "Not listed"}
+                      {available ? "Offered" : "Not listed"}
                     </Badge>
                     <ArrowRight
                       size={16}

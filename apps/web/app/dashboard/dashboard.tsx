@@ -210,7 +210,7 @@ export function Dashboard({
   );
 
   const planCourseRows = useMemo<PlanCourseRow[]>(() => {
-    // Timeline terms are already in date order, with unscheduled last.
+    // Timeline terms are already in date order.
     const termOrder = new Map(
       timelineTerms.map((term, index) => [term.id, index]),
     );
@@ -240,10 +240,7 @@ export function Dashboard({
           name: course.name,
           units: unitsForAttempt(attempt, course),
           termId: attempt.termId,
-          termLabel:
-            attempt.termId === "unscheduled"
-              ? "Unscheduled"
-              : (termName.get(attempt.termId) ?? "Unscheduled"),
+          termLabel: termName.get(attempt.termId) ?? "Study period unavailable",
           grade: attempt.resultCode ?? attempt.mark?.toString() ?? "—",
           gradeCode:
             code && gradeCodes.has(code)

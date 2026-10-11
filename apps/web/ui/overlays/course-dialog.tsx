@@ -150,6 +150,7 @@ export function CourseDialog({
   const catalogue = suppliedCatalogue
     ? {
         ...suppliedCatalogue,
+        ...(preview ? { evaluationContext: "whole-plan" as const } : {}),
         commencementYear: state.profile.commencementYear ?? null,
         enrolmentMode: state.profile.enrolmentMode ?? null,
         programmeCodes: state.profile.degreeCode
@@ -164,7 +165,7 @@ export function CourseDialog({
         id: "preview",
         academicYear: preview.course.year,
         courseCode: preview.course.code,
-        termId: "unscheduled",
+        termId: "",
         status: "planned",
       }
     : state.attempts.find((item) => item.id === attemptId);

@@ -6,7 +6,7 @@ export function studyPeriodMarkers(
   courseCountByTerm: ReadonlyMap<string, number>,
 ) {
   return terms.flatMap((term) => {
-    if (term.id === "unscheduled" || !term.startsOn || !term.endsOn) return [];
+    if (!term.startsOn || !term.endsOn) return [];
     const courses = courseCountByTerm.get(term.id) ?? 0;
     const suffix =
       courses > 0 ? ` · ${courses} course${courses === 1 ? "" : "s"}` : "";

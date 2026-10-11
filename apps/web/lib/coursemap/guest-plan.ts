@@ -129,7 +129,7 @@ function toStored(state: AppState): StoredGuestPlan {
 }
 
 const CODE = /^[A-Za-z0-9_-]{1,32}$/u;
-const TERM = /^(?:\d{4}-[a-z0-9-]{1,16}|unscheduled)$/u;
+const TERM = /^\d{4}-[a-z0-9-]{1,16}$/u;
 
 function text(value: unknown, limit = 120) {
   return typeof value === "string" ? value.slice(0, limit) : "";

@@ -4,10 +4,10 @@ import { Button } from "@coursemap/ui/primitives/button";
 import { STANDARD_ACADEMIC_PERIODS } from "@/lib/coursemap/academic-periods";
 import type { Attempt } from "@/lib/coursemap/types";
 
-/** "2026-s1" as "S1 2026", or "Not scheduled yet" for the unscheduled lane. */
+/** "2026-s1" as "S1 2026". */
 function periodLabel(termId: string) {
   const match = /^(\d{4})-(.+)$/u.exec(termId);
-  if (!match) return "Not scheduled yet";
+  if (!match) return "Study period unavailable";
   const period = STANDARD_ACADEMIC_PERIODS.find(
     (item) => item.code.toLowerCase() === match[2],
   );
