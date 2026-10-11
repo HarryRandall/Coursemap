@@ -44,7 +44,7 @@ export function PlannerSkeleton() {
             </div>
           ))}
         </div>
-        <div className="space-y-4 rounded-xl border border-border bg-card p-4 lg:w-[24rem] lg:shrink-0">
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4 lg:h-[calc(100dvh-12rem)] lg:w-[24rem] lg:shrink-0">
           <div className="flex gap-4">
             <Skeleton className="h-4 w-16" />
             <Skeleton className="h-4 w-14" />

@@ -1,4 +1,3 @@
-import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
@@ -6,7 +5,6 @@ import type {
 } from "@/lib/coursemap/plan-catalogue";
 import {
   conditionHeading,
-  courseSearchHref,
   conditionSummary,
   conditionTone,
   hidesCondition,
@@ -73,6 +71,14 @@ export type RuleToPlan = {
   compulsory: boolean;
   /** Every course the rule names. Rules counting units by filter name none. */
   courses: RuleCourse[];
+  remainingCourses: number;
+  estimatedCount: boolean;
+  /**
+   * A degree total or electives rule that every other course also fills,
+   * so its remaining courses overlap the other rules' rather than add to them.
+   */
+  catchAll: boolean;
+  options?: RuleToPlan[];
   /** Course directory filters for a rule that names no courses. */
   browse: string | null;
   /**
@@ -85,16 +91,102 @@ export type RuleToPlan = {
 export type StructureToPlan = {
   structure: PlannedStructure;
   rules: RuleToPlan[];
-  /** Rules the plan does not cover yet. */
+  /** Courses still to pick across open rules. */
   openCount: number;
+  estimatedCount: boolean;
 };
+
+/**
+ * Courses still to pick for a structure. Specific rules add up, but a total
+ * or electives rule is filled by those same courses, so it only raises the
+ * count when it needs more than the specific rules do.
+ */
+export function openCourseCount(
+  rules: readonly Pick<
+    RuleToPlan,
+    "covered" | "catchAll" | "remainingCourses"
+  >[],
+) {
+  const open = rules.filter((rule) => !rule.covered);
+  const specific = open
+    .filter((rule) => !rule.catchAll)
+    .reduce((sum, rule) => sum + rule.remainingCourses, 0);
+  const overall = Math.max(
+    0,
+    ...open
+      .filter((rule) => rule.catchAll)
+      .map((rule) => rule.remainingCourses),
+  );
+  return Math.max(specific, overall);
+}
+
+/**
+ * The course search filters that list what a units rule would count: its
+ * subject or tag, and its levels as the leading digit ("3+" for 3000 level
+ * or above). Rules any course meets have none.
+ */
+function ruleSearchParams(rule: RequirementTreeCondition) {
+  const digit = (level: number) => String(level < 10 ? level : level / 1000);
+  const { minimumLevel, maximumLevel } = rule;
+  const params = new URLSearchParams();
+  if (rule.conditionKind === "subject_units" && rule.subjectCode)
+    params.set("subject", rule.subjectCode);
+  else if (rule.conditionKind === "tagged_units" && rule.tag)
+    params.set("tag", rule.tag);
+  else if (rule.conditionKind !== "level_units") return null;
+  if (minimumLevel !== null)
+    params.set(
+      "level",
+      minimumLevel === maximumLevel
+        ? digit(minimumLevel)
+        : `${digit(minimumLevel)}+`,
+    );
+  else if (maximumLevel !== null) params.set("level", digit(maximumLevel));
+  return params.size > 0 ? params.toString() : null;
+}
+
+/** A rule named in a few words, so a list of them reads at a glance. */
+function shortHeading(rule: RequirementTreeCondition, compulsory: boolean) {
+  const level = rule.minimumLevel !== null ? ` ${rule.minimumLevel}+` : "";
+  switch (rule.conditionKind) {
+    case "subject_units":
+      return rule.subjectCode
+        ? level
+          ? `${rule.subjectCode}${level}`
+          : `${rule.subjectCode} courses`
+        : "Subject courses";
+    case "level_units":
+      return rule.minimumLevel !== null
+        ? `${rule.minimumLevel}-level courses`
+        : "Course level";
+    case "course_set_units": {
+      if (compulsory) return "Core courses";
+      const count = rule.minimumCourses;
+      return count !== null
+        ? count === 1
+          ? "Pick one"
+          : `Pick ${count}`
+        : rule.minimumUnits !== null
+          ? `Pick ${rule.minimumUnits} units`
+          : "Pick courses";
+    }
+    case "elective_units":
+      return "Electives";
+    case "units_total":
+      return "Total units";
+    default:
+      return conditionHeading(rule);
+  }
+}
 
 function requirementRules(
   node: RequirementTreeNode,
   context: TreeContext,
-): RequirementTreeCondition[] {
-  if (node.type === "group")
+): RequirementTreeNode[] {
+  if (node.type === "group") {
+    if (node.operator !== "all_of") return [node];
     return node.children.flatMap((child) => requirementRules(child, context));
+  }
   return !hidesCondition(node, context) && conditionTone(node) === "requirement"
     ? [node]
     : [];
@@ -122,29 +214,119 @@ export function structuresToPlan({
     const { context } = structure;
     const ordered = requirementRules(structure.root, context).sort(
       (left, right) =>
-        Number(left.conditionKind === "units_total") -
-        Number(right.conditionKind === "units_total"),
+        Number(
+          left.type === "condition" && left.conditionKind === "units_total",
+        ) -
+        Number(
+          right.type === "condition" && right.conditionKind === "units_total",
+        ),
     );
-    const rules = ordered.map((rule): RuleToPlan => {
+    const toRule = (rule: RequirementTreeNode): RuleToPlan => {
+      if (rule.type === "group") {
+        const options = rule.children
+          .filter((child) => requirementRules(child, context).length > 0)
+          .map(toRule);
+        const status = requirementRowStatus(rule, context);
+        const covered = status.kind === "planned" || status.kind === "complete";
+        const required =
+          rule.operator === "any_of"
+            ? 1
+            : rule.operator === "at_least"
+              ? (rule.minimumCount ?? 1)
+              : options.length;
+        const coveredOptions = options.filter(
+          (option) => option.covered,
+        ).length;
+        const remaining = options
+          .filter((option) => !option.covered)
+          .sort((a, b) => a.remainingCourses - b.remainingCourses)
+          .slice(0, Math.max(0, required - coveredOptions));
+        return {
+          key: `${structure.code}:group:${rule.id}`,
+          heading:
+            rule.operator === "any_of"
+              ? "Pick one option"
+              : rule.operator === "at_least"
+                ? `Pick ${required} options`
+                : "Take this option",
+          detail: rule.sourceText ?? "Choose courses from the options below",
+          count: "",
+          progress: covered ? 1 : 0,
+          covered,
+          compulsory: false,
+          catchAll: false,
+          courses: [],
+          options,
+          remainingCourses: covered
+            ? 0
+            : remaining.reduce(
+                (sum, option) => sum + option.remainingCourses,
+                0,
+              ),
+          estimatedCount: remaining.some((option) => option.estimatedCount),
+          browse: null,
+          note: null,
+        };
+      }
       const listed = listedCourseCounts(rule, context);
-      const compulsory = listed.codes.length > 0 && listed.required;
+      const fixedUnits = listed.codes
+        .map((code) => courseFor(code))
+        .map((course) =>
+          course && (!course.unitValue || course.unitValue.kind === "fixed")
+            ? course.units
+            : null,
+        );
+      const takesAllUnits =
+        rule.minimumUnits !== null &&
+        !rule.includesAnyCourse &&
+        fixedUnits.length > 0 &&
+        fixedUnits.every((units) => units !== null && units > 0) &&
+        fixedUnits.reduce<number>((sum, units) => sum + (units ?? 0), 0) ===
+          rule.minimumUnits;
+      const compulsory =
+        listed.codes.length > 0 && (listed.required || takesAllUnits);
       const status = requirementRowStatus(rule, context);
       const figure = status.kind === "unmeasured" ? null : status.figure;
+      const covered = status.kind === "planned" || status.kind === "complete";
+      const courses = listed.codes.map((code) => ({
+        code,
+        course: courseFor(code),
+        status: context.attemptStatusByCode.get(code) ?? null,
+      }));
+      const remaining = courses.filter((item) => item.status === null);
+      const remainingUnits =
+        figure?.unit === "units"
+          ? Math.max(0, figure.target - figure.value)
+          : rule.minimumUnits;
+      const estimatedCount =
+        !compulsory &&
+        rule.minimumCourses === null &&
+        (figure?.unit === "units" || remainingUnits !== null);
+      const remainingCourses = covered
+        ? 0
+        : compulsory
+          ? remaining.length
+          : figure
+            ? Math.ceil(
+                Math.max(0, figure.target - figure.value) /
+                  (figure.unit === "units" ? 6 : 1),
+              )
+            : rule.minimumCourses !== null
+              ? Math.max(0, rule.minimumCourses - listed.done - listed.planned)
+              : remainingUnits !== null
+                ? Math.ceil(remainingUnits / 6)
+                : 0;
       return {
         key: `${structure.code}:${rule.id}`,
         heading:
-          requirementTitle(
-            rule,
-            catalogue.courses.filter(
-              (course) => course.year === catalogue.academicYear,
-            ),
-          ) ?? conditionHeading(rule),
-        detail: conditionSummary(
-          rule,
-          catalogue.courses.filter(
-            (course) => course.year === catalogue.academicYear,
-          ),
-        ),
+          compulsory && !covered
+            ? remaining.length === 1
+              ? `Take ${remaining[0].code}`
+              : `Take ${remaining.length} more core courses`
+            : estimatedCount && remainingUnits !== null
+              ? `Pick ${remainingUnits} units`
+              : shortHeading(rule, compulsory),
+        detail: conditionSummary(rule),
         count: figure
           ? `${Math.min(figure.value, figure.target)} / ${figure.target} ${figure.unit}`
           : "",
@@ -152,28 +334,29 @@ export function structuresToPlan({
           figure && figure.target > 0
             ? Math.min(1, figure.value / figure.target)
             : 0,
-        covered: status.kind === "planned" || status.kind === "complete",
+        covered,
         compulsory,
-        courses: listed.codes.map((code) => ({
-          code,
-          course: courseFor(code),
-          status: context.attemptStatusByCode.get(code) ?? null,
-        })),
-        browse:
-          listed.codes.length > 0
-            ? null
-            : (courseSearchHref(rule, catalogue.academicYear)?.split("?")[1] ??
-              null),
+        courses,
+        remainingCourses,
+        estimatedCount,
+        catchAll:
+          rule.conditionKind === "units_total" ||
+          rule.conditionKind === "elective_units",
+        browse: listed.codes.length > 0 ? null : ruleSearchParams(rule),
         note:
           rule.conditionKind === "units_total"
             ? "Every course counts here, core and elective alike, so the rules above fill it as you plan."
             : null,
       };
-    });
+    };
+    const rules = ordered.map(toRule);
     return {
       structure,
       rules,
-      openCount: rules.filter((rule) => !rule.covered).length,
+      openCount: openCourseCount(rules),
+      estimatedCount: rules.some(
+        (rule) => !rule.covered && rule.estimatedCount,
+      ),
     };
   });
 }
