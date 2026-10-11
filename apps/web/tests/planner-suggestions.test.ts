@@ -124,3 +124,20 @@ describe("openCourseCount", () => {
     expect(openCourseCount([rule(2, false, true), rule(0, true)])).toBe(0);
   });
 });
+
+test("planner browse links retain the requirement's year, subjects and both level bounds", () => {
+  const result = suggestions([
+    condition(1, [], {
+      conditionKind: "level_units",
+      subjectCode: "COMP,MATH",
+      minimumLevel: 2000,
+      maximumLevel: 3000,
+      minimumCourses: null,
+      minimumUnits: 12,
+    }),
+  ]);
+  const params = new URLSearchParams(result.rules[0].browse ?? "");
+  expect(params.get("year")).toBe("2026");
+  expect(params.get("subject")).toBe("COMP,MATH");
+  expect(params.get("level")).toBe("2-3");
+});

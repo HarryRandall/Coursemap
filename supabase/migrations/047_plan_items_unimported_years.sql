@@ -115,7 +115,6 @@ create or replace function public.move_current_user_plan_item(p_plan_item_id uui
 declare
   user_id uuid := (select auth.uid());
   selected_plan_id uuid;
-  selected_academic_year smallint;
   selected_code_id bigint;
   selected_course_code text;
   selected_record_id bigint;
@@ -136,13 +135,11 @@ begin
   select
     plan_items.plan_id,
     plan_items.catalogue_record_id,
-    academic_years.year,
     catalogue_codes.id,
     catalogue_codes.code
   into
     selected_plan_id,
     selected_record_id,
-    selected_academic_year,
     selected_code_id,
     selected_course_code
   from public.plan_items
