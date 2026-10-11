@@ -15,7 +15,7 @@ import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { PlannerSkeleton } from "@/ui/plan/planner-skeleton";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
-import { FixIssueButton } from "@/ui/plan/fix-issue-button";
+import { PlanIssueFooter } from "@/ui/plan/plan-issue-footer";
 import {
   Dialog,
   DialogContent,
@@ -56,6 +56,7 @@ import {
   effectiveStatus,
   coursePlanStatus,
   type CoursePlanStatus,
+  type PlanFixStep,
   planningCourseForAttempt,
   unitsForAttempt,
   type EffectiveStatus,
@@ -156,6 +157,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   // Attempts the server's catalogue has already seen. A course added since
   // the last catalogue can't have its requirements checked until the
   // refresh lands, so it reads as planned rather than flashing a warning.
+  // The changes an open Resolve panel would make, previewed on the lanes.
+  const [fixPreview, setFixPreview] = useState<readonly PlanFixStep[] | null>(
+    null,
+  );
   const [settled, setSettled] = useState(() => ({
     catalogue,
     ids: new Set(state.attempts.map((attempt) => attempt.id)),
@@ -223,35 +228,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         ? [state.profile.degreeCode]
         : [],
     };
-    // A course just placed in another year has no version for that year
-    // until the server sends one, so the nearest loaded version stands in
-    // and the course shows, with its requisites, the moment it lands.
-    const standIns = new Map<string, Course>();
-    state.attempts.forEach((attempt) => {
-      if (
-        attempt.status === "withdrawn" ||
-        attempt.isPublished === false ||
-        attempt.snapshotId !== undefined ||
-        attempt.academicYear === undefined ||
-        planningCourseForAttempt(attempt, base)
-      )
-        return;
-      const year = attempt.academicYear;
-      const [nearest] = known
-        .filter((course) => course.code === attempt.courseCode)
-        .sort(
-          (left, right) =>
-            Math.abs(left.year - year) - Math.abs(right.year - year),
-        );
-      if (nearest)
-        standIns.set(`${nearest.code}:${year}`, { ...nearest, year });
-    });
-    return { ...base, courses: [...known, ...standIns.values()] };
+    return base;
   }, [
     catalogue,
     fetchedCourses,
     timelineTerms,
-    state.attempts,
     state.profile.commencementYear,
     state.profile.enrolmentMode,
     state.profile.degreeCode,
@@ -834,6 +815,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   /** One planned course; short sessions tag each row with its session. */
   const renderEntry = (entry: Entry, term: Term, session?: string) => {
     const note = issueNote(entry);
+    const usesStandIn =
+      entry.attempt.status === "planned" &&
+      entry.attempt.isPublished !== false &&
+      entry.course.year !== term.year;
     if (dragging === entry.attempt.id) {
       return (
         <div
@@ -854,7 +839,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         key={entry.attempt.id}
         data-attempt-id={entry.attempt.id}
         data-drag-row
-        className="group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition-colors hover:bg-muted/50"
+        className={cn(
+          "group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition hover:bg-muted/50",
+          fixPreview?.some(
+            (step) =>
+              step.type === "move" &&
+              step.attemptId === entry.attempt.id &&
+              step.toTermId !== term.id,
+          ) && "opacity-50",
+        )}
       >
         <button
           type="button"
@@ -866,7 +859,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         >
           <GripVertical size={13} aria-hidden="true" />
         </button>
-        <Tooltip open={note ? undefined : false}>
+        <Tooltip open={note || usesStandIn ? undefined : false}>
           <TooltipTrigger asChild>
             <button
               type="button"
@@ -880,6 +873,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
                   {entry.course.name}
+                  {usesStandIn && (
+                    <span className="ml-2 font-normal text-muted-foreground">
+                      {entry.course.year} details
+                    </span>
+                  )}
                 </span>
                 {session ? (
                   <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -892,8 +890,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               </span>
             </button>
           </TooltipTrigger>
-          {note ? (
+          {note || usesStandIn ? (
             <TooltipContent align="start" side="bottom">
+              {usesStandIn && (
+                <p>{`ANU hasn't published ${term.year} details yet, so Coursemap uses ${entry.course.year}'s.`}</p>
+              )}
               <ul className="space-y-1">
                 {entry.flags?.issues.map((issue) => (
                   <li key={`${issue.code}:${issue.detail}`}>{issue.detail}</li>
@@ -902,14 +903,12 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             </TooltipContent>
           ) : null}
         </Tooltip>
-        {entry.status === "blocked" && (
-          <div className="col-span-2 flex justify-end px-2 pb-2 empty:hidden">
-            <FixIssueButton
-              attempt={entry.attempt}
-              catalogue={planningCatalogue}
-            />
-          </div>
-        )}
+        <PlanIssueFooter
+          attempt={entry.attempt}
+          flags={entry.flags}
+          catalogue={planningCatalogue}
+          onPreviewChange={setFixPreview}
+        />
         {entry.status === "unpublished" && (
           <div className="col-span-2 flex justify-end px-2 pb-2">
             <Button
@@ -948,9 +947,18 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const previewUsesEmptySlot = Boolean(
       previewApplies && !containsDragged && entries.length < slotCount,
     );
+    // Courses an open Resolve panel would bring into this term.
+    const incoming =
+      fixPreview?.filter(
+        (step) =>
+          (step.type === "add" ? step.termId : step.toTermId) === term.id,
+      ) ?? [];
     const emptySlots = Math.max(
       0,
-      slotCount - entries.length - Number(previewUsesEmptySlot),
+      slotCount -
+        entries.length -
+        Number(previewUsesEmptySlot) -
+        incoming.length,
     );
     const removableSession = !semester && entries.length === 0;
     // While a course is held, a semester it does not run in says so before
@@ -968,13 +976,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         data-drop-term={term.id}
         className={cn(
           "flex flex-col rounded-xl bg-card p-2.5 ring-1 transition",
-          notOffered
-            ? dragPreview?.termId === term.id
-              ? "opacity-60 ring-2 ring-destructive/40"
-              : "opacity-60 ring-border"
-            : dragging && dragPreview?.termId === term.id
-              ? "ring-2 ring-primary/40"
-              : "ring-border",
+          incoming.length > 0
+            ? "ring-2 ring-primary/40"
+            : notOffered
+              ? dragPreview?.termId === term.id
+                ? "opacity-60 ring-2 ring-destructive/40"
+                : "opacity-60 ring-border"
+              : dragging && dragPreview?.termId === term.id
+                ? "ring-2 ring-primary/40"
+                : "ring-border",
         )}
       >
         {notOffered ? (
@@ -1027,6 +1037,18 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <div className="flex flex-1 flex-col gap-1">
           {entries.map((entry) => renderEntry(entry, term))}
           {previewUsesEmptySlot && renderDropPreview(term.id)}
+          {incoming.map((step) => (
+            <div
+              key={`fix-${step.courseCode}`}
+              aria-hidden="true"
+              className="flex min-h-[52px] items-center gap-2.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 text-[12px] text-primary duration-200 animate-in fade-in-0"
+            >
+              <span className="font-mono text-[11px]">{step.courseCode}</span>
+              <span className="truncate">
+                {step.type === "add" ? "will be added here" : "moves here"}
+              </span>
+            </div>
+          ))}
           {Array.from({ length: emptySlots }, (_, index) => (
             <button
               key={`${term.id}-empty-${index}`}
@@ -1091,7 +1113,17 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       <h1 className="sr-only">Planner</h1>
       <div className="workspace-scroll flex flex-col gap-4" ref={boardRef}>
         <YearTabs
-          years={yearTabs}
+          years={yearTabs.map((year) => ({
+            ...year,
+            previewChanges:
+              fixPreview?.filter(
+                (step) =>
+                  (step.type === "add" ? step.termId : step.toTermId).slice(
+                    0,
+                    4,
+                  ) === year.key && year.key !== selectedYear?.key,
+              ).length ?? 0,
+          }))}
           selectedKey={selectedYear?.key ?? ""}
           onSelect={setSelectedYearKey}
           onAddYear={
