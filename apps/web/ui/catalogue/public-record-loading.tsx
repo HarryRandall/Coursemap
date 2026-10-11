@@ -8,9 +8,12 @@ import { AppShell } from "@/ui/shell";
 export function PublicRecordLoading({
   label,
   tabs,
+  children,
 }: {
   label: string;
   tabs?: ReactNode;
+  /** The body below the heading, when the open tab has its own shape. */
+  children?: ReactNode;
 }) {
   return (
     <AppShell
@@ -27,24 +30,26 @@ export function PublicRecordLoading({
           <Skeleton className="h-8 w-80 max-w-full" />
           <Skeleton className="h-5 w-64 max-w-full" />
         </div>
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-          <div className="space-y-4">
-            {[0, 1].map((index) => (
-              <Card key={index} className="min-w-0 gap-5 p-5">
-                <Skeleton className="h-4 w-36" />
-                <div className="space-y-3">
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-5/6" />
-                  <Skeleton className="h-3 w-2/3" />
-                </div>
-              </Card>
-            ))}
+        {children ?? (
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+            <div className="space-y-4">
+              {[0, 1].map((index) => (
+                <Card key={index} className="min-w-0 gap-5 p-5">
+                  <Skeleton className="h-4 w-36" />
+                  <div className="space-y-3">
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-5/6" />
+                    <Skeleton className="h-3 w-2/3" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <Card className="min-w-0 gap-5 p-5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-32 w-full" />
+            </Card>
           </div>
-          <Card className="min-w-0 gap-5 p-5">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-32 w-full" />
-          </Card>
-        </div>
+        )}
       </div>
     </AppShell>
   );

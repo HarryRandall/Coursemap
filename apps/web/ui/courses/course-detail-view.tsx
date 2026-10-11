@@ -1,8 +1,8 @@
 "use client";
 
+import { cn } from "@/lib/cn";
 import { hasInherentRequirements } from "./course-detail-format";
 import { workloadHoursLabel } from "@/lib/academic/workload";
-import { badgeVariantForTone } from "@/lib/ui";
 import { Badge } from "@coursemap/ui/components/badge";
 import {
   Card,
@@ -11,14 +11,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardAction,
 } from "@coursemap/ui/primitives/card";
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@coursemap/ui/primitives/empty";
 import {
   TabsContent,
   TabsList,
@@ -35,7 +28,6 @@ import {
   GitBranch,
   GraduationCap,
   Library,
-  MapPin,
   MessageSquareText,
 } from "lucide-react";
 import { Hint } from "@/ui/common/hint";
@@ -56,12 +48,12 @@ import {
 } from "@/lib/coursemap/requisite-evaluation";
 import {
   feeValue,
-  formatDate,
   formatUpdatedAt,
   humanise,
   sessionLabel,
   unitValueLabel,
 } from "@/ui/courses/course-detail-format";
+import { CourseOfferings } from "@/ui/courses/course-offerings";
 import { CourseReferenceText } from "@/ui/courses/course-reference";
 import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
 import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
@@ -112,7 +104,10 @@ export function CourseDetailTabsList({
         .filter((tab) => tab.id !== "student-review" || showStudentReview)
         .map(({ id, label, icon: Icon }) => (
           <TabsTrigger
-            className={disabled ? "disabled:opacity-100" : undefined}
+            className={cn(
+              disabled && "disabled:opacity-100",
+              id === "student-review" && "duration-300 animate-in fade-in-0",
+            )}
             disabled={disabled}
             key={id}
             value={id}
@@ -137,6 +132,7 @@ export function CourseDetailView({
   course,
   survey = { status: "empty", report: null },
   onAddToPlan,
+  onAddToPeriod,
   yearPicker,
   previewStudent,
   requisiteCompletion,
@@ -148,6 +144,8 @@ export function CourseDetailView({
   course: CourseDetails;
   survey?: PublishedSurveyState;
   onAddToPlan?: () => void;
+  /** Plans the course straight into one of its study periods. */
+  onAddToPeriod?: (termId: string) => void;
   yearPicker?: ReactNode;
   /**
    * A sample student for the admin preview. When given, it replaces the
@@ -693,152 +691,11 @@ export function CourseDetailView({
       </TabsContent>
 
       <TabsContent value="offerings" className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{"Available study periods"}</h2>
-            </CardTitle>
-            {Boolean(
-              "Imported from ANU class information. Confirm enrolment dates in the official source.",
-            ) && (
-              <CardDescription>
-                {
-                  "Imported from ANU class information. Confirm enrolment dates in the official source."
-                }
-              </CardDescription>
-            )}
-            {Boolean(
-              <Badge
-                variant={
-                  badgeVariantForTone[
-                    course.offeringStatus === "offered" ? "success" : "neutral"
-                  ]
-                }
-              >
-                {course.offeringStatus === "offered"
-                  ? `Offered in ${course.year}`
-                  : course.offeringStatus === "not_offered"
-                    ? `Not offered in ${course.year}`
-                    : "Offering status unknown"}
-              </Badge>,
-            ) && (
-              <CardAction>
-                {
-                  <Badge
-                    variant={
-                      badgeVariantForTone[
-                        course.offeringStatus === "offered"
-                          ? "success"
-                          : "neutral"
-                      ]
-                    }
-                  >
-                    {course.offeringStatus === "offered"
-                      ? `Offered in ${course.year}`
-                      : course.offeringStatus === "not_offered"
-                        ? `Not offered in ${course.year}`
-                        : "Offering status unknown"}
-                  </Badge>
-                }
-              </CardAction>
-            )}
-          </CardHeader>
-          {course.offerings.length ? (
-            <CardContent className="border-t border-border/60 p-0">
-              <div className="divide-y divide-border/60">
-                {course.offerings.map((offering, index) => {
-                  const startsOn = formatDate(offering.startsOn);
-                  const endsOn = formatDate(offering.endsOn);
-                  const enrolClosesOn = formatDate(offering.enrolClosesOn);
-                  const censusOn = formatDate(offering.censusOn);
-                  return (
-                    <section
-                      key={`${offering.periodCode}:${offering.classNumber ?? index}`}
-                      className="grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,auto)]"
-                    >
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-[13px] font-semibold text-foreground">
-                            {offering.periodName}
-                          </h3>
-                          {offering.classNumber ? (
-                            <Badge variant={"outline"}>
-                              Class {offering.classNumber}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          {offering.deliveryMode ? (
-                            <span>{offering.deliveryMode}</span>
-                          ) : null}
-                          {offering.location ? (
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin size={12} aria-hidden="true" />
-                              {offering.location}
-                            </span>
-                          ) : null}
-                          {startsOn || endsOn ? (
-                            <span>
-                              {startsOn ?? "Start not listed"}
-                              {endsOn ? ` to ${endsOn}` : ""}
-                            </span>
-                          ) : null}
-                        </div>
-                        {offering.classSummaryUrl ? (
-                          <a
-                            href={offering.classSummaryUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-3 inline-flex text-xs font-semibold text-primary hover:text-primary/80"
-                          >
-                            Open ANU class summary
-                          </a>
-                        ) : null}
-                      </div>
-                      {enrolClosesOn || censusOn ? (
-                        <dl className="grid grid-cols-2 gap-3 text-xs">
-                          {enrolClosesOn ? (
-                            <div>
-                              <dt className="text-muted-foreground/80">
-                                Last enrolment
-                              </dt>
-                              <dd className="mt-0.5 font-medium text-foreground/80">
-                                {enrolClosesOn}
-                              </dd>
-                            </div>
-                          ) : null}
-                          {censusOn ? (
-                            <div>
-                              <dt className="text-muted-foreground/80">
-                                Census date
-                              </dt>
-                              <dd className="mt-0.5 font-medium text-foreground/80">
-                                {censusOn}
-                              </dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      ) : null}
-                    </section>
-                  );
-                })}
-              </div>
-            </CardContent>
-          ) : (
-            <CardContent className="border-t border-border/60 p-0">
-              <Empty>
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    <CalendarClock aria-hidden="true" />
-                  </EmptyMedia>
-                  <EmptyTitle>
-                    No course offering is listed for this year.
-                  </EmptyTitle>
-                </EmptyHeader>
-              </Empty>
-            </CardContent>
-          )}
-        </Card>
+        <CourseOfferings
+          attempts={attempts}
+          course={course}
+          onAddToPeriod={onAddToPeriod}
+        />
       </TabsContent>
 
       {survey.status !== "empty" && (
