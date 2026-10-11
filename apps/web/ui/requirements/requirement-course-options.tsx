@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pagination } from "@/ui/common/pagination";
+import { Button } from "@coursemap/ui/primitives/button";
 import { PlacementControl } from "./placement-control";
 import { RequirementCourseRow } from "./requirement-course-row";
 import type { TreeContext } from "./requirement-presentation";
@@ -15,7 +15,7 @@ export function RequirementCourseOptions({
   required: boolean;
   context: TreeContext;
 }) {
-  const [page, setPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(12);
   const rank = (code: string) =>
     context.attemptStatusByCode.get(code) === "completed"
       ? 0
@@ -31,12 +31,10 @@ export function RequirementCourseOptions({
   const sorted = [...codes].sort(
     (a, b) => rank(a) - rank(b) || a.localeCompare(b),
   );
-  const pageCount = Math.max(1, Math.ceil(sorted.length / 6));
-  const safePage = Math.min(page, pageCount);
   return (
     <div className="space-y-3">
       <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-        {sorted.slice((safePage - 1) * 6, safePage * 6).map((code) => (
+        {sorted.slice(0, visibleCount).map((code) => (
           <RequirementCourseRow
             key={code}
             code={code}
@@ -57,15 +55,18 @@ export function RequirementCourseOptions({
           />
         ))}
       </ul>
-      {codes.length > 6 && (
-        <Pagination
-          page={safePage}
-          pageSize={6}
-          total={sorted.length}
-          itemName="courses"
-          onPageChange={setPage}
-        />
-      )}
+      <p className="text-xs text-muted-foreground">
+        {codes.length} matching {codes.length === 1 ? "course" : "courses"}
+      </p>
+      {codes.length > visibleCount ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setVisibleCount(visibleCount + 12)}
+        >
+          Show {codes.length - visibleCount} more
+        </Button>
+      ) : null}
     </div>
   );
 }

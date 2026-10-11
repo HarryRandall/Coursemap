@@ -232,7 +232,7 @@ test("requirements use separate tabs without source disclosures or the summary s
     ),
   ).not.toBeInTheDocument();
   expect(
-    screen.getByRole("heading", { name: /Pick COMP1100 or COMP1110/ }),
+    screen.getByRole("heading", { name: /Pick one: COMP1100 or COMP1110/ }),
   ).toBeVisible();
   await user.click(screen.getByRole("tab", { name: "Minors" }));
   expect(
@@ -485,17 +485,13 @@ test("large requirement sections start collapsed and paginate without search", a
   const toggle = screen.getByRole("button", { name: /View courses/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   await user.click(toggle);
-  expect(screen.getAllByRole("link")).toHaveLength(6);
+  expect(screen.getAllByRole("link")).toHaveLength(12);
   expect(screen.getAllByRole("link")[0]).toHaveTextContent("COMP2019");
-  await user.click(screen.getByRole("button", { name: "Next page" }));
+  await user.click(screen.getByRole("button", { name: "Show 8 more" }));
+  expect(screen.getAllByRole("link")).toHaveLength(20);
   expect(
-    screen.getByRole("navigation", { name: "courses pagination" }),
-  ).toHaveTextContent("7–12 of 20");
-  await user.click(screen.getByRole("button", { name: /Page\s*4/ }));
-  expect(screen.getAllByRole("link")).toHaveLength(2);
-  expect(
-    screen.getByRole("navigation", { name: "courses pagination" }),
-  ).toHaveTextContent("19–20 of 20");
+    screen.queryByRole("button", { name: /Show .* more/ }),
+  ).not.toBeInTheDocument();
   expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: /Hide courses/ }));
   expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
@@ -612,7 +608,7 @@ test("zero-unit limits remain visible outside neutral selector pools", () => {
     />,
   );
   expect(
-    screen.getByRole("heading", { name: "At most 0 units of MATH courses" }),
+    screen.getByRole("heading", { name: /^Up to 0 units from MATH courses/ }),
   ).toBeVisible();
 });
 
@@ -651,7 +647,7 @@ test.each(["part", "degree"] as const)(
     );
     expect(
       screen.getByRole("heading", {
-        name: /^At most 18 units of COMP courses at 2000 level/,
+        name: /^Up to 18 units from COMP courses at 2000 level/,
       }),
     ).toBeVisible();
     const degreeLabel = screen.queryByText(/Counts across the whole degree/);

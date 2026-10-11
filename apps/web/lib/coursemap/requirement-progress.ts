@@ -76,7 +76,7 @@ function conditionPredicates(
     const subject = condition.subjectCode;
     predicates.push(
       (course) =>
-        course.subject === subject &&
+        subject.split(/[,\s]+/u).includes(course.subject) &&
         levelWithin(
           course.level,
           condition.minimumLevel,
@@ -84,8 +84,15 @@ function conditionPredicates(
         ),
     );
   } else if (condition.conditionKind === "level_units") {
-    predicates.push((course) =>
-      levelWithin(course.level, condition.minimumLevel, condition.maximumLevel),
+    predicates.push(
+      (course) =>
+        (!condition.subjectCode ||
+          condition.subjectCode.split(/[,\s]+/u).includes(course.subject)) &&
+        levelWithin(
+          course.level,
+          condition.minimumLevel,
+          condition.maximumLevel,
+        ),
     );
   } else if (condition.conditionKind === "tagged_units" && condition.tag) {
     // A tag is one category however it is capitalised.

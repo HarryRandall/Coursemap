@@ -23,7 +23,9 @@ async function RequirementsPage({
       loadOnboardingCatalogue(),
     ]);
     data = {
-      catalogue: await withRequirementCourses(catalogue),
+      catalogue: await withRequirementCourses(catalogue, {
+        includeRuleCandidates: false,
+      }),
       choices,
     };
   } catch {

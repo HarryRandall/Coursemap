@@ -1,4 +1,5 @@
 import "server-only";
+import { requirementLevelFilter } from "./requirement-course-filters";
 import {
   planCourseFromDetails,
   type PlanCatalogue,
@@ -29,17 +30,13 @@ function unitConditions(
  * or above). Rules any course meets have no useful filter.
  */
 function searchFilters(condition: PlanRequirementCondition) {
-  const digit = (level: number) => String(level < 10 ? level : level / 1000);
-  const { minimumLevel, maximumLevel } = condition;
   const level =
-    minimumLevel !== null
-      ? minimumLevel === maximumLevel
-        ? digit(minimumLevel)
-        : `${digit(minimumLevel)}+`
-      : maximumLevel !== null
-        ? digit(maximumLevel)
-        : undefined;
-  if (condition.conditionKind === "subject_units" && condition.subjectCode)
+    requirementLevelFilter(condition.minimumLevel, condition.maximumLevel) ??
+    undefined;
+  if (
+    ["subject_units", "level_units"].includes(condition.conditionKind) &&
+    condition.subjectCode
+  )
     return { subject: condition.subjectCode, level };
   if (condition.conditionKind === "tagged_units" && condition.tag)
     return { tag: condition.tag, level };
@@ -53,6 +50,7 @@ function searchFilters(condition: PlanRequirementCondition) {
  */
 export async function withRequirementCourses(
   catalogue: PlanCatalogue,
+  { includeRuleCandidates = true }: { includeRuleCandidates?: boolean } = {},
 ): Promise<PlanCatalogue> {
   const academicYear = catalogue.academicYear;
   if (academicYear === null) return catalogue;
@@ -67,7 +65,7 @@ export async function withRequirementCourses(
       ),
     ),
   ].filter((code) => !known(code));
-  const filters = catalogue.structureRequirements
+  const filters = (includeRuleCandidates ? catalogue.structureRequirements : [])
     .flatMap((item) => unitConditions(item.root))
     .flatMap((condition) => {
       const filter = searchFilters(condition);

@@ -1,3 +1,4 @@
+import { courseLevelBounds } from "./course-level-filter";
 import {
   validEnrolmentMode,
   type EnrolmentMode,
@@ -107,6 +108,7 @@ const SNAPSHOT_LIST_SELECT =
   "version_id,code,title,unit_value_kind,units,minimum_units,maximum_units,eftsl,level,subject_code,subject_name,school,college,academic_career,convener_text,delivery_summary,introduction,description,workload_text,workload_hours,workload_hours_basis,inherent_requirements,prescribed_texts,offering_status,source_updated_at";
 
 export type PublishedCourseFilters = {
+  codes?: string;
   prerequisite?: string;
   query?: string;
   subject?: string;
@@ -338,7 +340,7 @@ export async function loadPublishedCourseDirectoryPage({
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const query = firstFilterValue(filters.query).toLocaleLowerCase();
   const subject = firstFilterValue(filters.subject).toUpperCase();
-  const level = levelFilter(firstFilterValue(filters.level));
+  const level = courseLevelBounds(firstFilterValue(filters.level));
   const college = firstFilterValue(filters.college);
   const session = firstFilterValue(filters.session).toUpperCase();
   const units = firstFilterValue(filters.units);
@@ -437,12 +439,14 @@ export async function loadPublishedCourseDirectoryPage({
       : directory.filter((row) => row.academic_year === academicYear);
   const matches = selectedYears.filter((row) => {
     if (unlockedCodes && !unlockedCodes.has(row.code)) return false;
-    if (subject && row.subject_code !== subject) return false;
+    if (subject && !subject.split(/[,\s]+/u).includes(row.subject_code ?? ""))
+      return false;
+    if (filters.codes && !filters.codes.split(",").includes(row.code))
+      return false;
     if (
       level &&
-      (level.orHigher
-        ? (row.level ?? 0) < level.level
-        : row.level !== level.level)
+      ((row.level ?? 0) < level.minimum ||
+        (level.maximum !== null && (row.level ?? 0) > level.maximum))
     )
       return false;
     if (college && row.college !== college) return false;
@@ -1433,14 +1437,6 @@ function searchPattern(value: string) {
     .trim();
 }
 
-/** Parses a level filter: `2` is 2000 level, `2+` is 2000 level or higher. */
-function levelFilter(value: string) {
-  const match = /^([1-9])(\+?)$/u.exec(value);
-  return match
-    ? { level: Number(match[1]) * 1000, orHigher: match[2] === "+" }
-    : null;
-}
-
 /** Versions carrying an area of interest or tag, matched however it is cased. */
 async function snapshotIdsNamed(
   table: "course_areas_of_interest" | "course_tags",
@@ -1753,7 +1749,7 @@ async function loadPublishedCoursePageUncached({
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const query = firstFilterValue(filters.query);
   const subject = firstFilterValue(filters.subject).toUpperCase();
-  const level = levelFilter(firstFilterValue(filters.level));
+  const level = courseLevelBounds(firstFilterValue(filters.level));
   const session = firstFilterValue(filters.session);
   const college = firstFilterValue(filters.college);
   const area = firstFilterValue(filters.area);
@@ -1780,11 +1776,17 @@ async function loadPublishedCoursePageUncached({
     .from("published_course_summaries")
     .select(SNAPSHOT_LIST_SELECT, { count: "exact" })
     .eq("academic_year_id", year.id);
-  if (subject) snapshotsQuery = snapshotsQuery.eq("subject_code", subject);
+  if (subject)
+    snapshotsQuery = snapshotsQuery.in(
+      "subject_code",
+      subject.split(/[,\s]+/u),
+    );
+  if (filters.codes)
+    snapshotsQuery = snapshotsQuery.in("code", filters.codes.split(","));
   if (level) {
-    snapshotsQuery = level.orHigher
-      ? snapshotsQuery.gte("level", level.level)
-      : snapshotsQuery.eq("level", level.level);
+    snapshotsQuery = snapshotsQuery.gte("level", level.minimum);
+    if (level.maximum !== null)
+      snapshotsQuery = snapshotsQuery.lte("level", level.maximum);
   }
   if (college) snapshotsQuery = snapshotsQuery.eq("college", college);
   if (snapshotIds) {
@@ -1822,6 +1824,7 @@ export async function loadPublishedCoursePage(args: {
     Math.max(1, Math.floor(args.pageSize ?? 24)),
   );
   const filters = {
+    codes: firstFilterValue(args.filters?.codes),
     query: firstFilterValue(args.filters?.query),
     subject: firstFilterValue(args.filters?.subject).toUpperCase(),
     level: firstFilterValue(args.filters?.level),

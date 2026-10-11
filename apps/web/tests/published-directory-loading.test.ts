@@ -379,3 +379,73 @@ it("filters by teaching period code, unit value and delivery mode", async () => 
     modes: ["In Person", "Online"],
   });
 });
+
+it("keeps both level bounds and subject sets before directory pagination", async () => {
+  tables.set("published_course_summaries", [
+    {
+      version_id: 1,
+      code: "COMP1100",
+      academic_year: 2025,
+      level: 1000,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 2,
+      code: "COMP2100",
+      academic_year: 2025,
+      level: 2000,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 3,
+      code: "MATH3100",
+      academic_year: 2025,
+      level: 3000,
+      subject_code: "MATH",
+    },
+    {
+      version_id: 4,
+      code: "COMP4100",
+      academic_year: 2025,
+      level: 4000,
+      subject_code: "COMP",
+    },
+    {
+      version_id: 5,
+      code: "BIOL3100",
+      academic_year: 2025,
+      level: 3000,
+      subject_code: "BIOL",
+    },
+    {
+      version_id: 6,
+      code: "COMP3100",
+      academic_year: 2026,
+      level: 3000,
+      subject_code: "COMP",
+    },
+  ]);
+  const bounded = await loadPublishedCourseDirectoryPage({
+    academicYear: 2025,
+    filters: { subject: "COMP MATH", level: "2-3" },
+    pageSize: 1,
+  });
+  expect(bounded.total).toBe(2);
+  expect(bounded.courses.map((course) => course.code)).toEqual(["COMP2100"]);
+  const capped = await loadPublishedCourseDirectoryPage({
+    academicYear: 2025,
+    filters: { subject: "COMP", level: "1-3" },
+  });
+  expect(capped.courses.map((course) => course.code)).toEqual([
+    "COMP1100",
+    "COMP2100",
+  ]);
+  const listed = await loadPublishedCourseDirectoryPage({
+    academicYear: 2025,
+    filters: { codes: "COMP1100,MATH3100" },
+  });
+  expect(listed.courses.map((course) => course.code)).toEqual([
+    "COMP1100",
+    "MATH3100",
+  ]);
+});
