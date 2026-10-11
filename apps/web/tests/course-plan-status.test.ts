@@ -147,7 +147,7 @@ test("a satisfied alternative creates no issue for the other option", () => {
   ).toEqual([]);
 });
 
-test("unverified prerequisites stay soft and overload is retained independently", () => {
+test("rules flagged for review stay soft and overload is retained independently", () => {
   const overloaded = Array.from({ length: 5 }, (_, index) => ({
     ...target,
     id: String(index),
@@ -157,7 +157,7 @@ test("unverified prerequisites stay soft and overload is retained independently"
     ...base,
     prerequisiteRule: {
       ...rule({ ...metadata, kind: "permission", text: "Permission" }),
-      reviewState: "automatic" as const,
+      reviewState: "review" as const,
     },
   };
   expect(
@@ -168,6 +168,30 @@ test("unverified prerequisites stay soft and overload is retained independently"
   ).toEqual([
     ["unverified", "soft"],
     ["overload", "soft"],
+  ]);
+});
+
+test("a parsed rule is checked like a verified one", () => {
+  const course = {
+    ...base,
+    prerequisiteRule: {
+      ...rule({
+        ...metadata,
+        kind: "course",
+        code: "FINM2001",
+        minimumMark: null,
+        requirementMode: "completed",
+        reviewState: "automatic",
+      }),
+      reviewState: "automatic" as const,
+    },
+  };
+  expect(status(course).issues).toEqual([
+    {
+      code: "prerequisite",
+      severity: "hard",
+      detail: "Needs FINM2001 first",
+    },
   ]);
 });
 
