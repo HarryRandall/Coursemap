@@ -13,7 +13,7 @@ function course(code, level, overrides = {}) {
     subject: code.slice(0, 4),
     school: "",
     convener: "",
-    sessions: [],
+    sessions: ["Semester 1", "Semester 2"],
     delivery: "",
     description: "",
     prerequisiteText: "",
@@ -156,7 +156,7 @@ test("distinguishes unmet college eligibility from missing college information",
   });
   assert.equal(
     review[0].detail,
-    "Check the course requirements against your record before enrolment.",
+    "Coursemap couldn't check this requirement: read it on the course page",
   );
 });
 

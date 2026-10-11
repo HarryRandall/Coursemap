@@ -1,14 +1,6 @@
 "use client";
 import { useReturnFocus } from "@/hooks/use-return-focus";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Circle,
-  GripVertical,
-  Plus,
-  X,
-  XCircle,
-} from "lucide-react";
+import { AlertTriangle, GripVertical, Plus, X } from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -36,6 +28,7 @@ import {
 } from "@coursemap/ui/primitives/tooltip";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
+import { StatusMark } from "@/ui/plan/status-mark";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
 import {
   courseForTerm,
@@ -61,7 +54,8 @@ import {
   courseIsAvailable,
   displayCourseForAttempt,
   effectiveStatus,
-  missingPrereqs,
+  coursePlanStatus,
+  type CoursePlanStatus,
   planningCourseForAttempt,
   unitsForAttempt,
   type EffectiveStatus,
@@ -71,6 +65,7 @@ export type Entry = {
   attempt: Attempt;
   course: Course;
   status: EffectiveStatus;
+  flags?: CoursePlanStatus;
 };
 export type PendingDrop = {
   attemptId: string;
@@ -115,27 +110,22 @@ function saveOpenSessions(termIds: readonly string[]) {
   }
 }
 
-/** Single muted status mark - the only colour on the board. */
-export function StatusMark({
-  status,
-  size = 15,
-}: {
-  status: EffectiveStatus;
-  size?: number;
-}) {
-  if (status === "completed")
-    return <CheckCircle2 size={size} className="shrink-0 text-emerald-500" />;
-  if (status === "failed")
-    return <XCircle size={size} className="shrink-0 text-rose-500" />;
-  if (
-    status === "blocked" ||
-    status === "approval" ||
-    status === "review" ||
-    status === "unpublished"
-  )
-    return <AlertTriangle size={size} className="shrink-0 text-amber-500" />;
-  return <Circle size={size} className="shrink-0 text-muted-foreground/40" />;
+/**
+ * Leaves out "couldn't check" warnings on a course the catalogue has not
+ * caught up with yet; real blocks still show at once.
+ */
+function settledFlags(
+  flags: CoursePlanStatus,
+  isSettled: boolean,
+): CoursePlanStatus {
+  return isSettled
+    ? flags
+    : {
+        ...flags,
+        issues: flags.issues.filter((issue) => issue.code !== "unverified"),
+      };
 }
+
 export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const overloadFocus = useReturnFocus();
   const {
@@ -163,6 +153,19 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     });
   };
   const [fetchedCourses, setFetchedCourses] = useState<Course[]>([]);
+  // Attempts the server's catalogue has already seen. A course added since
+  // the last catalogue can't have its requirements checked until the
+  // refresh lands, so it reads as planned rather than flashing a warning.
+  const [settled, setSettled] = useState(() => ({
+    catalogue,
+    ids: new Set(state.attempts.map((attempt) => attempt.id)),
+  }));
+  if (settled.catalogue !== catalogue) {
+    setSettled({
+      catalogue,
+      ids: new Set(state.attempts.map((attempt) => attempt.id)),
+    });
+  }
   const [draggedSuggestion, setDraggedSuggestion] =
     useState<CourseToPlan | null>(null);
   const [picker, setPicker] = useState<PickerState | null>(null);
@@ -273,12 +276,16 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         (attempt) =>
           attempt.termId === termId && attempt.status !== "withdrawn",
       )
-      .map((attempt) => {
+      .map((attempt): Entry | null => {
         const course = displayCourseForAttempt(attempt, planningCatalogue);
         return course
           ? {
               attempt,
               course,
+              flags: settledFlags(
+                coursePlanStatus(attempt, state.attempts, planningCatalogue),
+                settled.ids.has(attempt.id),
+              ),
               status: effectiveStatus(
                 attempt,
                 state.attempts,
@@ -300,20 +307,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     );
 
   const hasRoom = (term: Term) =>
-    term.id === "unscheduled" ||
     entriesFor(term.id).length < STANDARD_COURSE_SLOTS;
   const termsFor = (key: string) =>
-    timelineTerms.filter(
-      (term) => term.id !== "unscheduled" && String(term.year) === key,
-    );
+    timelineTerms.filter((term) => String(term.year) === key);
   const yearTabs: YearTab[] = [
-    ...[
-      ...new Set(
-        timelineTerms
-          .filter((term) => term.id !== "unscheduled")
-          .map((term) => term.year),
-      ),
-    ].map((year) => {
+    ...[...new Set(timelineTerms.map((term) => term.year))].map((year) => {
       const terms = termsFor(String(year));
       const entries = terms.flatMap((term) => entriesFor(term.id));
       return {
@@ -355,12 +353,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const hiddenSessions = shortTerms.filter(
     (term) => !shownTerms.includes(term),
   );
-  const unscheduledTerm = timelineTerms.find(
-    (term) => term.id === "unscheduled",
-  );
-  const unscheduledEntries = unscheduledTerm
-    ? entriesFor(unscheduledTerm.id)
-    : [];
   // Years past the programme's length were added by the student, and the
   // last one can be taken away again while it is empty.
   const lastYear = yearTabs.at(-1);
@@ -378,11 +370,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const requestAddSuggested = async (picked: Course, term: Term) => {
     const course =
       courseForTerm(picked.code, term, planningCatalogue) ?? picked;
-    if (
-      term.id !== "unscheduled" &&
-      course.sessions.length > 0 &&
-      !courseIsAvailable(course, term.name)
-    ) {
+    if (course.sessions.length > 0 && !courseIsAvailable(course, term.name)) {
       notify(
         `${course.code} is not offered in ${term.name}. It runs in ${course.sessions.join(" and ")}.`,
         "warning",
@@ -391,9 +379,8 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     }
     const entries = entriesFor(term.id);
     if (
-      term.id !== "unscheduled" &&
-      (entries.length >= STANDARD_COURSE_SLOTS ||
-        unitsOf(entries) + course.units > 24)
+      entries.length >= STANDARD_COURSE_SLOTS ||
+      unitsOf(entries) + course.units > 24
     ) {
       notify(
         `${term.name} ${term.year} is full. Use Add course on the semester to overload it.`,
@@ -404,7 +391,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const result = await addCourse(course.code, term.id, course.year);
     notify(
       result.ok
-        ? `${course.code} added to ${term.id === "unscheduled" ? "Later" : `${term.name} ${term.year}`}`
+        ? `${course.code} added to ${term.name} ${term.year}`
         : result.message,
       result.ok ? "success" : "warning",
     );
@@ -413,11 +400,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const offeredIn = (picked: Course, term: Term) => {
     const course =
       courseForTerm(picked.code, term, planningCatalogue) ?? picked;
-    return (
-      term.id === "unscheduled" ||
-      course.sessions.length === 0 ||
-      courseIsAvailable(course, term.name)
-    );
+    return course.sessions.length === 0 || courseIsAvailable(course, term.name);
   };
   const addToSelectedYear = (course: Course) => {
     // Semesters come first so a course that also runs in Summer lands in S1.
@@ -562,24 +545,8 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     else setPreviewCourse(course);
   };
 
-  const issueNote = (entry: Entry) => {
-    if (entry.status === "blocked") {
-      const missing = missingPrereqs(
-        entry.attempt,
-        state.attempts,
-        planningCatalogue,
-      );
-      return missing.length > 0
-        ? `Needs ${missing.join(" + ")} completed or scheduled earlier`
-        : "A required eligibility condition is not met";
-    }
-    if (entry.status === "approval") return "Course permission is required";
-    if (entry.status === "unpublished")
-      return "No longer published for this year. Remove it or choose another course";
-    if (entry.status === "review") return "Check the course requirements";
-    if (entry.status === "failed") return "Failed attempt with 0 units earned";
-    return null;
-  };
+  const issueNote = (entry: Entry) =>
+    entry.flags?.issues.map((issue) => issue.detail).join("; ") || null;
 
   const applyDrop = async ({
     attemptId,
@@ -627,10 +594,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       (entry) => entry.attempt.id !== drop.attemptId,
     );
     const nextUnits = unitsOf(destination) + unitsForAttempt(attempt, course);
-    if (
-      drop.termId !== "unscheduled" &&
-      (destination.length + 1 > STANDARD_COURSE_SLOTS || nextUnits > 24)
-    ) {
+    if (destination.length + 1 > STANDARD_COURSE_SLOTS || nextUnits > 24) {
       setPendingDrop(drop);
       setOverloadTerm(drop.termId);
       return;
@@ -644,10 +608,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     intent: "all" | "recommended" = "all",
   ) => {
     const entries = entriesFor(term.id);
-    if (
-      term.id !== "unscheduled" &&
-      (entries.length >= STANDARD_COURSE_SLOTS || unitsOf(entries) >= 24)
-    ) {
+    if (entries.length >= STANDARD_COURSE_SLOTS || unitsOf(entries) >= 24) {
       setPendingDrop(null);
       setOverloadTerm(term.id);
       return;
@@ -841,6 +802,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             attempt: draggedAttempt,
             course: draggedCourse,
             status: draggedStatus,
+            flags: coursePlanStatus(
+              draggedAttempt,
+              state.attempts,
+              planningCatalogue,
+            ),
           }
         : undefined;
 
@@ -852,7 +818,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         className="pointer-events-none flex min-h-[52px] origin-top animate-drop-slot-in items-center gap-2.5 rounded-lg bg-primary/10 px-2 py-2 text-left ring-1 ring-primary/30 ring-inset"
       >
         <GripVertical size={13} className="shrink-0 text-primary/50" />
-        <StatusMark status={draggedEntry.status} />
+        <StatusMark status={draggedEntry.status} flags={draggedEntry.flags} />
         <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-primary">
           {draggedEntry.course.code}
         </span>
@@ -908,7 +874,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               className="min-w-0 cursor-pointer py-2 pr-2 text-left"
             >
               <span className="flex items-center gap-2.5">
-                <StatusMark status={entry.status} />
+                <StatusMark status={entry.status} flags={entry.flags} />
                 <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
                   {entry.course.code}
                 </span>
@@ -928,7 +894,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           </TooltipTrigger>
           {note ? (
             <TooltipContent align="start" side="bottom">
-              {note}
+              <ul className="space-y-1">
+                {entry.flags?.issues.map((issue) => (
+                  <li key={`${issue.code}:${issue.detail}`}>{issue.detail}</li>
+                ))}
+              </ul>
             </TooltipContent>
           ) : null}
         </Tooltip>
@@ -966,7 +936,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const entries = entriesFor(term.id);
     const units = unitsOf(entries);
     const semester = isSemesterTerm(term);
-    // Short sessions and unscheduled courses keep one empty slot rather than
+    // Short sessions keep one empty slot rather than
     // a full semester's four.
     const slotCount = semester ? STANDARD_COURSE_SLOTS : 1;
     const previewApplies = Boolean(
@@ -982,8 +952,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       0,
       slotCount - entries.length - Number(previewUsesEmptySlot),
     );
-    const removableSession =
-      !semester && term.id !== "unscheduled" && entries.length === 0;
+    const removableSession = !semester && entries.length === 0;
+    // While a course is held, a semester it does not run in says so before
+    // the drop, rather than turning the drop down afterwards.
+    const heldCourse = draggedSuggestion?.course ?? draggedCourse;
+    const notOffered =
+      dragging && heldCourse && !offeredIn(heldCourse, term)
+        ? `${heldCourse.code} doesn't run in ${term.name}`
+        : null;
 
     return (
       <div
@@ -992,18 +968,25 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         data-drop-term={term.id}
         className={cn(
           "flex flex-col rounded-xl bg-card p-2.5 ring-1 transition",
-          dragging && dragPreview?.termId === term.id
-            ? "ring-2 ring-primary/40"
-            : "ring-border",
+          notOffered
+            ? dragPreview?.termId === term.id
+              ? "opacity-60 ring-2 ring-destructive/40"
+              : "opacity-60 ring-border"
+            : dragging && dragPreview?.termId === term.id
+              ? "ring-2 ring-primary/40"
+              : "ring-border",
         )}
       >
+        {notOffered ? (
+          <p className="px-1 pb-1 text-[11px] font-medium text-destructive">
+            {notOffered}
+          </p>
+        ) : null}
         <header className="flex items-center justify-between gap-2 px-1 pb-2">
           <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
-            {term.id === "unscheduled" ? "Not scheduled yet" : term.name}
+            {term.name}
             <span className="ml-2 font-normal text-muted-foreground">
-              {term.id === "unscheduled"
-                ? "Drag each course into a semester"
-                : term.dates}
+              {term.dates}
             </span>
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -1018,16 +1001,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               {semester ? `${units} / 24 units` : `${units} units`}
               {units > 24 && " · Overload"}
             </span>
-            {term.id === "unscheduled" ? null : (
-              <button
-                type="button"
-                onClick={() => requestAddCourse(term)}
-                aria-label={`Add a course to ${term.name} ${term.year}`}
-                className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                <Plus size={14} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => requestAddCourse(term)}
+              aria-label={`Add a course to ${term.name} ${term.year}`}
+              className="grid size-8 cursor-pointer place-items-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            >
+              <Plus size={14} />
+            </button>
             {removableSession ? (
               <button
                 type="button"
@@ -1044,26 +1025,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <div className="flex flex-1 flex-col gap-1">
           {entries.map((entry) => renderEntry(entry, term))}
           {previewUsesEmptySlot && renderDropPreview(term.id)}
-          {term.id === "unscheduled"
-            ? null
-            : Array.from({ length: emptySlots }, (_, index) => (
-                <button
-                  key={`${term.id}-empty-${index}`}
-                  type="button"
-                  onClick={() => requestAddCourse(term)}
-                  aria-label={
-                    semester
-                      ? `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
-                      : `Add a course to ${term.name} ${term.year}`
-                  }
-                  className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
-                >
-                  <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
-                    <Plus size={10} />
-                  </span>
-                  <span>Add course</span>
-                </button>
-              ))}
+          {Array.from({ length: emptySlots }, (_, index) => (
+            <button
+              key={`${term.id}-empty-${index}`}
+              type="button"
+              onClick={() => requestAddCourse(term)}
+              aria-label={
+                semester
+                  ? `Add course in empty slot ${entries.length + index + 1} of ${STANDARD_COURSE_SLOTS} for ${term.name} ${term.year}`
+                  : `Add a course to ${term.name} ${term.year}`
+              }
+              className="group flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border px-2 text-[11px] font-medium text-muted-foreground transition hover:border-muted-foreground/40 hover:bg-muted/50 hover:text-foreground"
+            >
+              <span className="grid size-[15px] shrink-0 place-items-center rounded-full border border-border bg-card transition group-hover:border-muted-foreground/40">
+                <Plus size={10} />
+              </span>
+              <span>Add course</span>
+            </button>
+          ))}
         </div>
       </div>
     );
@@ -1129,9 +1108,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             data-testid="roadmap-board"
             className="flex min-w-0 flex-1 flex-col gap-3"
           >
-            {unscheduledTerm && unscheduledEntries.length > 0
-              ? renderLane(unscheduledTerm)
-              : null}
             {shownTerms.map(renderLane)}
             {renderAddSession()}
             {canRemoveYear && selectedYear ? (
@@ -1188,7 +1164,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               size={13}
               className="shrink-0 text-muted-foreground"
             />
-            <StatusMark status={draggedEntry.status} />
+            <StatusMark
+              status={draggedEntry.status}
+              flags={draggedEntry.flags}
+            />
             <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
               {draggedEntry.course.code}
             </span>
@@ -1206,7 +1185,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <CoursePicker
           term={pickerTerm}
           intent={picker.intent}
-          academicYears={degreeYears.map((item) => item.year)}
           recommendedCodes={recommendedCodes}
           onClose={() => setPicker(null)}
         />

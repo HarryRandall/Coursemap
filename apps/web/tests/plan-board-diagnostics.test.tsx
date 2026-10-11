@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -161,40 +162,12 @@ test("an added year can be removed again while it is empty", async () => {
   fixtures.extensionYears = 0;
 });
 
-test("unscheduled courses wait in their own lane above the semesters", () => {
-  fixtures.attempts = [
-    {
-      id: "unscheduled-course",
-      courseCode: "COMP1100",
-      termId: "unscheduled",
-      academicYear: 2026,
-      status: "planned",
-    },
-  ];
-  render(
-    <TooltipProvider>
-      <PlanBoard
-        catalogue={{
-          ...catalogue,
-          courses,
-          terms: [
-            ...terms,
-            {
-              id: "unscheduled",
-              year: 2026,
-              name: "Later",
-              shortName: "Later",
-              dates: "",
-            },
-          ],
-        }}
-      />
-    </TooltipProvider>,
-  );
-  expect(screen.getByTestId("term-unscheduled")).toHaveTextContent(
-    "Not scheduled yet",
-  );
-  expect(screen.getByTestId("term-unscheduled")).toHaveTextContent("COMP1100");
+test("the planner offers study periods without a Later lane", () => {
+  fixtures.attempts = [];
+  render(<PlanBoard catalogue={{ ...catalogue, courses, terms }} />);
+  expect(screen.queryByText("Later")).not.toBeInTheDocument();
+  expect(screen.queryByText("Not scheduled yet")).not.toBeInTheDocument();
+  expect(screen.getByTestId("term-2026-s1")).toBeVisible();
 });
 
 test("a starred course added to the open year lands in a semester it runs in", async () => {
@@ -242,4 +215,39 @@ test("a planned course that is no longer published stays on the board to remove"
   await waitFor(() =>
     expect(fixtures.removeAttempt).toHaveBeenCalledWith("unpublished-course"),
   );
+});
+
+test("a course tooltip lists every hard and soft issue", async () => {
+  fixtures.attempts = [
+    {
+      id: "flagged",
+      courseCode: "COMP2100",
+      academicYear: 2026,
+      termId: "2026-s1",
+      status: "planned",
+    },
+  ];
+  const flaggedCourses = courses.map((course) =>
+    course.code === "COMP2100"
+      ? {
+          ...course,
+          prerequisiteCodes: ["COMP1100"],
+          prerequisiteRule: undefined,
+          sessions: ["Semester 2"],
+          permissionText: "Convener permission is required",
+        }
+      : course,
+  );
+  render(
+    <TooltipProvider>
+      <PlanBoard catalogue={{ ...catalogue, courses: flaggedCourses, terms }} />
+    </TooltipProvider>,
+  );
+  await userEvent.hover(
+    screen.getByRole("button", { name: /Blocked.*COMP2100/ }),
+  );
+  const tooltip = await screen.findByRole("tooltip");
+  expect(tooltip).toHaveTextContent("Needs COMP1100 first");
+  expect(tooltip).toHaveTextContent("Not offered in Semester 1");
+  expect(tooltip).toHaveTextContent("Convener permission is required");
 });

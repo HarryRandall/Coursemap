@@ -1,3 +1,4 @@
+import { sessionShortName } from "@/lib/coursemap/academic-periods";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
 import { validCommencementYear } from "@/lib/academic/commencement-year";
@@ -21,6 +22,8 @@ export type PlanningCatalogue = {
   enrolmentMode?: EnrolmentMode | null;
   programmeCodes?: readonly string[];
   programmeColleges?: readonly ProgrammeCollege[];
+  /** Course previews evaluate prerequisites against all active work in the plan. */
+  evaluationContext?: "whole-plan";
 };
 
 export type EffectiveStatus =
@@ -101,7 +104,7 @@ export function planningCourseForAttempt(
     return matches.length === 1 ? matches[0] : undefined;
   }
   const termYear = termsFor(catalogue).find(
-    (term) => term.id === attempt.termId && term.id !== "unscheduled",
+    (term) => term.id === attempt.termId,
   )?.year;
   return planningCourseByCode(
     attempt.courseCode,
@@ -200,7 +203,10 @@ function prerequisiteAttempts(
   catalogue: PlanningCatalogue | undefined,
   allowConcurrent: boolean,
 ) {
-  const targetOrder = orderOf(attempt.termId, catalogue);
+  const targetOrder =
+    catalogue?.evaluationContext === "whole-plan"
+      ? Infinity
+      : orderOf(attempt.termId, catalogue);
   return attempts.filter(
     (candidate) =>
       candidate.id !== attempt.id &&
@@ -236,7 +242,10 @@ function plannedStudentRecord(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ): PlannedRecord {
-  const targetOrder = orderOf(attempt.termId, catalogue);
+  const targetOrder =
+    catalogue?.evaluationContext === "whole-plan"
+      ? Infinity
+      : orderOf(attempt.termId, catalogue);
   const others = attempts.filter((candidate) => candidate.id !== attempt.id);
   const before = others.filter(
     (candidate) => orderOf(candidate.termId, catalogue) < targetOrder,
@@ -264,9 +273,7 @@ function plannedStudentRecord(
     });
   }
   const commencementYear = catalogue?.commencementYear ?? null;
-  const term = termsFor(catalogue).find(
-    (item) => item.id === attempt.termId && item.id !== "unscheduled",
-  );
+  const term = termsFor(catalogue).find((item) => item.id === attempt.termId);
   const recordWith = (unknownUnits: number): StudentRecord => ({
     ...studentRecord({
       attempts: before,
@@ -484,12 +491,7 @@ function evaluateRelationalPrerequisite(
       const otherTerm = termsFor(catalogue).find(
         (term) => term.id === candidate.termId,
       );
-      if (
-        !targetTerm ||
-        !otherTerm ||
-        attempt.termId === "unscheduled" ||
-        candidate.termId === "unscheduled"
-      ) {
+      if (!targetTerm || !otherTerm) {
         unknown = true;
         continue;
       }
@@ -620,6 +622,177 @@ export function missingPrereqs(
   return evaluateCoursePrerequisites(attempt, attempts, catalogue).missingCodes;
 }
 
+export type CoursePlanIssue = {
+  code:
+    | "prerequisite"
+    | "incompatibility"
+    | "permission"
+    | "unverified"
+    | "offering"
+    | "overload"
+    | "unpublished";
+  severity: "hard" | "soft";
+  detail: string;
+};
+
+export type CoursePlanStatus = {
+  lifecycle: "planned" | "enrolled" | "done" | "failed" | "withdrawn";
+  issues: CoursePlanIssue[];
+};
+
+/** Keeps every issue alongside the attempt's recorded lifecycle. */
+export function coursePlanStatus(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): CoursePlanStatus {
+  const lifecycle = attempt.status === "completed" ? "done" : attempt.status;
+  const issues: CoursePlanIssue[] = [];
+  if (lifecycle !== "planned" && lifecycle !== "enrolled")
+    return { lifecycle, issues };
+  const add = (
+    code: CoursePlanIssue["code"],
+    severity: CoursePlanIssue["severity"],
+    detail: string,
+  ) => {
+    if (!issues.some((issue) => issue.code === code && issue.detail === detail))
+      issues.push({ code, severity, detail });
+  };
+  if (attempt.isPublished === false) {
+    add(
+      "unpublished",
+      "soft",
+      "No longer published for this year. Remove it or choose another course.",
+    );
+    return { lifecycle, issues };
+  }
+  const course = planningCourseForAttempt(attempt, catalogue);
+  if (!course) {
+    add(
+      "unverified",
+      "soft",
+      "Coursemap couldn't check this requirement: read it on the course page",
+    );
+    return { lifecycle, issues };
+  }
+  const record = lazyPlannedRecord(attempt, attempts, catalogue);
+  const check = (
+    expression: CourseRuleExpression,
+    code: "prerequisite" | "incompatibility",
+  ) => {
+    // All required clauses can have separate issues. Alternatives stay one decision.
+    if (expression.kind === "group" && expression.operator === "all_of") {
+      expression.conditions.forEach((child) => check(child, code));
+      return;
+    }
+    const evaluation = evaluateRelationalPrerequisite(
+      expression,
+      attempt,
+      attempts,
+      catalogue,
+      record,
+    );
+    report(evaluation, code, expression.kind === "group" ? null : expression);
+  };
+  const report = (
+    evaluation: PrerequisiteEvaluation,
+    code: "prerequisite" | "incompatibility",
+    expression: Exclude<CourseRuleExpression, { kind: "group" }> | null,
+  ) => {
+    if (evaluation.state === "satisfied") return;
+    if (evaluation.state === "unknown") {
+      add(
+        "unverified",
+        "soft",
+        "Coursemap couldn't check this requirement: read it on the course page",
+      );
+    } else if (evaluation.permissionCanSatisfy) {
+      add(
+        "permission",
+        "soft",
+        "Course permission is required before enrolment",
+      );
+    } else if (
+      expression?.kind === "incompatible" ||
+      expression?.kind === "incompatible_concurrent"
+    ) {
+      add("incompatibility", "hard", `Can't be taken with ${expression.code}`);
+    } else {
+      add(
+        code,
+        "hard",
+        evaluation.missingCodes.length > 0
+          ? `Needs ${evaluation.missingCodes.join(" and ")} first`
+          : expression?.sourceText ||
+              course.prerequisiteText ||
+              "A required eligibility condition is not met.",
+      );
+    }
+  };
+  for (const [code, rule] of [
+    ["prerequisite", course.prerequisiteRule],
+    ["incompatibility", course.incompatibilityRule],
+  ] as const) {
+    if (rule?.hardness === "advisory") continue;
+    if (rule?.reviewState === "verified" && rule.relationalExpression)
+      check(rule.relationalExpression, code);
+    else if (
+      code === "prerequisite" &&
+      rule === undefined &&
+      course.parseState !== "Verified" &&
+      course.prerequisiteCodes.length > 0
+    )
+      report({ state: "unknown", missingCodes: [] }, code, null);
+    else if (
+      code === "incompatibility" &&
+      rule === undefined &&
+      course.incompatibilities.length > 0
+    ) {
+      if (course.parseState !== "Verified")
+        report({ state: "unknown", missingCodes: [] }, code, null);
+      else
+        for (const conflict of course.incompatibilities) {
+          if (
+            attempts.some(
+              (candidate) =>
+                candidate.id !== attempt.id &&
+                candidate.courseCode === conflict &&
+                countsTowardsRules(candidate),
+            )
+          )
+            add("incompatibility", "hard", `Can't be taken with ${conflict}`);
+        }
+    } else
+      report(
+        code === "prerequisite"
+          ? evaluateCoursePrerequisites(attempt, attempts, catalogue)
+          : evaluateCourseIncompatibilities(attempt, attempts, catalogue),
+        code,
+        null,
+      );
+  }
+  if (course.permissionText && !attempt.permissionApproved)
+    add("permission", "soft", course.permissionText);
+  const term = termsFor(catalogue).find((item) => item.id === attempt.termId);
+  if (catalogue?.evaluationContext !== "whole-plan" && term) {
+    if (course.sessions.length === 0)
+      add("offering", "soft", `Offering unconfirmed for ${term.name}`);
+    else if (!courseIsAvailable(course, term.name))
+      add("offering", "hard", `Not offered in ${term.name}`);
+    const load = termLoad(attempts, term.id, undefined, catalogue);
+    if (
+      load.units > STANDARD_TERM_UNITS ||
+      load.courses > STANDARD_COURSE_SLOTS
+    )
+      add(
+        "overload",
+        "soft",
+        `${term.name} has ${load.units} units across ${load.courses} courses: overload approval needed`,
+      );
+  }
+  return { lifecycle, issues };
+}
+
 export function effectiveStatus(
   attempt: Attempt,
   attempts: Attempt[],
@@ -713,13 +886,7 @@ export function unitsByCalendarYear(
   catalogue?: PlanningCatalogue,
 ) {
   const availableTerms = termsFor(catalogue);
-  const years = [
-    ...new Set(
-      availableTerms
-        .filter((term) => term.id !== "unscheduled")
-        .map((term) => term.year),
-    ),
-  ];
+  const years = [...new Set(availableTerms.map((term) => term.year))];
   return years.map((year) => {
     const inYear = attempts.filter((attempt) => {
       const term = availableTerms.find((item) => item.id === attempt.termId);
@@ -742,7 +909,6 @@ export function unitsByCalendarYear(
 }
 
 export function courseIsAvailable(course: Course, termName: string) {
-  if (termName === "Later") return true;
   return course.sessions.includes(termName);
 }
 
@@ -807,7 +973,6 @@ export function termHasCapacity(
   ignoreAttemptId?: string,
   catalogue?: PlanningCatalogue,
 ) {
-  if (termId === "unscheduled") return true;
   const load = termLoad(attempts, termId, ignoreAttemptId, catalogue);
   return (
     load.courses + extraCourses <= STANDARD_COURSE_SLOTS &&
@@ -907,7 +1072,6 @@ function earlierOfferingFor(
   const beforeOrder = orderOf(beforeTermId, catalogue);
   const candidates = termsFor(catalogue).filter(
     (term) =>
-      term.id !== "unscheduled" &&
       term.year === course.year &&
       orderOf(term.id, catalogue) < beforeOrder &&
       courseIsAvailable(course, term.name) &&
@@ -1029,24 +1193,19 @@ function placePrerequisiteEarlier(
   };
 }
 
+/** "Move COMP1110 to S2 2026 and add MATH1005 to S1 2026". */
 function describeFixSteps(steps: PlanFixStep[], catalogue?: PlanningCatalogue) {
-  return steps
-    .map((step) => {
-      const term = termsFor(catalogue).find((item) =>
-        step.type === "move"
-          ? item.id === step.toTermId
-          : item.id === step.termId,
-      );
-      const when = term
-        ? `${term.name} ${term.year}`
-        : step.type === "move"
-          ? step.toTermId
-          : step.termId;
-      return step.type === "move"
-        ? `move ${step.courseCode} to ${when}`
-        : `add ${step.courseCode} to ${when}`;
-    })
-    .join("; ");
+  const phrases = steps.map((step) => {
+    const termId = step.type === "move" ? step.toTermId : step.termId;
+    const term = termsFor(catalogue).find((item) => item.id === termId);
+    const when = term ? `${sessionShortName(term.name)} ${term.year}` : termId;
+    return `${step.type === "move" ? "move" : "add"} ${step.courseCode} to ${when}`;
+  });
+  const sentence =
+    phrases.length > 1
+      ? `${phrases.slice(0, -1).join(", ")} and ${phrases.at(-1)}`
+      : (phrases[0] ?? "");
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
 /**
@@ -1065,6 +1224,18 @@ export function proposePrerequisiteFix(
     };
   }
 
+  const earlier = placePrerequisitesBefore(attempt, attempts, catalogue);
+  if (earlier.ok) return earlier;
+  // Nothing fits earlier, often in a first semester: move the course to its
+  // next offering and fit the prerequisites in before it, where it was.
+  return deferAndPlacePrerequisites(attempt, attempts, catalogue) ?? earlier;
+}
+
+function placePrerequisitesBefore(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): PlanFixResult {
   const steps: PlanFixStep[] = [];
   let working = attempts;
   const queue: Attempt[] = [attempt];
@@ -1101,6 +1272,59 @@ export function proposePrerequisiteFix(
   return {
     ok: true,
     steps,
-    summary: `Fix by ${describeFixSteps(steps, catalogue)}`,
+    summary: describeFixSteps(steps, catalogue),
   };
+}
+
+/**
+ * The course's later offerings, nearest first, each tried with its missing
+ * prerequisites placed before it. The first arrangement that clears the
+ * block wins; null when none does.
+ */
+function deferAndPlacePrerequisites(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): PlanFixResult | null {
+  const course = planningCourseForAttempt(attempt, catalogue);
+  if (!course) return null;
+  const fromOrder = orderOf(attempt.termId, catalogue);
+  const later = termsFor(catalogue).filter(
+    (term) =>
+      orderOf(term.id, catalogue) > fromOrder &&
+      courseIsAvailable(course, term.name) &&
+      termHasCapacity(
+        attempts,
+        term.id,
+        course.units,
+        1,
+        attempt.id,
+        catalogue,
+      ),
+  );
+  for (const term of later) {
+    const move: PlanFixStep = {
+      type: "move",
+      attemptId: attempt.id,
+      courseCode: attempt.courseCode,
+      fromTermId: attempt.termId,
+      toTermId: term.id,
+    };
+    const moved = applyFixStep(attempts, move);
+    const movedAttempt = moved.find((item) => item.id === attempt.id);
+    if (!movedAttempt) continue;
+    const placed = placePrerequisitesBefore(movedAttempt, moved, catalogue);
+    if (!placed.ok) continue;
+    const working = placed.steps.reduce(applyFixStep, moved);
+    const after = working.find((item) => item.id === attempt.id);
+    if (!after || effectiveStatus(after, working, catalogue) === "blocked")
+      continue;
+    const steps = [move, ...placed.steps];
+    return {
+      ok: true,
+      steps,
+      summary: describeFixSteps(steps, catalogue),
+    };
+  }
+  return null;
 }

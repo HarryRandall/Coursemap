@@ -40,7 +40,9 @@ export function FixIssueButton({
           return;
         }
       }
-      notify(proposal.summary);
+      notify(
+        `Done: ${proposal.summary.charAt(0).toLowerCase()}${proposal.summary.slice(1)}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -53,7 +55,7 @@ export function FixIssueButton({
       size={size === "md" ? "default" : size}
       className={cn("min-h-9", className)}
       disabled={busy}
-      aria-label={`Fix it for me: ${proposal.summary}`}
+      title="Coursemap found a way to clear this"
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -65,7 +67,7 @@ export function FixIssueButton({
       ) : (
         <WandSparkles size={14} aria-hidden="true" />
       )}
-      Fix it for me
+      <span className="truncate">{proposal.summary}</span>
     </Button>
   );
 }

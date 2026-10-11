@@ -4,8 +4,7 @@ import {
 } from "@/lib/coursemap/requirement-progress";
 import type { Attempt } from "@/lib/coursemap/types";
 import {
-  effectiveStatus,
-  missingPrereqs,
+  coursePlanStatus,
   planningCourseForAttempt,
   type DegreeUnitProgress,
   type PlanningCatalogue,
@@ -50,34 +49,19 @@ export function planRisks({
   });
 
   const courseIssues = attempts.flatMap((attempt) => {
-    const status = effectiveStatus(attempt, attempts, catalogue);
-    if (
-      status !== "blocked" &&
-      status !== "approval" &&
-      status !== "review" &&
-      status !== "unpublished"
-    )
-      return [];
+    const { issues } = coursePlanStatus(attempt, attempts, catalogue);
+    if (issues.length === 0) return [];
     const course = planningCourseForAttempt(attempt, catalogue);
-    const missing = missingPrereqs(attempt, attempts, catalogue);
     return [
       {
         id: `attempt-${attempt.id}`,
         title: course ? `${course.code} ${course.name}` : attempt.courseCode,
-        detail:
-          status === "unpublished"
-            ? "No longer published for this year. Remove it or choose another course."
-            : status === "blocked"
-              ? missing.length > 0
-                ? `Prerequisites not met in the plan: ${missing.join(", ")}.`
-                : "A required eligibility condition is not met."
-              : status === "approval"
-                ? "Course permission is required before enrolment."
-                : "Check the course requirements against your record before enrolment.",
-        severity:
-          status === "blocked" || status === "unpublished"
-            ? ("warning" as const)
-            : ("info" as const),
+        detail: issues.map((issue) => issue.detail).join("; "),
+        severity: issues.some(
+          (issue) => issue.severity === "hard" || issue.code === "unpublished",
+        )
+          ? ("warning" as const)
+          : ("info" as const),
       },
     ];
   });
