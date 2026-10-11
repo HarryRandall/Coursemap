@@ -1,6 +1,13 @@
 "use client";
 import { useReturnFocus } from "@/hooks/use-return-focus";
-import { AlertTriangle, GripVertical, Plus, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  GripVertical,
+  Plus,
+  WandSparkles,
+  X,
+} from "lucide-react";
 import {
   useEffect,
   useMemo,
@@ -15,7 +22,8 @@ import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { PlannerSkeleton } from "@/ui/plan/planner-skeleton";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
-import { PlanIssueFooter } from "@/ui/plan/plan-issue-footer";
+import { ResolveSteps } from "@/ui/plan/resolve-steps";
+import { usePlanFix } from "@/ui/plan/use-plan-fix";
 import {
   Dialog,
   DialogContent,
@@ -42,7 +50,10 @@ import {
 } from "@/ui/requirements/plan-tree-context";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
-import { isSemesterTerm } from "@/lib/coursemap/academic-periods";
+import {
+  isSemesterTerm,
+  sessionShortName,
+} from "@/lib/coursemap/academic-periods";
 import {
   MAX_PLAN_EXTENSION_YEARS,
   planTimelineTerms,
@@ -58,6 +69,7 @@ import {
   type CoursePlanStatus,
   type PlanFixStep,
   planningCourseForAttempt,
+  proposePrerequisiteFix,
   unitsForAttempt,
   type EffectiveStatus,
 } from "@/lib/planner";
@@ -157,10 +169,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   // Attempts the server's catalogue has already seen. A course added since
   // the last catalogue can't have its requirements checked until the
   // refresh lands, so it reads as planned rather than flashing a warning.
-  // The changes an open Resolve panel would make, previewed on the lanes.
-  const [fixPreview, setFixPreview] = useState<readonly PlanFixStep[] | null>(
-    null,
-  );
+  // The one blocked course whose Resolve panel is open. Its fix is
+  // previewed on the lanes until it is applied or put away.
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [settled, setSettled] = useState(() => ({
     catalogue,
     ids: new Set(state.attempts.map((attempt) => attempt.id)),
@@ -250,6 +261,13 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     },
     [],
   );
+
+  const resolvingAttempt =
+    state.attempts.find((attempt) => attempt.id === resolvingId) ?? null;
+  const resolving = usePlanFix(resolvingAttempt, planningCatalogue);
+  const fixPreview: readonly PlanFixStep[] | null = resolving.proposal.ok
+    ? resolving.proposal.steps
+    : null;
 
   const entriesFor = (termId: string): Entry[] =>
     state.attempts
@@ -815,6 +833,24 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   /** One planned course; short sessions tag each row with its session. */
   const renderEntry = (entry: Entry, term: Term, session?: string) => {
     const note = issueNote(entry);
+    const isResolving = resolvingId === entry.attempt.id;
+    const canResolve =
+      entry.status === "blocked" &&
+      proposePrerequisiteFix(entry.attempt, state.attempts, planningCatalogue)
+        .ok;
+    const moveStep = fixPreview?.find(
+      (step) =>
+        step.type === "move" &&
+        step.attemptId === entry.attempt.id &&
+        step.toTermId !== term.id,
+    );
+    const moveTerm =
+      moveStep?.type === "move"
+        ? timelineTerms.find((item) => item.id === moveStep.toTermId)
+        : undefined;
+    const movingTo = moveTerm
+      ? `${sessionShortName(moveTerm.name)} ${moveTerm.year}`
+      : null;
     const usesStandIn =
       entry.attempt.status === "planned" &&
       entry.attempt.isPublished !== false &&
@@ -840,13 +876,10 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         data-attempt-id={entry.attempt.id}
         data-drag-row
         className={cn(
-          "group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)] rounded-lg transition hover:bg-muted/50",
-          fixPreview?.some(
-            (step) =>
-              step.type === "move" &&
-              step.attemptId === entry.attempt.id &&
-              step.toTermId !== term.id,
-          ) && "opacity-50",
+          "group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)_auto] rounded-lg transition",
+          isResolving
+            ? "bg-muted/60 ring-1 ring-primary/40"
+            : "hover:bg-muted/50",
         )}
       >
         <button
@@ -884,9 +917,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                     {session}
                   </span>
                 ) : null}
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {unitsForAttempt(entry.attempt, entry.course)}u
-                </span>
               </span>
             </button>
           </TooltipTrigger>
@@ -903,12 +933,61 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             </TooltipContent>
           ) : null}
         </Tooltip>
-        <PlanIssueFooter
-          attempt={entry.attempt}
-          flags={entry.flags}
-          catalogue={planningCatalogue}
-          onPreviewChange={setFixPreview}
-        />
+        <div className="flex items-center gap-2 pr-2">
+          {movingTo ? (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary duration-200 animate-in fade-in-0">
+              <ArrowRight size={11} aria-hidden="true" />
+              {movingTo}
+            </span>
+          ) : null}
+          {canResolve ? (
+            <button
+              type="button"
+              aria-expanded={isResolving}
+              title={note ?? undefined}
+              onClick={() =>
+                setResolvingId(isResolving ? null : entry.attempt.id)
+              }
+              className={cn(
+                "inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium text-primary transition hover:bg-primary/10",
+                isResolving && "bg-primary/10",
+              )}
+            >
+              <WandSparkles size={12} aria-hidden="true" />
+              Resolve
+            </button>
+          ) : null}
+          <span className="text-[11px] text-muted-foreground">
+            {unitsForAttempt(entry.attempt, entry.course)}u
+          </span>
+        </div>
+        {/* The panel grows from nothing so the rows below slide rather than jump. */}
+        <div
+          className={cn(
+            "col-span-full grid transition-[grid-template-rows,opacity] duration-200 ease-out",
+            isResolving && fixPreview
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0",
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {isResolving && fixPreview ? (
+              <div className="px-2 pb-2">
+                <ResolveSteps
+                  steps={fixPreview}
+                  catalogue={planningCatalogue}
+                  busy={resolving.busy}
+                  onApply={() =>
+                    void resolving
+                      .apply()
+                      .then((done) => done && setResolvingId(null))
+                  }
+                  onDismiss={() => setResolvingId(null)}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
         {entry.status === "unpublished" && (
           <div className="col-span-2 flex justify-end px-2 pb-2">
             <Button
@@ -1037,18 +1116,49 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <div className="flex flex-1 flex-col gap-1">
           {entries.map((entry) => renderEntry(entry, term))}
           {previewUsesEmptySlot && renderDropPreview(term.id)}
-          {incoming.map((step) => (
-            <div
-              key={`fix-${step.courseCode}`}
-              aria-hidden="true"
-              className="flex min-h-[52px] items-center gap-2.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 text-[12px] text-primary duration-200 animate-in fade-in-0"
-            >
-              <span className="font-mono text-[11px]">{step.courseCode}</span>
-              <span className="truncate">
-                {step.type === "add" ? "will be added here" : "moves here"}
-              </span>
-            </div>
-          ))}
+          {incoming.map((step) => {
+            const course = planningCatalogue.courses.find(
+              (item) => item.code === step.courseCode,
+            );
+            return (
+              <div
+                key={`fix-${step.courseCode}`}
+                aria-label={`${step.courseCode} would be ${step.type === "add" ? "added" : "moved"} here`}
+                className="relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center rounded-lg bg-amber-500/5 duration-200 animate-in fade-in-0"
+              >
+                {/* Only the border pulses, so the course reads steadily. */}
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 animate-pulse rounded-lg border border-amber-500/70"
+                />
+                <span />
+                <span className="flex min-w-0 items-center gap-2.5 py-2 pr-2">
+                  {step.type === "add" ? (
+                    <Plus
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-amber-500"
+                    />
+                  ) : (
+                    <ArrowRight
+                      size={15}
+                      aria-hidden="true"
+                      className="shrink-0 text-amber-500"
+                    />
+                  )}
+                  <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
+                    {step.courseCode}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+                    {course?.name ?? step.courseCode}
+                  </span>
+                </span>
+                <span className="pr-2 text-[11px] text-amber-600 dark:text-amber-400">
+                  {step.type === "add" ? "Adding" : "Moving here"}
+                </span>
+              </div>
+            );
+          })}
           {Array.from({ length: emptySlots }, (_, index) => (
             <button
               key={`${term.id}-empty-${index}`}

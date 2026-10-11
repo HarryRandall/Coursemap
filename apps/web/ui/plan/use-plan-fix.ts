@@ -10,10 +10,12 @@ import { proposePrerequisiteFix } from "@/lib/planner";
  * run in order and stop at the first that fails, so a half-applied fix says
  * which step went wrong.
  */
-export function usePlanFix(attempt: Attempt, catalogue?: PlanCatalogue) {
+export function usePlanFix(attempt: Attempt | null, catalogue?: PlanCatalogue) {
   const { state, addCourse, reorderAttempt, notify } = useCoursemap();
   const [busy, setBusy] = useState(false);
-  const proposal = proposePrerequisiteFix(attempt, state.attempts, catalogue);
+  const proposal = attempt
+    ? proposePrerequisiteFix(attempt, state.attempts, catalogue)
+    : ({ ok: false, message: "" } as const);
 
   const apply = async () => {
     if (busy || !proposal.ok) return false;
