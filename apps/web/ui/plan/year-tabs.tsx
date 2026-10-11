@@ -11,6 +11,8 @@ export type YearTab = {
   target: number;
   /** Every course in the year is recorded as completed. */
   finished: boolean;
+  /** Changes an open Resolve panel would make in this year. */
+  previewChanges?: number;
 };
 
 /**
@@ -48,9 +50,11 @@ export function YearTabs({
                 "flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-xl px-3 py-2.5 text-left ring-1 transition",
                 selected
                   ? "bg-card ring-2 ring-primary"
-                  : year.finished
-                    ? "ring-border hover:bg-muted/50"
-                    : "bg-card ring-border hover:bg-muted/50",
+                  : year.previewChanges
+                    ? "bg-primary/5 ring-1 ring-primary/50"
+                    : year.finished
+                      ? "ring-border hover:bg-muted/50"
+                      : "bg-card ring-border hover:bg-muted/50",
               )}
             >
               <span className="flex items-baseline gap-1.5 truncate">
@@ -60,6 +64,11 @@ export function YearTabs({
                 <span className="text-xs text-muted-foreground">
                   {year.detail}
                 </span>
+                {year.previewChanges ? (
+                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary duration-200 animate-in fade-in-0">
+                    {`+${year.previewChanges} ${year.previewChanges === 1 ? "change" : "changes"}`}
+                  </span>
+                ) : null}
               </span>
               {year.finished ? (
                 <span className="flex items-center gap-1 text-[11px] font-medium text-success">

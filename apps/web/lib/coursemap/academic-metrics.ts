@@ -71,32 +71,30 @@ export function academicTermPoints(
   inputs: AcademicInputs,
 ): AcademicTermPoint[] {
   const rows = resultRows(inputs);
-  return inputs.terms
-    .filter((term) => term.id !== "unscheduled")
-    .flatMap((term) => {
-      const inTerm = rows.filter((row) => row.termId === term.id);
-      const wam = recordedWeightedAverageMark(inTerm);
-      const gpa = recordedGradePointAverage(inTerm);
-      if (wam === null && gpa === null) return [];
-      return [
-        {
-          id: term.id,
-          label: termLabel(term),
-          year: term.year,
-          wam,
-          gpa,
-          units: inTerm.reduce((sum, row) => sum + row.units, 0),
-          courses: inTerm.length,
-          marks: inTerm
-            .flatMap((row) =>
-              row.mark === undefined
-                ? []
-                : [{ code: row.courseCode, mark: row.mark }],
-            )
-            .sort((a, b) => a.code.localeCompare(b.code)),
-        },
-      ];
-    });
+  return inputs.terms.flatMap((term) => {
+    const inTerm = rows.filter((row) => row.termId === term.id);
+    const wam = recordedWeightedAverageMark(inTerm);
+    const gpa = recordedGradePointAverage(inTerm);
+    if (wam === null && gpa === null) return [];
+    return [
+      {
+        id: term.id,
+        label: termLabel(term),
+        year: term.year,
+        wam,
+        gpa,
+        units: inTerm.reduce((sum, row) => sum + row.units, 0),
+        courses: inTerm.length,
+        marks: inTerm
+          .flatMap((row) =>
+            row.mark === undefined
+              ? []
+              : [{ code: row.courseCode, mark: row.mark }],
+          )
+          .sort((a, b) => a.code.localeCompare(b.code)),
+      },
+    ];
+  });
 }
 
 /* ------------------------------------------------------------------ */

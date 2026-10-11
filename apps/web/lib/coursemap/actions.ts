@@ -16,10 +16,6 @@ export type CoursemapActionResult = {
 };
 
 function termParts(termId: string) {
-  if (termId === "unscheduled") {
-    return { year: undefined, period: undefined };
-  }
-
   const match = /^(\d{4})-([a-z0-9-]+)$/i.exec(termId);
   if (!match) throw new Error("That study period is not valid.");
   return { year: Number(match[1]), period: match[2].toUpperCase() };

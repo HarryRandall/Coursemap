@@ -8,7 +8,7 @@ import {
 } from "@/lib/coursemap/academic-periods";
 
 test("undated periods remain usable without rendering an epoch date", () => {
-  expect(academicPeriodDates(null, null)).toBe("Calendar dates pending");
+  expect(academicPeriodDates(null, null)).toBe("");
   expect(
     academicPeriodTerm({
       calendar_year: 2026,
@@ -24,7 +24,7 @@ test("undated periods remain usable without rendering an epoch date", () => {
     year: 2026,
     name: "Winter Session",
     shortName: "Winter",
-    dates: "Calendar dates pending",
+    dates: "",
     startsOn: undefined,
     endsOn: undefined,
     sortOrder: 20,
@@ -41,7 +41,7 @@ test("only First and Second Semester are standard semesters", () => {
   expect(isSemesterTerm({ id: "2026-s1" })).toBe(true);
   expect(isSemesterTerm({ id: "2026-s2" })).toBe(true);
   expect(isSemesterTerm({ id: "2026-summer" })).toBe(false);
-  expect(isSemesterTerm({ id: "unscheduled" })).toBe(false);
+  expect(isSemesterTerm({ id: "missing-period" })).toBe(false);
 });
 
 test("course sessions shorten to the planner's labels", () => {

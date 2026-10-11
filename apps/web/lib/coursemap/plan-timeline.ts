@@ -61,12 +61,8 @@ export function planTimelineTerms({
   terms: Term[];
   years: PlanTimelineYear[];
 }): Term[] {
-  const unscheduled = terms.find((term) => term.id === "unscheduled");
-  const regularTerms = terms.filter((term) => term.id !== "unscheduled");
   const requiredYears = new Set(years.map((item) => item.year));
-  const importedTerms = regularTerms.filter((term) =>
-    requiredYears.has(term.year),
-  );
+  const importedTerms = terms.filter((term) => requiredYears.has(term.year));
   const byId = new Map(importedTerms.map((term) => [term.id, term]));
 
   years.forEach(({ year }) => {
@@ -79,7 +75,7 @@ export function planTimelineTerms({
           name: period.name,
           shortName: period.shortName,
           sortOrder: period.sortOrder,
-          dates: "Calendar dates pending",
+          dates: "",
         });
       }
     });
@@ -96,5 +92,5 @@ export function planTimelineTerms({
     return order(left) - order(right) || left.id.localeCompare(right.id);
   });
 
-  return unscheduled ? [...timelineTerms, unscheduled] : timelineTerms;
+  return timelineTerms;
 }

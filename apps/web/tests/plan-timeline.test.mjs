@@ -26,30 +26,21 @@ test("creates each nominal degree year even when future calendar periods are abs
         shortName: "Semester 1",
         dates: "23 Feb to 29 May",
       },
-      {
-        id: "unscheduled",
-        year: 9999,
-        name: "Later",
-        shortName: "Later",
-        dates: "Choose when ready",
-      },
     ],
   });
   assert.deepEqual(
     terms.map((term) => term.id),
-    [2026, 2027, 2028]
-      .flatMap((year) => [
-        `${year}-summer`,
-        `${year}-s1`,
-        `${year}-autumn`,
-        `${year}-winter`,
-        `${year}-s2`,
-        `${year}-spring`,
-      ])
-      .concat("unscheduled"),
+    [2026, 2027, 2028].flatMap((year) => [
+      `${year}-summer`,
+      `${year}-s1`,
+      `${year}-autumn`,
+      `${year}-winter`,
+      `${year}-s2`,
+      `${year}-spring`,
+    ]),
   );
   assert.equal(terms[1].dates, "23 Feb to 29 May");
-  assert.equal(terms[3].dates, "Calendar dates pending");
+  assert.equal(terms[3].dates, "");
 });
 
 test("extends the timeline after the nominal degree duration", () => {

@@ -24,13 +24,6 @@ const terms = [
     shortName: "Semester 2",
     dates: "28 July to 31 Oct",
   },
-  {
-    id: "unscheduled",
-    year: 9999,
-    name: "Later",
-    shortName: "Later",
-    dates: "Choose when ready",
-  },
 ];
 
 const courses = [
@@ -197,7 +190,7 @@ test("averages retain a failed attempt when the same course is repeated or plann
     attempt({
       id: "future",
       courseCode: "COMP1100",
-      termId: "unscheduled",
+      termId: "missing-period",
       status: "planned",
       mark: 100,
     }),

@@ -1,7 +1,9 @@
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
+import { planningCourseForAttempt } from "@/lib/planner";
 import { PlanBoard } from "@/ui/plan/plan-board";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type { Attempt } from "@/lib/coursemap/types";
@@ -38,7 +40,23 @@ vi.mock("@/ui/shell", () => ({
   AppShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
 vi.mock("@/ui/overlays", () => ({
-  CourseDialog: () => null,
+  CourseDialog: ({
+    attemptId,
+    catalogue,
+  }: {
+    attemptId: string;
+    catalogue: PlanCatalogue;
+  }) => {
+    const attempt = fixtures.attempts.find((item) => item.id === attemptId);
+    const course = attempt
+      ? planningCourseForAttempt(attempt, catalogue)
+      : undefined;
+    return (
+      <div role="dialog">
+        {course ? `${course.code} ${course.year}` : "Missing course"}
+      </div>
+    );
+  },
   CoursePicker: () => null,
 }));
 const catalogue: PlanCatalogue = {
@@ -161,40 +179,12 @@ test("an added year can be removed again while it is empty", async () => {
   fixtures.extensionYears = 0;
 });
 
-test("unscheduled courses wait in their own lane above the semesters", () => {
-  fixtures.attempts = [
-    {
-      id: "unscheduled-course",
-      courseCode: "COMP1100",
-      termId: "unscheduled",
-      academicYear: 2026,
-      status: "planned",
-    },
-  ];
-  render(
-    <TooltipProvider>
-      <PlanBoard
-        catalogue={{
-          ...catalogue,
-          courses,
-          terms: [
-            ...terms,
-            {
-              id: "unscheduled",
-              year: 2026,
-              name: "Later",
-              shortName: "Later",
-              dates: "",
-            },
-          ],
-        }}
-      />
-    </TooltipProvider>,
-  );
-  expect(screen.getByTestId("term-unscheduled")).toHaveTextContent(
-    "Not scheduled yet",
-  );
-  expect(screen.getByTestId("term-unscheduled")).toHaveTextContent("COMP1100");
+test("the planner offers study periods without a Later lane", () => {
+  fixtures.attempts = [];
+  render(<PlanBoard catalogue={{ ...catalogue, courses, terms }} />);
+  expect(screen.queryByText("Later")).not.toBeInTheDocument();
+  expect(screen.queryByText("Not scheduled yet")).not.toBeInTheDocument();
+  expect(screen.getByTestId("term-2026-s1")).toBeVisible();
 });
 
 test("a starred course added to the open year lands in a semester it runs in", async () => {
@@ -242,4 +232,100 @@ test("a planned course that is no longer published stays on the board to remove"
   await waitFor(() =>
     expect(fixtures.removeAttempt).toHaveBeenCalledWith("unpublished-course"),
   );
+});
+
+test("a course tooltip lists every hard and soft issue", async () => {
+  fixtures.attempts = [
+    {
+      id: "flagged",
+      courseCode: "COMP2100",
+      academicYear: 2026,
+      termId: "2026-s1",
+      status: "planned",
+    },
+  ];
+  const flaggedCourses = courses.map((course) =>
+    course.code === "COMP2100"
+      ? {
+          ...course,
+          prerequisiteCodes: ["COMP1100"],
+          prerequisiteRule: undefined,
+          sessions: ["Semester 2"],
+          permissionText: "Convener permission is required",
+        }
+      : course,
+  );
+  render(
+    <TooltipProvider>
+      <PlanBoard catalogue={{ ...catalogue, courses: flaggedCourses, terms }} />
+    </TooltipProvider>,
+  );
+  await userEvent.hover(
+    screen.getByRole("button", { name: /Blocked.*COMP2100/ }),
+  );
+  const tooltip = await screen.findByRole("tooltip");
+  expect(tooltip).toHaveTextContent("Needs COMP1100 first");
+  expect(tooltip).toHaveTextContent("Not offered in Semester 1");
+  expect(tooltip).toHaveTextContent("Convener permission is required");
+});
+
+test("an unimported planning year shows the stand-in edition and explains it", async () => {
+  fixtures.attempts = [
+    {
+      id: "future",
+      courseCode: courses[0].code,
+      academicYear: 2027,
+      termId: "2027-s1",
+      status: "planned",
+    },
+  ];
+  render(
+    <TooltipProvider delayDuration={0}>
+      <PlanBoard
+        catalogue={{
+          ...catalogue,
+          courses: [{ ...courses[0], year: 2026 }],
+          terms,
+        }}
+      />
+    </TooltipProvider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: /Year 2/ }));
+  expect(screen.queryByText("2026 details")).not.toBeInTheDocument();
+  await userEvent.hover(
+    screen.getByRole("button", { name: new RegExp(courses[0].name) }),
+  );
+  expect(await screen.findByRole("tooltip")).toHaveTextContent(
+    "ANU hasn't published 2027 details yet, so Coursemap uses 2026's.",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: new RegExp(courses[0].name) }),
+  );
+  expect(screen.getByRole("dialog")).toHaveTextContent(
+    `${courses[0].code} 2026`,
+  );
+});
+
+test("a full semester offers an overload that asks first rather than refusing", async () => {
+  fixtures.attempts = courses.slice(0, 4).map((course, index) => ({
+    id: `full-${index}`,
+    courseCode: course.code,
+    academicYear: 2026,
+    termId: "2026-s1",
+    status: "planned" as const,
+  }));
+  render(
+    <TooltipProvider delayDuration={0}>
+      <PlanBoard catalogue={{ ...catalogue, courses, terms }} />
+    </TooltipProvider>,
+  );
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: /Overload .* 2026 with another course/,
+    }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "Take more than 24 units?" }),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Choose a course" })).toBeEnabled();
 });

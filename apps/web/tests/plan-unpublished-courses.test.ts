@@ -128,14 +128,6 @@ test("a planned course whose year is unpublished stays in the plan", async () =>
       status: "planned",
       isPublished: false,
     },
-    {
-      id: "archived-item",
-      academicYear: 2026,
-      courseCode: "MATH1005",
-      termId: "unscheduled",
-      status: "planned",
-      isPublished: false,
-    },
   ]);
 });
 

@@ -112,7 +112,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 
 /**
  * A scheduled course takes the version for the year it is placed in, so its
- * academic year follows the term; Later keeps the year it already had.
+ * academic year follows the term.
  */
 function courseYearForTerm<T extends number | undefined>(
   termId: string,

@@ -44,7 +44,7 @@ const plan: AppState = {
     {
       id: "g2",
       courseCode: "ECON1101",
-      termId: "unscheduled",
+      termId: "2026-s2",
       academicYear: 2026,
       status: "planned",
     },
@@ -128,4 +128,25 @@ test("a tampered cookie is rejected or cleaned, never trusted", () => {
   expect(state?.attempts.map((attempt) => attempt.courseCode)).toEqual([
     "COMP1100",
   ]);
+});
+
+test("guest loading drops items without a study period and keeps starred courses", () => {
+  const legacy = {
+    ...plan,
+    attempts: [
+      ...plan.attempts,
+      {
+        id: "later",
+        courseCode: "STAT1008",
+        termId: "unscheduled",
+        status: "planned" as const,
+      },
+    ],
+  };
+  expect(
+    decodeGuestPlan(cookieJar(encodeGuestPlan(legacy)!))?.attempts,
+  ).toEqual(plan.attempts);
+  expect(
+    decodeGuestPlan(cookieJar(encodeGuestPlan(legacy)!))?.starredCourses,
+  ).toEqual(["STAT1008"]);
 });

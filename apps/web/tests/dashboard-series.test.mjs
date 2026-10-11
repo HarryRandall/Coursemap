@@ -28,13 +28,6 @@ const terms = [
     startsOn: "2026-07-27",
     endsOn: "2026-10-30",
   },
-  {
-    id: "unscheduled",
-    year: 9999,
-    name: "Later",
-    shortName: "Later",
-    dates: "Choose when ready",
-  },
 ];
 
 const courses = [

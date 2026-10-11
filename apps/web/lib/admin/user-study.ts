@@ -33,7 +33,7 @@ function attemptForCourse(course: AdminUserCourse): Attempt {
     termId:
       course.calendarYear !== null && course.periodCode !== null
         ? `${course.calendarYear}-${course.periodCode.toLowerCase()}`
-        : "unscheduled",
+        : "",
     status: course.status === "credited" ? "completed" : course.status,
     ...(recorded
       ? { unitsAttempted: course.units, unitsEarned: course.unitsEarned }

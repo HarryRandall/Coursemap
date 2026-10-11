@@ -100,8 +100,8 @@ export type PlanItemRecord = {
 /**
  * Planned courses follow the latest publication of their catalogue year, so
  * an item whose year is no longer published stays in the plan marked
- * unpublished. Only an item whose course cannot be identified is left out;
- * the owner can always read the record and code their plan references.
+ * unpublished. Items without a study period or an identifiable course are
+ * left out of client state.
  */
 export function plannedAttemptsFromItems(
   items: readonly PlanItemRow[],
@@ -112,7 +112,13 @@ export function plannedAttemptsFromItems(
   return items.flatMap((item) => {
     const record = recordById.get(item.catalogue_record_id);
     const code = record ? courseCodeById.get(record.code_id) : undefined;
-    if (!record || !code) return [];
+    if (
+      !record ||
+      !code ||
+      !item.planned_calendar_year ||
+      !item.planned_period_code
+    )
+      return [];
     const isPublished =
       record.published_version_id !== null && record.archived_at === null;
     return [
@@ -120,10 +126,7 @@ export function plannedAttemptsFromItems(
         id: item.id,
         academicYear: academicYearById.get(record.academic_year_id),
         courseCode: code,
-        termId:
-          item.planned_calendar_year && item.planned_period_code
-            ? `${item.planned_calendar_year}-${item.planned_period_code.toLowerCase()}`
-            : "unscheduled",
+        termId: `${item.planned_calendar_year}-${item.planned_period_code.toLowerCase()}`,
         status: "planned" as const,
         ...(isPublished ? {} : { isPublished: false }),
       },

@@ -18,11 +18,7 @@ const {
   unitsByCalendarYear,
 } = planner;
 const { courses, terms } = catalogue;
-const planningYears = [
-  ...new Set(
-    terms.filter((term) => term.id !== "unscheduled").map((term) => term.year),
-  ),
-];
+const planningYears = [...new Set(terms.map((term) => term.year))];
 const demoCatalogue = {
   courses: courses.flatMap((course) =>
     planningYears.map((year) => ({ ...course, year })),
@@ -52,7 +48,7 @@ test("requires an explicit year when a course has multiple editions", () => {
         id: "selected-year",
         academicYear: 2028,
         courseCode: "COMP1100",
-        termId: "unscheduled",
+        termId: "2028-s1",
         status: "planned",
       },
       demoCatalogue,
@@ -387,6 +383,20 @@ test("adds a missing prerequisite to the latest earlier offering with space", ()
   );
 });
 
+test("moves a first-semester course later when its prerequisite has nowhere earlier to go", () => {
+  const blocked = attempt("blocked", "COMP1110", "2026-s1");
+  const result = proposePrerequisiteFix(blocked, [blocked], demoCatalogue);
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    result.steps.map((step) =>
+      step.type === "move"
+        ? `move ${step.courseCode} ${step.toTermId}`
+        : `add ${step.courseCode} ${step.termId}`,
+    ),
+    ["move COMP1110 2026-s2", "add COMP1100 2026-s1"],
+  );
+});
+
 test("does not move a selected course year into a different year", () => {
   const attempts = [
     attempt("done", "COMP1100", "2026-s1", "completed"),
@@ -398,7 +408,7 @@ test("does not move a selected course year into a different year", () => {
   assert.match(result.message, /in 2027/i);
 });
 
-test("does not invent a fix when no earlier offering has space", () => {
+test("moves the course later rather than overfilling a full earlier semester", () => {
   const attempts = [
     attempt("a1", "COMP1600", "2026-s2"),
     attempt("a2", "MATH1005", "2026-s2"),
@@ -407,8 +417,13 @@ test("does not invent a fix when no earlier offering has space", () => {
     attempt("blocked", "COMP2100", "2027-s1"),
   ];
   const result = proposePrerequisiteFix(attempts[4], attempts, demoCatalogue);
-  assert.equal(result.ok, false);
-  assert.match(result.message, /No earlier/i);
+  assert.equal(result.ok, true);
+  assert.equal(result.steps[0].type, "move");
+  assert.equal(result.steps[0].courseCode, "COMP2100");
+  for (const step of result.steps.slice(1)) {
+    assert.equal(step.type, "add");
+    assert.notEqual(step.termId, "2026-s2");
+  }
 });
 
 test("does not offer a sequencing fix for approval-only issues", () => {
@@ -452,7 +467,7 @@ test("treats a full semester as over capacity", () => {
     false,
   );
   assert.equal(
-    termHasCapacity(attempts, "unscheduled", 6, 1, undefined, demoCatalogue),
+    termHasCapacity(attempts, "2026-s2", 6, 1, undefined, demoCatalogue),
     true,
   );
 });
@@ -461,7 +476,7 @@ test("course availability follows the catalogue sessions", () => {
   const course = { sessions: ["Semester 2"] };
   assert.equal(courseIsAvailable(course, "Semester 1"), false);
   assert.equal(courseIsAvailable(course, "Semester 2"), true);
-  assert.equal(courseIsAvailable(course, "Later"), true);
+  assert.equal(courseIsAvailable(course, "Later"), false);
 });
 
 test("groups completed and planned units by calendar year", () => {
@@ -669,7 +684,7 @@ test("concurrent planner exclusions reject overlapping active enrolment and allo
   assert.equal(
     effectiveStatus(
       target,
-      [attempt("other", "COMP1100", "unscheduled"), target],
+      [attempt("other", "COMP1100", "missing-period"), target],
       catalogue,
     ),
     "review",
@@ -923,7 +938,6 @@ test("an excluded course planned in either semester blocks the plan", () => {
     ["2026-s1", "planned"],
     ["2026-s1", "enrolled"],
     ["2027-s1", "planned"],
-    ["unscheduled", "planned"],
   ]) {
     assert.equal(
       effectiveStatus(
@@ -1028,4 +1042,68 @@ test("a course missing from the catalogue leaves a tagged-unit gate for review",
     "review",
   );
   assert.equal(effectiveStatus(target, [target], catalogue), "blocked");
+});
+
+test("matches a course's sessions to terms however the period is named", () => {
+  const course = { sessions: ["Semester 1", "Spring Session"] };
+  assert.equal(courseIsAvailable(course, "First Semester"), true);
+  assert.equal(courseIsAvailable(course, "Semester 1"), true);
+  assert.equal(courseIsAvailable(course, "Spring Session"), true);
+  assert.equal(courseIsAvailable(course, "Second Semester"), false);
+});
+
+test("planned courses prefer the latest earlier edition, otherwise the earliest later edition", () => {
+  const editions = [2024, 2026, 2028].map((year) => ({ ...courses[0], year }));
+  const catalogue = { courses: editions, terms: [] };
+  const attempt = {
+    id: "guest",
+    courseCode: courses[0].code,
+    termId: "2027-s1",
+    academicYear: 2027,
+    status: "planned",
+  };
+  assert.equal(planningCourseForAttempt(attempt, catalogue)?.year, 2026);
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, academicYear: 2023 }, catalogue)
+      ?.year,
+    2024,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, academicYear: 2028 }, catalogue)
+      ?.year,
+    2028,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, courseCode: "ABSENT" }, catalogue),
+    undefined,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, snapshotId: 999 }, catalogue),
+    undefined,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, status: "completed" }, catalogue),
+    undefined,
+  );
+});
+
+test("an overloaded semester is a soft warning that names the permission threshold", () => {
+  const codes = [
+    "COMP1100",
+    "MATH1005",
+    "COMP2300",
+    "COMP2310",
+    "COMP2400",
+    "COMP3600",
+    "COMP1110",
+  ];
+  const attempts = codes.map((code, index) =>
+    attempt(`o${index}`, code, "2026-s1"),
+  );
+  const issues = planner
+    .coursePlanStatus(attempts[0], attempts, demoCatalogue)
+    .issues.filter((issue) => issue.code === "overload");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "soft");
+  assert.match(issues[0].detail, /42 units .* permission from your college/);
 });

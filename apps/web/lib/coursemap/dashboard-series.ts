@@ -33,10 +33,6 @@ export type DashboardCalendarEvent = {
   endsOn?: string;
 };
 
-function scheduledTerms(terms: readonly Term[]) {
-  return terms.filter((term) => term.id !== "unscheduled");
-}
-
 export function termLabel(term: Term) {
   const year = `'${String(term.year).slice(2)}`;
   return isSemesterTerm(term)
@@ -66,7 +62,7 @@ export function dashboardTermLoads({
 }): DashboardTermPoint[] {
   const catalogue = { courses, snapshotCourses, terms };
   const active = activeAttempts(attempts);
-  return scheduledTerms(terms).map((term) => {
+  return terms.map((term) => {
     const inTerm = active
       .filter((attempt) => attempt.termId === term.id)
       .flatMap((attempt) => {
@@ -129,7 +125,7 @@ export function dashboardCalendarEvents({
   return activeAttempts(attempts).flatMap((attempt) => {
     const course = planningCourseForAttempt(attempt, catalogue);
     const term = termsById.get(attempt.termId);
-    if (!course || !term || term.id === "unscheduled") return [];
+    if (!course || !term) return [];
     return [
       {
         courseCode: course.code,
@@ -147,7 +143,7 @@ export function currentDashboardTermId(
   terms: readonly Term[],
   todayIso = canberraTodayIso(),
 ) {
-  return scheduledTerms(terms).find((term) => {
+  return terms.find((term) => {
     if (!term.startsOn || !term.endsOn) return false;
     return term.startsOn <= todayIso && todayIso <= term.endsOn;
   })?.id;

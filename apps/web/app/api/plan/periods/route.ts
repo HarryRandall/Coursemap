@@ -20,12 +20,5 @@ export async function GET() {
   }
 
   const terms = (data ?? []).map(academicPeriodTerm);
-  terms.push({
-    id: "unscheduled",
-    year: 9999,
-    name: "Later",
-    shortName: "Later",
-    dates: "Choose when ready",
-  });
   return NextResponse.json({ terms });
 }

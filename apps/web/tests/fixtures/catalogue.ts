@@ -514,13 +514,6 @@ export const terms: Term[] = [
     shortName: "S2",
     dates: "Jul - Nov",
   },
-  {
-    id: "unscheduled",
-    year: 2029,
-    name: "Later",
-    shortName: "Later",
-    dates: "Not scheduled",
-  },
 ];
 
 export const initialAttempts: Attempt[] = [
