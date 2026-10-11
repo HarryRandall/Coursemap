@@ -85,6 +85,7 @@ export function planningCourseByCode(
 /**
  * A pinned snapshot must resolve exactly; it never falls back to a newer course.
  * Unpinned attempts use their academic year, then the scheduled term's year.
+ * Planned courses can use the latest earlier edition, or the earliest later one.
  * A planned course that is no longer published resolves to nothing.
  */
 export function planningCourseForAttempt(
@@ -106,11 +107,13 @@ export function planningCourseForAttempt(
   const termYear = termsFor(catalogue).find(
     (term) => term.id === attempt.termId,
   )?.year;
-  return planningCourseByCode(
-    attempt.courseCode,
-    catalogue,
-    attempt.academicYear ?? termYear,
-  );
+  const year = attempt.academicYear ?? termYear;
+  const exact = planningCourseByCode(attempt.courseCode, catalogue, year);
+  if (exact || year === undefined || attempt.status !== "planned") return exact;
+  const editions = coursesFor(catalogue)
+    .filter((course) => course.code === attempt.courseCode)
+    .sort((left, right) => left.year - right.year);
+  return editions.findLast((course) => course.year < year) ?? editions[0];
 }
 
 /**

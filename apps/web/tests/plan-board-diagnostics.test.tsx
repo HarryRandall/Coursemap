@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
+import { planningCourseForAttempt } from "@/lib/planner";
 import { PlanBoard } from "@/ui/plan/plan-board";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type { Attempt } from "@/lib/coursemap/types";
@@ -39,7 +40,23 @@ vi.mock("@/ui/shell", () => ({
   AppShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
 }));
 vi.mock("@/ui/overlays", () => ({
-  CourseDialog: () => null,
+  CourseDialog: ({
+    attemptId,
+    catalogue,
+  }: {
+    attemptId: string;
+    catalogue: PlanCatalogue;
+  }) => {
+    const attempt = fixtures.attempts.find((item) => item.id === attemptId);
+    const course = attempt
+      ? planningCourseForAttempt(attempt, catalogue)
+      : undefined;
+    return (
+      <div role="dialog">
+        {course ? `${course.code} ${course.year}` : "Missing course"}
+      </div>
+    );
+  },
   CoursePicker: () => null,
 }));
 const catalogue: PlanCatalogue = {
@@ -250,4 +267,41 @@ test("a course tooltip lists every hard and soft issue", async () => {
   expect(tooltip).toHaveTextContent("Needs COMP1100 first");
   expect(tooltip).toHaveTextContent("Not offered in Semester 1");
   expect(tooltip).toHaveTextContent("Convener permission is required");
+});
+
+test("an unimported planning year shows the stand-in edition and explains it", async () => {
+  fixtures.attempts = [
+    {
+      id: "future",
+      courseCode: courses[0].code,
+      academicYear: 2027,
+      termId: "2027-s1",
+      status: "planned",
+    },
+  ];
+  render(
+    <TooltipProvider delayDuration={0}>
+      <PlanBoard
+        catalogue={{
+          ...catalogue,
+          courses: [{ ...courses[0], year: 2026 }],
+          terms,
+        }}
+      />
+    </TooltipProvider>,
+  );
+  fireEvent.click(screen.getByRole("tab", { name: /Year 2/ }));
+  expect(screen.getByText("2026 details")).toBeVisible();
+  await userEvent.hover(
+    screen.getByRole("button", { name: new RegExp(courses[0].name) }),
+  );
+  expect(await screen.findByRole("tooltip")).toHaveTextContent(
+    "ANU hasn't published 2027 details yet, so Coursemap uses 2026's.",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: new RegExp(courses[0].name) }),
+  );
+  expect(screen.getByRole("dialog")).toHaveTextContent(
+    `${courses[0].code} 2026`,
+  );
 });

@@ -170,7 +170,7 @@ select extensions.ok(
   'a synthetic move preserves course academic year lineage'
 );
 
-select extensions.throws_ok(
+select extensions.lives_ok(
   $$
     select public.move_current_user_plan_item(
       (
@@ -186,9 +186,7 @@ select extensions.throws_ok(
       null
     )
   $$,
-  'P0002',
-  'COMP1110 for 2027 isn''t imported yet.',
-  'moving a plan item into a year without that course version is refused'
+  'moving a plan item into an unimported year uses a published edition'
 );
 
 select extensions.lives_ok(
@@ -283,15 +281,13 @@ select extensions.throws_ok(
   'direct authenticated plan-item deletes are denied'
 );
 
-select extensions.throws_ok(
+select extensions.lives_ok(
   $$
-    select public.add_current_user_plan_item(
+    select public.remove_current_user_plan_item(public.add_current_user_plan_item(
       'COMP1100', 2026::smallint, 2027::smallint, 'S1'
-    )
+    ))
   $$,
-  'P0002',
-  'COMP1100 for 2027 isn''t imported yet.',
-  'adding a course into a year without that course version is refused'
+  'adding a course into an unimported year uses a published edition'
 );
 
 select extensions.lives_ok(

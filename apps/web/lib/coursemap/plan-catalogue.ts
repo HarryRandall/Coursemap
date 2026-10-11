@@ -14,10 +14,8 @@ import type {
   Term,
 } from "@/lib/coursemap/types";
 import { createPublicClient } from "@/lib/supabase/public-server";
-import {
-  courseFromSnapshotProjection,
-  loadPublishedCoursesBySelections,
-} from "@/lib/coursemap/published-courses";
+import { courseFromSnapshotProjection } from "@/lib/coursemap/published-courses";
+import { loadPlanningCourseEditions } from "@/lib/coursemap/planning-course-editions";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
@@ -378,7 +376,7 @@ export async function loadPublishedPlanCatalogue(
   }
   const [catalogueCourses, periodsResult, structureYearsResult] =
     await Promise.all([
-      loadPublishedCoursesBySelections(courseSelections),
+      loadPlanningCourseEditions(courseSelections),
       supabase
         .from("academic_periods")
         .select(

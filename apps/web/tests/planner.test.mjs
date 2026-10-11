@@ -1051,3 +1051,38 @@ test("matches a course's sessions to terms however the period is named", () => {
   assert.equal(courseIsAvailable(course, "Spring Session"), true);
   assert.equal(courseIsAvailable(course, "Second Semester"), false);
 });
+
+test("planned courses prefer the latest earlier edition, otherwise the earliest later edition", () => {
+  const editions = [2024, 2026, 2028].map((year) => ({ ...courses[0], year }));
+  const catalogue = { courses: editions, terms: [] };
+  const attempt = {
+    id: "guest",
+    courseCode: courses[0].code,
+    termId: "2027-s1",
+    academicYear: 2027,
+    status: "planned",
+  };
+  assert.equal(planningCourseForAttempt(attempt, catalogue)?.year, 2026);
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, academicYear: 2023 }, catalogue)
+      ?.year,
+    2024,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, academicYear: 2028 }, catalogue)
+      ?.year,
+    2028,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, courseCode: "ABSENT" }, catalogue),
+    undefined,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, snapshotId: 999 }, catalogue),
+    undefined,
+  );
+  assert.equal(
+    planningCourseForAttempt({ ...attempt, status: "completed" }, catalogue),
+    undefined,
+  );
+});
