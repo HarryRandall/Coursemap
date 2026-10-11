@@ -170,3 +170,34 @@ test("a guest cookie that cannot be saved leaves both state and cached routes in
   expect(context.state).toBe(before);
   expect(actions.refresh).not.toHaveBeenCalled();
 });
+
+test("guest overrides persist and undo both kinds", async () => {
+  await mount();
+  await act(async () => {
+    await context.bypassCourse("COMP1100", {
+      reason: "approval",
+      note: "Approved",
+    });
+    await context.overrideRequirement("TEST", "electives", {
+      reason: "credit",
+      creditedUnits: 6,
+    });
+  });
+  expect(savedPlan()?.courseOverrides).toEqual([
+    { courseCode: "COMP1100", reason: "approval", note: "Approved" },
+  ]);
+  expect(savedPlan()?.requirementOverrides).toEqual([
+    {
+      structureCode: "TEST",
+      requirementKey: "electives",
+      reason: "credit",
+      creditedUnits: 6,
+    },
+  ]);
+  await act(async () => {
+    await context.bypassCourse("COMP1100", null);
+    await context.overrideRequirement("TEST", "electives", null);
+  });
+  expect(savedPlan()?.courseOverrides).toEqual([]);
+  expect(savedPlan()?.requirementOverrides).toEqual([]);
+});

@@ -3307,6 +3307,47 @@ export type Database = {
           },
         ]
       }
+      plan_course_overrides: {
+        Row: {
+          course_code: string
+          created_at: string
+          id: string
+          note: string | null
+          owner_id: string
+          plan_id: string
+          reason: string
+          updated_at: string
+        }
+        Insert: {
+          course_code: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id: string
+          plan_id: string
+          reason: string
+          updated_at?: string
+        }
+        Update: {
+          course_code?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          owner_id?: string
+          plan_id?: string
+          reason?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_course_overrides_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
       plan_items: {
         Row: {
           academic_period_id: number | null
@@ -3371,6 +3412,53 @@ export type Database = {
           },
           {
             foreignKeyName: "plan_items_plan_owner_fkey"
+            columns: ["plan_id", "owner_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id", "owner_id"]
+          },
+        ]
+      }
+      plan_requirement_overrides: {
+        Row: {
+          created_at: string
+          credited_units: number | null
+          id: string
+          note: string | null
+          owner_id: string
+          plan_id: string
+          reason: string
+          requirement_key: string
+          structure_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credited_units?: number | null
+          id?: string
+          note?: string | null
+          owner_id: string
+          plan_id: string
+          reason: string
+          requirement_key: string
+          structure_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credited_units?: number | null
+          id?: string
+          note?: string | null
+          owner_id?: string
+          plan_id?: string
+          reason?: string
+          requirement_key?: string
+          structure_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_requirement_overrides_plan_owner_fkey"
             columns: ["plan_id", "owner_id"]
             isOneToOne: false
             referencedRelation: "plans"

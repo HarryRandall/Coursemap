@@ -12,6 +12,8 @@ const actions = vi.hoisted(() => ({
   setCurrentUserPlanExtensionYears: vi.fn(),
   setCourseStar: vi.fn(),
   setRequirementPlacement: vi.fn(),
+  setCourseOverride: vi.fn(),
+  setRequirementOverride: vi.fn(),
 }));
 vi.mock("@/lib/coursemap/actions", () => actions);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -371,3 +373,53 @@ test.each(["moved", "removed"])(
       ).toBe(false);
   },
 );
+
+test("account overrides update only after successful persistence and can be undone", async () => {
+  await mount();
+  actions.setCourseOverride.mockResolvedValue({
+    ok: false,
+    message: "Failed.",
+  });
+  actions.setRequirementOverride.mockResolvedValue({
+    ok: false,
+    message: "Failed.",
+  });
+  await act(async () => {
+    await context.bypassCourse("COMP1100", { reason: "approval" });
+    await context.overrideRequirement("TEST", "electives", {
+      reason: "credit",
+      creditedUnits: 6,
+    });
+  });
+  expect(context.state.courseOverrides).toBeUndefined();
+  expect(context.state.requirementOverrides).toBeUndefined();
+  actions.setCourseOverride.mockResolvedValue({ ok: true, message: "Saved." });
+  actions.setRequirementOverride.mockResolvedValue({
+    ok: true,
+    message: "Saved.",
+  });
+  await act(async () => {
+    await context.bypassCourse("COMP1100", { reason: "approval" });
+    await context.overrideRequirement("TEST", "electives", {
+      reason: "credit",
+      creditedUnits: 6,
+    });
+  });
+  expect(context.state.courseOverrides).toEqual([
+    { courseCode: "COMP1100", reason: "approval" },
+  ]);
+  expect(context.state.requirementOverrides).toEqual([
+    {
+      structureCode: "TEST",
+      requirementKey: "electives",
+      reason: "credit",
+      creditedUnits: 6,
+    },
+  ]);
+  await act(async () => {
+    await context.bypassCourse("COMP1100", null);
+    await context.overrideRequirement("TEST", "electives", null);
+  });
+  expect(context.state.courseOverrides).toEqual([]);
+  expect(context.state.requirementOverrides).toEqual([]);
+});

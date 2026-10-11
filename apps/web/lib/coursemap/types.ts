@@ -134,12 +134,24 @@ export type RequirementPlacementChoice = {
   requirementKey: string;
 };
 
+export type OverrideReason = "approval" | "credit" | "data_error" | "other";
+
+export type PlanOverride = { reason: OverrideReason; note?: string };
+export type CourseOverride = PlanOverride & { courseCode: string };
+export type RequirementOverride = PlanOverride & {
+  structureCode: string;
+  requirementKey: string;
+  creditedUnits?: number;
+};
+
 export type AppState = {
   schemaVersion: 1;
   /** Identifies the server plan across refreshes and plan replacements. */
   planId?: string;
   profile: Profile;
   attempts: Attempt[];
+  courseOverrides?: CourseOverride[];
+  requirementOverrides?: RequirementOverride[];
   /** Courses the student moved to a part of their degree themselves. */
   placements?: RequirementPlacementChoice[];
   /** Codes of courses the student starred to consider later. */

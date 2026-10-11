@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   setCourseStar: vi.fn(),
   setCurrentUserPlanExtensionYears: vi.fn(),
   setRequirementPlacement: vi.fn(),
+  setCourseOverride: vi.fn(),
+  setRequirementOverride: vi.fn(),
   planItems: [] as { id: string }[],
 }));
 
@@ -41,6 +43,8 @@ vi.mock("@/lib/coursemap/actions", () => ({
   setCourseStar: mocks.setCourseStar,
   setCurrentUserPlanExtensionYears: mocks.setCurrentUserPlanExtensionYears,
   setRequirementPlacement: mocks.setRequirementPlacement,
+  setCourseOverride: mocks.setCourseOverride,
+  setRequirementOverride: mocks.setRequirementOverride,
 }));
 vi.mock("@/lib/supabase/server", () => {
   const query = {
@@ -106,6 +110,8 @@ beforeEach(() => {
     mocks.setCourseStar,
     mocks.setCurrentUserPlanExtensionYears,
     mocks.setRequirementPlacement,
+    mocks.setCourseOverride,
+    mocks.setRequirementOverride,
   ])
     action.mockResolvedValue({ ok: true, message: "" });
   mocks.recordCourseAttempt.mockResolvedValue({ ok: true, message: "" });
@@ -261,5 +267,36 @@ test("unexpected storage failures keep the browser copy", async () => {
   mocks.planItems = [{ id: "old" }];
   mocks.removePlanCourse.mockRejectedValue(new Error("Network failure"));
   expect((await transferGuestPlan("replace")).status).toBe("failed");
+  expect(mocks.clearGuestPlan).not.toHaveBeenCalled();
+});
+
+test("transfer saves both override kinds and retains cookies on failure", async () => {
+  mocks.guest = {
+    ...guestPlan,
+    courseOverrides: [{ courseCode: "ECON1101", reason: "approval" }],
+    requirementOverrides: [
+      {
+        structureCode: "BFINN",
+        requirementKey: "electives",
+        reason: "credit",
+        creditedUnits: 6,
+      },
+    ],
+  };
+  expect((await transferGuestPlan("if-empty")).status).toBe("imported");
+  expect(mocks.setCourseOverride).toHaveBeenCalledWith("ECON1101", {
+    reason: "approval",
+  });
+  expect(mocks.setRequirementOverride).toHaveBeenCalledWith(
+    "BFINN",
+    "electives",
+    { reason: "credit", creditedUnits: 6 },
+  );
+  mocks.clearGuestPlan.mockClear();
+  mocks.setRequirementOverride.mockResolvedValue({
+    ok: false,
+    message: "Save failed.",
+  });
+  expect((await transferGuestPlan("if-empty")).status).toBe("failed");
   expect(mocks.clearGuestPlan).not.toHaveBeenCalled();
 });

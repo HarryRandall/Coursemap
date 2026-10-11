@@ -10,6 +10,8 @@ import {
   setCourseStar,
   setCurrentUserPlanExtensionYears,
   setRequirementPlacement,
+  setCourseOverride,
+  setRequirementOverride,
 } from "@/lib/coursemap/actions";
 import {
   clearGuestPlan,
@@ -95,7 +97,21 @@ export async function transferGuestPlan(
       email: viewer.email ?? "",
     });
     if (!saved.ok) return { status: "failed", message: saved.message };
-    if (accountHasPlan) await removePlannedCourses(viewer.id);
+    if (accountHasPlan) {
+      await removePlannedCourses(viewer.id);
+      for (const item of account.courseOverrides ?? []) {
+        const removed = await setCourseOverride(item.courseCode, null);
+        if (!removed.ok) throw new Error(removed.message);
+      }
+      for (const item of account.requirementOverrides ?? []) {
+        const removed = await setRequirementOverride(
+          item.structureCode,
+          item.requirementKey,
+          null,
+        );
+        if (!removed.ok) throw new Error(removed.message);
+      }
+    }
     let skipped = 0;
     const extension = await setCurrentUserPlanExtensionYears(
       guest.profile.extensionYears,
@@ -134,6 +150,20 @@ export async function transferGuestPlan(
     }
     for (const { courseCode, ...placement } of guest.placements ?? []) {
       if (!(await setRequirementPlacement(courseCode, placement)).ok)
+        skipped += 1;
+    }
+    for (const { courseCode, ...override } of guest.courseOverrides ?? []) {
+      if (!(await setCourseOverride(courseCode, override)).ok) skipped += 1;
+    }
+    for (const {
+      structureCode,
+      requirementKey,
+      ...override
+    } of guest.requirementOverrides ?? []) {
+      if (
+        !(await setRequirementOverride(structureCode, requirementKey, override))
+          .ok
+      )
         skipped += 1;
     }
     if (skipped > 0) {
