@@ -1102,11 +1102,25 @@ export function recommendedCoursesForTerm(
     );
 }
 
+/** The calendar year in a term id such as "2026-s1". */
+function termYear(termId: string) {
+  const match = /^(\d{4})-/u.exec(termId);
+  return match ? Number(match[1]) : undefined;
+}
+
+/**
+ * The plan after one step. A move stamps the new term's year on the course,
+ * as moving it on the board does, so the edition it uses follows it.
+ */
 function applyFixStep(attempts: Attempt[], step: PlanFixStep): Attempt[] {
   if (step.type === "move") {
     return attempts.map((attempt) =>
       attempt.id === step.attemptId
-        ? { ...attempt, termId: step.toTermId }
+        ? {
+            ...attempt,
+            termId: step.toTermId,
+            academicYear: termYear(step.toTermId) ?? attempt.academicYear,
+          }
         : attempt,
     );
   }
@@ -1122,135 +1136,215 @@ function applyFixStep(attempts: Attempt[], step: PlanFixStep): Attempt[] {
   ];
 }
 
-function earlierOfferingFor(
-  course: Course,
-  beforeTermId: string,
-  attempts: Attempt[],
-  ignoreAttemptId?: string,
-  catalogue?: PlanningCatalogue,
-) {
-  const beforeOrder = orderOf(beforeTermId, catalogue);
-  const candidates = termsFor(catalogue).filter(
-    (term) =>
-      term.year === course.year &&
-      orderOf(term.id, catalogue) < beforeOrder &&
-      courseIsAvailable(course, term.name) &&
-      termHasCapacity(
-        attempts,
-        term.id,
-        course.units,
-        1,
-        ignoreAttemptId,
-        catalogue,
-      ),
-  );
-  return candidates.at(-1);
+function termLabel(term: Term | undefined, termId: string) {
+  return term ? `${sessionShortName(term.name)} ${term.year}` : termId;
 }
 
-function placePrerequisiteEarlier(
+/** The edition a planned course would use in a term, as the board picks it. */
+function editionForTerm(
+  courseCode: string,
+  term: Term,
+  catalogue?: PlanningCatalogue,
+) {
+  return planningCourseForAttempt(
+    {
+      id: `probe-${courseCode}-${term.id}`,
+      academicYear: term.year,
+      courseCode,
+      termId: term.id,
+      status: "planned",
+    },
+    catalogue,
+  );
+}
+
+type Placement =
+  | { ok: true; steps: PlanFixStep[]; attempts: Attempt[] }
+  | { ok: false; message: string };
+
+/** How deep prerequisites of prerequisites are followed. */
+const MAX_PREREQUISITE_DEPTH = 5;
+/** Earlier semesters tried for one prerequisite before giving up on it. */
+const MAX_SLOTS_TRIED = 4;
+
+/**
+ * Semesters before `beforeTermId` that run the course and have room for it,
+ * latest first, or why there are none.
+ */
+function earlierSlots(
   courseCode: string,
   beforeTermId: string,
   attempts: Attempt[],
+  ignoreAttemptId: string | undefined,
   catalogue?: PlanningCatalogue,
-): PlanFixResult {
-  const existing = activeAttemptFor(attempts, courseCode);
-  if (
-    existing &&
-    (existing.status === "completed" || existing.status === "enrolled")
-  ) {
+):
+  | { ok: true; slots: { term: Term; course: Course }[] }
+  | { ok: false; message: string } {
+  const terms = termsFor(catalogue);
+  const beforeOrder = orderOf(beforeTermId, catalogue);
+  const before = terms.find((term) => term.id === beforeTermId);
+  const offered = terms
+    .filter((term) => orderOf(term.id, catalogue) < beforeOrder)
+    .flatMap((term) => {
+      const course = editionForTerm(courseCode, term, catalogue);
+      return course && courseIsAvailable(course, term.name)
+        ? [{ term, course }]
+        : [];
+    });
+  if (offered.length === 0) {
+    const known = coursesFor(catalogue).some(
+      (course) => course.code === courseCode,
+    );
     return {
       ok: false,
-      message: `${courseCode} is already recorded and cannot be moved earlier.`,
+      message: known
+        ? `${courseCode} doesn't run in any semester in your plan before ${termLabel(before, beforeTermId)}.`
+        : `Coursemap doesn't have ${courseCode}'s offerings, so it can't place it.`,
     };
   }
-
-  if (existing) {
-    const course = planningCourseForAttempt(existing, catalogue);
-    if (!course) {
-      return {
-        ok: false,
-        message: `${courseCode} is not available for its selected academic year.`,
-      };
-    }
-    const target = earlierOfferingFor(
-      course,
-      beforeTermId,
+  const open = offered.filter(({ term, course }) =>
+    termHasCapacity(
       attempts,
-      existing.id,
+      term.id,
+      course.units,
+      1,
+      ignoreAttemptId,
       catalogue,
-    );
-    if (!target) {
-      const offered = course.sessions.join(" or ");
-      return {
-        ok: false,
-        message: `No earlier ${offered} offering in ${course.year} with space was found for ${courseCode}.`,
-      };
-    }
-    if (existing.termId === target.id) {
-      return {
-        ok: false,
-        message: `${courseCode} is already as early as the available offerings allow.`,
-      };
-    }
+    ),
+  );
+  if (open.length === 0) {
+    const full = offered
+      .slice(-3)
+      .map(({ term }) => termLabel(term, term.id))
+      .join(", ");
     return {
-      ok: true,
-      steps: [
-        {
+      ok: false,
+      message: `${courseCode} only fits before ${termLabel(before, beforeTermId)} in semesters that are already full (${full}).`,
+    };
+  }
+  return { ok: true, slots: open.toReversed() };
+}
+
+/**
+ * Puts one prerequisite in an earlier semester: moves it when it is already
+ * planned, adds it otherwise, then does the same for whatever it needs.
+ */
+function placeEarlier(
+  courseCode: string,
+  beforeTermId: string,
+  attempts: Attempt[],
+  catalogue: PlanningCatalogue | undefined,
+  depth: number,
+): Placement {
+  const existing = activeAttemptFor(attempts, courseCode);
+  if (existing && existing.status !== "planned") {
+    const term = termsFor(catalogue).find(
+      (item) => item.id === existing.termId,
+    );
+    return {
+      ok: false,
+      message: `${courseCode} is recorded in ${termLabel(term, existing.termId)}, so Coursemap won't move it.`,
+    };
+  }
+  const found = earlierSlots(
+    courseCode,
+    beforeTermId,
+    attempts,
+    existing?.id,
+    catalogue,
+  );
+  if (!found.ok) return found;
+  let failure: Placement = found.slots.length
+    ? { ok: false, message: "" }
+    : { ok: false, message: `No semester has room for ${courseCode}.` };
+  for (const { term } of found.slots.slice(0, MAX_SLOTS_TRIED)) {
+    const step: PlanFixStep = existing
+      ? {
           type: "move",
           attemptId: existing.id,
           courseCode,
           fromTermId: existing.termId,
-          toTermId: target.id,
-        },
-      ],
-      summary: `Move ${courseCode} to ${target.name} ${target.year}`,
-    };
+          toTermId: term.id,
+        }
+      : { type: "add", academicYear: term.year, courseCode, termId: term.id };
+    const next = applyFixStep(attempts, step);
+    const placed = existing
+      ? next.find((item) => item.id === existing.id)
+      : activeAttemptFor(next, courseCode);
+    if (!placed) continue;
+    const nested = placeMissingBefore(placed, next, catalogue, depth + 1);
+    if (nested.ok)
+      return {
+        ok: true,
+        steps: [step, ...nested.steps],
+        attempts: nested.attempts,
+      };
+    failure = nested;
   }
+  return failure;
+}
 
-  const editions = coursesFor(catalogue).filter(
-    (course) => course.code === courseCode,
-  );
-  if (editions.length === 0) {
-    return { ok: false, message: `${courseCode} is not in the catalogue.` };
-  }
-  const candidate = editions
-    .flatMap((course) => {
-      const target = earlierOfferingFor(
-        course,
-        beforeTermId,
-        attempts,
-        undefined,
-        catalogue,
-      );
-      return target ? [{ course, target }] : [];
-    })
-    .toSorted(
-      (left, right) =>
-        orderOf(right.target.id, catalogue) -
-        orderOf(left.target.id, catalogue),
-    )[0];
-  if (!candidate) {
-    const offered = [
-      ...new Set(editions.flatMap((course) => course.sessions)),
-    ].join(" or ");
+/** Every course `attempt` is missing, placed before it. */
+function placeMissingBefore(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue: PlanningCatalogue | undefined,
+  depth: number,
+): Placement {
+  if (depth > MAX_PREREQUISITE_DEPTH)
     return {
       ok: false,
-      message: `No earlier ${offered} offering with space was found for ${courseCode}.`,
+      message: `${attempt.courseCode}'s prerequisites go back further than Coursemap will rearrange.`,
     };
+  let working = attempts;
+  const steps: PlanFixStep[] = [];
+  for (const code of missingPrereqs(attempt, working, catalogue)) {
+    // An earlier placement may already have brought this one in.
+    if (!missingPrereqs(attempt, working, catalogue).includes(code)) continue;
+    const placed = placeEarlier(
+      code,
+      attempt.termId,
+      working,
+      catalogue,
+      depth,
+    );
+    if (!placed.ok) return placed;
+    steps.push(...placed.steps);
+    working = placed.attempts;
   }
+  return { ok: true, steps, attempts: working };
+}
 
-  return {
-    ok: true,
-    steps: [
-      {
-        type: "add",
-        academicYear: candidate.course.year,
-        courseCode,
-        termId: candidate.target.id,
-      },
-    ],
-    summary: `Add ${courseCode} to ${candidate.target.name} ${candidate.target.year}`,
-  };
+/**
+ * Whether the plan after `steps` clears the course without blocking anything
+ * that was not already blocked, the courses the fix places included.
+ */
+function fixClearsBlock(
+  attempt: Attempt,
+  attempts: Attempt[],
+  steps: readonly PlanFixStep[],
+  catalogue?: PlanningCatalogue,
+) {
+  const after = steps.reduce(applyFixStep, attempts);
+  const target = after.find((item) => item.id === attempt.id);
+  if (!target || effectiveStatus(target, after, catalogue) === "blocked")
+    return false;
+  const blockedBefore = new Set(
+    attempts
+      .filter(
+        (item) =>
+          item.status === "planned" &&
+          effectiveStatus(item, attempts, catalogue) === "blocked",
+      )
+      .map((item) => item.id),
+  );
+  return after.every(
+    (item) =>
+      item.id === attempt.id ||
+      item.status !== "planned" ||
+      blockedBefore.has(item.id) ||
+      effectiveStatus(item, after, catalogue) !== "blocked",
+  );
 }
 
 /** "Move COMP1110 to S2 2026 and add MATH1005 to S1 2026". */
@@ -1258,8 +1352,7 @@ function describeFixSteps(steps: PlanFixStep[], catalogue?: PlanningCatalogue) {
   const phrases = steps.map((step) => {
     const termId = step.type === "move" ? step.toTermId : step.termId;
     const term = termsFor(catalogue).find((item) => item.id === termId);
-    const when = term ? `${sessionShortName(term.name)} ${term.year}` : termId;
-    return `${step.type === "move" ? "move" : "add"} ${step.courseCode} to ${when}`;
+    return `${step.type === "move" ? "move" : "add"} ${step.courseCode} to ${termLabel(term, termId)}`;
   });
   const sentence =
     phrases.length > 1
@@ -1268,100 +1361,70 @@ function describeFixSteps(steps: PlanFixStep[], catalogue?: PlanningCatalogue) {
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
+/** What the student can do about an issue Coursemap can't rearrange away. */
+function explainIssue(
+  attempt: Attempt,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+) {
+  const code = attempt.courseCode;
+  const issues = coursePlanStatus(attempt, attempts, catalogue).issues;
+  const incompatible = issues.find((issue) => issue.code === "incompatibility");
+  if (incompatible)
+    return `${incompatible.detail}. Remove one of them from your plan.`;
+  if (issues.some((issue) => issue.code === "permission"))
+    return `${code} needs permission from the course convener. Coursemap can't arrange that. Once you have it, take it anyway.`;
+  if (issues.some((issue) => issue.code === "unverified"))
+    return `Coursemap can't read one of ${code}'s requirements. Check them on the course page, and take it anyway if you meet them.`;
+  const prerequisite = issues.find(
+    (issue) => issue.code === "prerequisite" && issue.severity === "hard",
+  );
+  if (prerequisite)
+    return `${prerequisite.detail.replace(/\.$/u, "")}. Coursemap can only rearrange courses, so check you meet it or take it anyway.`;
+  return `${code} has nothing Coursemap can rearrange.`;
+}
+
 /**
- * Sequence missing prerequisites earlier when an offering with spare load
- * exists. Nested prerequisites are resolved in the same pass.
+ * A way to clear a course blocked by missing prerequisites, using only the
+ * plan's planned courses and semesters with room. It tries placing the
+ * prerequisites (and theirs) earlier in any year, and moving the course to a
+ * later offering with the prerequisites placed before it, and keeps the
+ * shortest arrangement that clears the block without blocking anything else.
+ * When none does, the message says why. It never overloads a semester or
+ * moves a recorded result.
  */
 export function proposePrerequisiteFix(
   attempt: Attempt,
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ): PlanFixResult {
-  if (effectiveStatus(attempt, attempts, catalogue) !== "blocked") {
+  if (attempt.status !== "planned")
     return {
       ok: false,
-      message: "This course does not have a sequencing issue to fix.",
+      message: "Only planned courses can be rearranged.",
     };
-  }
+  if (
+    effectiveStatus(attempt, attempts, catalogue) !== "blocked" ||
+    missingPrereqs(attempt, attempts, catalogue).length === 0
+  )
+    return { ok: false, message: explainIssue(attempt, attempts, catalogue) };
 
-  const earlier = placePrerequisitesBefore(attempt, attempts, catalogue);
-  if (earlier.ok) return earlier;
-  // Nothing fits earlier, often in a first semester: move the course to its
-  // next offering and fit the prerequisites in before it, where it was.
-  return deferAndPlacePrerequisites(attempt, attempts, catalogue) ?? earlier;
-}
+  const options: PlanFixStep[][] = [];
+  const failures: string[] = [];
+  const earlier = placeMissingBefore(attempt, attempts, catalogue, 0);
+  if (earlier.ok && earlier.steps.length > 0) options.push(earlier.steps);
+  else if (!earlier.ok) failures.push(earlier.message);
 
-function placePrerequisitesBefore(
-  attempt: Attempt,
-  attempts: Attempt[],
-  catalogue?: PlanningCatalogue,
-): PlanFixResult {
-  const steps: PlanFixStep[] = [];
-  let working = attempts;
-  const queue: Attempt[] = [attempt];
-  const seen = new Set<string>();
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || seen.has(current.courseCode)) continue;
-    seen.add(current.courseCode);
-
-    for (const code of missingPrereqs(current, working, catalogue)) {
-      const placement = placePrerequisiteEarlier(
-        code,
-        current.termId,
-        working,
-        catalogue,
-      );
-      if (!placement.ok) return placement;
-
-      steps.push(...placement.steps);
-      working = placement.steps.reduce(applyFixStep, working);
-      const placed = activeAttemptFor(working, code);
-      if (placed) queue.push(placed);
-    }
-  }
-
-  if (steps.length === 0) {
-    return {
-      ok: false,
-      message: "Coursemap could not find an earlier offering to resolve this.",
-    };
-  }
-
-  return {
-    ok: true,
-    steps,
-    summary: describeFixSteps(steps, catalogue),
-  };
-}
-
-/**
- * The course's later offerings, nearest first, each tried with its missing
- * prerequisites placed before it. The first arrangement that clears the
- * block wins; null when none does.
- */
-function deferAndPlacePrerequisites(
-  attempt: Attempt,
-  attempts: Attempt[],
-  catalogue?: PlanningCatalogue,
-): PlanFixResult | null {
-  const course = planningCourseForAttempt(attempt, catalogue);
-  if (!course) return null;
   const fromOrder = orderOf(attempt.termId, catalogue);
-  const later = termsFor(catalogue).filter(
-    (term) =>
-      orderOf(term.id, catalogue) > fromOrder &&
+  const later = termsFor(catalogue).filter((term) => {
+    if (orderOf(term.id, catalogue) <= fromOrder) return false;
+    const course = editionForTerm(attempt.courseCode, term, catalogue);
+    return (
+      course !== undefined &&
       courseIsAvailable(course, term.name) &&
-      termHasCapacity(
-        attempts,
-        term.id,
-        course.units,
-        1,
-        attempt.id,
-        catalogue,
-      ),
-  );
+      termHasCapacity(attempts, term.id, course.units, 1, attempt.id, catalogue)
+    );
+  });
   for (const term of later) {
     const move: PlanFixStep = {
       type: "move",
@@ -1373,18 +1436,41 @@ function deferAndPlacePrerequisites(
     const moved = applyFixStep(attempts, move);
     const movedAttempt = moved.find((item) => item.id === attempt.id);
     if (!movedAttempt) continue;
-    const placed = placePrerequisitesBefore(movedAttempt, moved, catalogue);
+    // Later may already be enough; otherwise fit the prerequisites in first.
+    const placed = placeMissingBefore(movedAttempt, moved, catalogue, 0);
     if (!placed.ok) continue;
-    const working = placed.steps.reduce(applyFixStep, moved);
-    const after = working.find((item) => item.id === attempt.id);
-    if (!after || effectiveStatus(after, working, catalogue) === "blocked")
-      continue;
     const steps = [move, ...placed.steps];
+    if (fixClearsBlock(attempt, attempts, steps, catalogue)) {
+      options.push(steps);
+      break;
+    }
+  }
+  if (later.length === 0) {
+    const course = planningCourseForAttempt(attempt, catalogue);
+    failures.push(
+      course
+        ? `No later semester that runs ${attempt.courseCode} has room for it.`
+        : `Coursemap doesn't have ${attempt.courseCode}'s offerings.`,
+    );
+  }
+
+  const best = options
+    .filter((steps) => fixClearsBlock(attempt, attempts, steps, catalogue))
+    .reduce<PlanFixStep[] | null>(
+      (shortest, steps) =>
+        shortest === null || steps.length < shortest.length ? steps : shortest,
+      null,
+    );
+  if (best)
     return {
       ok: true,
-      steps,
-      summary: describeFixSteps(steps, catalogue),
+      steps: best,
+      summary: describeFixSteps(best, catalogue),
     };
-  }
-  return null;
+  return {
+    ok: false,
+    message:
+      failures[0] ??
+      `Coursemap couldn't find a way to fit ${attempt.courseCode}'s prerequisites in without blocking another course.`,
+  };
 }

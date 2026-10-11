@@ -397,15 +397,110 @@ test("moves a first-semester course later when its prerequisite has nowhere earl
   );
 });
 
-test("does not move a selected course year into a different year", () => {
+const fixSteps = (result) =>
+  result.steps.map((step) =>
+    step.type === "move"
+      ? `move ${step.courseCode} ${step.toTermId}`
+      : `add ${step.courseCode} ${step.termId}`,
+  );
+// Four courses fill a semester; the ones blocked here were blocked already.
+const fullTerm = (termId) =>
+  ["COMP1600", "MATH1005", "COMP3600", "COMP2400"].map((code) =>
+    attempt(`full-${code}-${termId}`, code, termId),
+  );
+
+test("moves a planned prerequisite into an earlier year", () => {
   const attempts = [
     attempt("done", "COMP1100", "2026-s1", "completed"),
     attempt("prereq", "COMP1110", "2027-s2"),
     attempt("blocked", "COMP2100", "2027-s1"),
   ];
   const result = proposePrerequisiteFix(attempts[2], attempts, demoCatalogue);
+  assert.equal(result.ok, true);
+  assert.deepEqual(fixSteps(result), ["move COMP1110 2026-s2"]);
+});
+
+test("moves only the blocked course when that alone clears it", () => {
+  const attempts = [
+    attempt("done", "COMP1100", "2026-s1", "completed"),
+    ...fullTerm("2026-s2"),
+    attempt("prereq", "COMP1110", "2027-s2"),
+    attempt("blocked", "COMP2100", "2027-s1"),
+  ];
+  const result = proposePrerequisiteFix(
+    attempts.at(-1),
+    attempts,
+    demoCatalogue,
+  );
+  assert.equal(result.ok, true);
+  assert.deepEqual(fixSteps(result), ["move COMP2100 2028-s1"]);
+});
+
+test("places nested prerequisites before a deferred course", () => {
+  const blocked = attempt("blocked", "COMP2120", "2026-s2");
+  const result = proposePrerequisiteFix(blocked, [blocked], demoCatalogue);
+  assert.equal(result.ok, true);
+  assert.deepEqual(fixSteps(result), [
+    "move COMP2120 2027-s2",
+    "add COMP2100 2027-s1",
+    "add COMP1110 2026-s2",
+    "add COMP1100 2026-s1",
+  ]);
+});
+
+test("never moves a recorded prerequisite", () => {
+  const attempts = [
+    attempt("done", "COMP1100", "2026-s1", "completed"),
+    attempt("prereq", "COMP1110", "2027-s2", "enrolled"),
+    attempt("blocked", "COMP2100", "2027-s1"),
+  ];
+  const result = proposePrerequisiteFix(attempts[2], attempts, demoCatalogue);
+  assert.equal(result.ok, true);
+  assert.deepEqual(fixSteps(result), ["move COMP2100 2028-s1"]);
+});
+
+test("rejects a fix that would block a course that depends on it", () => {
+  const attempts = [
+    attempt("done", "COMP1100", "2026-s1", "completed"),
+    ...fullTerm("2026-s2"),
+    attempt("prereq", "COMP1110", "2027-s2"),
+    attempt("blocked", "COMP2100", "2027-s1"),
+    attempt("dependant", "COMP2120", "2027-s2"),
+  ];
+  const blocked = attempts.find((item) => item.id === "blocked");
+  const result = proposePrerequisiteFix(blocked, attempts, demoCatalogue);
   assert.equal(result.ok, false);
-  assert.match(result.message, /in 2027/i);
+  assert.match(result.message, /full/);
+});
+
+test("says why when a prerequisite has no edition in the catalogue", () => {
+  const blocked = attempt("blocked", "COMP2100", "2027-s1");
+  const result = proposePrerequisiteFix(blocked, [blocked], {
+    ...demoCatalogue,
+    courses: demoCatalogue.courses.filter(
+      (course) => course.code !== "COMP1110",
+    ),
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.message, /doesn't have COMP1110/);
+});
+
+test("says why when every earlier semester is full and none comes later", () => {
+  const attempts = [
+    ...fullTerm("2026-s1"),
+    ...fullTerm("2026-s2"),
+    ...fullTerm("2027-s1"),
+    ...fullTerm("2027-s2"),
+    ...fullTerm("2028-s1"),
+    attempt("blocked", "COMP2100", "2028-s1"),
+  ];
+  const result = proposePrerequisiteFix(
+    attempts.at(-1),
+    attempts,
+    demoCatalogue,
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.message, /full/);
 });
 
 test("moves the course later rather than overfilling a full earlier semester", () => {
@@ -441,6 +536,7 @@ test("does not offer a sequencing fix for approval-only issues", () => {
     demoCatalogue,
   );
   assert.equal(result.ok, false);
+  assert.match(result.message, /permission/);
 });
 
 test("reports empty degree progress without inventing mapped units", () => {
@@ -1106,4 +1202,53 @@ test("an overloaded semester is a soft warning that names the permission thresho
   assert.equal(issues.length, 1);
   assert.equal(issues[0].severity, "soft");
   assert.match(issues[0].detail, /42 units .* permission from your college/);
+});
+
+test("resolves FINM3005 when its prerequisite is planned a year later", () => {
+  const base = courses.find((course) => course.code === "COMP1100");
+  const course = (code, sessions, prerequisiteCodes = []) => ({
+    ...base,
+    code,
+    name: code,
+    year: 2026,
+    sessions,
+    prerequisiteCodes,
+  });
+  const yearTerms = [2024, 2025, 2026].flatMap((year) =>
+    ["s1", "s2"].map((period) => ({
+      id: `${year}-${period}`,
+      year,
+      name: period === "s1" ? "First Semester" : "Second Semester",
+      shortName: period.toUpperCase(),
+      dates: "",
+    })),
+  );
+  const finance = {
+    courses: [
+      course("FINM1001", ["Semester 1", "Semester 2"]),
+      course("FINM2001", ["Semester 1", "Semester 2"], ["FINM1001"]),
+      course("FINM3005", ["Semester 1", "Semester 2"], ["FINM2001"]),
+      course("FILL1001", ["Semester 1", "Semester 2"]),
+    ],
+    terms: yearTerms,
+  };
+  const recorded = ["2024-s1", "2024-s2"].flatMap((termId) =>
+    [1, 2, 3, 4].map((index) =>
+      attempt(`${termId}-${index}`, "FILL1001", termId, "completed"),
+    ),
+  );
+  const attempts = [
+    ...recorded,
+    attempt("finm1001", "FINM1001", "2025-s1"),
+    attempt("finm3005", "FINM3005", "2025-s2"),
+    attempt("finm2001", "FINM2001", "2026-s2"),
+  ];
+  const blocked = attempts.find((item) => item.id === "finm3005");
+  assert.equal(effectiveStatus(blocked, attempts, finance), "blocked");
+  const result = proposePrerequisiteFix(blocked, attempts, finance);
+  assert.equal(result.ok, true);
+  assert.deepEqual(fixSteps(result), [
+    "move FINM3005 2026-s1",
+    "move FINM2001 2025-s2",
+  ]);
 });
