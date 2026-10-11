@@ -1,5 +1,6 @@
-import { expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 import {
+  academicPeriodCode,
   academicPeriodDates,
   academicPeriodTerm,
   isSemesterTerm,
@@ -49,4 +50,15 @@ test("course sessions shorten to the planner's labels", () => {
   expect(sessionShortName("Summer Session")).toBe("Summer");
   expect(sessionShortName("Semester 1")).toBe("S1");
   expect(sessionShortName("Intensive Session")).toBe("Intensive");
+});
+
+describe("academicPeriodCode", () => {
+  it("reads codes, ANU names and older semester links", () => {
+    expect(academicPeriodCode("S1")).toBe("S1");
+    expect(academicPeriodCode("spring")).toBe("SPRING");
+    expect(academicPeriodCode("Second Semester")).toBe("S2");
+    expect(academicPeriodCode("Semester 1")).toBe("S1");
+    expect(academicPeriodCode("Trimester 3")).toBeNull();
+    expect(academicPeriodCode("")).toBeNull();
+  });
 });

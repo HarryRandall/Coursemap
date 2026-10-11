@@ -12,6 +12,10 @@ import {
   type CourseFilterOptions,
   type PublishedCoursePage,
 } from "@/lib/coursemap/published-courses";
+import {
+  academicPeriodCode,
+  STANDARD_ACADEMIC_PERIODS,
+} from "@/lib/coursemap/academic-periods";
 import { CourseDirectory } from "../course-directory";
 
 type CoursesSearchParams = {
@@ -21,6 +25,8 @@ type CoursesSearchParams = {
   subject?: string | string[];
   level?: string | string[];
   session?: string | string[];
+  units?: string | string[];
+  mode?: string | string[];
   college?: string | string[];
   area?: string | string[];
   tag?: string | string[];
@@ -53,10 +59,10 @@ async function CoursesPage({
   // A digit is that level; a digit and + is that level or higher, which is
   // how degree rules ask for units ("2000-level or higher").
   const level = /^[1-9]\+?$/u.test(levelParam) ? levelParam : "";
-  const sessionParam = firstParam(params.session);
-  const session = ["Semester 1", "Semester 2"].includes(sessionParam)
-    ? sessionParam
-    : "";
+  const session = academicPeriodCode(firstParam(params.session)) ?? "";
+  const unitsParam = firstParam(params.units);
+  const units = /^\d{1,2}$/u.test(unitsParam) ? unitsParam : "";
+  const mode = firstParam(params.mode).slice(0, 80);
   const subjectParam = firstParam(params.subject).toUpperCase();
   const subject = /^[A-Z]{4}$/u.test(subjectParam) ? subjectParam : "";
   const college = firstParam(params.college).slice(0, 120);
@@ -67,6 +73,8 @@ async function CoursesPage({
     subject,
     level,
     session,
+    units,
+    mode,
     college,
     area,
     tag,
@@ -74,6 +82,9 @@ async function CoursesPage({
   };
   let filterOptions: CourseFilterOptions = {
     subjects: [],
+    years: [],
+    units: [],
+    modes: [],
     colleges: [],
     areas: [],
     tags: [],
@@ -101,6 +112,8 @@ async function CoursesPage({
     subject: subject || undefined,
     level: level || undefined,
     session: session || undefined,
+    units: units || undefined,
+    mode: mode || undefined,
     college: college || undefined,
     area: area || undefined,
     tag: tag || undefined,
@@ -184,11 +197,47 @@ async function CoursesPage({
             {
               key: "session",
               label: "Teaching period",
-              options: [
-                { value: "Semester 1", label: "Semester 1" },
-                { value: "Semester 2", label: "Semester 2" },
-              ],
+              options: [...STANDARD_ACADEMIC_PERIODS]
+                .sort((left, right) => left.sortOrder - right.sortOrder)
+                .map((period) => ({ value: period.code, label: period.name })),
             },
+            ...(filterOptions.units.length > 1
+              ? [
+                  {
+                    key: "units",
+                    label: "Units",
+                    options: filterOptions.units.map((value) => ({
+                      value: String(value),
+                      label: `${value} units`,
+                    })),
+                  },
+                ]
+              : []),
+            ...(filterOptions.modes.length > 1
+              ? [
+                  {
+                    key: "mode",
+                    label: "Delivery mode",
+                    options: filterOptions.modes.map((value) => ({
+                      value,
+                      label: value,
+                    })),
+                  },
+                ]
+              : []),
+            ...(filterOptions.years.length > 1
+              ? [
+                  {
+                    key: "year",
+                    label: "Catalogue year",
+                    allLabel: "Latest year",
+                    options: filterOptions.years.map((value) => ({
+                      value: String(value),
+                      label: String(value),
+                    })),
+                  },
+                ]
+              : []),
             ...(
               [
                 ["college", "College", filterOptions.colleges],
