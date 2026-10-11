@@ -49,9 +49,9 @@ catalog:
   date-fns: 4.4.0
   geist: 1.7.2
   highlight.js: 11.12.0
-  lucide-react: 1.54.0
+  lucide-react: 1.55.0
   maplibre-gl: 6.13.0
-  motion: 14.0.0
+  motion: 14.1.0
   next-themes: 0.4.6
   radix-ui: 1.7.0
   react-day-picker: 10.0.2
@@ -66,7 +66,7 @@ catalog:
 
   # Types
   "@types/geojson": 7946.0.16
-  "@types/node": 24.19.1
+  "@types/node": 24.19.2
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
 
@@ -74,7 +74,7 @@ catalog:
   eslint: 9.39.5
   eslint-config-next: 16.4.0
   eslint-config-prettier: 10.1.8
-  prettier: 3.9.9
+  prettier: 3.9.10
   prettier-plugin-tailwindcss: 0.8.1
   turbo: 2.11.7
   typescript: 5.9.3
