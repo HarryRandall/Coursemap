@@ -75,7 +75,7 @@ export function planTimelineTerms({
           name: period.name,
           shortName: period.shortName,
           sortOrder: period.sortOrder,
-          dates: "Calendar dates pending",
+          dates: "",
         });
       }
     });

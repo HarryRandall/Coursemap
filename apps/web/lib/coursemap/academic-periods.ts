@@ -76,7 +76,8 @@ export function academicPeriodDates(
   startsOn: string | null,
   endsOn: string | null,
 ) {
-  if (!startsOn || !endsOn) return "Calendar dates pending";
+  // Undated periods show no dates rather than a placeholder.
+  if (!startsOn || !endsOn) return "";
   return `${dateFormat.format(new Date(startsOn))} to ${dateFormat.format(new Date(endsOn))}`;
 }
 

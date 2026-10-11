@@ -903,7 +903,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           ) : null}
         </Tooltip>
         {entry.status === "blocked" && (
-          <div className="col-span-2 flex justify-end px-2 pb-2">
+          <div className="col-span-2 flex justify-end px-2 pb-2 empty:hidden">
             <FixIssueButton
               attempt={entry.attempt}
               catalogue={planningCatalogue}
@@ -985,9 +985,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <header className="flex items-center justify-between gap-2 px-1 pb-2">
           <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">
             {term.name}
-            <span className="ml-2 font-normal text-muted-foreground">
-              {term.dates}
-            </span>
+            {term.dates ? (
+              <span className="ml-2 font-normal text-muted-foreground">
+                {term.dates}
+              </span>
+            ) : null}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             <span
@@ -1065,7 +1067,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             size="sm"
             onClick={() => toggleSession(term.id, true)}
             aria-label={`Add ${term.name} ${term.year}`}
-            title={term.dates}
+            title={term.dates || undefined}
           >
             <Plus aria-hidden="true" />
             {term.shortName}

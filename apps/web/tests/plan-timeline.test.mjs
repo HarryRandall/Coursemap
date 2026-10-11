@@ -40,7 +40,7 @@ test("creates each nominal degree year even when future calendar periods are abs
     ]),
   );
   assert.equal(terms[1].dates, "23 Feb to 29 May");
-  assert.equal(terms[3].dates, "Calendar dates pending");
+  assert.equal(terms[3].dates, "");
 });
 
 test("extends the timeline after the nominal degree duration", () => {

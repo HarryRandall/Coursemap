@@ -155,9 +155,11 @@ export function TermChooser({
                         {term.name}
                         {` ${term.year}`}
                       </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {term.dates}
-                      </span>
+                      {term.dates ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {term.dates}
+                        </span>
+                      ) : null}
                     </span>
                     <Badge
                       variant={

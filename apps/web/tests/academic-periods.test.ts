@@ -8,7 +8,7 @@ import {
 } from "@/lib/coursemap/academic-periods";
 
 test("undated periods remain usable without rendering an epoch date", () => {
-  expect(academicPeriodDates(null, null)).toBe("Calendar dates pending");
+  expect(academicPeriodDates(null, null)).toBe("");
   expect(
     academicPeriodTerm({
       calendar_year: 2026,
@@ -24,7 +24,7 @@ test("undated periods remain usable without rendering an epoch date", () => {
     year: 2026,
     name: "Winter Session",
     shortName: "Winter",
-    dates: "Calendar dates pending",
+    dates: "",
     startsOn: undefined,
     endsOn: undefined,
     sortOrder: 20,
