@@ -1086,3 +1086,24 @@ test("planned courses prefer the latest earlier edition, otherwise the earliest 
     undefined,
   );
 });
+
+test("an overloaded semester is a soft warning that names the permission threshold", () => {
+  const codes = [
+    "COMP1100",
+    "MATH1005",
+    "COMP2300",
+    "COMP2310",
+    "COMP2400",
+    "COMP3600",
+    "COMP1110",
+  ];
+  const attempts = codes.map((code, index) =>
+    attempt(`o${index}`, code, "2026-s1"),
+  );
+  const issues = planner
+    .coursePlanStatus(attempts[0], attempts, demoCatalogue)
+    .issues.filter((issue) => issue.code === "overload");
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "soft");
+  assert.match(issues[0].detail, /42 units .* permission from your college/);
+});

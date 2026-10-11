@@ -63,6 +63,7 @@ import {
 import {
   STANDARD_COURSE_SLOTS,
   STANDARD_TERM_UNITS,
+  OVERLOAD_PERMISSION_UNITS,
   courseIsAvailable,
   displayCourseForAttempt,
   effectiveStatus,
@@ -188,6 +189,8 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const [picker, setPicker] = useState<PickerState | null>(null);
   const [overloadTerm, setOverloadTerm] = useState<string | null>(null);
   const [pendingDrop, setPendingDrop] = useState<PendingDrop | null>(null);
+  // A course from the panel waiting on the overload confirmation.
+  const [pendingCourse, setPendingCourse] = useState<Course | null>(null);
   const [selectedAttempt, setSelectedAttempt] = useState<string | null>(null);
   const [previewCourse, setPreviewCourse] = useState<Course | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -382,10 +385,9 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       entries.length >= STANDARD_COURSE_SLOTS ||
       unitsOf(entries) + course.units > 24
     ) {
-      notify(
-        `${term.name} ${term.year} is full. Use Add course on the semester to overload it.`,
-        "warning",
-      );
+      setPendingDrop(null);
+      setPendingCourse(course);
+      setOverloadTerm(term.id);
       return;
     }
     const result = await addCourse(course.code, term.id, course.year);
@@ -610,6 +612,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     const entries = entriesFor(term.id);
     if (entries.length >= STANDARD_COURSE_SLOTS || unitsOf(entries) >= 24) {
       setPendingDrop(null);
+      setPendingCourse(null);
       setOverloadTerm(term.id);
       return;
     }
@@ -776,6 +779,22 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const overloadTarget = overloadTerm
     ? timelineTerms.find((term) => term.id === overloadTerm)
     : undefined;
+  // The semester's units once the waiting course lands, when it is known.
+  const overloadUnits = (() => {
+    if (!overloadTarget) return null;
+    const entries = entriesFor(overloadTarget.id);
+    if (pendingCourse) return unitsOf(entries) + pendingCourse.units;
+    const moving = pendingDrop
+      ? state.attempts.find((item) => item.id === pendingDrop.attemptId)
+      : undefined;
+    const movingCourse = moving
+      ? planningCourseForAttempt(moving, planningCatalogue)
+      : undefined;
+    return moving && movingCourse
+      ? unitsOf(entries.filter((entry) => entry.attempt.id !== moving.id)) +
+          unitsForAttempt(moving, movingCourse)
+      : null;
+  })();
   const draggedAttempt = dragging
     ? state.attempts.find((attempt) => attempt.id === dragging)
     : undefined;
@@ -1196,6 +1215,17 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               <span>Add course</span>
             </button>
           ))}
+          {semester && emptySlots === 0 && !previewUsesEmptySlot ? (
+            <button
+              type="button"
+              onClick={() => requestAddCourse(term)}
+              aria-label={`Overload ${term.name} ${term.year} with another course`}
+              className="flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/70 px-2 text-[11px] font-medium text-muted-foreground/80 transition hover:border-amber-500/50 hover:bg-amber-500/5 hover:text-amber-600 dark:hover:text-amber-400"
+            >
+              <Plus size={12} aria-hidden="true" />
+              Overload this semester
+            </button>
+          ) : null}
         </div>
       </div>
     );
@@ -1380,33 +1410,61 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                     id="overload-warning-title"
                     className="text-lg font-bold tracking-tight text-foreground"
                   >
-                    This semester is already full
+                    Take more than 24 units?
                   </h2>
                 </DialogTitle>
               </div>
               <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-                {pendingDrop
-                  ? `Moving this course to ${overloadTarget.name} ${overloadTarget.year} would exceed the standard four-course, 24-unit study load.`
-                  : `Adding another course would take ${overloadTarget.name} ${overloadTarget.year} above the standard four-course, 24-unit study load.`}{" "}
-                Overloading may require approval.
+                {`A full-time load in ${overloadTarget.name} is four courses, 24 units. You can go over it, but it makes for a heavy semester.`}
               </p>
+              {overloadUnits !== null &&
+              overloadUnits > OVERLOAD_PERMISSION_UNITS ? (
+                <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-[13px] text-amber-700 dark:text-amber-300">
+                  {`That takes it to ${overloadUnits} units. Above ${OVERLOAD_PERMISSION_UNITS}, you'll need permission from your college. Coursemap keeps it in your plan and flags it.`}
+                </p>
+              ) : null}
             </div>
             <div className="flex justify-end gap-2 border-t border-border bg-muted/40 px-5 py-3.5">
-              <Button variant="outline" onClick={() => setOverloadTerm(null)}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setOverloadTerm(null);
+                  setPendingCourse(null);
+                }}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={() => {
                   if (pendingDrop) {
                     applyDrop(pendingDrop);
+                  } else if (pendingCourse) {
+                    const course = pendingCourse;
+                    void addCourse(
+                      course.code,
+                      overloadTarget.id,
+                      course.year,
+                    ).then((result) =>
+                      notify(
+                        result.ok
+                          ? `${course.code} added to ${overloadTarget.name} ${overloadTarget.year}`
+                          : result.message,
+                        result.ok ? "success" : "warning",
+                      ),
+                    );
                   } else {
                     setPicker({ termId: overloadTarget.id, intent: "all" });
                   }
                   setOverloadTerm(null);
                   setPendingDrop(null);
+                  setPendingCourse(null);
                 }}
               >
-                {pendingDrop ? "Move anyway" : "Continue to courses"}
+                {pendingDrop
+                  ? "Move anyway"
+                  : pendingCourse
+                    ? `Add ${pendingCourse.code}`
+                    : "Choose a course"}
               </Button>
             </div>
           </DialogContent>

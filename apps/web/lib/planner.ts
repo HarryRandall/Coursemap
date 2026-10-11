@@ -31,6 +31,8 @@ export type EffectiveStatus =
 
 export const STANDARD_COURSE_SLOTS = 4;
 export const STANDARD_TERM_UNITS = 24;
+/** Above this many units in a semester, a student needs college permission. */
+export const OVERLOAD_PERMISSION_UNITS = 36;
 
 export type PlanFixStep =
   | {
@@ -790,7 +792,9 @@ export function coursePlanStatus(
       add(
         "overload",
         "soft",
-        `${term.name} has ${load.units} units across ${load.courses} courses: overload approval needed`,
+        load.units > OVERLOAD_PERMISSION_UNITS
+          ? `${load.units} units in ${term.name}: you'll need permission from your college`
+          : `Overloaded: ${load.units} units in ${term.name}`,
       );
   }
   return { lifecycle, issues };

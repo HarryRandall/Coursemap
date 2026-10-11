@@ -305,3 +305,27 @@ test("an unimported planning year shows the stand-in edition and explains it", a
     `${courses[0].code} 2026`,
   );
 });
+
+test("a full semester offers an overload that asks first rather than refusing", async () => {
+  fixtures.attempts = courses.slice(0, 4).map((course, index) => ({
+    id: `full-${index}`,
+    courseCode: course.code,
+    academicYear: 2026,
+    termId: "2026-s1",
+    status: "planned" as const,
+  }));
+  render(
+    <TooltipProvider delayDuration={0}>
+      <PlanBoard catalogue={{ ...catalogue, courses, terms }} />
+    </TooltipProvider>,
+  );
+  await userEvent.click(
+    screen.getByRole("button", {
+      name: /Overload .* 2026 with another course/,
+    }),
+  );
+  expect(
+    screen.getByRole("heading", { name: "Take more than 24 units?" }),
+  ).toBeVisible();
+  expect(screen.getByRole("button", { name: "Choose a course" })).toBeEnabled();
+});
