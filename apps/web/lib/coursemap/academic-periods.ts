@@ -24,6 +24,26 @@ export const STANDARD_ACADEMIC_PERIODS = [
   },
 ] as const;
 
+/**
+ * The period code a filter value names, accepting the code ("S1"), the ANU
+ * name ("First Semester"), the short name and the older "Semester 1" form so
+ * shared links keep working. Null for anything else.
+ */
+export function academicPeriodCode(value: string) {
+  const wanted = value.trim().toLowerCase();
+  if (!wanted) return null;
+  const legacy = /^semester ([12])$/u.exec(wanted);
+  if (legacy) return `S${legacy[1]}`;
+  return (
+    STANDARD_ACADEMIC_PERIODS.find(
+      (period) =>
+        period.code.toLowerCase() === wanted ||
+        period.name.toLowerCase() === wanted ||
+        period.shortName.toLowerCase() === wanted,
+    )?.code ?? null
+  );
+}
+
 /** First or Second Semester, the two terms a standard study load is built on. */
 export function isSemesterTerm(term: Pick<Term, "id">) {
   return /^S[12]$/u.test(term.id.split("-").at(-1)?.toUpperCase() ?? "");

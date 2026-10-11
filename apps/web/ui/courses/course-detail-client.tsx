@@ -32,7 +32,7 @@ export function CourseDetailClient({
   };
 }) {
   const survey = usePublishedSurvey(course.code);
-  const { state } = useCoursemap();
+  const { state, addCourse, notify } = useCoursemap();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<CourseTab>(() =>
@@ -60,6 +60,13 @@ export function CourseDetailClient({
     window.history.pushState({}, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
+  // The review tab joins the strip only once a report has arrived, so a
+  // course without surveys never shows it and then takes it away. A reader
+  // who linked straight to the tab keeps it while the report loads or fails.
+  const showStudentReview =
+    survey.status === "ready" ||
+    (activeTab === "student-review" && survey.status !== "empty");
+
   return (
     <Tabs
       value={
@@ -71,9 +78,7 @@ export function CourseDetailClient({
       className="gap-0"
     >
       <AppShell
-        tabs={
-          <CourseDetailTabsList showStudentReview={survey.status !== "empty"} />
-        }
+        tabs={<CourseDetailTabsList showStudentReview={showStudentReview} />}
       >
         <CourseDetailView
           attempts={state.attempts}
@@ -81,6 +86,10 @@ export function CourseDetailClient({
           course={course}
           survey={survey}
           onAddToPlan={() => setPlanOpen(true)}
+          onAddToPeriod={async (termId) => {
+            const result = await addCourse(course.code, termId, course.year);
+            notify(result.message, result.ok ? "success" : "warning");
+          }}
           requisiteCompletion={requisiteCompletion}
           yearPicker={
             <YearPicker

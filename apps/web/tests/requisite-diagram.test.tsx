@@ -201,3 +201,14 @@ test.each([0, 1, 7])(
     ).not.toBeInTheDocument();
   },
 );
+
+test("a course with unlocks but no prerequisites shows a placeholder rather than a blank column", () => {
+  renderDiagram({
+    expression: null,
+    hasPrerequisiteWording: false,
+    unlocks: [{ code: "STAT2001", isAvailable: true }],
+  });
+  expect(screen.getByText("No prerequisites")).toBeVisible();
+  expect(screen.getByText("Requires")).toBeInTheDocument();
+  expect(screen.getByText("Unlocks")).toBeInTheDocument();
+});

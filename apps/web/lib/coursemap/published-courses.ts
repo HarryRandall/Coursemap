@@ -112,7 +112,12 @@ export type PublishedCourseFilters = {
   subject?: string;
   /** A level digit, such as 2, or that level or higher, such as 2+. */
   level?: string;
+  /** A teaching period code, such as S1 or SPRING. */
   session?: string;
+  /** A fixed unit value, such as 6. */
+  units?: string;
+  /** A delivery mode as ANU prints it, such as In Person. */
+  mode?: string;
   college?: string;
   area?: string;
   tag?: string;
@@ -120,6 +125,9 @@ export type PublishedCourseFilters = {
 
 export type CourseFilterOptions = {
   subjects: Array<{ code: string; name: string | null }>;
+  years: number[];
+  units: number[];
+  modes: string[];
   colleges: string[];
   areas: string[];
   tags: string[];
@@ -138,16 +146,18 @@ type DirectoryRow = {
   code: string;
   college: string | null;
   convener_text: string | null;
+  delivery_summary: string | null;
   level: number | null;
   school: string | null;
   subject_code: string | null;
   subject_name: string | null;
   title: string;
+  units: number | null;
   version_id: number;
 };
 
 const DIRECTORY_SELECT =
-  "academic_year,academic_year_id,code,college,convener_text,level,school,subject_code,subject_name,title,version_id";
+  "academic_year,academic_year_id,code,college,convener_text,delivery_summary,level,school,subject_code,subject_name,title,units,version_id";
 
 const DIRECTORY_VERSION_BATCH_SIZE = 100;
 
@@ -198,7 +208,7 @@ async function directoryRows(): Promise<DirectoryRow[]> {
 
 const cachedDirectoryRows = unstable_cache(
   directoryRows,
-  ["published-course-directory-rows"],
+  ["published-course-directory-rows-v2"],
   { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
 );
 
@@ -288,7 +298,13 @@ export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOp
     ].sort((left, right) => left.localeCompare(right));
   const subjects = new Map<string, string | null>();
   const colleges = new Set<string>();
+  const years = new Set<number>();
+  const units = new Set<number>();
+  const modes = new Set<string>();
   for (const row of rows) {
+    years.add(row.academic_year);
+    if (typeof row.units === "number") units.add(row.units);
+    if (row.delivery_summary) modes.add(row.delivery_summary);
     if (row.subject_code && !subjects.has(row.subject_code)) {
       subjects.set(row.subject_code, row.subject_name);
     }
@@ -299,6 +315,9 @@ export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOp
       .map(([code, name]) => ({ code, name }))
       .sort((left, right) => left.code.localeCompare(right.code)),
     colleges: [...colleges].sort((left, right) => left.localeCompare(right)),
+    years: [...years].sort((left, right) => right - left),
+    units: [...units].sort((left, right) => left - right),
+    modes: [...modes].sort((left, right) => left.localeCompare(right)),
     areas: names(areas),
     tags: names(tags),
   };
@@ -321,7 +340,9 @@ export async function loadPublishedCourseDirectoryPage({
   const subject = firstFilterValue(filters.subject).toUpperCase();
   const level = levelFilter(firstFilterValue(filters.level));
   const college = firstFilterValue(filters.college);
-  const session = firstFilterValue(filters.session);
+  const session = firstFilterValue(filters.session).toUpperCase();
+  const units = firstFilterValue(filters.units);
+  const mode = firstFilterValue(filters.mode);
   const area = firstFilterValue(filters.area);
   const tag = firstFilterValue(filters.tag);
   const supabase = createPublicClient();
@@ -392,7 +413,7 @@ export async function loadPublishedCourseDirectoryPage({
           .from("offering_sessions")
           .select("version_id")
           .in("version_id", versionIds)
-          .eq("academic_period_name", value)
+          .eq("academic_period_code", value)
           .order("id")
           .range(start, start + 999);
         if (result.error) throw result.error;
@@ -425,6 +446,8 @@ export async function loadPublishedCourseDirectoryPage({
     )
       return false;
     if (college && row.college !== college) return false;
+    if (units && String(row.units) !== units) return false;
+    if (mode && row.delivery_summary !== mode) return false;
     if (sessionVersions && !sessionVersions.has(row.version_id)) return false;
     if (areaVersions && !areaVersions.has(row.version_id)) return false;
     if (tagVersions && !tagVersions.has(row.version_id)) return false;

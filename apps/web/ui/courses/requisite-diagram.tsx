@@ -414,6 +414,10 @@ export function RequisiteDiagram({
   const mergeX = REQUIRES_W + MERGE_GAP;
   const isolated =
     !requirements.length && !unlocks.length && !hasPrerequisiteWording;
+  // A course with unlocks but nothing listed upstream still gets its left
+  // column, holding a quiet placeholder, so the course sits in the middle
+  // rather than beside a blank gap.
+  const placeholder = placed.length === 0 && !isolated;
   const courseX = isolated ? 0 : mergeX + (merges ? 44 : 0);
   const unlockX = courseX + COURSE_W + UNLOCK_GAP;
   // An isolated course stays centred without blank columns forcing mobile scrolling.
@@ -429,11 +433,7 @@ export function RequisiteDiagram({
       <div className="mx-auto" style={{ width }}>
         <div className="relative h-6 text-center text-[10px] font-bold tracking-wider text-muted-foreground/80 uppercase">
           <p className="absolute" style={{ left: 0, width: REQUIRES_W }}>
-            {requirements.length || hasPrerequisiteWording
-              ? merges
-                ? "Requires all of"
-                : "Requires"
-              : null}
+            {!isolated ? (merges ? "Requires all of" : "Requires") : null}
           </p>
           <p className="absolute" style={{ left: courseX, width: COURSE_W }}>
             This course
@@ -473,7 +473,7 @@ export function RequisiteDiagram({
                 <Line met={allMet} d={`M ${mergeX} ${mid} H ${courseX - 2}`} />
                 <Head met={allMet} x={courseX - 2} y={mid} />
               </>
-            ) : placed.length === 1 ? (
+            ) : placed.length === 1 || placeholder ? (
               <>
                 <Line
                   met={allMet}
@@ -516,12 +516,12 @@ export function RequisiteDiagram({
             ) : null}
           </svg>
 
-          {placed.length === 0 && hasPrerequisiteWording ? (
+          {placeholder ? (
             <Placeholder
               label={
                 hasPrerequisiteWording
                   ? "See the requirements below"
-                  : "No course prerequisites"
+                  : "No prerequisites"
               }
               style={{
                 left: 0,

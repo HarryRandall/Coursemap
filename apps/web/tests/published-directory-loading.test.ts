@@ -143,6 +143,9 @@ describe("published course directory loading", () => {
   it("loads every publication and relationship page without scanning drafts or timing out", async () => {
     expect(await loadCourseDirectoryFilterOptions()).toEqual({
       subjects: [{ code: "ECON", name: "Economics" }],
+      years: [2026],
+      units: [],
+      modes: [],
       colleges: ["Business and Economics"],
       areas: ["Economics", "Finance"],
       tags: ["Business"],
@@ -154,7 +157,7 @@ describe("published course directory loading", () => {
     for (const filters of [
       { area: "Draft area" },
       { tag: "Draft tag" },
-      { session: "Semester 1" },
+      { session: "S1" },
     ]) {
       expect(
         (await loadPublishedCourseDirectoryPage({ filters })).courses,
@@ -314,4 +317,65 @@ it("shares publication IDs between both name batches on a cold filter-options fi
   expect(
     reads.filter((read) => read.table === "catalogue_records"),
   ).toHaveLength(4);
+});
+
+it("filters by teaching period code, unit value and delivery mode", async () => {
+  tables.set(
+    "catalogue_records",
+    [1, 2, 3].map((id) => ({
+      id,
+      kind: "course",
+      archived_at: null,
+      published_version_id: id,
+    })),
+  );
+  tables.set("published_course_summaries", [
+    {
+      version_id: 1,
+      code: "ECON1101",
+      academic_year: 2026,
+      units: 6,
+      delivery_summary: "In Person",
+    },
+    {
+      version_id: 2,
+      code: "ECON1102",
+      academic_year: 2026,
+      units: 12,
+      delivery_summary: "Online",
+    },
+    {
+      version_id: 3,
+      code: "ECON1103",
+      academic_year: 2026,
+      units: 6,
+      delivery_summary: "Online",
+    },
+  ]);
+  tables.set("offering_sessions", [
+    {
+      id: 1,
+      version_id: 1,
+      academic_period_code: "SPRING",
+      academic_period_name: "Spring Session",
+    },
+    {
+      id: 2,
+      version_id: 3,
+      academic_period_code: "S1",
+      academic_period_name: "First Semester",
+    },
+  ]);
+  const codes = async (filters: Record<string, string>) =>
+    (await loadPublishedCourseDirectoryPage({ filters })).courses.map(
+      (course) => course.code,
+    );
+  expect(await codes({ session: "SPRING" })).toEqual(["ECON1101"]);
+  expect(await codes({ session: "S1" })).toEqual(["ECON1103"]);
+  expect(await codes({ units: "6" })).toEqual(["ECON1101", "ECON1103"]);
+  expect(await codes({ mode: "Online", units: "6" })).toEqual(["ECON1103"]);
+  expect(await loadCourseDirectoryFilterOptions()).toMatchObject({
+    units: [6, 12],
+    modes: ["In Person", "Online"],
+  });
 });
