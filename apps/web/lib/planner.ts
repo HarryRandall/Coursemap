@@ -908,8 +908,15 @@ export function unitsByCalendarYear(
   });
 }
 
+/**
+ * Whether a course runs in a term. Imports name the same period differently
+ * ("Semester 1", "First Semester"), so names are compared by their period.
+ */
 export function courseIsAvailable(course: Course, termName: string) {
-  return course.sessions.includes(termName);
+  const period = sessionShortName(termName);
+  return course.sessions.some(
+    (session) => session === termName || sessionShortName(session) === period,
+  );
 }
 
 export function degreeUnitProgress(

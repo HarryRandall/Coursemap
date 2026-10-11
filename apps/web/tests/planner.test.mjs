@@ -1043,3 +1043,11 @@ test("a course missing from the catalogue leaves a tagged-unit gate for review",
   );
   assert.equal(effectiveStatus(target, [target], catalogue), "blocked");
 });
+
+test("matches a course's sessions to terms however the period is named", () => {
+  const course = { sessions: ["Semester 1", "Spring Session"] };
+  assert.equal(courseIsAvailable(course, "First Semester"), true);
+  assert.equal(courseIsAvailable(course, "Semester 1"), true);
+  assert.equal(courseIsAvailable(course, "Spring Session"), true);
+  assert.equal(courseIsAvailable(course, "Second Semester"), false);
+});
