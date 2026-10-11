@@ -1,7 +1,12 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ChevronDown } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown, Info } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@coursemap/ui/primitives/tooltip";
 import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
@@ -35,9 +40,23 @@ export function RuleGroup({
     ? rule.courses
     : rule.courses.filter((item) => item.status === null);
   const expandable = courses.length > 0 || Boolean(rule.options?.length);
-  const header = (
-    <>
-      <span className="flex min-w-0 flex-1 items-center gap-2">
+  const toggle = () => setOpen((value) => !value);
+  const count = rule.count ? (
+    <span
+      className={cn(
+        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums",
+        rule.covered
+          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+          : "bg-primary/10 text-primary",
+      )}
+    >
+      {rule.count}
+    </span>
+  ) : null;
+  return (
+    <section aria-label={rule.detail} className="space-y-1">
+      {/* One line: the heading, an (i) with the rule in full, then progress. */}
+      <div className="flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-muted/50">
         {rule.covered ? (
           <CheckCircle2
             size={13}
@@ -45,52 +64,54 @@ export function RuleGroup({
             className="shrink-0 text-emerald-600 dark:text-emerald-400"
           />
         ) : null}
-        <span className="truncate text-xs font-semibold text-foreground">
-          {rule.heading}
-        </span>
-      </span>
-      {rule.count ? (
+        {expandable ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={toggle}
+            className="min-w-0 cursor-pointer truncate text-left text-xs font-semibold text-foreground"
+          >
+            {rule.heading}
+          </button>
+        ) : (
+          <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+            {rule.heading}
+          </span>
+        )}
+        <Tooltip delayDuration={100}>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={`About ${rule.heading}: ${rule.detail}`}
+              className="grid size-5 shrink-0 cursor-help place-items-center rounded text-muted-foreground/70 transition hover:text-foreground"
+            >
+              <Info size={12} aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-64 text-xs">
+            {rule.detail}
+          </TooltipContent>
+        </Tooltip>
         <span
-          className={cn(
-            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums",
-            rule.covered
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-              : "bg-primary/10 text-primary",
-          )}
-        >
-          {rule.count}
-        </span>
-      ) : null}
-      {expandable ? (
-        <ChevronDown
-          size={14}
           aria-hidden="true"
+          onClick={expandable ? toggle : undefined}
           className={cn(
-            "shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180",
+            "flex flex-1 items-center justify-end gap-1.5",
+            expandable && "cursor-pointer",
           )}
-        />
-      ) : null}
-    </>
-  );
-  return (
-    <section aria-label={rule.detail} className="space-y-1">
-      {expandable ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-          title={rule.detail}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/50"
         >
-          {header}
-        </button>
-      ) : (
-        <div className="flex items-center gap-2 px-1 py-1" title={rule.detail}>
-          {header}
-        </div>
-      )}
-      <p className="px-1 text-[11px] text-muted-foreground">{rule.detail}</p>
+          {count}
+          {expandable ? (
+            <ChevronDown
+              size={14}
+              className={cn(
+                "shrink-0 text-muted-foreground transition-transform",
+                open && "rotate-180",
+              )}
+            />
+          ) : null}
+        </span>
+      </div>
       {expandable && open ? (
         <ul>
           {courses.map(({ code, course, status }) =>
@@ -139,11 +160,7 @@ export function RuleGroup({
             />
           </div>
         ))}
-      {rule.note ? (
-        <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
-          {rule.note}
-        </p>
-      ) : !expandable && !readOnly ? (
+      {!expandable && !readOnly ? (
         <Link
           href={rule.browse ? `/courses?${rule.browse}` : "/courses"}
           className="flex items-center gap-1 rounded-md px-1 py-1 text-[12px] text-primary transition hover:underline"

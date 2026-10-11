@@ -291,7 +291,7 @@ test("an unimported planning year shows the stand-in edition and explains it", a
     </TooltipProvider>,
   );
   fireEvent.click(screen.getByRole("tab", { name: /Year 2/ }));
-  expect(screen.getByText("2026 details")).toBeVisible();
+  expect(screen.queryByText("2026 details")).not.toBeInTheDocument();
   await userEvent.hover(
     screen.getByRole("button", { name: new RegExp(courses[0].name) }),
   );

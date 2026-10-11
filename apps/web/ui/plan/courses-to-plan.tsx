@@ -15,6 +15,7 @@ import type {
   StructureToPlan,
 } from "@/ui/plan/plan-suggestions";
 import { CourseRow, type DragStart } from "@/ui/plan/course-row";
+import { RequiredCourses } from "@/ui/plan/required-courses";
 import { RuleGroup } from "@/ui/plan/rule-group";
 
 const KIND_LABELS: Record<PlanStructureKind, string> = {
@@ -55,16 +56,15 @@ export function CoursesToPlan({
         : KIND_LABELS[item.structure.kind],
     item,
   }));
-  const [showCovered, setShowCovered] = useState(false);
   const [tab, setTab] = useState(() => tabs[0]?.value ?? "starred");
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card lg:h-[calc(100dvh-12rem)]">
+    <div className="flex max-h-[70dvh] flex-col overflow-hidden rounded-xl border border-border bg-card lg:absolute lg:inset-0 lg:max-h-none">
       <Tabs
         value={tab}
         onValueChange={setTab}
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
-        <div className="shrink-0 overflow-x-auto px-3 pt-2">
+        <div className="shrink-0 [scrollbar-width:none] overflow-x-auto px-3 pt-2 [&::-webkit-scrollbar]:hidden">
           <TabsList
             variant="line"
             aria-label="Courses to plan"
@@ -102,7 +102,7 @@ export function CoursesToPlan({
             </TabsTrigger>
           </TabsList>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-3 py-3">
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-gutter:stable] overflow-y-auto border-t border-border py-3 pr-1.5 pl-3">
           {tabs.map(({ value, item }) => (
             <TabsContent key={value} value={value} className="mt-0 space-y-4">
               {item.rules.length === 0 ? (
@@ -110,52 +110,42 @@ export function CoursesToPlan({
                   The {item.structure.name} has no rules to plan against yet.
                 </p>
               ) : (
-                item.rules
-                  .filter((rule) => !rule.covered)
-                  .map((rule) => (
-                    <RuleGroup
-                      key={rule.key}
-                      rule={rule}
-                      kind={item.structure.kind}
-                      onAdd={onAdd}
-                      onOpen={onOpen}
-                      onDragStart={onDragStart}
-                    />
-                  ))
+                <>
+                  <RequiredCourses
+                    rules={item.rules.filter(
+                      (rule) => !rule.covered && rule.compulsory,
+                    )}
+                    kind={item.structure.kind}
+                    onAdd={onAdd}
+                    onOpen={onOpen}
+                    onDragStart={onDragStart}
+                  />
+                  {item.rules
+                    // A degree total is filled by every other rule, so it
+                    // only repeats them here, and required courses sit above.
+                    .filter(
+                      (rule) =>
+                        !rule.covered &&
+                        !rule.note &&
+                        !(
+                          rule.compulsory &&
+                          rule.courses.every(
+                            (course) => course.status !== null || course.course,
+                          )
+                        ),
+                    )
+                    .map((rule) => (
+                      <RuleGroup
+                        key={rule.key}
+                        rule={rule}
+                        kind={item.structure.kind}
+                        onAdd={onAdd}
+                        onOpen={onOpen}
+                        onDragStart={onDragStart}
+                      />
+                    ))}
+                </>
               )}
-              {item.estimatedCount && item.openCount > 0 ? (
-                <p className="px-1 text-[11px] text-muted-foreground">
-                  Course count estimated using 6-unit courses for unit-only
-                  rules.
-                </p>
-              ) : null}
-              {item.rules.some((rule) => rule.covered) ? (
-                <div className="space-y-3 border-t border-border pt-3">
-                  <button
-                    type="button"
-                    aria-expanded={showCovered}
-                    onClick={() => setShowCovered((value) => !value)}
-                    className="cursor-pointer text-xs text-muted-foreground"
-                  >
-                    {item.rules.filter((rule) => rule.covered).length} rules
-                    covered · {showCovered ? "Hide" : "Show"}
-                  </button>
-                  {showCovered &&
-                    item.rules
-                      .filter((rule) => rule.covered)
-                      .map((rule) => (
-                        <RuleGroup
-                          key={rule.key}
-                          rule={rule}
-                          kind={item.structure.kind}
-                          onAdd={onAdd}
-                          onOpen={onOpen}
-                          onDragStart={onDragStart}
-                          readOnly
-                        />
-                      ))}
-                </div>
-              ) : null}
             </TabsContent>
           ))}
           <TabsContent value="starred" className="mt-0">

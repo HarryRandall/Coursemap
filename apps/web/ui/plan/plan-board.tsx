@@ -22,6 +22,7 @@ import { OnboardingPrompt } from "@/ui/common/onboarding-prompt";
 import { PlannerSkeleton } from "@/ui/plan/planner-skeleton";
 import { CourseDialog, CoursePicker } from "@/ui/overlays";
 import { Button } from "@coursemap/ui/primitives/button";
+import { PlanRowMenu } from "@/ui/plan/plan-row-menu";
 import { ResolveSteps } from "@/ui/plan/resolve-steps";
 import { usePlanFix } from "@/ui/plan/use-plan-fix";
 import {
@@ -876,7 +877,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         data-attempt-id={entry.attempt.id}
         data-drag-row
         className={cn(
-          "group relative grid min-h-[52px] grid-cols-[1.75rem_minmax(0,1fr)_auto] rounded-lg transition",
+          "group relative grid grid-cols-[1.75rem_minmax(0,1fr)_auto] grid-rows-[minmax(52px,auto)] items-center rounded-lg transition",
           isResolving
             ? "bg-muted/60 ring-1 ring-primary/40"
             : "hover:bg-muted/50",
@@ -888,7 +889,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           onPointerDown={(event) =>
             startPointerDrag(event, entry.attempt.id, term.id)
           }
-          className="grid cursor-grab touch-none place-items-center rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
+          className="grid cursor-grab touch-none place-items-center self-stretch rounded-l-lg text-muted-foreground/40 transition hover:text-muted-foreground active:cursor-grabbing"
         >
           <GripVertical size={13} aria-hidden="true" />
         </button>
@@ -906,11 +907,6 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                 </span>
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
                   {entry.course.name}
-                  {usesStandIn && (
-                    <span className="ml-2 font-normal text-muted-foreground">
-                      {entry.course.year} details
-                    </span>
-                  )}
                 </span>
                 {session ? (
                   <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
@@ -957,9 +953,32 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               Resolve
             </button>
           ) : null}
-          <span className="text-[11px] text-muted-foreground">
-            {unitsForAttempt(entry.attempt, entry.course)}u
-          </span>
+          <PlanRowMenu
+            course={entry.course}
+            moveTargets={timelineTerms.filter(
+              (item) => item.id !== term.id && offeredIn(entry.course, item),
+            )}
+            coursePageHref={
+              usesStandIn
+                ? null
+                : `/courses/${entry.course.year}/${entry.course.code.toLowerCase()}`
+            }
+            onOpen={() => setSelectedAttempt(entry.attempt.id)}
+            onMove={(termId) =>
+              void reorderAttempt(entry.attempt.id, termId).then((result) =>
+                notify(result.message, result.ok ? "success" : "warning"),
+              )
+            }
+            onRemove={
+              entry.attempt.status === "planned" ||
+              entry.attempt.status === "enrolled"
+                ? () =>
+                    void removeAttempt(entry.attempt.id).then((result) =>
+                      notify(result.message, result.ok ? "success" : "error"),
+                    )
+                : undefined
+            }
+          />
         </div>
         {/* The panel grows from nothing so the rows below slide rather than jump. */}
         <div
@@ -1276,7 +1295,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             aria-label="Courses to plan"
             data-drop-remove
             className={cn(
-              "min-w-0 rounded-xl transition lg:sticky lg:top-0 lg:w-[24rem] lg:shrink-0",
+              "relative min-w-0 rounded-xl transition lg:w-[24rem] lg:shrink-0 lg:self-stretch",
               dragPreview?.termId === REMOVE_DROP &&
                 "ring-2 ring-destructive/40",
             )}
