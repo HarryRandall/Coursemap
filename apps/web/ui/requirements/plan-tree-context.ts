@@ -15,9 +15,9 @@ import {
 } from "@/lib/coursemap/requirement-progress";
 import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
 import { planningCourseForAttempt } from "@/lib/planner";
+import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import {
   conditionHeading,
-  type RequirementTreeCondition,
   type TreeContext,
 } from "@/ui/requirements/requirement-presentation";
 
@@ -86,12 +86,54 @@ export function planTreeContext({
     catalogue,
     pins,
   });
-  const labelFor = (nodeKey: string) => {
-    const condition = conditions.get(nodeKey);
-    return condition
-      ? conditionHeading(condition as RequirementTreeCondition)
-      : "another requirement";
-  };
+  const structure = catalogue.structures.find(
+    (candidate) => candidate.code === structureCode,
+  );
+  const contextLabel =
+    structure?.kind === "programme"
+      ? "Degree"
+      : (structure?.name ?? structureCode);
+  const yearCourses = catalogue.courses.filter(
+    (course) => course.year === catalogue.academicYear,
+  );
+  const labels = new Map(
+    [...conditions].map(([key, condition]) => [
+      key,
+      `${contextLabel} · ${requirementTitle(condition, yearCourses) ?? conditionHeading(condition)}`,
+    ]),
+  );
+  for (const label of new Set(labels.values())) {
+    const collisions = [...conditions.keys()].filter(
+      (candidate) => labels.get(candidate) === label,
+    );
+    if (collisions.length < 2) continue;
+    for (const candidate of collisions) {
+      const rule = conditions.get(candidate)!;
+      const detail = [
+        rule.options.map((option) => option.code).join(", "),
+        rule.minimumUnits !== null ? `${rule.minimumUnits} units` : null,
+        rule.maximumUnits !== null ? `up to ${rule.maximumUnits} units` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      labels.set(
+        candidate,
+        `${label} · ${detail || rule.sourceText || `Rule ${rule.position + 1}`}`,
+      );
+    }
+  }
+  // Identical source rules still need distinct choices with stable labels.
+  const seen = new Set<string>();
+  for (const [key, label] of labels) {
+    if (seen.has(label))
+      labels.set(
+        key,
+        `${label} · Rule ${[...conditions.keys()].indexOf(key) + 1}`,
+      );
+    seen.add(labels.get(key)!);
+  }
+  const labelFor = (nodeKey: string) =>
+    labels.get(nodeKey) ?? "another requirement";
   return {
     catalogue,
     progress: requirementTreeProgress({

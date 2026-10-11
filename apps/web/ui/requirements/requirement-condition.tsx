@@ -8,7 +8,6 @@ import {
 } from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   ChevronDown,
   Circle,
   CircleAlert,
@@ -33,8 +32,6 @@ import {
   conditionSummary,
   conditionTone,
   courseListTitle,
-  courseSearchHref,
-  suggestedCourses,
   hidesCondition,
   listedCourseCounts,
   requirementRowStatus,
@@ -46,7 +43,7 @@ import type {
   TreeContext,
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCourseOptions } from "./requirement-course-options";
-import { RequirementCourseRow } from "./requirement-course-row";
+import { MatchingCourses } from "./matching-courses";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 
 /**
@@ -123,54 +120,6 @@ function CountedCourses({
         <p className="text-xs text-destructive">
           Over this limit, so counting towards nothing: {overCap.join(", ")}
         </p>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * A few courses that would count towards a rule still short of units, and a
- * way into the course search with the rule's filters applied for the rest.
- */
-function CourseSuggestions({
-  condition,
-  context,
-}: {
-  condition: RequirementTreeCondition;
-  context: TreeContext;
-}) {
-  const courses = suggestedCourses(condition, context);
-  const href = courseSearchHref(condition, context.catalogue.academicYear);
-  if (!courses.length && !href) return null;
-  return (
-    <div className="flex flex-col gap-2">
-      {courses.length ? (
-        <>
-          <p className="text-xs font-medium text-muted-foreground">
-            Suggested courses
-          </p>
-          <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {courses.map((course) => (
-              <RequirementCourseRow
-                key={course.code}
-                code={course.code}
-                year={course.year}
-                course={course}
-                status={null}
-                onAdd={context.onAddCourse}
-              />
-            ))}
-          </ul>
-        </>
-      ) : null}
-      {href ? (
-        <Link
-          href={href}
-          className="inline-flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          See all matching courses
-          <ArrowRight className="size-3.5" aria-hidden="true" />
-        </Link>
       ) : null}
     </div>
   );
@@ -388,8 +337,18 @@ function StatedCondition({
   const progress = context?.progress.get(requirementNodeKey(condition));
   // The summary leads with how much is needed; the category only follows it
   // when the summary does not already name it.
-  const title = conditionSummary(displayedCondition);
-  const heading = conditionHeading(condition);
+  const title = conditionSummary(
+    displayedCondition,
+    context?.catalogue.courses.filter(
+      (course) => course.year === context.catalogue.academicYear,
+    ),
+  );
+  const heading = conditionHeading(
+    condition,
+    context?.catalogue.courses.filter(
+      (course) => course.year === context.catalogue.academicYear,
+    ),
+  );
   const detail = [
     title.toLowerCase().includes(heading.toLowerCase()) ? null : heading,
     showProgress ? null : interpretation,
@@ -411,8 +370,11 @@ function StatedCondition({
       />
     ) : null;
   const suggestions =
-    (selector || status?.kind === "todo") && context ? (
-      <CourseSuggestions condition={condition} context={context} />
+    context &&
+    ["subject_units", "level_units", "tagged_units", "elective_units"].includes(
+      condition.conditionKind,
+    ) ? (
+      <MatchingCourses condition={condition} context={context} />
     ) : null;
   return (
     <RuleRow
@@ -554,7 +516,14 @@ export function RequirementCondition({
     <RuleRow
       ruleKey={requirementNodeKey(condition)}
       status={status}
-      title={courseListTitle(condition, codes, required)}
+      title={courseListTitle(
+        condition,
+        codes,
+        required,
+        context.catalogue.courses.filter(
+          (course) => course.year === context.catalogue.academicYear,
+        ),
+      )}
       detail={
         <>
           {detail}
@@ -584,6 +553,9 @@ export function RequirementCondition({
         required={required}
         context={context}
       />
+      {condition.includesAnyCourse ? (
+        <MatchingCourses condition={condition} context={context} />
+      ) : null}
     </RuleRow>
   );
 }

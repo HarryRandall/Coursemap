@@ -1,3 +1,4 @@
+import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
@@ -5,6 +6,7 @@ import type {
 } from "@/lib/coursemap/plan-catalogue";
 import {
   conditionHeading,
+  courseSearchHref,
   conditionSummary,
   conditionTone,
   hidesCondition,
@@ -87,59 +89,6 @@ export type StructureToPlan = {
   openCount: number;
 };
 
-/**
- * The course search filters that list what a units rule would count: its
- * subject or tag, and its levels as the leading digit ("3+" for 3000 level
- * or above). Rules any course meets have none.
- */
-function ruleSearchParams(rule: RequirementTreeCondition) {
-  const digit = (level: number) => String(level < 10 ? level : level / 1000);
-  const { minimumLevel, maximumLevel } = rule;
-  const params = new URLSearchParams();
-  if (rule.conditionKind === "subject_units" && rule.subjectCode)
-    params.set("subject", rule.subjectCode);
-  else if (rule.conditionKind === "tagged_units" && rule.tag)
-    params.set("tag", rule.tag);
-  else if (rule.conditionKind !== "level_units") return null;
-  if (minimumLevel !== null)
-    params.set(
-      "level",
-      minimumLevel === maximumLevel
-        ? digit(minimumLevel)
-        : `${digit(minimumLevel)}+`,
-    );
-  else if (maximumLevel !== null) params.set("level", digit(maximumLevel));
-  return params.size > 0 ? params.toString() : null;
-}
-
-/** A rule named in a few words, so a list of them reads at a glance. */
-function shortHeading(rule: RequirementTreeCondition, compulsory: boolean) {
-  const level = rule.minimumLevel !== null ? ` ${rule.minimumLevel}+` : "";
-  switch (rule.conditionKind) {
-    case "subject_units":
-      return rule.subjectCode
-        ? level
-          ? `${rule.subjectCode}${level}`
-          : `${rule.subjectCode} courses`
-        : "Subject courses";
-    case "level_units":
-      return rule.minimumLevel !== null
-        ? `${rule.minimumLevel}-level courses`
-        : "Course level";
-    case "course_set_units": {
-      if (compulsory) return "Core courses";
-      const count = rule.minimumCourses ?? 1;
-      return count === 1 ? "Pick one" : `Pick ${count}`;
-    }
-    case "elective_units":
-      return "Electives";
-    case "units_total":
-      return "Total units";
-    default:
-      return conditionHeading(rule);
-  }
-}
-
 function requirementRules(
   node: RequirementTreeNode,
   context: TreeContext,
@@ -183,8 +132,19 @@ export function structuresToPlan({
       const figure = status.kind === "unmeasured" ? null : status.figure;
       return {
         key: `${structure.code}:${rule.id}`,
-        heading: shortHeading(rule, compulsory),
-        detail: conditionSummary(rule),
+        heading:
+          requirementTitle(
+            rule,
+            catalogue.courses.filter(
+              (course) => course.year === catalogue.academicYear,
+            ),
+          ) ?? conditionHeading(rule),
+        detail: conditionSummary(
+          rule,
+          catalogue.courses.filter(
+            (course) => course.year === catalogue.academicYear,
+          ),
+        ),
         count: figure
           ? `${Math.min(figure.value, figure.target)} / ${figure.target} ${figure.unit}`
           : "",
@@ -199,7 +159,11 @@ export function structuresToPlan({
           course: courseFor(code),
           status: context.attemptStatusByCode.get(code) ?? null,
         })),
-        browse: listed.codes.length > 0 ? null : ruleSearchParams(rule),
+        browse:
+          listed.codes.length > 0
+            ? null
+            : (courseSearchHref(rule, catalogue.academicYear)?.split("?")[1] ??
+              null),
         note:
           rule.conditionKind === "units_total"
             ? "Every course counts here, core and elective alike, so the rules above fill it as you plan."

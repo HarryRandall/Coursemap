@@ -1,3 +1,4 @@
+import { courseLevelBounds } from "@/lib/coursemap/course-level-filter";
 import { withPlanningState } from "@/ui/plan/planning-page";
 import { Button } from "@coursemap/ui/primitives/button";
 import ReuiLink from "next/link";
@@ -19,6 +20,7 @@ import {
 import { CourseDirectory } from "../course-directory";
 
 type CoursesSearchParams = {
+  codes?: string | string[];
   year?: string | string[];
   prerequisite?: string | string[];
   q?: string | string[];
@@ -56,19 +58,26 @@ async function CoursesPage({
       ? 2026
       : undefined;
   const levelParam = firstParam(params.level);
-  // A digit is that level; a digit and + is that level or higher, which is
-  // how degree rules ask for units ("2000-level or higher").
-  const level = /^[1-9]\+?$/u.test(levelParam) ? levelParam : "";
+  const level = courseLevelBounds(levelParam) ? levelParam : "";
   const session = academicPeriodCode(firstParam(params.session)) ?? "";
   const unitsParam = firstParam(params.units);
   const units = /^\d{1,2}$/u.test(unitsParam) ? unitsParam : "";
   const mode = firstParam(params.mode).slice(0, 80);
   const subjectParam = firstParam(params.subject).toUpperCase();
-  const subject = /^[A-Z]{4}$/u.test(subjectParam) ? subjectParam : "";
+  const subject = subjectParam
+    .split(/[,\s]+/u)
+    .every((code) => /^[A-Z]{4}$/u.test(code))
+    ? subjectParam
+    : "";
+  const codes = firstParam(params.codes)
+    .split(",")
+    .filter((code) => /^[A-Z]{4}\d{4}[A-Z]?$/u.test(code))
+    .join(",");
   const college = firstParam(params.college).slice(0, 120);
   const area = firstParam(params.area).slice(0, 120);
   const tag = firstParam(params.tag).slice(0, 120);
   const filters = {
+    codes,
     query,
     subject,
     level,
@@ -106,6 +115,7 @@ async function CoursesPage({
     catalogueUnavailable = true;
   }
   const paginationSearchParams = {
+    codes: codes || undefined,
     year: academicYear === undefined ? undefined : String(academicYear),
     prerequisite: prerequisite || undefined,
     q: query || undefined,

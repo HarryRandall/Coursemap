@@ -35,8 +35,10 @@ test("a student moves a course to another part it qualifies for", async () => {
     overCapKey: null,
   });
   render(<PlacementControl courseCode="COMP1100" placement={placement} />);
-  const trigger = screen.getByRole("button", { name: "Where COMP1100 counts" });
-  expect(trigger).toHaveAttribute("title", "Where this course counts");
+  const trigger = screen.getByRole("button", {
+    name: "Counts towards for COMP1100",
+  });
+  expect(trigger).toHaveAttribute("title", "Counts towards");
   await user.click(trigger);
   expect(
     screen.queryByRole("button", { name: "Let Coursemap decide" }),
@@ -53,7 +55,9 @@ test("a student's choice can be handed back to Coursemap", async () => {
     overCapKey: null,
   });
   render(<PlacementControl courseCode="COMP1100" placement={placement} />);
-  const trigger = screen.getByRole("button", { name: "Where COMP1100 counts" });
+  const trigger = screen.getByRole("button", {
+    name: "Counts towards for COMP1100",
+  });
   expect(trigger).toHaveAttribute(
     "title",
     "You chose where this course counts",
@@ -76,7 +80,7 @@ test("a course over a limit says it counts towards nothing", () => {
     screen.getByText(/Over the limit on 1000-level limit/),
   ).toHaveTextContent("counts towards nothing");
   expect(
-    screen.queryByRole("button", { name: "Where COMP1100 counts" }),
+    screen.queryByRole("button", { name: "Counts towards for COMP1100" }),
   ).not.toBeInTheDocument();
 });
 
@@ -89,4 +93,50 @@ test("a course no part accepts says so", () => {
   expect(
     screen.getByText("Doesn't count towards this degree"),
   ).toBeInTheDocument();
+});
+
+test("one qualifying destination has no control, even when pinned", () => {
+  const { placement } = placementFor(
+    { nodeKey: "computing", pinned: true, overCapKey: null },
+    ["computing"],
+  );
+  const { container } = render(
+    <PlacementControl courseCode="COMP1100" placement={placement} />,
+  );
+  expect(container).toBeEmptyDOMElement();
+});
+
+test("the counts-towards menu opens with the keyboard and returns focus on Escape", async () => {
+  const user = userEvent.setup();
+  const { placement } = placementFor({
+    nodeKey: "electives",
+    pinned: false,
+    overCapKey: null,
+  });
+  render(<PlacementControl courseCode="COMP1100" placement={placement} />);
+  const trigger = screen.getByRole("button", {
+    name: "Counts towards for COMP1100",
+  });
+  expect(trigger).toHaveTextContent("Counts towards: Electives");
+  trigger.focus();
+  await user.keyboard("{Enter}");
+  expect(
+    screen.getByRole("button", { name: "Computing courses" }),
+  ).toBeVisible();
+  await user.keyboard("{Escape}");
+  expect(
+    screen.queryByRole("button", { name: "Computing courses" }),
+  ).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});
+
+test("a course counting somewhere it cannot be moved shows nothing", () => {
+  const { placement } = placementFor(
+    { nodeKey: "computing", pinned: false, overCapKey: null },
+    [],
+  );
+  const { container } = render(
+    <PlacementControl courseCode="COMP1100" placement={placement} />,
+  );
+  expect(container).toBeEmptyDOMElement();
 });

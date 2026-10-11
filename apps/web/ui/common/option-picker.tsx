@@ -22,8 +22,11 @@ export function OptionPicker({
   placeholder = "Select...",
   className,
   disabled,
+  variant = "outline",
+  triggerLabel,
   ...triggerProps
 }: Omit<ComponentProps<typeof Button>, "value" | "onChange" | "children"> & {
+  triggerLabel?: string;
   items: OptionMenuItem<string>[];
   value: string;
   onValueChange: (value: string) => void;
@@ -52,12 +55,12 @@ export function OptionPicker({
           {...triggerProps}
           data-slot="option-picker-trigger"
           type="button"
-          variant="outline"
+          variant={variant}
           className={cn("w-fit max-w-full justify-between", className)}
           disabled={disabled || items.length === 0}
         >
           <span className="min-w-0 truncate text-left">
-            {selected?.label ?? placeholder}
+            {triggerLabel ?? selected?.label ?? placeholder}
           </span>
           <ChevronDown aria-hidden="true" className="shrink-0" size={16} />
         </Button>
