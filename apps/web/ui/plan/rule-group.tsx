@@ -12,12 +12,13 @@ import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
 import type { RuleToPlan } from "@/ui/plan/plan-suggestions";
 import { CourseRow, type DragStart } from "@/ui/plan/course-row";
+import { RuleMatchingCourses } from "@/ui/plan/rule-matching-courses";
 import { RequirementOverrideControl } from "@/ui/requirements/requirement-override-control";
 
 /**
  * A rule as a group that opens to its courses, with how much of it the plan
- * covers. Rules that count units by filter name no courses, so they point to
- * the course directory instead.
+ * covers. Tag and subject rules load the courses they match; a rule any
+ * course fills points to the course directory instead.
  */
 export function RuleGroup({
   rule,
@@ -38,17 +39,23 @@ export function RuleGroup({
   onDragStart: DragStart;
 }) {
   const [open, setOpen] = useState(
-    () => !rule.covered && rule.courses.length > 0 && rule.courses.length <= 12,
+    () =>
+      !rule.covered &&
+      ((rule.courses.length > 0 && rule.courses.length <= 12) ||
+        rule.matching !== null),
   );
   const courses = readOnly
     ? rule.courses
     : rule.courses.filter((item) => item.status === null);
-  const expandable = courses.length > 0 || Boolean(rule.options?.length);
+  const expandable =
+    courses.length > 0 ||
+    Boolean(rule.options?.length) ||
+    rule.matching !== null;
   const toggle = () => setOpen((value) => !value);
   const count = rule.count ? (
     <span
       className={cn(
-        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums",
+        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap tabular-nums",
         rule.covered
           ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
           : "bg-primary/10 text-primary",
@@ -61,60 +68,65 @@ export function RuleGroup({
     <section aria-label={rule.detail} className="space-y-1">
       {/* One line: the heading, an (i) with the rule in full, then progress. */}
       <div className="flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-muted/50">
-        {rule.covered ? (
-          <CheckCircle2
-            size={13}
-            aria-label="Covered"
-            className="shrink-0 text-emerald-600 dark:text-emerald-400"
-          />
-        ) : null}
-        {expandable ? (
-          <button
-            type="button"
-            aria-expanded={open}
-            onClick={toggle}
-            className="min-w-0 cursor-pointer truncate text-left text-xs font-semibold text-foreground"
-          >
-            {rule.heading}
-          </button>
-        ) : (
-          <span className="min-w-0 truncate text-xs font-semibold text-foreground">
-            {rule.heading}
-          </span>
-        )}
-        <Tooltip delayDuration={100}>
-          <TooltipTrigger asChild>
+        <span className="flex min-w-0 flex-1 items-center gap-1">
+          {rule.covered ? (
+            <CheckCircle2
+              size={13}
+              aria-label="Covered"
+              className="shrink-0 text-emerald-600 dark:text-emerald-400"
+            />
+          ) : null}
+          {expandable ? (
             <button
               type="button"
-              aria-label={`About ${rule.heading}: ${rule.detail}`}
-              className="grid size-5 shrink-0 cursor-help place-items-center rounded text-muted-foreground/70 transition hover:text-foreground"
+              aria-expanded={open}
+              onClick={toggle}
+              className="min-w-0 cursor-pointer truncate text-left text-xs font-semibold text-foreground"
             >
-              <Info size={12} aria-hidden="true" />
+              {rule.heading}
             </button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-64 text-xs">
-            {rule.detail}
-          </TooltipContent>
-        </Tooltip>
-        <span
-          aria-hidden="true"
-          onClick={expandable ? toggle : undefined}
-          className={cn(
-            "flex flex-1 items-center justify-end gap-1.5",
-            expandable && "cursor-pointer",
+          ) : (
+            <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+              {rule.heading}
+            </span>
           )}
-        >
-          {count}
+          <Tooltip delayDuration={100}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`About ${rule.heading}: ${rule.detail}`}
+                className="grid size-5 shrink-0 cursor-help place-items-center rounded text-muted-foreground/70 transition hover:text-foreground"
+              >
+                <Info size={12} aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-64 text-xs">
+              {rule.detail}
+            </TooltipContent>
+          </Tooltip>
           {expandable ? (
-            <ChevronDown
-              size={14}
-              className={cn(
-                "shrink-0 text-muted-foreground transition-transform",
-                open && "rotate-180",
-              )}
+            <span
+              aria-hidden="true"
+              onClick={toggle}
+              className="min-w-2 flex-1 cursor-pointer self-stretch"
             />
           ) : null}
         </span>
+        {count}
+        {expandable ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={toggle}
+            className="grid size-5 shrink-0 cursor-pointer place-items-center text-muted-foreground"
+          >
+            <ChevronDown
+              size={14}
+              className={cn("transition-transform", open && "rotate-180")}
+            />
+          </button>
+        ) : null}
         {structureCode && rule.requirementKey && !readOnly ? (
           <RequirementOverrideControl
             structureCode={structureCode}
@@ -156,6 +168,17 @@ export function RuleGroup({
             ),
           )}
         </ul>
+      ) : null}
+      {expandable && open && rule.matching ? (
+        <RuleMatchingCourses
+          rule={rule}
+          matching={rule.matching}
+          kind={kind}
+          onAdd={onAdd}
+          onOpen={onOpen}
+          onDragStart={onDragStart}
+          readOnly={readOnly}
+        />
       ) : null}
       {open &&
         rule.options?.map((option) => (

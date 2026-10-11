@@ -366,6 +366,14 @@ function evaluatePlannedCondition(
   return { state: "unsatisfied", missingCodes: [] };
 }
 
+/**
+ * Parsed and verified rules are both checked, as the course page checks them.
+ * Only a rule the importer flagged for review is left to the student to read.
+ */
+function isCheckable(reviewState: string) {
+  return reviewState !== "review";
+}
+
 function evaluateRelationalPrerequisite(
   expression: CourseRuleExpression,
   attempt: Attempt,
@@ -453,7 +461,7 @@ function evaluateRelationalPrerequisite(
   if (expression.hardness === "advisory") {
     return { state: "satisfied", missingCodes: [] };
   }
-  if (expression.reviewState !== "verified") {
+  if (!isCheckable(expression.reviewState)) {
     return { state: "unknown", missingCodes: [] };
   }
 
@@ -587,7 +595,7 @@ export function evaluateCoursePrerequisites(
     return { state: "satisfied", missingCodes: [] };
   }
   if (
-    course.prerequisiteRule.reviewState !== "verified" ||
+    !isCheckable(course.prerequisiteRule.reviewState) ||
     course.prerequisiteRule.relationalExpression === null
   ) {
     return { state: "unknown", missingCodes: [] };
@@ -614,7 +622,7 @@ export function evaluateCourseIncompatibilities(
   )?.incompatibilityRule;
   if (!rule || rule.hardness === "advisory")
     return { state: "satisfied", missingCodes: [] };
-  if (rule.reviewState !== "verified" || !rule.relationalExpression)
+  if (!isCheckable(rule.reviewState) || !rule.relationalExpression)
     return { state: "unknown", missingCodes: [] };
   return evaluateRelationalPrerequisite(
     rule.relationalExpression,
@@ -752,7 +760,7 @@ export function coursePlanStatus(
     ["incompatibility", course.incompatibilityRule],
   ] as const) {
     if (rule?.hardness === "advisory") continue;
-    if (rule?.reviewState === "verified" && rule.relationalExpression)
+    if (rule && isCheckable(rule.reviewState) && rule.relationalExpression)
       check(rule.relationalExpression, code);
     else if (
       code === "prerequisite" &&

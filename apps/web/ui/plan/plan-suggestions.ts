@@ -1,3 +1,7 @@
+import {
+  boundedRequirement,
+  requirementCourseParams,
+} from "@/lib/coursemap/requirement-course-filters";
 import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
@@ -85,6 +89,15 @@ export type RuleToPlan = {
   options?: RuleToPlan[];
   /** Course directory filters for a rule that names no courses. */
   browse: string | null;
+  /**
+   * The courses a tag or subject rule matches, loaded when it opens, with
+   * where each stands in the plan. Null for a rule that lists its courses or
+   * that any course fills.
+   */
+  matching: {
+    query: string;
+    statusByCode: ReadonlyMap<string, AttemptStatus>;
+  } | null;
   /**
    * A line on what counts, for a rule whose heading cannot say it, such as
    * a degree total that every course adds to.
@@ -244,6 +257,7 @@ export function structuresToPlan({
               ),
           estimatedCount: remaining.some((option) => option.estimatedCount),
           browse: null,
+          matching: null,
           note: null,
         };
       }
@@ -348,6 +362,18 @@ export function structuresToPlan({
             ? null
             : (courseSearchHref(rule, catalogue.academicYear)?.split("?")[1] ??
               null),
+        matching:
+          listed.codes.length === 0 &&
+          catalogue.academicYear !== null &&
+          boundedRequirement(rule)
+            ? {
+                query: requirementCourseParams(
+                  rule,
+                  catalogue.academicYear,
+                ).toString(),
+                statusByCode: context.attemptStatusByCode,
+              }
+            : null,
         note:
           rule.conditionKind === "units_total"
             ? "Every course counts here, core and elective alike, so the rules above fill it as you plan."

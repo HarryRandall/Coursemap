@@ -2,36 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@coursemap/ui/primitives/button";
-import type { Course } from "@/lib/coursemap/types";
+import {
+  matchingCoursePage as matchingPage,
+  type MatchingCoursePage as CoursePage,
+} from "./matching-course-pages";
 import type { TreeContext } from "./requirement-presentation";
 import { RequirementCourseRow } from "./requirement-course-row";
 import { PlacementControl } from "./placement-control";
-
-type CoursePage = {
-  courses: Course[];
-  total: number;
-  nextCursor: string | null;
-};
-// Only public catalogue rows are cached. Plan status is read from the current context.
-const pages = new Map<string, Promise<CoursePage>>();
-
-function matchingPage(key: string, cursor: string | null) {
-  const url = `/api/requirements/courses?${key}&cursor=${cursor ?? "1"}`;
-  const cached = pages.get(url);
-  if (cached) return cached;
-  const pending = fetch(url)
-    .then(async (response) => {
-      if (!response.ok)
-        throw new Error("Matching courses could not be loaded.");
-      return (await response.json()) as CoursePage;
-    })
-    .catch((error: unknown) => {
-      pages.delete(url);
-      throw error;
-    });
-  pages.set(url, pending);
-  return pending;
-}
 
 export function PaginatedMatchingCourses({
   ruleKey,

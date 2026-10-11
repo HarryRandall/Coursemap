@@ -147,6 +147,7 @@ test("the planner side panel exposes the same override control in its rule heade
         estimatedCount: false,
         catchAll: false,
         browse: null,
+        matching: null,
         note: null,
       },
     ],
