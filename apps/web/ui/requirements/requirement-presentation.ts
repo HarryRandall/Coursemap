@@ -1,3 +1,8 @@
+import { requirementCourseParams } from "@/lib/coursemap/requirement-course-filters";
+import {
+  requirementTitle,
+  requirementCourseCount,
+} from "@/lib/coursemap/requirement-titles";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type {
@@ -92,7 +97,12 @@ export function conditionTone(
 }
 
 /** A short title for a condition. Never the stored condition kind itself. */
-export function conditionHeading(condition: RequirementTreeCondition) {
+export function conditionHeading(
+  condition: RequirementTreeCondition,
+  courses: readonly Course[] = [],
+) {
+  const title = requirementTitle(condition, courses);
+  if (title) return title;
   const courseCount = condition.options.filter(
     (option) => option.kind === "course",
   ).length;
@@ -183,7 +193,12 @@ function sentence(text: string) {
  * student needs sat in the smallest, faintest text. Kinds whose
  * interpretation already reads as a sentence keep it.
  */
-export function conditionSummary(condition: RequirementTreeCondition) {
+export function conditionSummary(
+  condition: RequirementTreeCondition,
+  courses: readonly Course[] = [],
+) {
+  const title = requirementTitle(condition, courses);
+  if (title) return title;
   const quantity = unitQuantity(condition.minimumUnits, condition.maximumUnits);
   const levels = levelPhrase(condition.minimumLevel, condition.maximumLevel);
   const scoped = (subject: string) =>
@@ -473,8 +488,15 @@ export function listedCourseCounts(
   return {
     codes,
     required:
-      condition.minimumCourses !== null &&
-      condition.minimumCourses >= codes.length,
+      codes.length > 0 &&
+      ((condition.minimumCourses !== null &&
+        condition.minimumCourses >= codes.length) ||
+        requirementCourseCount(
+          condition,
+          context.catalogue.courses.filter(
+            (course) => course.year === context.catalogue.academicYear,
+          ),
+        ) === codes.length),
     done: codes.filter((code) => statusOf(code) === "completed").length,
     planned: codes.filter((code) =>
       ["planned", "enrolled"].includes(statusOf(code) ?? ""),
@@ -625,39 +647,15 @@ export function requirementRowStatus(
   return statusFromProgress(progress);
 }
 
-function listed(codes: string[], conjunction: "and" | "or") {
-  return codes.length === 1
-    ? codes[0]
-    : `${codes.slice(0, -1).join(", ")} ${conjunction} ${codes.at(-1)}`;
-}
-
-/**
- * A course list named by what the student does with it: "Pick COMP1100 or
- * COMP1130" when the options are few enough to read in a line, and a count
- * of them otherwise.
- */
 export function courseListTitle(
   condition: RequirementTreeCondition,
-  codes: string[],
-  required: boolean,
+  _codes: string[],
+  _required: boolean,
+  courses: readonly Course[] = [],
 ) {
-  if (required) {
-    return codes.length <= 3
-      ? `Take ${listed(codes, "and")}`
-      : `Take all ${codes.length} listed courses`;
-  }
-  const count = condition.minimumCourses;
-  if (count === 1 && codes.length <= 3) return `Pick ${listed(codes, "or")}`;
-  if (count !== null && count > 0) {
-    return `Pick ${count} of ${codes.length} courses`;
-  }
-  if (condition.minimumUnits === 0 && condition.maximumUnits !== null) {
-    return `Pick up to ${formatUnits(condition.maximumUnits)} from ${codes.length} ${codes.length === 1 ? "course" : "courses"}`;
-  }
-  if (condition.minimumUnits !== null) {
-    return `Pick ${formatUnits(condition.minimumUnits)} from ${codes.length} courses`;
-  }
-  return `Pick from ${codes.length} courses`;
+  return (
+    requirementTitle(condition, courses) ?? conditionSummary(condition, courses)
+  );
 }
 
 /**
@@ -710,29 +708,17 @@ export function courseSearchHref(
   condition: RequirementTreeCondition,
   academicYear: number | null,
 ) {
-  const params = new URLSearchParams();
-  const digit = (level: number) => String(level < 10 ? level : level / 1000);
-  const { minimumLevel, maximumLevel } = condition;
-  const level =
-    minimumLevel !== null
-      ? minimumLevel === maximumLevel
-        ? digit(minimumLevel)
-        : `${digit(minimumLevel)}+`
-      : maximumLevel !== null
-        ? digit(maximumLevel)
-        : null;
-  if (condition.conditionKind === "subject_units" && condition.subjectCode) {
-    params.set("subject", condition.subjectCode);
-  } else if (condition.conditionKind === "tagged_units" && condition.tag) {
-    params.set("tag", condition.tag);
-  } else if (
-    condition.conditionKind !== "level_units" &&
-    condition.conditionKind !== "elective_units"
-  ) {
+  if (
+    ![
+      "course_set_units",
+      "subject_units",
+      "tagged_units",
+      "level_units",
+      "elective_units",
+    ].includes(condition.conditionKind)
+  )
     return null;
-  }
-  if (level && /^[1-9]\+?$/u.test(level)) params.set("level", level);
-  if (academicYear !== null) params.set("year", String(academicYear));
-  const query = params.toString();
-  return query ? `/courses?${query}` : "/courses";
+  if (academicYear === null) return null;
+  const params = requirementCourseParams(condition, academicYear);
+  return `/courses?${params.toString()}`;
 }

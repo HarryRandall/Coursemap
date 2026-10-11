@@ -259,7 +259,7 @@ function RuleGroup({
           href={rule.browse ? `/courses?${rule.browse}` : "/courses"}
           className="flex items-center gap-1 rounded-md px-1 py-1 text-[12px] text-primary transition hover:underline"
         >
-          {rule.browse ? "Browse courses that count" : "Browse courses"}
+          Browse elective courses
           <ArrowRight size={12} aria-hidden="true" />
         </Link>
       ) : null}
