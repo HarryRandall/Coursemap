@@ -47,4 +47,3 @@ grant select, insert, update, delete on public.plan_requirement_overrides to aut
 grant all on public.plan_requirement_overrides to service_role;
 create policy plan_requirement_overrides_owner on public.plan_requirement_overrides for all to authenticated
     using (owner_id = (select auth.uid())) with check (owner_id = (select auth.uid()));
-
