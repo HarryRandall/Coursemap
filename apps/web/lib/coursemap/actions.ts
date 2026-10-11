@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
+import { validPlanOverride, validCreditedUnits } from "./plan-overrides";
+import type { PlanOverride, RequirementOverride } from "./types";
 import type { AttemptStatus, Profile } from "@/lib/coursemap/types";
 import { publicErrorMessage } from "@/lib/public-errors";
 import { createClient } from "@/lib/supabase/server";
@@ -329,6 +331,120 @@ export async function setRequirementPlacement(
       message: placement
         ? `${courseCode} moved`
         : `${courseCode} placed automatically`,
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+async function overridePlan() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  if (!user) throw new Error("Sign in to change your plan.");
+  const { data: plan, error } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("owner_id", user.id)
+    .eq("is_primary", true)
+    .single();
+  if (error) throw error;
+  return { supabase, planId: plan.id, ownerId: user.id };
+}
+
+export async function setCourseOverride(
+  courseCode: string,
+  override: PlanOverride | null,
+): Promise<CoursemapActionResult> {
+  if (
+    !/^[A-Z]{4}\d{4}[A-Z]?$/.test(courseCode) ||
+    (override !== null && !validPlanOverride(override))
+  )
+    return {
+      ok: false,
+      message: "Choose a valid reason and a note of at most 500 characters.",
+    };
+  try {
+    const { supabase, planId, ownerId } = await overridePlan();
+    const { error } = override
+      ? await supabase.from("plan_course_overrides").upsert(
+          {
+            plan_id: planId,
+            owner_id: ownerId,
+            course_code: courseCode,
+            reason: override.reason,
+            note: override.note ?? null,
+          },
+          { onConflict: "plan_id,course_code" },
+        )
+      : await supabase
+          .from("plan_course_overrides")
+          .delete()
+          .eq("plan_id", planId)
+          .eq("course_code", courseCode);
+    if (error) throw error;
+    revalidatePath("/", "layout");
+    return {
+      ok: true,
+      message: override ? "Course bypass saved." : "Course bypass removed.",
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setRequirementOverride(
+  structureCode: string,
+  requirementKey: string,
+  override: Omit<
+    RequirementOverride,
+    "structureCode" | "requirementKey"
+  > | null,
+): Promise<CoursemapActionResult> {
+  if (
+    !/^[A-Za-z0-9_-]{1,32}$/.test(structureCode) ||
+    !requirementKey.trim() ||
+    requirementKey.length > 200 ||
+    (override !== null &&
+      (!validPlanOverride(override) ||
+        !validCreditedUnits(override.creditedUnits)))
+  )
+    return {
+      ok: false,
+      message:
+        "Choose a valid reason, note and whole number of credited units.",
+    };
+  try {
+    const { supabase, planId, ownerId } = await overridePlan();
+    const { error } = override
+      ? await supabase.from("plan_requirement_overrides").upsert(
+          {
+            plan_id: planId,
+            owner_id: ownerId,
+            structure_code: structureCode,
+            requirement_key: requirementKey,
+            reason: override.reason,
+            note: override.note ?? null,
+            credited_units: override.creditedUnits ?? null,
+          },
+          { onConflict: "plan_id,structure_code,requirement_key" },
+        )
+      : await supabase
+          .from("plan_requirement_overrides")
+          .delete()
+          .eq("plan_id", planId)
+          .eq("structure_code", structureCode)
+          .eq("requirement_key", requirementKey);
+    if (error) throw error;
+    revalidatePath("/", "layout");
+    return {
+      ok: true,
+      message: override
+        ? "Requirement marked satisfied."
+        : "Requirement override removed.",
     };
   } catch (error) {
     return failure(error);

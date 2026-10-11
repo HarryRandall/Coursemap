@@ -18,7 +18,13 @@ import type {
   Attempt,
   AttemptStatus,
   Profile,
+  PlanOverride,
+  RequirementOverride,
 } from "@/lib/coursemap/types";
+import {
+  validPlanOverride,
+  validCreditedUnits,
+} from "@/lib/coursemap/plan-overrides";
 import { emptyGuestState, guestAttemptId } from "@/lib/coursemap/guest-plan";
 import {
   clearGuestPlanCookie,
@@ -35,11 +41,25 @@ import {
   setCurrentUserPlanExtensionYears,
   setCourseStar,
   setRequirementPlacement,
+  setCourseOverride,
+  setRequirementOverride,
   type CoursemapActionResult,
 } from "@/lib/coursemap/actions";
 
 type AppContextValue = {
   state: AppState;
+  bypassCourse: (
+    courseCode: string,
+    override: PlanOverride | null,
+  ) => Promise<CoursemapActionResult>;
+  overrideRequirement: (
+    structureCode: string,
+    requirementKey: string,
+    override: Omit<
+      RequirementOverride,
+      "structureCode" | "requirementKey"
+    > | null,
+  ) => Promise<CoursemapActionResult>;
   ready: boolean;
   canAccessAdmin: boolean;
   /** The plan is kept in this browser's cookies rather than an account. */
@@ -596,6 +616,79 @@ export function AppProvider({
     [commitGuest, guest, state.attempts],
   );
 
+  const bypassCourse = useCallback(
+    async (courseCode: string, override: PlanOverride | null) => {
+      if (override !== null && !validPlanOverride(override))
+        return { ok: false, message: "Choose a valid reason and note." };
+      const change = (current: AppState): AppState => ({
+        ...current,
+        courseOverrides: [
+          ...(current.courseOverrides ?? []).filter(
+            (item) => item.courseCode !== courseCode,
+          ),
+          ...(override ? [{ courseCode, ...override }] : []),
+        ],
+      });
+      if (guest)
+        return commitGuest(
+          change,
+          override ? "Course bypass saved." : "Course bypass removed.",
+        );
+      const result = await setCourseOverride(courseCode, override);
+      if (result.ok) setState(change);
+      return result;
+    },
+    [guest, commitGuest],
+  );
+
+  const overrideRequirement = useCallback(
+    async (
+      structureCode: string,
+      requirementKey: string,
+      override: Omit<
+        RequirementOverride,
+        "structureCode" | "requirementKey"
+      > | null,
+    ) => {
+      if (
+        override !== null &&
+        (!validPlanOverride(override) ||
+          !validCreditedUnits(override.creditedUnits))
+      )
+        return {
+          ok: false,
+          message:
+            "Choose a valid reason, note and whole number of credited units.",
+        };
+      const change = (current: AppState): AppState => ({
+        ...current,
+        requirementOverrides: [
+          ...(current.requirementOverrides ?? []).filter(
+            (item) =>
+              item.structureCode !== structureCode ||
+              item.requirementKey !== requirementKey,
+          ),
+          ...(override ? [{ structureCode, requirementKey, ...override }] : []),
+        ],
+      });
+      if (guest)
+        return commitGuest(
+          change,
+          override
+            ? "Requirement marked satisfied."
+            : "Requirement override removed.",
+        );
+      const result = await setRequirementOverride(
+        structureCode,
+        requirementKey,
+        override,
+      );
+      if (result.ok) setState(change);
+      return result;
+    },
+    [guest, commitGuest],
+  );
+
   const togglePermission = useCallback((attemptId: string) => {
     setState((current) => ({
       ...current,
@@ -733,6 +826,8 @@ export function AppProvider({
       removeAttempt,
       setPlacement,
       toggleStar,
+      bypassCourse,
+      overrideRequirement,
       togglePermission,
       toggleOverloadApproval,
       notify,
@@ -752,6 +847,8 @@ export function AppProvider({
       removeAttempt,
       setPlacement,
       toggleStar,
+      bypassCourse,
+      overrideRequirement,
       togglePermission,
       toggleOverloadApproval,
       notify,

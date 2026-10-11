@@ -34,7 +34,10 @@ import {
   tuitionEstimate,
 } from "@/lib/coursemap/academic-metrics";
 import { planRisks } from "@/lib/coursemap/plan-risks";
-import { requirementBucketProgress } from "@/lib/coursemap/requirement-progress";
+import {
+  requirementBucketProgress,
+  creditedRequirementUnits,
+} from "@/lib/coursemap/requirement-progress";
 import {
   planTimelineTerms,
   planTimelineYears,
@@ -90,6 +93,17 @@ export function Dashboard({
   const planningCatalogue = useMemo(
     () => ({
       ...catalogue,
+      courseOverrides: state.courseOverrides,
+      creditedRequirementUnits: creditedRequirementUnits(
+        catalogue.structureRequirements,
+        state.requirementOverrides ?? [],
+        new Set([
+          state.profile.degreeCode,
+          state.profile.majorCode,
+          ...(state.profile.minorCodes ?? []),
+          ...(state.profile.specialisationCodes ?? []),
+        ]),
+      ),
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
       enrolmentMode: state.profile.enrolmentMode,
@@ -100,6 +114,11 @@ export function Dashboard({
     [
       catalogue,
       timelineTerms,
+      state.courseOverrides,
+      state.requirementOverrides,
+      state.profile.majorCode,
+      state.profile.minorCodes,
+      state.profile.specialisationCodes,
       state.profile.commencementYear,
       state.profile.enrolmentMode,
       state.profile.degreeCode,
@@ -157,10 +176,16 @@ export function Dashboard({
     () =>
       requirementBucketProgress({
         requirements: catalogue.structureRequirements,
+        overrides: state.requirementOverrides ?? [],
         attempts: state.attempts,
         catalogue: planningCatalogue,
       }),
-    [catalogue.structureRequirements, planningCatalogue, state.attempts],
+    [
+      catalogue.structureRequirements,
+      planningCatalogue,
+      state.attempts,
+      state.requirementOverrides,
+    ],
   );
 
   const composition = useMemo(() => {

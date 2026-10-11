@@ -128,6 +128,7 @@ const NO_ATTEMPTS: readonly Attempt[] = [];
  */
 export function CourseDetailView({
   attempts = NO_ATTEMPTS,
+  bypassed = false,
   commencementYear = null,
   course,
   survey = { status: "empty", report: null },
@@ -139,6 +140,7 @@ export function CourseDetailView({
 }: {
   /** The reader's own plan, so the requisites can mark what they have done. */
   attempts?: readonly Attempt[];
+  bypassed?: boolean;
   /** The year the reader started their degree, for year-standing rules. */
   commencementYear?: number | null;
   course: CourseDetails;
@@ -233,6 +235,7 @@ export function CourseDetailView({
           {yearPicker}
           <CoursePlanStatus
             attempt={attemptForCourse(course.code, attempts)}
+            bypassed={bypassed}
             onAddToPlan={onAddToPlan}
           />
         </div>

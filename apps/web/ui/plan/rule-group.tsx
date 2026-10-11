@@ -12,6 +12,7 @@ import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
 import type { RuleToPlan } from "@/ui/plan/plan-suggestions";
 import { CourseRow, type DragStart } from "@/ui/plan/course-row";
+import { RequirementOverrideControl } from "@/ui/requirements/requirement-override-control";
 
 /**
  * A rule as a group that opens to its courses, with how much of it the plan
@@ -20,6 +21,7 @@ import { CourseRow, type DragStart } from "@/ui/plan/course-row";
  */
 export function RuleGroup({
   rule,
+  structureCode,
   kind,
   onAdd,
   onOpen,
@@ -28,6 +30,8 @@ export function RuleGroup({
 }: {
   readOnly?: boolean;
   rule: RuleToPlan;
+  /** The structure the rule belongs to, so it can be marked satisfied. */
+  structureCode?: string;
   kind: PlanStructureKind;
   onAdd: (course: Course) => void;
   onOpen: (course: Course) => void;
@@ -111,6 +115,12 @@ export function RuleGroup({
             />
           ) : null}
         </span>
+        {structureCode && rule.requirementKey && !readOnly ? (
+          <RequirementOverrideControl
+            structureCode={structureCode}
+            requirementKey={rule.requirementKey}
+          />
+        ) : null}
       </div>
       {expandable && open ? (
         <ul>

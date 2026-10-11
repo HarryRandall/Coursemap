@@ -8,7 +8,7 @@ import {
   loadAttemptVersions,
 } from "@/lib/coursemap/plan-reads";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
-import type { AppState, Attempt } from "@/lib/coursemap/types";
+import type { AppState, Attempt, OverrideReason } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 
@@ -180,6 +180,8 @@ export async function loadCoursemapState(
     attemptsResult,
     placementsResult,
     starsResult,
+    courseOverridesResult,
+    requirementOverridesResult,
   ] = await Promise.all([
     loadPlanYear(plan.academic_year_id),
     loadPlanStructures(plan.id),
@@ -194,6 +196,14 @@ export async function loadCoursemapState(
       .select("course_code")
       .eq("plan_id", plan.id)
       .order("created_at"),
+    supabase
+      .from("plan_course_overrides")
+      .select("course_code,reason,note")
+      .eq("plan_id", plan.id),
+    supabase
+      .from("plan_requirement_overrides")
+      .select("structure_code,requirement_key,reason,note,credited_units")
+      .eq("plan_id", plan.id),
   ]);
 
   for (const result of [
@@ -203,6 +213,8 @@ export async function loadCoursemapState(
     attemptsResult,
     placementsResult,
     starsResult,
+    courseOverridesResult,
+    requirementOverridesResult,
   ]) {
     if (result.error) throw result.error;
   }
@@ -364,6 +376,22 @@ export async function loadCoursemapState(
       requirementKey: row.requirement_key,
     })),
     starredCourses: (starsResult.data ?? []).map((row) => row.course_code),
+    courseOverrides: (courseOverridesResult.data ?? []).map((row) => ({
+      courseCode: row.course_code,
+      reason: row.reason as OverrideReason,
+      ...(row.note === null ? {} : { note: row.note }),
+    })),
+    requirementOverrides: (requirementOverridesResult.data ?? []).map(
+      (row) => ({
+        structureCode: row.structure_code,
+        requirementKey: row.requirement_key,
+        reason: row.reason as OverrideReason,
+        ...(row.note === null ? {} : { note: row.note }),
+        ...(row.credited_units === null
+          ? {}
+          : { creditedUnits: row.credited_units }),
+      }),
+    ),
   };
 }
 

@@ -15,6 +15,14 @@ import {
   suggestions,
 } from "./fixtures/planner-suggestions";
 
+vi.mock("@/app/providers", () => ({
+  useCoursemap: () => ({
+    state: { requirementOverrides: [] },
+    overrideRequirement: vi.fn(),
+    notify: vi.fn(),
+  }),
+}));
+
 const handlers = { onAdd: vi.fn(), onOpen: vi.fn(), onDragStart: vi.fn() };
 
 test("open rules hide completed and planned courses, and covered rules leave the panel", () => {

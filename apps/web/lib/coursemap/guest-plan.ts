@@ -1,3 +1,5 @@
+import { validPlanOverride, validCreditedUnits } from "./plan-overrides";
+import type { CourseOverride, RequirementOverride } from "./types";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
 import type {
   AppState,
@@ -40,6 +42,8 @@ const STATUS_BY_CODE = new Map(
 
 /** Field names are short because every byte counts against the cookie limit. */
 type StoredGuestPlan = {
+  co?: CourseOverride[];
+  ro?: RequirementOverride[];
   v: 1;
   p: {
     n: string;
@@ -81,6 +85,8 @@ export function emptyGuestState(year = new Date().getFullYear()): AppState {
       extensionYears: 0,
     },
     attempts: [],
+    courseOverrides: [],
+    requirementOverrides: [],
     placements: [],
     starredCourses: [],
   };
@@ -90,6 +96,8 @@ function toStored(state: AppState): StoredGuestPlan {
   const { profile } = state;
   return {
     v: 1,
+    co: state.courseOverrides,
+    ro: state.requirementOverrides,
     p: {
       n: profile.name,
       ...(profile.preferredName ? { pn: profile.preferredName } : {}),
@@ -238,6 +246,26 @@ function fromStored(raw: unknown): AppState | null {
     attempts,
     placements,
     starredCourses: codes(stored.st),
+    courseOverrides: (Array.isArray(stored.co) ? stored.co : [])
+      .slice(0, MAX_ATTEMPTS)
+      .filter(
+        (item): item is CourseOverride =>
+          validPlanOverride(item) &&
+          typeof item.courseCode === "string" &&
+          /^[A-Z]{4}\d{4}[A-Z]?$/.test(item.courseCode),
+      ),
+    requirementOverrides: (Array.isArray(stored.ro) ? stored.ro : [])
+      .slice(0, MAX_ATTEMPTS)
+      .filter(
+        (item): item is RequirementOverride =>
+          validPlanOverride(item) &&
+          typeof item.structureCode === "string" &&
+          CODE.test(item.structureCode) &&
+          typeof item.requirementKey === "string" &&
+          item.requirementKey.trim().length > 0 &&
+          item.requirementKey.length <= 200 &&
+          validCreditedUnits(item.creditedUnits),
+      ),
   };
 }
 

@@ -1,4 +1,6 @@
 "use client";
+
+import { RequirementOverrideControl } from "./requirement-override-control";
 import {
   createContext,
   useContext,
@@ -223,6 +225,7 @@ export const OpenRulesContext = createContext<{
  */
 function RuleRow({
   ruleKey,
+  overrideControl,
   status,
   title,
   detail,
@@ -230,6 +233,7 @@ function RuleRow({
   children,
 }: {
   ruleKey: string;
+  overrideControl?: ReactNode;
   status: RequirementRowStatus | null;
   title: string;
   detail?: ReactNode;
@@ -272,6 +276,7 @@ function RuleRow({
             <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
           ) : null}
         </div>
+        {overrideControl}
         {status ? <StatusSummary status={status} /> : null}
         {expandable ? (
           <ChevronDown
@@ -311,7 +316,11 @@ function StatedCondition({
   context?: TreeContext;
   note?: string;
 }) {
-  const tone = conditionTone(condition);
+  const tone =
+    context?.progress.get(requirementNodeKey(condition))?.state ===
+    "done-by-override"
+      ? "requirement"
+      : conditionTone(condition);
   const selector = context?.unitPool === true;
   const displayedCondition = selector
     ? { ...condition, minimumUnits: null }
@@ -328,6 +337,12 @@ function StatedCondition({
         )}
         <AlertTitle>{conditionHeading(condition)}</AlertTitle>
         <AlertDescription>{interpretation}</AlertDescription>
+        {context?.structureCode && context.showPlanProgress !== false ? (
+          <RequirementOverrideControl
+            structureCode={context.structureCode}
+            requirementKey={condition.projectionKey}
+          />
+        ) : null}
       </Alert>
     );
   }
@@ -379,6 +394,14 @@ function StatedCondition({
   return (
     <RuleRow
       ruleKey={requirementNodeKey(condition)}
+      overrideControl={
+        context?.structureCode && context.showPlanProgress !== false ? (
+          <RequirementOverrideControl
+            structureCode={context.structureCode}
+            requirementKey={condition.projectionKey}
+          />
+        ) : null
+      }
       status={status}
       title={title}
       detail={detail}
@@ -515,6 +538,14 @@ export function RequirementCondition({
   return (
     <RuleRow
       ruleKey={requirementNodeKey(condition)}
+      overrideControl={
+        context?.structureCode && context.showPlanProgress !== false ? (
+          <RequirementOverrideControl
+            structureCode={context.structureCode}
+            requirementKey={condition.projectionKey}
+          />
+        ) : null
+      }
       status={status}
       title={courseListTitle(
         condition,

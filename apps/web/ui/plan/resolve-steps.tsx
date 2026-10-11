@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 import { ArrowRight, LoaderCircle, Plus } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
 import { sessionShortName } from "@/lib/coursemap/academic-periods";
@@ -19,7 +20,10 @@ export function ResolveSteps({
   busy,
   onApply,
   onDismiss,
+  footer,
 }: {
+  /** Another way out, shown beneath the fix, such as taking it anyway. */
+  footer?: ReactNode;
   steps: readonly PlanFixStep[];
   catalogue?: PlanCatalogue;
   busy: boolean;
@@ -87,6 +91,9 @@ export function ResolveSteps({
           Apply changes
         </Button>
       </div>
+      {footer ? (
+        <div className="border-t border-border/70 pt-3">{footer}</div>
+      ) : null}
     </div>
   );
 }

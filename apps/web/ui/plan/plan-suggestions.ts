@@ -60,6 +60,8 @@ export type RuleCourse = {
 /** One rule of a structure with the courses it lists, if any. */
 export type RuleToPlan = {
   key: string;
+  requirementKey?: string;
+  overridden?: boolean;
   /** A few words, such as "Core courses" or "Pick one". */
   heading: string;
   /** The rule in full, for a tooltip. */
@@ -295,6 +297,9 @@ export function structuresToPlan({
                 : 0;
       return {
         key: `${structure.code}:${rule.id}`,
+        requirementKey: rule.projectionKey,
+        overridden:
+          status.kind === "complete" && status.label === "Marked satisfied",
         heading:
           listed.done === 0 &&
           listed.planned === 0 &&

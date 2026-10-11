@@ -359,6 +359,7 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
   return parts.join(" · ");
 }
 export type TreeContext = {
+  structureCode?: string;
   catalogue: PlanCatalogue;
   attemptStatusByCode: ReadonlyMap<
     string,
@@ -547,6 +548,8 @@ function statusFromCounts(
 function statusFromProgress(
   progress: RequirementNodeProgress | undefined,
 ): RequirementRowStatus {
+  if (progress?.state === "done-by-override")
+    return { kind: "complete", figure: null, label: "Marked satisfied" };
   if (!progress || progress.state === "unmeasured")
     return { kind: "unmeasured" };
   const target = progress.targetUnits;
@@ -601,6 +604,8 @@ export function requirementRowStatus(
   context: TreeContext,
 ): RequirementRowStatus {
   const progress = context.progress.get(requirementNodeKey(node));
+  if (progress?.state === "done-by-override")
+    return { kind: "complete", figure: null, label: "Marked satisfied" };
   if (node.type !== "condition") {
     const measured = statusFromProgress(progress);
     return measured.kind === "unmeasured"

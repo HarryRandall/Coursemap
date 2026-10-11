@@ -82,6 +82,11 @@ export function CourseDetailClient({
       >
         <CourseDetailView
           attempts={state.attempts}
+          bypassed={Boolean(
+            state.courseOverrides?.some(
+              (item) => item.courseCode === course.code,
+            ),
+          )}
           commencementYear={state.profile.commencementYear}
           course={course}
           survey={survey}

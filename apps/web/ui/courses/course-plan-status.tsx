@@ -37,8 +37,10 @@ export function attemptForCourse(code: string, attempts: readonly Attempt[]) {
 export function CoursePlanStatus({
   attempt,
   onAddToPlan,
+  bypassed = false,
 }: {
   attempt: Attempt | undefined;
+  bypassed?: boolean;
   onAddToPlan?: () => void;
 }) {
   const add = (
@@ -80,6 +82,9 @@ export function CoursePlanStatus({
       >
         <Icon size={15} aria-hidden="true" />
         {label}
+        {bypassed && attempt.status === "planned" ? (
+          <span className="text-muted-foreground"> · Bypassed</span>
+        ) : null}
       </p>
       {attempt.status === "failed" ? (
         add

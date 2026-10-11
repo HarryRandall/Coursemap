@@ -201,6 +201,7 @@ const choices: OnboardingCatalogue = {
 beforeEach(() => {
   vi.clearAllMocks();
   state.attempts = [];
+  state.requirementOverrides = [];
   actions.updateProfile.mockResolvedValue({ ok: true, message: "Saved" });
   actions.addCourse.mockResolvedValue({ ok: true, message: "Added" });
 });
@@ -653,5 +654,33 @@ test.each(["part", "degree"] as const)(
     const degreeLabel = screen.queryByText(/Counts across the whole degree/);
     if (scope === "degree") expect(degreeLabel).toBeVisible();
     else expect(degreeLabel).not.toBeInTheDocument();
+  },
+);
+
+test.each([undefined, 6])(
+  "overall requirements progress counts only explicit override credit (%s)",
+  (creditedUnits) => {
+    state.requirementOverrides = [
+      {
+        structureCode: "BCOMP",
+        requirementKey: "courses",
+        reason: "credit",
+        ...(creditedUnits === undefined ? {} : { creditedUnits }),
+      },
+    ];
+    const { rerender } = render(
+      <Requirements catalogue={catalogue} choices={choices} />,
+    );
+    const progress = screen.getByRole("region", { name: "Computing progress" });
+    expect(
+      within(progress).getByText(`${creditedUnits ?? 0} / 144 units completed`),
+    ).toBeVisible();
+    state.requirementOverrides = [];
+    rerender(
+      <TooltipProvider>
+        <Requirements catalogue={catalogue} choices={choices} />
+      </TooltipProvider>,
+    );
+    expect(within(progress).getByText("0 / 144 units completed")).toBeVisible();
   },
 );

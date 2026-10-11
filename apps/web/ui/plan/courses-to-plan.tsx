@@ -138,6 +138,7 @@ export function CoursesToPlan({
                       <RuleGroup
                         key={rule.key}
                         rule={rule}
+                        structureCode={item.structure.code}
                         kind={item.structure.kind}
                         onAdd={onAdd}
                         onOpen={onOpen}
