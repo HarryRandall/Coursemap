@@ -262,6 +262,7 @@ export function Requirements({
                 catalogue,
                 attempts: state.attempts,
                 placements: state.placements ?? [],
+                overrides: state.requirementOverrides ?? [],
                 statuses: attemptStatuses,
                 selectedStructureCodes: selectedCodes,
                 unitTarget: target,

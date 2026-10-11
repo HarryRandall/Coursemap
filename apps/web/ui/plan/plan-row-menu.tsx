@@ -5,6 +5,7 @@ import {
   BookOpen,
   ExternalLink,
   MoreHorizontal,
+  ShieldOff,
   Trash2,
 } from "lucide-react";
 import {
@@ -30,6 +31,7 @@ export function PlanRowMenu({
   coursePageHref,
   onOpen,
   onMove,
+  onUndoBypass,
   onRemove,
 }: {
   course: Pick<Course, "code" | "name">;
@@ -39,6 +41,8 @@ export function PlanRowMenu({
   coursePageHref: string | null;
   onOpen: () => void;
   onMove: (termId: string) => void;
+  /** Puts the course's requirements back after taking it anyway. */
+  onUndoBypass?: () => void;
   onRemove?: () => void;
 }) {
   return (
@@ -82,6 +86,12 @@ export function PlanRowMenu({
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+        ) : null}
+        {onUndoBypass ? (
+          <DropdownMenuItem onSelect={onUndoBypass}>
+            <ShieldOff aria-hidden="true" />
+            Undo take anyway
+          </DropdownMenuItem>
         ) : null}
         {onRemove ? (
           <>

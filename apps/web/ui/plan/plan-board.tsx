@@ -1,10 +1,12 @@
 "use client";
+
 import { useReturnFocus } from "@/hooks/use-return-focus";
 import {
   AlertTriangle,
   ArrowRight,
   GripVertical,
   Plus,
+  ShieldCheck,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -15,6 +17,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { creditedRequirementUnits } from "@/lib/coursemap/requirement-progress";
 import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
@@ -49,6 +52,8 @@ import {
   attemptStatusByCode,
   planTreeContext,
 } from "@/ui/requirements/plan-tree-context";
+import { TakeAnywayForm } from "@/ui/plan/take-anyway-form";
+import { OVERRIDE_REASONS } from "@/lib/coursemap/plan-overrides";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
 import {
@@ -71,7 +76,6 @@ import {
   type CoursePlanStatus,
   type PlanFixStep,
   planningCourseForAttempt,
-  proposePrerequisiteFix,
   unitsForAttempt,
   type EffectiveStatus,
 } from "@/lib/planner";
@@ -148,6 +152,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     reorderAttempt,
     addCourse,
     removeAttempt,
+    bypassCourse,
     setPlacement,
     setPlanExtensionYears,
     notify,
@@ -235,6 +240,17 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     ];
     const base = {
       ...catalogue,
+      courseOverrides: state.courseOverrides,
+      creditedRequirementUnits: creditedRequirementUnits(
+        catalogue.structureRequirements,
+        state.requirementOverrides ?? [],
+        new Set([
+          state.profile.degreeCode,
+          state.profile.majorCode,
+          ...(state.profile.minorCodes ?? []),
+          ...(state.profile.specialisationCodes ?? []),
+        ]),
+      ),
       courses: known,
       terms: timelineTerms,
       commencementYear: state.profile.commencementYear,
@@ -248,6 +264,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
     catalogue,
     fetchedCourses,
     timelineTerms,
+    state.courseOverrides,
+    state.requirementOverrides,
+    state.profile.majorCode,
+    state.profile.minorCodes,
+    state.profile.specialisationCodes,
     state.profile.commencementYear,
     state.profile.enrolmentMode,
     state.profile.degreeCode,
@@ -459,6 +480,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
             catalogue: planningCatalogue,
             attempts: state.attempts,
             placements: state.placements ?? [],
+            overrides: state.requirementOverrides ?? [],
             statuses,
             selectedStructureCodes,
             unitTarget: kind === "programme" ? (degree?.units ?? null) : null,
@@ -854,10 +876,19 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
   const renderEntry = (entry: Entry, term: Term, session?: string) => {
     const note = issueNote(entry);
     const isResolving = resolvingId === entry.attempt.id;
-    const canResolve =
-      entry.status === "blocked" &&
-      proposePrerequisiteFix(entry.attempt, state.attempts, planningCatalogue)
-        .ok;
+    const bypassOverride =
+      entry.attempt.status === "planned"
+        ? state.courseOverrides?.find(
+            (item) => item.courseCode === entry.course.code,
+          )
+        : undefined;
+    // Anything that stops or holds up the course can be resolved: by the
+    // fix Coursemap finds, or by taking it anyway with a reason.
+    const canBypass =
+      !bypassOverride &&
+      entry.attempt.status === "planned" &&
+      ["blocked", "approval", "review"].includes(entry.status);
+    const canResolve = canBypass;
     const moveStep = fixPreview?.find(
       (step) =>
         step.type === "move" &&
@@ -920,7 +951,15 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
               className="min-w-0 cursor-pointer py-2 pr-2 text-left"
             >
               <span className="flex items-center gap-2.5">
-                <StatusMark status={entry.status} flags={entry.flags} />
+                {bypassOverride ? (
+                  <ShieldCheck
+                    size={15}
+                    aria-label={`Taken anyway: ${OVERRIDE_REASONS[bypassOverride.reason]}`}
+                    className="shrink-0 text-muted-foreground"
+                  />
+                ) : (
+                  <StatusMark status={entry.status} flags={entry.flags} />
+                )}
                 <span className="w-[4.75rem] shrink-0 font-mono text-[11px] text-muted-foreground">
                   {entry.course.code}
                 </span>
@@ -988,6 +1027,14 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                 notify(result.message, result.ok ? "success" : "warning"),
               )
             }
+            onUndoBypass={
+              bypassOverride
+                ? () =>
+                    void bypassCourse(entry.course.code, null).then((result) =>
+                      notify(result.message, result.ok ? "success" : "error"),
+                    )
+                : undefined
+            }
             onRemove={
               entry.attempt.status === "planned" ||
               entry.attempt.status === "enrolled"
@@ -1003,31 +1050,46 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
         <div
           className={cn(
             "col-span-full grid transition-[grid-template-rows,opacity] duration-200 ease-out",
-            isResolving && fixPreview
+            isResolving
               ? "grid-rows-[1fr] opacity-100"
               : "grid-rows-[0fr] opacity-0",
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            {isResolving && fixPreview ? (
+            {isResolving ? (
               <div className="px-2 pb-2">
-                <ResolveSteps
-                  steps={fixPreview}
-                  catalogue={planningCatalogue}
-                  busy={resolving.busy}
-                  onApply={() =>
-                    void resolving
-                      .apply()
-                      .then((done) => done && setResolvingId(null))
-                  }
-                  onDismiss={() => setResolvingId(null)}
-                />
+                {fixPreview ? (
+                  <ResolveSteps
+                    steps={fixPreview}
+                    catalogue={planningCatalogue}
+                    busy={resolving.busy}
+                    onApply={() =>
+                      void resolving
+                        .apply()
+                        .then((done) => done && setResolvingId(null))
+                    }
+                    onDismiss={() => setResolvingId(null)}
+                    footer={
+                      <TakeAnywayForm
+                        courseCode={entry.course.code}
+                        onDone={() => setResolvingId(null)}
+                      />
+                    }
+                  />
+                ) : (
+                  <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+                    <TakeAnywayForm
+                      courseCode={entry.course.code}
+                      onDone={() => setResolvingId(null)}
+                    />
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
         </div>
         {entry.status === "unpublished" && (
-          <div className="col-span-2 flex justify-end px-2 pb-2">
+          <div className="col-span-3 flex justify-end px-2 pb-2">
             <Button
               type="button"
               variant="secondary"

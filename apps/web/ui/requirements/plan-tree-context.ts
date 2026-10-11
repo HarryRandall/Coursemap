@@ -2,6 +2,7 @@ import type {
   Attempt,
   Course,
   RequirementPlacementChoice,
+  RequirementOverride,
 } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
@@ -44,6 +45,7 @@ export function planTreeContext({
   catalogue,
   attempts,
   placements,
+  overrides = [],
   statuses,
   selectedStructureCodes,
   unitTarget,
@@ -51,6 +53,7 @@ export function planTreeContext({
   onAddCourse,
 }: {
   structureCode: string;
+  overrides?: readonly RequirementOverride[];
   root: PlanRequirementGroup | null;
   catalogue: PlanCatalogue;
   attempts: readonly Attempt[];
@@ -85,6 +88,7 @@ export function planTreeContext({
     attempts,
     catalogue,
     pins,
+    overrides: overrides.filter((item) => item.structureCode === structureCode),
   });
   const structure = catalogue.structures.find(
     (candidate) => candidate.code === structureCode,
@@ -135,12 +139,15 @@ export function planTreeContext({
   const labelFor = (nodeKey: string) =>
     labels.get(nodeKey) ?? "another requirement";
   return {
+    structureCode,
     catalogue,
     progress: requirementTreeProgress({
       root,
       attempts,
       catalogue,
       allocation,
+      overrides,
+      structureCode,
     }),
     placement: {
       allocation,

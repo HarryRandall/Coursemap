@@ -4,7 +4,7 @@ import type {
   PlanRequirementNode,
   PlanStructureRequirements,
 } from "@/lib/coursemap/plan-catalogue";
-import type { Attempt } from "@/lib/coursemap/types";
+import type { Attempt, RequirementOverride } from "@/lib/coursemap/types";
 import {
   isActiveAttempt,
   planningCourseForAttempt,
@@ -14,6 +14,7 @@ import {
 
 export type RequirementBucketProgress = {
   key: string;
+  satisfiedByOverride?: boolean;
   title: string;
   /** Full rule prose, untruncated, for tooltips and wider layouts. */
   description: string;
@@ -264,7 +265,9 @@ export function requirementBucketProgress({
   requirements,
   attempts,
   catalogue,
+  overrides = [],
 }: {
+  overrides?: readonly RequirementOverride[];
   requirements: readonly PlanStructureRequirements[];
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
@@ -290,6 +293,17 @@ export function requirementBucketProgress({
 
   const credited = creditedAttempts(attempts, catalogue);
 
+  const overriddenProgress = overrides.some(
+    (item) => item.structureCode === programme?.structureCode,
+  )
+    ? requirementTreeProgress({
+        root,
+        attempts,
+        catalogue,
+        overrides,
+        structureCode: programme?.structureCode,
+      })
+    : null;
   return buckets.map(({ node, title, description }) => {
     const predicates = countableBucketPredicates(node, credited);
     let completedUnits = 0;
@@ -299,8 +313,21 @@ export function requirementBucketProgress({
       if (attempt.status === "completed") completedUnits += units;
       else plannedUnits += units;
     });
+    const overrideProgress = overriddenProgress?.get(requirementNodeKey(node));
+    if (overrideProgress) {
+      completedUnits = overrideProgress.completedUnits;
+      plannedUnits = overrideProgress.plannedUnits;
+    }
     return {
       key: `${node.type}-${node.id}`,
+      ...(overrideProgress
+        ? {
+            satisfiedByOverride:
+              overrideProgress.state === "done-by-override" ||
+              (overrideProgress.state === "satisfied" &&
+                (overrideProgress.creditedUnits ?? 0) > 0),
+          }
+        : {}),
       title,
       description,
       kind: bucketKind(node),
@@ -322,11 +349,18 @@ export function requirementBucketProgress({
  *   evaluate (tags, free text, unrestricted electives), or no stated target.
  */
 export type RequirementNodeState =
-  "satisfied" | "in_progress" | "not_started" | "over_limit" | "unmeasured";
+  | "done-by-override"
+  | "satisfied"
+  | "in_progress"
+  | "not_started"
+  | "over_limit"
+  | "unmeasured";
 
 export type RequirementNodeProgress = {
   key: string;
   state: RequirementNodeState;
+  override?: RequirementOverride;
+  creditedUnits?: number;
   /** Minimum units the rule asks for, when it states one. */
   targetUnits: number | null;
   /** Maximum units the rule allows, when it states one. */
@@ -606,22 +640,28 @@ function allocateSingleAlternative({
   attempts,
   catalogue,
   pins = new Map(),
+  overrides = [],
 }: {
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
   /** A student's chosen part for a course, by course code. */
   pins?: ReadonlyMap<string, string>;
+  overrides?: readonly RequirementOverride[];
 }): RequirementAllocation {
   const placements = new Map<string, CoursePlacement>();
   if (!root) return placements;
   const leaves: Leaf[] = [];
   collectLeaves(allocationRoot(root), "part", true, leaves);
+  const overriddenKeys = new Set(overrides.map((item) => item.requirementKey));
+  const activeLeaves = leaves.filter(
+    (leaf) => !overriddenKeys.has(leaf.node.projectionKey),
+  );
   const credited = orderedCredit(creditedAttempts(attempts, catalogue));
 
   // Caps across the degree decide what may count at all.
   const excluded = new Map<string, string>();
-  for (const leaf of leaves) {
+  for (const leaf of activeLeaves) {
     const cap = leaf.node.maximumUnits;
     if (leaf.scope !== "degree" || !leaf.mandatory || cap === null) continue;
     let used = 0;
@@ -633,7 +673,7 @@ function allocateSingleAlternative({
     }
   }
 
-  const parts = leaves.filter(
+  const parts = activeLeaves.filter(
     (leaf) =>
       leaf.scope === "part" && leaf.node.conditionKind !== "units_total",
   );
@@ -712,11 +752,13 @@ export function allocateRequirements({
   attempts,
   catalogue,
   pins = new Map(),
+  overrides = [],
 }: {
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
   pins?: ReadonlyMap<string, string>;
+  overrides?: readonly RequirementOverride[];
 }): RequirementAllocation {
   if (!root) return new Map();
   const alternatives = allocationAlternatives(root) as PlanRequirementGroup[];
@@ -728,12 +770,15 @@ export function allocateRequirements({
       attempts,
       catalogue,
       pins,
+      overrides,
     });
     const progress = requirementTreeProgress({
       root: alternative,
       attempts,
       catalogue,
       allocation,
+      overrides,
+      structureCode: overrides[0]?.structureCode,
     });
     const nodes = [...progress.values()];
     const rootProgress = progress.get(requirementNodeKey(root));
@@ -741,7 +786,10 @@ export function allocateRequirements({
       [...pins].filter(([code, key]) => allocation.get(code)?.nodeKey === key)
         .length,
       Number(rootProgress?.state === "satisfied"),
-      nodes.filter((node) => node.state === "satisfied").length,
+      nodes.filter(
+        (node) =>
+          node.state === "satisfied" || node.state === "done-by-override",
+      ).length,
       nodes.reduce(
         (sum, node) =>
           sum +
@@ -788,8 +836,25 @@ function conditionProgress(
   scope: "part" | "degree",
   credited: readonly CreditedAttempt[],
   allocation: RequirementAllocation,
+  overrides: readonly RequirementOverride[],
 ): RequirementNodeProgress {
   const key = requirementNodeKey(condition);
+  const override = overrides.find(
+    (item) => item.requirementKey === condition.projectionKey,
+  );
+  if (override)
+    return {
+      key,
+      state: "done-by-override",
+      override,
+      creditedUnits: override.creditedUnits ?? 0,
+      targetUnits: condition.minimumUnits,
+      maximumUnits: condition.maximumUnits,
+      targetCourses: condition.minimumCourses,
+      completedUnits: override.creditedUnits ?? 0,
+      plannedUnits: 0,
+      matchedCourseCodes: [],
+    };
   const sequence =
     condition.conditionKind === "consecutive_semester_pair"
       ? pairSequence(condition, credited)
@@ -819,6 +884,11 @@ function conditionProgress(
       plannedUnits += entry.units;
     }
   });
+  if (condition.conditionKind === "units_total")
+    completedUnits += overrides.reduce(
+      (sum, item) => sum + (item.creditedUnits ?? 0),
+      0,
+    );
   const overCap = [...allocation.values()].some(
     (placement) => placement.overCapKey === key,
   );
@@ -865,10 +935,14 @@ function groupStateFromChildren(
   const measurable = children.filter((child) => child.state !== "unmeasured");
   if (measurable.length === 0) return "unmeasured";
   const satisfied = measurable.filter(
-    (child) => child.state === "satisfied",
+    (child) =>
+      child.state === "satisfied" || child.state === "done-by-override",
   ).length;
   const active = measurable.some(
-    (child) => child.state === "satisfied" || child.state === "in_progress",
+    (child) =>
+      child.state === "satisfied" ||
+      child.state === "done-by-override" ||
+      child.state === "in_progress",
   );
   const required =
     group.operator === "any_of"
@@ -893,6 +967,7 @@ function groupProgress(
   allocation: RequirementAllocation,
   into: Map<string, RequirementNodeProgress>,
   inUnitPool = false,
+  overrides: readonly RequirementOverride[] = [],
 ): RequirementNodeProgress {
   const scope =
     inherited === "degree" || group.scope === "degree" ? "degree" : "part";
@@ -908,6 +983,7 @@ function groupProgress(
           effectiveScope(child, scope, childrenMandatory, childUnitPool),
           credited,
           allocation,
+          overrides,
         )
       : groupProgress(
           child,
@@ -917,6 +993,7 @@ function groupProgress(
           allocation,
           into,
           childUnitPool,
+          overrides,
         ),
   );
   children.forEach((child) => into.set(child.key, child));
@@ -940,6 +1017,11 @@ function groupProgress(
     }
   });
 
+  const creditedUnits = children.reduce(
+    (sum, child) => sum + (child.creditedUnits ?? 0),
+    0,
+  );
+  completedUnits += creditedUnits;
   const childState = groupStateFromChildren(group, children);
   const hasOwnTarget =
     group.minimumUnits !== null || group.maximumUnits !== null;
@@ -974,6 +1056,7 @@ function groupProgress(
   return {
     key: requirementNodeKey(group),
     state,
+    creditedUnits,
     targetUnits: group.minimumUnits,
     maximumUnits: group.maximumUnits,
     targetCourses: null,
@@ -994,7 +1077,11 @@ export function requirementTreeProgress({
   attempts,
   catalogue,
   allocation,
+  overrides = [],
+  structureCode,
 }: {
+  overrides?: readonly RequirementOverride[];
+  structureCode?: string;
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
@@ -1004,8 +1091,30 @@ export function requirementTreeProgress({
   const progress = new Map<string, RequirementNodeProgress>();
   if (!root) return progress;
   const credited = creditedAttempts(attempts, catalogue);
+  const requirementKeys = new Set(
+    [...requirementConditionsByKey(root).values()].map(
+      (condition) => condition.projectionKey,
+    ),
+  );
+  const scopedOverrides = [
+    ...new Map(
+      overrides
+        .filter(
+          (item) =>
+            item.structureCode === structureCode &&
+            requirementKeys.has(item.requirementKey),
+        )
+        .map((item) => [item.requirementKey, item]),
+    ).values(),
+  ];
   const placements =
-    allocation ?? allocateRequirements({ root, attempts, catalogue });
+    allocation ??
+    allocateRequirements({
+      root,
+      attempts,
+      catalogue,
+      overrides: scopedOverrides,
+    });
   const rootProgress = groupProgress(
     allocationRoot(root),
     "part",
@@ -1013,6 +1122,8 @@ export function requirementTreeProgress({
     credited,
     placements,
     progress,
+    false,
+    scopedOverrides,
   );
   if (root.scope === "degree" && allocationRoot(root) !== root) {
     const total = credited.filter(
@@ -1020,7 +1131,10 @@ export function requirementTreeProgress({
     );
     rootProgress.completedUnits = total
       .filter(({ attempt }) => attempt.status === "completed")
-      .reduce((sum, entry) => sum + entry.units, 0);
+      .reduce(
+        (sum, entry) => sum + entry.units,
+        rootProgress.creditedUnits ?? 0,
+      );
     rootProgress.plannedUnits = total
       .filter(({ attempt }) => attempt.status !== "completed")
       .reduce((sum, entry) => sum + entry.units, 0);
@@ -1048,6 +1162,8 @@ export function requirementBucketStatus(bucket: RequirementBucketProgress): {
   status: RequirementBucketStatus;
   label: string;
 } {
+  if (bucket.satisfiedByOverride)
+    return { status: "complete", label: "Marked satisfied" };
   const target = bucket.targetUnits;
   if (target === null || target === 0)
     return {
@@ -1101,4 +1217,33 @@ export function requirementConditionsByKey(root: PlanRequirementGroup | null) {
   };
   if (root) visit(root);
   return conditions;
+}
+
+/** Counts explicit credit only for rules still present in selected structures. */
+export function creditedRequirementUnits(
+  requirements: readonly PlanStructureRequirements[],
+  overrides: readonly RequirementOverride[],
+  selectedCodes: ReadonlySet<string>,
+) {
+  return requirements
+    .filter((structure) => selectedCodes.has(structure.structureCode))
+    .reduce((total, structure) => {
+      const keys = new Set(
+        [...requirementConditionsByKey(structure.root).values()].map(
+          (condition) => condition.projectionKey,
+        ),
+      );
+      const creditByKey = new Map(
+        overrides
+          .filter(
+            (item) =>
+              item.structureCode === structure.structureCode &&
+              keys.has(item.requirementKey),
+          )
+          .map((item) => [item.requirementKey, item.creditedUnits ?? 0]),
+      );
+      return (
+        total + [...creditByKey.values()].reduce((sum, units) => sum + units, 0)
+      );
+    }, 0);
 }

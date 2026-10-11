@@ -691,3 +691,156 @@ test("imported subject allocations require the correct subject and full academic
   assert.notEqual(evaluate(["MATH3001", "MATH2001"]), "satisfied");
   assert.notEqual(evaluate(["MATH3001", "COMP3001"]), "satisfied");
 });
+
+test("requirement overrides are distinct, scoped and contribute only entered units", () => {
+  const rule = condition(901, {
+    minimumUnits: 6,
+    options: [{ kind: "course", code: "COMP1100" }],
+  });
+  const root = group(900, "all_of", [rule]);
+  const overrides = [
+    {
+      structureCode: "TEST",
+      requirementKey: rule.projectionKey,
+      reason: "credit",
+    },
+  ];
+  const evaluate = (changes = {}) =>
+    requirementTreeProgress({
+      root,
+      catalogue,
+      attempts: [],
+      structureCode: "TEST",
+      overrides,
+      ...changes,
+    });
+  const key = requirementNodeKey(rule);
+  assert.equal(evaluate().get(key).state, "done-by-override");
+  assert.equal(evaluate().get(key).completedUnits, 0);
+  assert.equal(evaluate().get(requirementNodeKey(root)).state, "satisfied");
+  assert.equal(
+    evaluate({ overrides: [{ ...overrides[0], creditedUnits: 6 }] }).get(
+      requirementNodeKey(root),
+    ).completedUnits,
+    6,
+  );
+  assert.equal(evaluate({ overrides: [] }).get(key).state, "not_started");
+  assert.equal(
+    evaluate({ structureCode: "OTHER" }).get(key).state,
+    "not_started",
+  );
+});
+
+test("credited overrides roll up once alongside a degree-wide unit total", () => {
+  const rule = condition(911, {
+    minimumUnits: 6,
+    options: [{ kind: "course", code: "COMP1100" }],
+  });
+  const total = condition(912, {
+    conditionKind: "units_total",
+    minimumUnits: 6,
+    scope: "degree",
+  });
+  const root = group(910, "all_of", [rule, total], {
+    minimumUnits: 6,
+    scope: "degree",
+  });
+  const progress = requirementTreeProgress({
+    root,
+    catalogue,
+    attempts: [],
+    structureCode: "TEST",
+    overrides: [
+      {
+        structureCode: "TEST",
+        requirementKey: rule.projectionKey,
+        reason: "credit",
+        creditedUnits: 6,
+      },
+    ],
+  });
+  assert.equal(progress.get(requirementNodeKey(total)).completedUnits, 6);
+  assert.equal(progress.get(requirementNodeKey(root)).completedUnits, 6);
+  assert.equal(progress.get(requirementNodeKey(root)).state, "satisfied");
+});
+
+test("stale requirement overrides do not add credit to a newer tree", () => {
+  const total = condition(921, {
+    conditionKind: "units_total",
+    minimumUnits: 6,
+    scope: "degree",
+  });
+  const root = group(920, "all_of", [total]);
+  const progress = requirementTreeProgress({
+    root,
+    catalogue,
+    attempts: [],
+    structureCode: "TEST",
+    overrides: [
+      {
+        structureCode: "TEST",
+        requirementKey: "removed-rule",
+        reason: "credit",
+        creditedUnits: 6,
+      },
+    ],
+  });
+  assert.equal(progress.get(requirementNodeKey(total)).completedUnits, 0);
+  assert.equal(progress.get(requirementNodeKey(root)).state, "not_started");
+});
+
+test("override credit totals include selected current rules once", async () => {
+  const { creditedRequirementUnits } =
+    await import("../lib/coursemap/requirement-progress.ts");
+  const rule = condition(931, { minimumUnits: 6 });
+  const requirements = [
+    { structureCode: "TEST", root: group(930, "all_of", [rule]) },
+  ];
+  const override = {
+    structureCode: "TEST",
+    requirementKey: rule.projectionKey,
+    reason: "credit",
+    creditedUnits: 6,
+  };
+  assert.equal(
+    creditedRequirementUnits(
+      requirements,
+      [
+        override,
+        override,
+        { ...override, requirementKey: "stale", creditedUnits: 12 },
+      ],
+      new Set(["TEST"]),
+    ),
+    6,
+  );
+  assert.equal(
+    creditedRequirementUnits(requirements, [override], new Set(["OTHER"])),
+    0,
+  );
+});
+
+test("a dashboard bucket marked satisfied does not invent earned units", async () => {
+  const { requirementBucketProgress, requirementBucketStatus } =
+    await import("../lib/coursemap/requirement-progress.ts");
+  const rule = condition(941, {
+    freeText: "Compulsory courses",
+    minimumUnits: 6,
+    options: [{ kind: "course", code: "COMP1100" }],
+  });
+  const root = group(940, "all_of", [rule]);
+  const buckets = requirementBucketProgress({
+    requirements: [{ structureCode: "TEST", structureKind: "programme", root }],
+    catalogue,
+    attempts: [],
+    overrides: [
+      {
+        structureCode: "TEST",
+        requirementKey: rule.projectionKey,
+        reason: "approval",
+      },
+    ],
+  });
+  assert.equal(buckets[0].completedUnits, 0);
+  assert.equal(requirementBucketStatus(buckets[0]).label, "Marked satisfied");
+});

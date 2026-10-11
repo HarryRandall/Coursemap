@@ -3,7 +3,12 @@ import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
 import { validCommencementYear } from "@/lib/academic/commencement-year";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
-import type { Attempt, Course, Term } from "@/lib/coursemap/types";
+import type {
+  Attempt,
+  Course,
+  Term,
+  CourseOverride,
+} from "@/lib/coursemap/types";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   evaluateCondition,
@@ -16,6 +21,8 @@ import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
 export type PlanningCatalogue = {
   courses: readonly Course[];
+  courseOverrides?: readonly CourseOverride[];
+  creditedRequirementUnits?: number;
   snapshotCourses?: readonly Course[];
   terms: readonly Term[];
   commencementYear?: number | null;
@@ -553,6 +560,8 @@ export function evaluateCoursePrerequisites(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ): PrerequisiteEvaluation {
+  if (isCourseBypassed(attempt, catalogue))
+    return { state: "satisfied", missingCodes: [] };
   const course = planningCourseForAttempt(attempt, catalogue);
   // Without the course its requisites cannot be read, so nothing is known.
   if (!course) return { state: "unknown", missingCodes: [] };
@@ -597,6 +606,8 @@ export function evaluateCourseIncompatibilities(
   attempts: Attempt[],
   catalogue?: PlanningCatalogue,
 ): PrerequisiteEvaluation {
+  if (isCourseBypassed(attempt, catalogue))
+    return { state: "satisfied", missingCodes: [] };
   const rule = planningCourseForAttempt(
     attempt,
     catalogue,
@@ -655,6 +666,8 @@ export function coursePlanStatus(
   const issues: CoursePlanIssue[] = [];
   if (lifecycle !== "planned" && lifecycle !== "enrolled")
     return { lifecycle, issues };
+  // A student who took the course anyway has accepted its requirements.
+  if (isCourseBypassed(attempt, catalogue)) return { lifecycle, issues };
   const add = (
     code: CoursePlanIssue["code"],
     severity: CoursePlanIssue["severity"],
@@ -800,6 +813,20 @@ export function coursePlanStatus(
   return { lifecycle, issues };
 }
 
+export function isCourseBypassed(
+  attempt: Attempt,
+  catalogue?: PlanningCatalogue,
+) {
+  return (
+    attempt.status === "planned" &&
+    Boolean(
+      catalogue?.courseOverrides?.some(
+        (item) => item.courseCode === attempt.courseCode,
+      ),
+    )
+  );
+}
+
 export function effectiveStatus(
   attempt: Attempt,
   attempts: Attempt[],
@@ -826,7 +853,12 @@ export function effectiveStatus(
   if (incompatibilities.state === "unknown") return "review";
   if (incompatibilities.state === "unsatisfied")
     return incompatibilities.permissionCanSatisfy ? "approval" : "blocked";
-  if (course.permissionText && !attempt.permissionApproved) return "approval";
+  if (
+    course.permissionText &&
+    !attempt.permissionApproved &&
+    !isCourseBypassed(attempt, catalogue)
+  )
+    return "approval";
   return "planned";
 }
 
@@ -931,7 +963,12 @@ export function degreeUnitProgress(
   totalUnits: number,
   catalogue?: PlanningCatalogue,
 ): DegreeUnitProgress {
-  return degreeUnitProgressBy(attempts, totalUnits, catalogueUnits(catalogue));
+  return degreeUnitProgressBy(
+    attempts,
+    totalUnits,
+    catalogueUnits(catalogue),
+    catalogue?.creditedRequirementUnits ?? 0,
+  );
 }
 
 /**
@@ -943,9 +980,10 @@ export function degreeUnitProgressBy(
   attempts: readonly Attempt[],
   totalUnits: number,
   unitsOf: AttemptUnits,
+  creditedUnits = 0,
 ): DegreeUnitProgress {
-  const completed = earnedUnitsBy(attempts, unitsOf);
-  const mapped = mappedUnitsBy(attempts, unitsOf);
+  const completed = earnedUnitsBy(attempts, unitsOf) + creditedUnits;
+  const mapped = mappedUnitsBy(attempts, unitsOf) + creditedUnits;
   const planned = Math.max(0, mapped - completed);
   const remaining = Math.max(0, totalUnits - mapped);
   return {
