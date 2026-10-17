@@ -8,7 +8,11 @@ type CanonicalJson =
   | CanonicalJson[]
   | { [key: string]: CanonicalJson };
 
-function canonicalise(value: unknown, ancestors: Set<object>): CanonicalJson {
+function canonicalise(
+  value: unknown,
+  ancestors: Set<object>,
+  path = "$",
+): CanonicalJson {
   if (
     value === null ||
     typeof value === "boolean" ||
@@ -19,7 +23,9 @@ function canonicalise(value: unknown, ancestors: Set<object>): CanonicalJson {
 
   if (typeof value === "number") {
     if (!Number.isFinite(value)) {
-      throw new TypeError("Canonical JSON cannot contain a non-finite number");
+      throw new TypeError(
+        `Canonical JSON cannot contain a non-finite number at ${path}`,
+      );
     }
     return Object.is(value, -0) ? 0 : value;
   }
@@ -37,7 +43,9 @@ function canonicalise(value: unknown, ancestors: Set<object>): CanonicalJson {
   ancestors.add(value);
   try {
     if (Array.isArray(value)) {
-      return value.map((item) => canonicalise(item, ancestors));
+      return value.map((item, index) =>
+        canonicalise(item, ancestors, `${path}[${index}]`),
+      );
     }
 
     const record = value as Record<string, unknown>;
@@ -49,7 +57,7 @@ function canonicalise(value: unknown, ancestors: Set<object>): CanonicalJson {
           `Canonical JSON cannot contain undefined at property ${key}`,
         );
       }
-      output[key] = canonicalise(item, ancestors);
+      output[key] = canonicalise(item, ancestors, `${path}.${key}`);
     }
     return output;
   } finally {

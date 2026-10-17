@@ -431,8 +431,10 @@ export function readCourseSource({
     const outcomes =
       value
         .match(/\[(?:LO|Learning Outcomes?) ([\d, ]+)\]/u)?.[1]
-        ?.split(",")
-        .map(Number) ?? [];
+        ?.split(/[,\s]+/u)
+        .filter(Boolean)
+        .map(Number)
+        .filter(Number.isFinite) ?? [];
     return {
       position: i + 1,
       title: courseDisplayText(

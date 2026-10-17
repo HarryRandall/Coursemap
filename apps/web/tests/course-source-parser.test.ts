@@ -111,6 +111,16 @@ describe("source-first course parsing", () => {
       expect(course.fees.length).toBeGreaterThan(0);
     },
   );
+  it("reads learning outcome lists separated by spaces as well as commas", () => {
+    const markdown = fixture.sources
+      .find((source) => source.code === "BUSN1001")!
+      .markdown.replace("[LO 1,2,3,4,5,6,7,8,9]", "[LO 1, 2 3]");
+    const course = parse("BUSN1001", markdown);
+    expect(
+      course.assessmentItems.find((item) => item.sourceText.includes("[LO 1, 2 3]"))
+        ?.learningOutcomePositions,
+    ).toEqual([1, 2, 3]);
+  });
   it("maps ANU semester names to the configured calendar codes", () => {
     const markdown = fixture.sources.find(
       (source) => source.code === "ECON2108",
