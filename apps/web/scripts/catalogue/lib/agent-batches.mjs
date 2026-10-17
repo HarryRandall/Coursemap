@@ -181,3 +181,47 @@ export async function applyBatchAnswers(root, batchFile, { validate }) {
   }
   return result;
 }
+
+/**
+ * Carries saved answers over to regenerated requests. After a prompt or
+ * schema change, each record's new request gets the answer its previous
+ * request had, when the import adapter still accepts it; answers that no
+ * longer validate stay behind for a fresh batch.
+ */
+export async function rekeyAnswers(root, previousRequests, { validate }) {
+  const record = (request) =>
+    `${request.schemaName}:${request.kind}:${request.code}:${request.academicYear}`;
+  const previous = new Map();
+  for (const request of await readJsonFiles(previousRequests))
+    previous.set(record(request), request.key);
+  const result = { rekeyed: 0, invalid: [], unmatched: 0 };
+  for (const request of await readPendingRequests(root)) {
+    const oldKey = previous.get(record(request));
+    let answer;
+    try {
+      answer = JSON.parse(
+        await readFile(join(root, "answers", `${oldKey}.json`), "utf8"),
+      );
+    } catch {
+      result.unmatched += 1;
+      continue;
+    }
+    const issues = validate({
+      kind: request.kind,
+      code: request.code,
+      academicYear: request.academicYear,
+      schemaName: request.schemaName,
+      answer,
+    });
+    if (issues.length) {
+      result.invalid.push({ record: record(request), issues });
+      continue;
+    }
+    await writeFile(
+      join(root, "answers", `${request.key}.json`),
+      `${JSON.stringify(answer)}\n`,
+    );
+    result.rekeyed += 1;
+  }
+  return result;
+}

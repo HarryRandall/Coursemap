@@ -14,6 +14,7 @@ import {
   applyBatchAnswers,
   deduplicationKey,
   prepareBatches,
+  rekeyAnswers,
 } from "../scripts/catalogue/lib/agent-batches.mjs";
 import {
   forEachConcurrently,
@@ -233,4 +234,36 @@ test("concurrent work never exceeds its limit and visits every item", async () =
   });
   assert.equal(peak, 2);
   assert.deepEqual(seen.sort(), [1, 2, 3, 4, 5]);
+});
+
+test("rekeying gives a regenerated request its record's previous answer", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-rekey-"));
+  const previous = join(root, "requests-previous");
+  await mkdir(previous);
+  await mkdir(join(root, "requests"));
+  await mkdir(join(root, "answers"));
+  const request = (key) => ({
+    key,
+    kind: "course",
+    code: "COMP2100",
+    academicYear: 2026,
+    schemaName: "course_requisites",
+  });
+  await writeFile(join(previous, "old.json"), JSON.stringify(request("old")));
+  await writeFile(
+    join(root, "requests", "new.json"),
+    JSON.stringify(request("new")),
+  );
+  await writeFile(
+    join(root, "answers", "old.json"),
+    JSON.stringify({ requisites: {} }),
+  );
+
+  const result = await rekeyAnswers(root, previous, { validate: () => [] });
+
+  assert.deepEqual(result, { rekeyed: 1, invalid: [], unmatched: 0 });
+  assert.deepEqual(
+    JSON.parse(await readFile(join(root, "answers", "new.json"), "utf8")),
+    { requisites: {} },
+  );
 });
