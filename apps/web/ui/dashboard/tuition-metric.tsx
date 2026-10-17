@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
 import type { TuitionEstimate } from "@/lib/coursemap/academic-metrics";
+import { feeStatusLabel, feeStatusShortLabel } from "@/lib/academic/fee-status";
 import { AcademicMetricCard } from "./academic-metric-card";
 import { tuitionSkeleton } from "./metric-skeletons";
 
@@ -60,6 +61,12 @@ export function TuitionMetric({
               }
             >
               Est. tuition
+              {tuition ? (
+                <span title={`Priced as ${feeStatusLabel(tuition.feeStatus)}`}>
+                  {" "}
+                  · {feeStatusShortLabel(tuition.feeStatus)}
+                </span>
+              ) : null}
             </h3>
             {lastStart > 0 ? (
               <span className="-my-1 ml-1 flex items-center">

@@ -19,13 +19,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
-import {
-  type CSSProperties,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CourseToken } from "@/ui/common/course-token";
 
 type SearchCourse = {
@@ -42,16 +36,6 @@ type DefaultOption = {
   label: string;
   scope: string;
 };
-
-type FindGeometry = {
-  left: number;
-  top: number;
-  width: number;
-};
-
-const modalWidth = 420;
-const viewportGutter = 12;
-const dialogHeight = 269;
 
 const defaultOptions: DefaultOption[] = [
   {
@@ -118,42 +102,18 @@ export function CourseFind({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const [geometry, setGeometry] = useState<FindGeometry | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchCourse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const measure = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return null;
-
-    const rect = trigger.getBoundingClientRect();
-    const width = Math.min(modalWidth, window.innerWidth - viewportGutter * 2);
-    const left = Math.min(
-      Math.max(rect.left, viewportGutter),
-      window.innerWidth - width - viewportGutter,
-    );
-    const nextGeometry = {
-      left,
-      top: Math.max(
-        viewportGutter,
-        Math.min(rect.top, window.innerHeight - dialogHeight - viewportGutter),
-      ),
-      width,
-    };
-    setGeometry(nextGeometry);
-    return nextGeometry;
-  }, []);
 
   const showFind = useCallback(() => {
     setQuery("");
     setResults([]);
     setLoading(false);
     setError(null);
-    measure();
     setOpen(true);
-  }, [measure]);
+  }, []);
 
   const hideFind = useCallback(() => {
     setOpen(false);
@@ -189,13 +149,6 @@ export function CourseFind({
   }, [hideFind, open, showFind]);
 
   useEffect(() => {
-    if (!open) return;
-    const onResize = () => measure();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [measure, open]);
-
-  useEffect(() => {
     const text = query.trim();
     if (!open || !text) return;
 
@@ -203,7 +156,7 @@ export function CourseFind({
     const timeout = window.setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/courses/search?q=${encodeURIComponent(text)}&pageSize=5&year=${new Date().getFullYear()}`,
+          `/api/courses/search?q=${encodeURIComponent(text)}&pageSize=8&year=${new Date().getFullYear()}`,
           { signal: controller.signal },
         );
         const payload = (await response.json()) as {
@@ -242,17 +195,17 @@ export function CourseFind({
     router.push(href);
   };
 
-  const hasQuery = Boolean(query.trim());
+  const text = query.trim();
+  const hasQuery = Boolean(text);
   const shortcuts = admin ? adminDefaultOptions : defaultOptions;
-  const findStyle: CSSProperties | undefined = geometry
-    ? {
-        top: geometry.top,
-        left: geometry.left,
-        width: geometry.width,
-        height: dialogHeight,
-        maxHeight: `calc(100dvh - ${geometry.top + viewportGutter}px)`,
-      }
-    : undefined;
+  // Pages stay reachable by name once typing starts, below the courses.
+  const pages = hasQuery
+    ? shortcuts.filter((option) =>
+        `${option.label} ${option.scope}`
+          .toLowerCase()
+          .includes(text.toLowerCase()),
+      )
+    : shortcuts;
 
   return (
     <>
@@ -280,126 +233,170 @@ export function CourseFind({
           if (!nextOpen) hideFind();
         }}
       >
-        {geometry && (
-          <DialogContent
-            showCloseButton={false}
-            style={findStyle}
-            aria-describedby="course-find-description"
-            onOpenAutoFocus={(event) => {
-              event.preventDefault();
-              inputRef.current?.focus();
-            }}
-            onCloseAutoFocus={(event) => {
-              event.preventDefault();
-              triggerRef.current?.focus();
-            }}
-            className="find-dialog fixed z-[120] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-xl border-0 bg-popover p-0 shadow-lg ring-1 ring-border outline-none"
-          >
-            <DialogTitle className="sr-only">Find courses</DialogTitle>
-            <DialogDescription id="course-find-description" className="sr-only">
-              Search the published course catalogue by course code or name.
-            </DialogDescription>
+        <DialogContent
+          showCloseButton={false}
+          aria-describedby="course-find-description"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            inputRef.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus();
+          }}
+          className="find-dialog top-[max(1rem,12dvh)] z-[120] flex w-[calc(100vw-2rem)] max-w-[36rem] translate-y-0 flex-col gap-0 overflow-hidden rounded-xl border-0 bg-popover p-0 shadow-2xl ring-1 ring-border outline-none sm:max-w-[36rem]"
+        >
+          <DialogTitle className="sr-only">Find courses</DialogTitle>
+          <DialogDescription id="course-find-description" className="sr-only">
+            Search the published course catalogue by course code or name, or
+            jump to a page.
+          </DialogDescription>
 
-            <Command
-              label="Find courses"
-              loop
-              shouldFilter={false}
-              className="relative h-full min-h-0 overflow-hidden rounded-xl"
-            >
-              <div className="relative flex h-10 items-center gap-2 px-3">
+          <Command
+            label="Find courses"
+            loop
+            shouldFilter={false}
+            className="flex max-h-[min(30rem,calc(100dvh-max(1rem,12dvh)-1rem))] w-full min-w-0 flex-col"
+          >
+            <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+              {loading ? (
+                <LoaderCircle
+                  size={18}
+                  aria-label="Searching"
+                  className="shrink-0 animate-spin text-muted-foreground"
+                />
+              ) : (
                 <Search
-                  size={16}
+                  size={18}
                   strokeWidth={1.8}
                   aria-hidden="true"
                   className="shrink-0 text-muted-foreground"
                 />
-                <Command.Input
-                  ref={inputRef}
-                  value={query}
-                  onValueChange={(value) => {
-                    if (value.trim() === query.trim()) {
-                      setQuery(value);
-                      return;
-                    }
-                    const hasValue = Boolean(value.trim());
+              )}
+              <Command.Input
+                ref={inputRef}
+                value={query}
+                onValueChange={(value) => {
+                  if (value.trim() === query.trim()) {
                     setQuery(value);
-                    setError(null);
-                    setLoading(hasValue);
-                    if (!hasValue) setResults([]);
-                  }}
-                  placeholder="Find courses…"
-                  aria-label="Find courses"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className="h-10 min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                {loading && results.length > 0 && (
-                  <LoaderCircle
-                    size={13}
-                    aria-label="Updating results"
-                    className="animate-spin text-muted-foreground"
-                  />
-                )}
-                <kbd className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground shadow-xs">
-                  Esc
-                </kbd>
-              </div>
+                    return;
+                  }
+                  const hasValue = Boolean(value.trim());
+                  setQuery(value);
+                  setError(null);
+                  setLoading(hasValue);
+                  if (!hasValue) setResults([]);
+                }}
+                placeholder="Search courses by code or name…"
+                aria-label="Find courses"
+                autoComplete="off"
+                spellCheck={false}
+                className="h-full min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <kbd className="hidden rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
+                Esc
+              </kbd>
+            </div>
 
-              <div className="h-px bg-border" />
-
-              <Command.List
-                label="Find results"
-                className="find-command-list h-[calc(100%-41px)] overflow-y-auto p-1"
-              >
-                {!hasQuery ? (
-                  shortcuts.map((option) => (
+            <Command.List
+              label="Find results"
+              className="find-command-list min-h-0 flex-1 overflow-y-auto p-2"
+            >
+              {hasQuery ? (
+                <Command.Group heading="Courses" className={groupClassName}>
+                  {loading && results.length === 0 ? (
+                    <LoadingRows />
+                  ) : error ? (
+                    <FindMessage message={error} alert />
+                  ) : results.length === 0 ? (
+                    <FindMessage message={`No courses match '${text}'`} />
+                  ) : (
+                    results.map((course) => (
+                      <Command.Item
+                        key={course.code}
+                        value={course.code}
+                        onSelect={() =>
+                          navigate(
+                            `/courses/${course.year}/${course.code.toLowerCase()}`,
+                          )
+                        }
+                        className={itemClassName}
+                      >
+                        <CourseToken
+                          code={course.code}
+                          accent={course.accent}
+                          size="sm"
+                          className="!size-8 !rounded-md !text-[9px]"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {course.name}
+                        </span>
+                        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+                          {course.code}
+                        </span>
+                        <span className="w-14 shrink-0 text-right text-[11px] text-muted-foreground">
+                          {course.units} units
+                        </span>
+                      </Command.Item>
+                    ))
+                  )}
+                </Command.Group>
+              ) : null}
+              {pages.length > 0 ? (
+                <Command.Group
+                  heading={hasQuery ? "Pages" : "Go to"}
+                  className={groupClassName}
+                >
+                  {pages.map((option) => (
                     <DefaultOptionItem
                       key={option.href}
                       option={option}
                       onSelect={() => navigate(option.href)}
                     />
-                  ))
-                ) : loading && results.length === 0 ? (
-                  <LoadingRows />
-                ) : error ? (
-                  <FindMessage message={error} alert />
-                ) : results.length === 0 ? (
-                  <FindMessage message={`No courses match '${query.trim()}'`} />
-                ) : (
-                  results.map((course) => (
-                    <Command.Item
-                      key={course.code}
-                      value={course.code}
-                      onSelect={() =>
-                        navigate(
-                          `/courses/${course.year}/${course.code.toLowerCase()}`,
-                        )
-                      }
-                      className="group flex h-11 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-foreground/80 outline-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground"
-                    >
-                      <CourseToken
-                        code={course.code}
-                        accent={course.accent}
-                        size="sm"
-                        className="!size-6 !rounded-md !text-[8px]"
-                      />
-                      <span className="min-w-0 flex-1 leading-tight">
-                        <span className="block truncate text-xs font-medium">
-                          {course.name}
-                        </span>
-                        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-                          {course.code} · {course.units} units
-                        </span>
-                      </span>
-                    </Command.Item>
-                  ))
-                )}
-              </Command.List>
-            </Command>
-          </DialogContent>
-        )}
+                  ))}
+                </Command.Group>
+              ) : null}
+            </Command.List>
+
+            <div
+              aria-hidden="true"
+              className="hidden h-9 shrink-0 items-center gap-4 border-t border-border bg-muted/40 px-4 text-[11px] text-muted-foreground sm:flex"
+            >
+              <span className="flex items-center gap-1.5">
+                <Key>↑</Key>
+                <Key>↓</Key>
+                Move
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Key>↵</Key>
+                Open
+              </span>
+              <span className="ml-auto flex items-center gap-1.5">
+                <Key>⌘</Key>
+                <Key>K</Key>
+                or
+                <Key>F</Key>
+                to search
+              </span>
+            </div>
+          </Command>
+        </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+const groupClassName =
+  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground";
+
+const itemClassName =
+  "flex h-12 cursor-pointer items-center gap-3 rounded-lg px-2 text-foreground/85 outline-none data-[selected=true]:bg-accent data-[selected=true]:text-foreground";
+
+function Key({ children }: { children: string }) {
+  return (
+    <kbd className="grid h-5 min-w-5 place-items-center rounded border border-border bg-background px-1 font-sans text-[10px] font-medium">
+      {children}
+    </kbd>
   );
 }
 
@@ -415,18 +412,16 @@ function DefaultOptionItem({
     <Command.Item
       value={option.label}
       onSelect={onSelect}
-      className="flex h-11 cursor-pointer items-center gap-2.5 rounded-lg px-2 text-foreground/80 outline-none data-[selected=true]:bg-accent data-[selected=true]:text-foreground"
+      className={itemClassName}
     >
-      <span className="grid size-6 shrink-0 place-items-center text-muted-foreground">
+      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
         <Icon size={16} strokeWidth={1.8} aria-hidden="true" />
       </span>
-      <span className="min-w-0 flex-1 leading-tight">
-        <span className="block truncate text-xs font-medium">
-          {option.label}
-        </span>
-        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-          {option.scope}
-        </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">
+        {option.label}
+      </span>
+      <span className="shrink-0 text-[11px] text-muted-foreground">
+        {option.scope}
       </span>
     </Command.Item>
   );
@@ -440,9 +435,9 @@ function LoadingRows() {
         <div
           key={item}
           aria-hidden="true"
-          className="flex h-11 animate-pulse items-center gap-2.5 px-2"
+          className="flex h-12 animate-pulse items-center gap-3 px-2"
         >
-          <span className="size-6 rounded-md bg-muted" />
+          <span className="size-8 rounded-md bg-muted" />
           <span className="min-w-0 flex-1 space-y-1.5">
             <span className="block h-2.5 w-3/5 rounded-full bg-muted" />
             <span className="block h-2 w-2/5 rounded-full bg-muted" />
@@ -463,7 +458,7 @@ function FindMessage({
   return (
     <p
       role={alert ? "alert" : "status"}
-      className="grid h-11 place-items-center px-3 text-center text-[11px] text-muted-foreground"
+      className="grid h-12 place-items-center px-3 text-center text-xs text-muted-foreground"
     >
       {message}
     </p>

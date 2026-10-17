@@ -13,7 +13,16 @@ import {
   recordedWeightedAverageMark,
 } from "@/lib/academic/attempt-results";
 import type { Attempt, Course, Term } from "@/lib/coursemap/types";
-import { isActiveAttempt, planningCourseForAttempt } from "@/lib/planner";
+import {
+  isActiveAttempt,
+  planningCourseForAttempt,
+  unitsForAttempt,
+} from "@/lib/planner";
+import {
+  coursePrice,
+  DEFAULT_FEE_STATUS,
+  type FeeStatus,
+} from "@/lib/academic/fee-status";
 
 type AcademicCatalogue = {
   courses: readonly Course[];
@@ -156,7 +165,9 @@ export function gradeDistribution(inputs: AcademicInputs): GradeTally[] {
 
 export type TuitionEstimate = {
   total: number;
-  /** Courses in the plan that carry a published domestic fee. */
+  /** Whose prices the estimate uses. */
+  feeStatus: FeeStatus;
+  /** Courses in the plan that carry a published price for that student. */
   pricedCourses: number;
   plannedCourses: number;
   /** Estimated fees per study year, oldest first. */
@@ -164,15 +175,22 @@ export type TuitionEstimate = {
 };
 
 /**
- * Sums each plan course's published domestic fee, as listed. Returns null when
- * no course has one, so the caller shows an empty state rather than a
- * misleading zero.
+ * Sums what each plan course costs this student: the band contribution for a
+ * Commonwealth supported place, or the listed domestic or international fee.
+ * Returns null when no course has a price, so the caller shows an empty state
+ * rather than a misleading zero.
  */
 export function tuitionEstimate({
   attempts,
   courses,
   snapshotCourses,
-}: Omit<AcademicInputs, "terms">): TuitionEstimate | null {
+  feeStatus,
+  commencementYear,
+}: Omit<AcademicInputs, "terms"> & {
+  feeStatus?: FeeStatus | null;
+  commencementYear?: number | null;
+}): TuitionEstimate | null {
+  const status = feeStatus ?? DEFAULT_FEE_STATUS;
   const catalogue = { courses, snapshotCourses, terms: [] };
   const planned = attempts.filter(isActiveAttempt).flatMap((attempt) => {
     const course = planningCourseForAttempt(attempt, catalogue);
@@ -182,8 +200,13 @@ export function tuitionEstimate({
   let pricedCourses = 0;
   const byYear = new Map<number, { amount: number; courses: number }>();
   planned.forEach(({ attempt, course }) => {
-    const amount = course.domesticFee;
-    if (amount === null || amount === undefined) return;
+    const amount = coursePrice({
+      prices: course.prices,
+      units: unitsForAttempt(attempt, course),
+      feeStatus: status,
+      commencementYear: commencementYear ?? null,
+    });
+    if (amount === null) return;
     total += amount;
     pricedCourses += 1;
     const year = Number(attempt.termId.slice(0, 4)) || attempt.academicYear;
@@ -198,6 +221,7 @@ export function tuitionEstimate({
   if (pricedCourses === 0) return null;
   return {
     total,
+    feeStatus: status,
     pricedCourses,
     plannedCourses: planned.length,
     byYear: [...byYear]

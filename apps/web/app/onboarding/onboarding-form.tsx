@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import { BrandMark } from "@/ui/brand-mark";
+import { DEFAULT_FEE_STATUS, type FeeStatus } from "@/lib/academic/fee-status";
 import { SelectField } from "@/ui/common/select-field";
 import {
   ChoiceCards,
@@ -48,6 +49,7 @@ const steps = [
   { id: "about", label: "About you", title: "What should we call you?" },
   { id: "start", label: "Start year", title: "When did you start at ANU?" },
   { id: "degree", label: "Degree", title: "What are you studying?" },
+  { id: "fees", label: "Fees", title: "How are your fees paid?" },
   { id: "pace", label: "Study load", title: "How much are you taking on?" },
 ] as const;
 
@@ -64,6 +66,24 @@ const STUDY_LOADS: readonly ChoiceCardOption<StudyLoad>[] = [
     value: "Part time",
     label: "Part time",
     description: "1 or 2 courses a semester",
+  },
+];
+
+const FEE_STATUS_CHOICES: readonly ChoiceCardOption<FeeStatus>[] = [
+  {
+    value: "commonwealth_supported",
+    label: "Commonwealth supported",
+    description: "Most domestic undergraduates. You pay a student contribution",
+  },
+  {
+    value: "domestic_fee",
+    label: "Domestic fee-paying",
+    description: "A domestic student paying the full course fee",
+  },
+  {
+    value: "international",
+    label: "International",
+    description: "Paying international tuition fees",
   },
 ];
 
@@ -103,6 +123,7 @@ export function OnboardingForm({
   const [majorCode, setMajorCode] = useState("");
   const [minorCodes, setMinorCodes] = useState<string[]>([]);
   const [specialisationCodes, setSpecialisationCodes] = useState<string[]>([]);
+  const [feeStatus, setFeeStatus] = useState<FeeStatus>(DEFAULT_FEE_STATUS);
   const [studyLoad, setStudyLoad] = useState<StudyLoad>("Full time");
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -235,6 +256,7 @@ export function OnboardingForm({
       minorCodes,
       specialisationCodes,
       studyLoad,
+      feeStatus,
       extensionYears: 0,
     });
     if (!result.ok) {
@@ -459,6 +481,21 @@ export function OnboardingForm({
                           value={specialisationCodes}
                         />
                       ) : null}
+                    </>
+                  ) : null}
+
+                  {stepId === "fees" ? (
+                    <>
+                      <ChoiceCards
+                        label="Fee status"
+                        onValueChange={setFeeStatus}
+                        options={FEE_STATUS_CHOICES}
+                        value={feeStatus}
+                      />
+                      <FieldDescription>
+                        This sets which published price your tuition estimate
+                        uses.
+                      </FieldDescription>
                     </>
                   ) : null}
 

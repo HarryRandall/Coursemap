@@ -1426,6 +1426,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           term={pickerTerm}
           intent={picker.intent}
           recommendedCodes={recommendedCodes}
+          catalogue={planningCatalogue}
           onClose={() => setPicker(null)}
         />
       )}

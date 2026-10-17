@@ -153,6 +153,7 @@ export async function saveProfileAndPlan(
         .update({
           preferred_name: profile.preferredName?.trim() || null,
           pronouns: profile.pronouns?.trim() || null,
+          fee_status: profile.feeStatus ?? null,
         })
         .eq("id", ownerId);
       if (detailsError) throw detailsError;

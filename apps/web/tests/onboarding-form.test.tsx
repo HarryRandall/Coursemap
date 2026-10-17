@@ -91,6 +91,15 @@ test("walks through every step and saves the start year as the commencement year
   );
   await user.click(screen.getByRole("button", { name: /continue/i }));
 
+  expect(
+    screen.getByRole("heading", { name: "How are your fees paid?" }),
+  ).toHaveFocus();
+  expect(
+    screen.getByRole("radio", { name: /Commonwealth supported/ }),
+  ).toBeChecked();
+  await user.click(screen.getByRole("radio", { name: /International/ }));
+  await user.click(screen.getByRole("button", { name: /continue/i }));
+
   await user.click(screen.getByRole("radio", { name: /Part time/ }));
   await user.click(screen.getByRole("button", { name: "Create my plan" }));
 
@@ -102,6 +111,7 @@ test("walks through every step and saves the start year as the commencement year
       commencementYear: 2024,
       degreeCode: "AACOM",
       studyLoad: "Part time",
+      feeStatus: "international",
     }),
   );
 });
@@ -130,6 +140,7 @@ test("keeps the answers and shows the reason when saving fails", async () => {
   await user.click(
     await screen.findByRole("button", { name: /Advanced Computing \(AACOM\)/ }),
   );
+  await user.click(screen.getByRole("button", { name: /continue/i }));
   await user.click(screen.getByRole("button", { name: /continue/i }));
   await user.click(screen.getByRole("button", { name: "Create my plan" }));
 

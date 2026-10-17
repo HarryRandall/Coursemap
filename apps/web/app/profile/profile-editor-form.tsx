@@ -1,5 +1,11 @@
 "use client";
 import {
+  DEFAULT_FEE_STATUS,
+  FEE_STATUSES,
+  feeStatusShortLabel,
+  validFeeStatus,
+} from "@/lib/academic/fee-status";
+import {
   ENROLMENT_MODES,
   enrolmentModeLabel,
   validEnrolmentMode,
@@ -533,6 +539,24 @@ export function ProfileEditorForm({
                   onChange={(value) =>
                     patch({
                       enrolmentMode: validEnrolmentMode(value) ? value : null,
+                    })
+                  }
+                />
+              </SettingsRow>
+              <SettingsRow
+                label="Fee status"
+                description="Sets which published price your tuition estimate uses."
+              >
+                <Segmented
+                  label="Fee status"
+                  options={FEE_STATUSES.map((value) => ({
+                    value,
+                    label: feeStatusShortLabel(value),
+                  }))}
+                  value={draft.feeStatus ?? DEFAULT_FEE_STATUS}
+                  onChange={(value) =>
+                    patch({
+                      feeStatus: validFeeStatus(value) ? value : null,
                     })
                   }
                 />
