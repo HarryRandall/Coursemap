@@ -349,6 +349,7 @@ select extensions.is_empty(
       and functions.proname not in (
         'published_course_availability',
         'published_course_detail',
+        'published_course_details',
         'published_requirement_graph',
         'published_structure_detail',
         'published_structure_years'
