@@ -88,3 +88,20 @@ test("a run of short lines under a bold lead reads as a list", () => {
     screen.getByText("Choose two of the following degrees:").closest("strong"),
   ).not.toBeNull();
 });
+
+test("a table reads as a list of its rows", () => {
+  renderMarkdown(
+    [
+      "42 units from completion of the following course(s):",
+      "",
+      "| Code | Title | Units |",
+      "| --- | --- | --- |",
+      "| | STAT 4010: Managing the Research Process | |",
+      "| STAT4027 | Statistical Inference | 6 |",
+    ].join("\n"),
+  );
+  const items = screen.getAllByRole("listitem");
+  expect(items).toHaveLength(2);
+  expect(items[0]).toHaveTextContent("STAT 4010: Managing the Research Process");
+  expect(items[1]).toHaveTextContent(/STAT4027.*Statistical Inference \(6 units\)/u);
+});

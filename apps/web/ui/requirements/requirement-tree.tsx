@@ -178,7 +178,10 @@ export function RequirementGroupView({
       ) && !(child.type === "condition" && hidesCondition(child, context)),
   );
   const onlyChild = children.length === 1 ? children[0] : null;
+  // A nested group keeps its total, since beside other options it is the
+  // only thing saying what the option asks for.
   const inheritedTarget =
+    !nested &&
     group.minimumUnits === context.unitTarget &&
     (group.maximumUnits === null || group.maximumUnits === context.unitTarget);
   const repeatedBounds =
@@ -210,8 +213,11 @@ export function RequirementGroupView({
         child.maximumUnits === null,
     );
   const childContext = unitPool ? { ...context, unitPool: true } : context;
-  const rows = children.filter((child) => !isNotice(child));
-  const notices = children.filter(isNotice);
+  // A note offered as one of the options stays in the list, after an "or".
+  const rows = alternative
+    ? children
+    : children.filter((child) => !isNotice(child));
+  const notices = alternative ? [] : children.filter(isNotice);
   // With a plan behind the view, the top level sorts rules by what is left
   // to do. Alternatives keep their order, since the choice is between them.
   const sorted =
