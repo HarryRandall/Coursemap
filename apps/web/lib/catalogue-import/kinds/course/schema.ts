@@ -394,6 +394,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in" },
             programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
+            matches: { type: "boolean" },
           },
         },
         {
@@ -403,6 +404,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in" },
             programmeTitle: { type: "string", minLength: 1 },
+            matches: { type: "boolean" },
           },
         },
         {
@@ -545,6 +547,8 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "note" },
             sourceText: { type: "string", minLength: 1 },
+            required: { type: "boolean" },
+            recommended: { type: "boolean" },
           },
         },
         {

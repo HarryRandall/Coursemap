@@ -3754,6 +3754,7 @@ export type Database = {
           item_kind: string | null
           matches_career: boolean | null
           matches_enrolment_mode: boolean | null
+          matches_structure: boolean | null
           maximum_commencement_year: number | null
           maximum_level: number | null
           maximum_units: number | null
@@ -3765,6 +3766,7 @@ export type Database = {
           minimum_units: number | null
           minimum_wam: number | null
           minimum_year: number | null
+          note_kind: string | null
           position: number
           requirement_mode: string | null
           review_state: string
@@ -3794,6 +3796,7 @@ export type Database = {
           item_kind?: string | null
           matches_career?: boolean | null
           matches_enrolment_mode?: boolean | null
+          matches_structure?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -3805,6 +3808,7 @@ export type Database = {
           minimum_units?: number | null
           minimum_wam?: number | null
           minimum_year?: number | null
+          note_kind?: string | null
           position?: number
           requirement_mode?: string | null
           review_state?: string
@@ -3834,6 +3838,7 @@ export type Database = {
           item_kind?: string | null
           matches_career?: boolean | null
           matches_enrolment_mode?: boolean | null
+          matches_structure?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
           maximum_units?: number | null
@@ -3845,6 +3850,7 @@ export type Database = {
           minimum_units?: number | null
           minimum_wam?: number | null
           minimum_year?: number | null
+          note_kind?: string | null
           position?: number
           requirement_mode?: string | null
           review_state?: string

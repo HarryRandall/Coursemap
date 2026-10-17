@@ -174,8 +174,17 @@ function ScoreScale({
 
 /** Marks a soft requirement, which never blocks enrolment or a plan. */
 function SoftBadge({ label }: { label: string }) {
+  // A required condition is still never checked, but it is not optional, so
+  // it stands out from advice.
   return (
-    <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+    <span
+      className={cn(
+        "w-fit rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase",
+        label === "Required"
+          ? "bg-warning/10 text-warning"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
       {label}
     </span>
   );

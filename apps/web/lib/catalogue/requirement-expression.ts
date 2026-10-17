@@ -193,6 +193,9 @@ function conditionExpression(
         kind: "structure",
         structureCode: condition.itemCode,
         text: condition.freeText,
+        ...(condition.matchesStructure === false
+          ? { matchesStructure: false }
+          : {}),
       };
     case "structure_set":
       return {
@@ -245,7 +248,14 @@ function conditionExpression(
     case "permission":
       return { ...base, kind: "permission", text };
   }
-  return { ...base, kind: "other", text };
+  return {
+    ...base,
+    kind: "other",
+    text,
+    ...(condition.kind === "other" && condition.noteKind
+      ? { noteKind: condition.noteKind }
+      : {}),
+  };
 }
 
 /**

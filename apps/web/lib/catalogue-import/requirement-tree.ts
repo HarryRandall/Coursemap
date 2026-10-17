@@ -161,6 +161,13 @@ export function treeFromRequirementWrite(
           freeText: EDITABLE_KINDS.has(condition.kind)
             ? condition.freeText
             : (condition.freeText ?? condition.sourceText ?? condition.kind),
+          ...(condition.kind === "other" && condition.noteKind
+            ? { noteKind: condition.noteKind }
+            : {}),
+          ...(condition.kind === "structure" &&
+          condition.matchesStructure === false
+            ? { matchesStructure: false }
+            : {}),
         },
       }));
     const children = [...childGroups, ...leaves]
@@ -334,8 +341,14 @@ export function requirementWriteWithTree(
           child.kind === "subject_sequence"
             ? (child.courseCode ?? null)
             : (child.freeText ?? null),
+        // A labelled note is never checked, so it is always advisory.
         hardness:
-          child.hardness ?? previous?.hardness ?? existing?.hardness ?? "hard",
+          child.kind === "other" && child.noteKind
+            ? "advisory"
+            : (child.hardness ??
+              previous?.hardness ??
+              existing?.hardness ??
+              "hard"),
         sourceText:
           (child.kind === "subject_sequence" ? null : child.freeText) ??
           previous?.sourceText ??
@@ -343,6 +356,12 @@ export function requirementWriteWithTree(
         sourceLocator: previous?.sourceLocator ?? null,
         reviewState: "verified",
         confidence: 1,
+        ...(child.kind === "other" && child.noteKind
+          ? { noteKind: child.noteKind }
+          : {}),
+        ...(child.kind === "structure" && child.matchesStructure === false
+          ? { matchesStructure: false as const }
+          : {}),
       });
       (child.courseCodes ?? []).forEach((code, optionIndex) => {
         next.options.push({

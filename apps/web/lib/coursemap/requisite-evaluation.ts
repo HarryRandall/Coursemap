@@ -193,6 +193,9 @@ export function isSoftExpression(expression: CourseRuleExpression): boolean {
       expression.conditions.length > 0 &&
       expression.conditions.every(isSoftExpression)
     );
+  // A labelled note, even a required one, can't be checked, so it never
+  // blocks whatever hardness an edit left on it.
+  if (expression.kind === "other" && expression.noteKind) return true;
   return expression.hardness === "advisory";
 }
 
@@ -415,6 +418,20 @@ export function evaluateCondition(
         detail: `You're in year ${student.studyYear}`,
       };
     case "structure": {
+      if (condition.matchesStructure === false) {
+        // "Not enrolled in" is the opposite of enrolment; unknown stays unknown.
+        const enrolled = evaluateCondition(
+          { ...condition, matchesStructure: true },
+          student,
+        );
+        if (enrolled.status === "unknown") return enrolled;
+        return enrolled.status === "met"
+          ? { status: "unmet", detail: enrolled.detail }
+          : {
+              status: "met",
+              detail: `You're not enrolled in ${condition.structureCode}`,
+            };
+      }
       if (!condition.structureCode) return { status: "unknown" };
       if (catalogueKindForCode(condition.structureCode) !== "programme") {
         if (!student.structureCodes) return { status: "unknown" };

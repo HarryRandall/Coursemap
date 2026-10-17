@@ -387,7 +387,8 @@ async function insertRequirements(
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year, minimum_commencement_year, maximum_commencement_year, enrolment_mode, matches_enrolment_mode,
         subject_codes, course_levels, career, matches_career,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
-        review_state, confidence, scope, includes_any_course
+        review_state, confidence, scope, includes_any_course, note_kind,
+        matches_structure
       ) values (
         ${ruleId}, ${snapshotId}, ${groupId}, ${condition.key}, ${condition.position},
         ${condition.kind}, ${conditionItemId},
@@ -401,7 +402,8 @@ async function insertRequirements(
         ${condition.tag}, ${condition.freeText}, ${condition.hardness},
         ${condition.sourceText}, ${condition.sourceLocator}, ${condition.reviewState},
         ${condition.confidence}, ${condition.scope ?? "part"},
-        ${condition.includesAnyCourse ?? false}
+        ${condition.includesAnyCourse ?? false}, ${condition.noteKind ?? null},
+        ${condition.matchesStructure ?? null}
       )
       returning id
     `;

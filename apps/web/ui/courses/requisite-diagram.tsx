@@ -17,6 +17,7 @@ import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   evaluateRule,
   groupOperator,
+  isSoftExpression,
   type StudentRecord,
 } from "@/lib/coursemap/requisite-evaluation";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -24,6 +25,7 @@ import {
   groupLabel,
   requisiteExplorerLink,
   requisiteNoun,
+  softRequirementLabel,
   splitRequisiteRule,
 } from "@/ui/courses/requisite-wording";
 
@@ -188,7 +190,11 @@ function Leaf({
   }
   const link = requisiteExplorerLink(node, academicYear);
   // A soft condition never blocks enrolment, so its box is dashed and named.
-  const isSoft = node.hardness === "advisory";
+  const isSoft = isSoftExpression(node);
+  const softLabel =
+    node.kind === "other" && node.noteKind
+      ? softRequirementLabel(node)
+      : "soft";
   const box = cn(
     "flex h-11 items-center gap-2 rounded-lg border px-3",
     met ? "border-success/40 bg-success/5" : "border-border bg-card",
@@ -200,7 +206,9 @@ function Leaf({
       <KindIcon kind={node.kind} />
       <span className="line-clamp-2 min-w-0 flex-1 text-xs leading-snug font-medium">
         {requisiteNoun(node)}
-        {isSoft ? <span className="text-muted-foreground"> (soft)</span> : null}
+        {isSoft ? (
+          <span className="text-muted-foreground"> ({softLabel})</span>
+        ) : null}
       </span>
       {met ? (
         <Met />

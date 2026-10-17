@@ -91,14 +91,27 @@ function isCheckableCondition(condition: CourseRuleCondition) {
   }
 }
 
+export type SoftRequirementLabel =
+  "Required" | "Recommended" | "You'll also need" | "Check with ANU";
+
+const NOTE_KIND_LABELS = {
+  required: "Required",
+  recommended: "Recommended",
+  check_with_anu: "Check with ANU",
+} as const satisfies Record<string, SoftRequirementLabel>;
+
 /**
- * How a soft requirement is introduced: advice Coursemap can check is
- * "Recommended"; a condition it cannot check is something the student will
- * also need to arrange, such as an audition or a placement.
+ * How a soft requirement is introduced. A labelled note says so itself: a
+ * mandatory condition Coursemap cannot check is "Required", and ANU wording
+ * the importer could not model is "Check with ANU". Otherwise advice
+ * Coursemap can check is "Recommended", and a condition it cannot check is
+ * something the student will also need to arrange, such as an audition.
  */
 export function softRequirementLabel(
   expression: CourseRuleExpression,
-): "Recommended" | "You'll also need" {
+): SoftRequirementLabel {
+  if (expression.kind === "other" && expression.noteKind)
+    return NOTE_KIND_LABELS[expression.noteKind];
   const checkable = (node: CourseRuleExpression): boolean =>
     node.kind === "group"
       ? node.conditions.every(checkable)
@@ -208,7 +221,7 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Year ${condition.minimumYear} or later`;
     case "structure":
-      return `Enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "a program")}`;
+      return `${condition.matchesStructure === false ? "Not enrolled" : "Enrolled"} in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "a program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Enrolled in ${condition.minimumCount} of ${codes(condition.structureCodes)}`
@@ -279,7 +292,9 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Be in year ${condition.minimumYear} or later of your degree`;
     case "structure":
-      return `Be enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "the required program")}`;
+      return condition.matchesStructure === false
+        ? `Be in a program other than ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "this one")}`
+        : `Be enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "the required program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Be enrolled in ${condition.minimumCount} of these programs`

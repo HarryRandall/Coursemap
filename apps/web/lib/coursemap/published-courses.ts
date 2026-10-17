@@ -9,6 +9,10 @@ import {
 } from "../academic/programme-career";
 import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
+  requirementNoteKind,
+  type RequirementNoteKind,
+} from "@/lib/catalogue/note-kinds";
+import {
   PUBLISHED_COURSE_DETAIL_TAG,
   PUBLISHED_COURSE_PAGE_TAG,
   PUBLISHED_READ_REVALIDATE_SECONDS,
@@ -693,6 +697,9 @@ type ProjectionCondition = {
   courseLevels: number[] | null;
   career: ProgrammeCareer | null;
   matchesCareer: boolean | null;
+  /** False for "not enrolled in"; true otherwise. */
+  matchesStructure: boolean;
+  noteKind: RequirementNoteKind | null;
   position: number;
   programmeCode: string | null;
   reviewState: string;
@@ -821,6 +828,8 @@ function readProjectionCourseRule(
         career: validProgrammeCareer(value.career) ? value.career : null,
         matchesCareer:
           typeof value.matchesCareer === "boolean" ? value.matchesCareer : null,
+        matchesStructure: value.matchesStructure !== false,
+        noteKind: requirementNoteKind(value.noteKind),
         optionCodes: optionCodesByCondition.get(key) ?? [],
         position,
         programmeCode: readNullableString(value.requiredStructureCode),
@@ -1033,6 +1042,7 @@ function readProjectionCourseRule(
         kind: "structure",
         structureCode: condition.programmeCode,
         text: condition.freeText,
+        ...(condition.matchesStructure ? {} : { matchesStructure: false }),
       };
     }
     if (condition.kind === "structure_set") {
@@ -1113,6 +1123,7 @@ function readProjectionCourseRule(
       ...base,
       kind: "other",
       text: condition.freeText ?? condition.sourceText,
+      ...(condition.noteKind ? { noteKind: condition.noteKind } : {}),
     };
   }
 
@@ -1239,7 +1250,11 @@ function readProjectionCourseRule(
         });
       } else if (condition.kind === "units_total" && condition.units) {
         expressions.push({ kind: "units_total", units: condition.units });
-      } else if (condition.kind === "structure" && condition.programmeCode) {
+      } else if (
+        condition.kind === "structure" &&
+        condition.programmeCode &&
+        condition.matchesStructure
+      ) {
         expressions.push({
           kind: "programme_enrolment",
           code: condition.programmeCode,

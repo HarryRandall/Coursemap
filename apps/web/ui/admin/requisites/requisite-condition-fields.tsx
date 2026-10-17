@@ -8,9 +8,11 @@ import {
   CONDITION_KIND_LABELS,
   conditionFamily,
   courseMatch,
+  NOTE_KIND_SUMMARY_LABELS,
   type ReviewedConditionKind,
   type ReviewedConditionNode,
 } from "@/lib/coursemap/requisite-conditions";
+import { REQUIREMENT_NOTE_KINDS } from "@/lib/catalogue/note-kinds";
 import {
   COURSE_MATCH_OPTIONS,
   CourseMarkInput,
@@ -47,6 +49,12 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
       permission: "Permission",
       other: "Other wording",
     }[kind] ?? CONDITION_KIND_LABELS[kind],
+}));
+/** Labels for an uncheckable note; every one of them is soft. */
+const NOTE_HARDNESS_OPTIONS = REQUIREMENT_NOTE_KINDS.map((noteKind) => ({
+  value: `note:${noteKind}`,
+  label: NOTE_KIND_SUMMARY_LABELS[noteKind],
+  noteKind,
 }));
 const stackedFamilyControl =
   "!h-10 min-h-10 w-full min-w-0 !rounded-none !border-transparent bg-transparent px-3 text-[13px] font-medium text-foreground/80 shadow-none max-md:!h-11 max-md:min-h-11";
@@ -128,6 +136,29 @@ export function ConditionInlineEditor({
           label: option.label,
         }))}
       />
+    ) : condition.kind === "structure" ? (
+      <OptionPicker
+        value={
+          condition.matchesStructure === false ? "not_enrolled" : "enrolled"
+        }
+        onValueChange={(value) =>
+          onChange({
+            ...condition,
+            matchesStructure: value === "not_enrolled" ? false : null,
+          })
+        }
+        {...bindOpen("match")}
+        className={cn(
+          inlineControl,
+          layout === "stacked" && stackedMatchControl,
+        )}
+        aria-label={"Programme requirement"}
+        onPointerDown={(event) => event.stopPropagation()}
+        items={[
+          { value: "enrolled", label: "Enrolment required" },
+          { value: "not_enrolled", label: "Not enrolled in" },
+        ]}
+      />
     ) : (
       <span
         aria-label={`Requirement: ${middle[0]?.label ?? "At least"}`}
@@ -148,16 +179,28 @@ export function ConditionInlineEditor({
       stacked={layout === "stacked"}
     />
   );
-  // A soft requirement is shown to students but never blocks enrolment.
+  // A soft requirement is shown to students but never blocks enrolment. A
+  // note can also be labelled; a labelled note is soft whatever its label.
+  const isNote = condition.kind === "other";
   const hardnessControl = (
     <OptionPicker
-      value={condition.hardness === "advisory" ? "advisory" : "hard"}
-      onValueChange={(value) =>
+      value={
+        isNote && condition.noteKind
+          ? `note:${condition.noteKind}`
+          : condition.hardness === "advisory"
+            ? "advisory"
+            : "hard"
+      }
+      onValueChange={(value) => {
+        const noteKind = NOTE_HARDNESS_OPTIONS.find(
+          (option) => option.value === value,
+        )?.noteKind;
         onChange({
           ...condition,
-          hardness: value === "advisory" ? "advisory" : "hard",
-        })
-      }
+          hardness: value === "hard" ? "hard" : "advisory",
+          noteKind: isNote ? (noteKind ?? null) : condition.noteKind,
+        });
+      }}
       {...bindOpen("hardness")}
       className={cn(
         inlineControl,
@@ -168,6 +211,9 @@ export function ConditionInlineEditor({
       items={[
         { value: "hard", label: "Hard requirement" },
         { value: "advisory", label: "Soft requirement" },
+        ...(isNote
+          ? NOTE_HARDNESS_OPTIONS.map(({ value, label }) => ({ value, label }))
+          : []),
       ]}
     />
   );

@@ -9,6 +9,7 @@ import {
   type ProgrammeCareer,
 } from "../../../academic/programme-career.ts";
 import type { WorkloadHoursBasis } from "../../../academic/workload.ts";
+import type { RequirementNoteKind } from "../../../catalogue/note-kinds.ts";
 import {
   parseCourseExtraction,
   type CourseExtraction,
@@ -124,6 +125,10 @@ export type ProjectedCourseRuleConditionRow = {
   courseRequirementMode: CourseRequirementMode | null;
   hardness: RuleHardness;
   sourceText: string;
+  /** How an uncheckable note is shown; absent for an ordinary note. */
+  noteKind?: RequirementNoteKind;
+  /** False for "not enrolled in" a programme; absent when enrolled. */
+  matchesStructure?: false;
 };
 
 export type CourseSnapshotProjectionData = {
@@ -299,10 +304,12 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
       return `At least ${rule.minimumUnits} units of ${rule.includeConcurrent ? "completed or current" : "completed"} ${courseFilterLabel(
         { subjectCodes: rule.subjectCodes, courseLevels: rule.levels },
       )}`;
-    case "enrolled_in":
+    case "enrolled_in": {
+      const enrolment = rule.matches === false ? "Not enrolled" : "Enrolment";
       return "programmeCode" in rule
-        ? `Enrolment in programme ${rule.programmeCode}`
-        : `Enrolment in the ${rule.programmeTitle}`;
+        ? `${enrolment} in programme ${rule.programmeCode}`
+        : `${enrolment} in the ${rule.programmeTitle}`;
+    }
     case "enrolled_in_career":
       return careerConditionLabel({
         career: rule.career,
@@ -623,6 +630,7 @@ function addAtomicRule(
           sourceText,
         });
         condition.freeText = rule.programmeTitle;
+        if (rule.matches === false) condition.matchesStructure = false;
         accumulator.ruleConditions.push(condition);
         return;
       }
@@ -636,6 +644,7 @@ function addAtomicRule(
         sourceText,
       });
       condition.requiredStructureCode = rule.programmeCode;
+      if (rule.matches === false) condition.matchesStructure = false;
       accumulator.ruleConditions.push(condition);
       return;
     }
@@ -792,6 +801,9 @@ function addAtomicRule(
         sourceText: text,
       });
       condition.freeText = text;
+      // A required note is still never checked: it is labelled, not enforced.
+      if (rule.required) condition.noteKind = "required";
+      else if (rule.recommended) condition.noteKind = "recommended";
       accumulator.ruleConditions.push(condition);
       return;
     }

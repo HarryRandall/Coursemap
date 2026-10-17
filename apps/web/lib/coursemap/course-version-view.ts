@@ -139,6 +139,8 @@ function courseProjectionFromWrite(write: CatalogueContent): Json {
       sourceText: condition.sourceText,
       reviewState: condition.reviewState,
       confidence: condition.confidence,
+      noteKind: condition.noteKind ?? null,
+      matchesStructure: condition.matchesStructure ?? null,
     })),
     ruleConditionCourses: requirements.options.map((option) => ({
       conditionKey: option.conditionKey,

@@ -21,6 +21,7 @@ import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.t
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
 import { requirementWriteWithTree } from "../lib/catalogue-import/requirement-tree.ts";
+import { requisiteFallbackContent } from "../lib/catalogue-import/requisite-fallback.ts";
 import {
   ensureAnuSourceId,
   startSyncStage,
@@ -41,6 +42,7 @@ const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
 const OFFERING_CODE = "TSTC9104";
 const REPEAT_CODE = "TSTC9105";
+const NEGATED_PROGRAMME = "TSTCPROG";
 
 let sql;
 let yearId;
@@ -72,6 +74,7 @@ async function removeFixtures() {
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${REPEAT_CODE}, ${OFFERING_CODE})`;
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${REPEAT_CODE})`;
     await sql`delete from public.catalogue_codes where kind = 'specialisation' and code = 'TSTC-HSPC'`;
+    await sql`delete from public.catalogue_codes where kind = 'programme' and code = ${NEGATED_PROGRAMME}`;
   } finally {
     await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
     await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
@@ -1632,5 +1635,122 @@ test("soft conditions, scoped averages, field units and sequences survive persis
     ["subject_sequence", "TSTC", OFFERING_CODE],
   );
   assert.deepEqual([note.kind, note.hardness], ["other", "advisory"]);
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+});
+
+test("labelled notes, not-enrolled programmes and fallback notes survive persistence with the same hash", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Labelled note persistence",
+  });
+  model.requisites.prerequisiteText =
+    "Students in the program must have completed TSTC9101. Students in other programs must have completed 24 units. Students must complete a National Police Check. Completion of a cognate major.";
+  model.requisites.prerequisiteRule = {
+    op: "one_of",
+    rules: [
+      {
+        op: "all_of",
+        rules: [
+          { op: "enrolled_in", programmeCode: NEGATED_PROGRAMME },
+          { op: "completed", courseCode: EMPTY_CODE },
+        ],
+      },
+      {
+        op: "all_of",
+        rules: [
+          {
+            op: "enrolled_in",
+            programmeCode: NEGATED_PROGRAMME,
+            matches: false,
+          },
+          { op: "min_units_total", minimumUnits: 24 },
+          {
+            op: "note",
+            sourceText: "Students must complete a National Police Check.",
+            required: true,
+          },
+          {
+            op: "note",
+            sourceText: "Completion of a cognate major.",
+            recommended: true,
+          },
+        ],
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+    flags: [
+      {
+        fieldPath: "requisites",
+        severity: "error",
+        code: "UNSUPPORTED",
+        message:
+          "The other information section includes eligibility wording that needs review.",
+        sourceExcerpt: "Students must attend an interview.",
+      },
+    ],
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  // The fallback adds a new all-of root above the choice and a note beside it.
+  const fallback = requisiteFallbackContent(content);
+  assert.deepEqual(fallback.notes, ["Students must attend an interview."]);
+  const write = fallback.content;
+  const fixture = await createSyncFixture(OFFERING_CODE, write.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write,
+  });
+  const stored = await sql`
+    select conditions.condition_kind, conditions.note_kind,
+      conditions.matches_structure, conditions.hardness, codes.code as item_code
+    from public.requirement_conditions as conditions
+    left join public.catalogue_codes as codes on codes.id = conditions.code_id
+    where conditions.version_id = ${result.sourceVersionId}
+    order by conditions.id
+  `;
+  assert.deepEqual(
+    stored.map((row) => [
+      row.condition_kind,
+      row.note_kind,
+      row.matches_structure,
+      row.hardness,
+      row.item_code,
+    ]),
+    [
+      ["structure", null, null, "hard", NEGATED_PROGRAMME],
+      ["course", null, null, "hard", EMPTY_CODE],
+      ["structure", null, false, "hard", NEGATED_PROGRAMME],
+      ["units_total", null, null, "hard", null],
+      ["other", "required", null, "advisory", null],
+      ["other", "recommended", null, "advisory", null],
+      ["other", "check_with_anu", null, "advisory", null],
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, write.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), write.contentHash);
+
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  const expression = readProjectionPrerequisiteRule(
+    projection.content,
+  ).relationalExpression;
+  assert.equal(expression.operator, "all_of");
+  const [choice, interview] = expression.conditions;
+  assert.deepEqual(
+    [interview.kind, interview.noteKind, interview.hardness],
+    ["other", "check_with_anu", "advisory"],
+  );
+  const [, otherPrograms] = choice.conditions;
+  const [programme, , police, major] = otherPrograms.conditions;
+  assert.deepEqual(
+    [programme.kind, programme.structureCode, programme.matchesStructure],
+    ["structure", NEGATED_PROGRAMME, false],
+  );
+  assert.equal(police.noteKind, "required");
+  assert.equal(major.noteKind, "recommended");
   await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });

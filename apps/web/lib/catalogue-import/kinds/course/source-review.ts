@@ -320,6 +320,47 @@ function nodeWording(node: CourseRule): string | null {
  * is part of the rule. With softOnly, only soft parts count, which is what
  * makes an unscoped AND/OR clause safe to keep.
  */
+/** The course codes a leaf names, including a scoped average's courses. */
+function leafCourseCodes(leaf: CourseRule): string[] {
+  switch (leaf.op) {
+    case "completed":
+    case "completed_or_concurrent":
+      return [leaf.courseCode];
+    case "min_units_from_courses":
+      return leaf.courseCodes;
+    case "minimum_gpa":
+      return leaf.courseCodes ?? [];
+    default:
+      return [];
+  }
+}
+
+/**
+ * A soft wrapper's sourceText is the exact clause it covers, which can be
+ * shorter than the printed sentence ("assumes ... knowledge learnt in
+ * MEDI8011"). Soft clauses taken from the sentence represent it when,
+ * together, their rules name every course code the sentence prints. A
+ * sentence without codes needs wording that covers it.
+ */
+function softClausesCoverCodes(
+  nodes: ReadonlyArray<{ node: CourseRule; isSoft: boolean }>,
+  clause: string,
+) {
+  const codes = [...new Set(clause.match(/\b[A-Z]{4}\d{4}[A-Z]?\b/gu) ?? [])];
+  if (!codes.length) return false;
+  const sentence = comparableWords(clause);
+  const named = new Set(
+    nodes.flatMap(({ node }) => {
+      if (node.op !== "soft" || !node.sourceText) return [];
+      const wording = comparableWords(node.sourceText);
+      return wording && sentence.includes(wording)
+        ? ruleLeaves(node.rule).flatMap(leafCourseCodes)
+        : [];
+    }),
+  );
+  return codes.every((code) => named.has(code));
+}
+
 export function ruleCoversClause(
   rules: readonly (CourseRule | null)[],
   clause: string,
@@ -335,6 +376,7 @@ export function ruleCoversClause(
     })
   )
     return true;
+  if (softClausesCoverCodes(nodes, clause)) return true;
   const plain = parsePlainCourseRequisites(clause)?.prerequisiteRule;
   if (!plain) return false;
   const reading = JSON.stringify(plain);
@@ -350,8 +392,10 @@ export function ruleCoversClause(
  * until a reader checks it. Once the modelled rules represent every flagged
  * clause, as a permission, a soft note or a rule that reads the same, the
  * error becomes a warning so the course is not held for wording it already
- * shows. Wording left in unmodelledText keeps its own error. Mutates
- * extraction.reviewItems and returns how many errors were lifted.
+ * shows. Wording left in unmodelledText keeps its own error. An error that
+ * stays keeps the clauses the rule does not represent as its source excerpt,
+ * separated by blank lines. Mutates extraction.reviewItems and returns how
+ * many errors were lifted.
  */
 export function liftRepresentedEligibilityFlags(
   extraction: CourseExtraction,
@@ -363,7 +407,18 @@ export function liftRepresentedEligibilityFlags(
   ];
   let lifted = 0;
   for (const { message, clauses } of eligibilityClauses) {
-    if (!clauses.every((clause) => ruleCoversClause(rules, clause))) continue;
+    const uncovered = clauses.filter(
+      (clause) => !ruleCoversClause(rules, clause),
+    );
+    if (uncovered.length) {
+      const sourceExcerpt = [...new Set(uncovered)].join("\n\n");
+      extraction.reviewItems = extraction.reviewItems.map((item) =>
+        item.message === message && item.severity === "error"
+          ? { ...item, sourceExcerpt }
+          : item,
+      );
+      continue;
+    }
     extraction.reviewItems = extraction.reviewItems.map((item) => {
       if (item.message !== message || item.severity !== "error") return item;
       lifted += 1;

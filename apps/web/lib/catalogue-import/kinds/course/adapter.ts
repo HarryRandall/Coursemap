@@ -126,7 +126,7 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
         severity: item.severity,
         code: item.kind.toUpperCase(),
         message: item.message,
-        sourceExcerpt: null,
+        sourceExcerpt: item.sourceExcerpt ?? null,
       })),
     });
   },

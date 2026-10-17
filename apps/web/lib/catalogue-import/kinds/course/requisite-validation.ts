@@ -297,7 +297,10 @@ function validateRule(
       path,
       ["op", isTitle ? "programmeTitle" : "programmeCode"],
       issues,
+      ["matches"],
     );
+    if (record && record.matches !== undefined && record.matches !== null)
+      requireBoolean(record.matches, `${path}.matches`, issues);
     if (record && isTitle)
       requireString(record.programmeTitle, `${path}.programmeTitle`, issues);
     else if (record)
@@ -465,8 +468,21 @@ function validateRule(
       else validateRule(record.rule, `${path}.rule`, issues, depth + 1);
     }
   } else if (op === "note") {
-    const record = exactRecord(value, path, ["op", "sourceText"], issues);
-    if (record) requireString(record.sourceText, `${path}.sourceText`, issues);
+    const record = exactRecord(value, path, ["op", "sourceText"], issues, [
+      "required",
+      "recommended",
+    ]);
+    if (record) {
+      requireString(record.sourceText, `${path}.sourceText`, issues);
+      for (const key of ["required", "recommended"] as const)
+        if (record[key] !== undefined && record[key] !== null)
+          requireBoolean(record[key], `${path}.${key}`, issues);
+      if (record.required === true && record.recommended === true)
+        issues.push({
+          path,
+          message: "must not be both required and recommended",
+        });
+    }
   } else if (op === "min_units_in_field") {
     const record = exactRecord(
       value,

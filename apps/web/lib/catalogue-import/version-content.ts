@@ -2,6 +2,7 @@ import { validEnrolmentMode } from "../academic/enrolment-mode.ts";
 import { validProgrammeCareer } from "../academic/programme-career.ts";
 import type postgres from "postgres";
 import { workloadHoursBasis } from "../academic/workload.ts";
+import { requirementNoteKind } from "../catalogue/note-kinds.ts";
 import { stableFingerprint } from "./canonical.ts";
 import type {
   SyncSql,
@@ -188,6 +189,14 @@ async function readRequirements(
       ...(condition.scope === "degree" ? { scope: "degree" as const } : {}),
       ...(condition.includes_any_course
         ? { includesAnyCourse: true as const }
+        : {}),
+      ...(condition.condition_kind === "other" &&
+      requirementNoteKind(condition.note_kind)
+        ? { noteKind: requirementNoteKind(condition.note_kind)! }
+        : {}),
+      ...(condition.condition_kind === "structure" &&
+      condition.matches_structure === false
+        ? { matchesStructure: false as const }
         : {}),
     })),
     options: options.map((option) => ({

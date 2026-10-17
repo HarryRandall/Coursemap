@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(43);
+select extensions.plan(48);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -520,6 +520,77 @@ select extensions.throws_ok(
   'an average is scoped to courses only'
 );
 
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      free_text, hardness, note_kind
+    )
+    select groups.rule_id, groups.version_id, groups.id, item.key, item.position,
+      'other', item.text, 'advisory', item.note_kind
+    from public.requirement_groups as groups
+    join fixture on fixture.version_id = groups.version_id
+    cross join (values
+      ('police-check', 36, 'Students must complete a National Police Check.', 'required'),
+      ('check-anu', 37, 'Students must attend an interview.', 'check_with_anu')
+    ) as item(key, position, text, note_kind);
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      code_id, item_kind, matches_structure
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'other-programs', 38,
+      'structure', (select id from public.catalogue_codes where code = 'REQT-MAJ'),
+      'major', false
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'labelled notes and a not-enrolled structure are stored'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, note_kind
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'labelled-units', 39,
+      'units_total', 24, 'required'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'only notes carry a note kind'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      free_text, note_kind
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'unknown-label', 40,
+      'other', 'A note.', 'mandatory'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a note kind is one of the known labels'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, matches_structure
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'negated-units', 41,
+      'units_total', 24, false
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'only structure conditions can be negated'
+);
+
 select pg_temp.publish_snapshot((select version_id from fixture));
 
 select extensions.throws_ok(
@@ -593,6 +664,21 @@ select extensions.ok(
       )
   ),
   'published requirements expose soft conditions with their values'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 3
+    from jsonb_array_elements(
+      public.published_course_detail('REQT1000', 2029::smallint) -> 'ruleConditions'
+    ) as conditions(value)
+    where (value ->> 'key' = 'police-check' and value ->> 'noteKind' = 'required')
+      or (value ->> 'key' = 'check-anu' and value ->> 'noteKind' = 'check_with_anu')
+      or (value ->> 'key' = 'other-programs'
+        and value -> 'matchesStructure' = 'false'::jsonb
+        and value ->> 'requiredStructureCode' = 'REQT-MAJ')
+  ),
+  'published requirements expose note labels and not-enrolled structures'
 );
 
 reset role;

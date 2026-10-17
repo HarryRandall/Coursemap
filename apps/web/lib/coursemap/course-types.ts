@@ -2,6 +2,7 @@ import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type { ProgrammeCareer } from "../academic/programme-career";
 import type { WorkloadHoursBasis } from "@/lib/academic/workload";
 import type { CourseFeeEstimates } from "@/lib/academic/fee-estimates";
+import type { RequirementNoteKind } from "@/lib/catalogue/note-kinds";
 import type { RequisiteExpression } from "./requisite-summary";
 
 export type CourseRuleReviewState = "automatic" | "review" | "verified";
@@ -97,6 +98,8 @@ export type CourseRuleExpression =
       kind: "structure";
       structureCode: string | null;
       text: string | null;
+      /** False for "not enrolled in"; absent or true for enrolled. */
+      matchesStructure?: boolean;
     })
   | (CourseRuleConditionBase & {
       kind: "structure_set";
@@ -136,8 +139,14 @@ export type CourseRuleExpression =
       code: string;
     })
   | (CourseRuleConditionBase & {
-      kind: "permission" | "other";
+      kind: "permission";
       text: string;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "other";
+      text: string;
+      /** How an uncheckable note is labelled; absent for an ordinary note. */
+      noteKind?: RequirementNoteKind | null;
     })
   | {
       conditions: CourseRuleExpression[];

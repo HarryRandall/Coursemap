@@ -229,7 +229,8 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       );
       return;
     case "structure":
-      if (!partial && node.structureCode) {
+      // A sample meets "not enrolled in" by leaving the programme out.
+      if (!partial && node.structureCode && node.matchesStructure !== false) {
         if (catalogueKindForCode(node.structureCode) === "programme")
           draft.programmeCodes.add(node.structureCode);
         else draft.structureCodes.add(node.structureCode);

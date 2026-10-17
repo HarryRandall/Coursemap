@@ -394,3 +394,51 @@ test("soft requirements are labelled and never counted as required", () => {
   ).toBeInTheDocument();
   expect(screen.getByText("0 of 1 met")).toBeInTheDocument();
 });
+
+test("labelled notes read Required, Recommended or Check with ANU and never count", () => {
+  const note = (
+    text: string,
+    noteKind: "required" | "recommended" | "check_with_anu",
+  ): CourseRuleExpression => ({
+    ...base,
+    hardness: "advisory",
+    kind: "other",
+    text,
+    noteKind,
+  });
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "units_total", subject: null, units: 48 },
+          { ...base, kind: "permission", text: "Request a permission code." },
+          note(
+            "National Police Certificate - Students must complete a National Police Check.",
+            "required",
+          ),
+          note("Completion of a cognate major.", "recommended"),
+          note("Students must attend an interview.", "check_with_anu"),
+        ],
+      }}
+      student={{ ...student, completed: new Map() }}
+    />,
+  );
+  expect(screen.getByText("All 2 required")).toBeInTheDocument();
+  expect(screen.getByText("Required")).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "National Police Certificate - Students must complete a National Police Check.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Recommended")).toBeInTheDocument();
+  expect(screen.getByText("Check with ANU")).toBeInTheDocument();
+  expect(
+    screen.getByText("Students must attend an interview."),
+  ).toBeInTheDocument();
+  expect(screen.getByText("0 of 1 met")).toBeInTheDocument();
+});

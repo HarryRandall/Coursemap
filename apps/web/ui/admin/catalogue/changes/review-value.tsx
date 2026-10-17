@@ -24,6 +24,7 @@ import { RequisiteDiagram } from "@/ui/courses/requisite-diagram";
 import {
   groupSentence,
   requisiteSentence,
+  softRequirementLabel,
 } from "@/ui/courses/requisite-wording";
 
 /** The record under review, for drawing a rule the way its course page does. */
@@ -291,7 +292,11 @@ function requirementRows(
       depth,
       text: requisiteSentence(node),
       detail: [
-        node.hardness === "advisory" ? "Soft, never blocks" : null,
+        node.kind === "other" && node.noteKind
+          ? `${softRequirementLabel(node)} note, never blocks`
+          : node.hardness === "advisory"
+            ? "Soft, never blocks"
+            : null,
         node.reviewState === "review" ? "Marked for review" : null,
       ]
         .filter(Boolean)

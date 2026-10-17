@@ -6,6 +6,7 @@ import { createLocalApplicationEnvironment } from "../local/supabase-environment
 import { createLocalDatabaseClient } from "./lib/local-database.mjs";
 import {
   publishAgentDraft,
+  publishAgentFallbackDraft,
   readAgentPublicationCandidates,
 } from "./lib/agent-publication.mjs";
 import {
@@ -13,19 +14,25 @@ import {
   readLocalAdministrator,
 } from "./lib/year-import.mjs";
 
-const USAGE = `Usage: pnpm catalogue:agent-publish --year 2026 [--kinds course,major] [--dry-run]
+const USAGE = `Usage: pnpm catalogue:agent-publish --year 2026 [--kinds course,major] [--fallback] [--dry-run]
 
 Publishes untouched, error-free drafts from agent-answered imports in the local
-database, accepting their first readings as the local administrator.`;
+database, accepting their first readings as the local administrator.
+
+--fallback publishes the untouched course drafts held only by requisite errors
+instead: the modelled rule is kept, ANU's leftover wording becomes "Check with
+ANU" notes that never block, and the errors become warnings for later review.`;
 
 export async function main(args = process.argv.slice(2)) {
   let year = null;
   let kinds = YEAR_IMPORT_KINDS;
   let dryRun = false;
+  let fallback = false;
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === "--year") year = Number(args[(index += 1)]);
     else if (args[index] === "--kinds") kinds = args[(index += 1)].split(",");
     else if (args[index] === "--dry-run") dryRun = true;
+    else if (args[index] === "--fallback") fallback = true;
     else throw new Error(USAGE);
   }
   if (!Number.isInteger(year)) throw new Error(USAGE);
@@ -36,25 +43,48 @@ export async function main(args = process.argv.slice(2)) {
     await import("../../lib/catalogue/source-review-decisions.ts");
   const { publishCatalogueDraft } =
     await import("../../lib/catalogue/drafts.ts");
+  const { requisiteFallbackContent } =
+    await import("../../lib/catalogue-import/requisite-fallback.ts");
+  const { validateCatalogueContent } =
+    await import("../../lib/catalogue/content.ts");
+  const { diffSnapshotWrites } =
+    await import("../../lib/catalogue-import/changes.ts");
   const sql = await createLocalDatabaseClient();
   try {
     const userId = await readLocalAdministrator(sql);
     const candidates = await readAgentPublicationCandidates(sql, {
       year,
       kinds,
+      fallback,
     });
-    console.log(`${year}: ${candidates.length} drafts ready to publish.`);
-    if (dryRun) return;
+    console.log(
+      `${year}: ${candidates.length} drafts ready to publish${fallback ? " with the requisite fallback" : ""}.`,
+    );
+    if (dryRun) {
+      if (fallback)
+        for (const candidate of candidates)
+          console.log(`  ${candidate.kind} ${candidate.code}`);
+      return;
+    }
     let published = 0;
     const held = [];
     for (const candidate of candidates) {
+      const options = {
+        recordId: candidate.id,
+        userId,
+        resolveSourceChange,
+        publishCatalogueDraft,
+        requisiteFallbackContent,
+        validateCatalogueContent,
+        diffSnapshotWrites,
+      };
       try {
-        await publishAgentDraft(sql, {
-          recordId: candidate.id,
-          userId,
-          resolveSourceChange,
-          publishCatalogueDraft,
-        });
+        if (fallback) {
+          const result = await publishAgentFallbackDraft(sql, options);
+          console.log(
+            `  ${candidate.code}: ${result.notes.length} notes, ${result.downgraded} errors now warnings${result.softened ? ", rule kept as soft" : ""}.`,
+          );
+        } else await publishAgentDraft(sql, options);
         published += 1;
       } catch (error) {
         held.push(

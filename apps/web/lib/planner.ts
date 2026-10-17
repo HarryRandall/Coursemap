@@ -515,7 +515,7 @@ function evaluateRelationalPrerequisite(
     };
   }
 
-  if (expression.hardness === "advisory") {
+  if (isSoftExpression(expression)) {
     return { state: "satisfied", missingCodes: [] };
   }
   if (!isCheckable(expression.reviewState)) {
