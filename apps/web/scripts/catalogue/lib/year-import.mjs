@@ -22,6 +22,7 @@ Options:
   --kinds course,major,minor,specialisation,programme   Kinds to import (default all)
   --codes CODE,CODE                                      Only these codes
   --limit N                                              At most N records per kind
+  --careers Undergraduate,Postgraduate                   Only listings with these careers
   --concurrency N                                        Records processed at once (default 6)
   --skip-directory                                       Reuse the saved ANU listing
   --answers DIR                                          Agent request and answer folder
@@ -42,6 +43,7 @@ export function parseYearImportArgs(args) {
     kinds: YEAR_IMPORT_KINDS,
     codes: null,
     limit: null,
+    careers: null,
     concurrency: 6,
     skipDirectory: false,
     answers: null,
@@ -70,6 +72,11 @@ export function parseYearImportArgs(args) {
       options.codes = value
         .split(",")
         .map((code) => code.trim().toUpperCase())
+        .filter(Boolean);
+    } else if (flag === "--careers") {
+      options.careers = value
+        .split(",")
+        .map((career) => career.trim())
         .filter(Boolean);
     } else if (flag === "--limit") {
       options.limit = positiveInteger(flag, value);
@@ -112,7 +119,10 @@ export async function ensureAgentImportModel(sql) {
 }
 
 /** Listed records with no source version, publication, draft or active sync. */
-export async function readImportableRecords(sql, { kind, year, codes, limit }) {
+export async function readImportableRecords(
+  sql,
+  { kind, year, codes, limit, careers = null },
+) {
   const rows = await sql`
     select records.id, codes.code from public.catalogue_records records
     join public.catalogue_codes codes on codes.id = records.code_id
@@ -120,6 +130,7 @@ export async function readImportableRecords(sql, { kind, year, codes, limit }) {
     join public.catalogue_listings listings on listings.code_id = records.code_id and listings.academic_year_id = records.academic_year_id
     where records.kind = ${kind} and years.year = ${year}
       and (${codes === null} or codes.code = any(${codes ?? []}::text[]))
+      and (${careers === null} or listings.summary->>'career' = any(${careers ?? []}::text[]))
       and records.archived_at is null and listings.is_current
       and records.latest_source_version_id is null and records.published_version_id is null
       and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)

@@ -68,6 +68,7 @@ export async function main(args = process.argv.slice(2)) {
         year: options.year,
         codes: options.codes,
         limit: options.limit,
+        careers: options.careers,
       });
       if (!records.length) {
         console.log(`${options.year} ${kind}: nothing left to import.`);

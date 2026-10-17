@@ -205,6 +205,7 @@ test("year import options require a supported year and known kinds", () => {
       kinds: ["course", "programme"],
       codes: ["COMP1100", "MATH1013"],
       limit: null,
+      careers: null,
       concurrency: 6,
       skipDirectory: true,
       answers: null,
