@@ -188,6 +188,7 @@ test.each([
   [2000, 3000, "2-3"],
   [3000, 3000, "3"],
   [3000, null, "3+"],
+  [1000, 3999, "1-3"],
 ] as const)(
   "bounds survive matching and links: %s to %s",
   (minimumLevel, maximumLevel, level) => {
