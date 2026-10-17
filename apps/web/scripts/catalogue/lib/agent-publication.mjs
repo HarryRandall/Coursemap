@@ -79,6 +79,7 @@ export async function applyRequisiteFallback(
     requisiteFallbackContent,
     validateCatalogueContent,
     diffSnapshotWrites,
+    priorFlags = null,
   },
 ) {
   return sql.begin(async (tx) => {
@@ -91,11 +92,21 @@ export async function applyRequisiteFallback(
       for update of drafts
     `;
     if (!row) throw new Error("The draft no longer exists.");
-    if (row.updated_by !== null)
+    // Accepting the first reading stamps the draft with this administrator;
+    // only a manual correction, which leaves manual provenance, is an edit.
+    const [manual] = await tx`
+      select 1 from public.catalogue_draft_provenance
+      where record_id = ${recordId} and origin = 'manual' limit 1
+    `;
+    if (row.updated_by !== null && (row.updated_by !== userId || manual))
       throw new Error("The draft has been edited since it was imported.");
     if (String(row.base_version_id) !== String(row.latest_source_version_id))
       throw new Error("The draft is not based on the latest ANU reading.");
-    const content = validateCatalogueContent(row.content);
+    // Accepting a first reading rebuilds the draft from its stored version,
+    // which keeps no flags, so the import's flags are carried in.
+    const content = validateCatalogueContent(
+      priorFlags ? { ...row.content, flags: priorFlags } : row.content,
+    );
     const result = requisiteFallbackContent(content);
     if ("refused" in result) throw new Error(result.refused);
     const revision = Number(row.revision) + 1;
@@ -144,8 +155,13 @@ export async function applyRequisiteFallback(
 export async function publishAgentFallbackDraft(sql, options) {
   const { recordId, userId, resolveSourceChange, publishCatalogueDraft } =
     options;
+  const [imported] =
+    await sql`select content->'flags' as flags from public.catalogue_drafts where record_id = ${recordId}`;
   await acceptFirstReadings(sql, { recordId, userId, resolveSourceChange });
-  const fallback = await applyRequisiteFallback(sql, options);
+  const fallback = await applyRequisiteFallback(sql, {
+    ...options,
+    priorFlags: imported?.flags ?? null,
+  });
   await publishCatalogueDraft({
     recordId,
     expectedRevision: fallback.revision,
