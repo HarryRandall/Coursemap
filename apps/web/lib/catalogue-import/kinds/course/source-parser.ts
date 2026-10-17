@@ -40,6 +40,9 @@ export function parseCourseSource({
     markdown.match(new RegExp(`^- ${label} (.+)$`, "mu"))?.[1]?.trim() ?? null;
   const title = markdown.match(/^# (.+)$/mu)?.[1] ?? null;
   const course = emptyCourseExtraction({ code, year, title });
+  // Errors hold a draft back from publication. Parts a student can do
+  // without, such as fees, outcomes or one unknown period, are warnings so
+  // the rest of the course still publishes.
   const review = (
     fieldKey: string,
     message: string,
@@ -232,7 +235,7 @@ export function parseCourseSource({
       "The introduction includes eligibility wording that needs review alongside the requisite section.",
     );
   if (!course.description)
-    review("description", "The introduction layout needs review.");
+    review("description", "The introduction layout needs review.", "warning");
   course.workloadText = section("Workload");
   const integratedLearning = section("Work Integrated Learning");
   if (integratedLearning) {
@@ -364,6 +367,7 @@ export function parseCourseSource({
     review(
       "learningOutcomes",
       "No learning outcomes were read from the source.",
+      "warning",
     );
   const assessment = section("Indicative Assessment");
   const assessmentLines = (assessment?.split("\n") ?? []).filter(
@@ -399,7 +403,7 @@ export function parseCourseSource({
     };
   });
   if (!course.assessmentItems.length)
-    review("assessmentItems", "The assessment layout needs review.");
+    review("assessmentItems", "The assessment layout needs review.", "warning");
   const fees = section("Course fees");
   for (const audience of ["domestic", "international"] as const) {
     const label =
@@ -434,7 +438,7 @@ export function parseCourseSource({
         fees ?? "",
       )
     )
-      review("fees", `${label} could not be read from the source.`);
+      review("fees", `${label} could not be read from the source.`, "warning");
   }
   const feeSection = section("Fees");
   const band = feeSection?.match(
@@ -515,6 +519,7 @@ export function parseCourseSource({
         review(
           "offerings",
           `The period '${name}' has no matching calendar identity.`,
+          "warning",
         );
         continue;
       }

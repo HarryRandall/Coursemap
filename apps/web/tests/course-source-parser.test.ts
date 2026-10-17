@@ -151,9 +151,14 @@ describe("source-first course parsing", () => {
     expect(course.reviewItems.map((item) => item.fieldKey)).toContain(
       "offerings",
     );
-    expect(course.reviewItems.every((item) => item.severity === "error")).toBe(
-      true,
-    );
+    const severity = (fieldKey: string) =>
+      course.reviewItems.find((item) => item.fieldKey === fieldKey)?.severity;
+    // Missing facts a plan depends on hold the draft; missing extras such as
+    // outcomes, assessment and fees only warn so the course still publishes.
+    expect(severity("offerings")).toBe("error");
+    expect(severity("unitValue")).toBe("error");
+    for (const fieldKey of ["learningOutcomes", "assessmentItems", "fees"])
+      expect(severity(fieldKey)).toBe("warning");
   });
   it("does not turn generic graduate attributes into degree tags", () => {
     expect(parse("ECON2108").tags).not.toContain(

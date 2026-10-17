@@ -206,7 +206,12 @@ export function finaliseCourseExtraction({
     ...dropped.map(({ fieldKey, messages, value }) => ({
       fieldKey,
       kind: "invalid" as const,
-      severity: "error" as const,
+      // An unusable offering or assessment row is left out and the course
+      // still publishes; anything touching eligibility is held.
+      severity:
+        fieldKey === "modelExtraction" || fieldKey.startsWith("requisites")
+          ? ("error" as const)
+          : ("warning" as const),
       message:
         fieldKey === "modelExtraction"
           ? messages.join(" ")
