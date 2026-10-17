@@ -72,6 +72,14 @@ Follow the batch's `instructions` and `schema` exactly. In addition:
 - Hard external or secondary-school requirements use `external_requirement`
   with the exact source text; convener consent uses `permission`.
 - Empty source means no rules.
+- A route that repeats the same course (repeated topics, "may be taken twice")
+  cannot be a course list, because each code counts once; hold that part.
+- Never put a free-text condition inside a unit pool or give it units that
+  courses would have to fill. No course can satisfy free text, so the total
+  becomes unreachable.
+- On ANU structure pages, "The N units must include:" followed by capped lists
+  that together cover the total is the standard exhaustive format, so every
+  unit comes from those lists.
 
 ## Checking a batch
 
@@ -86,7 +94,10 @@ one-sentence reason when it:
   `unmodelledText`;
 - turns advisory wording into a hard rule; or
 - models part of a requirement in a way that turns away students the source
-  accepts.
+  accepts, including a dropped exception whose main route is then compulsory
+  for everyone;
+- models a repeated-course route as a course list; or
+- places free text inside a unit pool, making the total unreachable.
 
 The checker writes `{ "<item id>": { "approve": true } }` or
 `{ "<item id>": { "approve": false, "reason": "..." } }` for every item.
