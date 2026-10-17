@@ -3733,10 +3733,12 @@ export type Database = {
       }
       requirement_conditions: {
         Row: {
+          career: string | null
           code_id: number | null
           condition_key: string
           condition_kind: string
           confidence: number
+          course_levels: number[] | null
           enrolment_mode: string | null
           free_text: string | null
           group_id: number
@@ -3744,6 +3746,7 @@ export type Database = {
           id: number
           includes_any_course: boolean
           item_kind: string | null
+          matches_career: boolean | null
           matches_enrolment_mode: boolean | null
           maximum_commencement_year: number | null
           maximum_level: number | null
@@ -3765,14 +3768,17 @@ export type Database = {
           source_text: string | null
           structure_kind: string | null
           subject_code: string | null
+          subject_codes: string[] | null
           tag: string | null
           version_id: number
         }
         Insert: {
+          career?: string | null
           code_id?: number | null
           condition_key: string
           condition_kind: string
           confidence?: number
+          course_levels?: number[] | null
           enrolment_mode?: string | null
           free_text?: string | null
           group_id: number
@@ -3780,6 +3786,7 @@ export type Database = {
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          matches_career?: boolean | null
           matches_enrolment_mode?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
@@ -3801,14 +3808,17 @@ export type Database = {
           source_text?: string | null
           structure_kind?: string | null
           subject_code?: string | null
+          subject_codes?: string[] | null
           tag?: string | null
           version_id: number
         }
         Update: {
+          career?: string | null
           code_id?: number | null
           condition_key?: string
           condition_kind?: string
           confidence?: number
+          course_levels?: number[] | null
           enrolment_mode?: string | null
           free_text?: string | null
           group_id?: number
@@ -3816,6 +3826,7 @@ export type Database = {
           id?: never
           includes_any_course?: boolean
           item_kind?: string | null
+          matches_career?: boolean | null
           matches_enrolment_mode?: boolean | null
           maximum_commencement_year?: number | null
           maximum_level?: number | null
@@ -3837,6 +3848,7 @@ export type Database = {
           source_text?: string | null
           structure_kind?: string | null
           subject_code?: string | null
+          subject_codes?: string[] | null
           tag?: string | null
           version_id?: number
         }

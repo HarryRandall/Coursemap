@@ -66,6 +66,7 @@ async function removeFixtures() {
   await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'specialisation' and code = 'TSTC-HSPC'`;
   } finally {
     await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
     await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
@@ -1264,4 +1265,120 @@ test("cohort bounds survive source import, idempotent replay and published proje
     assert.equal(versions.count, 0);
     await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${invalidFixture.claim.syncId}`;
   }
+});
+
+test("course filters, careers and structure enrolment survive persistence and the published projection", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Flexible requisite persistence",
+  });
+  model.requisites.prerequisiteText =
+    "Completed or be completing five 1000 or 6100 level LAWS courses, 12 units of CLAS or HIST courses, a postgraduate program and the TSTC-HSPC specialisation.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      {
+        op: "min_courses_matching",
+        minimumCount: 5,
+        subjectCodes: ["LAWS"],
+        levels: [1000, 6100],
+        includeConcurrent: true,
+      },
+      {
+        op: "min_units_matching",
+        minimumUnits: 12,
+        subjectCodes: ["CLAS", "HIST"],
+        levels: null,
+        includeConcurrent: false,
+      },
+      { op: "enrolled_in_career", career: "postgraduate", matches: true },
+      {
+        op: "enrolled_in_structure",
+        structureCode: "TSTC-HSPC",
+        structureKind: "specialisation",
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const stored = await sql`
+    select conditions.condition_kind, conditions.subject_codes, conditions.course_levels,
+      conditions.requirement_mode, conditions.career, conditions.matches_career,
+      codes.kind as item_kind, codes.code as item_code
+    from public.requirement_conditions as conditions
+    left join public.catalogue_codes as codes on codes.id = conditions.code_id
+    where conditions.version_id = ${result.sourceVersionId}
+    order by conditions.position
+  `;
+  assert.deepEqual(
+    stored.map((row) => ({ ...row })),
+    [
+      {
+        condition_kind: "course_count",
+        subject_codes: ["LAWS"],
+        course_levels: [1000, 6100],
+        requirement_mode: "completed_or_concurrent",
+        career: null,
+        matches_career: null,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "filtered_units",
+        subject_codes: ["CLAS", "HIST"],
+        course_levels: null,
+        requirement_mode: "completed",
+        career: null,
+        matches_career: null,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "career",
+        subject_codes: null,
+        course_levels: null,
+        requirement_mode: null,
+        career: "postgraduate",
+        matches_career: true,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "structure",
+        subject_codes: null,
+        course_levels: null,
+        requirement_mode: null,
+        career: null,
+        matches_career: null,
+        item_kind: "specialisation",
+        item_code: "TSTC-HSPC",
+      },
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  const conditions = readProjectionPrerequisiteRule(projection.content)
+    .relationalExpression.conditions;
+  assert.deepEqual(
+    conditions.map((condition) => condition.kind),
+    ["course_count", "filtered_units", "career", "structure"],
+  );
+  assert.deepEqual(conditions[0].levels, [1000, 6100]);
+  assert.equal(conditions[0].requirementMode, "completed_or_concurrent");
+  assert.deepEqual(conditions[1].subjects, ["CLAS", "HIST"]);
+  assert.equal(conditions[2].career, "postgraduate");
+  assert.equal(conditions[3].structureCode, "TSTC-HSPC");
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });

@@ -1,5 +1,9 @@
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import {
+  programmeCareerFromAcademicCareer,
+  type ProgrammeCareerRecord,
+} from "@/lib/academic/programme-career";
+import {
   validEnrolmentMode,
   type EnrolmentMode,
 } from "@/lib/academic/enrolment-mode";
@@ -35,6 +39,7 @@ export type PlanCatalogue = {
   commencementYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
   programmeColleges?: readonly ProgrammeCollege[];
+  programmeCareers?: readonly ProgrammeCareerRecord[];
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
@@ -132,6 +137,7 @@ type AcademicPeriodRow = {
   sort_order: number;
 };
 type StructureSnapshotRow = {
+  academic_career: string | null;
   college: string | null;
   description: string | null;
   duration_years: number | null;
@@ -421,7 +427,9 @@ export async function loadPublishedPlanCatalogue(
       snapshotIds.length
         ? supabase
             .from("structure_version_details")
-            .select("college,description,duration_years,version_id,name,units")
+            .select(
+              "academic_career,college,description,duration_years,version_id,name,units",
+            )
             .in("version_id", snapshotIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -609,6 +617,20 @@ export async function loadPublishedPlanCatalogue(
     terms,
     degrees,
     programmeColleges: degrees.map(({ code, college }) => ({ code, college })),
+    programmeCareers: structureYears.flatMap((structureYear) => {
+      const identity = identitiesById.get(structureYear.code_id);
+      const snapshot = snapshotsById.get(structureYear.published_version_id);
+      return identity?.kind === "programme" && snapshot
+        ? [
+            {
+              code: identity.code,
+              career: programmeCareerFromAcademicCareer(
+                snapshot.academic_career,
+              ),
+            },
+          ]
+        : [];
+    }),
     majors,
     structures,
     programmeRequirementsImported: structureRequirements.some(

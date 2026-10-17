@@ -1,4 +1,5 @@
 import { validEnrolmentMode } from "../academic/enrolment-mode.ts";
+import { validProgrammeCareer } from "../academic/programme-career.ts";
 import type postgres from "postgres";
 import { workloadHoursBasis } from "../academic/workload.ts";
 import { stableFingerprint } from "./canonical.ts";
@@ -142,6 +143,27 @@ async function readRequirements(
         ? {
             minimumCommencementYear: num(condition.minimum_commencement_year),
             maximumCommencementYear: num(condition.maximum_commencement_year),
+          }
+        : {}),
+      ...(condition.condition_kind === "course_count" ||
+      condition.condition_kind === "filtered_units"
+        ? {
+            subjectCodes:
+              condition.subject_codes === null
+                ? null
+                : (condition.subject_codes as string[]).map(String),
+            courseLevels:
+              condition.course_levels === null
+                ? null
+                : (condition.course_levels as unknown[]).map(Number),
+          }
+        : {}),
+      ...(condition.condition_kind === "career"
+        ? {
+            career: validProgrammeCareer(condition.career)
+              ? condition.career
+              : null,
+            matchesCareer: condition.matches_career ?? null,
           }
         : {}),
       minimumGpa: num(condition.minimum_gpa),

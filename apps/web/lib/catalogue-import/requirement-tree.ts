@@ -3,6 +3,7 @@ import type {
   ReviewedGroupNode,
   ReviewedRuleTree,
 } from "../coursemap/requisite-conditions.ts";
+import { catalogueKindForCode } from "../catalogue/record-reference.ts";
 import type {
   CatalogueKind,
   RequirementRuleKind,
@@ -18,12 +19,15 @@ const EDITABLE_KINDS = new Set([
   "units_total",
   "subject_units",
   "subject_courses",
+  "course_count",
+  "filtered_units",
   "level_units",
   "course_set_units",
   "year_standing",
   "commencement_year",
   "enrolment_mode",
   "college_enrolment",
+  "career",
   "gpa",
   "wam",
   "permission",
@@ -110,6 +114,19 @@ export function treeFromRequirementWrite(
                   condition.minimumCommencementYear ?? null,
                 maximumCommencementYear:
                   condition.maximumCommencementYear ?? null,
+              }
+            : {}),
+          ...(condition.kind === "course_count" ||
+          condition.kind === "filtered_units"
+            ? {
+                subjectCodes: condition.subjectCodes ?? null,
+                courseLevels: condition.courseLevels ?? null,
+              }
+            : {}),
+          ...(condition.kind === "career"
+            ? {
+                career: condition.career ?? null,
+                matchesCareer: condition.matchesCareer ?? null,
               }
             : {}),
           gpa: condition.minimumGpa,
@@ -220,7 +237,7 @@ export function requirementWriteWithTree(
         child.kind === "incompatible_concurrent"
           ? "course"
           : child.kind === "structure" && child.structureCode
-            ? "programme"
+            ? catalogueKindForCode(child.structureCode)
             : null;
       next.conditions.push({
         key: conditionKey,
@@ -235,15 +252,19 @@ export function requirementWriteWithTree(
         itemKind,
         structureKind: null,
         requirementMode:
-          child.kind === "course"
+          child.kind === "course" ||
+          child.kind === "course_count" ||
+          child.kind === "filtered_units"
             ? (child.courseRequirementMode ?? "completed")
             : null,
         minimumMark: child.mark ?? null,
         minimumUnits:
-          child.kind === "subject_courses" ? null : (child.units ?? null),
+          child.kind === "subject_courses" || child.kind === "course_count"
+            ? null
+            : (child.units ?? null),
         maximumUnits: null,
         minimumCount:
-          child.kind === "subject_courses"
+          child.kind === "subject_courses" || child.kind === "course_count"
             ? (child.courseCount ?? null)
             : child.kind === "gpa" || child.kind === "wam"
               ? (child.recentGradedUnits ?? null)
@@ -262,6 +283,22 @@ export function requirementWriteWithTree(
           ? {
               minimumCommencementYear: child.minimumCommencementYear ?? null,
               maximumCommencementYear: child.maximumCommencementYear ?? null,
+            }
+          : {}),
+        ...(child.kind === "course_count" || child.kind === "filtered_units"
+          ? {
+              subjectCodes: child.subjectCodes?.length
+                ? child.subjectCodes
+                : null,
+              courseLevels: child.courseLevels?.length
+                ? child.courseLevels
+                : null,
+            }
+          : {}),
+        ...(child.kind === "career"
+          ? {
+              career: child.career ?? null,
+              matchesCareer: child.matchesCareer ?? null,
             }
           : {}),
         minimumGpa: child.gpa ?? null,

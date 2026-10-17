@@ -7,6 +7,12 @@ import {
   commencementYearLabel,
   validCommencementYearBounds,
 } from "../academic/commencement-year.ts";
+import { courseFilterLabel } from "../academic/course-code.ts";
+import {
+  careerConditionLabel,
+  type ProgrammeCareer,
+  validProgrammeCareer,
+} from "../academic/programme-career.ts";
 export const REVIEWED_OPERATORS = ["all_of", "any_of", "at_least"] as const;
 
 export type ReviewedOperator = (typeof REVIEWED_OPERATORS)[number];
@@ -19,12 +25,15 @@ export const REVIEWED_CONDITION_KINDS = [
   "units_total",
   "subject_units",
   "subject_courses",
+  "course_count",
+  "filtered_units",
   "level_units",
   "course_set_units",
   "year_standing",
   "commencement_year",
   "enrolment_mode",
   "college_enrolment",
+  "career",
   "gpa",
   "wam",
   "permission",
@@ -49,6 +58,11 @@ export type ReviewedConditionInput = {
   minimumYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
   matchesEnrolmentMode?: boolean | null;
+  /** Subject and level filters of a course count or filtered unit total. */
+  subjectCodes?: string[] | null;
+  courseLevels?: number[] | null;
+  career?: ProgrammeCareer | null;
+  matchesCareer?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   gpa?: number | null;
@@ -117,6 +131,11 @@ export type StoredRuleCondition = {
   minimumYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
   matchesEnrolmentMode?: boolean | null;
+  subjectCodes?: string[] | null;
+  courseLevels?: number[] | null;
+  courseRequirementMode?: "completed" | "completed_or_concurrent" | null;
+  career?: ProgrammeCareer | null;
+  matchesCareer?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   wam?: number | null;
@@ -524,6 +543,32 @@ function storedConditionToView(
             courseCodes: condition.courseCodes,
           }
         : null;
+    case "course_count":
+    case "filtered_units":
+      return (condition.kind === "course_count"
+        ? condition.courseCount != null
+        : condition.units != null) &&
+        (condition.subjectCodes?.length || condition.courseLevels?.length)
+        ? {
+            kind: condition.kind,
+            ...(condition.kind === "course_count"
+              ? { courseCount: condition.courseCount }
+              : { units: condition.units }),
+            subjectCodes: condition.subjectCodes ?? null,
+            courseLevels: condition.courseLevels ?? null,
+            courseRequirementMode:
+              condition.courseRequirementMode ?? "completed",
+          }
+        : null;
+    case "career":
+      return validProgrammeCareer(condition.career) &&
+        typeof condition.matchesCareer === "boolean"
+        ? {
+            kind: "career",
+            career: condition.career,
+            matchesCareer: condition.matchesCareer,
+          }
+        : null;
     case "college_enrolment":
       return condition.freeText?.trim()
         ? { kind: "college_enrolment", freeText: condition.freeText }
@@ -805,6 +850,78 @@ function normaliseCondition(
         condition: { kind: "course_set_units", units, courseCodes: codes },
       };
     }
+    case "course_count":
+    case "filtered_units": {
+      const subjects = condition.subjectCodes?.length
+        ? condition.subjectCodes.map((code) => code.trim().toUpperCase())
+        : null;
+      const levels = condition.courseLevels?.length
+        ? condition.courseLevels.map(Number)
+        : null;
+      if (subjects?.some((code) => !SUBJECT_CODE_PATTERN.test(code)))
+        return { message: "Each subject must be a four-letter code." };
+      if (
+        levels?.some(
+          (level) => !Number.isInteger(level) || level < 0 || level > 9999,
+        )
+      )
+        return {
+          message: "Each level must be a whole number between 0 and 9999.",
+        };
+      if (!subjects && !levels)
+        return { message: "Choose at least one subject or level." };
+      if (
+        (subjects && new Set(subjects).size !== subjects.length) ||
+        (levels && new Set(levels).size !== levels.length)
+      )
+        return { message: "Each subject and level must be listed once." };
+      const courseRequirementMode =
+        condition.courseRequirementMode === "completed_or_concurrent"
+          ? ("completed_or_concurrent" as const)
+          : ("completed" as const);
+      if (condition.kind === "course_count") {
+        const count = Number(condition.courseCount);
+        if (!Number.isInteger(count) || count < 1 || count > 32767)
+          return {
+            message: "Course count must be a whole number between 1 and 32767.",
+          };
+        return {
+          condition: {
+            kind: "course_count",
+            courseCount: count,
+            subjectCodes: subjects,
+            courseLevels: levels,
+            courseRequirementMode,
+          },
+        };
+      }
+      const units = Number(condition.units);
+      if (!Number.isFinite(units) || units <= 0)
+        return { message: "Units must be greater than zero." };
+      return {
+        condition: {
+          kind: "filtered_units",
+          units,
+          subjectCodes: subjects,
+          courseLevels: levels,
+          courseRequirementMode,
+        },
+      };
+    }
+    case "career": {
+      if (
+        !validProgrammeCareer(condition.career) ||
+        typeof condition.matchesCareer !== "boolean"
+      )
+        return { message: "Choose a career and whether it applies." };
+      return {
+        condition: {
+          kind: "career",
+          career: condition.career,
+          matchesCareer: condition.matchesCareer,
+        },
+      };
+    }
     case "college_enrolment": {
       const freeText = condition.freeText?.trim();
       if (!freeText)
@@ -910,6 +1027,21 @@ function normaliseCondition(
   }
 }
 
+/** "Completed 5 LAWS courses at 1000 or 6100 level", with any concurrency. */
+function filteredConditionSummary(condition: ReviewedConditionView) {
+  const filter = {
+    subjectCodes: condition.subjectCodes ?? null,
+    courseLevels: condition.courseLevels ?? null,
+  };
+  const concurrent =
+    condition.courseRequirementMode === "completed_or_concurrent"
+      ? " (or currently enrolled)"
+      : "";
+  return condition.kind === "course_count"
+    ? `Completed ${condition.courseCount} ${courseFilterLabel(filter, condition.courseCount === 1)}${concurrent}`
+    : `Completed ${condition.units} units of ${courseFilterLabel(filter)}${concurrent}`;
+}
+
 export function conditionSourceText(condition: ReviewedConditionView) {
   switch (condition.kind) {
     case "course":
@@ -945,6 +1077,11 @@ export function conditionSourceText(condition: ReviewedConditionView) {
       }`;
     case "course_set_units":
       return `${condition.units} units from ${(condition.courseCodes ?? []).join(", ")}`;
+    case "course_count":
+    case "filtered_units":
+      return filteredConditionSummary(condition);
+    case "career":
+      return careerConditionLabel(condition);
     case "college_enrolment":
       return `Enrolment in a programme offered by ${condition.freeText ?? "the required college"}`;
     case "enrolment_mode":
@@ -973,12 +1110,15 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   units_total: "Units of study",
   subject_units: "Units in a subject",
   subject_courses: "Courses in a subject",
+  course_count: "Courses by subject or level",
+  filtered_units: "Units by subject or level",
   level_units: "Units at a level",
   course_set_units: "Units from courses",
   year_standing: "Year standing",
   commencement_year: "Commencement year",
   enrolment_mode: "Enrolment mode",
   college_enrolment: "Programme college",
+  career: "Academic career",
   gpa: "Grade average",
   wam: "WAM",
   permission: "Permission",
@@ -992,12 +1132,15 @@ export const CONDITION_FAMILY_KINDS = [
   "units_total",
   "subject_units",
   "subject_courses",
+  "course_count",
+  "filtered_units",
   "level_units",
   "course_set_units",
   "year_standing",
   "commencement_year",
   "enrolment_mode",
   "college_enrolment",
+  "career",
   "gpa",
   "wam",
   "permission",
@@ -1112,6 +1255,21 @@ export function isConditionComplete(condition: ReviewedConditionView) {
       return Boolean(condition.freeText?.trim());
     case "college_enrolment":
       return Boolean(condition.freeText?.trim());
+    case "course_count":
+    case "filtered_units":
+      return (
+        (condition.kind === "course_count"
+          ? condition.courseCount != null
+          : condition.units != null) &&
+        Boolean(
+          condition.subjectCodes?.length || condition.courseLevels?.length,
+        )
+      );
+    case "career":
+      return (
+        validProgrammeCareer(condition.career) &&
+        typeof condition.matchesCareer === "boolean"
+      );
     default:
       return false;
   }
@@ -1168,6 +1326,13 @@ export function conditionSummary(condition: ReviewedConditionView) {
       return condition.units != null && condition.courseCodes?.length
         ? `Completed ${condition.units} units from ${condition.courseCodes.join(", ")}`
         : "Set the units and courses";
+    case "course_count":
+    case "filtered_units":
+      return isConditionComplete(condition)
+        ? filteredConditionSummary(condition)
+        : "Set the amount and a subject or level";
+    case "career":
+      return careerConditionLabel(condition);
     case "college_enrolment":
       return condition.freeText?.trim()
         ? `Enrolled in a programme offered by ${condition.freeText}`

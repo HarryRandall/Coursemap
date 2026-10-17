@@ -25,7 +25,8 @@ import { useState } from "react";
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
-import type { Attempt, Course } from "@/lib/coursemap/types";
+import type { Attempt, Course, Profile } from "@/lib/coursemap/types";
+import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
   attemptedUnitsError,
   attemptedUnitsFromInput,
@@ -80,7 +81,10 @@ const COURSE_CODE = /\b[A-Z]{4}\d{4}\b/g;
 function planStudentRecord(
   attempt: Attempt,
   attempts: Attempt[],
-  degreeCode: string,
+  profile: Pick<
+    Profile,
+    "degreeCode" | "majorCode" | "minorCodes" | "specialisationCodes"
+  >,
   commencementYear: number | null,
   catalogue?: PlanCatalogue,
 ): StudentRecord {
@@ -109,10 +113,20 @@ function planStudentRecord(
         .filter((other) => termIndex(other.termId, catalogue) === order)
         .map((other) => other.courseCode.toUpperCase()),
     ),
+    enrolledUnits: new Map(
+      others
+        .filter((other) => termIndex(other.termId, catalogue) === order)
+        .map((other) => [
+          other.courseCode.toUpperCase(),
+          unitsForAttempt(other, planningCourseForAttempt(other, catalogue)),
+        ]),
+    ),
     commencementYear,
     enrolmentMode: catalogue?.enrolmentMode,
-    programmeCodes: degreeCode ? [degreeCode] : [],
+    programmeCodes: profile.degreeCode ? [profile.degreeCode] : [],
     programmeColleges: catalogue?.programmeColleges,
+    programmeCareers: catalogue?.programmeCareers,
+    structureCodes: planStructureCodes(profile),
     permissionApproved: attempt.permissionApproved ?? false,
     wam: null,
     gpa: null,
@@ -156,6 +170,7 @@ export function CourseDialog({
         programmeCodes: state.profile.degreeCode
           ? [state.profile.degreeCode]
           : [],
+        structureCodes: planStructureCodes(state.profile),
       }
     : undefined;
   // A preview reads as a course placed after everything already planned,
@@ -247,7 +262,7 @@ export function CourseDialog({
     ? planStudentRecord(
         attempt,
         state.attempts,
-        state.profile.degreeCode,
+        state.profile,
         state.profile.commencementYear ?? null,
         catalogue,
       )

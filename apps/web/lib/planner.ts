@@ -1,6 +1,7 @@
 import { sessionShortName } from "@/lib/coursemap/academic-periods";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
+import type { ProgrammeCareerRecord } from "@/lib/academic/programme-career";
 import { validCommencementYear } from "@/lib/academic/commencement-year";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import type {
@@ -29,6 +30,9 @@ export type PlanningCatalogue = {
   enrolmentMode?: EnrolmentMode | null;
   programmeCodes?: readonly string[];
   programmeColleges?: readonly ProgrammeCollege[];
+  programmeCareers?: readonly ProgrammeCareerRecord[];
+  /** Majors, minors and specialisations on the plan. */
+  structureCodes?: readonly string[];
   /** Course previews evaluate prerequisites against all active work in the plan. */
   evaluationContext?: "whole-plan";
 };
@@ -286,6 +290,22 @@ function plannedStudentRecord(
   }
   const commencementYear = catalogue?.commencementYear ?? null;
   const term = termsFor(catalogue).find((item) => item.id === attempt.termId);
+  const concurrent = others.filter(
+    (candidate) =>
+      countsTowardsRules(candidate) &&
+      orderOf(candidate.termId, catalogue) === targetOrder,
+  );
+  const enrolledUnits = new Map<string, number>();
+  for (const candidate of concurrent) {
+    const course = planningCourseForAttempt(candidate, catalogue);
+    const units = unitsForAttempt(candidate, course);
+    // Unknown units stay out, so a unit total that depends on them is unknown.
+    if (course || units > 0)
+      enrolledUnits.set(
+        candidate.courseCode,
+        (enrolledUnits.get(candidate.courseCode) ?? 0) + units,
+      );
+  }
   const recordWith = (unknownUnits: number): StudentRecord => ({
     ...studentRecord({
       attempts: before,
@@ -298,16 +318,11 @@ function plannedStudentRecord(
       })),
       programmeCodes: catalogue?.programmeCodes ?? [],
       programmeColleges: catalogue?.programmeColleges,
+      programmeCareers: catalogue?.programmeCareers,
+      structureCodes: catalogue?.structureCodes,
     }),
-    enrolled: new Set(
-      others
-        .filter(
-          (candidate) =>
-            countsTowardsRules(candidate) &&
-            orderOf(candidate.termId, catalogue) === targetOrder,
-        )
-        .map((candidate) => candidate.courseCode),
-    ),
+    enrolled: new Set(concurrent.map((candidate) => candidate.courseCode)),
+    enrolledUnits,
     studyYear:
       term && validCommencementYear(commencementYear)
         ? Math.max(1, term.year - commencementYear + 1)

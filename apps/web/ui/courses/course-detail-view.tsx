@@ -41,6 +41,7 @@ import type {
 } from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
+import type { ProgrammeCareerRecord } from "@/lib/academic/programme-career";
 import type { CompletedRequisiteCourse } from "@/lib/coursemap/requisite-summary";
 import {
   studentRecord,
@@ -158,6 +159,8 @@ export function CourseDetailView({
     completedCourses: CompletedRequisiteCourse[];
     enrolledProgrammeCodes?: string[];
     programmeColleges?: ProgrammeCollege[];
+    programmeCareers?: ProgrammeCareerRecord[];
+    enrolledStructureCodes?: string[];
     isAuthenticated: boolean;
   };
 }) {
@@ -191,6 +194,8 @@ export function CourseDetailView({
             completedCourses: requisiteCompletion.completedCourses,
             programmeCodes: requisiteCompletion.enrolledProgrammeCodes ?? [],
             programmeColleges: requisiteCompletion.programmeColleges,
+            programmeCareers: requisiteCompletion.programmeCareers,
+            structureCodes: requisiteCompletion.enrolledStructureCodes,
           })
         : null;
   const hasPrerequisiteWording =

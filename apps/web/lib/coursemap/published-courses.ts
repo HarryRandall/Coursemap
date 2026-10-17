@@ -3,6 +3,10 @@ import {
   validEnrolmentMode,
   type EnrolmentMode,
 } from "../academic/enrolment-mode";
+import {
+  validProgrammeCareer,
+  type ProgrammeCareer,
+} from "../academic/programme-career";
 import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
   PUBLISHED_COURSE_DETAIL_TAG,
@@ -673,6 +677,10 @@ type ProjectionCondition = {
   matchesEnrolmentMode: boolean | null;
   minimumCommencementYear: number | null;
   maximumCommencementYear: number | null;
+  subjectCodes: string[] | null;
+  courseLevels: number[] | null;
+  career: ProgrammeCareer | null;
+  matchesCareer: boolean | null;
   position: number;
   programmeCode: string | null;
   reviewState: string;
@@ -680,6 +688,16 @@ type ProjectionCondition = {
   subject: string | null;
   units: number | null;
 };
+
+/** A non-empty filter list, or null when absent or malformed. */
+function readFilterList<T>(
+  value: Json | undefined,
+  read: (item: Json) => T | null,
+): T[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const items = value.map(read);
+  return items.every((item): item is T => item !== null) ? items : null;
+}
 
 export function readProjectionPrerequisiteRule(root: {
   [key: string]: Json | undefined;
@@ -782,6 +800,15 @@ function readProjectionCourseRule(
         maximumCommencementYear: readNullableNumber(
           value.maximumCommencementYear,
         ),
+        subjectCodes: readFilterList(value.subjectCodes, (item) =>
+          typeof item === "string" && /^[A-Z]{4}$/u.test(item) ? item : null,
+        ),
+        courseLevels: readFilterList(value.courseLevels, (item) =>
+          typeof item === "number" && Number.isInteger(item) ? item : null,
+        ),
+        career: validProgrammeCareer(value.career) ? value.career : null,
+        matchesCareer:
+          typeof value.matchesCareer === "boolean" ? value.matchesCareer : null,
         optionCodes: optionCodesByCondition.get(key) ?? [],
         position,
         programmeCode: readNullableString(value.requiredStructureCode),
@@ -909,6 +936,52 @@ function readProjectionCourseRule(
         enrolmentMode: condition.enrolmentMode,
         matchesEnrolmentMode: condition.matchesEnrolmentMode,
       };
+    if (
+      condition.kind === "course_count" &&
+      condition.minimumCount !== null &&
+      (condition.subjectCodes || condition.courseLevels)
+    ) {
+      return {
+        ...base,
+        kind: "course_count",
+        subjects: condition.subjectCodes,
+        levels: condition.courseLevels,
+        minimumCount: condition.minimumCount,
+        requirementMode:
+          condition.courseRequirementMode === "completed_or_concurrent"
+            ? "completed_or_concurrent"
+            : "completed",
+      };
+    }
+    if (
+      condition.kind === "filtered_units" &&
+      condition.units !== null &&
+      (condition.subjectCodes || condition.courseLevels)
+    ) {
+      return {
+        ...base,
+        kind: "filtered_units",
+        subjects: condition.subjectCodes,
+        levels: condition.courseLevels,
+        units: condition.units,
+        requirementMode:
+          condition.courseRequirementMode === "completed_or_concurrent"
+            ? "completed_or_concurrent"
+            : "completed",
+      };
+    }
+    if (
+      condition.kind === "career" &&
+      condition.career &&
+      typeof condition.matchesCareer === "boolean"
+    ) {
+      return {
+        ...base,
+        kind: "career",
+        career: condition.career,
+        matchesCareer: condition.matchesCareer,
+      };
+    }
     if (condition.kind === "college_enrolment" && condition.freeText?.trim()) {
       return {
         ...base,

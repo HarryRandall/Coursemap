@@ -1,5 +1,11 @@
 import { enrolmentModeConditionLabel } from "@/lib/academic/enrolment-mode";
 import { commencementYearLabel } from "@/lib/academic/commencement-year";
+import { courseFilterLabel } from "@/lib/academic/course-code";
+import {
+  careerConditionLabel,
+  programmeCareerLabel,
+} from "@/lib/academic/programme-career";
+import { catalogueKindForCode } from "@/lib/catalogue/record-reference";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import { groupOperator } from "@/lib/coursemap/requisite-evaluation";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
@@ -69,6 +75,32 @@ function codes(list: readonly string[]) {
   return `${list.slice(0, -1).join(", ")} or ${list.at(-1)}`;
 }
 
+function filteredCount(
+  condition: Extract<CourseRuleCondition, { kind: "course_count" }>,
+) {
+  return `${condition.minimumCount} ${courseFilterLabel(
+    { subjectCodes: condition.subjects, courseLevels: condition.levels },
+    condition.minimumCount === 1,
+  )}`;
+}
+
+function filteredUnits(
+  condition: Extract<CourseRuleCondition, { kind: "filtered_units" }>,
+) {
+  return `${condition.units} units of ${courseFilterLabel({
+    subjectCodes: condition.subjects,
+    courseLevels: condition.levels,
+  })}`;
+}
+
+/** "the MATH-MAJ major" for a major, minor or specialisation code. */
+function structureName(code: string) {
+  const kind = catalogueKindForCode(code);
+  return kind === "major" || kind === "minor" || kind === "specialisation"
+    ? `the ${code} ${kind}`
+    : code;
+}
+
 /** A condition as a short label for a diagram box. */
 export function requisiteNoun(condition: CourseRuleCondition): string {
   switch (condition.kind) {
@@ -86,6 +118,12 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
       return `${condition.minimumCount} completed ${condition.subject} ${condition.minimumCount === 1 ? "course" : "courses"}`;
     case "subject_units":
       return `${condition.units} units of ${condition.subject ?? "subject"} courses`;
+    case "course_count":
+      return filteredCount(condition);
+    case "filtered_units":
+      return filteredUnits(condition);
+    case "career":
+      return `${condition.matchesCareer ? "Enrolled in" : "Not enrolled in"} ${programmeCareerLabel(condition.career)}`;
     case "level_units":
       return `${condition.units} units of ${levelPhrase(condition.minimumLevel, condition.maximumLevel)}${
         condition.subject ? ` ${condition.subject}` : ""
@@ -103,7 +141,7 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Year ${condition.minimumYear} or later`;
     case "structure":
-      return `Enrolled in ${condition.structureCode ?? condition.text ?? "a program"}`;
+      return `Enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "a program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Enrolled in ${condition.minimumCount} of ${codes(condition.structureCodes)}`
@@ -139,6 +177,22 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
       return `Complete ${condition.minimumCount} ${condition.subject} ${condition.minimumCount === 1 ? "course" : "courses"}`;
     case "subject_units":
       return `Complete ${condition.units} units of ${condition.subject ?? "subject"} courses`;
+    case "course_count":
+      return `Complete ${filteredCount(condition)}${
+        condition.requirementMode === "completed_or_concurrent"
+          ? condition.minimumCount === 1
+            ? " (or be enrolled in it)"
+            : " (or be enrolled in them)"
+          : ""
+      }`;
+    case "filtered_units":
+      return `Complete ${filteredUnits(condition)}${
+        condition.requirementMode === "completed_or_concurrent"
+          ? " (or be enrolled in them)"
+          : ""
+      }`;
+    case "career":
+      return careerConditionLabel(condition);
     case "level_units":
       return `Complete ${requisiteNoun(condition)}`;
     case "course_set_units":
@@ -154,7 +208,7 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Be in year ${condition.minimumYear} or later of your degree`;
     case "structure":
-      return `Be enrolled in ${condition.structureCode ?? condition.text ?? "the required program"}`;
+      return `Be enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "the required program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Be enrolled in ${condition.minimumCount} of these programs`

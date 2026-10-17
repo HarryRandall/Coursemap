@@ -1,5 +1,6 @@
 import { ENROLMENT_MODES } from "../../../academic/enrolment-mode.ts";
 import { COURSE_LEVELS } from "../../../academic/course-code.ts";
+import { PROGRAMME_CAREERS } from "../../../academic/programme-career.ts";
 import { COURSE_EXTRACTION_SCHEMA_VERSION } from "./contract.ts";
 
 // OpenRouter receives this in the system message while JSON object mode keeps
@@ -248,6 +249,18 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         sourceText: { type: "string", minLength: 1 },
       },
     },
+    subjectCodes: {
+      type: ["array", "null"],
+      minItems: 1,
+      uniqueItems: true,
+      items: { type: "string", pattern: "^[A-Z]{4}$" },
+    },
+    courseLevels: {
+      type: ["array", "null"],
+      minItems: 1,
+      uniqueItems: true,
+      items: { type: "integer", minimum: 0, maximum: 9999 },
+    },
     rule: {
       oneOf: [
         {
@@ -341,10 +354,78 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
         {
           type: "object",
           additionalProperties: false,
+          required: [
+            "op",
+            "minimumCount",
+            "subjectCodes",
+            "levels",
+            "includeConcurrent",
+          ],
+          properties: {
+            op: { const: "min_courses_matching" },
+            minimumCount: { type: "integer", minimum: 1, maximum: 32767 },
+            subjectCodes: { $ref: "#/$defs/subjectCodes" },
+            levels: { $ref: "#/$defs/courseLevels" },
+            includeConcurrent: { type: "boolean" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "op",
+            "minimumUnits",
+            "subjectCodes",
+            "levels",
+            "includeConcurrent",
+          ],
+          properties: {
+            op: { const: "min_units_matching" },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
+            subjectCodes: { $ref: "#/$defs/subjectCodes" },
+            levels: { $ref: "#/$defs/courseLevels" },
+            includeConcurrent: { type: "boolean" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
           required: ["op", "programmeCode"],
           properties: {
             op: { const: "enrolled_in" },
             programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "programmeTitle"],
+          properties: {
+            op: { const: "enrolled_in" },
+            programmeTitle: { type: "string", minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "career", "matches"],
+          properties: {
+            op: { const: "enrolled_in_career" },
+            career: { enum: PROGRAMME_CAREERS },
+            matches: { type: "boolean" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "structureCode", "structureKind"],
+          properties: {
+            op: { const: "enrolled_in_structure" },
+            structureCode: {
+              type: "string",
+              pattern: "^[A-Z0-9]{2,16}-(?:MAJ|MIN|SPEC|HSPC)$",
+            },
+            structureKind: { enum: ["major", "minor", "specialisation"] },
           },
         },
         {

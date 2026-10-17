@@ -284,3 +284,73 @@ test("a cohort permission pathway shows the calendar-year boundary rather than y
   expect(screen.getByText("Commenced in or before 2020")).toBeVisible();
   expect(screen.getByText("Request Research School permission")).toBeVisible();
 });
+
+test("course counts, pooled units and careers read as steps with progress", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          {
+            ...base,
+            kind: "course_count",
+            subjects: ["LAWS"],
+            levels: [1000, 6100],
+            minimumCount: 5,
+            requirementMode: "completed_or_concurrent",
+          },
+          {
+            ...base,
+            kind: "filtered_units",
+            subjects: ["CLAS", "HIST"],
+            levels: null,
+            units: 12,
+            requirementMode: "completed",
+          },
+          {
+            ...base,
+            kind: "career",
+            career: "postgraduate",
+            matchesCareer: true,
+          },
+        ],
+      }}
+      student={{
+        completed: new Map([
+          ["LAWS1201", { units: 6, mark: null }],
+          ["LAWS6101", { units: 6, mark: null }],
+          ["HIST1001", { units: 6, mark: null }],
+        ]),
+        enrolled: new Set(["LAWS1202"]),
+        programmeCodes: ["MLAW"],
+        programmeCareers: [{ code: "MLAW", career: "postgraduate" }],
+        wam: null,
+        gpa: null,
+        studyYear: null,
+      }}
+    />,
+  );
+  expect(
+    screen.getByText(
+      "Complete 5 LAWS courses at 1000 or 6100 level (or be enrolled in them)",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "3 of 5 courses. Includes 1 course you're enrolled in this semester",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Complete 12 units of CLAS or HIST courses"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Be enrolled in a postgraduate program"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("You're enrolled in a postgraduate program"),
+  ).toBeInTheDocument();
+});

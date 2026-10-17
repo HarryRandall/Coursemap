@@ -3,6 +3,11 @@ import {
   type EnrolmentMode,
 } from "../../../academic/enrolment-mode.ts";
 import { commencementYearLabel } from "../../../academic/commencement-year.ts";
+import { courseFilterLabel } from "../../../academic/course-code.ts";
+import {
+  careerConditionLabel,
+  type ProgrammeCareer,
+} from "../../../academic/programme-career.ts";
 import type { WorkloadHoursBasis } from "../../../academic/workload.ts";
 import {
   parseCourseExtraction,
@@ -29,12 +34,16 @@ type ConditionKind =
   | "units_total"
   | "subject_units"
   | "subject_courses"
+  | "course_count"
+  | "filtered_units"
   | "level_units"
   | "course_set_units"
   | "year_standing"
   | "commencement_year"
   | "enrolment_mode"
   | "college_enrolment"
+  | "career"
+  | "structure"
   | "permission"
   | "admission"
   | "gpa"
@@ -101,6 +110,11 @@ export type ProjectedCourseRuleConditionRow = {
   minimumYear: number | null;
   enrolmentMode?: EnrolmentMode | null;
   matchesEnrolmentMode?: boolean | null;
+  /** Subject and level filters, present only on course counts and unit totals. */
+  subjectCodes?: string[] | null;
+  courseLevels?: number[] | null;
+  career?: ProgrammeCareer | null;
+  matchesCareer?: boolean | null;
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   minimumWam: number | null;
@@ -274,8 +288,26 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
       return `At least ${rule.minimumUnits} units from ${[...rule.courseCodes]
         .sort((left, right) => left.localeCompare(right))
         .join(", ")}`;
+    case "min_courses_matching":
+      return `At least ${rule.minimumCount} ${rule.includeConcurrent ? "completed or current" : "completed"} ${courseFilterLabel(
+        { subjectCodes: rule.subjectCodes, courseLevels: rule.levels },
+        rule.minimumCount === 1,
+      )}`;
+    case "min_units_matching":
+      return `At least ${rule.minimumUnits} units of ${rule.includeConcurrent ? "completed or current" : "completed"} ${courseFilterLabel(
+        { subjectCodes: rule.subjectCodes, courseLevels: rule.levels },
+      )}`;
     case "enrolled_in":
-      return `Enrolment in programme ${rule.programmeCode}`;
+      return "programmeCode" in rule
+        ? `Enrolment in programme ${rule.programmeCode}`
+        : `Enrolment in the ${rule.programmeTitle}`;
+    case "enrolled_in_career":
+      return careerConditionLabel({
+        career: rule.career,
+        matchesCareer: rule.matches,
+      });
+    case "enrolled_in_structure":
+      return `Enrolment in ${rule.structureKind} ${rule.structureCode}`;
     case "enrolled_in_college":
       return `Enrolment in a programme offered by ${rule.college}`;
     case "external_requirement":
@@ -524,7 +556,56 @@ function addAtomicRule(
         });
       return;
     }
+    case "min_courses_matching":
+    case "min_units_matching": {
+      const isCount = rule.op === "min_courses_matching";
+      if (!isCount) requirePositiveUnits(rule.minimumUnits);
+      if (!rule.subjectCodes && !rule.levels)
+        throw new TypeError(`${key} must filter by subject or level.`);
+      if (rule.subjectCodes)
+        assertUniqueStrings(rule.subjectCodes, `${key} subjects`);
+      if (rule.levels)
+        assertUniqueStrings(rule.levels.map(String), `${key} levels`);
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: isCount ? "course_count" : "filtered_units",
+        hardness,
+        sourceText,
+      });
+      if (isCount) condition.minimumCount = rule.minimumCount;
+      else condition.minimumUnits = rule.minimumUnits;
+      condition.subjectCodes = rule.subjectCodes
+        ? [...rule.subjectCodes].sort()
+        : null;
+      condition.courseLevels = rule.levels
+        ? [...rule.levels].sort((left, right) => left - right)
+        : null;
+      condition.courseRequirementMode = rule.includeConcurrent
+        ? "completed_or_concurrent"
+        : "completed";
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
     case "enrolled_in": {
+      if ("programmeTitle" in rule) {
+        // A title that did not resolve to one known programme keeps the
+        // source wording, which a reader checks rather than Coursemap.
+        const condition = emptyCondition({
+          key,
+          ruleKey,
+          groupKey,
+          position,
+          conditionKind: "structure",
+          hardness,
+          sourceText,
+        });
+        condition.freeText = rule.programmeTitle;
+        accumulator.ruleConditions.push(condition);
+        return;
+      }
       const condition = emptyCondition({
         key,
         ruleKey,
@@ -535,6 +616,35 @@ function addAtomicRule(
         sourceText,
       });
       condition.requiredStructureCode = rule.programmeCode;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "enrolled_in_career": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "career",
+        hardness,
+        sourceText,
+      });
+      condition.career = rule.career;
+      condition.matchesCareer = rule.matches;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "enrolled_in_structure": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "structure",
+        hardness,
+        sourceText,
+      });
+      condition.requiredStructureCode = rule.structureCode;
       accumulator.ruleConditions.push(condition);
       return;
     }

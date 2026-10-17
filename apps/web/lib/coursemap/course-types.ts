@@ -1,4 +1,5 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
+import type { ProgrammeCareer } from "../academic/programme-career";
 import type { WorkloadHoursBasis } from "@/lib/academic/workload";
 import type { RequisiteExpression } from "./requisite-summary";
 
@@ -40,6 +41,26 @@ export type CourseRuleExpression =
       kind: "subject_courses";
       subject: string;
       minimumCount: number;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "course_count";
+      /** Null when the count accepts any subject or any level. */
+      subjects: string[] | null;
+      levels: number[] | null;
+      minimumCount: number;
+      requirementMode: "completed" | "completed_or_concurrent";
+    })
+  | (CourseRuleConditionBase & {
+      kind: "filtered_units";
+      subjects: string[] | null;
+      levels: number[] | null;
+      units: number;
+      requirementMode: "completed" | "completed_or_concurrent";
+    })
+  | (CourseRuleConditionBase & {
+      kind: "career";
+      career: ProgrammeCareer;
+      matchesCareer: boolean;
     })
   | (CourseRuleConditionBase & {
       kind: "course_set_units";

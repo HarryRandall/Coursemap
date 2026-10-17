@@ -99,6 +99,60 @@ function unsupportedCollegeNames(
     : [];
 }
 
+function ruleLeaves(rule: CourseRule | null): CourseRule[] {
+  if (!rule) return [];
+  return rule.op === "all_of" || rule.op === "one_of"
+    ? rule.rules.flatMap(ruleLeaves)
+    : [rule];
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function pagePrints(pageMarkdown: string, token: string) {
+  return new RegExp(
+    `(?<![A-Za-z0-9-])${escapeRegExp(token)}(?![A-Za-z0-9])`,
+    "u",
+  ).test(pageMarkdown);
+}
+
+/**
+ * Subject codes, levels, structure codes and programme titles in the newer
+ * rule forms must be printed on the page. The model may not introduce a
+ * filter or identity that the source does not state.
+ */
+function unprintedRuleValues(
+  rules: readonly (CourseRule | null)[],
+  pageMarkdown: string,
+): string[] {
+  const missing = new Set<string>();
+  for (const leaf of rules.flatMap(ruleLeaves)) {
+    if (
+      leaf.op === "min_courses_matching" ||
+      leaf.op === "min_units_matching"
+    ) {
+      for (const subject of leaf.subjectCodes ?? [])
+        if (!pagePrints(pageMarkdown, subject)) missing.add(subject);
+      for (const level of leaf.levels ?? [])
+        if (!pagePrints(pageMarkdown, String(level)))
+          missing.add(`${level} level`);
+    } else if (leaf.op === "enrolled_in_structure") {
+      if (!pagePrints(pageMarkdown, leaf.structureCode))
+        missing.add(leaf.structureCode);
+    } else if (leaf.op === "enrolled_in" && "programmeTitle" in leaf) {
+      if (
+        unsupportedModelWording(
+          { programme: { sourceText: leaf.programmeTitle } },
+          pageMarkdown,
+        ).length
+      )
+        missing.add(leaf.programmeTitle);
+    }
+  }
+  return [...missing];
+}
+
 function hasCollegeEnrolment(rule: CourseRule | null): boolean {
   if (!rule) return false;
   if (rule.op === "enrolled_in_college") return true;
@@ -195,7 +249,12 @@ export function reviewCourseSourceRules({
   unsupportedCollegeNames: string[];
   missingCollegeEnrolment: boolean;
   unscopedPrerequisiteClauses: string[];
+  unprintedRuleValues: string[];
 } {
+  const unprinted = unprintedRuleValues(
+    [requisites.prerequisiteRule, requisites.corequisiteRule],
+    pageMarkdown,
+  );
   const unscoped = requisites.prerequisiteRule
     ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
     : [];
@@ -217,6 +276,13 @@ export function reviewCourseSourceRules({
       message: `The ANU page does not contain the required college's name: ${college}. Preserve unresolved college eligibility for review.`,
     }),
   );
+  for (const value of unprinted)
+    reviewItems.push({
+      fieldKey: "requisites.prerequisiteRule",
+      kind: "evidence_missing",
+      severity: "error",
+      message: `The ANU page does not print ${value}, which the modelled rule relies on. Review it before publication.`,
+    });
   if (missingCollege)
     reviewItems.push({
       fieldKey: "requisites.prerequisiteRule",
@@ -253,5 +319,6 @@ export function reviewCourseSourceRules({
     unsupportedCollegeNames: collegeNames,
     missingCollegeEnrolment: missingCollege,
     unscopedPrerequisiteClauses: unscoped,
+    unprintedRuleValues: unprinted,
   };
 }

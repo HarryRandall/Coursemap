@@ -11,6 +11,12 @@ import {
   validCommencementYear,
   validCommencementYearBounds,
 } from "../academic/commencement-year.ts";
+import {
+  careerEnrolmentStatus,
+  programmeCareerLabel,
+  type ProgrammeCareerRecord,
+} from "../academic/programme-career.ts";
+import { catalogueKindForCode } from "../catalogue/record-reference.ts";
 import { minimumMarkStatus } from "@/lib/academic/metrics";
 import {
   academicResultUnits,
@@ -26,7 +32,9 @@ import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 import type { Attempt } from "@/lib/coursemap/types";
 import {
   courseLevelForCode,
+  courseMatchesFilter,
   courseSubjectForCode,
+  type CourseFilter,
 } from "@/lib/academic/course-code";
 
 /**
@@ -46,8 +54,16 @@ export type StudentRecord = {
   >;
   /** Courses taken this semester, which satisfy a concurrent requisite. */
   enrolled: ReadonlySet<string>;
+  /** Units of this semester's courses, where the plan records them. */
+  enrolledUnits?: ReadonlyMap<string, number>;
   programmeCodes: readonly string[];
   programmeColleges?: readonly ProgrammeCollege[];
+  programmeCareers?: readonly ProgrammeCareerRecord[];
+  /**
+   * Majors, minors and specialisations on the student's plan. Undefined when
+   * the caller does not know them, so a structure rule stays unknown.
+   */
+  structureCodes?: readonly string[];
   wam: number | null;
   gpa: number | null;
   academicResults?: readonly DatedAcademicResult[];
@@ -81,6 +97,24 @@ function unitsWhere(
     if (include(code, result.tags ?? [])) units += result.units;
   }
   return units;
+}
+
+/** Completed courses, then this semester's, that pass a subject and level filter. */
+function matchingCourses(
+  student: StudentRecord,
+  filter: CourseFilter,
+  includeConcurrent: boolean,
+) {
+  const completed = [...student.completed.keys()].filter((code) =>
+    courseMatchesFilter(code, filter),
+  );
+  const enrolled = includeConcurrent
+    ? [...student.enrolled].filter(
+        (code) =>
+          !student.completed.has(code) && courseMatchesFilter(code, filter),
+      )
+    : [];
+  return { completed, enrolled };
 }
 
 function unitsStatus(value: number, target: number): RequisiteStatus {
@@ -191,6 +225,70 @@ export function evaluateCondition(
         },
       };
     }
+    case "course_count": {
+      const { completed, enrolled } = matchingCourses(
+        student,
+        { subjectCodes: condition.subjects, courseLevels: condition.levels },
+        condition.requirementMode === "completed_or_concurrent",
+      );
+      const count = completed.length + enrolled.length;
+      return {
+        status: unitsStatus(count, condition.minimumCount),
+        measure: {
+          kind: "count",
+          value: count,
+          target: condition.minimumCount,
+        },
+        ...(enrolled.length
+          ? {
+              detail: `Includes ${enrolled.length} ${enrolled.length === 1 ? "course" : "courses"} you're enrolled in this semester`,
+            }
+          : {}),
+      };
+    }
+    case "filtered_units": {
+      const { completed, enrolled } = matchingCourses(
+        student,
+        { subjectCodes: condition.subjects, courseLevels: condition.levels },
+        condition.requirementMode === "completed_or_concurrent",
+      );
+      let units = completed.reduce(
+        (total, code) => total + (student.completed.get(code)?.units ?? 0),
+        0,
+      );
+      let hasUnknownUnits = false;
+      for (const code of enrolled) {
+        const enrolledUnits = student.enrolledUnits?.get(code);
+        if (enrolledUnits === undefined) hasUnknownUnits = true;
+        else units += enrolledUnits;
+      }
+      if (units < condition.units && hasUnknownUnits)
+        return {
+          status: "unknown",
+          detail: "The units of a course you're enrolled in are not recorded.",
+        };
+      return unitsEvaluation(units, condition.units);
+    }
+    case "career": {
+      const status = careerEnrolmentStatus(
+        condition.career,
+        condition.matchesCareer,
+        student.programmeCodes,
+        student.programmeCareers,
+      );
+      return status === "unknown"
+        ? {
+            status,
+            detail: "Your program's academic career is not recorded.",
+          }
+        : {
+            status,
+            detail:
+              (status === "met") === condition.matchesCareer
+                ? `You're enrolled in ${programmeCareerLabel(condition.career)}`
+                : `You aren't enrolled in ${programmeCareerLabel(condition.career)}`,
+          };
+    }
     case "level_units":
       return unitsEvaluation(
         unitsWhere(student, (code) => {
@@ -261,14 +359,24 @@ export function evaluateCondition(
         status: student.studyYear >= condition.minimumYear ? "met" : "unmet",
         detail: `You're in year ${student.studyYear}`,
       };
-    case "structure":
+    case "structure": {
       if (!condition.structureCode) return { status: "unknown" };
+      if (catalogueKindForCode(condition.structureCode) !== "programme") {
+        if (!student.structureCodes) return { status: "unknown" };
+        return student.structureCodes.includes(condition.structureCode)
+          ? {
+              status: "met",
+              detail: `Your plan includes ${condition.structureCode}`,
+            }
+          : { status: "unmet" };
+      }
       return student.programmeCodes.includes(condition.structureCode)
         ? {
             status: "met",
             detail: `You're enrolled in ${condition.structureCode}`,
           }
         : { status: "unmet" };
+    }
     case "structure_set": {
       const matched = condition.structureCodes.filter((code) =>
         student.programmeCodes.includes(code),
@@ -397,6 +505,8 @@ export function studentRecord({
   enrolmentMode,
   programmeCodes,
   programmeColleges,
+  programmeCareers,
+  structureCodes,
 }: {
   attempts: readonly Attempt[];
   commencementYear: number | null;
@@ -404,6 +514,8 @@ export function studentRecord({
   completedCourses: readonly CompletedRequisiteCourse[];
   programmeCodes: readonly string[];
   programmeColleges?: readonly ProgrammeCollege[];
+  programmeCareers?: readonly ProgrammeCareerRecord[];
+  structureCodes?: readonly string[];
 }): StudentRecord {
   const finished = attempts.filter((attempt) => attempt.status === "completed");
   const markByCode = new Map(
@@ -451,10 +563,21 @@ export function studentRecord({
         .filter((attempt) => attempt.status === "enrolled")
         .map((attempt) => attempt.courseCode),
     ),
+    enrolledUnits: new Map(
+      attempts.flatMap((attempt) =>
+        attempt.status === "enrolled" && attempt.unitsAttempted !== undefined
+          ? [[attempt.courseCode, attempt.unitsAttempted] as const]
+          : [],
+      ),
+    ),
     commencementYear,
     enrolmentMode,
     programmeCodes: programmeCodes.map((code) => code.toUpperCase()),
     programmeColleges,
+    ...(programmeCareers ? { programmeCareers } : {}),
+    ...(structureCodes
+      ? { structureCodes: structureCodes.map((code) => code.toUpperCase()) }
+      : {}),
     academicResults: results,
     wam: recordedWeightedAverageMark(results),
     gpa: recordedGradePointAverage(results),

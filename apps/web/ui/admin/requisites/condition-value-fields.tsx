@@ -4,6 +4,11 @@ import {
   enrolmentModeLabel,
   validEnrolmentMode,
 } from "@/lib/academic/enrolment-mode";
+import {
+  PROGRAMME_CAREERS,
+  programmeCareerLabel,
+  validProgrammeCareer,
+} from "@/lib/academic/programme-career";
 import { Input } from "@coursemap/ui/primitives/input";
 import { OptionPicker } from "@/ui/common/option-picker";
 import { Textarea } from "@coursemap/ui/primitives/textarea";
@@ -22,6 +27,13 @@ import {
   searchCourses,
   searchProgrammes,
 } from "@/ui/admin/requisites/condition-search-picker";
+
+function listValues(text: string) {
+  return text
+    .split(/[\s,]+/u)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
 
 export function InlineValueFields({
   bindOpen,
@@ -224,6 +236,139 @@ export function InlineValueFields({
         </span>
         <CourseCodesInput condition={condition} onChange={onChange} />
       </>
+    );
+  }
+
+  if (
+    condition.kind === "course_count" ||
+    condition.kind === "filtered_units"
+  ) {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        {condition.kind === "course_count" ? (
+          <span className="inline-flex items-center gap-1.5">
+            <Input
+              aria-label="Course count"
+              className={cn(inlineControl, "w-20 min-w-20")}
+              min={1}
+              max={32767}
+              step="1"
+              type="number"
+              value={condition.courseCount ?? ""}
+              onChange={(event) =>
+                onChange({
+                  ...condition,
+                  courseCount:
+                    event.target.value === ""
+                      ? null
+                      : Number(event.target.value),
+                })
+              }
+            />
+            <span className="text-xs text-muted-foreground">courses</span>
+          </span>
+        ) : (
+          <UnitsInput condition={condition} onChange={onChange} />
+        )}
+        <span
+          data-slot="condition-grammar"
+          className="text-xs text-muted-foreground"
+        >
+          in
+        </span>
+        {/* Uncontrolled, so a separator typed between codes is not reformatted away. */}
+        <Input
+          aria-label="Subject codes, separated by commas"
+          className={cn(inlineControl, "w-40 min-w-40")}
+          defaultValue={(condition.subjectCodes ?? []).join(", ")}
+          id={`${fieldId}-subjects`}
+          onChange={(event) => {
+            const codes = listValues(event.target.value).map((code) =>
+              code.toUpperCase(),
+            );
+            onChange({
+              ...condition,
+              subjectCodes: codes.length ? codes : null,
+            });
+          }}
+          placeholder="any subject"
+        />
+        <span
+          data-slot="condition-grammar"
+          className="text-xs text-muted-foreground"
+        >
+          at
+        </span>
+        <Input
+          aria-label="Course levels, separated by commas"
+          className={cn(inlineControl, "w-36 min-w-36")}
+          defaultValue={(condition.courseLevels ?? []).join(", ")}
+          id={`${fieldId}-levels`}
+          onChange={(event) => {
+            const levels = listValues(event.target.value).map(Number);
+            onChange({
+              ...condition,
+              courseLevels: levels.length ? levels : null,
+            });
+          }}
+          placeholder="any level"
+        />
+        <OptionPicker
+          aria-label="Current enrolment"
+          value={condition.courseRequirementMode ?? "completed"}
+          items={[
+            { value: "completed", label: "Completed" },
+            {
+              value: "completed_or_concurrent",
+              label: "Completed or enrolled",
+            },
+          ]}
+          onValueChange={(value) =>
+            onChange({
+              ...condition,
+              courseRequirementMode:
+                value === "completed_or_concurrent"
+                  ? "completed_or_concurrent"
+                  : "completed",
+            })
+          }
+        />
+      </span>
+    );
+  }
+
+  if (condition.kind === "career") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <OptionPicker
+          aria-label="Career match"
+          value={
+            condition.matchesCareer === null ||
+            condition.matchesCareer === undefined
+              ? ""
+              : String(condition.matchesCareer)
+          }
+          items={[
+            { value: "true", label: "Enrolled in" },
+            { value: "false", label: "Not enrolled in" },
+          ]}
+          onValueChange={(value) =>
+            onChange({ ...condition, matchesCareer: value === "true" })
+          }
+        />
+        <OptionPicker
+          aria-label="Academic career"
+          value={condition.career ?? ""}
+          items={PROGRAMME_CAREERS.map((value) => ({
+            value,
+            label: programmeCareerLabel(value),
+          }))}
+          onValueChange={(value) => {
+            if (validProgrammeCareer(value))
+              onChange({ ...condition, career: value });
+          }}
+        />
+      </span>
     );
   }
 

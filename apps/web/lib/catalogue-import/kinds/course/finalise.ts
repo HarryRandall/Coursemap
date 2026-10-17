@@ -240,6 +240,7 @@ export function finaliseCourseExtraction({
       unsupportedCollegeNames: sourceReview.unsupportedCollegeNames,
       missingCollegeEnrolment: sourceReview.missingCollegeEnrolment,
       unscopedPrerequisiteClauses: sourceReview.unscopedPrerequisiteClauses,
+      unprintedRuleValues: sourceReview.unprintedRuleValues,
     },
   };
 }

@@ -73,7 +73,7 @@ function KindIcon({ kind }: { kind: CourseRuleCondition["kind"] }) {
       ? TrendingUp
       : kind === "year_standing"
         ? CalendarRange
-        : kind === "structure" || kind === "structure_set"
+        : kind === "structure" || kind === "structure_set" || kind === "career"
           ? GraduationCap
           : kind === "other"
             ? Info

@@ -1,6 +1,8 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode.ts";
+import type { ProgrammeCareer } from "../academic/programme-career.ts";
 import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
+import { catalogueKindForCode } from "./record-reference.ts";
 import { evidenceBelongsToReviewUnit } from "./review-units.ts";
 import {
   isStructureRelationshipKind,
@@ -44,6 +46,8 @@ export type RequirementConditionKind =
   | "units_total"
   | "subject_units"
   | "subject_courses"
+  | "course_count"
+  | "filtered_units"
   | "level_units"
   | "tagged_units"
   | "elective_units"
@@ -51,6 +55,7 @@ export type RequirementConditionKind =
   | "commencement_year"
   | "enrolment_mode"
   | "college_enrolment"
+  | "career"
   | "gpa"
   | "wam"
   | "permission"
@@ -108,6 +113,14 @@ export type RequirementWrite = {
     minimumYear: number | null;
     enrolmentMode?: EnrolmentMode | null;
     matchesEnrolmentMode?: boolean | null;
+    /**
+     * Subject and level filters of a course count or filtered unit total.
+     * Absent for every other kind, so earlier content keeps its hash.
+     */
+    subjectCodes?: string[] | null;
+    courseLevels?: number[] | null;
+    career?: ProgrammeCareer | null;
+    matchesCareer?: boolean | null;
     minimumCommencementYear?: number | null;
     maximumCommencementYear?: number | null;
     minimumGpa: number | null;
@@ -620,7 +633,7 @@ export function courseCatalogueContent({
             itemCode === null
               ? null
               : kind === "structure"
-                ? "programme"
+                ? catalogueKindForCode(itemCode)
                 : "course",
           structureKind: null,
           requirementMode: condition.courseRequirementMode,
@@ -644,6 +657,18 @@ export function courseCatalogueContent({
                   condition.minimumCommencementYear ?? null,
                 maximumCommencementYear:
                   condition.maximumCommencementYear ?? null,
+              }
+            : {}),
+          ...(kind === "course_count" || kind === "filtered_units"
+            ? {
+                subjectCodes: condition.subjectCodes ?? null,
+                courseLevels: condition.courseLevels ?? null,
+              }
+            : {}),
+          ...(kind === "career"
+            ? {
+                career: condition.career ?? null,
+                matchesCareer: condition.matchesCareer ?? null,
               }
             : {}),
           minimumGpa: condition.minimumGpa,
