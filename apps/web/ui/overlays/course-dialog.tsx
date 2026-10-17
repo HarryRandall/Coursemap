@@ -1,16 +1,7 @@
 "use client";
 import { useReturnFocus } from "@/hooks/use-return-focus";
-import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
 import { Button } from "@coursemap/ui/primitives/button";
-import {
-  Field,
-  FieldError,
-  FieldDescription,
-} from "@coursemap/ui/primitives/field";
-import { Input } from "@coursemap/ui/primitives/input";
-import { OptionPicker } from "@/ui/common/option-picker";
 import ReuiLink from "next/link";
-import { cn } from "@/lib/cn";
 
 import {
   AlertTriangle,
@@ -21,50 +12,43 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type { Attempt, Course, Profile } from "@/lib/coursemap/types";
 import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
-  attemptedUnitsError,
-  attemptedUnitsFromInput,
-  attemptUnitRequirement,
-} from "@/lib/coursemap/attempt-units";
-import {
   effectiveStatus,
   isActiveAttempt,
   missingPrereqs,
   planningCourseForAttempt,
+  plannedDependents,
+  termForAttempt,
   termIndex,
   unitsForAttempt,
 } from "@/lib/planner";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import { permissionClauses } from "@/lib/coursemap/requisite-tree";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
-import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
+import { splitRequisiteRule } from "@/ui/courses/requisite-wording";
+import { FactRow } from "@/ui/overlays/fact-row";
+import {
+  PlanCodeChip,
+  RequirementChips,
+} from "@/ui/overlays/requirement-chips";
+import { useCourseDetails } from "@/lib/coursemap/use-course-details";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@coursemap/ui/primitives/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@coursemap/ui/primitives/tabs";
 
+import { CodeChip } from "@/ui/common/code-chip";
 import { StatusPill } from "@/ui/common/status-pill";
+import { CourseAbout } from "@/ui/overlays/course-about";
 import { StarButton } from "@/ui/common/star-button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
 
-const AUD = new Intl.NumberFormat("en-AU", {
-  style: "currency",
-  currency: "AUD",
-  maximumFractionDigits: 0,
-});
 /** "First Semester" as S1, so the header stays one line. */
 function shortSession(session: string) {
   if (/first|semester 1\b/i.test(session)) return "S1";
@@ -142,9 +126,10 @@ export type CoursePreview = {
 };
 
 /**
- * A planned or recorded course: the key facts up top, its description and
- * requisites a tab apart, and the result actions along the bottom. A missing
- * prerequisite shows above the tabs so it is seen without looking for it.
+ * A planned or recorded course in one scrolling view: what it is, where it
+ * sits in the plan, its requisite chain, then assessment and outcomes, with
+ * the plan actions along the bottom. While the course is planned, a missing
+ * prerequisite shows above the body and opens the enrolment steps.
  * Given a preview instead, the same view offers to add the course.
  */
 export function CourseDialog({
@@ -159,8 +144,7 @@ export function CourseDialog({
   onClose: () => void;
 }) {
   const restoreFocus = useReturnFocus();
-  const { state, updateAttempt, removeAttempt, togglePermission, notify } =
-    useCoursemap();
+  const { state, removeAttempt, togglePermission, notify } = useCoursemap();
   const catalogue = suppliedCatalogue
     ? {
         ...suppliedCatalogue,
@@ -189,58 +173,31 @@ export function CourseDialog({
     : attempt
       ? planningCourseForAttempt(attempt, catalogue)
       : undefined;
-  const [attemptedUnitsInput, setAttemptedUnitsInput] = useState(() =>
-    attempt?.unitsAttempted === undefined ? "" : String(attempt.unitsAttempted),
-  );
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const unitRequirement = course ? attemptUnitRequirement(course) : null;
   const status = attempt
     ? effectiveStatus(attempt, state.attempts, catalogue)
     : "planned";
 
-  if (!attempt || !course || !unitRequirement) return null;
+  const details = useCourseDetails(course?.code ?? null, course?.year ?? 0);
+
+  if (!attempt || !course) return null;
 
   const missing = new Set(missingPrereqs(attempt, state.attempts, catalogue));
   const prereqsMet = missing.size === 0;
+  // Once a course has a result or enrolment the plan order no longer matters.
+  const prereqWarning = !prereqsMet && !preview && attempt.status === "planned";
   const recorded = attempt.status !== "planned";
   const enrolled = attempt.status === "enrolled";
   /** A result or withdrawal is history and stays put; an enrolment can go. */
   const final = recorded && !enrolled;
-  const selectedAttemptedUnits = attemptedUnitsFromInput(
-    unitRequirement,
-    attemptedUnitsInput,
-  );
-  const unitError = attemptedUnitsError(unitRequirement, attemptedUnitsInput);
-  const unitSelectionRequired = unitRequirement.kind !== "fixed";
-  const unitSelectionMissing =
-    unitSelectionRequired && selectedAttemptedUnits === null;
-  const submittedAttemptedUnits = unitSelectionRequired
-    ? (selectedAttemptedUnits ?? undefined)
-    : undefined;
-  const showUnits = !preview && !recorded && unitSelectionRequired;
-  const facts = [
-    ["Units", String(unitsForAttempt(attempt, course))],
-    ["Level", String(course.level)],
-    [
-      "Offered",
-      [...new Set(course.sessions)].join(", ") || "Not listed this year",
-    ],
-    ["Delivery", course.delivery],
-    [
-      "Cost",
-      course.domesticFee != null
-        ? `${AUD.format(course.domesticFee)} domestic`
-        : "Not listed",
-    ],
-    ["Convener", course.convener],
-    ["Counts towards", course.countsTowards.join(", ")],
-  ].filter(([, value]) => value);
+  const coursePage = `/courses/${course.year}/${course.code.toLowerCase()}`;
+  const sessions = [...new Set(course.sessions)];
+  const placedTerm = preview ? undefined : termForAttempt(attempt, catalogue);
+  const dependents = preview
+    ? []
+    : plannedDependents(course.code, state.attempts, catalogue);
   const incompatibleCodes = [
     ...new Set(course.incompatibilities.join(" ").match(COURSE_CODE) ?? []),
   ];
-  const availableCodes = new Set(
-    (catalogue?.courses ?? []).map((item) => item.code),
-  );
   const prerequisite = course.prerequisiteRule?.relationalExpression ?? null;
   const incompatibility =
     course.incompatibilityRule?.relationalExpression ?? null;
@@ -258,15 +215,29 @@ export function CourseDialog({
       ...permissionClauses(rule),
     ]),
   ];
-  const student = rule
-    ? planStudentRecord(
-        attempt,
-        state.attempts,
-        state.profile,
-        state.profile.commencementYear ?? null,
-        catalogue,
-      )
-    : null;
+  const student = planStudentRecord(
+    attempt,
+    state.attempts,
+    state.profile,
+    state.profile.commencementYear ?? null,
+    catalogue,
+  );
+  const split = splitRequisiteRule(prerequisite);
+  const requirements = split.requirements;
+  // An exclusion with a way around it, such as "unless approved", stays a rule.
+  const excludedRules = splitRequisiteRule(incompatibility).requirements;
+  const excluded = [
+    ...new Set([
+      ...splitRequisiteRule(incompatibility).incompatible,
+      ...split.incompatible,
+      ...(rule ? [] : incompatibleCodes),
+    ]),
+  ];
+  // Ticks only mean something while the course is still being planned.
+  const checkedStudent = recorded ? null : student;
+  const hasPrerequisiteWording =
+    course.prerequisiteText.trim().length > 0 &&
+    !/^No prerequisites listed\.?$/iu.test(course.prerequisiteText.trim());
   const remove = async () => {
     const result = await removeAttempt(attempt.id);
     notify(result.message, result.ok ? "success" : "error");
@@ -285,7 +256,7 @@ export function CourseDialog({
         showCloseButton={false}
         aria-labelledby={"course-dialog-title"}
         aria-describedby={undefined}
-        className="flex h-[min(38rem,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
+        className="flex max-h-[min(40rem,calc(100dvh-2rem))] min-h-[min(24rem,calc(100dvh-2rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl"
       >
         <header className="flex items-start gap-3 px-5 pt-5 pb-3 sm:px-6">
           <div className="min-w-0 flex-1">
@@ -313,7 +284,7 @@ export function CourseDialog({
               {unitsForAttempt(attempt, course)} units · Level {course.level}
               {course.sessions.length
                 ? ` · ${[...new Set(course.sessions.map(shortSession))].join(", ")}`
-                : ""}
+                : " · Not offered this year"}
             </p>
           </div>
           <StarButton courseCode={course.code} />
@@ -329,7 +300,7 @@ export function CourseDialog({
           </Button>
         </header>
 
-        {!prereqsMet && !preview ? (
+        {prereqWarning ? (
           <div className="mx-5 mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-rose-700 sm:mx-6 dark:bg-rose-950/60 dark:text-rose-300">
             <AlertTriangle size={14} className="shrink-0" />
             <p className="min-w-0 flex-1 text-xs font-medium">
@@ -339,144 +310,120 @@ export function CourseDialog({
           </div>
         ) : null}
 
-        <Tabs
-          defaultValue="about"
-          className="flex min-h-0 flex-1 flex-col gap-0"
-        >
-          <TabsList variant="line" className="mx-5 sm:mx-6">
-            <TabsTrigger value="about">About</TabsTrigger>
-            <TabsTrigger value="requisites">
-              Requisites
-              {!prereqsMet && !preview ? (
-                <span
-                  aria-label="needs attention"
-                  className="size-1.5 rounded-full bg-rose-500"
-                />
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-          <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-5 py-4 sm:px-6">
-            <TabsContent value="about" className="mt-0 space-y-4">
-              <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border ring-1 ring-border sm:grid-cols-3">
-                {facts.map(([label, value]) => (
-                  <div key={label} className="min-w-0 bg-card px-3 py-2">
-                    <dt className="text-[11px] text-muted-foreground">
-                      {label}
-                    </dt>
-                    <dd className="mt-0.5 text-[13px] font-medium text-foreground">
-                      {value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-              <div>
-                <p
-                  className={cn(
-                    "text-[13px] leading-relaxed text-muted-foreground",
-                    !showFullDescription && "line-clamp-3",
-                  )}
-                >
-                  {course.description}
-                </p>
-                <div className="mt-1.5 flex items-center gap-4 text-xs font-medium">
-                  {course.description.length > 220 ? (
-                    <button
-                      type="button"
-                      className="text-primary"
-                      onClick={() => setShowFullDescription((open) => !open)}
-                    >
-                      {showFullDescription ? "Show less" : "Read more"}
-                    </button>
-                  ) : null}
-                  <ReuiLink
-                    href={`/courses/${course.year}/${course.code.toLowerCase()}`}
-                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                  >
-                    Full course page
-                    <ExternalLink size={12} aria-hidden="true" />
-                  </ReuiLink>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="requisites" className="mt-0 space-y-4">
-              {rule ? (
-                <div className="-mx-5 -my-4 sm:-mx-6">
-                  <EnrolmentSteps
-                    academicYear={course.year}
-                    availableCourseCodes={availableCodes}
-                    expression={rule}
-                    student={student}
-                  />
-                </div>
-              ) : (
-                <section>
-                  <h3 className="text-xs font-semibold text-foreground">
-                    Needs first
-                  </h3>
-                  {course.prerequisiteCodes.length > 0 ? (
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {course.prerequisiteCodes.map((code) => (
+        <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-5 py-4 sm:px-6">
+          <CourseAbout course={course} details={details}>
+            <dl className="divide-y divide-border border-y border-border text-[13px]">
+              <FactRow label="Offered">
+                {sessions.length === 0 ? (
+                  <span className="text-muted-foreground">
+                    Not offered this year
+                  </span>
+                ) : (
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {sessions.map((session) =>
+                      placedTerm?.name === session ? (
                         <span
-                          key={code}
-                          className={cn(
-                            "rounded-md px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-inset",
-                            !missing.has(code)
-                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:ring-emerald-900"
-                              : "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:ring-rose-900",
-                          )}
+                          key={session}
+                          className="inline-flex items-center gap-1 font-medium text-primary"
                         >
-                          {code}
+                          <Check
+                            size={13}
+                            strokeWidth={2.5}
+                            aria-hidden="true"
+                          />
+                          {shortSession(session)}
+                          <span className="font-normal text-muted-foreground">
+                            in your plan
+                          </span>
                         </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {course.prerequisiteText || "No prerequisites."}
-                  </p>
-                </section>
-              )}
-
-              {!rule && incompatibleCodes.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-foreground">
-                    Can&apos;t take with
-                  </h3>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {incompatibleCodes.map((code) => (
-                      <span
-                        key={code}
-                        className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
-                      >
-                        {code}
+                      ) : (
+                        <span key={session} className="text-foreground">
+                          {shortSession(session)}
+                        </span>
+                      ),
+                    )}
+                    {placedTerm && !sessions.includes(placedTerm.name) ? (
+                      <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                        <AlertTriangle size={13} aria-hidden="true" />
+                        Not offered in {placedTerm.shortName}
                       </span>
-                    ))}
-                  </div>
-                </section>
-              )}
+                    ) : null}
+                  </span>
+                )}
+              </FactRow>
 
-              {permissions.length > 0 && (
-                <section>
-                  <h3 className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <ShieldCheck
-                      size={13}
-                      aria-hidden="true"
-                      className={
-                        attempt.permissionApproved
-                          ? "text-emerald-600 dark:text-emerald-300"
-                          : "text-primary"
-                      }
-                    />
-                    Permission approval
-                  </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
+              <FactRow label="Requires">
+                {requirements.length > 0 ? (
+                  <span className="flex flex-col items-start gap-2">
+                    {requirements.map((node, index) => (
+                      <RequirementChips
+                        key={index}
+                        node={node}
+                        student={checkedStudent}
+                      />
+                    ))}
+                  </span>
+                ) : !prerequisite && course.prerequisiteCodes.length > 0 ? (
+                  <span className="flex flex-col items-start gap-1.5">
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      {course.prerequisiteCodes.length > 1 &&
+                      /\bor\b/i.test(course.prerequisiteText) &&
+                      !/\band\b/i.test(course.prerequisiteText) ? (
+                        <span className="text-xs text-muted-foreground">
+                          one of
+                        </span>
+                      ) : null}
+                      {course.prerequisiteCodes.map((code) => (
+                        <PlanCodeChip
+                          key={code}
+                          code={code}
+                          student={checkedStudent}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                ) : hasPrerequisiteWording ? (
+                  <span className="text-xs text-muted-foreground">
+                    {course.prerequisiteText}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Nothing</span>
+                )}
+              </FactRow>
+
+              {excluded.length > 0 || excludedRules.length > 0 ? (
+                <FactRow label="Can't take with">
+                  <span className="flex flex-col items-start gap-2">
+                    {excluded.length > 0 ? (
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {excluded.map((code) => (
+                          <CodeChip key={code} tone="neutral">
+                            {code}
+                          </CodeChip>
+                        ))}
+                      </span>
+                    ) : null}
+                    {excludedRules.map((node, index) => (
+                      <RequirementChips
+                        key={index}
+                        node={node}
+                        student={checkedStudent}
+                      />
+                    ))}
+                  </span>
+                </FactRow>
+              ) : null}
+
+              {permissions.length > 0 ? (
+                <FactRow label="Permission">
+                  <p className="text-xs whitespace-pre-line text-muted-foreground">
                     {permissions.join("\n\n")}
                   </p>
                   {preview ? null : (
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="mt-1 -ml-2 h-7 px-2 text-[11px] text-primary hover:text-primary"
+                      className="mt-1 -ml-2 h-7 px-2 text-xs text-primary hover:text-primary"
                       onClick={() => {
                         togglePermission(attempt.id);
                         notify(
@@ -487,108 +434,52 @@ export function CourseDialog({
                       }}
                       type="button"
                     >
+                      {attempt.permissionApproved ? (
+                        <ShieldCheck size={13} aria-hidden="true" />
+                      ) : null}
                       {attempt.permissionApproved
                         ? "Remove approval"
                         : "Record approval"}
                     </Button>
                   )}
-                </section>
-              )}
-            </TabsContent>
-          </div>
-        </Tabs>
+                </FactRow>
+              ) : null}
 
-        {showUnits ? (
-          <div className="border-t border-border px-5 pt-3 sm:px-6">
-            {!recorded && unitRequirement.kind === "unavailable" ? (
-              <Alert className="mb-3" variant={"warning"}>
-                <AlertDescription>
-                  This course cannot be added to your plan yet.
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {!recorded &&
-            unitSelectionRequired &&
-            unitRequirement.kind !== "unavailable" ? (
-              <section className="pb-3">
-                <Field>
-                  <label className="flex flex-col gap-2">
-                    <span className="text-sm font-medium">
-                      {"Units attempted"}
+              {dependents.length > 0 ? (
+                <FactRow label="Unlocks">
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    {dependents.map((code) => (
+                      <CodeChip key={code} tone="neutral">
+                        {code}
+                      </CodeChip>
+                    ))}
+                    <span className="text-xs text-muted-foreground">
+                      in your plan
                     </span>
-                    {unitRequirement.kind === "choice" ? (
-                      <OptionPicker
-                        value={"coursemap:" + String(attemptedUnitsInput)}
-                        onValueChange={(nextValue) => {
-                          const option = unitRequirement.options
-                            .map((option) => ({
-                              label: option.label
-                                ? `${option.units} units · ${option.label}`
-                                : `${option.units} units`,
-                              value: String(option.units),
-                            }))
-                            .find(
-                              (option) =>
-                                "coursemap:" + String(option.value) ===
-                                nextValue,
-                            );
-                          if (option) setAttemptedUnitsInput(option.value);
-                        }}
-                        aria-label={"Units attempted"}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        placeholder={"Choose units"}
-                        items={unitRequirement.options
-                          .map((option) => ({
-                            label: option.label
-                              ? `${option.units} units · ${option.label}`
-                              : `${option.units} units`,
-                            value: String(option.units),
-                          }))
-                          .map((option) => ({
-                            value: "coursemap:" + String(option.value),
-                            label: option.label,
-                          }))}
-                      />
-                    ) : (
-                      <Input
-                        aria-invalid={unitError ? true : undefined}
-                        inputMode="decimal"
-                        max={
-                          unitRequirement.kind === "range"
-                            ? unitRequirement.maximumUnits
-                            : 999.99
-                        }
-                        min={
-                          unitRequirement.kind === "range"
-                            ? unitRequirement.minimumUnits
-                            : 0.01
-                        }
-                        onChange={(event) =>
-                          setAttemptedUnitsInput(event.target.value)
-                        }
-                        placeholder="Enter units"
-                        step="0.01"
-                        type="number"
-                        value={attemptedUnitsInput}
-                      />
-                    )}
-                    {unitError ? <FieldError>{unitError}</FieldError> : null}
-                    <FieldDescription>
-                      {unitRequirement.kind === "range"
-                        ? `Published range: ${unitRequirement.minimumUnits} to ${unitRequirement.maximumUnits} units.`
-                        : unitRequirement.kind === "choice"
-                          ? "Choose the published unit value you attempted."
-                          : null}
-                    </FieldDescription>
-                  </label>
-                </Field>
-              </section>
-            ) : null}
-          </div>
-        ) : null}
+                  </span>
+                </FactRow>
+              ) : null}
+
+              {course.countsTowards.length > 0 ? (
+                <FactRow label="Counts towards">
+                  <span className="text-foreground">
+                    {course.countsTowards.join(", ")}
+                  </span>
+                </FactRow>
+              ) : null}
+            </dl>
+          </CourseAbout>
+        </div>
+
         <footer className="border-t border-border/60 bg-muted/40 px-5 py-3 sm:px-6">
           {preview ? (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button asChild variant="outline" size="sm">
+                <ReuiLink href={coursePage}>
+                  Full course page
+                  <ExternalLink size={14} aria-hidden="true" />
+                </ReuiLink>
+              </Button>
               <Button
                 size="sm"
                 type="button"
@@ -601,12 +492,18 @@ export function CourseDialog({
                 {preview.addLabel}
               </Button>
             </div>
+          ) : final ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <p className="mr-auto">Result recorded</p>
+              <Button asChild variant="ghost" size="sm">
+                <ReuiLink href="/academic">Edit in academic history</ReuiLink>
+              </Button>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                disabled={final}
                 onClick={() => void remove()}
                 className="mr-auto text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
                 type="button"
@@ -618,70 +515,13 @@ export function CourseDialog({
                 <Button asChild variant="outline" size="sm">
                   <ReuiLink href="/academic">Add result</ReuiLink>
                 </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={recorded || unitSelectionMissing}
-                    aria-pressed={attempt.status === "completed"}
-                    className={cn(
-                      attempt.status === "completed"
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800 disabled:opacity-100 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200"
-                        : "hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:border-emerald-800 dark:hover:bg-emerald-950/60 dark:hover:text-emerald-200",
-                    )}
-                    onClick={async () => {
-                      const result = await updateAttempt(
-                        attempt.id,
-                        "completed",
-                        undefined,
-                        submittedAttemptedUnits,
-                      );
-                      notify(
-                        result.ok
-                          ? `${course.code} marked as completed`
-                          : result.message,
-                        result.ok ? "success" : "error",
-                      );
-                    }}
-                    type="button"
-                  >
-                    <Check size={14} />
-                    Completed
-                  </Button>
-                  <Button
-                    variant={
-                      attempt.status === "failed" ? "destructive" : "outline"
-                    }
-                    size="sm"
-                    disabled={recorded || unitSelectionMissing}
-                    aria-pressed={attempt.status === "failed"}
-                    className={cn(
-                      attempt.status === "failed"
-                        ? "disabled:opacity-100"
-                        : "hover:border-rose-200 hover:bg-rose-50 hover:text-rose-800 dark:hover:border-rose-800 dark:hover:bg-rose-950/60 dark:hover:text-rose-200",
-                    )}
-                    onClick={async () => {
-                      const result = await updateAttempt(
-                        attempt.id,
-                        "failed",
-                        undefined,
-                        submittedAttemptedUnits,
-                      );
-                      notify(
-                        result.ok
-                          ? `${course.code} marked as failed`
-                          : result.message,
-                        result.ok ? "success" : "error",
-                      );
-                    }}
-                    type="button"
-                  >
-                    <X size={14} />
-                    Failed
-                  </Button>
-                </>
-              )}
+              ) : null}
+              <Button asChild variant="outline" size="sm">
+                <ReuiLink href={coursePage}>
+                  Full course page
+                  <ExternalLink size={14} aria-hidden="true" />
+                </ReuiLink>
+              </Button>
             </div>
           )}
         </footer>

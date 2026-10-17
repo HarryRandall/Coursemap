@@ -1,5 +1,11 @@
 const PUBLIC_READ_BATCH_SIZE = 100;
 const DETAIL_READ_BATCH_SIZE = 4;
+/**
+ * Courses per published_course_details call. The function accepts 50; a
+ * smaller batch keeps each statement well inside the anonymous role's timeout
+ * on a cold production cache.
+ */
+const COURSES_PER_DETAIL_CALL = 25;
 
 /** Bounds code visibility checks, which run catalogue access policies per row. */
 export async function readPublishedCodeBatches<T>(
@@ -35,4 +41,12 @@ export async function readPublishedDetailBatches<T, U>(
     );
   }
   return rows;
+}
+
+/** Splits course codes into the batches one published_course_details call reads. */
+export function publishedDetailBatches(codes: readonly string[]): string[][] {
+  const batches: string[][] = [];
+  for (let start = 0; start < codes.length; start += COURSES_PER_DETAIL_CALL)
+    batches.push(codes.slice(start, start + COURSES_PER_DETAIL_CALL));
+  return batches;
 }

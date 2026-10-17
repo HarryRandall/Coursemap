@@ -3652,6 +3652,7 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          fee_status: string | null
           id: string
           preferred_name: string | null
           pronouns: string | null
@@ -3662,6 +3663,7 @@ export type Database = {
           created_at?: string
           display_name: string
           email?: string | null
+          fee_status?: string | null
           id: string
           preferred_name?: string | null
           pronouns?: string | null
@@ -3672,6 +3674,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           email?: string | null
+          fee_status?: string | null
           id?: string
           preferred_name?: string | null
           pronouns?: string | null
@@ -5090,6 +5093,13 @@ export type Database = {
       published_course_detail: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: Json
+      }
+      published_course_details: {
+        Args: { p_academic_year: number; p_course_codes: string[] }
+        Returns: {
+          course_code: string
+          detail: Json
+        }[]
       }
       published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }

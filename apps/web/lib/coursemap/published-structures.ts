@@ -1,5 +1,6 @@
 import { validEnrolmentMode } from "../academic/enrolment-mode";
 import {
+  PUBLISHED_READ_REVALIDATE_SECONDS,
   PUBLISHED_STRUCTURE_DETAIL_TAG,
   publishedStructureTag,
 } from "./published-cache";
@@ -260,7 +261,7 @@ export async function loadPublishedStructure(
     },
     ["published-structure-detail", String(academicYear), normalisedCode],
     {
-      revalidate: 300,
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
       tags: [
         PUBLISHED_STRUCTURE_DETAIL_TAG,
         publishedStructureTag(academicYear, normalisedCode),

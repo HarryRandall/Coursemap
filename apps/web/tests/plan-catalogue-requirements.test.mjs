@@ -168,7 +168,10 @@ test("selects the latest year through published programme pointers and loads rel
     "utf8",
   );
   assert.match(privateReads, /from\("plan_structures"\)/u);
-  assert.match(source, /selectedStructureYears\.has\(structureYear\.id\)/u);
+  assert.match(
+    source,
+    /selectedStructureYears\.has\(structureYear\.recordId\)/u,
+  );
   for (const table of [
     "requirement_groups",
     "requirement_conditions",

@@ -198,6 +198,40 @@ export function isActiveAttempt(attempt: Attempt) {
   return attempt.status !== "failed" && attempt.status !== "withdrawn";
 }
 
+/** Courses still ahead in the plan that list this one as a prerequisite. */
+export function plannedDependents(
+  courseCode: string,
+  attempts: Attempt[],
+  catalogue?: PlanningCatalogue,
+): string[] {
+  const code = courseCode.toUpperCase();
+  return [
+    ...new Set(
+      attempts
+        .filter(
+          (attempt) =>
+            (attempt.status === "planned" || attempt.status === "enrolled") &&
+            attempt.courseCode.toUpperCase() !== code &&
+            planningCourseForAttempt(
+              attempt,
+              catalogue,
+            )?.prerequisiteCodes.some(
+              (prerequisite) => prerequisite.toUpperCase() === code,
+            ),
+        )
+        .map((attempt) => attempt.courseCode.toUpperCase()),
+    ),
+  ];
+}
+
+/** The term an attempt is placed in, when the catalogue knows it. */
+export function termForAttempt(
+  attempt: Attempt,
+  catalogue?: PlanningCatalogue,
+): Term | undefined {
+  return termsFor(catalogue).find((term) => term.id === attempt.termId);
+}
+
 /**
  * Whether an attempt can satisfy or conflict with another course's rule. A
  * planned course that is no longer published cannot be taken, so it does

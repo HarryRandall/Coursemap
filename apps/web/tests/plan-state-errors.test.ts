@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   client: vi.fn(),
   rpc: vi.fn(),
 }));
+vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
 vi.mock("@/lib/auth/viewer", () => ({ getAuthViewer: mocks.viewer }));
 vi.mock("@/lib/coursemap/guest-plan-server", () => ({
   readGuestPlan: async () => null,
@@ -135,15 +136,20 @@ test.each([
   "plan_items",
   "course_attempts",
   "plan_structures",
-  "catalogue_versions",
-  "catalogue_records",
-  "catalogue_codes",
-  "academic_years:many",
 ])("planning catalogue propagates errors from %s", async (table) => {
   mocks.failure = table;
   await expect(loadCurrentUserPlanCatalogue()).rejects.toEqual(failure);
   expect(mocks.publicClient).not.toHaveBeenCalled();
 });
+// The year's public structures start loading once the plan year is known, so
+// later private failures only need to reach the caller.
+test.each(["catalogue_versions", "catalogue_records"])(
+  "planning catalogue propagates errors from %s",
+  async (table) => {
+    mocks.failure = table;
+    await expect(loadCurrentUserPlanCatalogue()).rejects.toEqual(failure);
+  },
+);
 
 test("historical attempt projection errors reach the planning error handler", async () => {
   mocks.publicClient.mockReturnValue({ from: () => query("no-public-year") });

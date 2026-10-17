@@ -1,16 +1,13 @@
 "use client";
-
+import Link from "next/link";
 import type { CSSProperties } from "react";
+import { ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent } from "@coursemap/ui/primitives/card";
 import {
   compositionSectionUnits,
   type CompositionKind,
   type CompositionSection,
 } from "@/lib/coursemap/degree-composition";
-import { useElementSize } from "@/hooks/use-element-size";
-import { CompositionBlock } from "./composition-block";
-import { CompositionInvitation } from "./composition-invitation";
-import { compositionLayout } from "./composition-layout";
 
 const titles: Record<CompositionKind, string> = {
   core: "Programme core",
@@ -19,71 +16,44 @@ const titles: Record<CompositionKind, string> = {
   electives: "Electives",
 };
 
-const fills: Record<CompositionKind, string[]> = {
-  core: ["bg-blue-300"],
-  major: ["bg-violet-300"],
-  minor: ["bg-amber-300", "bg-rose-300"],
-  electives: ["bg-emerald-300"],
-};
-
-const emptyHrefs: Record<Exclude<CompositionKind, "electives">, string> = {
+const sectionHrefs: Record<Exclude<CompositionKind, "electives">, string> = {
   core: "/requirements?tab=programme",
   major: "/requirements?tab=major",
   minor: "/requirements?tab=minor",
 };
 
-/** Space given to an optional major or minor, which states no unit size. */
-const OPTIONAL_LAYOUT_UNITS = 24;
+function unitsIn(section: CompositionSection, status: "completed" | "planned") {
+  return section.courses
+    .filter((course) => course.status === status)
+    .reduce((total, course) => total + course.units, 0);
+}
 
-/** Every block keeps enough of its column to show its title and units. */
-const MINIMUM_BLOCK_SHARE = 0.28;
-
-/** Half the gap between blocks, in pixels. */
-const HALF_GAP = 3;
-
+/**
+ * The degree as one row per part: the programme core, the major, each minor
+ * and electives. Each bar splits the part's units into completed, planned
+ * and still open, so the legend's three states read in every row; a major or
+ * minor not yet chosen invites the student to pick one.
+ */
 export function DegreeComposition({
   sections,
   academicYear,
-  courseLinks,
 }: {
   sections: readonly CompositionSection[];
   academicYear: number | null;
-  courseLinks: Record<string, string>;
 }) {
-  // Blocks are placed in percentages so the first paint is already right; the
-  // measured size is only needed to fit slots when a block opens.
-  const [areaRef, area] = useElementSize<HTMLDivElement>({
-    width: 0,
-    height: 0,
-  });
-  const rects = compositionLayout(
-    sections.map(
-      (section) => compositionSectionUnits(section) || OPTIONAL_LAYOUT_UNITS,
-    ),
-    100,
-    100,
-    MINIMUM_BLOCK_SHARE,
-  );
-  const minorIndex = new Map(
-    sections
-      .filter((section) => section.kind === "minor")
-      .map((section, index) => [section.key, index]),
-  );
-  const courseHref = (code: string) =>
-    courseLinks[code] ?? `/courses?q=${code}`;
   const electivesHref =
     academicYear === null ? "/courses" : `/courses?year=${academicYear}`;
 
   return (
     <Card className="h-full py-0">
       <CardContent className="flex h-full flex-col gap-4 p-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
           <h2 className="text-sm font-semibold">Degree composition</h2>
-          <div className="flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
             {[
               ["Completed", "bg-success"],
               ["Planned", "bg-primary"],
-              ["Unallocated", "bg-muted-foreground/40"],
+              ["Open", "bg-muted-foreground/25"],
             ].map(([label, colour]) => (
               <span key={label} className="flex items-center gap-1.5">
                 <span className={`size-2 rounded-sm ${colour}`} />
@@ -93,65 +63,86 @@ export function DegreeComposition({
           </div>
         </div>
         {sections.length > 0 ? (
-          <div className="relative min-h-52 flex-1">
-            {/* The area overhangs by half a gap so outer blocks sit flush. */}
-            <div
-              ref={areaRef}
-              className="absolute"
-              style={{ inset: -HALF_GAP }}
-            >
-              {sections.map((section, index) => {
-                const rect = rects[index];
-                const palette = fills[section.kind];
-                const colour =
-                  palette[(minorIndex.get(section.key) ?? 0) % palette.length];
-                const title = titles[section.kind];
-                return (
-                  <div
-                    key={section.key}
-                    className="enter-pop absolute flex"
-                    style={
-                      {
-                        // Blocks settle in one after another.
-                        "--enter-delay": `${160 + index * 60}ms`,
-                        left: `${rect.x}%`,
-                        top: `${rect.y}%`,
-                        width: `${rect.width}%`,
-                        height: `${rect.height}%`,
-                        padding: HALF_GAP,
-                      } as CSSProperties
-                    }
+          <ul className="-mx-2 flex flex-1 flex-col justify-center gap-1">
+            {sections.map((section, index) => {
+              const title = titles[section.kind];
+              const href =
+                section.kind === "electives"
+                  ? electivesHref
+                  : sectionHrefs[section.kind];
+              const total = compositionSectionUnits(section);
+              const completed = unitsIn(section, "completed");
+              const planned = unitsIn(section, "planned");
+              const share = (units: number) =>
+                total > 0 ? `${Math.min(100, (units / total) * 100)}%` : "0%";
+              return (
+                <li
+                  key={section.key}
+                  className="enter-pop"
+                  style={
+                    {
+                      "--enter-delay": `${160 + index * 60}ms`,
+                    } as CSSProperties
+                  }
+                >
+                  <Link
+                    href={href}
+                    className="group flex flex-col gap-2 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
+                    <span className="flex items-baseline gap-2 text-sm">
+                      <span className="shrink-0 font-medium text-foreground">
+                        {title}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                        {section.unchosen
+                          ? "Not chosen yet"
+                          : (section.structureName ?? "")}
+                      </span>
+                      {section.unchosen ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                          <Plus size={13} aria-hidden="true" />
+                          Add a {section.kind}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          <span className="font-medium text-foreground">
+                            {completed + planned}
+                          </span>{" "}
+                          of {total || "?"} units
+                        </span>
+                      )}
+                      <ChevronRight
+                        size={14}
+                        aria-hidden="true"
+                        className="shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-0.5"
+                      />
+                    </span>
                     {section.unchosen ? (
-                      <CompositionInvitation
-                        title={title}
-                        action={`Add a ${section.kind}`}
-                        units={section.targetUnits}
-                        href={emptyHrefs[section.kind as "major" | "minor"]}
-                        colour={colour}
+                      <span
+                        aria-hidden="true"
+                        className="h-2 rounded-full border border-dashed border-muted-foreground/40"
                       />
                     ) : (
-                      <CompositionBlock
-                        section={section}
-                        title={title}
-                        colour={colour}
-                        width={(rect.width / 100) * area.width - HALF_GAP * 2}
-                        height={
-                          (rect.height / 100) * area.height - HALF_GAP * 2
-                        }
-                        courseHref={courseHref}
-                        emptyHref={
-                          section.kind === "electives"
-                            ? electivesHref
-                            : emptyHrefs[section.kind]
-                        }
-                      />
+                      <span
+                        role="img"
+                        aria-label={`${completed} units completed and ${planned} planned of ${total || "an unpublished number of"} units`}
+                        className="flex h-2 overflow-hidden rounded-full bg-muted-foreground/15"
+                      >
+                        <span
+                          className="enter-grow-across h-full bg-success"
+                          style={{ width: share(completed) }}
+                        />
+                        <span
+                          className="enter-grow-across h-full bg-primary"
+                          style={{ width: share(planned) }}
+                        />
+                      </span>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         ) : (
           <p className="flex min-h-52 flex-1 items-center justify-center text-sm text-muted-foreground">
             Your degree&apos;s unit total is not published yet.

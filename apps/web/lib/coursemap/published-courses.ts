@@ -11,6 +11,7 @@ import { workloadHoursBasis } from "@/lib/academic/workload";
 import {
   PUBLISHED_COURSE_DETAIL_TAG,
   PUBLISHED_COURSE_PAGE_TAG,
+  PUBLISHED_READ_REVALIDATE_SECONDS,
   publishedCourseTag,
   publishedCourseYearTag,
 } from "./published-cache";
@@ -34,6 +35,7 @@ import type {
 import { accentFor } from "@/lib/coursemap/course-accent";
 import {
   readPublishedCodeBatches,
+  publishedDetailBatches,
   readPublishedDetailBatches,
 } from "./published-read-batches";
 import { selectPreferredCourseYears } from "./published-directory-selection";
@@ -215,7 +217,10 @@ async function directoryRows(): Promise<DirectoryRow[]> {
 const cachedDirectoryRows = unstable_cache(
   directoryRows,
   ["published-course-directory-rows-v2"],
-  { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_COURSE_PAGE_TAG],
+  },
 );
 
 async function directoryNames(
@@ -254,7 +259,10 @@ const cachedDirectoryNames = unstable_cache(
     ]);
   },
   ["published-course-directory-names"],
-  { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_COURSE_PAGE_TAG],
+  },
 );
 
 export async function loadPublishedCourseYears(
@@ -284,7 +292,10 @@ export async function loadPublishedCourseYears(
       return years.sort((left, right) => right - left);
     },
     ["published-course-years", normalisedCode],
-    { revalidate: 300, tags: [PUBLISHED_COURSE_PAGE_TAG] },
+    {
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+      tags: [PUBLISHED_COURSE_PAGE_TAG],
+    },
   )();
 }
 
@@ -376,7 +387,7 @@ export async function loadPublishedCourseDirectoryPage({
           String(academicYear ?? 2026),
         ],
         {
-          revalidate: 300,
+          revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
           tags: [
             PUBLISHED_COURSE_PAGE_TAG,
             publishedCourseYearTag(academicYear ?? 2026),
@@ -1923,7 +1934,7 @@ export async function loadPublishedCoursePage(args: {
       ...Object.values(filters),
     ],
     {
-      revalidate: 300,
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
       tags: [
         PUBLISHED_COURSE_PAGE_TAG,
         publishedCourseYearTag(args.academicYear),
@@ -1936,21 +1947,16 @@ export async function loadPublishedCoursesByCodes(
   codes: readonly string[],
   academicYear: number,
 ) {
-  const normalisedCodes = [
-    ...new Set(
-      codes
-        .map((code) => code.trim().toUpperCase())
-        .filter((code) => COURSE_CODE_PATTERN.test(code)),
-    ),
-  ];
-  if (normalisedCodes.length === 0) return [];
-
-  const courses = await readPublishedDetailBatches(normalisedCodes, (code) =>
-    loadPublishedCourse(code, academicYear),
+  return loadPublishedCoursesBySelections(
+    codes.map((code) => ({ code, year: academicYear })),
   );
-  return courses.filter((course): course is CourseDetails => course !== null);
 }
 
+/**
+ * Details for many courses, read through published_course_details so a year's
+ * prerequisite edges are built once per batch instead of once per course.
+ * Courses keep the order they were asked for; unknown codes are dropped.
+ */
 export async function loadPublishedCoursesBySelections(
   selections: readonly { code: string; year: number }[],
 ) {
@@ -1966,10 +1972,54 @@ export async function loadPublishedCoursesBySelections(
       Number.isInteger(selection.year) &&
       COURSE_CODE_PATTERN.test(selection.code),
   );
-  const courses = await readPublishedDetailBatches(unique, (selection) =>
-    loadPublishedCourse(selection.code, selection.year),
+  const codesByYear = new Map<number, string[]>();
+  for (const { code, year } of unique)
+    codesByYear.set(year, [...(codesByYear.get(year) ?? []), code]);
+  const batches = [...codesByYear].flatMap(([year, codes]) =>
+    publishedDetailBatches(codes).map((batch) => ({ year, codes: batch })),
   );
-  return courses.filter((course): course is CourseDetails => course !== null);
+  const details = new Map(
+    (
+      await readPublishedDetailBatches(batches, ({ year, codes }) =>
+        loadPublishedCourseBatch(codes, year),
+      )
+    )
+      .flat()
+      .map((course) => [`${course.year}:${course.code}`, course]),
+  );
+  return unique.flatMap(({ code, year }) => {
+    const course = details.get(`${year}:${code}`);
+    return course ? [course] : [];
+  });
+}
+
+function loadPublishedCourseBatch(
+  codes: readonly string[],
+  academicYear: number,
+) {
+  const sortedCodes = codes.toSorted();
+  return unstable_cache(
+    async (): Promise<CourseDetails[]> => {
+      const { data, error } = await createPublicClient().rpc(
+        "published_course_details",
+        { p_academic_year: academicYear, p_course_codes: sortedCodes },
+      );
+      if (error) throw new Error(error.message);
+      return (data ?? []).flatMap(({ detail }) => {
+        const course = detail ? detailAsCourseDetails(detail) : null;
+        return course ? [course] : [];
+      });
+    },
+    ["published-course-details", String(academicYear), ...sortedCodes],
+    {
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+      tags: [
+        PUBLISHED_COURSE_DETAIL_TAG,
+        publishedCourseYearTag(academicYear),
+        ...sortedCodes.map((code) => publishedCourseTag(academicYear, code)),
+      ],
+    },
+  )();
 }
 
 export async function loadPublishedCourses(academicYear: number) {
@@ -2009,7 +2059,7 @@ export async function loadPublishedCourse(
     },
     ["published-course-detail", String(academicYear), normalisedCode],
     {
-      revalidate: 300,
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
       tags: [
         PUBLISHED_COURSE_DETAIL_TAG,
         publishedCourseTag(academicYear, normalisedCode),

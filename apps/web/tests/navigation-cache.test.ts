@@ -1,7 +1,10 @@
 import { expect, test } from "vitest";
 import config from "../next.config";
 
-test("visited dynamic pages are reused briefly without enabling Cache Components", () => {
-  expect(config.experimental?.staleTimes).toEqual({ dynamic: 30, static: 180 });
+test("visited pages are reused for five minutes without enabling Cache Components", () => {
+  expect(config.experimental?.staleTimes).toEqual({
+    dynamic: 300,
+    static: 300,
+  });
   expect(config.cacheComponents).not.toBe(true);
 });

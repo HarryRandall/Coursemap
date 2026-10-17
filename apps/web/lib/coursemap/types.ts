@@ -1,4 +1,5 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
+import type { CoursePrices, FeeStatus } from "../academic/fee-status";
 import type { CourseRequisiteRule, CourseUnitValue } from "./course-types";
 
 export type Accent = "blue" | "violet" | "mint" | "amber" | "rose" | "cyan";
@@ -33,8 +34,8 @@ export type Course = {
   lastChanged: string;
   parseState: "Verified" | "Automatic" | "Review";
   accent: Accent;
-  /** The published domestic fee for the course, as listed, when there is one. */
-  domesticFee?: number | null;
+  /** The course's published prices, as listed, by who pays them. */
+  prices?: CoursePrices;
 };
 
 export type Degree = {
@@ -115,6 +116,8 @@ export type Profile = {
   email: string;
   commencementYear: number;
   enrolmentMode?: EnrolmentMode | null;
+  /** Who pays for the student's courses; null until they say. */
+  feeStatus?: FeeStatus | null;
   catalogueYear: number;
   degreeCode: string;
   majorCode: string;

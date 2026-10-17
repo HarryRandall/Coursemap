@@ -27,9 +27,24 @@ const terms = [
 ];
 
 const courses = [
-  { code: "COMP1100", year: 2025, units: 6, domesticFee: 1110 },
-  { code: "MATH1005", year: 2025, units: 6, domesticFee: null },
-  { code: "COMP2100", year: 2025, units: 12, domesticFee: 2400 },
+  {
+    code: "COMP1100",
+    year: 2025,
+    units: 6,
+    prices: { domestic: 1110, international: 1500, contributionBand: 2 },
+  },
+  {
+    code: "MATH1005",
+    year: 2025,
+    units: 6,
+    prices: { domestic: null, international: null, contributionBand: null },
+  },
+  {
+    code: "COMP2100",
+    year: 2025,
+    units: 12,
+    prices: { domestic: 2400, international: 3000, contributionBand: 14 },
+  },
 ];
 
 const attempt = (overrides) => ({
@@ -336,6 +351,7 @@ test("a grade-only fail gives the GPA chart a zero without inventing a WAM", () 
 
 test("sums each course's raw domestic fee by study year", () => {
   const estimate = tuitionEstimate({
+    feeStatus: "domestic_fee",
     courses,
     attempts: [
       attempt({ courseCode: "COMP1100", termId: "2025-s1" }),
@@ -350,6 +366,34 @@ test("sums each course's raw domestic fee by study year", () => {
     { year: 2025, amount: 1110, courses: 1 },
     { year: 2026, amount: 2400, courses: 1 },
   ]);
+});
+
+test("prices a Commonwealth supported place from its band, by commencement year", () => {
+  const attempts = [
+    attempt({ courseCode: "COMP1100", termId: "2026-s1", status: "planned" }),
+    attempt({ courseCode: "COMP2100", termId: "2026-s1", status: "planned" }),
+  ];
+  // Band 2 is $9,537 and band 14 is $17,399 per 48 units in 2026.
+  const current = tuitionEstimate({
+    courses,
+    attempts,
+    commencementYear: 2024,
+  });
+  assert.equal(current.feeStatus, "commonwealth_supported");
+  assert.equal(current.total, 1192 + 4350);
+  // Band 14 charges students who started before 2021 at $8,164.
+  const earlier = tuitionEstimate({
+    courses,
+    attempts,
+    commencementYear: 2019,
+  });
+  assert.equal(earlier.total, 1192 + 2041);
+  const international = tuitionEstimate({
+    courses,
+    attempts,
+    feeStatus: "international",
+  });
+  assert.equal(international.total, 4500);
 });
 
 test("returns null rather than a zero estimate when no fee is published", () => {

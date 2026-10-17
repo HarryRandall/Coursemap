@@ -11,6 +11,13 @@ export const PUBLISHED_COURSE_PAGE_TAG = "published-course-page";
 export const PUBLISHED_COURSE_YEARS_TAG = "published-course-years";
 export const PUBLISHED_STRUCTURE_DETAIL_TAG = "published-structure-detail";
 
+/**
+ * How long a published read may be served from the cache. Publication drops
+ * the affected tags straight away, so this only bounds staleness after a
+ * change that bypasses publication, such as a direct database edit.
+ */
+export const PUBLISHED_READ_REVALIDATE_SECONDS = 60 * 60;
+
 export function publishedCourseYearTag(academicYear: number) {
   return `published-courses:${academicYear}`;
 }
@@ -52,7 +59,7 @@ export function publishedRecordTags({
  * Drops the cached public reads for one record. `updateTag` rather than
  * `revalidateTag` because publication happens in a server action and the
  * administrator should be able to open the public page and see the version
- * they just published, not the one that was cached five minutes ago.
+ * they just published, not the one that was cached earlier.
  */
 export function revalidatePublishedRecord(record: {
   kind: CatalogueKind;
