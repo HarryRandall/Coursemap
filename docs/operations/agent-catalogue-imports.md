@@ -92,7 +92,7 @@ one-sentence reason when it:
   subjects;
 - drops an eligibility clause instead of modelling it or keeping it in
   `unmodelledText`;
-- turns advisory wording into a hard rule; or
+- turns advisory wording into a hard rule;
 - models part of a requirement in a way that turns away students the source
   accepts, including a dropped exception whose main route is then compulsory
   for everyone;
