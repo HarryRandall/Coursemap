@@ -1,7 +1,8 @@
 // Publishes drafts created by agent-answered imports. Agent answers are saved
 // only after an independent check approves them, so this step takes the place
 // of the administrator approving each first reading on the Changes tab. Drafts
-// with extraction errors, edits or an existing publication stay held.
+// with extraction errors or edits stay held, and a draft that matches its
+// publication has nothing to publish.
 import { randomUUID } from "node:crypto";
 
 import { AGENT_IMPORT_MODEL } from "../../../lib/catalogue-import/agent-extraction.ts";
@@ -15,9 +16,13 @@ export async function readAgentPublicationCandidates(sql, { year, kinds }) {
     join public.catalogue_drafts drafts on drafts.record_id = records.id
     join public.catalogue_syncs syncs on syncs.record_id = records.id and syncs.source_version_id = records.latest_source_version_id
     where years.year = ${year} and records.kind = any(${kinds}::text[])
-      and records.archived_at is null and records.published_version_id is null
+      and records.archived_at is null
       and syncs.requested_model = ${AGENT_IMPORT_MODEL} and syncs.status in ('applied', 'review_required', 'unchanged')
       and drafts.updated_by is null and drafts.base_version_id = records.latest_source_version_id
+      and drafts.content_hash is distinct from (
+        select versions.content_hash from public.catalogue_versions versions
+        where versions.id = records.published_version_id
+      )
       and not exists (
         select 1 from jsonb_array_elements(drafts.content->'flags') flag
         where flag->>'severity' = 'error'

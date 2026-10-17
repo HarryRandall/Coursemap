@@ -200,6 +200,7 @@ test("year import options require a supported year and known kinds", () => {
       "--codes",
       "comp1100, math1013",
       "--skip-directory",
+      "--refresh",
     ]),
     {
       year: 2026,
@@ -210,6 +211,7 @@ test("year import options require a supported year and known kinds", () => {
       concurrency: 6,
       skipDirectory: true,
       reimportHeld: false,
+      refresh: true,
       answers: null,
     },
   );
