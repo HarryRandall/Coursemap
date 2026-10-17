@@ -58,6 +58,8 @@ export type RequirementConditionKind =
   | "career"
   | "gpa"
   | "wam"
+  | "field_units"
+  | "subject_sequence"
   | "permission"
   | "other";
 
@@ -114,8 +116,9 @@ export type RequirementWrite = {
     enrolmentMode?: EnrolmentMode | null;
     matchesEnrolmentMode?: boolean | null;
     /**
-     * Subject and level filters of a course count or filtered unit total.
-     * Absent for every other kind, so earlier content keeps its hash.
+     * Subject and level filters of a course count or filtered unit total, and
+     * the subjects a scoped grade average covers. Absent for every other kind,
+     * so earlier content keeps its hash.
      */
     subjectCodes?: string[] | null;
     courseLevels?: number[] | null;
@@ -680,6 +683,11 @@ export function courseCatalogueContent({
                 subjectCodes: condition.subjectCodes ?? null,
                 courseLevels: condition.courseLevels ?? null,
               }
+            : {}),
+          // Only a scoped average carries subjects, so an unscoped one keeps
+          // its earlier hash.
+          ...((kind === "gpa" || kind === "wam") && condition.subjectCodes
+            ? { subjectCodes: condition.subjectCodes }
             : {}),
           ...(kind === "career"
             ? {

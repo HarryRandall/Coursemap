@@ -291,7 +291,7 @@ function requirementRows(
       depth,
       text: requisiteSentence(node),
       detail: [
-        node.hardness === "advisory" ? "Advisory" : null,
+        node.hardness === "advisory" ? "Soft, never blocks" : null,
         node.reviewState === "review" ? "Marked for review" : null,
       ]
         .filter(Boolean)

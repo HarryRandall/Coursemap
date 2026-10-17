@@ -187,9 +187,12 @@ function Leaf({
     );
   }
   const link = requisiteExplorerLink(node, academicYear);
+  // A soft condition never blocks enrolment, so its box is dashed and named.
+  const isSoft = node.hardness === "advisory";
   const box = cn(
     "flex h-11 items-center gap-2 rounded-lg border px-3",
     met ? "border-success/40 bg-success/5" : "border-border bg-card",
+    isSoft && "border-dashed",
     className,
   );
   const content = (
@@ -197,6 +200,7 @@ function Leaf({
       <KindIcon kind={node.kind} />
       <span className="line-clamp-2 min-w-0 flex-1 text-xs leading-snug font-medium">
         {requisiteNoun(node)}
+        {isSoft ? <span className="text-muted-foreground"> (soft)</span> : null}
       </span>
       {met ? (
         <Met />

@@ -141,6 +141,61 @@ function scoreEvaluation(
   };
 }
 
+type AverageCondition = Extract<CourseRuleCondition, { kind: "gpa" | "wam" }>;
+
+function hasAverageScope(condition: AverageCondition) {
+  return Boolean(
+    condition.subjects?.length ||
+    condition.courseCodes?.length ||
+    condition.scopeText?.trim(),
+  );
+}
+
+/**
+ * The average over the courses a scoped condition names. Null when the scope
+ * is printed without codes, or when a result's course is not recorded.
+ */
+function scopedAverage(
+  student: StudentRecord,
+  condition: AverageCondition,
+  scale: "gpa" | "wam",
+): number | null {
+  const subjects = condition.subjects ?? [];
+  const codes = condition.courseCodes ?? [];
+  if (!subjects.length && !codes.length) return null;
+  const results = student.academicResults ?? [];
+  if (results.some((result) => !result.courseCode)) return null;
+  const inScope = results.filter(
+    (result) =>
+      codes.includes(result.courseCode!) ||
+      subjects.includes(courseSubjectForCode(result.courseCode!) ?? ""),
+  );
+  if (!inScope.length) return null;
+  return scale === "gpa"
+    ? recordedGradePointAverage(inScope)
+    : recordedWeightedAverageMark(inScope);
+}
+
+/** The digits of a course code, which order courses within a subject's sequence. */
+function courseSequenceNumber(code: string) {
+  const digits = /^[A-Z]{4}(\d{4})[A-Z]?$/u.exec(code)?.[1];
+  return digits === undefined ? null : Number(digits);
+}
+
+/**
+ * Whether an expression is a soft requirement: an advisory condition, or a
+ * group whose every condition is advisory. Soft requirements are shown to
+ * students but never block enrolment or a plan.
+ */
+export function isSoftExpression(expression: CourseRuleExpression): boolean {
+  if (expression.kind === "group")
+    return (
+      expression.conditions.length > 0 &&
+      expression.conditions.every(isSoftExpression)
+    );
+  return expression.hardness === "advisory";
+}
+
 /**
  * One condition against one student. Conditions the record cannot answer,
  * such as a permission or a tag the catalogue does not carry, stay unknown.
@@ -384,7 +439,38 @@ export function evaluateCondition(
       const needed = condition.minimumCount ?? 1;
       return { status: matched >= needed ? "met" : "unmet" };
     }
+    case "field_units":
+      return {
+        status: "unknown",
+        detail: "Coursemap can't tell which of your courses are in this field.",
+      };
+    case "subject_sequence": {
+      const position = courseSequenceNumber(condition.code);
+      const later = [...student.completed.keys()].filter(
+        (code) =>
+          code !== condition.code &&
+          courseSubjectForCode(code) === condition.subject &&
+          position !== null &&
+          (courseSequenceNumber(code) ?? -1) > position,
+      );
+      if (position === null) return { status: "unknown" };
+      return later.length
+        ? {
+            status: "unmet",
+            detail: `You've completed ${later.sort().join(", ")}, later in the ${condition.subject} sequence`,
+          }
+        : {
+            status: "met",
+            detail: `You haven't completed a later ${condition.subject} course`,
+          };
+    }
     case "wam":
+      if (hasAverageScope(condition))
+        return scoreEvaluation(
+          scopedAverage(student, condition, "wam"),
+          condition.minimumWam,
+          "wam",
+        );
       return scoreEvaluation(
         condition.recentGradedUnits
           ? recentGradedAverage(
@@ -397,6 +483,12 @@ export function evaluateCondition(
         "wam",
       );
     case "gpa":
+      if (hasAverageScope(condition))
+        return scoreEvaluation(
+          scopedAverage(student, condition, "gpa"),
+          condition.minimumGpa,
+          "gpa",
+        );
       return scoreEvaluation(
         condition.recentGradedUnits
           ? recentGradedAverage(
@@ -472,11 +564,27 @@ export function evaluateRule(
 ): ConditionEvaluation {
   if (expression.kind !== "group")
     return evaluateCondition(expression, student);
-  const results = expression.conditions.map((child) =>
-    evaluateRule(child, student),
+  // Inside a group with hard conditions, a soft child never counts against
+  // the student: required alongside others it is left out, and as an
+  // alternative it reads as unknown unless the record shows it met.
+  const isSoftGroup = isSoftExpression(expression);
+  const operator = groupOperator(expression);
+  const children = expression.conditions.map((child) => ({
+    result: evaluateRule(child, student),
+    isSoft: !isSoftGroup && isSoftExpression(child),
+  }));
+  const considered =
+    operator === "all_of"
+      ? children.filter((child) => !child.isSoft)
+      : children;
+  const results = considered.map(({ result, isSoft }) =>
+    isSoft && result.status !== "met"
+      ? ({ status: "unknown" } as ConditionEvaluation)
+      : result,
   );
   const met = results.filter((result) => result.status === "met").length;
-  const needed = groupRequiredCount(expression);
+  const needed =
+    operator === "all_of" ? results.length : groupRequiredCount(expression);
   const measure: RequisiteMeasure = {
     kind: "count",
     value: Math.min(met, needed),
@@ -546,6 +654,7 @@ export function studentRecord({
     ]),
   );
   const results = attempts.filter(isRecordedAcademicAttempt).map((attempt) => ({
+    courseCode: attempt.courseCode.toUpperCase(),
     mark: attempt.mark,
     resultCode: attempt.resultCode,
     periodStartsOn: attempt.periodStartsOn ?? null,

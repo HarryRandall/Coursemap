@@ -42,6 +42,8 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
       career: "Academic career",
       gpa: "Grade average",
       wam: "WAM",
+      field_units: "Units in a named field",
+      subject_sequence: "Not after a later course",
       permission: "Permission",
       other: "Other wording",
     }[kind] ?? CONDITION_KIND_LABELS[kind],
@@ -146,6 +148,29 @@ export function ConditionInlineEditor({
       stacked={layout === "stacked"}
     />
   );
+  // A soft requirement is shown to students but never blocks enrolment.
+  const hardnessControl = (
+    <OptionPicker
+      value={condition.hardness === "advisory" ? "advisory" : "hard"}
+      onValueChange={(value) =>
+        onChange({
+          ...condition,
+          hardness: value === "advisory" ? "advisory" : "hard",
+        })
+      }
+      {...bindOpen("hardness")}
+      className={cn(
+        inlineControl,
+        layout === "stacked" && stackedFamilyControl,
+      )}
+      aria-label={"Hard or soft requirement"}
+      onPointerDown={(event) => event.stopPropagation()}
+      items={[
+        { value: "hard", label: "Hard requirement" },
+        { value: "advisory", label: "Soft requirement" },
+      ]}
+    />
+  );
   const hasMark = condition.kind === "course" && condition.mark != null;
   const markControl = hasMark ? (
     <CourseMarkInput condition={condition} onChange={onChange} />
@@ -159,8 +184,11 @@ export function ConditionInlineEditor({
           className,
         )}
       >
-        <span className="flex min-w-0 items-center border-b border-border">
-          {familyControl}
+        <span className="grid min-w-0 border-b border-border md:grid-cols-[minmax(0,1fr)_12rem]">
+          <span className="flex min-w-0 items-center">{familyControl}</span>
+          <span className="flex min-w-0 items-center border-t border-border md:border-t-0 md:border-l">
+            {hardnessControl}
+          </span>
         </span>
         {family === "course" ? (
           <span
@@ -241,6 +269,7 @@ export function ConditionInlineEditor({
           {values}
         </>
       )}
+      {hardnessControl}
     </span>
   );
 }

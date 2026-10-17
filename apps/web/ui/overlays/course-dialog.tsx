@@ -30,7 +30,12 @@ import {
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import { permissionClauses } from "@/lib/coursemap/requisite-tree";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
-import { splitRequisiteRule } from "@/ui/courses/requisite-wording";
+import {
+  groupSentence,
+  requisiteSentence,
+  softRequirementLabel,
+  splitRequisiteRule,
+} from "@/ui/courses/requisite-wording";
 import { FactRow } from "@/ui/overlays/fact-row";
 import {
   PlanCodeChip,
@@ -390,6 +395,25 @@ export function CourseDialog({
                   <span className="text-muted-foreground">Nothing</span>
                 )}
               </FactRow>
+
+              {split.soft.length > 0 ? (
+                <FactRow label="Also">
+                  <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+                    {split.soft.map((node, index) => (
+                      <li key={index}>
+                        <span className="font-medium text-foreground">
+                          {softRequirementLabel(node)}:
+                        </span>{" "}
+                        {node.kind === "group"
+                          ? groupSentence(node)
+                          : node.kind === "other"
+                            ? node.text
+                            : requisiteSentence(node)}
+                      </li>
+                    ))}
+                  </ul>
+                </FactRow>
+              ) : null}
 
               {excluded.length > 0 || excludedRules.length > 0 ? (
                 <FactRow label="Can't take with">

@@ -36,6 +36,8 @@ export const REVIEWED_CONDITION_KINDS = [
   "career",
   "gpa",
   "wam",
+  "field_units",
+  "subject_sequence",
   "permission",
   "other",
 ] as const;
@@ -46,6 +48,7 @@ export const MAX_REVIEWED_GROUP_DEPTH = 5;
 
 export type ReviewedConditionInput = {
   kind: ReviewedConditionKind;
+  /** Advisory is a soft requirement: shown to students, never blocking. */
   hardness?: "hard" | "advisory";
   courseCode?: string | null;
   courseRequirementMode?: "completed" | "completed_or_concurrent" | null;
@@ -614,6 +617,25 @@ function storedConditionToView(
               : {}),
           }
         : null;
+    case "field_units":
+      return condition.units != null && condition.freeText
+        ? {
+            kind: "field_units",
+            units: condition.units,
+            freeText: condition.freeText,
+          }
+        : null;
+    case "subject_sequence": {
+      // The anchor course is stored as text rather than a catalogue item.
+      const courseCode = condition.courseCode ?? condition.freeText;
+      return condition.subjectCode && courseCode
+        ? {
+            kind: "subject_sequence",
+            subjectCode: condition.subjectCode,
+            courseCode,
+          }
+        : null;
+    }
     case "permission":
       return condition.freeText
         ? { kind: "permission", freeText: condition.freeText }
@@ -721,6 +743,43 @@ function validateGroupInput(
       operator,
       minimumCount: null,
       children,
+    },
+  };
+}
+
+/**
+ * The subjects, courses or printed wording a grade average is limited to.
+ * Each part is left out when empty, so an unscoped average is unchanged.
+ */
+function normaliseAverageScope(condition: ReviewedConditionInput):
+  | { message: string }
+  | {
+      scope: Pick<
+        ReviewedConditionView,
+        "subjectCodes" | "courseCodes" | "freeText"
+      >;
+    } {
+  const subjects = (condition.subjectCodes ?? []).map((code) =>
+    code.trim().toUpperCase(),
+  );
+  const courses = (condition.courseCodes ?? []).map((code) =>
+    code.trim().toUpperCase(),
+  );
+  const freeText = (condition.freeText ?? "").trim();
+  if (subjects.some((code) => !SUBJECT_CODE_PATTERN.test(code)))
+    return { message: "Each subject must be a four-letter code." };
+  if (courses.some((code) => !COURSE_CODE_PATTERN.test(code)))
+    return { message: "Choose valid course codes for the average." };
+  if (
+    new Set(subjects).size !== subjects.length ||
+    new Set(courses).size !== courses.length
+  )
+    return { message: "Each subject and course must be listed once." };
+  return {
+    scope: {
+      ...(subjects.length ? { subjectCodes: subjects } : {}),
+      ...(courses.length ? { courseCodes: courses } : {}),
+      ...(freeText ? { freeText } : {}),
     },
   };
 }
@@ -980,11 +1039,41 @@ function normaliseCondition(
           recentGradedUnits > 300)
       )
         return { message: "Recent graded units must be between 1 and 300." };
+      const scope = normaliseAverageScope(condition);
+      if ("message" in scope) return scope;
+      if (recentGradedUnits != null && Object.keys(scope.scope).length)
+        return {
+          message: "Choose either recent graded units or a course scope.",
+        };
       return {
         condition: {
           kind: "gpa",
           gpa,
           ...(recentGradedUnits != null ? { recentGradedUnits } : {}),
+          ...scope.scope,
+        },
+      };
+    }
+    case "field_units": {
+      const units = Number(condition.units);
+      const freeText = (condition.freeText ?? "").trim();
+      if (!Number.isFinite(units) || units <= 0)
+        return { message: "Units must be greater than zero." };
+      if (!freeText) return { message: "Enter the field as printed." };
+      return { condition: { kind: "field_units", units, freeText } };
+    }
+    case "subject_sequence": {
+      const subject = (condition.subjectCode ?? "").trim().toUpperCase();
+      const code = (condition.courseCode ?? "").trim().toUpperCase();
+      if (!SUBJECT_CODE_PATTERN.test(subject))
+        return { message: "Subject must be a four-letter code." };
+      if (!COURSE_CODE_PATTERN.test(code))
+        return { message: "Choose the course the sequence is relative to." };
+      return {
+        condition: {
+          kind: "subject_sequence",
+          subjectCode: subject,
+          courseCode: code,
         },
       };
     }
@@ -1004,11 +1093,18 @@ function normaliseCondition(
           recentGradedUnits > 300)
       )
         return { message: "Recent graded units must be between 1 and 300." };
+      const scope = normaliseAverageScope(condition);
+      if ("message" in scope) return scope;
+      if (recentGradedUnits != null && Object.keys(scope.scope).length)
+        return {
+          message: "Choose either recent graded units or a course scope.",
+        };
       return {
         condition: {
           kind: "wam",
           wam,
           ...(recentGradedUnits != null ? { recentGradedUnits } : {}),
+          ...scope.scope,
         },
       };
     }
@@ -1040,6 +1136,17 @@ function filteredConditionSummary(condition: ReviewedConditionView) {
   return condition.kind === "course_count"
     ? `Completed ${condition.courseCount} ${courseFilterLabel(filter, condition.courseCount === 1)}${concurrent}`
     : `Completed ${condition.units} units of ${courseFilterLabel(filter)}${concurrent}`;
+}
+
+function averageScopeText(condition: ReviewedConditionView) {
+  if (condition.subjectCodes?.length)
+    return ` in ${condition.subjectCodes.join(", ")} courses`;
+  if (condition.courseCodes?.length)
+    return ` across ${condition.courseCodes.join(", ")}`;
+  if (condition.freeText) return ` in ${condition.freeText}`;
+  return condition.recentGradedUnits
+    ? ` over the most recent ${condition.recentGradedUnits} graded units`
+    : " across the academic career";
 }
 
 export function conditionSourceText(condition: ReviewedConditionView) {
@@ -1091,9 +1198,13 @@ export function conditionSourceText(condition: ReviewedConditionView) {
     case "year_standing":
       return `At least year ${condition.minimumYear} standing`;
     case "gpa":
-      return `GPA of at least ${condition.gpa}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`;
+      return `GPA of at least ${condition.gpa}${averageScopeText(condition)}`;
     case "wam":
-      return `WAM of at least ${condition.wam}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`;
+      return `WAM of at least ${condition.wam}${averageScopeText(condition)}`;
+    case "field_units":
+      return `${condition.units} units in ${condition.freeText ?? "the field"}`;
+    case "subject_sequence":
+      return `No later ${condition.subjectCode} course completed before ${condition.courseCode}`;
     case "permission":
     case "other":
       return condition.freeText ?? "";
@@ -1121,6 +1232,8 @@ export const CONDITION_KIND_LABELS: Record<ReviewedConditionKind, string> = {
   career: "Academic career",
   gpa: "Grade average",
   wam: "WAM",
+  field_units: "Units in a field",
+  subject_sequence: "Sequence order",
   permission: "Permission",
   other: "Other wording",
 };
@@ -1143,6 +1256,8 @@ export const CONDITION_FAMILY_KINDS = [
   "career",
   "gpa",
   "wam",
+  "field_units",
+  "subject_sequence",
   "permission",
   "other",
 ] as const;
@@ -1250,6 +1365,10 @@ export function isConditionComplete(condition: ReviewedConditionView) {
             condition.recentGradedUnits >= 1 &&
             condition.recentGradedUnits <= 300))
       );
+    case "field_units":
+      return condition.units != null && Boolean(condition.freeText?.trim());
+    case "subject_sequence":
+      return Boolean(condition.subjectCode && condition.courseCode);
     case "permission":
     case "other":
       return Boolean(condition.freeText?.trim());
@@ -1279,7 +1398,7 @@ export function isConditionComplete(condition: ReviewedConditionView) {
  * One line of plain wording for a condition, or the value still missing from
  * it, so a chip or a graph node never has to fall back to a bare type name.
  */
-export function conditionSummary(condition: ReviewedConditionView) {
+function conditionWording(condition: ReviewedConditionView) {
   switch (condition.kind) {
     case "course": {
       if (!condition.courseCode) return "Choose a course";
@@ -1347,12 +1466,20 @@ export function conditionSummary(condition: ReviewedConditionView) {
         : "Set the minimum year standing";
     case "gpa":
       return condition.gpa != null
-        ? `Grade average of at least ${condition.gpa}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
+        ? `Grade average of at least ${condition.gpa}${averageScopeText(condition)}`
         : "Set the grade average";
     case "wam":
       return condition.wam != null
-        ? `WAM of at least ${condition.wam}${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across the academic career"}`
+        ? `WAM of at least ${condition.wam}${averageScopeText(condition)}`
         : "Set the minimum WAM";
+    case "field_units":
+      return isConditionComplete(condition)
+        ? `Completed ${condition.units} units in ${condition.freeText}`
+        : "Set the units and the field as printed";
+    case "subject_sequence":
+      return isConditionComplete(condition)
+        ? `Not completed a later ${condition.subjectCode} course than ${condition.courseCode}`
+        : "Set the subject and course";
     case "permission":
       return condition.freeText?.trim() || "Describe the permission needed";
     case "other":
@@ -1360,6 +1487,12 @@ export function conditionSummary(condition: ReviewedConditionView) {
     default:
       return "Choose a condition type";
   }
+}
+
+/** The summary, marked when the condition is soft and never blocks a student. */
+export function conditionSummary(condition: ReviewedConditionView) {
+  const summary = conditionWording(condition);
+  return condition.hardness === "advisory" ? `Soft: ${summary}` : summary;
 }
 
 /** Airtable-style sentence for a nested group. */

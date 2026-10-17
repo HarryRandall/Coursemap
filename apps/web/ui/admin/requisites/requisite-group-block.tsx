@@ -103,10 +103,14 @@ export function GroupBlock({
         onChange(updateTree(tree, childId, () => next)),
       onKindChange: (kind: ReviewedConditionKind) =>
         onChange(
-          updateTree(tree, childId, () => ({
+          updateTree(tree, childId, (previous) => ({
             type: "condition" as const,
             id: childId,
             kind,
+            // A new kind keeps whether the condition is hard or soft.
+            ...(previous.type === "condition" && previous.hardness
+              ? { hardness: previous.hardness }
+              : {}),
           })),
         ),
       onRemove: () => onChange(deleteFromTree(tree, childId)),

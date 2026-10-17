@@ -14,6 +14,17 @@ type CourseRuleConditionBase = {
   sourceText: string;
 };
 
+/**
+ * The courses a grade average is taken over. Absent or empty for a
+ * whole-career average; scopeText alone is a printed scope that cannot be
+ * checked.
+ */
+type AverageScope = {
+  subjects?: string[] | null;
+  courseCodes?: string[] | null;
+  scopeText?: string | null;
+};
+
 export type CourseRuleExpression =
   | (CourseRuleConditionBase & { kind: "college_enrolment"; college: string })
   | (CourseRuleConditionBase & {
@@ -106,11 +117,23 @@ export type CourseRuleExpression =
       kind: "gpa";
       minimumGpa: number;
       recentGradedUnits?: number | null;
-    })
+    } & AverageScope)
   | (CourseRuleConditionBase & {
       kind: "wam";
       minimumWam: number;
       recentGradedUnits?: number | null;
+    } & AverageScope)
+  | (CourseRuleConditionBase & {
+      kind: "field_units";
+      /** The field as printed, such as "the relevant field/discipline". */
+      field: string;
+      units: number;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "subject_sequence";
+      subject: string;
+      /** The course whose place in the sequence later courses are compared with. */
+      code: string;
     })
   | (CourseRuleConditionBase & {
       kind: "permission" | "other";

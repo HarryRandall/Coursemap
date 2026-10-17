@@ -51,6 +51,8 @@ export function recordedWeightedAverageMark(results: readonly MarkedResult[]) {
 
 export type DatedAcademicResult = MarkedResult & {
   periodStartsOn: string | null;
+  /** The course the result is for, which a scoped average filters by. */
+  courseCode?: string;
 };
 
 /** A tied grade may have several course loads; choose one exact unit total. */

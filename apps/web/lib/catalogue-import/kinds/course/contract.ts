@@ -143,8 +143,31 @@ export type CourseRule =
       value: number;
       scale: "anu7" | "wam100";
       recentGradedUnits?: number | null;
+      /** An average over these subjects only, rather than the whole career. */
+      subjectCodes?: string[] | null;
+      /** An average over these courses only. */
+      courseCodes?: string[] | null;
+      /** A printed scope with no codes, such as "Science courses", copied exactly. */
+      scopeText?: string | null;
     }
-  | { op: "permission"; sourceText?: string | null };
+  | { op: "permission"; sourceText?: string | null }
+  /**
+   * The wrapped rule is a soft requirement: shown to students, never blocking
+   * a plan. Advisory wording ("should have completed") and conditions the
+   * planner cannot check use it. sourceText is the exact clause it covers.
+   */
+  | { op: "soft"; rule: CourseRule; sourceText?: string | null }
+  /** A condition Coursemap cannot check, always soft, with its exact wording. */
+  | { op: "note"; sourceText: string }
+  /** Units in a field the source does not name by subject code. */
+  | { op: "min_units_in_field"; minimumUnits: number; field: string }
+  /**
+   * Not already completed a later course in the subject's sequence, such as
+   * a language course below one the student has passed.
+   */
+  | { op: "no_higher_course_in_subject"; subjectCode: string }
+  /** Enrolment in a family of programmes named without codes, copied exactly. */
+  | { op: "enrolled_in_programme_family"; family: string };
 
 export type CourseIncompatibilityRule =
   | { op: "not_completed" | "not_concurrent"; courseCode: string }

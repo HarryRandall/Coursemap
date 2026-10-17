@@ -54,7 +54,12 @@ answers written for different input.
 
 ## Answering a batch
 
-Follow the batch's `instructions` and `schema` exactly. In addition:
+Follow the batch's `instructions` and `schema` exactly. The requisite text in
+each request also carries eligibility sentences from Other Information,
+Assumed Knowledge and the introduction. The importer holds a course with an
+error until the answer represents each of those sentences as a permission,
+note or soft rule whose `sourceText` is that sentence, or as a rule that reads
+the same; it then lowers the error to a warning. In addition:
 
 - Text fields copy source wording exactly, or are null.
 - Codes for courses, programmes and subjects must appear verbatim in the
@@ -65,12 +70,39 @@ Follow the batch's `instructions` and `schema` exactly. In addition:
   null rather than guessing.
 - A modelled rule must never be stricter than the source. When an alternative
   route (an OR branch, a programme-specific exception, a credit that also
-  counts) cannot be modelled, leave the whole rule null and keep the sentence
-  in `unmodelledText`. Leaving a clause unmodelled may only make the rule more
-  lenient.
-- Advisory wording such as "recommended" or assumed knowledge is not a rule.
-- Hard external or secondary-school requirements use `external_requirement`
-  with the exact source text; convener consent uses `permission`.
+  counts) cannot be checked, model it as a soft condition inside the same
+  `one_of` rather than dropping it. Leave the whole rule null only when the
+  AND/OR scope of a hard clause is genuinely ambiguous.
+- Every clause is a hard or soft requirement. A soft requirement is shown to
+  students ("Recommended" or "You'll also need") but never blocks enrolment or
+  a plan. Wrap any rule in `{ "op": "soft", "rule": …, "sourceText": "<exact
+clause>" }` when the source only advises it ("should have completed",
+  "recommended") or when Coursemap cannot check it. Assumed knowledge stays in
+  `assumedKnowledgeText`.
+- A condition no rule can check, such as an audition, an application form, a
+  placement, a quota, an interview or an immersive experience, is
+  `{ "op": "note", "sourceText": "<exact sentence>" }`. A note is always soft.
+- Permission, consent or a permission code to enrol stays a hard
+  `permission` with the exact wording, wherever it appears on the page
+  (Other Information and the introduction included). Hard external or
+  secondary-school requirements use `external_requirement`.
+- An average over some courses is `minimum_gpa` with the printed
+  `subjectCodes` or `courseCodes`. When the scope names no codes ("a Credit
+  average in Science courses"), set `scopeText` to the printed scope and wrap
+  it in soft. Never turn it into a whole-career GPA.
+- Enrolment in a programme family named without codes ("a science degree",
+  "a Master of Engineering") is soft `enrolled_in_programme_family` with the
+  exact `family`. A printed list of programme codes is a `one_of` of
+  `enrolled_in`.
+- Units in a field the source does not name by subject code ("12 units in the
+  relevant field/discipline") are soft `min_units_in_field`, inside the same
+  `one_of` as their alternatives.
+- The language rule "not permitted to enrol in a language course below one
+  that they have already successfully completed" is soft
+  `no_higher_course_in_subject` with the course's subject code.
+- `unmodelledText` is only for garbled wording or a hard clause whose AND/OR
+  scope is genuinely ambiguous. Clauses represented by a soft condition, a
+  note or a permission must not also appear there.
 - Empty source means no rules.
 - A listed course counts once. When the source states that a course may be
   repeated (repeated topics, "may be taken twice", a research course taken in
@@ -100,7 +132,10 @@ one-sentence reason when it:
   subjects;
 - drops an eligibility clause instead of modelling it or keeping it in
   `unmodelledText`;
-- turns advisory wording into a hard rule;
+- turns advisory wording into a hard rule, or makes a checkable compulsory
+  clause soft;
+- drops an uncheckable condition (an audition, application, quota or
+  placement) instead of keeping it as a note;
 - models part of a requirement in a way that turns away students the source
   accepts, including a dropped exception whose main route is then compulsory
   for everyone;

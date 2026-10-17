@@ -354,3 +354,43 @@ test("course counts, pooled units and careers read as steps with progress", () =
     screen.getByText("You're enrolled in a postgraduate program"),
   ).toBeInTheDocument();
 });
+
+test("soft requirements are labelled and never counted as required", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "units_total", subject: null, units: 48 },
+          {
+            ...base,
+            hardness: "advisory",
+            kind: "course",
+            code: "MATH1013",
+            minimumMark: null,
+            requirementMode: "completed",
+          },
+          {
+            ...base,
+            hardness: "advisory",
+            kind: "other",
+            text: "Students are required to audition.",
+          },
+        ],
+      }}
+      student={{ ...student, completed: new Map() }}
+    />,
+  );
+  expect(screen.getByText("Required")).toBeInTheDocument();
+  expect(screen.getByText("Recommended")).toBeInTheDocument();
+  expect(screen.getByText("Complete MATH1013")).toBeInTheDocument();
+  expect(screen.getByText("You'll also need")).toBeInTheDocument();
+  expect(
+    screen.getByText("Students are required to audition."),
+  ).toBeInTheDocument();
+  expect(screen.getByText("0 of 1 met")).toBeInTheDocument();
+});

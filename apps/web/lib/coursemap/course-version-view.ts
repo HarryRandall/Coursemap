@@ -22,8 +22,13 @@ function prerequisiteCodesFromWrite(write: CatalogueContent) {
   const prerequisiteConditions = requirements.conditions.filter(
     (condition) => condition.ruleKey === "prerequisite",
   );
+  // A grade average's courses are its scope, not courses to complete first.
   const conditionKeys = new Set(
-    prerequisiteConditions.map((condition) => condition.key),
+    prerequisiteConditions
+      .filter(
+        (condition) => condition.kind !== "gpa" && condition.kind !== "wam",
+      )
+      .map((condition) => condition.key),
   );
   return [
     ...new Set([

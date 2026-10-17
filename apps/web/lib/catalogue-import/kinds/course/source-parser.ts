@@ -22,8 +22,38 @@ function hasEnrolmentRequirement(text: string) {
   );
 }
 
+/**
+ * Eligibility wording found outside the requisite section, by the review
+ * message it raised. Each clause is one printed sentence or paragraph; the
+ * message can be lifted once the modelled rule represents every clause.
+ */
+export type SourceEligibilityClauses = Array<{
+  message: string;
+  clauses: string[];
+}>;
+
+/** The sentences of a passage, or the passage itself when it has one. */
+function sentencesMatching(passage: string, test: (text: string) => boolean) {
+  const sentences = passage
+    .split(/(?<=[.!?])\s+|\n\s*\n/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const matching = sentences.filter(test);
+  return matching.length ? matching : [passage.trim()];
+}
+
 /** Copy printed facts before asking a model to interpret eligibility wording. */
-export function parseCourseSource({
+export function parseCourseSource(input: {
+  code: string;
+  year: number;
+  markdown: string;
+  context?: PromptContext;
+}): CourseExtraction {
+  return readCourseSource(input).course;
+}
+
+/** The parsed course, with the eligibility clauses its review items flag. */
+export function readCourseSource({
   code,
   year,
   markdown,
@@ -33,7 +63,13 @@ export function parseCourseSource({
   year: number;
   markdown: string;
   context?: PromptContext;
-}): CourseExtraction {
+}): { course: CourseExtraction; eligibilityClauses: SourceEligibilityClauses } {
+  const eligibilityClauses: SourceEligibilityClauses = [];
+  const flagEligibility = (message: string, clauses: string[]) => {
+    const entry = eligibilityClauses.find((item) => item.message === message);
+    if (entry) entry.clauses.push(...clauses);
+    else eligibilityClauses.push({ message, clauses: [...clauses] });
+  };
   const section = (heading: string) =>
     markdown.split(`## ${heading}\n`)[1]?.split(/^## /mu)[0]?.trim() || null;
   const field = (label: string) =>
@@ -224,16 +260,19 @@ export function parseCourseSource({
       .join("\n\n")
       .trim() || null;
   course.introduction = course.description;
-  if (
-    course.description &&
-    /(?:must|should) have (?:achieved|completed)|students enrolling|only available to/iu.test(
-      course.description,
-    )
-  )
-    review(
-      "requisites",
-      "The introduction includes eligibility wording that needs review alongside the requisite section.",
+  const introductionEligibility =
+    /(?:must|should) have (?:achieved|completed)|students enrolling|only available to/iu;
+  if (course.description && introductionEligibility.test(course.description)) {
+    const message =
+      "The introduction includes eligibility wording that needs review alongside the requisite section.";
+    review("requisites", message);
+    flagEligibility(
+      message,
+      sentencesMatching(course.description, (text) =>
+        introductionEligibility.test(text),
+      ),
     );
+  }
   if (!course.description)
     review("description", "The introduction layout needs review.", "warning");
   course.workloadText = section("Workload");
@@ -264,11 +303,15 @@ export function parseCourseSource({
     for (const paragraph of otherInformation.split("\n\n"))
       if (hasEnrolmentRequirement(paragraph)) {
         supplementaryRequisites.push(paragraph);
-        if (!parsePlainCourseRequisites(paragraph))
-          review(
-            "requisites",
-            "The other information section includes eligibility wording that needs review.",
+        if (!parsePlainCourseRequisites(paragraph)) {
+          const message =
+            "The other information section includes eligibility wording that needs review.";
+          review("requisites", message);
+          flagEligibility(
+            message,
+            sentencesMatching(paragraph, hasEnrolmentRequirement),
           );
+        }
       }
   }
   const hours = course.workloadText?.match(
@@ -290,9 +333,12 @@ export function parseCourseSource({
       .join("\n\n");
     if (hasEnrolmentRequirement(preliminaryReading)) {
       supplementaryRequisites.push(preliminaryReading);
-      review(
-        "requisites",
-        "The preliminary reading section includes eligibility wording that needs review.",
+      const message =
+        "The preliminary reading section includes eligibility wording that needs review.";
+      review("requisites", message);
+      flagEligibility(
+        message,
+        sentencesMatching(preliminaryReading, hasEnrolmentRequirement),
       );
     }
   }
@@ -330,10 +376,10 @@ export function parseCourseSource({
       )
     ) {
       supplementaryRequisites.push(sentence);
-      review(
-        "requisites",
-        "The assumed knowledge section includes mandatory eligibility wording that needs review.",
-      );
+      const message =
+        "The assumed knowledge section includes mandatory eligibility wording that needs review.";
+      review("requisites", message);
+      flagEligibility(message, [sentence]);
     }
   }
   const requisite =
@@ -613,5 +659,5 @@ export function parseCourseSource({
     for (const item of course[key])
       evidence(key, "sourceText" in item ? item.sourceText : item.text);
   course.overallConfidence = null;
-  return course;
+  return { course, eligibilityClauses };
 }

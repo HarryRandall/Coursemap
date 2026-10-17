@@ -852,6 +852,17 @@ function readProjectionCourseRule(
     };
   }
 
+  /** A scoped average's subjects, courses and printed scope; empty when unscoped. */
+  function averageScope(condition: ProjectionCondition) {
+    return {
+      ...(condition.subjectCodes ? { subjects: condition.subjectCodes } : {}),
+      ...(condition.courseSetCodes.length
+        ? { courseCodes: condition.courseSetCodes }
+        : {}),
+      ...(condition.freeText?.trim() ? { scopeText: condition.freeText } : {}),
+    };
+  }
+
   function relationalCondition(
     condition: ProjectionCondition,
   ): CourseRuleExpression {
@@ -1054,6 +1065,7 @@ function readProjectionCourseRule(
         kind: "gpa",
         minimumGpa: condition.minimumGpa,
         recentGradedUnits: condition.minimumCount,
+        ...averageScope(condition),
       };
     }
     if (condition.kind === "wam" && condition.minimumWam !== null) {
@@ -1062,6 +1074,32 @@ function readProjectionCourseRule(
         kind: "wam",
         minimumWam: condition.minimumWam,
         recentGradedUnits: condition.minimumCount,
+        ...averageScope(condition),
+      };
+    }
+    if (
+      condition.kind === "field_units" &&
+      condition.units !== null &&
+      condition.freeText?.trim()
+    ) {
+      return {
+        ...base,
+        kind: "field_units",
+        field: condition.freeText,
+        units: condition.units,
+      };
+    }
+    const sequenceCode = condition.freeText?.trim().toUpperCase() ?? "";
+    if (
+      condition.kind === "subject_sequence" &&
+      condition.subject &&
+      COURSE_CODE_PATTERN.test(sequenceCode)
+    ) {
+      return {
+        ...base,
+        kind: "subject_sequence",
+        subject: condition.subject,
+        code: sequenceCode,
       };
     }
     if (condition.kind === "permission") {

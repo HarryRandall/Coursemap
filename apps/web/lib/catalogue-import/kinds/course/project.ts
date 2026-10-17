@@ -48,6 +48,8 @@ type ConditionKind =
   | "admission"
   | "gpa"
   | "wam"
+  | "field_units"
+  | "subject_sequence"
   | "other";
 
 export type ProjectedCourseSnapshotRow = {
@@ -326,15 +328,31 @@ function describeRule(rule: CourseRule | CourseIncompatibilityRule): string {
     case "year_standing":
       return `At least year ${rule.minimumYear} standing`;
     case "minimum_gpa": {
-      const scope = rule.recentGradedUnits
-        ? ` over the most recent ${rule.recentGradedUnits} graded units`
-        : " across the academic career";
+      const scope = rule.subjectCodes?.length
+        ? ` in ${[...rule.subjectCodes].sort().join(", ")} courses`
+        : rule.courseCodes?.length
+          ? ` across ${[...rule.courseCodes].sort().join(", ")}`
+          : rule.scopeText
+            ? ` in ${rule.scopeText}`
+            : rule.recentGradedUnits
+              ? ` over the most recent ${rule.recentGradedUnits} graded units`
+              : " across the academic career";
       return rule.scale === "anu7"
         ? `Minimum ANU GPA of ${rule.value}${scope}`
         : `Minimum WAM of ${rule.value}${scope}`;
     }
     case "permission":
       return rule.sourceText ?? "Permission required";
+    case "soft":
+      return describeRule(rule.rule);
+    case "note":
+      return rule.sourceText;
+    case "min_units_in_field":
+      return `At least ${rule.minimumUnits} units in ${rule.field}`;
+    case "no_higher_course_in_subject":
+      return `Not already completed a later ${rule.subjectCode} course in the sequence`;
+    case "enrolled_in_programme_family":
+      return `Enrolment in ${rule.family}`;
   }
 }
 
@@ -409,6 +427,8 @@ function addAtomicRule(
     path: string;
     position: number;
     hardness: RuleHardness;
+    /** The course being described, which a sequence rule is relative to. */
+    courseCode?: string;
   },
 ) {
   const { accumulator, ruleKey, groupKey, path, position, hardness } = context;
@@ -734,6 +754,93 @@ function addAtomicRule(
       if (rule.scale === "anu7") condition.minimumGpa = rule.value;
       else condition.minimumWam = rule.value;
       condition.minimumCount = rule.recentGradedUnits ?? null;
+      if (rule.subjectCodes?.length) {
+        assertUniqueStrings(rule.subjectCodes, `${key} subjects`);
+        condition.subjectCodes = [...rule.subjectCodes].sort();
+      }
+      condition.freeText = rule.scopeText ? cleanText(rule.scopeText) : null;
+      accumulator.ruleConditions.push(condition);
+      if (rule.courseCodes?.length) {
+        assertUniqueStrings(rule.courseCodes, `${key} courses`);
+        // An average's courses are its scope, not prerequisites, so they get
+        // no course reference.
+        [...rule.courseCodes]
+          .sort((left, right) => left.localeCompare(right))
+          .forEach((courseCode, index) =>
+            accumulator.ruleConditionCourses.push({
+              conditionKey: key,
+              position: index + 1,
+              sourceCourseCode: courseCode,
+              sourceText,
+            }),
+          );
+      }
+      return;
+    }
+    case "soft":
+      throw new TypeError("soft must be projected through its wrapped rule.");
+    case "note": {
+      // A note is never checked, so it is always advisory whatever wraps it.
+      const text = cleanText(rule.sourceText);
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "other",
+        hardness: "advisory",
+        sourceText: text,
+      });
+      condition.freeText = text;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "min_units_in_field": {
+      requirePositiveUnits(rule.minimumUnits);
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "field_units",
+        hardness,
+        sourceText,
+      });
+      condition.minimumUnits = rule.minimumUnits;
+      condition.freeText = cleanText(rule.field);
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "no_higher_course_in_subject": {
+      if (!context.courseCode)
+        throw new TypeError(`${key} needs the course it is relative to.`);
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "subject_sequence",
+        hardness,
+        sourceText,
+      });
+      condition.subjectCode = rule.subjectCode;
+      // The course's own code, kept as text: a catalogue reference to itself
+      // would stop its identity from ever being removed.
+      condition.freeText = context.courseCode;
+      accumulator.ruleConditions.push(condition);
+      return;
+    }
+    case "enrolled_in_programme_family": {
+      const condition = emptyCondition({
+        key,
+        ruleKey,
+        groupKey,
+        position,
+        conditionKind: "structure",
+        hardness,
+        sourceText,
+      });
+      condition.freeText = cleanText(rule.family);
       accumulator.ruleConditions.push(condition);
       return;
     }
@@ -762,8 +869,15 @@ function addRuleNode(
     path: string;
     position: number;
     hardness: RuleHardness;
+    courseCode?: string;
   },
 ) {
+  if (rule.op === "soft") {
+    // A soft wrapper adds no group of its own: whatever it wraps keeps its
+    // place and every condition beneath it becomes advisory.
+    addRuleNode(rule.rule, { ...context, hardness: "advisory" });
+    return;
+  }
   if (rule.op !== "all_of" && rule.op !== "one_of") {
     addAtomicRule(rule, {
       ...context,
@@ -798,6 +912,7 @@ function addStructuredRule({
   sourceText,
   extraText = [],
   hardness = "hard",
+  courseCode,
 }: {
   accumulator: RuleProjectionAccumulator;
   ruleKey: "prerequisite" | "corequisite" | "assumed_knowledge";
@@ -805,6 +920,7 @@ function addStructuredRule({
   sourceText: string | null;
   extraText?: readonly string[];
   hardness?: RuleHardness;
+  courseCode?: string;
 }) {
   if (!rule && !sourceText && extraText.length === 0) return;
 
@@ -817,7 +933,11 @@ function addStructuredRule({
     sourceText: savedSourceText,
   });
   const rootKey = `${ruleKey}:group:root`;
-  const rootOperator = rule?.op === "one_of" ? "any_of" : "all_of";
+  // A wholly soft rule keeps the shape of what it wraps, with advisory leaves.
+  const root = rule?.op === "soft" ? rule.rule : rule;
+  const rootHardness: RuleHardness =
+    rule?.op === "soft" ? "advisory" : hardness;
+  const rootOperator = root?.op === "one_of" ? "any_of" : "all_of";
   accumulator.ruleGroups.push({
     key: rootKey,
     ruleKey,
@@ -828,26 +948,28 @@ function addStructuredRule({
   });
 
   let nextRootPosition = 0;
-  if (rule?.op === "all_of" || rule?.op === "one_of") {
-    rule.rules.forEach((child, index) =>
+  if (root?.op === "all_of" || root?.op === "one_of") {
+    root.rules.forEach((child, index) =>
       addRuleNode(child, {
         accumulator,
         ruleKey,
         parentGroupKey: rootKey,
         path: String(index),
         position: index,
-        hardness,
+        hardness: rootHardness,
+        courseCode,
       }),
     );
-    nextRootPosition = rule.rules.length;
-  } else if (rule) {
-    addAtomicRule(rule, {
+    nextRootPosition = root.rules.length;
+  } else if (root) {
+    addRuleNode(root, {
       accumulator,
       ruleKey,
-      groupKey: rootKey,
+      parentGroupKey: rootKey,
       path: "0",
       position: 0,
-      hardness,
+      hardness: rootHardness,
+      courseCode,
     });
     nextRootPosition = 1;
   } else if (sourceText) {
@@ -1045,12 +1167,14 @@ function projectRules(extraction: CourseExtraction): RuleProjectionAccumulator {
         ? null
         : nullableText(extraction.requisites.prerequisiteText),
     extraText: extraction.requisites.unmodelledText,
+    courseCode: extraction.code,
   });
   addStructuredRule({
     accumulator,
     ruleKey: "corequisite",
     rule: extraction.requisites.corequisiteRule,
     sourceText: nullableText(extraction.requisites.corequisiteText),
+    courseCode: extraction.code,
   });
   addStructuredRule({
     accumulator,

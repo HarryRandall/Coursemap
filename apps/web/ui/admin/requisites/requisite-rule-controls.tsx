@@ -61,6 +61,8 @@ const CONDITION_ICONS: Record<ReviewedConditionKind, LucideIcon> = {
   career: GraduationCap,
   gpa: Gauge,
   wam: Gauge,
+  field_units: Layers,
+  subject_sequence: ChartNoAxesColumn,
   permission: KeyRound,
   other: FileText,
 };

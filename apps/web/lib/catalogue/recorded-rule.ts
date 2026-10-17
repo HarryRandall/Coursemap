@@ -68,6 +68,8 @@ const conditionSchema = z
       "career",
       "gpa",
       "wam",
+      "field_units",
+      "subject_sequence",
       "permission",
       "other",
     ]),

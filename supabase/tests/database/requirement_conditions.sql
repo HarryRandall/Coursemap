@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(37);
+select extensions.plan(43);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -442,6 +442,84 @@ select extensions.throws_ok(
   'only a listed course can repeat'
 );
 
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, subject_code, minimum_gpa, subject_codes, free_text, hardness
+    )
+    select groups.rule_id, groups.version_id, groups.id, item.key, item.position,
+      item.kind, item.units, item.subject, item.gpa, item.subjects, item.text, 'advisory'
+    from public.requirement_groups as groups
+    join fixture on fixture.version_id = groups.version_id
+    cross join (values
+      ('field', 30, 'field_units', 12::numeric, null::text, null::numeric, null::text[], 'the relevant field'),
+      ('sequence', 31, 'subject_sequence', null, 'REQT', null, null, 'REQT1000'),
+      ('science-average', 32, 'gpa', null, null, 5, array['REQT'], 'Science courses')
+    ) as item(key, position, kind, units, subject, gpa, subjects, text);
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code
+    )
+    select conditions.id, conditions.version_id, 1, 'course', 'REQT1009'
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'science-average'
+  $$,
+  'soft field units, a sequence and a scoped average with a course are stored'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'unnamed-field', 33, 'field_units', 12
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'field units name their field'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, subject_code, free_text
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'loose-sequence', 34, 'subject_sequence', 'REQT', 'a language course'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a sequence is anchored to a course code'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'filtered-total', 35, 'units_total', 24, array['REQT']
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'only counts, filtered units and averages carry subject filters'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code
+    )
+    select conditions.id, conditions.version_id, 2, 'major', 'REQT-MAJ'
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'science-average'
+  $$,
+  '23514',
+  null,
+  'an average is scoped to courses only'
+);
+
 select pg_temp.publish_snapshot((select version_id from fixture));
 
 select extensions.throws_ok(
@@ -498,6 +576,23 @@ select extensions.ok(
     ) as options(value)
   ),
   'published requirements expose a repeat allowance only where one is recorded'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 3
+    from jsonb_array_elements(
+      public.published_course_detail('REQT1000', 2029::smallint) -> 'ruleConditions'
+    ) as conditions(value)
+    where value ->> 'hardness' = 'advisory'
+      and (
+        (value ->> 'key' = 'field' and value ->> 'freeText' = 'the relevant field')
+        or (value ->> 'key' = 'sequence' and value ->> 'subjectCode' = 'REQT'
+          and value ->> 'freeText' = 'REQT1000')
+        or (value ->> 'key' = 'science-average' and value -> 'subjectCodes' = '["REQT"]'::jsonb)
+      )
+  ),
+  'published requirements expose soft conditions with their values'
 );
 
 reset role;

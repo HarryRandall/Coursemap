@@ -57,12 +57,15 @@ async function readRequirements(
   const groupKeyById = new Map(
     groups.map((group) => [Number(group.id), String(group.group_key)]),
   );
+  // Conditions are inserted in content order. Ordering by position instead
+  // interleaves a nested group's conditions with the root's, so a rule with
+  // an alternative after its first clauses would read back with a new hash.
   const conditions = await sql`
     select conditions.*, codes.code as item_code, codes.kind as item_kind
     from public.requirement_conditions as conditions
     left join public.catalogue_codes as codes on codes.id = conditions.code_id
     where conditions.version_id = ${versionId}
-    order by conditions.rule_id, conditions.position, conditions.id
+    order by conditions.id
   `;
   const conditionKeyById = new Map(
     conditions.map((condition) => [
@@ -156,6 +159,13 @@ async function readRequirements(
               condition.course_levels === null
                 ? null
                 : (condition.course_levels as unknown[]).map(Number),
+          }
+        : {}),
+      ...((condition.condition_kind === "gpa" ||
+        condition.condition_kind === "wam") &&
+      condition.subject_codes !== null
+        ? {
+            subjectCodes: (condition.subject_codes as string[]).map(String),
           }
         : {}),
       ...(condition.condition_kind === "career"

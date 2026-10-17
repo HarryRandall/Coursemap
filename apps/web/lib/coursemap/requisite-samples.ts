@@ -255,6 +255,8 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
     case "incompatible":
     case "incompatible_concurrent":
     case "elective_units":
+    case "field_units":
+    case "subject_sequence":
     case "permission":
     case "other":
       return;

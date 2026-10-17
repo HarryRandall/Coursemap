@@ -14,6 +14,7 @@ import {
   evaluateRule,
   groupOperator,
   groupRequiredCount,
+  isSoftExpression,
   type ConditionEvaluation,
   type RequisiteStatus,
   type StudentRecord,
@@ -24,6 +25,7 @@ import {
   hasUniformCourseActions,
   requisiteExplorerLink,
   requisiteSentence,
+  softRequirementLabel,
   splitRequisiteRule,
 } from "@/ui/courses/requisite-wording";
 
@@ -34,6 +36,8 @@ type ChipState = "done" | "enrolled" | "todo";
 type Step = {
   title: string;
   advisory?: boolean;
+  /** Introduces a soft requirement, which never blocks enrolment. */
+  badge?: string;
   /** The explorer, filtered to the courses that count towards this step. */
   link?: { href: string; label: string } | null;
   marker: Marker;
@@ -168,6 +172,15 @@ function ScoreScale({
   );
 }
 
+/** Marks a soft requirement, which never blocks enrolment or a plan. */
+function SoftBadge({ label }: { label: string }) {
+  return (
+    <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+      {label}
+    </span>
+  );
+}
+
 function StateLine({ met, text }: { met: boolean; text: string }) {
   return (
     <p
@@ -270,6 +283,7 @@ export function EnrolmentSteps({
     incompatible,
     concurrentIncompatible,
     advisoryIncompatible,
+    soft,
   } = splitRequisiteRule(expression);
   const href = (code: string) =>
     availableCourseCodes.has(code)
@@ -484,6 +498,11 @@ export function EnrolmentSteps({
                     </span>
                   ) : null}
                 </p>
+                {!isSoftExpression(group) && isSoftExpression(child) ? (
+                  <div className="mt-1">
+                    <SoftBadge label={softRequirementLabel(child)} />
+                  </div>
+                ) : null}
                 {child.kind === "group" ? (
                   <div className="mt-2">{groupBody(child, childResult)}</div>
                 ) : child.kind !== "course" ? (
@@ -529,6 +548,28 @@ export function EnrolmentSteps({
       counted: false,
       body: <p className="text-muted-foreground">{text}</p>,
     })),
+    ...soft.map((node): Step => {
+      const label = softRequirementLabel(node);
+      const result = label === "Recommended" ? evaluate(node) : null;
+      // A note's own wording is the step; there is nothing else to show.
+      const isNote = node.kind === "other" || node.kind === "permission";
+      return {
+        title: isNote
+          ? node.text
+          : node.kind === "group"
+            ? groupSentence(node)
+            : requisiteSentence(node),
+        badge: label,
+        advisory: true,
+        marker: result?.status === "met" ? "met" : "note",
+        counted: false,
+        body: isNote
+          ? null
+          : node.kind === "group"
+            ? groupBody(node, result)
+            : conditionBody(node, result),
+      };
+    }),
     ...concurrentIncompatible.map((code): Step => {
       const clear = student ? !student.enrolled.has(code) : null;
       return {
@@ -618,6 +659,7 @@ export function EnrolmentSteps({
             ) : null}
             <MarkerIcon marker={step.marker} index={index + 1} />
             <div className="flex min-w-0 flex-1 flex-col gap-2 pt-0.5">
+              {step.badge ? <SoftBadge label={step.badge} /> : null}
               {step.link ? (
                 <Link
                   href={step.link.href}
