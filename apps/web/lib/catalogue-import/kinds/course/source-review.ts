@@ -238,6 +238,21 @@ function missingCollegeEnrolment(
   );
 }
 
+/**
+ * A comma before the joining word separates the clauses when each part uses
+ * only the other word: "A or B, and C or D" and "A and B, or C and D".
+ */
+function commaScoped(sentence: string) {
+  const separatedBy = (join: "and" | "or", inner: "and" | "or") => {
+    const parts = sentence.split(new RegExp(`,\\s*${join}\\b`, "iu"));
+    return (
+      parts.length > 1 &&
+      parts.every((part) => !new RegExp(`\\b${inner}\\b`, "iu").test(part))
+    );
+  };
+  return separatedBy("and", "and") || separatedBy("or", "or");
+}
+
 /** Plain mixed conjunctions do not establish the scope of a prerequisite. */
 function unscopedPrerequisiteClauses(
   pageMarkdown: string,
@@ -257,6 +272,7 @@ function unscopedPrerequisiteClauses(
         /\bor\b/iu.test(sentence) &&
         (sentence.match(/\b[A-Z]{4}\d{4}[A-Z]?\b/gu)?.length ?? 0) >= 2 &&
         !/\beither\b|\bboth\b|[();]/iu.test(sentence) &&
+        !commaScoped(sentence) &&
         JSON.stringify(
           parsePlainCourseRequisites(sentence)?.prerequisiteRule,
         ) !== JSON.stringify(rule) &&
