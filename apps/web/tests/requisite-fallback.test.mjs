@@ -360,3 +360,47 @@ test("applying the fallback refuses a draft an administrator edited", async () =
     false,
   );
 });
+
+test("does not repeat wording the answer already shows across several notes", () => {
+  const first =
+    "- Provisional Registration with the Psychology Board of Australia,";
+  const second =
+    "- National Police Certificate - Students must complete a National Police Check.";
+  const content = contentFor(
+    {
+      op: "all_of",
+      rules: [
+        { op: "completed", courseCode: "SOCY1002" },
+        { op: "note", sourceText: first, required: true },
+        { op: "note", sourceText: second, required: true },
+      ],
+    },
+    {
+      flags: [
+        {
+          ...otherInformationFlag,
+          sourceExcerpt: `${first} ${second}`,
+        },
+      ],
+    },
+  );
+  const result = requisiteFallbackContent(content);
+  assert.ok(!("refused" in result));
+  assert.deepEqual(result.notes, []);
+  assert.equal(result.downgraded, 1);
+});
+
+test("shows a quoted bullet as a standalone sentence", async () => {
+  const { standaloneWording } =
+    await import("../ui/courses/requisite-wording.ts");
+  assert.equal(
+    standaloneWording(
+      "- Provisional Registration with the Psychology Board of Australia,",
+    ),
+    "Provisional Registration with the Psychology Board of Australia",
+  );
+  assert.equal(
+    standaloneWording("Students must attend."),
+    "Students must attend.",
+  );
+});

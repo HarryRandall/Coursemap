@@ -314,6 +314,17 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
   }
 }
 
+/**
+ * ANU wording as a sentence on its own. Notes quote bullets exactly, so a
+ * list marker or the comma joining the next bullet is dropped for display.
+ */
+export function standaloneWording(text: string | null) {
+  return (text ?? "")
+    .trim()
+    .replace(/^[-*•]\s+/u, "")
+    .replace(/[,;]$/u, "");
+}
+
 /** A group as the thing a student has to do. */
 export function hasUniformCourseActions(group: Group) {
   const first = group.conditions[0];

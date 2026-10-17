@@ -27,6 +27,7 @@ import {
   requisiteSentence,
   softRequirementLabel,
   splitRequisiteRule,
+  standaloneWording,
 } from "@/ui/courses/requisite-wording";
 
 type Group = Extract<CourseRuleExpression, { kind: "group" }>;
@@ -400,7 +401,7 @@ export function EnrolmentSteps({
       case "other":
         return (
           <p className="text-xs whitespace-pre-line text-muted-foreground">
-            {condition.text}
+            {standaloneWording(condition.text)}
           </p>
         );
       case "college_enrolment":

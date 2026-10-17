@@ -59,6 +59,20 @@ function comparable(text: string) {
   return text.replace(/\s+/gu, " ").trim().toLowerCase();
 }
 
+/** Wording without list markers or trailing separators, for comparison. */
+function bareWording(text: string) {
+  return comparable(text)
+    .replace(/^[-*•]\s*/u, "")
+    .replace(/[\s,;]+$/u, "");
+}
+
+/** Whether nothing meaningful is left once the shown wording is removed. */
+function coveredBy(clause: string, shown: string[]) {
+  let rest = clause;
+  for (const text of shown) rest = rest.split(text).join(" ");
+  return (rest.match(/[a-z0-9]{3,}/gu) ?? []).length <= 2;
+}
+
 export type RequisiteFallbackResult =
   | {
       content: CatalogueContent;
@@ -99,9 +113,18 @@ export function requisiteFallbackContent(
   // A clause already shown, alone or inside a longer note such as the whole
   // unmodelled wording, is not shown twice.
   const seen: string[] = [];
+  // Wording the answer already shows, possibly split across several notes
+  // or rules, such as one required note per bullet of a joined sentence.
+  const modelled = requirements.conditions
+    .filter((condition) => !isLeftoverCondition(condition))
+    .flatMap((condition) => [condition.sourceText, condition.freeText])
+    .filter((text): text is string => Boolean(text?.trim()))
+    .map((text) => bareWording(text))
+    .filter((text) => text.length >= 12);
   const remember = (text: string) => {
     const key = comparable(text);
     if (seen.some((shown) => shown.includes(key))) return false;
+    if (coveredBy(key, modelled)) return false;
     seen.push(key);
     return true;
   };
