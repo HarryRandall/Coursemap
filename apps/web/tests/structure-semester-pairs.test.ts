@@ -25,4 +25,21 @@ describe("consecutive-semester timing", () => {
     );
     expect(item).toMatchObject({ severity: "error" });
   });
+
+  it("warns when every named course is modelled as repeatable", () => {
+    const [item] = consecutiveSemesterReviewItems({
+      sourceText:
+        "COMP3770 and COMP4550 must be completed twice, in consecutive semesters.",
+      rule: {
+        type: "condition",
+        conditionKind: "course_list",
+        courseCodes: ["COMP3770", "COMP4550"],
+        repeatableCourses: [
+          { courseCode: "COMP3770", maximumUnits: 12 },
+          { courseCode: "COMP4550", maximumUnits: 24 },
+        ],
+      },
+    } as unknown as AcademicStructureRequirements);
+    expect(item).toMatchObject({ severity: "warning" });
+  });
 });

@@ -33,6 +33,24 @@ function conditions(
  * paired course must not also appear in an ordinary list where it could
  * count alone. Both are flagged for review rather than rewritten.
  */
+/**
+ * Timing that applies to repeating one course rather than to a pair: one
+ * course is named, or every named course is already modelled as repeatable.
+ */
+function singleCourseTiming(
+  sourceText: string,
+  all: AcademicStructureRequirementCondition[],
+) {
+  const named = timingCourseCodes(sourceText);
+  if (named.size === 1) return true;
+  const repeatable = new Set(
+    all.flatMap(({ repeatableCourses }) =>
+      (repeatableCourses ?? []).map(({ courseCode }) => courseCode),
+    ),
+  );
+  return named.size > 1 && [...named].every((code) => repeatable.has(code));
+}
+
 export function consecutiveSemesterReviewItems(
   requirements: AcademicStructureRequirements,
 ): AcademicStructureExtractionReviewItem[] {
@@ -44,14 +62,14 @@ export function consecutiveSemesterReviewItems(
   if (
     pairs.length === 0 &&
     CONSECUTIVE_SEMESTERS.test(requirements.sourceText ?? "") &&
-    timingCourseCodes(requirements.sourceText ?? "").size === 1
+    singleCourseTiming(requirements.sourceText ?? "", all)
   )
     items.push({
       fieldKey: "requirements.rule",
       kind: "unsupported",
       severity: "warning",
       message:
-        "The requirements ask for one course to be taken over consecutive semesters. Coursemap does not check that timing.",
+        "The requirements ask for a course to be repeated over consecutive semesters. Coursemap does not check that timing.",
     });
   else if (
     pairs.length === 0 &&
