@@ -555,9 +555,20 @@ export function RequirementCondition({
   );
   const status = showProgress ? requirementRowStatus(condition, context) : null;
   const target = condition.minimumCourses;
+  const title = courseListTitle(
+    condition,
+    codes,
+    required,
+    context.catalogue.courses.filter(
+      (course) => course.year === context.catalogue.academicYear,
+    ),
+  );
+  // Only what the title does not already say, such as "Pick 3 of 9 courses".
   const detail = [
-    units,
-    `${codes.length} ${required ? (codes.length === 1 ? "course" : "courses") : "options"}`,
+    units && !restates(title, units) ? units : null,
+    restates(title, `${codes.length} courses`)
+      ? null
+      : `${codes.length} ${required ? (codes.length === 1 ? "course" : "courses") : "options"}`,
     condition.includesAnyCourse ? "any other ANU course counts too" : null,
     note,
   ]
@@ -575,14 +586,7 @@ export function RequirementCondition({
         ) : null
       }
       status={status}
-      title={courseListTitle(
-        condition,
-        codes,
-        required,
-        context.catalogue.courses.filter(
-          (course) => course.year === context.catalogue.academicYear,
-        ),
-      )}
+      title={title}
       detail={
         <>
           {detail}
