@@ -101,12 +101,11 @@ test("students can record and remove approval for a conditional exclusion in the
   const view = render(
     <CourseDialog attemptId="target" catalogue={catalogue} onClose={vi.fn()} />,
   );
-  await user.click(screen.getByRole("tab", { name: "Requisites" }));
   await user.click(
     await screen.findByRole("button", { name: "Record approval" }),
   );
   expect(fixture.togglePermission).toHaveBeenCalledWith("target");
-  expect(screen.getByText("Meet one of these")).toBeVisible();
+  expect(screen.getByText("one of")).toBeVisible();
   expect(screen.getAllByText(text).length).toBeGreaterThan(0);
   fixture.attempts = [
     fixture.attempts[0]!,
@@ -163,9 +162,6 @@ test("college eligibility follows the selected programme and stays unknown witho
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
   expect(screen.getByText("Blocked", { exact: true })).toBeVisible();
-  await userEvent
-    .setup()
-    .click(screen.getByRole("tab", { name: "Requisites" }));
   expect(
     screen.getByText("Your programme is offered by a different college"),
   ).toBeVisible();
@@ -267,7 +263,6 @@ test("degree mode changes preserve the conditional permission path in the studen
 });
 
 test("the plan dialog evaluates a cohort waiver from the saved profile year", async () => {
-  const user = userEvent.setup();
   const cohort: CourseRuleExpression = {
     kind: "group",
     operator: "any_of",
@@ -327,7 +322,6 @@ test("the plan dialog evaluates a cohort waiver from the saved profile year", as
     <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
   );
   expect(screen.getByText("Blocked")).toBeVisible();
-  await user.click(screen.getByRole("tab", { name: "Requisites" }));
   expect(screen.getByText("You commenced in 2024")).toBeVisible();
   fixture.commencementYear = 2020;
   view.rerender(
@@ -335,4 +329,159 @@ test("the plan dialog evaluates a cohort waiver from the saved profile year", as
   );
   expect(screen.queryByText("Approval needed")).not.toBeInTheDocument();
   expect(screen.getByText("You commenced in 2020")).toBeVisible();
+});
+
+test("a planned course shows what it needs and unlocks, and a completed one leaves results to academic history", () => {
+  const planned: Attempt = {
+    id: "target",
+    courseCode: "COMP2100",
+    termId: "2026-s1",
+    academicYear: 2026,
+    status: "planned",
+  };
+  const later: Attempt = {
+    id: "later",
+    courseCode: "COMP2120",
+    termId: "2026-s2",
+    academicYear: 2026,
+    status: "planned",
+  };
+  fixture.attempts = [planned, later];
+  const view = render(
+    <CourseDialog attemptId="target" catalogue={catalogue} onClose={vi.fn()} />,
+  );
+  expect(
+    screen.getByText("Prerequisites aren't planned before this yet"),
+  ).toBeVisible();
+  expect(screen.getByText("COMP1110")).toHaveTextContent(
+    "(not planned before)",
+  );
+  expect(screen.getByText("Unlocks")).toBeVisible();
+  expect(screen.getByText("COMP2120")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: /completed|failed/i }),
+  ).toBeNull();
+  expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
+
+  fixture.attempts = [{ ...planned, status: "completed" }, later];
+  view.rerender(
+    <CourseDialog attemptId="target" catalogue={catalogue} onClose={vi.fn()} />,
+  );
+  expect(
+    screen.queryByText("Prerequisites aren't planned before this yet"),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Edit in academic history" }),
+  ).toHaveAttribute("href", "/academic");
+});
+
+test("the dialog fills in workload, assessment and outcomes once the published course loads", async () => {
+  fixture.attempts = [
+    {
+      id: "target",
+      courseCode: "COMP1100",
+      termId: "2026-s1",
+      academicYear: 2026,
+      status: "planned",
+    },
+  ];
+  const fetchMock = vi.fn(async (url: string) =>
+    url.includes("/details")
+      ? Response.json({
+          course: {
+            introduction: null,
+            description: "Learn to program.",
+            school: "School of Computing",
+            workloadHours: 10,
+            workloadHoursBasis: "weekly",
+            prerequisiteEdges: [
+              {
+                from: "COMP1100",
+                to: "COMP1110",
+                toIsAvailable: true,
+              },
+            ],
+            unlocksAreKnown: true,
+            fees: [
+              {
+                amount: 5520,
+                audience: "domestic",
+                basis: "course",
+                currency: "AUD",
+                feeType: "tuition",
+                feeYear: 2026,
+                sourceLabel: null,
+                sourceText: null,
+                studentContributionBand: null,
+              },
+              {
+                amount: null,
+                audience: "commonwealth_supported",
+                basis: "unknown",
+                currency: "AUD",
+                feeType: "student_contribution",
+                feeYear: 2026,
+                sourceLabel: null,
+                sourceText: null,
+                studentContributionBand: 2,
+              },
+            ],
+            assessments: [
+              {
+                position: 1,
+                title: "Labs",
+                weight: 30,
+                hurdle: false,
+                dueText: null,
+                learningOutcomePositions: [],
+              },
+              {
+                position: 2,
+                title: "Final exam",
+                weight: 70,
+                hurdle: true,
+                dueText: null,
+                learningOutcomePositions: [],
+              },
+            ],
+            learningOutcomes: [
+              { position: 1, body: "Write small programs." },
+              { position: 2, body: "Test them." },
+              { position: 3, body: "Debug them." },
+              { position: 4, body: "Explain them." },
+            ],
+          },
+        })
+      : Response.json({ report: null }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    render(
+      <CourseDialog
+        attemptId="target"
+        catalogue={catalogue}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      await screen.findByText(/10 hours per week · In person/),
+    ).toBeVisible();
+    expect(screen.getByText("Final exam")).toBeVisible();
+    expect(screen.getByText("70%")).toBeVisible();
+    expect(screen.getByText("in your plan")).toBeVisible();
+    // Commonwealth supported by default: band 2 for 6 units.
+    expect(screen.getByText(/\$1,192 CSP/)).toBeVisible();
+    expect(screen.getByText("Requires")).toBeVisible();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.getByText("Hurdle")).toBeVisible();
+    expect(screen.getByText("Debug them.")).toBeVisible();
+    expect(screen.queryByText("Explain them.")).toBeNull();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Show all 4 outcomes" }));
+    expect(screen.getByText("Explain them.")).toBeVisible();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
