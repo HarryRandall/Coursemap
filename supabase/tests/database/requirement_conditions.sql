@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(32);
+select extensions.plan(37);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -381,6 +381,67 @@ select extensions.lives_ok(
   'a structure condition can reference a major'
 );
 
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, maximum_units
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'repeat-list', 24,
+      'course_set_units', 24, 24
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id;
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 1, 'course', 'REQT1002', 24
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'repeat-list'
+  $$,
+  'a course list option records the units its repeated attempts may contribute'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 2, 'course', 'REQT1003', 36
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'repeat-list'
+  $$,
+  '23514',
+  null,
+  'a repeat allowance fits within its course list maximum'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 1, 'course', 'REQT1004', 12
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'semester-pair'
+  $$,
+  '23514',
+  null,
+  'only a course list can let a course repeat'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 3, 'major', 'REQT-REP', 12
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'majors'
+  $$,
+  '23514',
+  null,
+  'only a listed course can repeat'
+);
+
 select pg_temp.publish_snapshot((select version_id from fixture));
 
 select extensions.throws_ok(
@@ -423,6 +484,20 @@ select extensions.ok(
         and value -> 'matchesCareer' = 'true'::jsonb)
   ),
   'published requirements expose filters and careers'
+);
+
+select extensions.ok(
+  (
+    select count(*) filter (where value ? 'maximumUnits') = 1
+      and bool_or(
+        value ->> 'conditionKey' = 'repeat-list'
+        and (value ->> 'maximumUnits')::numeric = 24
+      )
+    from jsonb_array_elements(
+      public.published_course_detail('REQT1000', 2029::smallint) -> 'ruleConditionCourses'
+    ) as options(value)
+  ),
+  'published requirements expose a repeat allowance only where one is recorded'
 );
 
 reset role;

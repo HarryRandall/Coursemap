@@ -62,6 +62,7 @@ export type RequirementTreeSource = {
     kind: string;
     code: string;
     title?: string | null;
+    maximumUnits?: number | null;
   }>;
 };
 
@@ -148,6 +149,9 @@ export function requirementTreeFromSource(
           position: option.position,
           structureKind: option.kind === "course" ? null : option.kind,
           title: option.title ?? null,
+          ...(option.maximumUnits != null
+            ? { maximumUnits: option.maximumUnits }
+            : {}),
         })),
       position: condition.position,
       projectionKey: condition.key,

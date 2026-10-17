@@ -38,9 +38,19 @@ export function ruleIsEditableAsTree(
   requirements: RequirementWrite,
   ruleKey: RequirementRuleKind,
 ) {
-  return requirements.conditions
-    .filter((condition) => condition.ruleKey === ruleKey)
-    .every((condition) => EDITABLE_KINDS.has(condition.kind));
+  const conditions = requirements.conditions.filter(
+    (condition) => condition.ruleKey === ruleKey,
+  );
+  const conditionKeys = new Set(conditions.map((condition) => condition.key));
+  // The tree editor has no field for a repeat allowance and would drop it on
+  // save, so such a rule is corrected as recorded JSON instead.
+  return (
+    conditions.every((condition) => EDITABLE_KINDS.has(condition.kind)) &&
+    !requirements.options.some(
+      (option) =>
+        conditionKeys.has(option.conditionKey) && option.maximumUnits != null,
+    )
+  );
 }
 
 /** A rule's groups and conditions as the editor's nested tree. */

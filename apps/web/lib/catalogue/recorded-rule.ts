@@ -142,6 +142,7 @@ const recordedRuleSchema = z
           code: key,
           title: text,
           sourceText: text,
+          maximumUnits: z.number().positive().nullable().optional(),
         })
         .strict(),
     ),
@@ -262,6 +263,18 @@ export function catalogueContentWithRecordedRule(
     throw new TypeError(
       "Options for the same condition must have distinct positions.",
     );
+  const courseListKeys = new Set(
+    next.conditions
+      .filter((row) => row.kind === "course_set_units")
+      .map((row) => row.key),
+  );
+  if (
+    next.options.some(
+      (row) =>
+        row.maximumUnits != null && !courseListKeys.has(row.conditionKey),
+    )
+  )
+    throw new TypeError("Only a course in a course list can be repeated.");
   for (const row of [...next.groups, ...next.conditions]) {
     if (
       row.minimumUnits !== null &&

@@ -10,10 +10,13 @@ export function RequirementCourseOptions({
   codes,
   required,
   context,
+  repeatUnitsByCode,
 }: {
   codes: string[];
   required: boolean;
   context: TreeContext;
+  /** Listed courses that may count more than once, with their unit totals. */
+  repeatUnitsByCode?: ReadonlyMap<string, number>;
 }) {
   const [visibleCount, setVisibleCount] = useState(12);
   const rank = (code: string) =>
@@ -41,6 +44,7 @@ export function RequirementCourseOptions({
             year={context.catalogue.academicYear ?? new Date().getFullYear()}
             course={courseFor(code)}
             required={required}
+            repeatUnits={repeatUnitsByCode?.get(code) ?? null}
             status={context.attemptStatusByCode.get(code) ?? null}
             showStatus={showStatus}
             onAdd={context.onAddCourse}

@@ -19,7 +19,17 @@ export function requirementCourseCount(
   if (codes.length === 0 || rule.includesAnyCourse) return null;
   if (rule.minimumCourses !== null && rule.minimumCourses >= codes.length)
     return rule.minimumCourses;
+  // A repeatable course contributes up to its allowance rather than its units.
+  const repeatUnits = new Map(
+    rule.options.flatMap((option) =>
+      option.kind === "course" && option.maximumUnits != null
+        ? [[option.code, option.maximumUnits] as const]
+        : [],
+    ),
+  );
   const units = codes.map((code) => {
+    const repeat = repeatUnits.get(code);
+    if (repeat !== undefined) return repeat;
     const course = courses.find((candidate) => candidate.code === code);
     return course?.unitValue?.kind === "fixed" ? course.unitValue.units : null;
   });
@@ -32,7 +42,8 @@ export function requirementCourseCount(
     return codes.length;
   if (rule.minimumCourses !== null && rule.minimumCourses > 0)
     return rule.minimumCourses;
-  if (!allFixed) return null;
+  // A course that may repeat can fill several slots, so units imply no count.
+  if (!allFixed || repeatUnits.size > 0) return null;
   const shared = units[0];
   if (
     shared &&

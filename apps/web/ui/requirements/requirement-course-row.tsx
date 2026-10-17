@@ -6,6 +6,7 @@ import { CatalogueIdentity } from "@/ui/admin/catalogue-table/catalogue-table";
 import type { Course } from "@/lib/coursemap/types";
 import { StarButton } from "@/ui/common/star-button";
 import type { ReactNode } from "react";
+import { repeatAllowanceText } from "@/ui/requirements/requirement-presentation";
 
 /**
  * One course a rule lists, as a compact row: its status, code and name, and
@@ -20,6 +21,7 @@ export function RequirementCourseRow({
   showStatus = true,
   onAdd,
   placement,
+  repeatUnits = null,
 }: {
   code: string;
   course: Course | undefined;
@@ -32,6 +34,8 @@ export function RequirementCourseRow({
   onAdd?: (course: Course) => void;
   /** Where the course counts in the degree, for a course in the plan. */
   placement?: ReactNode;
+  /** Total units the rule lets this course contribute when it may repeat. */
+  repeatUnits?: number | null;
 }) {
   const completed = status === "completed";
   const planned = status === "planned" || status === "enrolled";
@@ -42,7 +46,10 @@ export function RequirementCourseRow({
           code={code}
           title={course?.name ?? code}
           href={`/courses/${course?.year ?? year}/${code.toLowerCase()}`}
-          meta={course?.units ? [`${course.units} units`] : []}
+          meta={[
+            ...(course?.units ? [`${course.units} units`] : []),
+            ...(repeatUnits !== null ? [repeatAllowanceText(repeatUnits)] : []),
+          ]}
         />
       </div>
       <span className="flex shrink-0 items-center gap-2 text-xs">

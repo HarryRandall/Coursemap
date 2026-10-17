@@ -144,6 +144,11 @@ export type RequirementWrite = {
     code: string;
     title: string | null;
     sourceText: string | null;
+    /**
+     * Total units a listed course may contribute across repeated attempts.
+     * Absent for a course that counts once, so earlier content keeps its hash.
+     */
+    maximumUnits?: number | null;
   }>;
   references: Array<{
     ruleKey: RequirementRuleKind;
@@ -371,6 +376,16 @@ function hasString(record: Record<string, unknown>, key: string) {
   return typeof record[key] === "string" && record[key].trim() !== "";
 }
 
+/** A repeat allowance is a positive unit total on a listed course, or absent. */
+function isRepeatAllowance(option: Record<string, unknown>) {
+  const units = option.maximumUnits;
+  return (
+    units === undefined ||
+    units === null ||
+    (typeof units === "number" && units > 0 && option.kind === "course")
+  );
+}
+
 /**
  * Validates the complete aggregate at the server boundary. Detailed field
  * constraints remain enforced by immutable version materialisation.
@@ -423,7 +438,8 @@ export function validateCatalogueContent(value: unknown): CatalogueContent {
       (option) =>
         hasString(option, "conditionKey") &&
         hasString(option, "kind") &&
-        hasString(option, "code"),
+        hasString(option, "code") &&
+        isRepeatAllowance(option),
     ) ||
     !requirements.references!.every(
       (reference) =>
@@ -894,6 +910,9 @@ export function structureCatalogueContent({
             code: option.optionCode,
             title: null,
             sourceText: null,
+            ...(option.maximumUnits === undefined
+              ? {}
+              : { maximumUnits: option.maximumUnits }),
           })),
           references: [],
         }

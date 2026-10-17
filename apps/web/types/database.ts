@@ -3687,6 +3687,7 @@ export type Database = {
           condition_id: number
           id: number
           kind: string
+          maximum_units: number | null
           position: number
           source_text: string | null
           title: string | null
@@ -3698,6 +3699,7 @@ export type Database = {
           condition_id: number
           id?: never
           kind: string
+          maximum_units?: number | null
           position: number
           source_text?: string | null
           title?: string | null
@@ -3709,6 +3711,7 @@ export type Database = {
           condition_id?: number
           id?: never
           kind?: string
+          maximum_units?: number | null
           position?: number
           source_text?: string | null
           title?: string | null

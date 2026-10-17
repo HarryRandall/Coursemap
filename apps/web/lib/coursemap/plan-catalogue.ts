@@ -56,6 +56,11 @@ export type PlanRequirementOption = {
   kind: string;
   position: number;
   structureKind: string | null;
+  /**
+   * Total units a listed course may contribute across repeated attempts, when
+   * the source lets it be taken more than once. Absent means it counts once.
+   */
+  maximumUnits?: number | null;
 };
 
 export type PlanRequirementCondition = {
@@ -270,6 +275,9 @@ export function buildAcademicStructureRequirementTree({
           kind: option.kind === "course" ? "course" : "structure",
           position: option.position,
           structureKind: option.kind === "course" ? null : option.kind,
+          ...(option.maximum_units == null
+            ? {}
+            : { maximumUnits: Number(option.maximum_units) }),
         })),
       position: condition.position,
       projectionKey: condition.condition_key,

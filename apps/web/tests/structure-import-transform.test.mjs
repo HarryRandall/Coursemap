@@ -264,6 +264,89 @@ test("keeps a consecutive-semester pair as an ordered, exact-unit condition", ()
   assert.equal(validateAcademicStructureExtraction(model).success, false);
 });
 
+function withRepeatableThesis(model) {
+  const thesis = {
+    ...model.requirements.rule.children[0],
+    key: "honours-thesis",
+    conditionKind: "course_list",
+    minimumUnits: 48,
+    maximumUnits: null,
+    minimumCourses: null,
+    courseCodes: ["CHEM4005"],
+    repeatableCourses: [{ courseCode: "CHEM4005", maximumUnits: 48 }],
+    freeText: null,
+    sourceText:
+      "CHEM4005 Research Project (12 units), taken four times for 48 units",
+  };
+  model.requirements.rule.children.push(thesis);
+  return thesis;
+}
+
+test("keeps a repeatable course allowance on its course list option", () => {
+  const model = structuredClone(extraction);
+  withRepeatableThesis(model);
+  assert.equal(validateAcademicStructureExtraction(model).success, true);
+  assert.ok(
+    ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA.$defs.requirementCondition.required.includes(
+      "repeatableCourses",
+    ),
+  );
+
+  const projection = projectAcademicStructureSnapshot(model);
+  assert.deepEqual(
+    projection.requirementOptions.find(
+      (option) => option.conditionKey === "honours-thesis",
+    ),
+    {
+      conditionKey: "honours-thesis",
+      position: 1,
+      optionKind: "course",
+      optionCode: "CHEM4005",
+      structureKind: null,
+      maximumUnits: 48,
+    },
+  );
+  const content = structureCatalogueContent({ projection });
+  assert.equal(
+    content.requirements.options.find(
+      (option) => option.conditionKey === "honours-thesis",
+    ).maximumUnits,
+    48,
+  );
+  // Courses that count once keep the shape, and so the hash, they had before.
+  assert.ok(
+    content.requirements.options
+      .filter((option) => option.conditionKey !== "honours-thesis")
+      .every((option) => !("maximumUnits" in option)),
+  );
+});
+
+test("rejects repeat allowances the course list cannot hold", () => {
+  const unlisted = structuredClone(extraction);
+  withRepeatableThesis(unlisted).repeatableCourses = [
+    { courseCode: "PHYS4110", maximumUnits: 24 },
+  ];
+  const capped = structuredClone(extraction);
+  withRepeatableThesis(capped).maximumUnits = 24;
+  const typed = structuredClone(extraction);
+  Object.assign(withRepeatableThesis(typed), {
+    conditionKind: "unrestricted",
+    courseCodes: [],
+  });
+  const empty = structuredClone(extraction);
+  withRepeatableThesis(empty).repeatableCourses = [
+    { courseCode: "CHEM4005", maximumUnits: 0 },
+  ];
+
+  for (const model of [unlisted, capped, typed, empty]) {
+    const result = validateAcademicStructureExtraction(model);
+    assert.equal(result.success, false);
+    assert.ok(
+      result.issues.some((issue) => issue.path.includes("repeatableCourses")),
+    );
+  }
+});
+
 test("flags consecutive-semester wording that no pair models", () => {
   const model = structuredClone(extraction);
   model.requirements.sourceText += `\n${PAIR_TIMING}`;

@@ -3,6 +3,7 @@ import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import {
   courseListTitle,
   conditionHeading,
+  conditionInterpretation,
   conditionSummary,
   courseSearchHref,
 } from "@/ui/requirements/requirement-presentation";
@@ -71,6 +72,43 @@ test.each([
     expect(result[0]!.rules[0]!.heading).toBe(expected);
   },
 );
+
+test("a repeatable course is titled by its allowance, not one attempt", () => {
+  const thesis = clarityRule({
+    minimumUnits: 48,
+    options: [
+      {
+        code: "CHEM4005",
+        kind: "course",
+        position: 1,
+        structureKind: null,
+        maximumUnits: 48,
+      },
+    ],
+  });
+  const thesisCourses = [clarityCourse("CHEM4005", 12)];
+  expect(requirementTitle(thesis, thesisCourses)).toBe("Take CHEM4005");
+  expect(conditionInterpretation(thesis)).toContain(
+    "CHEM4005 may be repeated, up to 48 units",
+  );
+
+  const topics = clarityRule({
+    minimumUnits: 12,
+    options: [
+      ...clarityRule().options,
+      {
+        code: "COMP3900",
+        kind: "course",
+        position: 4,
+        structureKind: null,
+        maximumUnits: 24,
+      },
+    ],
+  });
+  expect(
+    requirementTitle(topics, [...courses, clarityCourse("COMP3900")]),
+  ).toBe("Pick 12 units from 4 courses");
+});
 
 test("all fixed options can have different unit values", () => {
   expect(

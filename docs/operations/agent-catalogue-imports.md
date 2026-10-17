@@ -72,8 +72,11 @@ Follow the batch's `instructions` and `schema` exactly. In addition:
 - Hard external or secondary-school requirements use `external_requirement`
   with the exact source text; convener consent uses `permission`.
 - Empty source means no rules.
-- A route that repeats the same course (repeated topics, "may be taken twice")
-  cannot be a course list, because each code counts once; hold that part.
+- A listed course counts once. When the source states that a course may be
+  repeated (repeated topics, "may be taken twice", a research course taken in
+  four semesters), add it to the course list's `repeatableCourses` with
+  `maximumUnits` set to the total its attempts may contribute. Hold the part
+  when the source gives no total or number of attempts.
 - Never put a free-text condition inside a unit pool or give it units that
   courses would have to fill. No course can satisfy free text, so the total
   becomes unreachable.
@@ -101,7 +104,9 @@ one-sentence reason when it:
 - models part of a requirement in a way that turns away students the source
   accepts, including a dropped exception whose main route is then compulsory
   for everyone;
-- models a repeated-course route as a course list;
+- models a repeated-course route as a course list without a
+  `repeatableCourses` allowance, or gives an allowance the source does not
+  state;
 - places free text inside a unit pool, making the total unreachable;
 - uses `any_of` where students may mix branches; or
 - drops trailing tables that may be an alternative route.

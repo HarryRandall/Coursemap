@@ -414,10 +414,12 @@ async function insertRequirements(
     if (!isValidCode(option.kind, code)) continue;
     await tx`
       insert into public.requirement_condition_options (
-        condition_id, version_id, position, kind, code, code_id, title, source_text
+        condition_id, version_id, position, kind, code, code_id, title, source_text,
+        maximum_units
       ) values (
         ${conditionId}, ${snapshotId}, ${option.position}, ${option.kind}, ${code},
-        ${itemId(ids, option.kind, code)}, ${option.title}, ${option.sourceText}
+        ${itemId(ids, option.kind, code)}, ${option.title}, ${option.sourceText},
+        ${option.maximumUnits ?? null}
       )
       on conflict (condition_id, code) do nothing
     `;

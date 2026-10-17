@@ -27,3 +27,20 @@ test("unimported courses still link to their page and cannot be added", () => {
   ).not.toBeInTheDocument();
   expect(screen.getByText("Not planned")).toBeVisible();
 });
+
+test("a repeatable course says how many units its attempts may count", () => {
+  render(
+    <TooltipProvider>
+      <ul>
+        <RequirementCourseRow
+          code="FREN3107"
+          course={undefined}
+          year={2026}
+          status={null}
+          repeatUnits={24}
+        />
+      </ul>
+    </TooltipProvider>,
+  );
+  expect(screen.getByText(/may be repeated, up to 24 units/)).toBeVisible();
+});

@@ -1,7 +1,13 @@
 import { expect, test } from "vitest";
 
-import { requirementWriteWithTree } from "@/lib/catalogue-import/requirement-tree";
-import { emptyCatalogueContent } from "@/lib/catalogue/content";
+import {
+  requirementWriteWithTree,
+  ruleIsEditableAsTree,
+} from "@/lib/catalogue-import/requirement-tree";
+import {
+  emptyCatalogueContent,
+  validateCatalogueContent,
+} from "@/lib/catalogue/content";
 import {
   catalogueContentWithRecordedRule,
   recordedRuleContent,
@@ -186,4 +192,56 @@ test("optional reference corrections stay within the selected rule and omitted i
   expect(() =>
     catalogueContentWithRecordedRule(content, "structure", submitted, baseline),
   ).toThrow("only the selected rule");
+});
+
+test("a repeat allowance is edited as recorded and must sit on a course list", () => {
+  const content = fixture();
+  const condition = content.requirements.conditions.find(
+    (row) => row.ruleKey === "structure",
+  )!;
+  Object.assign(condition, {
+    kind: "course_set_units",
+    structureKind: null,
+    minimumUnits: 48,
+  });
+  content.requirements.options = [
+    {
+      conditionKey: condition.key,
+      position: 1,
+      kind: "course",
+      code: "CHEM4005",
+      title: null,
+      sourceText: null,
+      maximumUnits: 36,
+    },
+  ];
+  // The tree editor has no field for the allowance and would drop it.
+  expect(ruleIsEditableAsTree(content.requirements, "structure")).toBe(false);
+  expect(ruleIsEditableAsTree(content.requirements, "permission")).toBe(true);
+
+  const recorded = recordedRuleContent(content, "structure");
+  const baseline = JSON.stringify(recorded);
+  const submitted = structuredClone(recorded);
+  submitted.options[0]!.maximumUnits = 48;
+  const next = catalogueContentWithRecordedRule(
+    content,
+    "structure",
+    submitted,
+    baseline,
+  );
+  expect(recordedRuleContent(next, "structure").options[0]!.maximumUnits).toBe(
+    48,
+  );
+
+  const misplaced = structuredClone(recorded);
+  misplaced.conditions[0]!.kind = "elective_units";
+  expect(() =>
+    catalogueContentWithRecordedRule(content, "structure", misplaced, baseline),
+  ).toThrow("Only a course in a course list can be repeated.");
+
+  const invalid = structuredClone(content);
+  invalid.requirements.options[0]!.maximumUnits = 0;
+  expect(() => validateCatalogueContent(invalid)).toThrow(
+    "The catalogue content aggregate is invalid.",
+  );
 });
