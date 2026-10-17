@@ -19,6 +19,7 @@ import {
   type PlanCourseRow,
 } from "@/ui/dashboard/plan-course-table";
 import { PlanRiskList } from "@/ui/dashboard/plan-risk-list";
+import { PlanDetailEmpty } from "@/ui/dashboard/plan-detail-empty";
 
 /**
  * The full read of the plan, in one card with three views: the requirement
@@ -63,13 +64,36 @@ export function PlanDetailPanel({
           </div>
 
           <TabsContent value="requirements" className="overflow-x-auto pt-4">
-            <RequirementsTable buckets={buckets} />
+            {buckets.length ? (
+              <RequirementsTable buckets={buckets} />
+            ) : (
+              <PlanDetailEmpty
+                title="No requirements to measure yet"
+                description="Your degree's rules are either not chosen or only written as notes. The Requirements page shows ANU's full wording."
+                action={{ href: "/requirements", label: "Open requirements" }}
+              />
+            )}
           </TabsContent>
           <TabsContent value="courses" className="overflow-x-auto pt-4">
-            <PlanCourseTable courses={courses} />
+            {courses.length ? (
+              <PlanCourseTable courses={courses} />
+            ) : (
+              <PlanDetailEmpty
+                title="No courses in your plan yet"
+                description="Courses you add in the planner are listed here with their semester, units and result."
+                action={{ href: "/plan", label: "Open planner" }}
+              />
+            )}
           </TabsContent>
           <TabsContent value="risks" className="pt-4">
-            <PlanRiskList risks={risks} />
+            {risks.length || courses.length ? (
+              <PlanRiskList risks={risks} />
+            ) : (
+              <PlanDetailEmpty
+                title="Nothing to check yet"
+                description="Once your plan has courses, anything blocked or short of a requirement is flagged here."
+              />
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
