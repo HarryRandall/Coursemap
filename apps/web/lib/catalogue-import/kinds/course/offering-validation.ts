@@ -181,7 +181,14 @@ export function validateCourseOfferings(
         typeof date === "string" &&
         DATE_PATTERN.test(date) &&
         typeof offering.calendarYear === "number" &&
-        (Number(date.slice(0, 4)) < offering.calendarYear ||
+        (Number(date.slice(0, 4)) <
+          offering.calendarYear -
+            // Summer Session classes start, and close enrolment, in the
+            // December before their calendar year.
+            (offering.periodCode === "SUMMER" &&
+            (field === "startsOn" || field === "lastEnrolmentDate")
+              ? 1
+              : 0) ||
           Number(date.slice(0, 4)) >
             offering.calendarYear + (field === "startsOn" ? 0 : 1))
       ) {
@@ -189,7 +196,7 @@ export function validateCourseOfferings(
           path: `${path}.${field}`,
           message:
             field === "startsOn"
-              ? "must belong to the offering calendar year"
+              ? "must belong to the offering calendar year (or the December before, for Summer Session)"
               : "must belong to the offering calendar year or the following year",
         });
       }

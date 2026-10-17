@@ -625,6 +625,7 @@ export function readCourseSource({
     review(
       "offerings",
       "No selected-year class table was read. Availability remains unknown.",
+      "warning",
     );
   for (const key of [
     "school",

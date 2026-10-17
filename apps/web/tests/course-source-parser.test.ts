@@ -153,11 +153,15 @@ describe("source-first course parsing", () => {
     );
     const severity = (fieldKey: string) =>
       course.reviewItems.find((item) => item.fieldKey === fieldKey)?.severity;
-    // Missing facts a plan depends on hold the draft; missing extras such as
-    // outcomes, assessment and fees only warn so the course still publishes.
-    expect(severity("offerings")).toBe("error");
+    // A missing unit value holds the draft; unknown availability and missing
+    // outcomes, assessment or fees only warn so the course still publishes.
     expect(severity("unitValue")).toBe("error");
-    for (const fieldKey of ["learningOutcomes", "assessmentItems", "fees"])
+    for (const fieldKey of [
+      "offerings",
+      "learningOutcomes",
+      "assessmentItems",
+      "fees",
+    ])
       expect(severity(fieldKey)).toBe("warning");
   });
   it("does not turn generic graduate attributes into degree tags", () => {
