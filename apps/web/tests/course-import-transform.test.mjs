@@ -1939,7 +1939,16 @@ test("keeps the first row when modelled positions repeat", () => {
     );
     const result = finalise(model);
     assert.equal(result.extraction[field].length, model[field].length - 1);
-    assert.ok(result.errorCount > 0);
+    // A dropped assessment item is reviewed without holding the course.
+    if (field === "assessmentItems")
+      assert.ok(
+        result.extraction.reviewItems.some(
+          (item) =>
+            item.fieldKey.startsWith("assessmentItems") &&
+            item.severity === "warning",
+        ),
+      );
+    else assert.ok(result.errorCount > 0);
     assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
   }
 });
@@ -1976,7 +1985,14 @@ test("reviews repeated or missing assessment outcome links before projection", (
     );
     const result = finalise(model);
     assert.equal(result.extraction.assessmentItems.length, 1);
-    assert.ok(result.errorCount > 0);
+    assert.ok(
+      result.extraction.reviewItems.some(
+        (item) =>
+          item.fieldKey.startsWith("assessmentItems") &&
+          item.severity === "warning",
+      ),
+    );
+    assert.equal(result.errorCount, 0);
     assert.doesNotThrow(() => projectCourseSnapshot(result.extraction));
   }
 });

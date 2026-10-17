@@ -210,7 +210,11 @@ export function finaliseCourseExtraction({
     ...dropped.map(({ fieldKey, messages, value }) => ({
       fieldKey,
       kind: "invalid" as const,
-      severity: "error" as const,
+      // An assessment item ANU tabled against outcomes it never listed is
+      // left out; the rest of the course still publishes.
+      severity: fieldKey.startsWith("assessmentItems")
+        ? ("warning" as const)
+        : ("error" as const),
       message:
         fieldKey === "modelExtraction"
           ? messages.join(" ")
