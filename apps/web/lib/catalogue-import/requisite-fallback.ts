@@ -66,8 +66,14 @@ function bareWording(text: string) {
     .replace(/[\s,;]+$/u, "");
 }
 
-/** Whether nothing meaningful is left once the shown wording is removed. */
+/**
+ * Whether the clause is already shown: it sits inside wording the answer
+ * shows, or nothing meaningful is left once that wording is removed.
+ */
 function coveredBy(clause: string, shown: string[]) {
+  const bare = bareWording(clause);
+  if (bare.length >= 12 && shown.some((text) => text.includes(bare)))
+    return true;
   let rest = clause;
   for (const text of shown) rest = rest.split(text).join(" ");
   return (rest.match(/[a-z0-9]{3,}/gu) ?? []).length <= 2;

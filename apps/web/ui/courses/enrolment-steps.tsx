@@ -565,7 +565,7 @@ export function EnrolmentSteps({
       const isNote = node.kind === "other" || node.kind === "permission";
       return {
         title: isNote
-          ? node.text
+          ? standaloneWording(node.text)
           : node.kind === "group"
             ? groupSentence(node)
             : requisiteSentence(node),

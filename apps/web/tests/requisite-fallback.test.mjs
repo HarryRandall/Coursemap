@@ -390,6 +390,32 @@ test("does not repeat wording the answer already shows across several notes", ()
   assert.equal(result.downgraded, 1);
 });
 
+test("does not repeat a piece of wording a longer shown note holds", () => {
+  const whole =
+    "To enrol in this course you must have completed either - ECON2101 Microeconomics 2 (P) or - ECON2111 Microeconomics 2 (H)";
+  const content = contentFor(
+    {
+      op: "all_of",
+      rules: [
+        { op: "completed", courseCode: "SOCY1002" },
+        { op: "note", sourceText: whole },
+      ],
+    },
+    {
+      flags: [
+        {
+          ...otherInformationFlag,
+          sourceExcerpt:
+            "To enrol in this course you must have completed either\n\n- ECON2101 Microeconomics 2 (P) or\n- ECON2111 Microeconomics 2 (H)",
+        },
+      ],
+    },
+  );
+  const result = requisiteFallbackContent(content);
+  assert.ok(!("refused" in result));
+  assert.deepEqual(result.notes, []);
+});
+
 test("shows a quoted bullet as a standalone sentence", async () => {
   const { standaloneWording } =
     await import("../ui/courses/requisite-wording.ts");

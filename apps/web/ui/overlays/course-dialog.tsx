@@ -34,6 +34,7 @@ import {
   groupSentence,
   requisiteSentence,
   softRequirementLabel,
+  standaloneWording,
   splitRequisiteRule,
 } from "@/ui/courses/requisite-wording";
 import { FactRow } from "@/ui/overlays/fact-row";
@@ -407,7 +408,7 @@ export function CourseDialog({
                         {node.kind === "group"
                           ? groupSentence(node)
                           : node.kind === "other"
-                            ? node.text
+                            ? standaloneWording(node.text)
                             : requisiteSentence(node)}
                       </li>
                     ))}
