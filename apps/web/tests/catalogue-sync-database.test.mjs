@@ -748,6 +748,38 @@ test("first, unchanged and changed source observations preserve local intent", a
   await sql`update public.catalogue_syncs set status = 'unchanged', completed_at = now()
     where id = ${unchangedFixture.claim.syncId}`;
 
+  // A newer parser reading of the same source can change only review flags.
+  const reflaggedFixture = await createSyncFixture(EMPTY_CODE, "a".repeat(64));
+  const reflagged = await persistSourceVersion(sql, {
+    claim: reflaggedFixture.claim,
+    sourceDocumentId: reflaggedFixture.documentId,
+    write: {
+      ...firstContent,
+      flags: [
+        ...firstContent.flags,
+        {
+          code: "UNSUPPORTED",
+          message: "A newer parser review.",
+          severity: "warning",
+          fieldPath: "description",
+          sourceExcerpt: null,
+        },
+      ],
+    },
+  });
+  assert.equal(reflagged.status, "applied");
+  assert.equal(reflagged.sourceVersionId, first.sourceVersionId);
+  const [reflaggedDraft] = await sql`
+    select content from public.catalogue_drafts where record_id = ${emptyRecordId}
+  `;
+  assert.ok(
+    reflaggedDraft.content.flags.some(
+      (flag) => flag.message === "A newer parser review.",
+    ),
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now()
+    where id = ${reflaggedFixture.claim.syncId}`;
+
   const changedContent = sourceContent(
     EMPTY_CODE,
     "Empty Source Record",

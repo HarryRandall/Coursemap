@@ -614,7 +614,7 @@ async function persistUnderLease(
   }
   const lockDraft = async () => {
     const [row] =
-      await tx`select content, content_hash from public.catalogue_drafts
+      await tx`select content, content_hash, updated_by from public.catalogue_drafts
         where record_id = ${claim.recordId} for update`;
     return row;
   };
@@ -686,6 +686,23 @@ async function persistUnderLease(
     // wants the reading back.
     const draft = await lockDraft();
     if (!hasMeaningfulLocalContent(draft) && previous.sync_id !== null) {
+      await populateDraft(previousSourceVersionId!, String(previous.sync_id));
+      return {
+        status: "applied",
+        sourceVersionId: previousSourceVersionId!,
+        populatedDraft: true,
+      };
+    }
+    // A newer parser can change only the review flags, which the content hash
+    // leaves out, so an untouched unpublished draft takes the new reading.
+    if (
+      draft &&
+      draft.updated_by === null &&
+      record.published_version_id === null &&
+      previous.sync_id !== null &&
+      JSON.stringify((draft.content as { flags?: unknown }).flags ?? []) !==
+        JSON.stringify(write.flags)
+    ) {
       await populateDraft(previousSourceVersionId!, String(previous.sync_id));
       return {
         status: "applied",
