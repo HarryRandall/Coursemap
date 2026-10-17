@@ -118,6 +118,7 @@ export function finaliseCourseExtraction({
   knownProgrammes = [],
   knownPeriodCodes,
   knownTags,
+  checkedScope = false,
 }: {
   code: string;
   year: number;
@@ -129,6 +130,8 @@ export function finaliseCourseExtraction({
   knownProgrammes?: readonly KnownProgramme[];
   knownPeriodCodes?: readonly string[];
   knownTags?: readonly string[];
+  /** The rule's AND/OR scope was confirmed by an independent check. */
+  checkedScope?: boolean;
 }) {
   const canonical = canonicaliseCourseModelExtraction(
     withModelEvidenceMethod(model),
@@ -168,6 +171,7 @@ export function finaliseCourseExtraction({
   const sourceReview = reviewCourseSourceRules({
     requisites: extraction.requisites,
     pageMarkdown,
+    checkedScope,
   });
   if (sourceReview.unscopedPrerequisiteClauses.length) {
     extraction.requisites.prerequisiteRule = null;

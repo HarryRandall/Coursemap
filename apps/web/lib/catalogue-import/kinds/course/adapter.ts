@@ -1,3 +1,4 @@
+import { isAgentImportModel } from "../../agent-extraction.ts";
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { courseCatalogueContent } from "../../../catalogue/content.ts";
 import { convertAnuPageToMarkdown } from "../../anu-page-markdown.ts";
@@ -109,6 +110,9 @@ export const courseKindAdapter: CatalogueSyncAdapter<CourseExtraction> = {
       knownPeriodCodes: context?.knownAcademicPeriods?.map(
         (period) => period.code,
       ),
+      // Agent answers are saved only after an independent check of their
+      // scope, so the source's plain-conjunction guess does not override them.
+      checkedScope: isAgentImportModel(claim.requestedModel),
     });
   },
   project(extraction) {

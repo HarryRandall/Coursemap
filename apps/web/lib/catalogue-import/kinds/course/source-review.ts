@@ -452,9 +452,12 @@ export function liftRepresentedEligibilityFlags(
 export function reviewCourseSourceRules({
   requisites,
   pageMarkdown,
+  checkedScope = false,
 }: {
   requisites: CourseExtraction["requisites"];
   pageMarkdown: string;
+  /** An independent check already confirmed the rule's AND/OR scope. */
+  checkedScope?: boolean;
 }): {
   reviewItems: CourseExtractionReviewItem[];
   unsupportedCollegeNames: string[];
@@ -466,9 +469,10 @@ export function reviewCourseSourceRules({
     [requisites.prerequisiteRule, requisites.corequisiteRule],
     pageMarkdown,
   );
-  const unscoped = requisites.prerequisiteRule
-    ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
-    : [];
+  const unscoped =
+    requisites.prerequisiteRule && !checkedScope
+      ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
+      : [];
   const collegeNames = [
     ...new Set([
       ...unsupportedCollegeNames(requisites.prerequisiteRule, pageMarkdown),
