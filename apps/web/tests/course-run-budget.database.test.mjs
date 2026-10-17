@@ -7,6 +7,7 @@ import {
   settleCourseRunSpend,
   courseRunAllowance,
 } from "../lib/catalogue-runs/budget.ts";
+import { bulkImportInputCap } from "../lib/catalogue-runs/adapter.ts";
 
 let sql;
 const runIds = [];
@@ -77,7 +78,8 @@ test("concurrent reservations cannot both spend the last allowance", async () =>
 });
 
 test("settled cost releases unused allowance and repeated settlement is idempotent", async () => {
-  const { syncIds } = await fixture(0.01);
+  // Room for one full allowance plus a small settled cost, not two allowances.
+  const { syncIds } = await fixture(courseRunAllowance(0.25, 1.5) + 0.002);
   await reserveCourseRunSpend(sql, syncIds[0], 1000);
   await settleCourseRunSpend(sql, syncIds[0], 0.001);
   await settleCourseRunSpend(sql, syncIds[0], 0.001);
@@ -101,9 +103,9 @@ test("unknown provider cost pauses the whole run and prevents another request", 
 
 test("oversized inputs and cancelled runs cannot reserve paid work", async () => {
   const { runId, syncIds } = await fixture(0.5);
-  await expect(reserveCourseRunSpend(sql, syncIds[0], 20001)).rejects.toThrow(
-    "input cap",
-  );
+  await expect(
+    reserveCourseRunSpend(sql, syncIds[0], bulkImportInputCap("course") + 1),
+  ).rejects.toThrow("input cap");
   await sql`update public.catalogue_course_runs set state = 'cancelled' where id = ${runId}::uuid`;
   await expect(reserveCourseRunSpend(sql, syncIds[0], 1000)).rejects.toThrow(
     "stopped",

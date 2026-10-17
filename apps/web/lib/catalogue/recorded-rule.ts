@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ENROLMENT_MODES } from "../academic/enrolment-mode.ts";
+import { PROGRAMME_CAREERS } from "../academic/programme-career.ts";
 import {
   CATALOGUE_KINDS,
   validateCatalogueContent,
@@ -55,6 +56,8 @@ const conditionSchema = z
       "units_total",
       "subject_units",
       "subject_courses",
+      "course_count",
+      "filtered_units",
       "level_units",
       "tagged_units",
       "elective_units",
@@ -62,6 +65,7 @@ const conditionSchema = z
       "commencement_year",
       "enrolment_mode",
       "college_enrolment",
+      "career",
       "gpa",
       "wam",
       "permission",
@@ -85,6 +89,18 @@ const conditionSchema = z
     minimumYear: count,
     enrolmentMode: z.enum(ENROLMENT_MODES).nullable().optional(),
     matchesEnrolmentMode: z.boolean().nullable().optional(),
+    subjectCodes: z
+      .array(z.string().regex(/^[A-Z]{4}$/u))
+      .min(1)
+      .nullable()
+      .optional(),
+    courseLevels: z
+      .array(z.number().int().min(0).max(9999))
+      .min(1)
+      .nullable()
+      .optional(),
+    career: z.enum(PROGRAMME_CAREERS).nullable().optional(),
+    matchesCareer: z.boolean().nullable().optional(),
     minimumCommencementYear: count.optional(),
     maximumCommencementYear: count.optional(),
     minimumGpa: z.number().min(0).max(7).nullable(),
@@ -126,6 +142,7 @@ const recordedRuleSchema = z
           code: key,
           title: text,
           sourceText: text,
+          maximumUnits: z.number().positive().nullable().optional(),
         })
         .strict(),
     ),
@@ -246,6 +263,18 @@ export function catalogueContentWithRecordedRule(
     throw new TypeError(
       "Options for the same condition must have distinct positions.",
     );
+  const courseListKeys = new Set(
+    next.conditions
+      .filter((row) => row.kind === "course_set_units")
+      .map((row) => row.key),
+  );
+  if (
+    next.options.some(
+      (row) =>
+        row.maximumUnits != null && !courseListKeys.has(row.conditionKey),
+    )
+  )
+    throw new TypeError("Only a course in a course list can be repeated.");
   for (const row of [...next.groups, ...next.conditions]) {
     if (
       row.minimumUnits !== null &&

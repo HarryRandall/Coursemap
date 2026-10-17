@@ -36,6 +36,7 @@ import {
   courseListTitle,
   hidesCondition,
   listedCourseCounts,
+  repeatAllowancesByCode,
   requirementRowStatus,
   unitsDescription,
 } from "@/ui/requirements/requirement-presentation";
@@ -583,6 +584,7 @@ export function RequirementCondition({
         codes={codes}
         required={required}
         context={context}
+        repeatUnitsByCode={repeatAllowancesByCode(condition)}
       />
       {condition.includesAnyCourse ? (
         <MatchingCourses condition={condition} context={context} />

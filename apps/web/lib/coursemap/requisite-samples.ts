@@ -2,6 +2,11 @@ import {
   ENROLMENT_MODES,
   type EnrolmentMode,
 } from "../academic/enrolment-mode";
+import type {
+  ProgrammeCareer,
+  ProgrammeCareerRecord,
+} from "../academic/programme-career";
+import { catalogueKindForCode } from "../catalogue/record-reference";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
 
@@ -14,6 +19,8 @@ type Draft = {
   >;
   programmeCodes: Set<string>;
   programmeColleges: Array<{ code: string; college: string | null }>;
+  programmeCareers: ProgrammeCareerRecord[];
+  structureCodes: Set<string>;
   wam: number | null;
   gpa: number | null;
   studyYear: number;
@@ -40,6 +47,42 @@ function fillerCodes(
     if (!used.has(code)) codes.push(code);
   }
   return codes;
+}
+
+/**
+ * Invented codes at a printed level such as 1000 or 6100, from the top of its
+ * band of course numbers down, skipping codes the sample already holds.
+ */
+function fillerCodesAtLevel(
+  subject: string,
+  level: number,
+  count: number,
+  used: Map<string, unknown>,
+) {
+  const band =
+    level % 1000 === 0
+      ? 1000
+      : level % 100 === 0
+        ? 100
+        : level % 10 === 0
+          ? 10
+          : 1;
+  const codes: string[] = [];
+  const top = Math.min(9999, level + band - 1);
+  for (
+    let number = top;
+    codes.length < count && number >= Math.max(level, top - 99);
+    number -= 1
+  ) {
+    const code = `${subject}${String(number).padStart(4, "0")}`;
+    if (!used.has(code)) codes.push(code);
+  }
+  return codes;
+}
+
+/** A career that does not satisfy the required one. */
+function otherCareer(career: ProgrammeCareer): ProgrammeCareer {
+  return career === "undergraduate" ? "postgraduate" : "undergraduate";
 }
 
 function addUnits(
@@ -122,6 +165,32 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
         draft.completed.set(code, { units: COURSE_UNITS, mark: 75 });
       }
       return;
+    case "course_count":
+    case "filtered_units": {
+      const count =
+        node.kind === "course_count"
+          ? Math.floor(node.minimumCount * share)
+          : Math.ceil(Math.floor(node.units * share) / COURSE_UNITS);
+      for (const code of fillerCodesAtLevel(
+        node.subjects?.[0] ?? "ZZSA",
+        node.levels?.[0] ?? 1000,
+        count,
+        draft.completed,
+      )) {
+        draft.completed.set(code, { units: COURSE_UNITS, mark: 75 });
+      }
+      return;
+    }
+    case "career":
+      if (!partial) {
+        const code = `SAMPLE${draft.programmeCareers.length + 1}`;
+        draft.programmeCodes.add(code);
+        draft.programmeCareers.push({
+          code,
+          career: node.matchesCareer ? node.career : otherCareer(node.career),
+        });
+      }
+      return;
     case "level_units":
       addUnits(
         draft,
@@ -160,8 +229,11 @@ function satisfy(node: CourseRuleExpression, draft: Draft, share: number) {
       );
       return;
     case "structure":
-      if (!partial && node.structureCode)
-        draft.programmeCodes.add(node.structureCode);
+      if (!partial && node.structureCode) {
+        if (catalogueKindForCode(node.structureCode) === "programme")
+          draft.programmeCodes.add(node.structureCode);
+        else draft.structureCodes.add(node.structureCode);
+      }
       return;
     case "structure_set":
       if (!partial && node.structureCodes[0])
@@ -198,6 +270,8 @@ export function sampleStudent(
     completed: new Map(),
     programmeCodes: new Set(),
     programmeColleges: [],
+    programmeCareers: [],
+    structureCodes: new Set(),
     wam: null,
     gpa: null,
     studyYear: 1,
@@ -210,6 +284,8 @@ export function sampleStudent(
     enrolled: new Set(),
     programmeCodes: [...draft.programmeCodes],
     programmeColleges: draft.programmeColleges,
+    programmeCareers: draft.programmeCareers,
+    structureCodes: [...draft.structureCodes],
     ...(draft.enrolmentMode ? { enrolmentMode: draft.enrolmentMode } : {}),
     wam: draft.wam,
     gpa: draft.gpa,

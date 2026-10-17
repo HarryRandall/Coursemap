@@ -91,3 +91,14 @@ test("removes paragraph markup embedded in an ANU contact address", () => {
   );
   assert.doesNotMatch(markdown, /<p>|<\/p>/u);
 });
+
+test("keeps the space a page leaves inside emphasis between words", () => {
+  const markdown = convertAnuPageToMarkdown({
+    html: "<main><p><em>From the Romans to the Anglo-Saxons </em>delves into Europe. Proteins<em> in vivo</em>; <strong>Note: </strong>Read.</p></main>",
+    frontMatter: { kind: "course", code: "HIST2196", year: 2026 },
+  });
+  assert.match(
+    markdown,
+    /\*From the Romans to the Anglo-Saxons\* delves into Europe\. Proteins \*in vivo\*; \*\*Note:\*\* Read\./,
+  );
+});

@@ -1,5 +1,9 @@
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import {
+  programmeCareerFromAcademicCareer,
+  type ProgrammeCareerRecord,
+} from "@/lib/academic/programme-career";
+import {
   validEnrolmentMode,
   type EnrolmentMode,
 } from "@/lib/academic/enrolment-mode";
@@ -42,6 +46,7 @@ export type PlanCatalogue = {
   commencementYear?: number | null;
   enrolmentMode?: EnrolmentMode | null;
   programmeColleges?: readonly ProgrammeCollege[];
+  programmeCareers?: readonly ProgrammeCareerRecord[];
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
@@ -58,6 +63,11 @@ export type PlanRequirementOption = {
   kind: string;
   position: number;
   structureKind: string | null;
+  /**
+   * Total units a listed course may contribute across repeated attempts, when
+   * the source lets it be taken more than once. Absent means it counts once.
+   */
+  maximumUnits?: number | null;
 };
 
 export type PlanRequirementCondition = {
@@ -139,6 +149,7 @@ type AcademicPeriodRow = {
   sort_order: number;
 };
 type StructureSnapshotRow = {
+  academic_career: string | null;
   college: string | null;
   description: string | null;
   duration_years: number | null;
@@ -273,6 +284,9 @@ export function buildAcademicStructureRequirementTree({
           kind: option.kind === "course" ? "course" : "structure",
           position: option.position,
           structureKind: option.kind === "course" ? null : option.kind,
+          ...(option.maximum_units == null
+            ? {}
+            : { maximumUnits: Number(option.maximum_units) }),
         })),
       position: condition.position,
       projectionKey: condition.condition_key,
@@ -398,7 +412,9 @@ async function readPublishedStructureCatalogue(
       snapshotIds.length
         ? supabase
             .from("structure_version_details")
-            .select("college,description,duration_years,version_id,name,units")
+            .select(
+              "academic_career,college,description,duration_years,version_id,name,units",
+            )
             .in("version_id", snapshotIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
@@ -646,6 +662,18 @@ export async function loadPublishedPlanCatalogue(
     terms,
     degrees,
     programmeColleges: degrees.map(({ code, college }) => ({ code, college })),
+    programmeCareers: structureYears.flatMap((structureYear) =>
+      structureYear.kind === "programme"
+        ? [
+            {
+              code: structureYear.code,
+              career: programmeCareerFromAcademicCareer(
+                structureYear.snapshot.academic_career,
+              ),
+            },
+          ]
+        : [],
+    ),
     majors,
     structures,
     programmeRequirementsImported: structureRequirements.some(

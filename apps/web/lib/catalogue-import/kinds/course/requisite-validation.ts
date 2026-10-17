@@ -1,5 +1,7 @@
 import { ENROLMENT_MODES } from "../../../academic/enrolment-mode.ts";
 import { validCommencementYearBounds } from "../../../academic/commencement-year.ts";
+import { PROGRAMME_CAREERS } from "../../../academic/programme-career.ts";
+import { catalogueKindForCode } from "../../../catalogue/record-reference.ts";
 import type { CourseExtractionValidationIssue } from "./contract.ts";
 import {
   COURSE_CODE_PATTERN,
@@ -64,6 +66,34 @@ function validateIncompatibilityRule(
         "must be not_completed, not_concurrent, permission, all_of or one_of",
     });
   }
+}
+
+/** Major, minor and specialisation codes, such as MATH-MAJ or MATH-HSPC. */
+const STRUCTURE_CODE_PATTERN = /^[A-Z0-9]{2,16}-(?:MAJ|MIN|SPEC|HSPC)$/u;
+
+/** A course filter is null for "any", otherwise a non-empty distinct list. */
+function validateFilterList(
+  value: unknown,
+  path: string,
+  issues: CourseExtractionValidationIssue[],
+  {
+    validate,
+    label,
+  }: {
+    validate: (item: unknown, path: string) => void;
+    label: string;
+  },
+) {
+  if (value === null) return;
+  requireArray(value, path, issues, validate);
+  if (!Array.isArray(value)) return;
+  if (value.length === 0)
+    issues.push({
+      path,
+      message: `must be null or contain at least one ${label}`,
+    });
+  if (new Set(value).size !== value.length)
+    issues.push({ path, message: `must not repeat a ${label}` });
 }
 
 function validateRule(
@@ -213,12 +243,105 @@ function validateRule(
           });
       }
     }
+  } else if (op === "min_courses_matching" || op === "min_units_matching") {
+    const amountKey =
+      op === "min_courses_matching" ? "minimumCount" : "minimumUnits";
+    const record = exactRecord(
+      value,
+      path,
+      ["op", amountKey, "subjectCodes", "levels", "includeConcurrent"],
+      issues,
+    );
+    if (record) {
+      requireNumber(
+        record[amountKey],
+        `${path}.${amountKey}`,
+        issues,
+        op === "min_courses_matching"
+          ? { integer: true, minimum: 1, maximum: 32767 }
+          : { exclusiveMinimum: 0 },
+      );
+      validateFilterList(record.subjectCodes, `${path}.subjectCodes`, issues, {
+        validate: (item, itemPath) =>
+          requireString(item, itemPath, issues, { pattern: /^[A-Z]{4}$/ }),
+        label: "subject",
+      });
+      validateFilterList(record.levels, `${path}.levels`, issues, {
+        validate: (item, itemPath) =>
+          requireNumber(item, itemPath, issues, {
+            integer: true,
+            minimum: 0,
+            maximum: 9999,
+          }),
+        label: "level",
+      });
+      if (record.subjectCodes === null && record.levels === null)
+        issues.push({
+          path,
+          message: "must filter by subjectCodes, levels or both",
+        });
+      requireBoolean(
+        record.includeConcurrent,
+        `${path}.includeConcurrent`,
+        issues,
+      );
+    }
   } else if (op === "enrolled_in") {
-    const record = exactRecord(value, path, ["op", "programmeCode"], issues);
-    if (record)
+    const isTitle =
+      typeof value === "object" &&
+      value !== null &&
+      "programmeTitle" in value &&
+      !("programmeCode" in value);
+    const record = exactRecord(
+      value,
+      path,
+      ["op", isTitle ? "programmeTitle" : "programmeCode"],
+      issues,
+    );
+    if (record && isTitle)
+      requireString(record.programmeTitle, `${path}.programmeTitle`, issues);
+    else if (record)
       requireString(record.programmeCode, `${path}.programmeCode`, issues, {
         pattern: /^[A-Z0-9-]{3,20}$/,
       });
+  } else if (op === "enrolled_in_career") {
+    const record = exactRecord(
+      value,
+      path,
+      ["op", "career", "matches"],
+      issues,
+    );
+    if (record) {
+      requireEnum(record.career, `${path}.career`, PROGRAMME_CAREERS, issues);
+      requireBoolean(record.matches, `${path}.matches`, issues);
+    }
+  } else if (op === "enrolled_in_structure") {
+    const record = exactRecord(
+      value,
+      path,
+      ["op", "structureCode", "structureKind"],
+      issues,
+    );
+    if (record) {
+      requireString(record.structureCode, `${path}.structureCode`, issues, {
+        pattern: STRUCTURE_CODE_PATTERN,
+      });
+      requireEnum(
+        record.structureKind,
+        `${path}.structureKind`,
+        ["major", "minor", "specialisation"],
+        issues,
+      );
+      if (
+        typeof record.structureCode === "string" &&
+        STRUCTURE_CODE_PATTERN.test(record.structureCode) &&
+        catalogueKindForCode(record.structureCode) !== record.structureKind
+      )
+        issues.push({
+          path: `${path}.structureKind`,
+          message: `must match the kind of ${record.structureCode}`,
+        });
+    }
   } else if (op === "enrolled_in_college") {
     const record = exactRecord(value, path, ["op", "college"], issues);
     if (record) requireString(record.college, `${path}.college`, issues);

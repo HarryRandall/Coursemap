@@ -20,6 +20,7 @@ import {
 import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.ts";
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
+import { requirementWriteWithTree } from "../lib/catalogue-import/requirement-tree.ts";
 import {
   ensureAnuSourceId,
   startSyncStage,
@@ -39,6 +40,7 @@ const EMPTY_CODE = "TSTC9101";
 const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
 const OFFERING_CODE = "TSTC9104";
+const REPEAT_CODE = "TSTC9105";
 
 let sql;
 let yearId;
@@ -58,14 +60,17 @@ function sourceContent(code, title, description) {
 }
 
 async function removeFixtures() {
-  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
+  await sql`delete from public.catalogue_listings where code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${REPEAT_CODE})`;
   await sql`alter table public.catalogue_source_documents disable trigger catalogue_source_documents_reject_mutation`;
   await sql`alter table public.catalogue_versions disable trigger catalogue_versions_enforce_immutability`;
   await sql`alter table public.catalogue_publications disable trigger catalogue_publications_guard_history`;
   await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
   await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
-    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE})`;
+    // The repeatable record's options reference two other fixture courses.
+    await sql`delete from public.catalogue_codes where kind = 'course' and code = ${REPEAT_CODE}`;
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${REPEAT_CODE})`;
+    await sql`delete from public.catalogue_codes where kind = 'specialisation' and code = 'TSTC-HSPC'`;
   } finally {
     await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
     await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
@@ -171,6 +176,7 @@ beforeAll(async () => {
   await createRecord(MANUAL_CODE, "Manual Source Record");
   await createRecord(COHORT_CODE, "Cohort Exception Record");
   await createRecord(OFFERING_CODE, "Offering Roundtrip Record");
+  await createRecord(REPEAT_CODE, "Repeatable Course Record");
 });
 
 afterAll(async () => {
@@ -742,6 +748,38 @@ test("first, unchanged and changed source observations preserve local intent", a
   await sql`update public.catalogue_syncs set status = 'unchanged', completed_at = now()
     where id = ${unchangedFixture.claim.syncId}`;
 
+  // A newer parser reading of the same source can change only review flags.
+  const reflaggedFixture = await createSyncFixture(EMPTY_CODE, "a".repeat(64));
+  const reflagged = await persistSourceVersion(sql, {
+    claim: reflaggedFixture.claim,
+    sourceDocumentId: reflaggedFixture.documentId,
+    write: {
+      ...firstContent,
+      flags: [
+        ...firstContent.flags,
+        {
+          code: "UNSUPPORTED",
+          message: "A newer parser review.",
+          severity: "warning",
+          fieldPath: "description",
+          sourceExcerpt: null,
+        },
+      ],
+    },
+  });
+  assert.equal(reflagged.status, "applied");
+  assert.equal(reflagged.sourceVersionId, first.sourceVersionId);
+  const [reflaggedDraft] = await sql`
+    select content from public.catalogue_drafts where record_id = ${emptyRecordId}
+  `;
+  assert.ok(
+    reflaggedDraft.content.flags.some(
+      (flag) => flag.message === "A newer parser review.",
+    ),
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now()
+    where id = ${reflaggedFixture.claim.syncId}`;
+
   const changedContent = sourceContent(
     EMPTY_CODE,
     "Empty Source Record",
@@ -1264,4 +1302,186 @@ test("cohort bounds survive source import, idempotent replay and published proje
     assert.equal(versions.count, 0);
     await sql`update public.catalogue_syncs set status = 'failed', completed_at = now() where id = ${invalidFixture.claim.syncId}`;
   }
+});
+
+test("course filters, careers and structure enrolment survive persistence and the published projection", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Flexible requisite persistence",
+  });
+  model.requisites.prerequisiteText =
+    "Completed or be completing five 1000 or 6100 level LAWS courses, 12 units of CLAS or HIST courses, a postgraduate program and the TSTC-HSPC specialisation.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      {
+        op: "min_courses_matching",
+        minimumCount: 5,
+        subjectCodes: ["LAWS"],
+        levels: [1000, 6100],
+        includeConcurrent: true,
+      },
+      {
+        op: "min_units_matching",
+        minimumUnits: 12,
+        subjectCodes: ["CLAS", "HIST"],
+        levels: null,
+        includeConcurrent: false,
+      },
+      { op: "enrolled_in_career", career: "postgraduate", matches: true },
+      {
+        op: "enrolled_in_structure",
+        structureCode: "TSTC-HSPC",
+        structureKind: "specialisation",
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const stored = await sql`
+    select conditions.condition_kind, conditions.subject_codes, conditions.course_levels,
+      conditions.requirement_mode, conditions.career, conditions.matches_career,
+      codes.kind as item_kind, codes.code as item_code
+    from public.requirement_conditions as conditions
+    left join public.catalogue_codes as codes on codes.id = conditions.code_id
+    where conditions.version_id = ${result.sourceVersionId}
+    order by conditions.position
+  `;
+  assert.deepEqual(
+    stored.map((row) => ({ ...row })),
+    [
+      {
+        condition_kind: "course_count",
+        subject_codes: ["LAWS"],
+        course_levels: [1000, 6100],
+        requirement_mode: "completed_or_concurrent",
+        career: null,
+        matches_career: null,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "filtered_units",
+        subject_codes: ["CLAS", "HIST"],
+        course_levels: null,
+        requirement_mode: "completed",
+        career: null,
+        matches_career: null,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "career",
+        subject_codes: null,
+        course_levels: null,
+        requirement_mode: null,
+        career: "postgraduate",
+        matches_career: true,
+        item_kind: null,
+        item_code: null,
+      },
+      {
+        condition_kind: "structure",
+        subject_codes: null,
+        course_levels: null,
+        requirement_mode: null,
+        career: null,
+        matches_career: null,
+        item_kind: "specialisation",
+        item_code: "TSTC-HSPC",
+      },
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  const conditions = readProjectionPrerequisiteRule(projection.content)
+    .relationalExpression.conditions;
+  assert.deepEqual(
+    conditions.map((condition) => condition.kind),
+    ["course_count", "filtered_units", "career", "structure"],
+  );
+  assert.deepEqual(conditions[0].levels, [1000, 6100]);
+  assert.equal(conditions[0].requirementMode, "completed_or_concurrent");
+  assert.deepEqual(conditions[1].subjects, ["CLAS", "HIST"]);
+  assert.equal(conditions[2].career, "postgraduate");
+  assert.equal(conditions[3].structureCode, "TSTC-HSPC");
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+});
+
+test("a repeat allowance survives persistence, readback and the published projection", async () => {
+  const content = sourceContent(
+    REPEAT_CODE,
+    "Repeatable Course Record",
+    "Lists a course that may be taken more than once.",
+  );
+  content.requirements = requirementWriteWithTree(
+    content.requirements,
+    "prerequisite",
+    {
+      type: "group",
+      id: "root",
+      operator: "all_of",
+      minimumCount: null,
+      children: [
+        {
+          type: "condition",
+          id: "topics",
+          kind: "course_set_units",
+          units: 24,
+          courseCodes: [EMPTY_CODE, MANUAL_CODE],
+        },
+      ],
+    },
+    "24 units from the topic courses, which may be repeated.",
+  );
+  const repeatable = content.requirements.options.find(
+    (option) => option.code === EMPTY_CODE,
+  );
+  repeatable.maximumUnits = 24;
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(REPEAT_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const stored = await sql`
+    select code, maximum_units from public.requirement_condition_options
+    where version_id = ${result.sourceVersionId} order by position
+  `;
+  assert.deepEqual(
+    stored.map((row) => ({ code: row.code, units: row.maximum_units })),
+    [
+      { code: EMPTY_CODE, units: "24.00" },
+      { code: MANUAL_CODE, units: null },
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+  const [projection] =
+    await sql`select private.requirement_projection(${result.sourceVersionId}) as requirements`;
+  assert.deepEqual(
+    projection.requirements.ruleConditionCourses.map((option) => [
+      option.sourceCourseCode,
+      option.maximumUnits,
+    ]),
+    [
+      [EMPTY_CODE, 24],
+      [MANUAL_CODE, undefined],
+    ],
+  );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });

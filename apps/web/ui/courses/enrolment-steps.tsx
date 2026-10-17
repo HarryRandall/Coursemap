@@ -324,6 +324,19 @@ export function EnrolmentSteps({
         return measure?.kind === "units" ? (
           <UnitsBar value={measure.value} target={measure.target} />
         ) : null;
+      case "filtered_units":
+        return measure?.kind === "units" ? (
+          <UnitsBar value={measure.value} target={measure.target} />
+        ) : result?.detail ? (
+          <p className="text-xs text-muted-foreground">{result.detail}</p>
+        ) : null;
+      case "course_count":
+        return measure?.kind === "count" ? (
+          <StateLine
+            met={result?.status === "met"}
+            text={`${measure.value} of ${measure.target} ${measure.target === 1 ? "course" : "courses"}${result?.detail ? `. ${result.detail}` : ""}`}
+          />
+        ) : null;
       case "subject_courses":
         return measure?.kind === "count" ? (
           <StateLine
@@ -368,6 +381,7 @@ export function EnrolmentSteps({
           </p>
         );
       case "college_enrolment":
+      case "career":
         return result?.detail ? (
           result.status === "unknown" ? (
             <p className="text-xs text-muted-foreground">{result.detail}</p>

@@ -154,6 +154,43 @@ export function canMeasureRequirementCondition(
   );
 }
 
+/**
+ * Listed courses a condition lets count more than once, with the total units
+ * their attempts may contribute there.
+ */
+function repeatAllowances(
+  condition: Pick<PlanRequirementCondition, "options">,
+): Map<string, number> {
+  return new Map(
+    condition.options.flatMap((option) =>
+      option.kind === "course" &&
+      option.maximumUnits != null &&
+      option.maximumUnits > 0
+        ? [[option.code, option.maximumUnits] as const]
+        : [],
+    ),
+  );
+}
+
+/** The largest repeat allowance for each course anywhere inside the node. */
+function nodeRepeatAllowances(node: PlanRequirementNode): Map<string, number> {
+  const allowances = new Map<string, number>();
+  const visit = (current: PlanRequirementNode) => {
+    if (current.type === "group") {
+      current.children.forEach(visit);
+      return;
+    }
+    for (const [code, units] of repeatAllowances(current))
+      allowances.set(code, Math.max(units, allowances.get(code) ?? 0));
+  };
+  visit(node);
+  return allowances;
+}
+
+function repeatableCourseCodes(node: PlanRequirementNode | null) {
+  return new Set(node ? nodeRepeatAllowances(node).keys() : []);
+}
+
 function collectPredicates(node: PlanRequirementNode): CoursePredicate[] {
   if (node.type === "condition") return conditionPredicates(node);
   return node.children.flatMap(collectPredicates);
@@ -242,15 +279,38 @@ function bucketTargetUnits(node: PlanRequirementNode): number | null {
   );
 }
 
-/** Keep earned credit even when a later planned entry repeats the course. */
-function activeAttempts(attempts: readonly Attempt[]) {
+const NO_REPEATS: ReadonlySet<string> = new Set();
+
+/**
+ * Keep earned credit even when a later planned entry repeats the course. A
+ * course in `repeatable` also keeps one further attempt for each other
+ * teaching period, which counts only where a rule allows the repeat.
+ */
+function activeAttempts(
+  attempts: readonly Attempt[],
+  repeatable: ReadonlySet<string> = NO_REPEATS,
+) {
+  const active = attempts.filter(isActiveAttempt);
   const byCourse = new Map<string, Attempt>();
-  attempts.filter(isActiveAttempt).forEach((attempt) => {
+  active.forEach((attempt) => {
     if (byCourse.get(attempt.courseCode)?.status !== "completed") {
       byCourse.set(attempt.courseCode, attempt);
     }
   });
-  return [...byCourse.values()];
+  const repeats: Attempt[] = [];
+  const periodsByCourse = new Map<string, Set<string>>();
+  for (const attempt of active) {
+    const first = byCourse.get(attempt.courseCode)!;
+    if (!repeatable.has(attempt.courseCode) || attempt === first) continue;
+    const periods =
+      periodsByCourse.get(attempt.courseCode) ?? new Set([first.termId]);
+    // Two entries in one period are the same attempt recorded twice.
+    if (periods.has(attempt.termId)) continue;
+    periods.add(attempt.termId);
+    periodsByCourse.set(attempt.courseCode, periods);
+    repeats.push(attempt);
+  }
+  return { first: [...byCourse.values()], repeats };
 }
 
 /**
@@ -291,7 +351,11 @@ export function requirementBucketProgress({
         bucket.title !== null && bucket.predicates.length > 0,
     );
 
-  const credited = creditedAttempts(attempts, catalogue);
+  const credited = creditedAttempts(
+    attempts,
+    catalogue,
+    repeatableCourseCodes(root),
+  );
 
   const overriddenProgress = overrides.some(
     (item) => item.structureCode === programme?.structureCode,
@@ -306,10 +370,16 @@ export function requirementBucketProgress({
     : null;
   return buckets.map(({ node, title, description }) => {
     const predicates = countableBucketPredicates(node, credited);
+    const allowances = nodeRepeatAllowances(node);
+    const unitsByCourse = new Map<string, number>();
     let completedUnits = 0;
     let plannedUnits = 0;
-    credited.forEach(({ attempt, course, units }) => {
+    credited.forEach(({ attempt, course, units, repeat }) => {
       if (!predicates.some((matches) => matches(course))) return;
+      const counted = unitsByCourse.get(course.code) ?? 0;
+      if (repeat && counted + units > (allowances.get(course.code) ?? 0))
+        return;
+      unitsByCourse.set(course.code, counted + units);
       if (attempt.status === "completed") completedUnits += units;
       else plannedUnits += units;
     });
@@ -387,18 +457,56 @@ export type CreditedAttempt = {
   attempt: Attempt;
   course: MatchableCourse & { name: string; units?: number };
   units: number;
+  /**
+   * A further attempt of a course already credited. It counts only where a
+   * rule lets the course repeat; see `CoursePlacement.repeats`.
+   */
+  repeat?: true;
 };
 
-/** Active plan entries, one per course, with the catalogue row they credit. */
+/**
+ * Active plan entries, one per course, with the catalogue row they credit.
+ * Courses in `repeatable` also yield their further attempts, marked `repeat`
+ * and listed after every first attempt.
+ */
 export function creditedAttempts(
   attempts: readonly Attempt[],
   catalogue: PlanningCatalogue,
+  repeatable: ReadonlySet<string> = NO_REPEATS,
 ): CreditedAttempt[] {
-  return activeAttempts(attempts).flatMap((attempt) => {
+  const { first, repeats } = activeAttempts(attempts, repeatable);
+  const credit = (attempt: Attempt, repeat: boolean): CreditedAttempt[] => {
     const course = planningCourseForAttempt(attempt, catalogue);
     if (!course) return [];
-    return [{ attempt, course, units: unitsForAttempt(attempt, course) }];
-  });
+    return [
+      {
+        attempt,
+        course,
+        units: unitsForAttempt(attempt, course),
+        ...(repeat ? { repeat: true as const } : {}),
+      },
+    ];
+  };
+  return [
+    ...first.flatMap((attempt) => credit(attempt, false)),
+    ...repeats.flatMap((attempt) => credit(attempt, true)),
+  ];
+}
+
+/**
+ * Whether a credited attempt counts towards anything in the degree: a first
+ * attempt unless a cap excludes it, and a further attempt only when it was
+ * allocated under a repeat allowance.
+ */
+function countsInDegree(
+  entry: CreditedAttempt,
+  allocation: RequirementAllocation,
+) {
+  const placement = allocation.get(entry.course.code);
+  if (placement?.overCapKey) return false;
+  return (
+    !entry.repeat || Boolean(placement?.repeats?.includes(entry.attempt.id))
+  );
 }
 
 function stateFromUnits({
@@ -443,6 +551,11 @@ export type CoursePlacement = {
   pinned: boolean;
   /** A degree-wide cap the course fell beyond, so it counts towards nothing. */
   overCapKey: string | null;
+  /**
+   * Identifiers of further attempts of the course that also count at
+   * `nodeKey`, within that rule's repeat allowance for it.
+   */
+  repeats?: readonly string[];
 };
 
 export type RequirementAllocation = ReadonlyMap<string, CoursePlacement>;
@@ -576,8 +689,12 @@ function pairSequence(
     condition.options.some((option) => option.kind !== "course")
   )
     return "invalid";
-  const first = credited.find((entry) => entry.course.code === codes[0]);
-  const second = credited.find((entry) => entry.course.code === codes[1]);
+  const first = credited.find(
+    (entry) => !entry.repeat && entry.course.code === codes[0],
+  );
+  const second = credited.find(
+    (entry) => !entry.repeat && entry.course.code === codes[1],
+  );
   if (!first || !second) return "partial";
   const firstSemester = semesterNumber(first.attempt.termId);
   const secondSemester = semesterNumber(second.attempt.termId);
@@ -657,16 +774,19 @@ function allocateSingleAlternative({
   const activeLeaves = leaves.filter(
     (leaf) => !overriddenKeys.has(leaf.node.projectionKey),
   );
-  const credited = orderedCredit(creditedAttempts(attempts, catalogue));
+  const credited = orderedCredit(
+    creditedAttempts(attempts, catalogue, repeatableCourseCodes(root)),
+  );
 
-  // Caps across the degree decide what may count at all.
+  // Caps across the degree decide what may count at all. Further attempts of
+  // a repeatable course follow their first attempt's placement below.
   const excluded = new Map<string, string>();
   for (const leaf of activeLeaves) {
     const cap = leaf.node.maximumUnits;
     if (leaf.scope !== "degree" || !leaf.mandatory || cap === null) continue;
     let used = 0;
-    for (const { course, units } of credited) {
-      if (excluded.has(course.code)) continue;
+    for (const { course, units, repeat } of credited) {
+      if (repeat || excluded.has(course.code)) continue;
       if (!leaf.predicates.some((matches) => matches(course))) continue;
       if (used + units > cap) excluded.set(course.code, leaf.key);
       else used += units;
@@ -687,8 +807,24 @@ function allocateSingleAlternative({
           (candidate.leaf.node.conditionKind !== "consecutive_semester_pair" ||
             pairSequence(candidate.leaf.node, credited) !== "invalid"),
       );
+  const hasRoom = (leaf: Leaf, units: number) => {
+    const maximum = leaf.node.maximumUnits;
+    return (
+      (maximum === null || (used.get(leaf.key) ?? 0) + units <= maximum) &&
+      leaf.pools.every(
+        (pool) =>
+          pool.maximum === null ||
+          (used.get(pool.key) ?? 0) + units <= pool.maximum,
+      )
+    );
+  };
+  const claim = (leaf: Leaf, units: number) => {
+    used.set(leaf.key, (used.get(leaf.key) ?? 0) + units);
+    for (const pool of leaf.pools)
+      used.set(pool.key, (used.get(pool.key) ?? 0) + units);
+  };
   const queue = credited
-    .filter(({ course }) => !excluded.has(course.code))
+    .filter(({ course, repeat }) => !repeat && !excluded.has(course.code))
     .map((entry) => ({ entry, candidates: candidatesFor(entry.course) }))
     .toSorted(
       (left, right) =>
@@ -700,17 +836,7 @@ function allocateSingleAlternative({
 
   for (const { entry, candidates } of queue) {
     const { course, units } = entry;
-    const room = candidates.filter(({ leaf }) => {
-      const maximum = leaf.node.maximumUnits;
-      return (
-        (maximum === null || (used.get(leaf.key) ?? 0) + units <= maximum) &&
-        leaf.pools.every(
-          (pool) =>
-            pool.maximum === null ||
-            (used.get(pool.key) ?? 0) + units <= pool.maximum,
-        )
-      );
-    });
+    const room = candidates.filter(({ leaf }) => hasRoom(leaf, units));
     const pinnedKey = pins.get(course.code);
     const pinned = room.find(({ leaf }) => leaf.key === pinnedKey);
     const needing = (leaf: Leaf) => {
@@ -730,15 +856,40 @@ function allocateSingleAlternative({
         .filter(({ leaf }) => needing(leaf))
         .toSorted((left, right) => left.rank - right.rank)[0] ??
       room.toSorted((left, right) => left.rank - right.rank)[0];
-    if (chosen) {
-      used.set(chosen.leaf.key, (used.get(chosen.leaf.key) ?? 0) + units);
-      for (const pool of chosen.leaf.pools)
-        used.set(pool.key, (used.get(pool.key) ?? 0) + units);
-    }
+    if (chosen) claim(chosen.leaf, units);
     placements.set(course.code, {
       nodeKey: chosen?.leaf.key ?? null,
       pinned: Boolean(pinned),
       overCapKey: null,
+    });
+  }
+
+  // A further attempt counts only where the first attempt counts, while that
+  // rule's allowance for the course and its own limits have room.
+  const unitsByCourse = new Map(
+    credited.flatMap(({ course, units, repeat }) =>
+      repeat ? [] : [[course.code, units] as const],
+    ),
+  );
+  for (const { attempt, course, units, repeat } of credited) {
+    if (!repeat) continue;
+    const placement = placements.get(course.code);
+    const leaf = parts.find(({ key }) => key === placement?.nodeKey);
+    const allowance = leaf && repeatAllowances(leaf.node).get(course.code);
+    const counted = unitsByCourse.get(course.code) ?? 0;
+    if (
+      !placement ||
+      !leaf ||
+      allowance === undefined ||
+      counted + units > allowance ||
+      !hasRoom(leaf, units)
+    )
+      continue;
+    claim(leaf, units);
+    unitsByCourse.set(course.code, counted + units);
+    placements.set(course.code, {
+      ...placement,
+      repeats: [...(placement.repeats ?? []), attempt.id],
     });
   }
   for (const [code, capKey] of excluded) {
@@ -862,28 +1013,30 @@ function conditionProgress(
   const predicates = conditionPredicates(condition);
   // A part counts only what was allocated to it; a degree-wide rule reads
   // every course the degree counts, and the total reads them all.
-  const counts = ({ course }: CreditedAttempt) => {
-    const placement = allocation.get(course.code);
-    if (placement?.overCapKey) return false;
+  const counts = (entry: CreditedAttempt) => {
+    if (!countsInDegree(entry, allocation)) return false;
     if (condition.conditionKind === "units_total") return true;
     if (scope === "degree")
-      return predicates.some((matches) => matches(course));
-    return placement?.nodeKey === key;
+      return predicates.some((matches) => matches(entry.course));
+    return allocation.get(entry.course.code)?.nodeKey === key;
   };
   let completedUnits = 0;
   let plannedUnits = 0;
-  let completedCourses = 0;
+  // A repeated course is still one course towards a course count.
+  const completedCodes = new Set<string>();
   const matchedCourseCodes: string[] = [];
   credited.forEach((entry) => {
     if (!counts(entry)) return;
-    matchedCourseCodes.push(entry.course.code);
+    if (!matchedCourseCodes.includes(entry.course.code))
+      matchedCourseCodes.push(entry.course.code);
     if (entry.attempt.status === "completed") {
       completedUnits += entry.units;
-      completedCourses += 1;
+      completedCodes.add(entry.course.code);
     } else {
       plannedUnits += entry.units;
     }
   });
+  const completedCourses = completedCodes.size;
   if (condition.conditionKind === "units_total")
     completedUnits += overrides.reduce(
       (sum, item) => sum + (item.creditedUnits ?? 0),
@@ -1006,16 +1159,18 @@ function groupProgress(
   const matched = new Set(matchedCourseCodes);
   let completedUnits = 0;
   let plannedUnits = 0;
-  let completedCourses = 0;
-  credited.forEach(({ attempt, course, units }) => {
-    if (!matched.has(course.code)) return;
-    if (attempt.status === "completed") {
-      completedUnits += units;
-      completedCourses += 1;
+  const completedCodes = new Set<string>();
+  credited.forEach((entry) => {
+    if (!matched.has(entry.course.code) || !countsInDegree(entry, allocation))
+      return;
+    if (entry.attempt.status === "completed") {
+      completedUnits += entry.units;
+      completedCodes.add(entry.course.code);
     } else {
-      plannedUnits += units;
+      plannedUnits += entry.units;
     }
   });
+  const completedCourses = completedCodes.size;
 
   const creditedUnits = children.reduce(
     (sum, child) => sum + (child.creditedUnits ?? 0),
@@ -1090,7 +1245,11 @@ export function requirementTreeProgress({
 }): RequirementTreeProgress {
   const progress = new Map<string, RequirementNodeProgress>();
   if (!root) return progress;
-  const credited = creditedAttempts(attempts, catalogue);
+  const credited = creditedAttempts(
+    attempts,
+    catalogue,
+    repeatableCourseCodes(root),
+  );
   const requirementKeys = new Set(
     [...requirementConditionsByKey(root).values()].map(
       (condition) => condition.projectionKey,
@@ -1126,9 +1285,7 @@ export function requirementTreeProgress({
     scopedOverrides,
   );
   if (root.scope === "degree" && allocationRoot(root) !== root) {
-    const total = credited.filter(
-      ({ course }) => !placements.get(course.code)?.overCapKey,
-    );
+    const total = credited.filter((entry) => countsInDegree(entry, placements));
     rootProgress.completedUnits = total
       .filter(({ attempt }) => attempt.status === "completed")
       .reduce(
@@ -1138,7 +1295,9 @@ export function requirementTreeProgress({
     rootProgress.plannedUnits = total
       .filter(({ attempt }) => attempt.status !== "completed")
       .reduce((sum, entry) => sum + entry.units, 0);
-    rootProgress.matchedCourseCodes = total.map(({ course }) => course.code);
+    rootProgress.matchedCourseCodes = [
+      ...new Set(total.map(({ course }) => course.code)),
+    ];
     if (
       root.maximumUnits !== null &&
       rootProgress.completedUnits + rootProgress.plannedUnits >

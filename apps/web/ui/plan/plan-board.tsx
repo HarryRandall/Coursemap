@@ -55,6 +55,7 @@ import { ResolvePanel } from "@/ui/plan/resolve-panel";
 import { OVERRIDE_REASONS } from "@/lib/coursemap/plan-overrides";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
+import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
   isSemesterTerm,
   sessionShortName,
@@ -257,6 +258,11 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
       programmeCodes: state.profile.degreeCode
         ? [state.profile.degreeCode]
         : [],
+      structureCodes: planStructureCodes({
+        majorCode: state.profile.majorCode,
+        minorCodes: state.profile.minorCodes,
+        specialisationCodes: state.profile.specialisationCodes,
+      }),
     };
     return base;
   }, [

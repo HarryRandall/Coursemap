@@ -146,6 +146,7 @@ function requirementTree(
           title:
             readNullableString(option.title) ??
             readNullableString(titles[code]),
+          maximumUnits: readNullableNumber(option.maximumUnits),
         };
       }),
     },

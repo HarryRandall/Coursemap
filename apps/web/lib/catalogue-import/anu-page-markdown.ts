@@ -152,6 +152,17 @@ function childrenMarkdown($: CheerioAPI, node: AnyNode): string {
     .join("");
 }
 
+/**
+ * Markdown emphasis cannot start or end with a space, so whitespace the page
+ * keeps inside the tag (`<em>Saxons </em>delves`) moves outside the markers
+ * instead of joining the neighbouring words.
+ */
+function emphasisMarkdown(raw: string, marker: string) {
+  const body = cleanText(raw);
+  if (!body) return /\s/u.test(raw) ? " " : "";
+  return `${/^\s/u.test(raw) ? " " : ""}${marker}${body}${marker}${/\s$/u.test(raw) ? " " : ""}`;
+}
+
 function nodeMarkdown($: CheerioAPI, node: AnyNode): string {
   if (node.type === "text") return cleanInline(node.data ?? "");
   if (node.type !== "tag") return "";
@@ -159,14 +170,10 @@ function nodeMarkdown($: CheerioAPI, node: AnyNode): string {
   const name = node.name.toLowerCase();
 
   if (name === "br") return "\n";
-  if (name === "strong" || name === "b") {
-    const body = cleanText(childrenMarkdown($, node));
-    return body ? `**${body}**` : "";
-  }
-  if (name === "em" || name === "i") {
-    const body = cleanText(childrenMarkdown($, node));
-    return body ? `*${body}*` : "";
-  }
+  if (name === "strong" || name === "b")
+    return emphasisMarkdown(childrenMarkdown($, node), "**");
+  if (name === "em" || name === "i")
+    return emphasisMarkdown(childrenMarkdown($, node), "*");
   if (name === "a") {
     return linkMarkdown(
       cleanText(childrenMarkdown($, node)),

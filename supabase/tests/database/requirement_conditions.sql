@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select extensions.plan(17);
+select extensions.plan(37);
 
 select extensions.ok(
   to_regclass('public.course_rules') is null
@@ -207,6 +207,241 @@ select extensions.lives_ok(
   'an unmeasured exchange condition preserves its units and level'
 );
 
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_count, subject_codes, course_levels, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'law-count', 10, 'course_count', 5, array['LAWS'], array[1000, 6100]::smallint[], 'completed_or_concurrent'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'a course count accepts subject and level filters with concurrency'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_count, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'bare-count', 11, 'course_count', 5, 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a course count needs a subject or level filter'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_count, subject_codes
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'modeless-count', 12, 'course_count', 5, array['LAWS']
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a course count states whether current enrolment counts'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'pooled-units', 13, 'filtered_units', 12, array['CLAS', 'GREK', 'LATN', 'HIST'], 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'filtered units accept several subjects'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'zero-units', 14, 'filtered_units', 0, array['CLAS'], 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'filtered units require a positive amount'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'lower-subject', 15, 'filtered_units', 12, array['Clas'], 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'every subject filter is a four-letter code'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes, course_levels, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'empty-subjects', 16, 'filtered_units', 12, array[]::text[], array[1000]::smallint[], 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'an empty subject filter is null instead'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_count, course_levels, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'high-level', 17, 'course_count', 2, array[10000]::smallint[], 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'level filters stay within 0 to 9999'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, subject_codes
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'stray-subjects', 18, 'units_total', 24, array['LAWS']
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'only course counts and filtered units carry filter lists'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_units, requirement_mode
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'stray-mode', 19, 'units_total', 24, 'completed'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'a unit total without filters carries no requirement mode'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, career, matches_career
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'postgraduate', 20, 'career', 'postgraduate', true
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'a career condition names a career and whether it applies'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, career, matches_career
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'bad-career', 21, 'career', 'graduate', true
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'career conditions use the four recognised careers'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, minimum_gpa, career, matches_career
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'stray-career', 22, 'gpa', 5, 'research', false
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  '23514',
+  null,
+  'career values belong to career conditions only'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind, code_id, item_kind
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'major', 23, 'structure', (select id from public.catalogue_codes where code = 'REQT-MAJ'), 'major'
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id
+  $$,
+  'a structure condition can reference a major'
+);
+
+select extensions.lives_ok(
+  $$
+    insert into public.requirement_conditions (
+      rule_id, version_id, group_id, condition_key, position, condition_kind,
+      minimum_units, maximum_units
+    )
+    select groups.rule_id, groups.version_id, groups.id, 'repeat-list', 24,
+      'course_set_units', 24, 24
+    from public.requirement_groups as groups join fixture on fixture.version_id = groups.version_id;
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 1, 'course', 'REQT1002', 24
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'repeat-list'
+  $$,
+  'a course list option records the units its repeated attempts may contribute'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 2, 'course', 'REQT1003', 36
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'repeat-list'
+  $$,
+  '23514',
+  null,
+  'a repeat allowance fits within its course list maximum'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 1, 'course', 'REQT1004', 12
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'semester-pair'
+  $$,
+  '23514',
+  null,
+  'only a course list can let a course repeat'
+);
+
+select extensions.throws_ok(
+  $$
+    insert into public.requirement_condition_options (
+      condition_id, version_id, position, kind, code, maximum_units
+    )
+    select conditions.id, conditions.version_id, 3, 'major', 'REQT-REP', 12
+    from public.requirement_conditions as conditions
+    where conditions.condition_key = 'majors'
+  $$,
+  '23514',
+  null,
+  'only a listed course can repeat'
+);
+
 select pg_temp.publish_snapshot((select version_id from fixture));
 
 select extensions.throws_ok(
@@ -232,6 +467,37 @@ select extensions.ok(
     select 1 from public.catalogue_codes where code in ('REQT1001', 'REQT-MAJ')
   ),
   'published requirements expose prerequisite codes and keep referenced placeholders visible'
+);
+
+select extensions.ok(
+  (
+    select count(*) = 2
+    from jsonb_array_elements(
+      public.published_course_detail('REQT1000', 2029::smallint) -> 'ruleConditions'
+    ) as conditions(value)
+    where (value ->> 'key' = 'law-count'
+        and value -> 'subjectCodes' = '["LAWS"]'::jsonb
+        and value -> 'courseLevels' = '[1000, 6100]'::jsonb
+        and value ->> 'courseRequirementMode' = 'completed_or_concurrent')
+      or (value ->> 'key' = 'postgraduate'
+        and value ->> 'career' = 'postgraduate'
+        and value -> 'matchesCareer' = 'true'::jsonb)
+  ),
+  'published requirements expose filters and careers'
+);
+
+select extensions.ok(
+  (
+    select count(*) filter (where value ? 'maximumUnits') = 1
+      and bool_or(
+        value ->> 'conditionKey' = 'repeat-list'
+        and (value ->> 'maximumUnits')::numeric = 24
+      )
+    from jsonb_array_elements(
+      public.published_course_detail('REQT1000', 2029::smallint) -> 'ruleConditionCourses'
+    ) as options(value)
+  ),
+  'published requirements expose a repeat allowance only where one is recorded'
 );
 
 reset role;

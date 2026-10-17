@@ -5,8 +5,12 @@ const { "requirement-progress": progressModule } = {
   "requirement-progress":
     await import("../lib/coursemap/requirement-progress.ts"),
 };
-const { allocateRequirements, requirementTreeProgress, requirementNodeKey } =
-  progressModule;
+const {
+  allocateRequirements,
+  requirementBucketProgress,
+  requirementTreeProgress,
+  requirementNodeKey,
+} = progressModule;
 
 function course(code, level, units = 6) {
   return {
@@ -45,6 +49,7 @@ const catalogue = {
     course("MATH1013", 1000),
     course("TSTF3009", 3000),
     course("TSTF3010", 3000),
+    course("CHEM4005", 4000, 12),
   ],
   terms,
 };
@@ -121,6 +126,102 @@ test("withdrawn courses do not contribute requirement units or hide a planned re
       .plannedUnits,
     6,
   );
+});
+
+function thesisAttempts() {
+  return [
+    ["t1", "2026-s1", "completed"],
+    ["t2", "2026-s2", "completed"],
+    ["t2-copy", "2026-s2", "planned"],
+    ["t3", "2027-s1", "planned"],
+    ["t4", "2027-s2", "planned"],
+    ["t5", "2028-s1", "planned"],
+  ].map(([id, termId, status]) => ({
+    ...attempt(id, "CHEM4005", status),
+    termId,
+  }));
+}
+
+function thesisTree(maximumUnits) {
+  const thesis = condition(1, {
+    minimumUnits: 48,
+    options: [{ ...option("CHEM4005"), maximumUnits }],
+    sourceText: "CHEM4005 Research Project, taken four times",
+  });
+  const total = condition(2, {
+    conditionKind: "units_total",
+    minimumUnits: 48,
+  });
+  return { thesis, total, root: group(10, "all_of", [thesis, total]) };
+}
+
+test("a repeatable course counts each attempt up to its allowance", () => {
+  const { thesis, total, root } = thesisTree(48);
+  const attempts = thesisAttempts();
+  const allocation = allocateRequirements({ root, attempts, catalogue });
+  assert.deepEqual(allocation.get("CHEM4005"), {
+    nodeKey: requirementNodeKey(thesis),
+    pinned: false,
+    overCapKey: null,
+    repeats: ["t2", "t3", "t4"],
+  });
+
+  const progress = requirementTreeProgress({ root, attempts, catalogue });
+  const result = progress.get(requirementNodeKey(thesis));
+  // Four attempts fill the 48 units; the fifth and the duplicate entry for
+  // the second semester count nowhere.
+  assert.equal(result.completedUnits, 24);
+  assert.equal(result.plannedUnits, 24);
+  assert.equal(result.state, "in_progress");
+  assert.deepEqual(result.matchedCourseCodes, ["CHEM4005"]);
+  assert.equal(progress.get(requirementNodeKey(total)).plannedUnits, 24);
+  assert.equal(progress.get(requirementNodeKey(root)).completedUnits, 24);
+
+  const done = attempts.map((entry) => ({ ...entry, status: "completed" }));
+  assert.equal(
+    requirementTreeProgress({ root, attempts: done, catalogue }).get(
+      requirementNodeKey(thesis),
+    ).state,
+    "satisfied",
+  );
+
+  const [bucket] = requirementBucketProgress({
+    requirements: [
+      {
+        root,
+        snapshotId: 1,
+        structureCode: "TEST-HON",
+        structureKind: "programme",
+        structureName: "Test honours",
+        unmodelled: [],
+      },
+    ],
+    attempts,
+    catalogue,
+  });
+  assert.equal(bucket.completedUnits + bucket.plannedUnits, 48);
+});
+
+test("a repeat allowance smaller than the attempts caps what counts", () => {
+  const { thesis, root } = thesisTree(24);
+  const result = requirementTreeProgress({
+    root,
+    attempts: thesisAttempts(),
+    catalogue,
+  }).get(requirementNodeKey(thesis));
+  assert.equal(result.completedUnits, 24);
+  assert.equal(result.plannedUnits, 0);
+});
+
+test("without a repeat allowance a course counts once however often it is taken", () => {
+  const { thesis, total, root } = thesisTree(undefined);
+  const attempts = thesisAttempts();
+  const allocation = allocateRequirements({ root, attempts, catalogue });
+  assert.equal(allocation.get("CHEM4005").repeats, undefined);
+  const progress = requirementTreeProgress({ root, attempts, catalogue });
+  assert.equal(progress.get(requirementNodeKey(thesis)).completedUnits, 12);
+  assert.equal(progress.get(requirementNodeKey(thesis)).plannedUnits, 0);
+  assert.equal(progress.get(requirementNodeKey(total)).completedUnits, 12);
 });
 
 test("a listed-course rule is satisfied once its minimum units are completed", () => {

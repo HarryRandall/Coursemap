@@ -44,6 +44,24 @@ export function unitsDescription(
   if (maximum !== null) return `Up to ${formatUnits(maximum)}`;
   return null;
 }
+/** How a listed course a student may take more than once reads beside it. */
+export function repeatAllowanceText(maximumUnits: number) {
+  return `may be repeated, up to ${formatUnits(maximumUnits)}`;
+}
+
+/** Each listed course the rule lets count more than once, by code. */
+export function repeatAllowancesByCode(
+  condition: RequirementTreeCondition,
+): ReadonlyMap<string, number> {
+  return new Map(
+    condition.options.flatMap((option) =>
+      option.kind === "course" && option.maximumUnits != null
+        ? [[option.code, option.maximumUnits] as const]
+        : [],
+    ),
+  );
+}
+
 export function levelCourseDescription(
   minimumLevel: number | null,
   maximumLevel: number | null,
@@ -288,6 +306,8 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
         ? `Complete at least ${condition.minimumCourses} listed course${condition.minimumCourses === 1 ? "" : "s"}`
         : "Complete from the listed courses",
     );
+    for (const [code, units] of repeatAllowancesByCode(condition))
+      parts.push(`${code} ${repeatAllowanceText(units)}`);
   } else if (condition.conditionKind === "consecutive_semester_pair") {
     parts.push(
       `Complete ${condition.options.map((option) => option.code).join(" then ")} in consecutive semesters`,

@@ -131,6 +131,24 @@ export function canonicaliseCourseModelExtraction(
         });
       }
     } else if (
+      rule.op === "enrolled_in" &&
+      typeof rule.programmeTitle === "string"
+    ) {
+      // A title naming one known programme is that programme. Anything else
+      // keeps its source wording and is checked by a reader.
+      const before = rule.programmeTitle;
+      const after = programmeCodeForName(before, knownProgrammes);
+      if (after) {
+        delete rule.programmeTitle;
+        rule.programmeCode = after;
+        changes.push({
+          path: `${path}.programmeTitle`,
+          rule: "programme_name_to_code",
+          before,
+          after,
+        });
+      }
+    } else if (
       (rule.op === "all_of" || rule.op === "one_of") &&
       Array.isArray(rule.rules)
     ) {

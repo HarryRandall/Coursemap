@@ -384,6 +384,7 @@ async function insertRequirements(
         rule_id, version_id, group_id, condition_key, position, condition_kind, code_id,
         item_kind, structure_kind, requirement_mode, minimum_mark, minimum_units, maximum_units,
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year, minimum_commencement_year, maximum_commencement_year, enrolment_mode, matches_enrolment_mode,
+        subject_codes, course_levels, career, matches_career,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
         review_state, confidence, scope, includes_any_course
       ) values (
@@ -393,7 +394,9 @@ async function insertRequirements(
         ${condition.structureKind}, ${condition.requirementMode}, ${condition.minimumMark},
         ${condition.minimumUnits}, ${condition.maximumUnits}, ${condition.minimumCount},
         ${condition.subjectCode}, ${condition.minimumLevel}, ${condition.maximumLevel},
-        ${condition.minimumYear}, ${condition.minimumCommencementYear ?? null}, ${condition.maximumCommencementYear ?? null}, ${condition.enrolmentMode ?? null}, ${condition.matchesEnrolmentMode ?? null}, ${condition.minimumGpa}, ${condition.minimumWam},
+        ${condition.minimumYear}, ${condition.minimumCommencementYear ?? null}, ${condition.maximumCommencementYear ?? null}, ${condition.enrolmentMode ?? null}, ${condition.matchesEnrolmentMode ?? null},
+        ${condition.subjectCodes ?? null}, ${condition.courseLevels ?? null},
+        ${condition.career ?? null}, ${condition.matchesCareer ?? null}, ${condition.minimumGpa}, ${condition.minimumWam},
         ${condition.tag}, ${condition.freeText}, ${condition.hardness},
         ${condition.sourceText}, ${condition.sourceLocator}, ${condition.reviewState},
         ${condition.confidence}, ${condition.scope ?? "part"},
@@ -411,10 +414,12 @@ async function insertRequirements(
     if (!isValidCode(option.kind, code)) continue;
     await tx`
       insert into public.requirement_condition_options (
-        condition_id, version_id, position, kind, code, code_id, title, source_text
+        condition_id, version_id, position, kind, code, code_id, title, source_text,
+        maximum_units
       ) values (
         ${conditionId}, ${snapshotId}, ${option.position}, ${option.kind}, ${code},
-        ${itemId(ids, option.kind, code)}, ${option.title}, ${option.sourceText}
+        ${itemId(ids, option.kind, code)}, ${option.title}, ${option.sourceText},
+        ${option.maximumUnits ?? null}
       )
       on conflict (condition_id, code) do nothing
     `;
@@ -609,7 +614,7 @@ async function persistUnderLease(
   }
   const lockDraft = async () => {
     const [row] =
-      await tx`select content, content_hash from public.catalogue_drafts
+      await tx`select content, content_hash, updated_by from public.catalogue_drafts
         where record_id = ${claim.recordId} for update`;
     return row;
   };
@@ -681,6 +686,23 @@ async function persistUnderLease(
     // wants the reading back.
     const draft = await lockDraft();
     if (!hasMeaningfulLocalContent(draft) && previous.sync_id !== null) {
+      await populateDraft(previousSourceVersionId!, String(previous.sync_id));
+      return {
+        status: "applied",
+        sourceVersionId: previousSourceVersionId!,
+        populatedDraft: true,
+      };
+    }
+    // A newer parser can change only the review flags, which the content hash
+    // leaves out, so an untouched unpublished draft takes the new reading.
+    if (
+      draft &&
+      draft.updated_by === null &&
+      record.published_version_id === null &&
+      previous.sync_id !== null &&
+      JSON.stringify((draft.content as { flags?: unknown }).flags ?? []) !==
+        JSON.stringify(write.flags)
+    ) {
       await populateDraft(previousSourceVersionId!, String(previous.sync_id));
       return {
         status: "applied",

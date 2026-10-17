@@ -1,4 +1,5 @@
 import type { EnrolmentMode } from "../../../academic/enrolment-mode.ts";
+import type { ProgrammeCareer } from "../../../academic/programme-career.ts";
 import {
   WORKLOAD_HOURS_BASES,
   type WorkloadHoursBasis,
@@ -104,7 +105,29 @@ export type CourseRule =
       minimumUnits: number;
       courseCodes: string[];
     }
+  | {
+      op: "min_courses_matching";
+      minimumCount: number;
+      subjectCodes: string[] | null;
+      levels: number[] | null;
+      includeConcurrent: boolean;
+    }
+  | {
+      op: "min_units_matching";
+      minimumUnits: number;
+      subjectCodes: string[] | null;
+      levels: number[] | null;
+      includeConcurrent: boolean;
+    }
   | { op: "enrolled_in"; programmeCode: string }
+  /** A programme the source names only by title, copied exactly. */
+  | { op: "enrolled_in"; programmeTitle: string }
+  | { op: "enrolled_in_career"; career: ProgrammeCareer; matches: boolean }
+  | {
+      op: "enrolled_in_structure";
+      structureCode: string;
+      structureKind: "major" | "minor" | "specialisation";
+    }
   | { op: "enrolled_in_college"; college: string }
   | { op: "equivalent_course"; sourceText: string }
   | { op: "external_requirement"; sourceText: string }

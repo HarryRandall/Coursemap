@@ -337,7 +337,9 @@ export function parsePlainCourseRequisites(
         rules.length < 2 ||
         new Set(
           rules.map((rule) =>
-            rule.op === "enrolled_in" ? rule.programmeCode : null,
+            rule.op === "enrolled_in" && "programmeCode" in rule
+              ? rule.programmeCode
+              : null,
           ),
         ).size !== rules.length
       )

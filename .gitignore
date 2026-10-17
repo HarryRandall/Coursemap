@@ -64,3 +64,6 @@ yarn-error.log*
 # Local Python caches
 __pycache__/
 *.py[cod]
+
+# Local catalogue import agent requests and answers
+/.catalogue-import/

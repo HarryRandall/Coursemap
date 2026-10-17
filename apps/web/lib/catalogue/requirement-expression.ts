@@ -1,4 +1,5 @@
 import { validEnrolmentMode } from "../academic/enrolment-mode";
+import { validProgrammeCareer } from "../academic/programme-career";
 import type { CourseRuleExpression } from "../coursemap/course-types.ts";
 import type { RequirementWrite } from "./content.ts";
 
@@ -74,6 +75,48 @@ function conditionExpression(
           minimumCount: condition.minimumCount,
         };
       }
+      break;
+    case "course_count":
+      if (
+        condition.minimumCount !== null &&
+        (condition.subjectCodes || condition.courseLevels)
+      ) {
+        return {
+          ...base,
+          kind: "course_count",
+          subjects: condition.subjectCodes ?? null,
+          levels: condition.courseLevels ?? null,
+          minimumCount: condition.minimumCount,
+          requirementMode: condition.requirementMode ?? "completed",
+        };
+      }
+      break;
+    case "filtered_units":
+      if (
+        units !== null &&
+        (condition.subjectCodes || condition.courseLevels)
+      ) {
+        return {
+          ...base,
+          kind: "filtered_units",
+          subjects: condition.subjectCodes ?? null,
+          levels: condition.courseLevels ?? null,
+          units,
+          requirementMode: condition.requirementMode ?? "completed",
+        };
+      }
+      break;
+    case "career":
+      if (
+        validProgrammeCareer(condition.career) &&
+        typeof condition.matchesCareer === "boolean"
+      )
+        return {
+          ...base,
+          kind: "career",
+          career: condition.career,
+          matchesCareer: condition.matchesCareer,
+        };
       break;
     case "level_units":
       if (units !== null && condition.minimumLevel !== null) {

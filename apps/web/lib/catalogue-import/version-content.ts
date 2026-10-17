@@ -1,4 +1,5 @@
 import { validEnrolmentMode } from "../academic/enrolment-mode.ts";
+import { validProgrammeCareer } from "../academic/programme-career.ts";
 import type postgres from "postgres";
 import { workloadHoursBasis } from "../academic/workload.ts";
 import { stableFingerprint } from "./canonical.ts";
@@ -70,7 +71,7 @@ async function readRequirements(
     ]),
   );
   const options = await sql`
-    select condition_id, position, kind, code, title, source_text
+    select condition_id, position, kind, code, title, source_text, maximum_units
     from public.requirement_condition_options where version_id = ${versionId}
     order by condition_id, position
   `;
@@ -144,6 +145,27 @@ async function readRequirements(
             maximumCommencementYear: num(condition.maximum_commencement_year),
           }
         : {}),
+      ...(condition.condition_kind === "course_count" ||
+      condition.condition_kind === "filtered_units"
+        ? {
+            subjectCodes:
+              condition.subject_codes === null
+                ? null
+                : (condition.subject_codes as string[]).map(String),
+            courseLevels:
+              condition.course_levels === null
+                ? null
+                : (condition.course_levels as unknown[]).map(Number),
+          }
+        : {}),
+      ...(condition.condition_kind === "career"
+        ? {
+            career: validProgrammeCareer(condition.career)
+              ? condition.career
+              : null,
+            matchesCareer: condition.matches_career ?? null,
+          }
+        : {}),
       minimumGpa: num(condition.minimum_gpa),
       minimumWam: num(condition.minimum_wam),
       tag: str(condition.tag),
@@ -165,6 +187,11 @@ async function readRequirements(
       code: String(option.code),
       title: str(option.title),
       sourceText: str(option.source_text),
+      // Left out for a course that counts once, so earlier versions hash as
+      // they did.
+      ...(option.maximum_units == null
+        ? {}
+        : { maximumUnits: Number(option.maximum_units) }),
     })),
     references: references.map((reference) => ({
       ruleKey: ruleKeyById.get(Number(reference.rule_id))!,

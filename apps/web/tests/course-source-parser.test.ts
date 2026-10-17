@@ -56,6 +56,36 @@ describe("source-first course parsing", () => {
     expect(course.learningOutcomes).toHaveLength(4);
     expect(course.description).toContain("Japanese economy");
   });
+  it("accepts research pages that send domestic students to a separate fee page", () => {
+    const markdown = fixture.sources
+      .find((source) => source.code === "ECON2108")!
+      .markdown.replace(
+        /- \*\*Domestic fee paying students:\*\*\n\n\| Year \| Fee \|\n\| --- \| --- \|\n\| 2026 \| \$[\d,]+ \|\n/u,
+        "If you are a **domestic student**, information about course fees can be found at [Fees](https://www.anu.edu.au/students/program-administration/fees-payments/higher-degree-research-tuition-fees).\n",
+      );
+    const course = parse("ECON2108", markdown);
+    expect(
+      course.fees
+        .filter((fee) => fee.feeType === "tuition")
+        .map((fee) => fee.audience),
+    ).toEqual(["international"]);
+    expect(
+      course.reviewItems.filter((item) => item.fieldKey === "fees"),
+    ).toEqual([]);
+  });
+  it("still holds a domestic fee table it cannot read", () => {
+    const markdown = fixture.sources
+      .find((source) => source.code === "ECON2108")!
+      .markdown.replace(
+        /- \*\*Domestic fee paying students:\*\*\n\n\| Year \| Fee \|\n\| --- \| --- \|\n\| 2026 \| \$[\d,]+ \|\n/u,
+        "- **Domestic fee paying students:**\n\nSee the fee schedule.\n",
+      );
+    expect(
+      parse("ECON2108", markdown).reviewItems.map((item) => item.message),
+    ).toContain(
+      "Domestic fee paying students could not be read from the source.",
+    );
+  });
   it.each(["", " \t ", "\u00a0"])(
     "keeps blank assumed knowledge nullable: %j",
     (blank) => {
@@ -134,7 +164,7 @@ describe("source-first course parsing", () => {
 
 describe("course run budget bounds", () => {
   it("uses cold input and maximum output rather than the pilot average", () => {
-    expect(courseRunAllowance(0.25, 1.5)).toBe(0.00725);
+    expect(courseRunAllowance(0.25, 1.5)).toBe(0.01025);
   });
   it("rejects unknown or invalid prices", () => {
     expect(() => courseRunAllowance(NaN, 1)).toThrow();

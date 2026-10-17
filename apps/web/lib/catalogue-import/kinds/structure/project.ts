@@ -110,6 +110,11 @@ export type AcademicStructureSnapshotProjection = {
     optionKind: "course" | "structure";
     optionCode: string;
     structureKind: AcademicStructureKind | null;
+    /**
+     * Total units a repeatable course may contribute. Absent for a course
+     * that counts once, so earlier projections keep their hash.
+     */
+    maximumUnits?: number;
   }>;
   unmodelledRequirements: Array<{
     position: number;
@@ -171,15 +176,23 @@ function flattenRequirementRule(
       sourceText: rule.sourceText,
       sourceLocator: rule.sourceLocator,
     });
-    rule.courseCodes.forEach((optionCode, index) =>
+    const repeatUnits = new Map(
+      (rule.repeatableCourses ?? []).map((course) => [
+        course.courseCode,
+        course.maximumUnits,
+      ]),
+    );
+    rule.courseCodes.forEach((optionCode, index) => {
+      const maximumUnits = repeatUnits.get(optionCode);
       options.push({
         conditionKey: rule.key,
         position: index + 1,
         optionKind: "course",
         optionCode,
         structureKind: null,
-      }),
-    );
+        ...(maximumUnits === undefined ? {} : { maximumUnits }),
+      });
+    });
     rule.structureCodes.forEach((optionCode, index) =>
       options.push({
         conditionKey: rule.key,

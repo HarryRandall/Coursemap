@@ -34,6 +34,7 @@ import {
   tuitionEstimate,
 } from "@/lib/coursemap/academic-metrics";
 import { planRisks } from "@/lib/coursemap/plan-risks";
+import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
   requirementBucketProgress,
   creditedRequirementUnits,
@@ -110,6 +111,11 @@ export function Dashboard({
       programmeCodes: state.profile.degreeCode
         ? [state.profile.degreeCode]
         : [],
+      structureCodes: planStructureCodes({
+        majorCode: state.profile.majorCode,
+        minorCodes: state.profile.minorCodes,
+        specialisationCodes: state.profile.specialisationCodes,
+      }),
     }),
     [
       catalogue,

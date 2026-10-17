@@ -252,6 +252,7 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
         "maximumUnits",
         "minimumCourses",
         "courseCodes",
+        "repeatableCourses",
         "structureKind",
         "structureCodes",
         "subjectCode",
@@ -289,6 +290,21 @@ export const ACADEMIC_STRUCTURE_EXTRACTION_JSON_SCHEMA = {
           items: {
             type: "string",
             pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
+          },
+        },
+        repeatableCourses: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["courseCode", "maximumUnits"],
+            properties: {
+              courseCode: {
+                type: "string",
+                pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$",
+              },
+              maximumUnits: { type: "number", exclusiveMinimum: 0 },
+            },
           },
         },
         structureKind: { enum: [...ACADEMIC_STRUCTURE_KINDS, null] },

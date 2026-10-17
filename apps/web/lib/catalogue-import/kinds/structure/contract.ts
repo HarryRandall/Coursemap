@@ -99,6 +99,16 @@ export type AcademicStructureRequirementGroup = {
  */
 export type RequirementScope = "part" | "degree";
 
+/**
+ * A listed course the source lets a student take more than once, such as an
+ * honours thesis taken over several semesters. `maximumUnits` is the total its
+ * attempts may contribute to the condition.
+ */
+export type AcademicStructureRepeatableCourse = {
+  courseCode: string;
+  maximumUnits: number;
+};
+
 export type AcademicStructureRequirementCondition = {
   type: "condition";
   key: string;
@@ -116,6 +126,11 @@ export type AcademicStructureRequirementCondition = {
   maximumUnits: number | null;
   minimumCourses: number | null;
   courseCodes: string[];
+  /**
+   * Listed courses that may count more than once. Absent or empty means each
+   * listed course counts once.
+   */
+  repeatableCourses?: AcademicStructureRepeatableCourse[];
   structureKind: AcademicStructureKind | null;
   structureCodes: string[];
   subjectCode: string | null;
@@ -317,6 +332,16 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
       maximumUnits: nullableRequirementUnits,
       minimumCourses: z.number().int().positive().nullable().default(null),
       courseCodes: z.array(nonEmptyString.regex(COURSE_CODE_PATTERN)),
+      repeatableCourses: z
+        .array(
+          z
+            .object({
+              courseCode: nonEmptyString.regex(COURSE_CODE_PATTERN),
+              maximumUnits: z.number().finite().positive(),
+            })
+            .strict(),
+        )
+        .default([]),
       structureKind: structureKindSchema.nullable().default(null),
       structureCodes: z.array(
         nonEmptyString.regex(ACADEMIC_STRUCTURE_CODE_PATTERN),
@@ -460,6 +485,39 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
         new Set(condition.courseCodes).size !== condition.courseCodes.length
       )
         unexpected("courseCodes", "must not repeat a course code");
+      const repeatable = condition.repeatableCourses ?? [];
+      if (repeatable.length > 0) {
+        const repeatableCodes = repeatable.map((course) => course.courseCode);
+        if (condition.conditionKind !== "course_list")
+          unexpected(
+            "repeatableCourses",
+            `must be empty for ${condition.conditionKind}`,
+          );
+        else if (condition.includesAnyCourse)
+          unexpected(
+            "repeatableCourses",
+            "must be empty when any other course counts",
+          );
+        if (new Set(repeatableCodes).size !== repeatableCodes.length)
+          unexpected("repeatableCourses", "must name each course once");
+        if (
+          repeatableCodes.some((code) => !condition.courseCodes.includes(code))
+        )
+          unexpected(
+            "repeatableCourses",
+            "must name only courses listed in courseCodes",
+          );
+        if (
+          condition.maximumUnits !== null &&
+          repeatable.some(
+            (course) => course.maximumUnits > condition.maximumUnits!,
+          )
+        )
+          unexpected(
+            "repeatableCourses",
+            "must not allow more units than the condition's maximumUnits",
+          );
+      }
       if (condition.conditionKind === "consecutive_semester_pair") {
         if (
           condition.courseCodes.length !== 2 ||
