@@ -7,6 +7,7 @@ import {
   feeEstimateNote,
   feePerUnit,
   type FeeReferenceCourse,
+  withoutOutliers,
 } from "../lib/academic/fee-estimates";
 import { coursePrice, coursePrices } from "../lib/academic/fee-status";
 import type { CourseFee } from "../lib/coursemap/course-types";
@@ -58,7 +59,27 @@ describe("feePerUnit", () => {
   });
 });
 
+describe("withoutOutliers", () => {
+  it("drops extreme fees and keeps a tight group whole", () => {
+    expect(withoutOutliers([800, 810, 820, 830, 840, 5000])).toEqual([
+      800, 810, 820, 830, 840,
+    ]);
+    expect(withoutOutliers([800, 801, 802, 803, 804])).toHaveLength(5);
+  });
+});
+
 describe("estimateFee", () => {
+  it("ignores an extreme fee in a subject's estimate", () => {
+    const table = buildFeeEstimateTable([
+      ...group(5, 800),
+      reference({ domestic: 6000 }),
+    ]);
+    expect(estimateFee(table, target, "domestic")).toMatchObject({
+      perUnit: 802,
+      sampleSize: 5,
+    });
+  });
+
   it("prefers the same subject over the college and the career", () => {
     const table = buildFeeEstimateTable([
       ...group(5, 800),

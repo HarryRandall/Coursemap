@@ -80,6 +80,28 @@ function median(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+function quantile(sorted: number[], fraction: number) {
+  const position = (sorted.length - 1) * fraction;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  return sorted[lower] + (sorted[upper] - sorted[lower]) * (position - lower);
+}
+
+/**
+ * Drops fees beyond 1.5 interquartile ranges of the middle half, so a
+ * clinical placement or a research fee does not drag a subject's estimate.
+ */
+export function withoutOutliers(values: number[]) {
+  const sorted = values.toSorted((left, right) => left - right);
+  const lowerQuartile = quantile(sorted, 0.25);
+  const upperQuartile = quantile(sorted, 0.75);
+  const spread = (upperQuartile - lowerQuartile) * 1.5;
+  return sorted.filter(
+    (value) =>
+      value >= lowerQuartile - spread && value <= upperQuartile + spread,
+  );
+}
+
 /**
  * A listed fee as dollars per unit. A course fee is spread over its fixed unit
  * value; a fee without a usable basis or unit value is left out.
@@ -114,8 +136,9 @@ export function buildFeeEstimateTable(
   }
   const table: FeeEstimateTable = {};
   for (const [key, values] of samples) {
-    if (values.length < FEE_ESTIMATE_MINIMUM_SAMPLE) continue;
-    table[key] = { perUnit: median(values), sampleSize: values.length };
+    const typical = withoutOutliers(values);
+    if (typical.length < FEE_ESTIMATE_MINIMUM_SAMPLE) continue;
+    table[key] = { perUnit: median(typical), sampleSize: typical.length };
   }
   return table;
 }
