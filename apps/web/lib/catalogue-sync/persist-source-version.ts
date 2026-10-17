@@ -630,9 +630,15 @@ async function persistUnderLease(
       await tx`select content_hash from public.catalogue_versions where id = ${record.published_version_id}`;
     return published ? String(published.content_hash) : null;
   };
+  // Accepting a first reading stamps the draft with the administrator, so
+  // only manual corrections mark it as edited.
+  const [manualCorrection] = await tx`
+      select 1 from public.catalogue_draft_provenance
+      where record_id = ${claim.recordId} and origin = 'manual' limit 1
+    `;
   const adoptsAgentReading = (draft: Record<string, unknown> | undefined) =>
     isAgentImportModel(claim.requestedModel) &&
-    (draft === undefined || draft.updated_by === null);
+    (draft === undefined || draft.updated_by === null || !manualCorrection);
   const hasMeaningfulLocalContent = (
     draft: Record<string, unknown> | undefined,
   ) => {

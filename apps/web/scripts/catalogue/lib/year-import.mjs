@@ -134,7 +134,8 @@ export async function ensureAgentImportModel(sql) {
  * Listed records with no source version, publication, draft or active sync.
  * `reimportHeld` adds unpublished records whose untouched draft came from an
  * agent import, so a parser or schema fix can read them again. `refresh`
- * takes every record without an administrator's edits, so a year can be
+ * takes every record without an administrator's manual corrections (an
+ * accepted first reading is not one), so a year can be
  * replaced wholesale by agent readings.
  */
 export async function readImportableRecords(
@@ -160,11 +161,12 @@ export async function readImportableRecords(
       and records.archived_at is null and listings.is_current
       and (
         (${refresh}
-          and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id and drafts.updated_by is not null))
+          and not exists (select 1 from public.catalogue_draft_provenance provenance where provenance.record_id = records.id and provenance.origin = 'manual'))
         or (records.published_version_id is null and records.latest_source_version_id is null
           and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id))
         or (${reimportHeld} and records.published_version_id is null
-          and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id and drafts.updated_by is null)
+          and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
+          and not exists (select 1 from public.catalogue_draft_provenance provenance where provenance.record_id = records.id and provenance.origin = 'manual')
           and exists (select 1 from public.catalogue_syncs syncs where syncs.source_version_id = records.latest_source_version_id and syncs.requested_model = ${AGENT_IMPORT_MODEL}))
       )
       and not exists (select 1 from public.catalogue_syncs syncs where syncs.record_id = records.id and syncs.status in ('queued', 'running'))

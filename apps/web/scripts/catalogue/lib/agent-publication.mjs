@@ -49,7 +49,7 @@ export async function readAgentPublicationCandidates(
     where years.year = ${year} and records.kind = any(${kinds}::text[])
       and records.archived_at is null
       and syncs.requested_model = ${AGENT_IMPORT_MODEL} and syncs.status in ('applied', 'review_required', 'unchanged')
-      and drafts.updated_by is null and drafts.base_version_id = records.latest_source_version_id
+      and not exists (select 1 from public.catalogue_draft_provenance provenance where provenance.record_id = records.id and provenance.origin = 'manual') and drafts.base_version_id = records.latest_source_version_id
       and drafts.content_hash is distinct from (
         select versions.content_hash from public.catalogue_versions versions
         where versions.id = records.published_version_id
