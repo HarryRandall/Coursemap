@@ -77,6 +77,11 @@ Follow the batch's `instructions` and `schema` exactly. In addition:
 - Never put a free-text condition inside a unit pool or give it units that
   courses would have to fill. No course can satisfy free text, so the total
   becomes unreachable.
+- An `any_of` group credits a student through one branch only. A pool that
+  may mix courses from several lists is an `all_of` of capped lists, not an
+  `any_of`.
+- Trailing tables after the main lists can be an alternative route. Hold them
+  rather than dropping them when the page does not say they are superseded.
 - On ANU structure pages, "The N units must include:" followed by capped lists
   that together cover the total is the standard exhaustive format, so every
   unit comes from those lists.
@@ -96,8 +101,10 @@ one-sentence reason when it:
 - models part of a requirement in a way that turns away students the source
   accepts, including a dropped exception whose main route is then compulsory
   for everyone;
-- models a repeated-course route as a course list; or
-- places free text inside a unit pool, making the total unreachable.
+- models a repeated-course route as a course list;
+- places free text inside a unit pool, making the total unreachable;
+- uses `any_of` where students may mix branches; or
+- drops trailing tables that may be an alternative route.
 
 The checker writes `{ "<item id>": { "approve": true } }` or
 `{ "<item id>": { "approve": false, "reason": "..." } }` for every item.
