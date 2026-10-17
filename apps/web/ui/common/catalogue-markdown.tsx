@@ -106,7 +106,7 @@ function isListedLine(block: Block) {
  */
 function listedLines(blocks: Block[]): Block[] {
   const result: Block[] = [];
-  for (let index = 0; index < blocks.length; ) {
+  for (let index = 0; index < blocks.length;) {
     let end = index;
     while (end < blocks.length && isListedLine(blocks[end])) end += 1;
     if (end - index >= 3) {

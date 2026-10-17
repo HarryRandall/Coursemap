@@ -63,8 +63,7 @@ const FILLER_WORDS = new Set([
  */
 export function restates(title: string, detail: string | null | undefined) {
   if (!detail) return true;
-  const words = (text: string) =>
-    text.toLowerCase().match(/[a-z0-9]+/gu) ?? [];
+  const words = (text: string) => text.toLowerCase().match(/[a-z0-9]+/gu) ?? [];
   const shown = new Set(words(title));
   return words(detail).every(
     (word) => FILLER_WORDS.has(word) || shown.has(word),

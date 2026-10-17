@@ -117,8 +117,9 @@ describe("source-first course parsing", () => {
       .markdown.replace("[LO 1,2,3,4,5,6,7,8,9]", "[LO 1, 2 3]");
     const course = parse("BUSN1001", markdown);
     expect(
-      course.assessmentItems.find((item) => item.sourceText.includes("[LO 1, 2 3]"))
-        ?.learningOutcomePositions,
+      course.assessmentItems.find((item) =>
+        item.sourceText.includes("[LO 1, 2 3]"),
+      )?.learningOutcomePositions,
     ).toEqual([1, 2, 3]);
   });
   it("maps ANU semester names to the configured calendar codes", () => {

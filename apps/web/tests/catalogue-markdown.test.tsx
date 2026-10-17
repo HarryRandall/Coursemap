@@ -81,9 +81,13 @@ test("a run of short lines under a bold lead reads as a list", () => {
       "Degrees of Biotechnology and Genetics cannot be combined.",
     ].join("\n"),
   );
-  expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual(
-    ["Bachelor of Accounting", "Bachelor of Arts", "Bachelor of Science"],
-  );
+  expect(
+    screen.getAllByRole("listitem").map((item) => item.textContent),
+  ).toEqual([
+    "Bachelor of Accounting",
+    "Bachelor of Arts",
+    "Bachelor of Science",
+  ]);
   expect(
     screen.getByText("Choose two of the following degrees:").closest("strong"),
   ).not.toBeNull();
@@ -102,6 +106,10 @@ test("a table reads as a list of its rows", () => {
   );
   const items = screen.getAllByRole("listitem");
   expect(items).toHaveLength(2);
-  expect(items[0]).toHaveTextContent("STAT 4010: Managing the Research Process");
-  expect(items[1]).toHaveTextContent(/STAT4027.*Statistical Inference \(6 units\)/u);
+  expect(items[0]).toHaveTextContent(
+    "STAT 4010: Managing the Research Process",
+  );
+  expect(items[1]).toHaveTextContent(
+    /STAT4027.*Statistical Inference \(6 units\)/u,
+  );
 });
