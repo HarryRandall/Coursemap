@@ -257,8 +257,10 @@ function NavSections({
     <>
       {sections.map((section, index) => (
         <Fragment key={section.label ?? "primary"}>
-          {index > 0 ? <SidebarSeparator className="mx-0 w-full" /> : null}
-          <SidebarGroup className="px-0 py-2 group-data-[collapsible=icon]:px-2">
+          {index > 0 ? (
+            <SidebarSeparator className="mx-0 w-full in-data-[mobile=true]:mx-3 in-data-[mobile=true]:w-auto" />
+          ) : null}
+          <SidebarGroup className="px-0 py-2 group-data-[collapsible=icon]:px-2 in-data-[mobile=true]:px-3">
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
                 {section.items.map((item) => (
@@ -291,7 +293,7 @@ export function AppSidebar({ admin }: { admin: boolean }) {
 
   return (
     <Sidebar variant="inset" collapsible="icon" className="select-none">
-      <SidebarHeader className="gap-3 pr-3 pb-3 pl-0 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 motion-reduce:transition-none md:pr-1.5">
+      <SidebarHeader className="gap-3 pr-3 pb-3 pl-0 transition-[padding] duration-200 ease-linear group-data-[collapsible=icon]:px-2 in-data-[mobile=true]:p-3 motion-reduce:transition-none md:pr-1.5">
         <Link
           href={admin ? "/admin/dashboard" : "/dashboard"}
           aria-label="Coursemap home"
@@ -318,13 +320,13 @@ export function AppSidebar({ admin }: { admin: boolean }) {
         {/* Cross-links between the student and admin shells share the same item styling as the main navigation. */}
         {!admin && canAccessAdmin ? (
           <>
-            <SidebarSeparator className="mx-0 w-full" />
+            <SidebarSeparator className="mx-0 w-full in-data-[mobile=true]:mx-3 in-data-[mobile=true]:w-auto" />
             <NavSections sections={adminEntryNav} onNavigate={closeMobileNav} />
           </>
         ) : null}
         {admin ? (
           <>
-            <SidebarSeparator className="mx-0 w-full" />
+            <SidebarSeparator className="mx-0 w-full in-data-[mobile=true]:mx-3 in-data-[mobile=true]:w-auto" />
             <NavSections
               sections={studentEntryNav}
               onNavigate={closeMobileNav}
@@ -333,7 +335,7 @@ export function AppSidebar({ admin }: { admin: boolean }) {
         ) : null}
       </SidebarScrollContent>
 
-      <SidebarFooter className="pr-3 pl-0 group-data-[collapsible=icon]:px-2 md:pr-1.5">
+      <SidebarFooter className="pr-3 pl-0 group-data-[collapsible=icon]:px-2 in-data-[mobile=true]:p-3 md:pr-1.5">
         <SidebarMenu>
           <SidebarMenuItem>
             <AccountMenu />
