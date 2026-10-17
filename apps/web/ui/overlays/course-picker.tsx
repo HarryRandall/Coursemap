@@ -1,6 +1,4 @@
 "use client";
-import { badgeVariantForTone } from "@/lib/ui";
-import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   Command,
@@ -8,7 +6,6 @@ import {
   CommandGroup,
   CommandItem,
   CommandList,
-  CommandShortcut,
 } from "@coursemap/ui/primitives/command";
 import {
   Dialog,
@@ -18,14 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@coursemap/ui/primitives/dialog";
-import { FilterBar } from "@/ui/common/filter-bar";
+import { ToggleChip } from "@/ui/common/toggle-chip";
+import { Command as CommandPrimitive } from "cmdk";
 import { CourseToken } from "@/ui/common/course-token";
 import { cn } from "@/lib/cn";
-import { ChevronRight, LoaderCircle, X } from "lucide-react";
+import { Check, LoaderCircle, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCoursemap } from "@/app/providers";
 import type { Course, Term } from "@/lib/coursemap/types";
-import { CoursePreview } from "@/ui/overlays/course-preview";
+import { CourseDialog } from "@/ui/overlays/course-dialog";
+import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
+import { SegmentedControl } from "@/ui/common/segmented-control";
 import {
   CourseResultSkeleton,
   SearchFailure,
@@ -50,24 +50,33 @@ function requestKey(
 }
 
 const LEVELS = [1, 2, 3, 4] as const;
+
+/** "First Semester" as S1, so a row's offerings stay on one line. */
+function sessionLabel(session: string) {
+  if (/first|semester 1\b/i.test(session)) return "S1";
+  if (/second|semester 2\b/i.test(session)) return "S2";
+  return session;
+}
 export function CoursePicker({
   term,
   intent = "all",
   recommendedCodes = [],
+  catalogue,
   onClose,
 }: {
   term?: Term;
   intent?: "all" | "recommended";
   /** Courses the student's chosen structures still need, shown before a search. */
   recommendedCodes?: string[];
+  /** The plan catalogue, so a course opened from the results checks its requisites. */
+  catalogue?: PlanCatalogue;
   onClose: () => void;
 }) {
   const { state, addCourse, notify } = useCoursemap();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [response, setResponse] = useState<CourseSearchResponse | null>(null);
-  const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [previewing, setPreviewing] = useState<Course | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -85,8 +94,7 @@ export function CoursePicker({
       ? document.activeElement
       : null,
   );
-  const searchAreaRef = useRef<HTMLDivElement>(null);
-  const backButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const trimmedQuery = query.trim();
   // Under two characters the picker browses the filtered catalogue instead.
   const searchQuery = trimmedQuery.length >= 2 ? trimmedQuery : "";
@@ -243,11 +251,6 @@ export function CoursePicker({
     (course) => !recommendedCodeSet.has(course.code),
   );
   const courses = [...recommendedShown, ...results];
-  const selected =
-    courses.find((course) => course.code === selectedCode) ??
-    courses[0] ??
-    null;
-
   const courseCounts = useMemo(() => {
     const counts = new Map<string, number>();
     state.attempts.forEach((attempt) => {
@@ -290,28 +293,9 @@ export function CoursePicker({
   const changeFilters = (next: () => void) => {
     next();
     setPage(1);
-    setSelectedCode(null);
-    setMobilePreviewOpen(false);
     setFailedKey(null);
   };
   const destination = `${term.name}${term.year < 2029 ? ` ${term.year}` : ""}`;
-
-  const previewCourse = (courseCode: string) => {
-    setSelectedCode(courseCode);
-    setMobilePreviewOpen(true);
-    if (window.matchMedia("(max-width: 767px)").matches) {
-      window.requestAnimationFrame(() => backButtonRef.current?.focus());
-    }
-  };
-
-  const showResults = () => {
-    setMobilePreviewOpen(false);
-    window.requestAnimationFrame(() =>
-      searchAreaRef.current
-        ?.querySelector<HTMLInputElement>('input[type="search"]')
-        ?.focus(),
-    );
-  };
 
   const retrySearch = () => {
     setFailedKey(null);
@@ -329,39 +313,69 @@ export function CoursePicker({
   const renderCourse = (course: Course) => {
     const inPlan = (courseCounts.get(course.code) ?? 0) > 0;
     const available = course.sessions.includes(term.name);
+    const adding = addingCode === course.code;
 
     return (
       <CommandItem
         key={course.code}
         value={`${course.code} ${course.name} ${course.school}`}
-        data-previewed={selectedCode === course.code}
-        onSelect={() => previewCourse(course.code)}
-        className="data-[previewed=true]:bg-primary/10 data-[previewed=true]:ring-1 data-[previewed=true]:ring-primary/20 data-[previewed=true]:ring-inset"
+        onSelect={() => setPreviewing(course)}
+        title={`Read about ${course.code}`}
+        className="group/course min-h-14 cursor-pointer gap-3 rounded-lg px-2"
       >
         <CourseToken code={course.code} accent={course.accent} size="sm" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-medium text-foreground">
             {course.name}
           </span>
-          <span className="block truncate text-[11px] text-muted-foreground">
-            <span className="font-mono">{course.code}</span> · {course.school}
+          <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
+            <span className="font-mono">{course.code}</span>
+            <span aria-hidden="true">·</span>
+            {course.units} units
+            {course.sessions.length > 0 ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span
+                  className={cn(
+                    !available && "text-amber-700 dark:text-amber-300",
+                  )}
+                >
+                  {available
+                    ? course.sessions.map(sessionLabel).join(", ")
+                    : `Not in ${term.shortName}`}
+                </span>
+              </>
+            ) : null}
           </span>
         </span>
         {inPlan ? (
-          <Badge className="px-2 py-0.5" variant="primary-light">
+          <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-primary">
+            <Check size={13} aria-hidden="true" />
             In plan
-          </Badge>
-        ) : !available ? (
-          <Badge className="px-2 py-0.5" variant={badgeVariantForTone.warning}>
-            Not offered in {term.shortName}
-          </Badge>
-        ) : null}
-        <span className="shrink-0 text-[11px] text-muted-foreground">
-          {course.units}u
-        </span>
-        <CommandShortcut aria-hidden="true" className="md:hidden">
-          <ChevronRight size={15} />
-        </CommandShortcut>
+          </span>
+        ) : (
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="outline"
+            tabIndex={-1}
+            disabled={Boolean(addingCode)}
+            aria-label={`Add ${course.code} to ${term.shortName}`}
+            title={`Add to ${term.shortName}`}
+            className="shrink-0 transition-colors group-hover/course:border-primary group-hover/course:bg-primary group-hover/course:text-primary-foreground group-data-[selected=true]/course:border-primary/60 hover:border-primary hover:bg-primary hover:text-primary-foreground"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              void choose(course);
+            }}
+          >
+            {adding ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <Plus size={14} />
+            )}
+          </Button>
+        )}
       </CommandItem>
     );
   };
@@ -374,15 +388,15 @@ export function CoursePicker({
       }}
     >
       <DialogContent
-        className="max-w-[56rem]"
+        className="top-[max(1rem,10dvh)] flex w-[calc(100vw-2rem)] max-w-[40rem] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[40rem]"
         showCloseButton={false}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           openerRef.current?.focus();
         }}
       >
-        {/* The search bar is the header. The title and destination stay for
-            screen readers; the add button names the semester. */}
+        {/* The destination and search are the header; the title stays for
+            screen readers. */}
         <DialogHeader className="sr-only">
           <DialogTitle>Find a course</DialogTitle>
           <DialogDescription>
@@ -392,194 +406,214 @@ export function CoursePicker({
         </DialogHeader>
 
         {/*
-          The search bar spans the dialog; below it the results list and the
-          selected-course preview sit side by side on wide screens and swap
-          in place on narrow ones. The body height is fixed so the dialog does
-          not jump as results load.
+          The search heads one list of results, like Find. Opening a result
+          shows the same course view as the plan, with the add action in its
+          footer; the row's add button skips that step.
         */}
         <Command
           shouldFilter={false}
           loop
           label="Course catalogue"
-          className="min-h-0 bg-transparent"
+          className="flex min-h-0 w-full min-w-0 flex-col bg-transparent"
         >
           {/* The picker's own shortcuts (arrows, Enter) come from the search
-              field; keys inside the filter menus stay with those menus. */}
+              field; keys on the filter chips stay with those chips. */}
           <div
-            ref={searchAreaRef}
-            className="flex items-start gap-2 border-b border-border/60 p-3"
+            className="border-b border-border/60"
             onKeyDown={(event) => {
-              if (
-                !(event.target instanceof HTMLInputElement) ||
-                event.target.type !== "search"
-              )
-                event.stopPropagation();
+              if (event.target !== inputRef.current) event.stopPropagation();
             }}
           >
-            <div className="min-w-0 flex-1">
-              <FilterBar
+            <div className="flex items-center gap-3 px-4 pt-3 pb-1">
+              <p className="text-xs text-muted-foreground">
+                {intent === "recommended" ? "Recommended for" : "Add to"}{" "}
+                <span className="font-medium text-foreground">
+                  {destination}
+                </span>
+              </p>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="ml-auto"
+                  aria-label="Close"
+                >
+                  <X aria-hidden="true" size={16} />
+                </Button>
+              </DialogClose>
+            </div>
+            <div className="mx-3 flex h-11 items-center gap-3 rounded-lg bg-muted/60 px-3 ring-1 ring-border ring-inset focus-within:ring-ring/60">
+              {loading && !firstPageLoading ? (
+                <LoaderCircle
+                  size={18}
+                  aria-label="Searching"
+                  className="shrink-0 animate-spin text-muted-foreground"
+                />
+              ) : (
+                <Search
+                  size={18}
+                  aria-hidden="true"
+                  className="shrink-0 text-muted-foreground"
+                />
+              )}
+              <CommandPrimitive.Input
+                ref={inputRef}
                 autoFocus
-                searchPlaceholder={`Search ${academicYear} courses by code or name`}
-                filters={[
-                  {
-                    key: "session",
-                    label: "Offered in",
-                    allLabel: "Any semester",
-                    options: [{ value: term.name, label: term.shortName }],
-                  },
-                  {
-                    key: "level",
-                    label: "Level",
-                    allLabel: "Any level",
-                    options: LEVELS.map((option) => ({
-                      value: String(option),
-                      label: `Level ${option}`,
-                    })),
-                  },
-                ]}
-                state={{
-                  query,
-                  values: { session, level: level ? String(level) : "" },
-                  onQueryChange: (value) => {
-                    const nextQuery = value.trim();
-                    const queryChanged = nextQuery !== trimmedQuery;
-                    setQuery(value);
-                    if (queryChanged) {
-                      setPage(1);
-                      setSelectedCode(null);
-                      setMobilePreviewOpen(false);
-                      setFailedKey(null);
-                    }
-                  },
-                  onFilterChange: (key, value) =>
-                    changeFilters(() => {
-                      if (key === "session") setSession(value);
-                      if (key === "level")
-                        setLevel(value ? Number(value) : null);
-                    }),
+                value={query}
+                onValueChange={(value) => {
+                  const nextQuery = value.trim();
+                  const queryChanged = nextQuery !== trimmedQuery;
+                  setQuery(value);
+                  if (queryChanged) {
+                    setPage(1);
+                    setFailedKey(null);
+                  }
                 }}
+                placeholder={`Search ${academicYear} courses by code or name`}
+                aria-label={`Search ${academicYear} courses`}
+                autoComplete="off"
+                spellCheck={false}
+                className="h-full min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
               />
             </div>
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-10 shrink-0"
-                aria-label="Close"
-              >
-                <X aria-hidden="true" size={16} />
-              </Button>
-            </DialogClose>
-          </div>
-
-          <div className="grid h-[clamp(16rem,calc(100dvh-16rem),30rem)] min-h-0 grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <section
-              aria-label="Course results"
-              className={cn(
-                "min-h-0 border-border/60 md:border-r",
-                mobilePreviewOpen
-                  ? "hidden md:flex md:flex-col"
-                  : "flex flex-col",
-              )}
+            <div
+              role="group"
+              aria-label="Filters"
+              className="flex items-center gap-2 overflow-x-auto px-4 pt-2.5 pb-3"
             >
-              <CommandList label="Course results" className="min-h-0 flex-1">
-                {firstPageLoading ? (
-                  <CourseResultSkeleton />
-                ) : firstPageFailed ? (
-                  <SearchFailure />
-                ) : (
-                  <>
-                    <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
-                      {browsing
-                        ? "No courses match these filters."
-                        : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
-                            filtersActive
-                              ? " Try clearing the filters."
-                              : " Try a course code such as COMP1100."
-                          }`}
-                    </CommandEmpty>
-                    {recommendedShown.length > 0 ? (
-                      <CommandGroup heading="Recommended for your plan">
-                        {recommendedShown.map(renderCourse)}
-                      </CommandGroup>
-                    ) : null}
-                    {results.length > 0 ? (
-                      <CommandGroup
-                        heading={
-                          !browsing
-                            ? `${activeResponse?.total ?? results.length} results`
-                            : session
-                              ? `Offered in ${term.shortName}`
-                              : "All courses"
-                        }
-                      >
-                        {results.map(renderCourse)}
-                      </CommandGroup>
-                    ) : null}
-                  </>
-                )}
-              </CommandList>
-
-              {hasNextPage && !failed ? (
-                <div
-                  className="shrink-0 border-t border-border/60 p-2"
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={loading}
-                    onClick={loadNextPage}
-                    className="w-full"
-                    type="button"
-                  >
-                    {loading ? (
-                      <LoaderCircle
-                        size={14}
-                        className="animate-spin"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                    {loading ? "Loading courses" : "Load more courses"}
-                  </Button>
-                </div>
-              ) : null}
-
-              {firstPageFailed || (failed && page > 1) ? (
-                <div
-                  className="shrink-0 border-t border-border/60 p-2"
-                  onKeyDown={(event) => event.stopPropagation()}
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={retrySearch}
-                    className="w-full"
-                    type="button"
-                  >
-                    {page > 1 ? "Retry loading results" : "Retry search"}
-                  </Button>
-                </div>
-              ) : null}
-            </section>
-
-            <CoursePreview
-              course={selected}
-              term={term}
-              inPlan={
-                selected ? (courseCounts.get(selected.code) ?? 0) > 0 : false
-              }
-              adding={addingCode === selected?.code}
-              mobileOpen={mobilePreviewOpen}
-              backButtonRef={backButtonRef}
-              onBack={showResults}
-              onAdd={() => {
-                if (selected) void choose(selected);
-              }}
-            />
+              <ToggleChip
+                pressed={session === term.name}
+                onPressedChange={(pressed) =>
+                  changeFilters(() => setSession(pressed ? term.name : ""))
+                }
+              >
+                {session === term.name ? (
+                  <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                ) : null}
+                Offered in {term.shortName}
+              </ToggleChip>
+              <SegmentedControl
+                label="Level"
+                value={level ? String(level) : "any"}
+                options={[
+                  { value: "any", label: "Any level" },
+                  ...LEVELS.map((option) => ({
+                    value: String(option),
+                    label: `${option}000`,
+                  })),
+                ]}
+                onValueChange={(value) =>
+                  changeFilters(() =>
+                    setLevel(value === "any" ? null : Number(value)),
+                  )
+                }
+              />
+            </div>
           </div>
+
+          <section
+            aria-label="Course results"
+            className="flex h-[min(28rem,calc(100dvh-max(1rem,10dvh)-12rem))] min-h-0 flex-col"
+          >
+            <CommandList
+              label="Course results"
+              className="min-h-0 flex-1 overflow-y-auto p-2"
+            >
+              {firstPageLoading ? (
+                <CourseResultSkeleton />
+              ) : firstPageFailed ? (
+                <SearchFailure />
+              ) : (
+                <>
+                  <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
+                    {browsing
+                      ? "No courses match these filters."
+                      : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
+                          filtersActive
+                            ? " Try clearing the filters."
+                            : " Try a course code such as COMP1100."
+                        }`}
+                  </CommandEmpty>
+                  {recommendedShown.length > 0 ? (
+                    <CommandGroup heading="Recommended for your plan">
+                      {recommendedShown.map(renderCourse)}
+                    </CommandGroup>
+                  ) : null}
+                  {results.length > 0 ? (
+                    <CommandGroup
+                      heading={
+                        !browsing
+                          ? `${activeResponse?.total ?? results.length} results`
+                          : session
+                            ? `Offered in ${term.shortName}`
+                            : "All courses"
+                      }
+                    >
+                      {results.map(renderCourse)}
+                    </CommandGroup>
+                  ) : null}
+                </>
+              )}
+            </CommandList>
+
+            {hasNextPage && !failed ? (
+              <div
+                className="shrink-0 border-t border-border/60 p-2"
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={loading}
+                  onClick={loadNextPage}
+                  className="w-full"
+                  type="button"
+                >
+                  {loading ? (
+                    <LoaderCircle
+                      size={14}
+                      className="animate-spin"
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  {loading ? "Loading courses" : "Load more courses"}
+                </Button>
+              </div>
+            ) : null}
+
+            {firstPageFailed || (failed && page > 1) ? (
+              <div
+                className="shrink-0 border-t border-border/60 p-2"
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retrySearch}
+                  className="w-full"
+                  type="button"
+                >
+                  {page > 1 ? "Retry loading results" : "Retry search"}
+                </Button>
+              </div>
+            ) : null}
+          </section>
         </Command>
+        {previewing ? (
+          <CourseDialog
+            preview={{
+              course: previewing,
+              addLabel:
+                (courseCounts.get(previewing.code) ?? 0) > 0
+                  ? "Already in plan"
+                  : `Add to ${term.shortName}`,
+              onAdd: () => void choose(previewing),
+            }}
+            catalogue={catalogue}
+            onClose={() => setPreviewing(null)}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
