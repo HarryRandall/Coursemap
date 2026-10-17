@@ -1,6 +1,9 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { PUBLISHED_STRUCTURE_DETAIL_TAG } from "@/lib/coursemap/published-cache";
+import {
+  PUBLISHED_READ_REVALIDATE_SECONDS,
+  PUBLISHED_STRUCTURE_DETAIL_TAG,
+} from "@/lib/coursemap/published-cache";
 
 import {
   collectSelectableStructureCodes,
@@ -233,5 +236,8 @@ async function readOnboardingCatalogue(): Promise<OnboardingCatalogue> {
 export const loadOnboardingCatalogue = unstable_cache(
   readOnboardingCatalogue,
   ["published-onboarding-catalogue"],
-  { revalidate: 300, tags: [PUBLISHED_STRUCTURE_DETAIL_TAG] },
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_STRUCTURE_DETAIL_TAG],
+  },
 );

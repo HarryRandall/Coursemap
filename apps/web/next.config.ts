@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  experimental: { staleTimes: { dynamic: 30, static: 180 } },
+  // Revisiting a page within five minutes reuses the browser's copy. Plan
+  // mutations revalidate the layout, which drops these copies straight away.
+  experimental: { staleTimes: { dynamic: 300, static: 300 } },
   // The shared UI package exports TypeScript source rather than prebuilt JavaScript.
   transpilePackages: ["@coursemap/ui"],
   // Repository-owned instructions take precedence over Next.js-generated agent guides.

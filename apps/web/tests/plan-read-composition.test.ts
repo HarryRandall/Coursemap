@@ -5,6 +5,7 @@ import { loadCurrentUserPlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 const mocks = vi.hoisted(() => ({
   results: new Map<string, unknown>(),
   reads: new Map<string, number>(),
+  selects: new Map<string, string[]>(),
   cacheEntries: new Map<unknown, Map<string, unknown>>(),
   finishLookups: null as null | (() => void),
   lookups: null as null | Promise<void>,
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   client: vi.fn(),
   rpc: vi.fn(),
 }));
+vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
 vi.mock("@/lib/auth/viewer", () => ({ getAuthViewer: mocks.viewer }));
 vi.mock("@/lib/coursemap/guest-plan-server", () => ({
   readGuestPlan: async () => null,
@@ -42,7 +44,10 @@ function query(table: string) {
     };
   };
   const builder = {
-    select: () => builder,
+    select: (columns: string) => {
+      mocks.selects.set(table, [...(mocks.selects.get(table) ?? []), columns]);
+      return builder;
+    },
     eq: () => builder,
     neq: () => builder,
     in: () => {
@@ -77,6 +82,7 @@ beforeEach(() => {
   mocks.failure = "";
   mocks.results.clear();
   mocks.reads.clear();
+  mocks.selects.clear();
   mocks.cacheEntries.clear();
   mocks.lookups = null;
   mocks.finishLookups = null;
@@ -153,14 +159,11 @@ test("another request reads changed private data again", async () => {
   expect(mocks.reads.get("plans")).toBe(2);
 });
 
-test.each([
-  loadCoursemapState.bind(null, viewer),
-  loadCurrentUserPlanCatalogue,
-])("code and academic year lookups start together", async (load) => {
+test("state code and academic year lookups start together", async () => {
   mocks.lookups = new Promise<void>((resolve) => {
     mocks.finishLookups = resolve;
   });
-  const pending = load();
+  const pending = loadCoursemapState(viewer);
   try {
     await vi.waitFor(() => expect(mocks.reads.get("catalogue_codes")).toBe(1));
     expect(mocks.reads.get("academic_years")).toBeGreaterThanOrEqual(2);
@@ -168,4 +171,16 @@ test.each([
     mocks.finishLookups?.();
     await pending;
   }
+});
+
+test("the planning catalogue reads plan course codes and years with their records", async () => {
+  await loadCurrentUserPlanCatalogue();
+  const recordReads = mocks.selects.get("catalogue_records") ?? [];
+  expect(
+    recordReads.some(
+      (columns) =>
+        columns.includes("catalogue_codes!") &&
+        columns.includes("academic_years!"),
+    ),
+  ).toBe(true);
 });

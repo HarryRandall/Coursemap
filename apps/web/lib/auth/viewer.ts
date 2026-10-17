@@ -53,8 +53,12 @@ export const getAuthContext = cache(async (): Promise<AuthContext> => {
   };
 });
 
+/**
+ * The verified viewer alone. Claims are checked locally, so unlike
+ * getAuthContext this does not wait for the administration permission read.
+ */
 export async function getAuthViewer(): Promise<AuthViewer | null> {
-  return (await getAuthContext()).viewer;
+  return loadVerifiedViewer();
 }
 
 /** Check the permission required to run programme and calendar imports. */
