@@ -9,7 +9,9 @@ import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.
 export const COMPACT_COURSE_PARSER_VERSION = "anu-course-source-first.v15";
 export const COMPACT_COURSE_PROMPT_VERSION = "course-requisites.v3";
 export const COMPACT_COURSE_OUTPUT_TOKENS = 1_500;
-export const COMPACT_COURSE_MAX_INPUT_BYTES = 20_000;
+// The whole request, including the rule schema it carries twice; an empty
+// requisite request is about 20 KB, leaving room for long eligibility text.
+export const COMPACT_COURSE_MAX_INPUT_BYTES = 32_000;
 
 /** When to use the rule forms whose fields the schema cannot explain alone. */
 const COMPACT_RULE_GUIDANCE = [

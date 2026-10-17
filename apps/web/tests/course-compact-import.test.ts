@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import languageFixture from "./fixtures/course-import/anu-2026-language-research.json";
 import fixture from "./fixtures/course-import/anu-2026-source-first.json";
-import { compactCourseAdapter } from "../lib/catalogue-import/kinds/course/compact-adapter.ts";
+import {
+  COMPACT_COURSE_MAX_INPUT_BYTES,
+  compactCourseAdapter,
+} from "../lib/catalogue-import/kinds/course/compact-adapter.ts";
+import { buildOpenRouterRequestBody } from "../lib/catalogue-import/openrouter.ts";
 import { parsePlainCourseRequisites } from "../lib/catalogue-import/kinds/course/plain-requisites.ts";
 import {
   sourceFirstPublicationEligible,
@@ -310,5 +314,27 @@ describe("source-first assembly and publication", () => {
       (item) => item.fieldPath !== "offerings",
     );
     expect(sourceFirstPublicationEligible(content)).toBe(false);
+  });
+});
+
+describe("compact requisite request size", () => {
+  it("leaves room for long eligibility text within the request cap", () => {
+    const body = buildOpenRouterRequestBody({
+      model: "coursemap/agent",
+      systemPrompt: compactCourseAdapter.buildSystemPrompt(),
+      modelInput: JSON.stringify({
+        code: "LAWS1201",
+        year: 2026,
+        requisiteText: "",
+        assumedKnowledgeText: null,
+      }),
+      schema: compactCourseAdapter.extractionJsonSchema,
+      schemaName: compactCourseAdapter.schemaName,
+      maxOutputTokens: compactCourseAdapter.maxOutputTokens,
+    });
+    expect(
+      COMPACT_COURSE_MAX_INPUT_BYTES -
+        Buffer.byteLength(JSON.stringify(body), "utf8"),
+    ).toBeGreaterThan(8_000);
   });
 });

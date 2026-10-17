@@ -25,6 +25,7 @@ Options:
   --careers Undergraduate,Postgraduate                   Only listings with these careers
   --concurrency N                                        Records processed at once (default 6)
   --skip-directory                                       Reuse the saved ANU listing
+  --reimport-held                                        Also retry untouched, unpublished agent drafts
   --answers DIR                                          Agent request and answer folder
 
 Local database only. Records already imported, published or drafted are skipped,
@@ -46,12 +47,17 @@ export function parseYearImportArgs(args) {
     careers: null,
     concurrency: 6,
     skipDirectory: false,
+    reimportHeld: false,
     answers: null,
   };
   for (let index = 0; index < args.length; index += 1) {
     const flag = args[index];
     if (flag === "--skip-directory") {
       options.skipDirectory = true;
+      continue;
+    }
+    if (flag === "--reimport-held") {
+      options.reimportHeld = true;
       continue;
     }
     const value = args[index + 1];
@@ -118,10 +124,14 @@ export async function ensureAgentImportModel(sql) {
   `;
 }
 
-/** Listed records with no source version, publication, draft or active sync. */
+/**
+ * Listed records with no source version, publication, draft or active sync.
+ * `reimportHeld` adds unpublished records whose untouched draft came from an
+ * agent import, so a parser or schema fix can read them again.
+ */
 export async function readImportableRecords(
   sql,
-  { kind, year, codes, limit, careers = null },
+  { kind, year, codes, limit, careers = null, reimportHeld = false },
 ) {
   const rows = await sql`
     select records.id, codes.code from public.catalogue_records records
@@ -132,8 +142,14 @@ export async function readImportableRecords(
       and (${codes === null} or codes.code = any(${codes ?? []}::text[]))
       and (${careers === null} or listings.summary->>'career' = any(${careers ?? []}::text[]))
       and records.archived_at is null and listings.is_current
-      and records.latest_source_version_id is null and records.published_version_id is null
-      and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
+      and records.published_version_id is null
+      and (
+        (records.latest_source_version_id is null
+          and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id))
+        or (${reimportHeld}
+          and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id and drafts.updated_by is null)
+          and exists (select 1 from public.catalogue_syncs syncs where syncs.source_version_id = records.latest_source_version_id and syncs.requested_model = ${AGENT_IMPORT_MODEL}))
+      )
       and not exists (select 1 from public.catalogue_syncs syncs where syncs.record_id = records.id and syncs.status in ('queued', 'running'))
     order by codes.code
     limit ${limit ?? 100_000}

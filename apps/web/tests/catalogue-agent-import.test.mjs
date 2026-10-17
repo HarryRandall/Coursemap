@@ -208,6 +208,7 @@ test("year import options require a supported year and known kinds", () => {
       careers: null,
       concurrency: 6,
       skipDirectory: true,
+      reimportHeld: false,
       answers: null,
     },
   );
