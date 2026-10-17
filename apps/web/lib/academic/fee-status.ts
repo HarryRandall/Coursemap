@@ -1,4 +1,10 @@
 import type { CourseFee } from "@/lib/coursemap/course-types";
+import {
+  estimatedFeeAmount,
+  type CourseFeeEstimates,
+  type FeeAudience,
+  type FeeEstimate,
+} from "@/lib/academic/fee-estimates";
 
 export const FEE_STATUSES = [
   "commonwealth_supported",
@@ -33,6 +39,17 @@ export type CoursePrices = {
   international: number | null;
   /** ANU's student contribution band code for Commonwealth supported places. */
   contributionBand: number | null;
+  /** Audiences whose listed fee is charged per unit rather than per course. */
+  perUnit?: Partial<Record<FeeAudience, boolean>>;
+  /** Estimates from similar courses for audiences with no readable fee. */
+  estimates?: CourseFeeEstimates;
+};
+
+/** What a course costs a student, and whether that is an estimate. */
+export type CoursePriceQuote = {
+  amount: number;
+  /** Set when ANU listed no readable fee and similar courses priced it. */
+  estimate: FeeEstimate | null;
 };
 
 /** ANU counts 48 units as one equivalent full-time study load (EFTSL). */
@@ -55,11 +72,19 @@ const CONTRIBUTION_RATES_2026: Record<
   34: { current: 17399, before2021: 13624 },
 };
 
+/** The fee-paying audience whose listed fee applies to a student. */
+function feeAudience(status: FeeStatus): FeeAudience | null {
+  if (status === "international") return "international";
+  if (status === "domestic_fee") return "domestic";
+  return null;
+}
+
 /**
  * What one course costs a student, in 2026 published dollars. A Commonwealth
  * supported place pays its band's rate for the course's share of a full-time
- * year; fee-paying students pay the course's listed fee. Null when the price
- * that applies is not published.
+ * year; fee-paying students pay the course's listed fee, or an estimate from
+ * similar courses when ANU listed none it could read. Null when neither is
+ * available.
  */
 export function coursePrice({
   prices,
@@ -71,10 +96,22 @@ export function coursePrice({
   units: number;
   feeStatus: FeeStatus;
   commencementYear: number | null;
-}): number | null {
+}): CoursePriceQuote | null {
   if (!prices) return null;
-  if (feeStatus === "international") return prices.international;
-  if (feeStatus === "domestic_fee") return prices.domestic;
+  const audience = feeAudience(feeStatus);
+  if (audience) {
+    const listed = prices[audience];
+    if (listed !== null) {
+      return {
+        amount: prices.perUnit?.[audience] ? listed * units : listed,
+        estimate: null,
+      };
+    }
+    const estimate = prices.estimates?.[audience];
+    return estimate && units > 0
+      ? { amount: estimatedFeeAmount(estimate, units), estimate }
+      : null;
+  }
   const rate =
     prices.contributionBand === null
       ? undefined
@@ -84,7 +121,10 @@ export function coursePrice({
     commencementYear !== null && commencementYear < 2021
       ? rate.before2021
       : rate.current;
-  return Math.round((annual * units) / UNITS_PER_EFTSL);
+  return {
+    amount: Math.round((annual * units) / UNITS_PER_EFTSL),
+    estimate: null,
+  };
 }
 
 /** The latest published row for one audience, taken without conversion. */
@@ -95,14 +135,36 @@ function latestFee(fees: CourseFee[], audience: CourseFee["audience"]) {
     .at(0);
 }
 
-/** Each audience's latest published price, and the course's contribution band. */
-export function coursePrices(fees: CourseFee[]): CoursePrices {
+/**
+ * Each audience's latest published price, and the course's contribution band.
+ * An estimate is kept only for an audience with no readable price, so it can
+ * never stand in for a fee ANU published.
+ */
+export function coursePrices(
+  fees: CourseFee[],
+  estimates?: CourseFeeEstimates,
+): CoursePrices {
   const priced = fees.filter((fee) => fee.amount !== null);
-  return {
-    domestic: latestFee(priced, "domestic")?.amount ?? null,
-    international: latestFee(priced, "international")?.amount ?? null,
+  const listed = {
+    domestic: latestFee(priced, "domestic"),
+    international: latestFee(priced, "international"),
+  };
+  const prices: CoursePrices = {
+    domestic: listed.domestic?.amount ?? null,
+    international: listed.international?.amount ?? null,
     contributionBand:
       latestFee(fees, "commonwealth_supported")?.studentContributionBand ??
       null,
   };
+  const perUnit: Partial<Record<FeeAudience, boolean>> = {};
+  const missing: CourseFeeEstimates = {};
+  for (const audience of ["domestic", "international"] as const) {
+    const fee = listed[audience];
+    if (fee?.basis === "unit") perUnit[audience] = true;
+    const estimate = estimates?.[audience];
+    if (!fee && estimate) missing[audience] = estimate;
+  }
+  if (Object.keys(perUnit).length) prices.perUnit = perUnit;
+  if (Object.keys(missing).length) prices.estimates = missing;
+  return prices;
 }

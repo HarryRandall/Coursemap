@@ -167,16 +167,27 @@ export type TuitionEstimate = {
   total: number;
   /** Whose prices the estimate uses. */
   feeStatus: FeeStatus;
-  /** Courses in the plan that carry a published price for that student. */
+  /** Courses in the plan that carry a price for that student. */
   pricedCourses: number;
+  /**
+   * Priced courses ANU listed no readable fee for, priced instead from
+   * similar courses. The total includes them, so callers must say so.
+   */
+  estimatedCourses: number;
   plannedCourses: number;
   /** Estimated fees per study year, oldest first. */
-  byYear: { year: number; amount: number; courses: number }[];
+  byYear: {
+    year: number;
+    amount: number;
+    courses: number;
+    estimatedCourses: number;
+  }[];
 };
 
 /**
  * Sums what each plan course costs this student: the band contribution for a
- * Commonwealth supported place, or the listed domestic or international fee.
+ * Commonwealth supported place, or the listed domestic or international fee,
+ * falling back to an estimate from similar courses when none was readable.
  * Returns null when no course has a price, so the caller shows an empty state
  * rather than a misleading zero.
  */
@@ -198,23 +209,34 @@ export function tuitionEstimate({
   });
   let total = 0;
   let pricedCourses = 0;
-  const byYear = new Map<number, { amount: number; courses: number }>();
+  let estimatedCourses = 0;
+  const byYear = new Map<
+    number,
+    { amount: number; courses: number; estimatedCourses: number }
+  >();
   planned.forEach(({ attempt, course }) => {
-    const amount = coursePrice({
+    const quote = coursePrice({
       prices: course.prices,
       units: unitsForAttempt(attempt, course),
       feeStatus: status,
       commencementYear: commencementYear ?? null,
     });
-    if (amount === null) return;
-    total += amount;
+    if (quote === null) return;
+    const estimated = quote.estimate ? 1 : 0;
+    total += quote.amount;
     pricedCourses += 1;
+    estimatedCourses += estimated;
     const year = Number(attempt.termId.slice(0, 4)) || attempt.academicYear;
     if (year) {
-      const entry = byYear.get(year) ?? { amount: 0, courses: 0 };
+      const entry = byYear.get(year) ?? {
+        amount: 0,
+        courses: 0,
+        estimatedCourses: 0,
+      };
       byYear.set(year, {
-        amount: entry.amount + amount,
+        amount: entry.amount + quote.amount,
         courses: entry.courses + 1,
+        estimatedCourses: entry.estimatedCourses + estimated,
       });
     }
   });
@@ -223,6 +245,7 @@ export function tuitionEstimate({
     total,
     feeStatus: status,
     pricedCourses,
+    estimatedCourses,
     plannedCourses: planned.length,
     byYear: [...byYear]
       .sort(([a], [b]) => a - b)

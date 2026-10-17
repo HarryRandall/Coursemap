@@ -1,4 +1,8 @@
 import type { CourseDetails } from "@/lib/coursemap/course-types";
+import {
+  estimatedFeeAmount,
+  type FeeEstimate,
+} from "@/lib/academic/fee-estimates";
 
 export function formatUpdatedAt(value: string | null) {
   if (!value) return "Not listed";
@@ -45,6 +49,21 @@ export function feeValue(fee: CourseDetails["fees"][number]) {
   }
   return fee.sourceText ?? "See the ANU source";
 }
+/** A course with a fixed unit value shows a course total; others a unit rate. */
+export function estimatedFeeValue(
+  course: CourseDetails,
+  estimate: FeeEstimate,
+) {
+  const aud = new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    maximumFractionDigits: 0,
+  });
+  return course.unitValue.kind === "fixed"
+    ? `≈ ${aud.format(estimatedFeeAmount(estimate, course.unitValue.units))}`
+    : `≈ ${aud.format(Math.round(estimate.perUnit))} per unit`;
+}
+
 export function humanise(value: string) {
   return value
     .replaceAll("_", " ")

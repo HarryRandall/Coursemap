@@ -48,12 +48,14 @@ import {
   type StudentRecord,
 } from "@/lib/coursemap/requisite-evaluation";
 import {
+  estimatedFeeValue,
   feeValue,
   formatUpdatedAt,
   humanise,
   sessionLabel,
   unitValueLabel,
 } from "@/ui/courses/course-detail-format";
+import { feeEstimateNote } from "@/lib/academic/fee-estimates";
 import { CourseOfferings } from "@/ui/courses/course-offerings";
 import { CourseReferenceText } from "@/ui/courses/course-reference";
 import { EnrolmentSteps } from "@/ui/courses/enrolment-steps";
@@ -169,6 +171,12 @@ export function CourseDetailView({
     course.workloadHoursBasis,
   );
   const availableCourseCodes = new Set(course.availableCourseCodes);
+  const feeEstimates = (["domestic", "international"] as const).flatMap(
+    (audience) => {
+      const estimate = course.feeEstimates?.[audience];
+      return estimate ? [[audience, estimate] as const] : [];
+    },
+  );
   const structuredRule = course.prerequisiteRule?.expression ?? null;
   const relationalRule = course.prerequisiteRule?.relationalExpression ?? null;
   const incompatibilityRule =
@@ -467,7 +475,7 @@ export function CourseDetailView({
               </CardFooter>
             </Card>
 
-            {course.fees.length ? (
+            {course.fees.length || feeEstimates.length ? (
               <Card>
                 <CardHeader>
                   <CardTitle>
@@ -494,6 +502,20 @@ export function CourseDetailView({
                         </dd>
                         <dd className="mt-1.5 text-[13px] font-semibold text-foreground/90">
                           {feeValue(fee)}
+                        </dd>
+                      </div>
+                    ))}
+                    {feeEstimates.map(([audience, estimate]) => (
+                      <div key={`estimate:${audience}`} className="px-5 py-4">
+                        <dt className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                          <Banknote size={15} aria-hidden="true" />
+                          {`Estimated ${audience} fee`}
+                        </dt>
+                        <dd className="mt-1.5 text-[13px] font-semibold text-foreground/90">
+                          {estimatedFeeValue(course, estimate)}
+                        </dd>
+                        <dd className="mt-1 text-xs text-muted-foreground">
+                          {feeEstimateNote(estimate)}
                         </dd>
                       </div>
                     ))}

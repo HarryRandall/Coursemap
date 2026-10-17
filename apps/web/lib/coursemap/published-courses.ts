@@ -15,6 +15,7 @@ import {
   publishedCourseTag,
   publishedCourseYearTag,
 } from "./published-cache";
+import { withFeeEstimates } from "./fee-estimate-table";
 import "server-only";
 import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -1980,12 +1981,14 @@ export async function loadPublishedCoursesBySelections(
   );
   const details = new Map(
     (
-      await readPublishedDetailBatches(batches, ({ year, codes }) =>
-        loadPublishedCourseBatch(codes, year),
+      await withFeeEstimates(
+        (
+          await readPublishedDetailBatches(batches, ({ year, codes }) =>
+            loadPublishedCourseBatch(codes, year),
+          )
+        ).flat(),
       )
-    )
-      .flat()
-      .map((course) => [`${course.year}:${course.code}`, course]),
+    ).map((course) => [`${course.year}:${course.code}`, course]),
   );
   return unique.flatMap(({ code, year }) => {
     const course = details.get(`${year}:${code}`);
@@ -2046,7 +2049,7 @@ export async function loadPublishedCourse(
     return null;
   }
 
-  return unstable_cache(
+  const course = await unstable_cache(
     async () => {
       const client = createPublicClient() as unknown as LooseRpcClient;
       const { data, error } = await client.rpc("published_course_detail", {
@@ -2067,4 +2070,5 @@ export async function loadPublishedCourse(
       ],
     },
   )();
+  return course ? ((await withFeeEstimates([course]))[0] ?? null) : null;
 }

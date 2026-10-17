@@ -1,6 +1,7 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type { ProgrammeCareer } from "../academic/programme-career";
 import type { WorkloadHoursBasis } from "@/lib/academic/workload";
+import type { CourseFeeEstimates } from "@/lib/academic/fee-estimates";
 import type { RequisiteExpression } from "./requisite-summary";
 
 export type CourseRuleReviewState = "automatic" | "review" | "verified";
@@ -217,6 +218,11 @@ export type CourseDetails = {
   inherentRequirements: string | null;
   prescribedTexts: string | null;
   fees: CourseFee[];
+  /**
+   * Fees estimated at read time from similar published courses, for audiences
+   * the source listed no readable fee for. Never stored with the catalogue.
+   */
+  feeEstimates?: CourseFeeEstimates;
   learningOutcomes: Array<{ body: string; position: number }>;
   relatedCourses: CourseRelatedCourse[];
   prerequisiteText: string;
