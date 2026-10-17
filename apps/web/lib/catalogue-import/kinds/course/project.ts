@@ -18,6 +18,7 @@ import {
 } from "./contract.ts";
 import { stableFingerprint } from "../../canonical.ts";
 import { cleanText } from "./validation-helpers.ts";
+import { withoutAssumedKnowledgeRepeats } from "./assumed-knowledge.ts";
 
 type RuleKind =
   | "prerequisite"
@@ -1151,7 +1152,11 @@ function addIncompatibilityRule(
   }
 }
 
-function projectRules(extraction: CourseExtraction): RuleProjectionAccumulator {
+function projectRules(stored: CourseExtraction): RuleProjectionAccumulator {
+  const extraction: CourseExtraction = {
+    ...stored,
+    requisites: withoutAssumedKnowledgeRepeats(stored.requisites),
+  };
   const accumulator: RuleProjectionAccumulator = {
     rules: [],
     ruleGroups: [],
