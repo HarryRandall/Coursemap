@@ -28,6 +28,7 @@ const plan: AppState = {
     majorCode: "CAMA-MAJ",
     minorCodes: ["ECON-MIN"],
     enrolmentMode: "single_degree",
+    feeStatus: "international",
     extensionYears: 1,
   },
   attempts: [

@@ -1,6 +1,7 @@
 import { validPlanOverride, validCreditedUnits } from "./plan-overrides";
 import type { CourseOverride, RequirementOverride } from "./types";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
+import { validFeeStatus } from "@/lib/academic/fee-status";
 import type {
   AppState,
   Attempt,
@@ -59,6 +60,7 @@ type StoredGuestPlan = {
     sp: string[];
     l: "f" | "p";
     e: string | null;
+    f?: string | null;
     x: number;
   };
   /** [id, course code, term id, academic year, status, mark, units attempted] */
@@ -111,6 +113,7 @@ function toStored(state: AppState): StoredGuestPlan {
       sp: profile.specialisationCodes,
       l: profile.studyLoad === "Part time" ? "p" : "f",
       e: profile.enrolmentMode ?? null,
+      ...(profile.feeStatus ? { f: profile.feeStatus } : {}),
       x: profile.extensionYears,
     },
     a: state.attempts.map((attempt) => {
@@ -187,6 +190,7 @@ function fromStored(raw: unknown): AppState | null {
     specialisationCodes: codes(p.sp),
     studyLoad: p.l === "p" ? "Part time" : "Full time",
     enrolmentMode: validEnrolmentMode(p.e) ? p.e : null,
+    ...(validFeeStatus(p.f) ? { feeStatus: p.f } : {}),
     extensionYears:
       Number.isInteger(p.x) && (p.x as number) >= 0 && (p.x as number) <= 10
         ? (p.x as number)

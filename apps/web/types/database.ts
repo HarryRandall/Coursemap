@@ -3652,6 +3652,7 @@ export type Database = {
           created_at: string
           display_name: string
           email: string | null
+          fee_status: string | null
           id: string
           preferred_name: string | null
           pronouns: string | null
@@ -3662,6 +3663,7 @@ export type Database = {
           created_at?: string
           display_name: string
           email?: string | null
+          fee_status?: string | null
           id: string
           preferred_name?: string | null
           pronouns?: string | null
@@ -3672,6 +3674,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           email?: string | null
+          fee_status?: string | null
           id?: string
           preferred_name?: string | null
           pronouns?: string | null

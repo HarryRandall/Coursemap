@@ -213,8 +213,8 @@ export function CourseDialog({
     ["Delivery", course.delivery],
     [
       "Cost",
-      course.domesticFee != null
-        ? `${AUD.format(course.domesticFee)} domestic`
+      course.prices?.domestic != null
+        ? `${AUD.format(course.prices.domestic)} domestic`
         : "Not listed",
     ],
     ["Convener", course.convener],

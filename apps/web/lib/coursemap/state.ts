@@ -8,6 +8,7 @@ import {
   loadAttemptVersions,
 } from "@/lib/coursemap/plan-reads";
 import { validEnrolmentMode } from "@/lib/academic/enrolment-mode";
+import { validFeeStatus } from "@/lib/academic/fee-status";
 import type { AppState, Attempt, OverrideReason } from "@/lib/coursemap/types";
 import type { AuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
@@ -139,7 +140,7 @@ const loadProfile = cache(async (ownerId: string) => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("display_name,student_number,preferred_name,pronouns")
+    .select("display_name,student_number,preferred_name,pronouns,fee_status")
     .eq("id", ownerId)
     .maybeSingle();
   if (error) throw error;
@@ -157,6 +158,9 @@ export async function loadProfileState(viewer: AuthViewer): Promise<AppState> {
       studentId: profile?.student_number ?? "",
       preferredName: profile?.preferred_name ?? "",
       pronouns: profile?.pronouns ?? "",
+      feeStatus: validFeeStatus(profile?.fee_status)
+        ? profile.fee_status
+        : null,
     },
   };
 }

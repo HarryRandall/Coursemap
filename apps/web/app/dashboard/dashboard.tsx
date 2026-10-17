@@ -230,8 +230,13 @@ export function Dashboard({
     [academicInputs],
   );
   const tuition = useMemo(
-    () => tuitionEstimate(academicInputs),
-    [academicInputs],
+    () =>
+      tuitionEstimate({
+        ...academicInputs,
+        feeStatus: state.profile.feeStatus,
+        commencementYear: state.profile.commencementYear,
+      }),
+    [academicInputs, state.profile.feeStatus, state.profile.commencementYear],
   );
 
   const planCourseRows = useMemo<PlanCourseRow[]>(() => {

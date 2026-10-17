@@ -94,6 +94,7 @@ export async function transferGuestPlan(
       preferredName:
         account.profile.preferredName || guest.profile.preferredName,
       pronouns: account.profile.pronouns || guest.profile.pronouns,
+      feeStatus: account.profile.feeStatus ?? guest.profile.feeStatus,
       email: viewer.email ?? "",
     });
     if (!saved.ok) return { status: "failed", message: saved.message };

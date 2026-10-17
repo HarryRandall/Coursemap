@@ -23,6 +23,7 @@ import { createPublicClient } from "@/lib/supabase/public-server";
 import { courseFromSnapshotProjection } from "@/lib/coursemap/published-courses";
 import { loadPlanningCourseEditions } from "@/lib/coursemap/planning-course-editions";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
+import { coursePrices } from "@/lib/academic/fee-status";
 import { getAuthViewer } from "@/lib/auth/viewer";
 import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { createClient } from "@/lib/supabase/server";
@@ -216,18 +217,8 @@ export function planCourseFromDetails(course: CourseDetails): Course {
           ? "Review"
           : "Automatic",
     accent: course.accent,
-    domesticFee: domesticFee(course.fees),
+    prices: coursePrices(course.fees),
   };
-}
-
-/** The latest domestic fee amount, taken as published without conversion. */
-function domesticFee(fees: CourseDetails["fees"]) {
-  return (
-    fees
-      .filter((fee) => fee.audience === "domestic" && fee.amount !== null)
-      .sort((a, b) => (b.feeYear ?? 0) - (a.feeYear ?? 0))
-      .at(0)?.amount ?? null
-  );
 }
 
 export function buildAcademicStructureRequirementTree({
