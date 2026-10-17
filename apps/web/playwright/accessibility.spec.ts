@@ -26,6 +26,13 @@ test("the student dashboard has no serious or critical accessibility violations"
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByRole("main")).toContainText("units completed");
   await expect(page.locator("body")).not.toContainText("Application error");
+  // Dashboard rows fade in one after another; measure contrast at rest, not
+  // partway through a fade.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animation) => animation.playState === "finished"),
+  );
   const results = await new AxeBuilder({ page }).analyze();
   assertNoSeriousAccessibilityViolations(results.violations);
 });
