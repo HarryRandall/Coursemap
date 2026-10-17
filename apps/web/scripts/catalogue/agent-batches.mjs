@@ -8,6 +8,7 @@ import { repositoryRoot } from "../paths.mjs";
 import {
   DEFAULT_BATCH_SIZE,
   applyBatchAnswers,
+  carryAnswers,
   prepareBatches,
   readPendingRequests,
   rekeyAnswers,
@@ -17,6 +18,7 @@ const USAGE = `Usage: pnpm catalogue:agent-batches status
        pnpm catalogue:agent-batches prepare [--size ${DEFAULT_BATCH_SIZE}] [--schema NAME]
        pnpm catalogue:agent-batches apply BATCH.json [BATCH.json ...] | --all
        pnpm catalogue:agent-batches rekey PREVIOUS_REQUESTS_DIR
+       pnpm catalogue:agent-batches carry
 
 prepare groups unanswered requests into batches/<schema>-NNNN.json.
 A subagent answers a batch by writing batches/<schema>-NNNN.answers.json,
@@ -24,7 +26,9 @@ an object of item id to answer. A second, independent subagent checks each
 answer against the source and writes batches/<schema>-NNNN.verdicts.json,
 an object of item id to { approve, reason }. apply saves approved answers
 that the import adapter accepts, for every request sharing their wording.
-rekey gives regenerated requests the answers their records already had.`;
+rekey gives regenerated requests the answers their records already had.
+carry gives course and structure requests the answer of another year's
+request with identical wording.`;
 
 const ROOT = resolve(
   process.env.COURSEMAP_AGENT_EXTRACTION_DIR ??
@@ -117,6 +121,17 @@ export async function main(args = process.argv.slice(2)) {
     });
     console.log(
       `${result.rekeyed} rekeyed, ${result.invalid.length} invalid, ${result.unmatched} without a previous answer`,
+    );
+    for (const item of result.invalid)
+      console.log(`  ${item.record}: ${item.issues.join("; ")}`);
+    return;
+  }
+  if (command === "carry" && rest.length === 0) {
+    const result = await carryAnswers(ROOT, {
+      validate: await adapterValidator(),
+    });
+    console.log(
+      `${result.carried} carried, ${result.unmatched} without a match, ${result.invalid.length} failed validation`,
     );
     for (const item of result.invalid)
       console.log(`  ${item.record}: ${item.issues.join("; ")}`);

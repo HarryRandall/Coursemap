@@ -225,3 +225,66 @@ export async function rekeyAnswers(root, previousRequests, { validate }) {
   }
   return result;
 }
+
+/** Schemas whose answers carry no year, so identical wording in another year shares them. */
+export const CARRIED_SCHEMAS = new Set([
+  "course_requisites",
+  "structure_requirements",
+]);
+
+/**
+ * Gives a pending request the answer of an answered request in another year
+ * with the same wording, when the import adapter accepts it for the new
+ * record. Programme extractions embed their year, so they are never carried.
+ * Existing answers are never changed.
+ */
+export async function carryAnswers(root, { validate }) {
+  const answered = new Set(
+    (await readdir(join(root, "answers")).catch(() => [])).map((name) =>
+      name.replace(/\.json$/, ""),
+    ),
+  );
+  const requests = (await readJsonFiles(join(root, "requests"))).filter(
+    (request) => CARRIED_SCHEMAS.has(request.schemaName),
+  );
+  const sources = new Map();
+  for (const request of requests
+    .filter((request) => answered.has(request.key))
+    .sort((left, right) => right.academicYear - left.academicYear)) {
+    const key = deduplicationKey(request);
+    if (!sources.has(key)) sources.set(key, request.key);
+  }
+  const result = { carried: 0, unmatched: 0, invalid: [] };
+  for (const request of requests) {
+    if (answered.has(request.key)) continue;
+    const sourceKey = sources.get(deduplicationKey(request));
+    if (!sourceKey) {
+      result.unmatched += 1;
+      continue;
+    }
+    const answer = JSON.parse(
+      await readFile(join(root, "answers", `${sourceKey}.json`), "utf8"),
+    );
+    const issues = validate({
+      kind: request.kind,
+      code: request.code,
+      academicYear: request.academicYear,
+      schemaName: request.schemaName,
+      answer,
+    });
+    if (issues.length) {
+      result.invalid.push({
+        record: `${request.kind}:${request.code}:${request.academicYear}`,
+        issues,
+      });
+      continue;
+    }
+    await writeFile(
+      join(root, "answers", `${request.key}.json`),
+      `${JSON.stringify(answer)}\n`,
+      { flag: "wx" },
+    );
+    result.carried += 1;
+  }
+  return result;
+}
