@@ -378,6 +378,18 @@ const requirementConditionSchema: z.ZodType<AcademicStructureRequirementConditio
           "minimumUnits",
           "requires a unit amount or minimum course count",
         );
+      // Stored subject, level and tag conditions count units, so each needs a
+      // bound; a child of a pooled group takes the pool's units as its cap.
+      if (
+        (condition.conditionKind === "subject" ||
+          condition.conditionKind === "level" ||
+          condition.conditionKind === "tag") &&
+        !hasUnits
+      )
+        unexpected(
+          "minimumUnits",
+          `${condition.conditionKind} requires minimumUnits or maximumUnits`,
+        );
       const disallowCommonReferences = ({
         allowCourseCodes = false,
         allowStructureCodes = false,

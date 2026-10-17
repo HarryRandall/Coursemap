@@ -6,6 +6,20 @@ import type {
 } from "./contract.ts";
 
 const CONSECUTIVE_SEMESTERS = /\bconsecutive\s+semesters?\b/iu;
+const COURSE_CODE = /\b[A-Z]{4}\d{4}[A-Z]?\b/gu;
+
+/**
+ * Course codes named in the sentences that state the timing. One code means
+ * a single course taken over consecutive semesters, which no pair can model.
+ */
+function timingCourseCodes(sourceText: string) {
+  const sentences = sourceText
+    .split(/(?<=[.!?])\s+|\n+/u)
+    .filter((sentence) => CONSECUTIVE_SEMESTERS.test(sentence));
+  return new Set(
+    sentences.flatMap((sentence) => sentence.match(COURSE_CODE) ?? []),
+  );
+}
 
 function conditions(
   rule: AcademicStructureRequirementRule | null,
@@ -28,6 +42,18 @@ export function consecutiveSemesterReviewItems(
   );
   const items: AcademicStructureExtractionReviewItem[] = [];
   if (
+    pairs.length === 0 &&
+    CONSECUTIVE_SEMESTERS.test(requirements.sourceText ?? "") &&
+    timingCourseCodes(requirements.sourceText ?? "").size === 1
+  )
+    items.push({
+      fieldKey: "requirements.rule",
+      kind: "unsupported",
+      severity: "warning",
+      message:
+        "The requirements ask for one course to be taken over consecutive semesters. Coursemap does not check that timing.",
+    });
+  else if (
     pairs.length === 0 &&
     CONSECUTIVE_SEMESTERS.test(requirements.sourceText ?? "")
   )
