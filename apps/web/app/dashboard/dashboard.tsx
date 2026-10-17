@@ -351,12 +351,6 @@ export function Dashboard({
           <DegreeComposition
             sections={composition}
             academicYear={catalogue.academicYear}
-            courseLinks={Object.fromEntries(
-              catalogue.courses.map((course) => [
-                course.code,
-                `/courses/${course.year}/${course.code.toLowerCase()}`,
-              ]),
-            )}
           />
           <MonthCalendar events={calendarEvents} todayIso={todayIso} />
         </div>
