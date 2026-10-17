@@ -15,8 +15,10 @@ is the reference for this checkout. In particular, see `staleTimes.md`,
 
 Do not use `router.prefetch()` or `prefetch={true}` for private dynamic pages.
 The installed docs assign fully prefetched pages to `staleTimes.static`, including
-dynamic pages. Default prefetching and ordinary visits use the 30-second dynamic
-interval; static content and loading boundaries use the 180-second interval.
+dynamic pages. Default prefetching, ordinary visits, static content and loading
+boundaries all use a five-minute interval. Successful plan mutations invalidate
+the root layout, which discards these copies, so the interval only bounds how
+long another tab or device's change can take to appear on navigation.
 Hover wrappers are unnecessary while the existing loading boundaries suffice.
 
 Planner, Dashboard, course directory, course detail and Rooms already have
@@ -36,8 +38,8 @@ also use the lightweight shell.
 2. In DevTools Network, preserve the log and filter RSC requests. Start at
    Dashboard, wait for viewport prefetches, then visit Rooms, Societies, Key dates,
    Help, Planner, course directory and a course detail. Compare request count,
-   click-to-skeleton and click-to-content. Repeat each navigation within 30 seconds
-   and after 30 seconds. Keep browser profiles and network throttling identical.
+   click-to-skeleton and click-to-content. Repeat each navigation within five
+   minutes and after five minutes. Keep browser profiles and network throttling identical.
 3. Add, move, remove and star a course; record a result; change a requirement
    placement, degree and extension years. Immediately revisit Dashboard,
    Requirements, Calendar and course detail, including Back/Forward. Confirm the
@@ -88,19 +90,39 @@ has 9, plus `H`. Six reads now overlap within a request: primary plan, rules yea
 plan items, selected structures, attempts and attempt versions. Profile reads
 also overlap between the root and page. Both loaders now start course-code and
 academic-year lookups together rather than waiting for one before the other.
-Dashboard already started its three independent loaders together. Plan's
-requirement-course enrichment depends on the catalogue and stays sequential.
-Existing relational chains retain their authorisation and historical-year
-semantics; consolidating them into a new RPC is deferred because that would need
-schema and database verification outside this task's delivery scope.
+Dashboard already started its three independent loaders together. See
+[Planner load path](#planner-load-path) for how the plan catalogue avoids
+waiting on one read before the next.
 
 A cold map needs `4 + 2B` public queries for `B` place-id batches. Manager previews
 add `B` private indoor-map queries. The ordinary signed-in cold Rooms case is
 therefore 9 reads with one batch, and the manager case is 10. Managers and ordinary
 students check `rooms.manage` once per request; guest checks issue no permission
-RPC. New published caches use a 300-second revalidation interval and publication
-uses `updateTag` for immediate expiry. External SQL/import changes need matching
-cache invalidation or can wait for that interval.
+RPC. Published course and structure caches use a one-hour revalidation interval
+(`PUBLISHED_READ_REVALIDATE_SECONDS`) and publication uses `updateTag` for
+immediate expiry. External SQL/import changes need matching cache invalidation
+or can wait for that interval. The calendar and campus map keep 300 seconds.
+
+## Planner load path
+
+Each request to the hosted database costs a round trip, so the planner is
+shaped to wait on as few in sequence as possible:
+
+1. The viewer comes from locally verified claims. Plan reads start without
+   waiting for the administration permission check, which runs alongside them.
+2. The primary plan, then its rules year, items, attempts and structures together.
+   Once the year is known, the year's published structures start loading; they
+   are shared across students in a cross-request cache.
+3. Attempt versions, then their records with course codes and years embedded in
+   the same request.
+4. Course details, requirement rules, teaching periods and historical attempt
+   projections together. Course details come from `published_course_details`,
+   which reads up to 50 courses per call and builds the year's prerequisite
+   edges once per call instead of once per course. The app sends 25 per call,
+   four calls at a time, to stay well inside the anonymous statement timeout.
+5. On Plan, the courses requirements name or suggest stream to the board after
+   it renders. A failure there leaves the suggestions out rather than failing
+   the page. Requirements still waits for named courses before rendering.
 
 ## Mutation and identity audit
 

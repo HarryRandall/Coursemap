@@ -4,8 +4,12 @@ const mocks = vi.hoisted(() => ({
   state: vi.fn(),
   guest: vi.fn(),
   auth: vi.fn(),
+  viewer: vi.fn(),
 }));
-vi.mock("@/lib/auth/viewer", () => ({ getAuthContext: mocks.auth }));
+vi.mock("@/lib/auth/viewer", () => ({
+  getAuthContext: mocks.auth,
+  getAuthViewer: mocks.viewer,
+}));
 vi.mock("@/lib/coursemap/state", () => ({ loadCoursemapState: mocks.state }));
 vi.mock("@/lib/coursemap/guest-plan-server", () => ({
   readGuestPlan: mocks.guest,
@@ -16,6 +20,7 @@ beforeEach(() => {
     viewer: { id: "student" },
     canAccessAdmin: true,
   });
+  mocks.viewer.mockResolvedValue({ id: "student" });
   mocks.state.mockResolvedValue({ planId: "plan", profile: {}, attempts: [] });
 });
 test("the page starts before its plan read completes and receives the full state", async () => {
@@ -46,10 +51,26 @@ test("a failed private read propagates rather than showing an empty plan", async
 });
 test("guest planning uses the exact cookie state without querying private data", async () => {
   mocks.auth.mockResolvedValue({ viewer: null, canAccessAdmin: false });
+  mocks.viewer.mockResolvedValue(null);
   const guest = { profile: { name: "Guest" }, attempts: [] };
   mocks.guest.mockResolvedValue(guest);
   const provider = await withPlanningState(async () => "Planner")({});
   expect(provider.props.initialState).toBe(guest);
   expect(provider.props.guest).toBe(true);
   expect(mocks.state).not.toHaveBeenCalled();
+});
+
+test("the plan read does not wait for the administration check", async () => {
+  let allowAdmin!: (value: unknown) => void;
+  mocks.auth.mockReturnValue(
+    new Promise((resolve) => {
+      allowAdmin = resolve;
+    }),
+  );
+  const pending = withPlanningState(async () => "Planner")({});
+  await vi.waitFor(() =>
+    expect(mocks.state).toHaveBeenCalledWith({ id: "student" }),
+  );
+  allowAdmin({ viewer: { id: "student" }, canAccessAdmin: true });
+  expect((await pending).props.canAccessAdmin).toBe(true);
 });

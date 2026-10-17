@@ -1,5 +1,6 @@
 import "server-only";
 import { requirementLevelFilter } from "./requirement-course-filters";
+import type { Course } from "@/lib/coursemap/types";
 import {
   planCourseFromDetails,
   type PlanCatalogue,
@@ -44,16 +45,16 @@ function searchFilters(condition: PlanRequirementCondition) {
 }
 
 /**
- * The plan catalogue with the courses the student's structures list, and a
- * page of the courses each subject or tag rule would count, so requirements
- * can name and suggest courses that are not in the plan yet.
+ * The courses a student's structures list, and a page of the courses each
+ * subject or tag rule would count, so requirements can name and suggest
+ * courses that are not in the plan yet. Only courses the catalogue lacks.
  */
-export async function withRequirementCourses(
+export async function loadRequirementCourses(
   catalogue: PlanCatalogue,
   { includeRuleCandidates = true }: { includeRuleCandidates?: boolean } = {},
-): Promise<PlanCatalogue> {
+): Promise<Course[]> {
   const academicYear = catalogue.academicYear;
-  if (academicYear === null) return catalogue;
+  if (academicYear === null) return [];
   const known = (code: string) =>
     catalogue.courses.some(
       (course) => course.code === code && course.year === academicYear,
@@ -88,13 +89,22 @@ export async function withRequirementCourses(
       }).catch(() => null),
     ),
   ]);
-  const added = new Map(
-    [...listed, ...pages.flatMap((page) => page?.courses ?? [])]
-      .filter((course) => !known(course.code))
-      .map((course) => [course.code, planCourseFromDetails(course)]),
-  );
-  return {
-    ...catalogue,
-    courses: [...catalogue.courses, ...added.values()],
-  };
+  return [
+    ...new Map(
+      [...listed, ...pages.flatMap((page) => page?.courses ?? [])]
+        .filter((course) => !known(course.code))
+        .map((course) => [course.code, planCourseFromDetails(course)]),
+    ).values(),
+  ];
+}
+
+/** The plan catalogue with {@link loadRequirementCourses} added. */
+export async function withRequirementCourses(
+  catalogue: PlanCatalogue,
+  options: { includeRuleCandidates?: boolean } = {},
+): Promise<PlanCatalogue> {
+  const added = await loadRequirementCourses(catalogue, options);
+  return added.length
+    ? { ...catalogue, courses: [...catalogue.courses, ...added] }
+    : catalogue;
 }

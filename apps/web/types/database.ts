@@ -5076,6 +5076,13 @@ export type Database = {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: Json
       }
+      published_course_details: {
+        Args: { p_academic_year: number; p_course_codes: string[] }
+        Returns: {
+          course_code: string
+          detail: Json
+        }[]
+      }
       published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: {

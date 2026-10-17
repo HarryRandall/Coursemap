@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AppProvider } from "@/app/providers";
-import { getAuthContext } from "@/lib/auth/viewer";
+import { getAuthContext, getAuthViewer } from "@/lib/auth/viewer";
 import { readGuestPlan } from "@/lib/coursemap/guest-plan-server";
 import { loadCoursemapState } from "@/lib/coursemap/state";
 
@@ -12,8 +12,11 @@ export function withPlanningState<Props>(
   renderPage: (props: Props) => ReactNode | Promise<ReactNode>,
 ) {
   return async function PlanningPage(props: Props) {
-    const { viewer, canAccessAdmin } = await getAuthContext();
-    const [initialState, children] = await Promise.all([
+    // The administration check only decides navigation, so plan reads start
+    // as soon as the viewer is known instead of waiting for it.
+    const viewer = await getAuthViewer();
+    const [{ canAccessAdmin }, initialState, children] = await Promise.all([
+      getAuthContext(),
       viewer ? loadCoursemapState(viewer) : readGuestPlan(),
       renderPage(props),
     ]);
