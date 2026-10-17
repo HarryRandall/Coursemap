@@ -426,7 +426,15 @@ export function parseCourseSource({
         sourceLabel: label,
         sourceText: amount[0],
       });
-    else review("fees", `${label} could not be read from the source.`);
+    // Research courses print only international fees and send domestic
+    // students to ANU's separate research fee page.
+    else if (
+      audience !== "domestic" ||
+      !/^If you are a \*\*domestic student\*\*, information about course fees can be found at \[/mu.test(
+        fees ?? "",
+      )
+    )
+      review("fees", `${label} could not be read from the source.`);
   }
   const feeSection = section("Fees");
   const band = feeSection?.match(
