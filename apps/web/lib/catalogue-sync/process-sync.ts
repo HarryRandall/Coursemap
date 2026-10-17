@@ -76,6 +76,11 @@ import {
   extractWithOpenRouter,
   restoreOpenRouterExtraction,
 } from "../catalogue-import/openrouter.ts";
+import {
+  AgentAnswerPendingError,
+  extractWithAgentAnswers,
+  isAgentImportModel,
+} from "../catalogue-import/agent-extraction.ts";
 import { persistSourceVersionAndFinishSync } from "./persist-source-version.ts";
 import type { CatalogueKind } from "../catalogue/content.ts";
 
@@ -678,17 +683,29 @@ async function processClaimedSync({
                 claim.requestedModel,
                 adapter.schemaName,
               )
-            : await extractWithOpenRouter({
-                model: claim.requestedModel,
-                systemPrompt,
-                modelInput: userPrompt,
-                schema: adapter.extractionJsonSchema,
-                schemaName: adapter.schemaName,
-                maxOutputTokens: adapter.maxOutputTokens,
-                reasoningEffort: adapter.reasoningEffort,
-                requestTimeoutMs: adapter.requestTimeoutMs,
-                signal,
-              });
+            : isAgentImportModel(claim.requestedModel)
+              ? await extractWithAgentAnswers({
+                  systemPrompt,
+                  modelInput: userPrompt,
+                  schema: adapter.extractionJsonSchema,
+                  schemaName: adapter.schemaName,
+                  metadata: {
+                    kind: claim.kind,
+                    code: claim.code,
+                    academicYear: claim.academicYear,
+                  },
+                })
+              : await extractWithOpenRouter({
+                  model: claim.requestedModel,
+                  systemPrompt,
+                  modelInput: userPrompt,
+                  schema: adapter.extractionJsonSchema,
+                  schemaName: adapter.schemaName,
+                  maxOutputTokens: adapter.maxOutputTokens,
+                  reasoningEffort: adapter.reasoningEffort,
+                  requestTimeoutMs: adapter.requestTimeoutMs,
+                  signal,
+                });
           const responseArtifact = await persistArtifact({
             stageId,
             stageName: "model_extract",
@@ -701,6 +718,7 @@ async function processClaimedSync({
         } catch (error) {
           if (
             error instanceof CourseRunBudgetError ||
+            error instanceof AgentAnswerPendingError ||
             error instanceof OpenRouterConfigurationError ||
             error instanceof OpenRouterRequestError ||
             error instanceof CatalogueProviderPausedError

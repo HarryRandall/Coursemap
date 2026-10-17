@@ -6,6 +6,7 @@
 - [Navigation prefetching](navigation-prefetching.md): link choices, loading boundaries and preview comparison.
 - [Architecture](architecture.md): application boundaries and the data model.
 - [Catalogue operations](catalogue-operations.md): importing, reviewing, editing and publishing catalogue records.
+- [Agent catalogue imports](operations/agent-catalogue-imports.md): local year imports with agent-answered, independently checked interpretation.
 - [Import retention](operations/import-retention.md): owner-approved dry runs, protected evidence and batch cleanup.
 - [Import redundancy](operations/import-redundancy.md): duplicate bytes, protected reviews and forward storage savings.
 - [Environment template](../apps/web/.env.example): required settings, optional services and defaults.
