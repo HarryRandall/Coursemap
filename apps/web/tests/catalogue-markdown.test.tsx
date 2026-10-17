@@ -66,3 +66,25 @@ test("markup in imported text is shown as text, never run", () => {
   expect(screen.queryByRole("link", { name: "click" })).toBeNull();
   expect(screen.getByText(/<img src=x/u)).toBeInTheDocument();
 });
+
+test("a run of short lines under a bold lead reads as a list", () => {
+  renderMarkdown(
+    [
+      "**Choose two of the following degrees:**",
+      "",
+      "Bachelor of Accounting",
+      "",
+      "Bachelor of Arts",
+      "",
+      "Bachelor of Science",
+      "",
+      "Degrees of Biotechnology and Genetics cannot be combined.",
+    ].join("\n"),
+  );
+  expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual(
+    ["Bachelor of Accounting", "Bachelor of Arts", "Bachelor of Science"],
+  );
+  expect(
+    screen.getByText("Choose two of the following degrees:").closest("strong"),
+  ).not.toBeNull();
+});

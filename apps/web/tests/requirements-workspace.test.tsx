@@ -380,7 +380,7 @@ test("alternative groups and upper limits remain explicit after simplifying wrap
   );
   expect(screen.getByText("Choose one of these options")).toBeVisible();
   expect(
-    screen.getByText("Up to 12 units across the following requirements"),
+    screen.getByText("Up to 12 units across these requirements"),
   ).toBeVisible();
   expect(screen.getByText("or")).toBeVisible();
 });

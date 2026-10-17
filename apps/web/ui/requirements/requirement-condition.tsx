@@ -38,6 +38,7 @@ import {
   listedCourseCounts,
   repeatAllowancesByCode,
   requirementRowStatus,
+  restates,
   unitsDescription,
 } from "@/ui/requirements/requirement-presentation";
 import type {
@@ -48,6 +49,7 @@ import type {
 import { RequirementCourseOptions } from "./requirement-course-options";
 import { MatchingCourses } from "./matching-courses";
 import { UnitsBar } from "@/ui/requirements/units-bar";
+import { CatalogueMarkdown } from "@/ui/common/catalogue-markdown";
 
 /**
  * A course counting towards a rule, marked by its border alone: solid green
@@ -229,6 +231,7 @@ function RuleRow({
   overrideControl,
   status,
   title,
+  badge,
   detail,
   bar,
   children,
@@ -237,6 +240,8 @@ function RuleRow({
   overrideControl?: ReactNode;
   status: RequirementRowStatus | null;
   title: string;
+  /** A word beside the title, for a kind of rule the status cannot show. */
+  badge?: string | null;
   detail?: ReactNode;
   bar?: ReactNode;
   children?: ReactNode;
@@ -272,6 +277,11 @@ function RuleRow({
             ) : (
               title
             )}
+            {badge ? (
+              <Badge variant="outline" className="ml-2 align-middle">
+                {badge}
+              </Badge>
+            ) : null}
           </h3>
           {detail ? (
             <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
@@ -329,6 +339,10 @@ function StatedCondition({
   const interpretation =
     conditionInterpretation(displayedCondition) || condition.freeText;
   if (tone === "warning" || tone === "note") {
+    // ANU wording with paragraphs, a list or bold text reads as it was set.
+    const text = condition.freeText ?? condition.sourceText ?? "";
+    const formatted =
+      tone === "note" && /\n\s*\n|\*\*|^\s*[-*]\s/mu.test(text) ? text : null;
     return (
       <Alert variant={tone === "warning" ? "warning" : "default"}>
         {tone === "warning" ? (
@@ -337,7 +351,19 @@ function StatedCondition({
           <Info aria-hidden="true" />
         )}
         <AlertTitle>{conditionHeading(condition)}</AlertTitle>
-        <AlertDescription>{interpretation}</AlertDescription>
+        <AlertDescription>
+          {context?.catalogue.academicYear && formatted ? (
+            <CatalogueMarkdown
+              markdown={formatted}
+              academicYear={context.catalogue.academicYear}
+              availableCourseCodes={
+                new Set(context.catalogue.courses.map((course) => course.code))
+              }
+            />
+          ) : (
+            interpretation
+          )}
+        </AlertDescription>
         {context?.structureCode && context.showPlanProgress !== false ? (
           <RequirementOverrideControl
             structureCode={context.structureCode}
@@ -367,7 +393,7 @@ function StatedCondition({
   );
   const detail = [
     title.toLowerCase().includes(heading.toLowerCase()) ? null : heading,
-    showProgress ? null : interpretation,
+    showProgress || restates(title, interpretation) ? null : interpretation,
     selector
       ? "Counts towards the combined requirement"
       : spansDegree(condition)
@@ -405,6 +431,7 @@ function StatedCondition({
       }
       status={status}
       title={title}
+      badge={!status && tone === "limit" ? "Limit" : null}
       detail={detail}
       bar={
         status && progress && progress.state !== "unmeasured" ? (

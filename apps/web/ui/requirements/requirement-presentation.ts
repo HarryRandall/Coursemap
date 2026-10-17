@@ -44,6 +44,33 @@ export function unitsDescription(
   if (maximum !== null) return `Up to ${formatUnits(maximum)}`;
   return null;
 }
+const FILLER_WORDS = new Set([
+  "at",
+  "least",
+  "to",
+  "of",
+  "from",
+  "the",
+  "or",
+  "courses",
+  "coded",
+]);
+
+/**
+ * Whether a detail line only repeats the title in other words, such as
+ * "ASTR 1000 to 1999 level courses · Up to 12 units" under "Up to 12 units
+ * from ASTR courses at 1000 to 1999 level".
+ */
+export function restates(title: string, detail: string | null | undefined) {
+  if (!detail) return true;
+  const words = (text: string) =>
+    text.toLowerCase().match(/[a-z0-9]+/gu) ?? [];
+  const shown = new Set(words(title));
+  return words(detail).every(
+    (word) => FILLER_WORDS.has(word) || shown.has(word),
+  );
+}
+
 /** How a listed course a student may take more than once reads beside it. */
 export function repeatAllowanceText(maximumUnits: number) {
   return `may be repeated, up to ${formatUnits(maximumUnits)}`;

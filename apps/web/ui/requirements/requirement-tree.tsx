@@ -7,6 +7,7 @@ import {
   hidesCondition,
   isNotice,
   requirementRowStatus,
+  restates,
   unitsDescription,
 } from "@/ui/requirements/requirement-presentation";
 import type {
@@ -188,6 +189,9 @@ export function RequirementGroupView({
     !inheritedTarget && !repeatedBounds
       ? unitsDescription(group.minimumUnits, group.maximumUnits)
       : null;
+  // ANU's own heading names a nested part, such as a breadth requirement.
+  // At the top level the tab already names the structure.
+  const title = nested ? group.title?.trim() || null : null;
   if (children.length === 0) return null;
   const unitPool =
     group.operator === "all_of" &&
@@ -224,21 +228,31 @@ export function RequirementGroupView({
   return (
     <OpenRulesContext.Provider value={openRules}>
       <div className="space-y-4">
-        {alternative || units ? (
+        {alternative || units || title ? (
           <div>
             <h3 className="text-sm font-semibold">
-              {group.operator === "any_of"
-                ? "Choose one of these options"
-                : group.operator === "at_least"
-                  ? `Choose at least ${group.minimumCount ?? 1} of these options`
-                  : "Course requirements"}
+              {title ??
+                (group.operator === "any_of"
+                  ? "Choose one of these options"
+                  : group.operator === "at_least"
+                    ? `Choose at least ${group.minimumCount ?? 1} of these options`
+                    : `${units} ${unitPool ? "from any combination of these courses" : "across these requirements"}`)}
             </h3>
-            {units ? (
+            {title && alternative ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {group.operator === "any_of"
+                  ? "Choose one of these options"
+                  : `Choose at least ${group.minimumCount ?? 1} of these options`}
+                {units ? ` · ${units}` : null}
+              </p>
+            ) : (title || alternative) &&
+              units &&
+              !(title && restates(title, units)) ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 {units}{" "}
                 {unitPool
                   ? "from any combination of these courses"
-                  : "across the following requirements"}
+                  : "across these requirements"}
               </p>
             ) : null}
           </div>

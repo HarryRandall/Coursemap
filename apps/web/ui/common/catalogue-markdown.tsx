@@ -57,7 +57,43 @@ function markdownBlocks(markdown: string): Block[] {
     paragraph.push(trimmed);
   }
   endParagraph();
-  return blocks;
+  return listedLines(blocks);
+}
+
+/** A short line that is not a sentence, such as a degree name. */
+function isListedLine(block: Block) {
+  return (
+    block.kind === "paragraph" &&
+    block.text.length <= 90 &&
+    !block.text.startsWith("**") &&
+    !/[.:;!?]$/u.test(block.text)
+  );
+}
+
+/**
+ * ANU sets some lists as one short paragraph per item. A run of three or
+ * more such lines reads as the list it is.
+ */
+function listedLines(blocks: Block[]): Block[] {
+  const result: Block[] = [];
+  for (let index = 0; index < blocks.length; ) {
+    let end = index;
+    while (end < blocks.length && isListedLine(blocks[end])) end += 1;
+    if (end - index >= 3) {
+      result.push({
+        kind: "list",
+        ordered: false,
+        items: blocks
+          .slice(index, end)
+          .map((block) => (block.kind === "paragraph" ? block.text : "")),
+      });
+      index = end;
+    } else {
+      result.push(blocks[index]);
+      index += 1;
+    }
+  }
+  return result;
 }
 
 function Inline({
