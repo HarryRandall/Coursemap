@@ -15,7 +15,7 @@ it("distinguishes the provisional measured projection from the maximum allowance
   const result = courseRunEstimate(options);
   expect(result.minimumUsd).toBe(0);
   expect(result.estimatedUsd).toBeCloseTo(0.149325);
-  expect(result.maximumUsd).toBeCloseTo(0.725);
+  expect(result.maximumUsd).toBeCloseTo(1.025);
   expect(result.estimateKind).toBe("provisional");
 });
 

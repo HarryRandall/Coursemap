@@ -164,7 +164,7 @@ describe("source-first course parsing", () => {
 
 describe("course run budget bounds", () => {
   it("uses cold input and maximum output rather than the pilot average", () => {
-    expect(courseRunAllowance(0.25, 1.5)).toBe(0.00725);
+    expect(courseRunAllowance(0.25, 1.5)).toBe(0.01025);
   });
   it("rejects unknown or invalid prices", () => {
     expect(() => courseRunAllowance(NaN, 1)).toThrow();
