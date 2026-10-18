@@ -22,6 +22,7 @@ import {
 import { withFeeEstimates } from "./fee-estimate-table";
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createPublicClient } from "@/lib/supabase/public-server";
 import type { Database, Json } from "@/types/database";
@@ -174,54 +175,111 @@ const DIRECTORY_SELECT =
 
 const DIRECTORY_VERSION_BATCH_SIZE = 100;
 
-async function directoryRows(): Promise<DirectoryRow[]> {
-  const supabase = createPublicClient();
-  const versionIds: number[] = [];
-  // Start with the indexed publication pointers. Sorting the whole security-
-  // invoker summary view evaluates catalogue access policies before pagination.
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await supabase
-      .from("catalogue_records")
-      .select("published_version_id")
-      .eq("kind", "course")
-      .is("archived_at", null)
-      .not("published_version_id", "is", null)
-      .order("id")
-      .range(start, start + 999);
-    if (error) throw error;
-    for (const record of data ?? []) {
-      if (record.published_version_id !== null) {
-        versionIds.push(record.published_version_id);
-      }
+const DIRECTORY_BATCH_CONCURRENCY = 4;
+
+// Keep each persistent cache entry below Next.js's 2 MB limit. The complete
+// multi-year directory is larger, so only its bounded database batches persist.
+async function readDirectoryBatches<T>(
+  versionIds: readonly number[],
+  read: (ids: number[]) => Promise<T[]>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  const stride = DIRECTORY_VERSION_BATCH_SIZE * DIRECTORY_BATCH_CONCURRENCY;
+  for (let start = 0; start < versionIds.length; start += stride) {
+    const batches: number[][] = [];
+    for (
+      let offset = start;
+      offset < Math.min(start + stride, versionIds.length);
+      offset += DIRECTORY_VERSION_BATCH_SIZE
+    ) {
+      batches.push(
+        versionIds.slice(offset, offset + DIRECTORY_VERSION_BATCH_SIZE),
+      );
     }
-    if ((data ?? []).length < 1000) break;
+    rows.push(...(await Promise.all(batches.map(read))).flat());
   }
-  const rows: DirectoryRow[] = [];
-  for (
-    let start = 0;
-    start < versionIds.length;
-    start += DIRECTORY_VERSION_BATCH_SIZE
-  ) {
-    const { data, error } = await supabase
+  return rows;
+}
+
+const cachedDirectoryVersionIds = cache(
+  unstable_cache(
+    async () => {
+      const supabase = createPublicClient();
+      const versionIds: number[] = [];
+      // Read indexed publication pointers before the security-invoker view.
+      for (let start = 0; ; start += 1000) {
+        const { data, error } = await supabase
+          .from("catalogue_records")
+          .select("published_version_id")
+          .eq("kind", "course")
+          .is("archived_at", null)
+          .not("published_version_id", "is", null)
+          .order("id")
+          .range(start, start + 999);
+        if (error) throw error;
+        for (const record of data ?? []) {
+          if (record.published_version_id !== null) {
+            versionIds.push(record.published_version_id);
+          }
+        }
+        if ((data ?? []).length < 1000) break;
+      }
+      return versionIds;
+    },
+    ["published-course-directory-version-ids"],
+    {
+      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+      tags: [PUBLISHED_COURSE_PAGE_TAG],
+    },
+  ),
+);
+
+const cachedDirectoryBatch = unstable_cache(
+  async (versionIds: number[]): Promise<DirectoryRow[]> => {
+    const { data, error } = await createPublicClient()
       .from("published_course_summaries")
       .select(DIRECTORY_SELECT)
-      .in(
-        "version_id",
-        versionIds.slice(start, start + DIRECTORY_VERSION_BATCH_SIZE),
-      );
+      .in("version_id", versionIds);
     if (error) throw error;
-    rows.push(...((data ?? []) as DirectoryRow[]));
-  }
+    return (data ?? []) as DirectoryRow[];
+  },
+  ["published-course-directory-batch"],
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_COURSE_PAGE_TAG],
+  },
+);
+
+// React shares the assembled index within a render without trying to persist
+// that oversized value in the data cache.
+const cachedDirectoryRows = cache(async (): Promise<DirectoryRow[]> => {
+  const rows = await readDirectoryBatches(
+    await cachedDirectoryVersionIds(),
+    cachedDirectoryBatch,
+  );
   return rows.sort(
     (left, right) =>
       left.code.localeCompare(right.code) ||
       right.academic_year - left.academic_year,
   );
-}
+});
 
-const cachedDirectoryRows = unstable_cache(
-  directoryRows,
-  ["published-course-directory-rows-v2"],
+const cachedDirectoryNamePage = unstable_cache(
+  async (
+    table: "course_areas_of_interest" | "course_tags",
+    versionIds: number[],
+    start: number,
+  ): Promise<Array<{ name: string; version_id: number }>> => {
+    const { data, error } = await createPublicClient()
+      .from(table)
+      .select("name,version_id")
+      .in("version_id", versionIds)
+      .order("id")
+      .range(start, start + 999);
+    if (error) throw error;
+    return data ?? [];
+  },
+  ["published-course-directory-name-page"],
   {
     revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
     tags: [PUBLISHED_COURSE_PAGE_TAG],
@@ -232,43 +290,24 @@ async function directoryNames(
   table: "course_areas_of_interest" | "course_tags",
   versions: readonly number[],
 ): Promise<Array<{ name: string; version_id: number }>> {
-  const supabase = createPublicClient();
-  const rows: Array<{ name: string; version_id: number }> = [];
-  for (
-    let batch = 0;
-    batch < versions.length;
-    batch += DIRECTORY_VERSION_BATCH_SIZE
-  ) {
-    const ids = versions.slice(batch, batch + DIRECTORY_VERSION_BATCH_SIZE);
+  return readDirectoryBatches(versions, async (ids) => {
+    const rows: Array<{ name: string; version_id: number }> = [];
     for (let start = 0; ; start += 1000) {
-      const { data, error } = await supabase
-        .from(table)
-        .select("name,version_id")
-        .in("version_id", ids)
-        .order("id")
-        .range(start, start + 999);
-      if (error) throw error;
-      rows.push(...(data ?? []));
-      if ((data ?? []).length < 1000) break;
+      const page = await cachedDirectoryNamePage(table, ids, start);
+      rows.push(...page);
+      if (page.length < 1000) break;
     }
-  }
-  return rows;
+    return rows;
+  });
 }
 
-const cachedDirectoryNames = unstable_cache(
-  async () => {
-    const versions = (await cachedDirectoryRows()).map((row) => row.version_id);
-    return Promise.all([
-      directoryNames("course_areas_of_interest", versions),
-      directoryNames("course_tags", versions),
-    ]);
-  },
-  ["published-course-directory-names"],
-  {
-    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
-    tags: [PUBLISHED_COURSE_PAGE_TAG],
-  },
-);
+const cachedDirectoryNames = cache(async () => {
+  const versions = await cachedDirectoryVersionIds();
+  return Promise.all([
+    directoryNames("course_areas_of_interest", versions),
+    directoryNames("course_tags", versions),
+  ]);
+});
 
 export async function loadPublishedCourseYears(
   code: string,
@@ -304,7 +343,7 @@ export async function loadPublishedCourseYears(
   )();
 }
 
-export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOptions> {
+async function courseDirectoryFilterOptions(): Promise<CourseFilterOptions> {
   const [rows, [areas, tags]] = await Promise.all([
     cachedDirectoryRows(),
     cachedDirectoryNames(),
@@ -345,17 +384,28 @@ export async function loadCourseDirectoryFilterOptions(): Promise<CourseFilterOp
   };
 }
 
+export const loadCourseDirectoryFilterOptions = unstable_cache(
+  courseDirectoryFilterOptions,
+  ["published-course-directory-filter-options-v2"],
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_COURSE_PAGE_TAG],
+  },
+);
+
+type CourseDirectoryPageOptions = {
+  academicYear?: number;
+  filters?: PublishedCourseFilters;
+  page?: number;
+  pageSize?: number;
+};
+
 export async function loadPublishedCourseDirectoryPage({
   academicYear,
   filters = {},
   page = 1,
   pageSize = 24,
-}: {
-  academicYear?: number;
-  filters?: PublishedCourseFilters;
-  page?: number;
-  pageSize?: number;
-}): Promise<PublishedCoursePage> {
+}: CourseDirectoryPageOptions): Promise<PublishedCoursePage> {
   const safePage = Math.max(1, Math.floor(page));
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const query = firstFilterValue(filters.query).toLocaleLowerCase();
@@ -497,50 +547,64 @@ export async function loadPublishedCourseDirectoryPage({
       total: matches.length,
     };
   }
-  const { data, error } = await supabase
-    .from("published_course_summaries")
-    .select(SNAPSHOT_LIST_SELECT)
-    .in(
-      "version_id",
-      selected.map((row) => row.version_id),
-    );
-  if (error) throw error;
-  const snapshots = (data ?? []) as SnapshotListRow[];
-  const years = new Map<number, AcademicYearRow>();
-  for (const row of selected) {
-    years.set(row.academic_year_id, {
-      id: row.academic_year_id,
-      year: row.academic_year,
-    });
-  }
-  const loaded = await Promise.all(
-    [...years.values()].map((year) =>
-      loadListRelationships(
-        supabase,
-        snapshots.filter((snapshot) =>
-          selected.some(
-            (row) =>
-              row.version_id === snapshot.version_id &&
-              row.academic_year_id === year.id,
-          ),
-        ),
-        year,
-      ),
-    ),
-  );
-  const courseByCode = new Map(
-    loaded.flat().map((course) => [course.code, course]),
-  );
   return {
-    courses: selected.flatMap((row) => {
-      const course = courseByCode.get(row.code);
-      return course ? [course] : [];
-    }),
+    courses: await cachedDirectoryCourses(selected),
     page: safePage,
     pageSize: safePageSize,
     total: matches.length,
   };
 }
+
+// Read the index before entering this cache. Nested unstable_cache calls skip
+// their cached values, which would rebuild the index for each new filter.
+const cachedDirectoryCourses = unstable_cache(
+  async (selected: DirectoryRow[]): Promise<CourseDetails[]> => {
+    const supabase = createPublicClient();
+    const { data, error } = await supabase
+      .from("published_course_summaries")
+      .select(SNAPSHOT_LIST_SELECT)
+      .in(
+        "version_id",
+        selected.map((row) => row.version_id),
+      );
+    if (error) throw error;
+    const snapshots = (data ?? []) as SnapshotListRow[];
+    const years = new Map<number, AcademicYearRow>();
+    for (const row of selected) {
+      years.set(row.academic_year_id, {
+        id: row.academic_year_id,
+        year: row.academic_year,
+      });
+    }
+    const loaded = await Promise.all(
+      [...years.values()].map((year) =>
+        loadListRelationships(
+          supabase,
+          snapshots.filter((snapshot) =>
+            selected.some(
+              (row) =>
+                row.version_id === snapshot.version_id &&
+                row.academic_year_id === year.id,
+            ),
+          ),
+          year,
+        ),
+      ),
+    );
+    const courseByCode = new Map(
+      loaded.flat().map((course) => [course.code, course]),
+    );
+    return selected.flatMap((row) => {
+      const course = courseByCode.get(row.code);
+      return course ? [course] : [];
+    });
+  },
+  ["published-course-directory-courses"],
+  {
+    revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
+    tags: [PUBLISHED_COURSE_PAGE_TAG],
+  },
+);
 
 function sourceUrl(year: number, code: string) {
   return `${ANU_SOURCE_BASE_URL}/${year}/course/${code}`;

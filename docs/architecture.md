@@ -122,6 +122,16 @@ and version model. These concepts are deliberately separate:
   until they are approved, and `university_calendar_imports` recording each
   publication from the console or the command line
 
+The public course directory caches publication IDs and bounded summary and
+relationship batches separately. The full multi-year index exceeds Next.js's
+2 MB data-cache entry limit and is assembled only within a request. Filter
+options and hydrated course selections have their own small cache entries;
+publication invalidates all of these through the shared published-course page tag.
+Hydration is cached after filtering the index because nested `unstable_cache`
+calls bypass their inner cache reads. Cold
+batch reads overlap with bounded concurrency rather than one request per batch
+in sequence.
+
 Published reads resolve through `catalogue_records.published_version_id`
 where `archived_at` is null. Anonymous readers see published versions and
 their children, identities with a published year, and identities referenced
