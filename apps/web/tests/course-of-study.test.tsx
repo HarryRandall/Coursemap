@@ -172,7 +172,9 @@ test("a chosen major can be removed again", async () => {
   mocks.state.profile.majorCode = "SOFT-MAJ";
   render(<ProfileEditor catalogue={catalogue} />);
   // Catalogue pages open in a new tab, so the unsaved draft survives.
-  for (const link of screen.getAllByRole("link", { name: /opens in a new tab/u }))
+  for (const link of screen.getAllByRole("link", {
+    name: /opens in a new tab/u,
+  }))
     expect(link).toHaveAttribute("target", "_blank");
   await userEvent.click(
     screen.getByRole("button", { name: "Remove Software Development" }),
