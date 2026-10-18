@@ -375,34 +375,6 @@ export function CourseImportWorkspace({
   const resultKey = `${estimateAttempt}:${resultUrl}`;
   const results = resultCache[resultKey] ?? null;
   const resultsLoading = results === null;
-  const allResultsUrl = resultsUrl(1, "");
-  const reviewResultsUrl = resultsUrl(1, "review");
-
-  // Warm both lists while the overview is open so tab changes need no round trip.
-  useEffect(() => {
-    if (!viewRunId || document.visibilityState !== "visible") return;
-    let stopped = false;
-    void Promise.all(
-      [allResultsUrl, reviewResultsUrl].map(async (url) => {
-        try {
-          const response = await fetch(url);
-          if (!response.ok) return;
-          const data = await response.json();
-          if (!stopped)
-            setResultCache((cache) => ({
-              ...cache,
-              [`${estimateAttempt}:${url}`]: data,
-            }));
-        } catch {
-          /* The active list reports fetch failures and retries. */
-        }
-      }),
-    );
-    return () => {
-      stopped = true;
-    };
-  }, [viewRunId, allResultsUrl, reviewResultsUrl, estimateAttempt]);
-
   const resultAttemptedKey = useRef<string | null>(null);
   const resultFingerprint = useRef("");
   const resultPollingStopped = useCataloguePoll({

@@ -351,6 +351,10 @@ select extensions.is_empty(
         'published_course_detail',
         'published_course_details',
         'published_course_filter_options',
+        'published_course_directory_page',
+        'published_course_filter_versions',
+        'published_fee_reference_courses',
+        'published_onboarding_catalogue',
         'published_requirement_graph',
         'published_structure_detail',
         'published_structure_years'

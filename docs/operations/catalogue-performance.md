@@ -84,3 +84,36 @@ guarantee. Directory timing excludes the separate filter-menu loader.
 - Optional requirement candidates still use the established partial-failure
   behaviour. Monitor errors as well as latency so missing suggestions do not
   look like a successful performance improvement.
+
+## Reducing remaining request fan-out
+
+A second read-only audit found uncached fee estimation making 67 REST calls
+in 24.3 seconds, onboarding choices making 59 calls with 53 in flight, and
+the directory without a year making 103 calls in 7 seconds. These are individual
+cold-loader measurements, with the persistent cache bypassed, not page latency
+guarantees.
+
+Fee references and onboarding choices now each use one published-only RPC.
+The fee projection still supplies reference courses to the existing JavaScript
+median and outlier calculations. Onboarding retains all published years and
+only explicitly selectable programme relationships and structure-set rules.
+
+Directory index pages contain at most 500 preferred editions. With no explicit
+year, the database prefers 2026 and otherwise the latest available year before
+pagination, preserving existing selection semantics. Each page is cached
+separately rather than storing an oversized complete index. Area, tag and
+teaching-period filters return only matching published version identifiers;
+a tag filter does not read area metadata. Course details remain hydrated only
+for the requested display page.
+
+The admin catalogue directory filters, counts and paginates in the database,
+reading only the latest sync per record and aggregate pending-change counts.
+Its RPC requires `imports.manage`. The top-course leaderboard aggregates
+distinct owners in SQL rather than transferring every plan item, and retains
+both the `students.read` gate and invoker row-level security.
+
+Society and event detail pages use scoped readers; calendar events are bounded
+to the displayed Canberra year and landing events exclude ended events.
+Society reads retain request-level caching so imports remain immediately visible.
+Room metadata batches have bounded concurrency. The import workspace fetches
+results through its active-tab poll instead of eager duplicate list reads.

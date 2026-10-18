@@ -1,6 +1,13 @@
 import { beforeEach, expect, test, vi } from "vitest";
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
+// Detail batch limits are independent of the optional fee estimate lookup.
+vi.mock("@/lib/coursemap/fee-estimate-table", () => ({
+  withFeeEstimates: async (courses: unknown[]) => courses,
+}));
+vi.mock("@/lib/coursemap/fee-estimate-table", () => ({
+  withFeeEstimates: async (courses: unknown[]) => courses,
+}));
 vi.mock("@/lib/supabase/public-server", () => ({
   createPublicClient: () => ({ rpc }),
 }));

@@ -15,7 +15,7 @@ import {
   EmptyTitle,
 } from "@coursemap/ui/primitives/empty";
 import { Suspense } from "react";
-import { loadSocieties } from "@/lib/societies-data";
+import { loadSocietiesForYear } from "@/lib/societies-data";
 import { societyKeyDates } from "@/lib/society-calendar";
 import { CalendarFilters } from "@/ui/key-dates/calendar-filters";
 import ReuiLink from "next/link";
@@ -182,7 +182,7 @@ export default async function KeyDatesPage({
   let societiesUnavailable = false;
   if (includeSocieties) {
     try {
-      const { events } = await loadSocieties();
+      const { events } = await loadSocietiesForYear(year);
       societyDates = societyKeyDates(events, year);
     } catch {
       societiesUnavailable = true;

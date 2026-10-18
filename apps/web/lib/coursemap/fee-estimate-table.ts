@@ -16,129 +16,38 @@ import {
   publishedCourseYearTag,
 } from "./published-cache";
 
-const VERSION_BATCH_SIZE = 100;
-
-type SummaryRow = {
-  academic_career: string | null;
+type FeeReferenceRow = {
+  academicCareer: string | null;
   college: string | null;
-  subject_code: string | null;
+  subject: string | null;
   units: number | null;
-  version_id: number | null;
+  fees: { audience: FeeAudience; amount: number; basis: string }[];
 };
-
-type FeeRow = {
-  amount: number | null;
-  audience: string;
-  basis: string;
-  fee_year: number | null;
-  version_id: number;
-};
-
-async function publishedVersionIds(academicYear: number) {
-  const supabase = createPublicClient();
-  const { data: year, error: yearError } = await supabase
-    .from("academic_years")
-    .select("id")
-    .eq("year", academicYear)
-    .maybeSingle();
-  if (yearError) throw yearError;
-  if (!year) return [];
-  const versionIds: number[] = [];
-  // Read the indexed publication pointers rather than filtering the summary
-  // view, which evaluates catalogue policies across every year first.
-  for (let start = 0; ; start += 1000) {
-    const { data, error } = await supabase
-      .from("catalogue_records")
-      .select("published_version_id")
-      .eq("kind", "course")
-      .eq("academic_year_id", year.id)
-      .is("archived_at", null)
-      .not("published_version_id", "is", null)
-      .order("id")
-      .range(start, start + 999);
-    if (error) throw error;
-    for (const record of data ?? []) {
-      if (record.published_version_id !== null) {
-        versionIds.push(record.published_version_id);
-      }
-    }
-    if ((data ?? []).length < 1000) break;
-  }
-  return versionIds;
-}
-
-async function referenceBatch(
-  academicYear: number,
-  versionIds: number[],
-): Promise<FeeReferenceCourse[]> {
-  const supabase = createPublicClient();
-  const [summaries, fees] = await Promise.all([
-    supabase
-      .from("published_course_summaries")
-      .select("academic_career,college,subject_code,units,version_id")
-      .in("version_id", versionIds),
-    supabase
-      .from("course_fees")
-      .select("amount,audience,basis,fee_year,version_id")
-      .in("version_id", versionIds)
-      .in("audience", ["domestic", "international"])
-      .not("amount", "is", null),
-  ]);
-  if (summaries.error) throw summaries.error;
-  if (fees.error) throw fees.error;
-  const feesByVersion = new Map<number, FeeRow[]>();
-  for (const fee of (fees.data ?? []) as FeeRow[]) {
-    feesByVersion.set(fee.version_id, [
-      ...(feesByVersion.get(fee.version_id) ?? []),
-      fee,
-    ]);
-  }
-  return ((summaries.data ?? []) as SummaryRow[]).flatMap((row) => {
-    if (row.version_id === null) return [];
-    const rows = feesByVersion.get(row.version_id) ?? [];
-    const units = row.units === null ? null : Number(row.units);
-    const perUnit = (audience: FeeAudience) => {
-      // The latest fee year wins, as it does when pricing the course itself.
-      const latest = rows
-        .filter((fee) => fee.audience === audience)
-        .sort((a, b) => (b.fee_year ?? 0) - (a.fee_year ?? 0))
-        .at(0);
-      return latest
-        ? feePerUnit({
-            amount: latest.amount === null ? null : Number(latest.amount),
-            basis: latest.basis,
-            units,
-          })
-        : null;
-    };
-    return [
-      {
-        year: academicYear,
-        academicCareer: row.academic_career,
-        college: row.college,
-        subject: row.subject_code,
-        perUnit: {
-          domestic: perUnit("domestic"),
-          international: perUnit("international"),
-        },
-      },
-    ];
-  });
-}
 
 async function readFeeEstimateTable(
   academicYear: number,
 ): Promise<FeeEstimateTable> {
-  const versionIds = await publishedVersionIds(academicYear);
-  const references: FeeReferenceCourse[] = [];
-  for (let start = 0; start < versionIds.length; start += VERSION_BATCH_SIZE) {
-    references.push(
-      ...(await referenceBatch(
-        academicYear,
-        versionIds.slice(start, start + VERSION_BATCH_SIZE),
-      )),
-    );
-  }
+  const { data, error } = await createPublicClient().rpc(
+    "published_fee_reference_courses",
+    { academic_year: academicYear },
+  );
+  if (error) throw error;
+  if (!Array.isArray(data))
+    throw new Error("The published fee references could not be read.");
+  const references: FeeReferenceCourse[] = (
+    data as unknown as FeeReferenceRow[]
+  ).map((row) => ({
+    year: academicYear,
+    academicCareer: row.academicCareer,
+    college: row.college,
+    subject: row.subject,
+    perUnit: Object.fromEntries(
+      row.fees.map((fee) => [
+        fee.audience,
+        feePerUnit({ ...fee, units: row.units }),
+      ]),
+    ),
+  }));
   return buildFeeEstimateTable(references);
 }
 
@@ -150,7 +59,7 @@ async function readFeeEstimateTable(
 export function loadFeeEstimateTable(academicYear: number) {
   return unstable_cache(
     () => readFeeEstimateTable(academicYear),
-    ["published-fee-estimate-table", String(academicYear)],
+    ["published-fee-estimate-table-v2", String(academicYear)],
     {
       revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
       tags: [PUBLISHED_COURSE_PAGE_TAG, publishedCourseYearTag(academicYear)],

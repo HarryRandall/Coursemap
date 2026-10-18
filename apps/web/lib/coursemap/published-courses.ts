@@ -44,7 +44,6 @@ import {
   publishedDetailBatches,
   readPublishedDetailBatches,
 } from "./published-read-batches";
-import { selectPreferredCourseYears } from "./published-directory-selection";
 import type { RequisiteExpression } from "./requisite-summary";
 
 const ANU_SOURCE_BASE_URL = "https://programsandcourses.anu.edu.au";
@@ -170,154 +169,71 @@ type DirectoryRow = {
   version_id: number;
 };
 
-const DIRECTORY_SELECT =
-  "academic_year,academic_year_id,code,college,convener_text,delivery_summary,level,school,subject_code,subject_name,title,units,version_id";
+const DIRECTORY_PAGE_SIZE = 500;
 
-// Two hundred numeric IDs stay within the database gateway URL limit.
-const DIRECTORY_VERSION_BATCH_SIZE = 200;
-
-const DIRECTORY_BATCH_CONCURRENCY = 4;
-
-// Keep each persistent cache entry below Next.js's 2 MB limit. The complete
-// multi-year directory is larger, so only its bounded database batches persist.
-async function readDirectoryBatches<T>(
-  versionIds: readonly number[],
-  read: (ids: number[]) => Promise<T[]>,
-): Promise<T[]> {
-  const rows: T[] = [];
-  const stride = DIRECTORY_VERSION_BATCH_SIZE * DIRECTORY_BATCH_CONCURRENCY;
-  for (let start = 0; start < versionIds.length; start += stride) {
-    const batches: number[][] = [];
-    for (
-      let offset = start;
-      offset < Math.min(start + stride, versionIds.length);
-      offset += DIRECTORY_VERSION_BATCH_SIZE
-    ) {
-      batches.push(
-        versionIds.slice(offset, offset + DIRECTORY_VERSION_BATCH_SIZE),
-      );
-    }
-    rows.push(...(await Promise.all(batches.map(read))).flat());
-  }
-  return rows;
-}
-
-const cachedDirectoryVersionIds = cache(
-  unstable_cache(
-    async (academicYear?: number) => {
-      const supabase = createPublicClient();
-      const year =
-        academicYear === undefined
-          ? null
-          : await academicYearRecord(supabase, academicYear);
-      if (academicYear !== undefined && !year) return [];
-      const versionIds: number[] = [];
-      // Read indexed publication pointers before the security-invoker view.
-      for (let start = 0; ; start += 1000) {
-        let query = supabase
-          .from("catalogue_records")
-          .select("published_version_id")
-          .eq("kind", "course")
-          .is("archived_at", null)
-          .not("published_version_id", "is", null)
-          .order("id")
-          .range(start, start + 999);
-        if (year) query = query.eq("academic_year_id", year.id);
-        const { data, error } = await query;
-        if (error) throw error;
-        for (const record of data ?? []) {
-          if (record.published_version_id !== null) {
-            versionIds.push(record.published_version_id);
-          }
-        }
-        if ((data ?? []).length < 1000) break;
-      }
-      return versionIds;
-    },
-    ["published-course-directory-version-ids-v2"],
-    {
-      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
-      tags: [PUBLISHED_COURSE_PAGE_TAG],
-    },
-  ),
-);
-
-const cachedDirectoryBatch = unstable_cache(
-  async (versionIds: number[]): Promise<DirectoryRow[]> => {
-    const { data, error } = await createPublicClient()
-      .from("published_course_summaries")
-      .select(DIRECTORY_SELECT)
-      .in("version_id", versionIds);
+const cachedDirectoryPage = unstable_cache(
+  async (
+    academicYear: number | null,
+    offset: number,
+  ): Promise<DirectoryRow[]> => {
+    const { data, error } = await createPublicClient().rpc(
+      "published_course_directory_page",
+      {
+        p_academic_year: academicYear ?? undefined,
+        p_offset: offset,
+        p_limit: DIRECTORY_PAGE_SIZE,
+      },
+    );
     if (error) throw error;
-    return (data ?? []) as DirectoryRow[];
+    if (!Array.isArray(data))
+      throw new Error("The course directory could not be loaded.");
+    return data as DirectoryRow[];
   },
-  ["published-course-directory-batch"],
+  ["published-course-directory-page-v3"],
   {
     revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
     tags: [PUBLISHED_COURSE_PAGE_TAG],
   },
 );
 
-// React shares the assembled index within a render without trying to persist
-// that oversized value in the data cache.
+// Persist bounded pages rather than the oversized assembled index. The database
+// selects one edition per code before paging an unfiltered directory.
 const cachedDirectoryRows = cache(
   async (academicYear?: number): Promise<DirectoryRow[]> => {
-    const rows = await readDirectoryBatches(
-      await cachedDirectoryVersionIds(academicYear),
-      cachedDirectoryBatch,
-    );
-    return rows.sort(
-      (left, right) =>
-        left.code.localeCompare(right.code) ||
-        right.academic_year - left.academic_year,
-    );
+    const rows: DirectoryRow[] = [];
+    for (let offset = 0; ; offset += DIRECTORY_PAGE_SIZE) {
+      const page = await cachedDirectoryPage(academicYear ?? null, offset);
+      rows.push(...page);
+      if (page.length < DIRECTORY_PAGE_SIZE) return rows;
+    }
   },
 );
 
-const cachedDirectoryNamePage = unstable_cache(
+const cachedFilterVersions = unstable_cache(
   async (
-    table: "course_areas_of_interest" | "course_tags",
-    versionIds: number[],
-    start: number,
-  ): Promise<Array<{ name: string; version_id: number }>> => {
-    const { data, error } = await createPublicClient()
-      .from(table)
-      .select("name,version_id")
-      .in("version_id", versionIds)
-      .order("id")
-      .range(start, start + 999);
+    academicYear: number | null,
+    kind: string,
+    value: string,
+  ): Promise<number[]> => {
+    const { data, error } = await createPublicClient().rpc(
+      "published_course_filter_versions",
+      {
+        p_academic_year: academicYear ?? undefined,
+        p_kind: kind,
+        p_value: value,
+      },
+    );
     if (error) throw error;
-    return data ?? [];
+    if (!Array.isArray(data) || !data.every((id) => typeof id === "number"))
+      throw new Error("The course filter could not be loaded.");
+    return data as number[];
   },
-  ["published-course-directory-name-page"],
+  ["published-course-filter-versions"],
   {
     revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
     tags: [PUBLISHED_COURSE_PAGE_TAG],
   },
 );
-
-async function directoryNames(
-  table: "course_areas_of_interest" | "course_tags",
-  versions: readonly number[],
-): Promise<Array<{ name: string; version_id: number }>> {
-  return readDirectoryBatches(versions, async (ids) => {
-    const rows: Array<{ name: string; version_id: number }> = [];
-    for (let start = 0; ; start += 1000) {
-      const page = await cachedDirectoryNamePage(table, ids, start);
-      rows.push(...page);
-      if (page.length < 1000) break;
-    }
-    return rows;
-  });
-}
-
-const cachedDirectoryNames = cache(async (academicYear?: number) => {
-  const versions = await cachedDirectoryVersionIds(academicYear);
-  return Promise.all([
-    directoryNames("course_areas_of_interest", versions),
-    directoryNames("course_tags", versions),
-  ]);
-});
 
 export async function loadPublishedCourseYears(
   code: string,
@@ -493,58 +409,16 @@ export async function loadPublishedCourseDirectoryPage(
       }
     }
   }
-  const versionsFor = async (
-    table: "course_areas_of_interest" | "course_tags" | "offering_sessions",
-    value: string,
-  ) => {
-    if (table !== "offering_sessions") {
-      const [areas, tags] = await cachedDirectoryNames(academicYear);
-      const names = table === "course_tags" ? tags : areas;
-      return new Set(
-        names
-          .filter(
-            (row) => row.name.toLocaleLowerCase() === value.toLocaleLowerCase(),
-          )
-          .map((row) => row.version_id),
-      );
-    }
-    const versions = await readDirectoryBatches(
-      directory.map((row) => row.version_id),
-      async (versionIds) => {
-        const ids: number[] = [];
-        for (let start = 0; ; start += 1000) {
-          const result = await supabase
-            .from("offering_sessions")
-            .select("version_id")
-            .in("version_id", versionIds)
-            .eq(
-              sessionByName ? "academic_period_name" : "academic_period_code",
-              value,
-            )
-            .order("id")
-            .range(start, start + 999);
-          if (result.error) throw result.error;
-          for (const row of result.data ?? []) {
-            if (row.version_id !== null) ids.push(row.version_id);
-          }
-          if ((result.data ?? []).length < 1000) break;
-        }
-        return ids;
-      },
-    );
-    const ids = new Set(versions);
-    return ids;
-  };
+  const versionsFor = async (kind: string, value: string) =>
+    new Set(await cachedFilterVersions(academicYear ?? null, kind, value));
   const [sessionVersions, areaVersions, tagVersions] = await Promise.all([
-    session ? versionsFor("offering_sessions", session) : null,
-    area ? versionsFor("course_areas_of_interest", area) : null,
-    tag ? versionsFor("course_tags", tag) : null,
+    session
+      ? versionsFor(sessionByName ? "session_name" : "session_code", session)
+      : null,
+    area ? versionsFor("area", area) : null,
+    tag ? versionsFor("tag", tag) : null,
   ]);
-  // Relationship links keep the year of the diagram, including older catalogues.
-  const selectedYears =
-    academicYear === undefined
-      ? selectPreferredCourseYears(directory)
-      : directory.filter((row) => row.academic_year === academicYear);
+  const selectedYears = directory;
   const matches = selectedYears.filter((row) => {
     if (unlockedCodes && !unlockedCodes.has(row.code)) return false;
     if (subject && !subject.split(/[,\s]+/u).includes(row.subject_code ?? ""))
@@ -2023,7 +1897,10 @@ function loadPublishedCourseBatch(
     async (): Promise<CourseDetails[]> => {
       const { data, error } = await createPublicClient().rpc(
         "published_course_details",
-        { p_academic_year: academicYear, p_course_codes: sortedCodes },
+        {
+          p_academic_year: academicYear ?? undefined,
+          p_course_codes: sortedCodes,
+        },
       );
       if (error?.code === "57014" && sortedCodes.length > 1) {
         // A cold rich projection can exceed the public statement budget. Split
@@ -2085,7 +1962,7 @@ export async function loadPublishedCourse(
     async () => {
       const client = createPublicClient() as unknown as LooseRpcClient;
       const { data, error } = await client.rpc("published_course_detail", {
-        p_academic_year: academicYear,
+        p_academic_year: academicYear ?? undefined,
         p_course_code: normalisedCode,
       });
       if (error) throw new Error(error.message);

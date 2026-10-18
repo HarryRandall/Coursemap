@@ -532,6 +532,11 @@ it("keeps the summary on Overview and paginates linked course results", async ()
     </TooltipProvider>,
   );
   await screen.findByText("Finished");
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).includes("runId=")),
+  ).toHaveLength(0);
   expect(screen.getByText("2 of 2 imported")).toBeVisible();
   expect(screen.queryByText(/validation issues/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Set aside/)).not.toBeInTheDocument();
@@ -540,6 +545,11 @@ it("keeps the summary on Overview and paginates linked course results", async ()
     name: "Programming",
   });
   expect(link).toHaveAttribute("href", "/admin/courses/2026/comp1100");
+  expect(
+    vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).includes("runId=")),
+  ).toHaveLength(1);
   expect(window.location.search).toBe("?tab=courses");
   await user.click(screen.getByRole("tab", { name: "Overview" }));
   // The list remains available even while the next background refresh is pending.
@@ -970,3 +980,57 @@ it("never starts a second advance while one is still on its way", async () => {
   await waitFor(() => expect(summaries).toBeGreaterThan(polled));
   expect(advances).toHaveLength(1);
 });
+
+it.each(["courses", "review"])(
+  "loads only the active %s list when opening an existing import",
+  async (initialTab) => {
+    const run = {
+      id: "finished",
+      created_at: "2026-10-03T02:00:00Z",
+      state: "completed",
+      pause_reason: null,
+      total: 1,
+      finished: 1,
+      imported: 1,
+      published: 1,
+      review: 0,
+      failed: 0,
+      spent_usd: "0",
+      reserved_usd: "0",
+      budget_usd: "0.5",
+      publish_verified: false,
+      publication_blockers: [],
+      paid_courses: 0,
+      free_courses: 1,
+    };
+    const listUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url.includes("runId=")) {
+          listUrls.push(url);
+          return Response.json({ items: [], total: 0, page: 1, pageSize: 25 });
+        }
+        return Response.json({ runs: [run] });
+      }),
+    );
+    render(
+      <TooltipProvider>
+        <CourseImportWorkspace
+          year={2026}
+          initialRun={run}
+          initialTab={initialTab}
+        />
+      </TooltipProvider>,
+    );
+    await screen.findByText(
+      initialTab === "courses"
+        ? "No course results yet."
+        : "No courses match your search or filters.",
+    );
+    await waitFor(() => expect(listUrls).toHaveLength(1));
+    expect(
+      new URL(listUrls[0], "http://localhost").searchParams.get("outcome"),
+    ).toBe(initialTab === "review" ? "review" : "");
+  },
+);

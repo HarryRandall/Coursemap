@@ -1,7 +1,7 @@
 import "server-only";
 import { canberraTodayIso } from "@/lib/canberra-format";
 import { cache } from "react";
-import { loadSocieties } from "@/lib/societies-data";
+import { loadUpcomingSocieties } from "@/lib/societies-data";
 import type { Society } from "@/lib/societies";
 import { formatEventDate, upcomingSocietyEvents } from "@/lib/society-events";
 import {
@@ -52,12 +52,14 @@ const SOCIETY_ROWS = 3;
  */
 export async function loadLandingSocieties(): Promise<LandingSocietyRow[]> {
   try {
-    const { societies, events } = await loadSocieties();
+    const now = new Date();
+    const { societies, events } = await loadUpcomingSocieties(
+      now.toISOString(),
+    );
     const withLogo = (slug: string) =>
       Boolean(societies.find((society) => society.slug === slug)?.logoUrl);
     const rows: LandingSocietyRow[] = [];
     const used = new Set<string>();
-    const now = new Date();
     // Only events still to start, so a running course never shows a past date.
     const upcoming = upcomingSocietyEvents(events, now)
       .filter((event) => new Date(event.startsAt) > now)

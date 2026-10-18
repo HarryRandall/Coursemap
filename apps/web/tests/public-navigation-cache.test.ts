@@ -38,6 +38,19 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/supabase/public-server", () => ({
   createPublicClient: () => ({
+    rpc: async (name: string) => {
+      mocks.reads(name);
+      return {
+        data: {
+          catalogueYears: [],
+          degrees: [],
+          majors: [],
+          minors: [],
+          specialisations: [],
+        },
+        error: null,
+      };
+    },
     from: (table: string) => {
       let columns = "";
       const query = {
@@ -77,7 +90,9 @@ beforeEach(() => {
 test("published onboarding choices are reused and expired on structure publication", async () => {
   await loadOnboardingCatalogue();
   await loadOnboardingCatalogue();
-  expect(mocks.reads).toHaveBeenCalledTimes(1);
+  expect(mocks.reads).toHaveBeenCalledExactlyOnceWith(
+    "published_onboarding_catalogue",
+  );
   revalidatePublishedRecord({
     kind: "programme",
     academicYear: 2026,

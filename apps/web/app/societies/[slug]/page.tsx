@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { loadSocieties } from "@/lib/societies-data";
+import { loadSocietyProfile } from "@/lib/societies-data";
 import { upcomingSocietyEvents } from "@/lib/society-events";
 import { AppShell } from "@/ui/shell/app-shell";
 import { SocietyProfile } from "@/ui/societies/society-profile";
@@ -18,7 +18,7 @@ export default async function SocietyPage({
   const initialQuery = new URLSearchParams();
   const tab = Array.isArray(query.tab) ? query.tab[0] : query.tab;
   if (tab) initialQuery.set("tab", tab);
-  const { societies, events } = await loadSocieties();
+  const { societies, events } = await loadSocietyProfile(slug);
   const society = societies.find((item) => item.slug === slug);
   if (!society) notFound();
   const now = new Date();
