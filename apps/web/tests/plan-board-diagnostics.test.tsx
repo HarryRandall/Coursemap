@@ -1,7 +1,13 @@
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import { planningCourseForAttempt } from "@/lib/planner";
 import { PlanBoard } from "@/ui/plan/plan-board";
@@ -328,4 +334,27 @@ test("a full semester offers an overload that asks first rather than refusing", 
     screen.getByRole("heading", { name: "Take more than 24 units?" }),
   ).toBeVisible();
   expect(screen.getByRole("button", { name: "Choose a course" })).toBeEnabled();
+});
+
+test("the suggestions sidebar stays neutral until its courses are ready", () => {
+  fixtures.attempts = [];
+  const { rerender } = render(
+    <PlanBoard catalogue={catalogue} suggestionsLoading />,
+  );
+  const sidebar = screen.getByRole("complementary", {
+    name: "Courses to plan",
+  });
+  expect(sidebar).toHaveAttribute("aria-busy", "true");
+  expect(
+    within(sidebar).getByRole("status", { name: "Loading course suggestions" }),
+  ).toBeVisible();
+  expect(within(sidebar).queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Course plan" })).toBeVisible();
+
+  rerender(<PlanBoard catalogue={catalogue} />);
+  expect(sidebar).toHaveAttribute("aria-busy", "false");
+  expect(within(sidebar).queryByRole("status")).not.toBeInTheDocument();
+  expect(
+    within(sidebar).getByRole("tablist", { name: "Courses to plan" }),
+  ).toBeVisible();
 });
