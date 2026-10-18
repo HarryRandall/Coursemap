@@ -8,6 +8,7 @@ const {
   cacheTags,
   oversizedWrites,
   concurrency,
+  filterOptionErrors,
 } = vi.hoisted(() => ({
   tables: new Map<string, Array<Record<string, unknown>>>(),
   cachedReads: new Map<string, unknown>(),
@@ -15,6 +16,7 @@ const {
   oversizedWrites: [] as number[],
   concurrency: { active: 0, peak: 0, delay: 0 },
   failures: new Map<string, { code: string; message: string }>(),
+  filterOptionErrors: [] as Array<{ code: string; message: string } | null>,
   reads: [] as Array<{
     table: string;
     columns?: string;
@@ -65,7 +67,9 @@ vi.mock("../lib/supabase/public-server", () => ({
         reads.push({ table: name });
         return {
           data: tables.get("filter_options")?.[0] ?? null,
-          error: failures.get(name) ?? null,
+          error: filterOptionErrors.length
+            ? filterOptionErrors.shift()
+            : (failures.get(name) ?? null),
         };
       }
       if (!args) throw new Error("Missing graph arguments.");
@@ -165,6 +169,7 @@ beforeEach(() => {
   reads.length = 0;
   tables.clear();
   failures.clear();
+  filterOptionErrors.length = 0;
   tables.set("filter_options", [
     {
       subjects: [{ code: "ECON", name: "Economics" }],
@@ -845,4 +850,42 @@ it("places courses without a subject last in candidate search pagination", async
     page: 2,
   });
   expect(second.courses.map((course) => course.code)).toEqual(["AAAA1000"]);
+});
+
+it("retries a cold filter-options statement timeout once and returns the complete options", async () => {
+  filterOptionErrors.push(
+    { code: "57014", message: "statement timeout" },
+    null,
+  );
+  const result = await loadCourseDirectoryFilterOptions();
+  expect(result).toEqual(tables.get("filter_options")?.[0]);
+  expect(reads).toEqual([
+    { table: "published_course_filter_options" },
+    { table: "published_course_filter_options" },
+  ]);
+});
+
+it("propagates persistent filter-options timeouts after exactly two reads", async () => {
+  failures.set("published_course_filter_options", {
+    code: "57014",
+    message: "statement timeout",
+  });
+  await expect(loadCourseDirectoryFilterOptions()).rejects.toMatchObject({
+    code: "57014",
+  });
+  expect(reads).toEqual([
+    { table: "published_course_filter_options" },
+    { table: "published_course_filter_options" },
+  ]);
+});
+
+it("does not retry other filter-options errors", async () => {
+  failures.set("published_course_filter_options", {
+    code: "42501",
+    message: "permission denied",
+  });
+  await expect(loadCourseDirectoryFilterOptions()).rejects.toMatchObject({
+    code: "42501",
+  });
+  expect(reads).toEqual([{ table: "published_course_filter_options" }]);
 });

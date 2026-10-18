@@ -1,11 +1,11 @@
 const PUBLIC_READ_BATCH_SIZE = 100;
-const DETAIL_READ_BATCH_SIZE = 4;
+const DETAIL_READ_BATCH_SIZE = 2;
 /**
  * Courses per published_course_details call. The function accepts 50; a
  * smaller batch keeps each statement well inside the anonymous role's timeout
  * on a cold production cache.
  */
-const COURSES_PER_DETAIL_CALL = 25;
+const COURSES_PER_DETAIL_CALL = 12;
 
 /** Bounds code visibility checks, which run catalogue access policies per row. */
 export async function readPublishedCodeBatches<T>(
