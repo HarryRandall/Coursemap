@@ -22,6 +22,7 @@ import {
 
 import { BrandMark } from "@/ui/brand-mark";
 import { DEFAULT_FEE_STATUS, type FeeStatus } from "@/lib/academic/fee-status";
+import { enrolmentModeForProgramme } from "@/lib/academic/enrolment-mode";
 import { SelectField } from "@/ui/common/select-field";
 import {
   ChoiceCards,
@@ -252,6 +253,7 @@ export function OnboardingForm({
       catalogueYear,
       commencementYear,
       degreeCode,
+      enrolmentMode: enrolmentModeForProgramme(degree),
       majorCode,
       minorCodes,
       specialisationCodes,

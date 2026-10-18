@@ -118,7 +118,7 @@ test("a successful save adopts the normalised student number", async () => {
       }}
     />,
   );
-  const input = screen.getByRole("textbox", { name: "Student number" });
+  const input = screen.getByRole("textbox", { name: "ANU student number" });
   await userEvent.type(input, "U1234567");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   expect(mocks.updateProfile).toHaveBeenCalled();

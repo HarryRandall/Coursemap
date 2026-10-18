@@ -5,32 +5,22 @@ import {
   feeStatusShortLabel,
   validFeeStatus,
 } from "@/lib/academic/fee-status";
-import {
-  ENROLMENT_MODES,
-  enrolmentModeLabel,
-  validEnrolmentMode,
-} from "@/lib/academic/enrolment-mode";
+import { enrolmentModeForProgramme } from "@/lib/academic/enrolment-mode";
 
 import { useId, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  ArrowUpRight,
   Camera,
   GraduationCap,
-  KeyRound,
+  Plane,
   LogIn,
-  LogOut,
-  MonitorSmartphone,
-  Settings2,
   Trash2,
-  TriangleAlert,
   UserPlus,
   UserRound,
 } from "lucide-react";
-import { Alert, AlertDescription } from "@coursemap/ui/components/alert";
-import { Badge } from "@coursemap/ui/components/badge";
 import { Button } from "@coursemap/ui/primitives/button";
+import { Field, FieldError, FieldLabel } from "@coursemap/ui/primitives/field";
 import { Input } from "@coursemap/ui/primitives/input";
 import {
   Tabs,
@@ -40,36 +30,33 @@ import {
 } from "@coursemap/ui/primitives/tabs";
 import { cn } from "@/lib/cn";
 import { useCoursemap, type Profile } from "@/app/providers";
-import { ComingSoon } from "@/ui/profile/coming-soon";
 import { Segmented } from "@/ui/profile/segmented";
 import { SettingsRow, SettingsSection } from "@/ui/profile/settings-section";
-import { StructureCardGrid } from "@/ui/profile/structure-card-grid";
-import { DegreePickerDialog } from "@/ui/profile/degree-picker-dialog";
+import { CourseOfStudyCard } from "@/ui/profile/course-of-study-card";
+import { ComingSoon } from "@/ui/profile/coming-soon";
 import { DownloadPlanButton } from "@/ui/profile/download-plan-button";
+import { NotificationSettings } from "@/ui/profile/notification-settings";
+import { SecuritySettings } from "@/ui/profile/security-settings";
 import { AppShell } from "@/ui/shell";
 import { AccountAppearance } from "@/ui/shell/account-appearance";
 import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 import { GeneratedAvatar } from "@/ui/common/generated-avatar";
-import { OptionPicker } from "@/ui/common/option-picker";
 import type { OnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
-import { CATALOGUE_KIND_LABELS } from "@/lib/coursemap/catalogue-kinds";
 import { rulesYearForCommencement } from "@/lib/coursemap/commencement";
 import { nominalProgrammeDuration } from "@/lib/coursemap/plan-timeline";
 import { normaliseStudentNumber } from "@/lib/coursemap/student-number";
 import { reconcileProfileDraft } from "@/lib/coursemap/profile-draft";
 
 const sections = [
-  { value: "about", label: "About you", icon: UserRound },
+  { value: "account", label: "Account", icon: UserRound },
   { value: "study", label: "Course of study", icon: GraduationCap },
-  { value: "account", label: "Account", icon: Settings2 },
 ] as const;
 
 type SectionValue = (typeof sections)[number]["value"];
 
+/** Older links still name the personal details tab "about"; it is the account tab now. */
 function sectionFromParam(value: string | null): SectionValue {
-  return sections.some((section) => section.value === value)
-    ? (value as SectionValue)
-    : "about";
+  return value === "study" ? "study" : "account";
 }
 
 /** How many past start years the profile offers besides the latest. */
@@ -96,13 +83,12 @@ export function ProfileEditorForm({
     });
   }
   const [saving, setSaving] = useState(false);
-  const [choosingDegree, setChoosingDegree] = useState(false);
   const ids = useId();
   const id = (name: string) => `${ids}-${name}`;
 
   const selectSection = (value: string) => {
     const url = new URL(window.location.href);
-    if (value === "about") url.searchParams.delete("tab");
+    if (value === "account") url.searchParams.delete("tab");
     else url.searchParams.set("tab", value);
     window.history.pushState(null, "", url.pathname + url.search + url.hash);
   };
@@ -130,11 +116,13 @@ export function ProfileEditorForm({
     return (item: { code: string; catalogueYear: number }) =>
       item.catalogueYear === draft.catalogueYear && set.has(item.code);
   };
-  const majors = catalogue.majors.filter(offered(degree?.majorCodes));
-  const minors = catalogue.minors.filter(offered(degree?.minorCodes));
-  const specialisations = catalogue.specialisations.filter(
-    offered(degree?.specialisationCodes),
-  );
+  const structureOptions = {
+    major: catalogue.majors.filter(offered(degree?.majorCodes)),
+    minor: catalogue.minors.filter(offered(degree?.minorCodes)),
+    specialisation: catalogue.specialisations.filter(
+      offered(degree?.specialisationCodes),
+    ),
+  };
   const planningDuration = nominalProgrammeDuration(
     degree
       ? { duration: degree.durationYears, units: degree.units }
@@ -183,9 +171,9 @@ export function ProfileEditorForm({
     ready && JSON.stringify(draft) !== JSON.stringify(state.profile);
   /** What still stops a save, and the tab where it is fixed. */
   const blocker: { message: string; section: SectionValue } | null = nameError
-    ? { message: "Add your name in About you to save.", section: "about" }
+    ? { message: "Add your name in Account to save.", section: "account" }
     : studentNumberError
-      ? { message: studentNumberError, section: "about" }
+      ? { message: studentNumberError, section: "account" }
       : !draft.degreeCode
         ? { message: "Choose a degree to save.", section: "study" }
         : planningDuration === null
@@ -209,6 +197,9 @@ export function ProfileEditorForm({
     const submittedProfile = {
       ...draft,
       studentId: studentNumber ?? "",
+      // Inferred from the degree rather than asked, so older profiles pick
+      // it up on their next save.
+      ...(degree ? { enrolmentMode: enrolmentModeForProgramme(degree) } : {}),
     };
     const result = await updateProfile(submittedProfile);
     if (result.ok) {
@@ -238,16 +229,22 @@ export function ProfileEditorForm({
         <form className="w-full" onSubmit={save} noValidate>
           <h1 className="sr-only">Profile and study details</h1>
 
-          <TabsContent value="about" className="space-y-6">
-            <SettingsSection title="Personal details">
-              <div className="flex flex-wrap items-center gap-4 px-5 py-5">
+          <TabsContent value="account" className="space-y-4">
+            <section
+              aria-labelledby={id("details")}
+              className="rounded-xl border border-border bg-card p-5 sm:p-6"
+            >
+              <h2 id={id("details")} className="sr-only">
+                Personal details
+              </h2>
+              <div className="flex items-center gap-4">
                 <GeneratedAvatar
-                  className="size-16 text-lg"
+                  className="size-14 text-lg"
                   email={state.profile.email}
-                  name={draft.name}
+                  name={draft.preferredName?.trim() || draft.name}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-semibold text-foreground">
+                  <p className="truncate text-lg font-semibold text-foreground">
                     {draft.preferredName?.trim() ||
                       draft.name.trim() ||
                       "Your name"}
@@ -257,480 +254,293 @@ export function ProfileEditorForm({
                       </span>
                     ) : null}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p className="truncate text-[13px] text-muted-foreground">
                     {guest
                       ? "Guest · saved in this browser"
-                      : studentNumber || state.profile.email}
+                      : state.profile.email
+                        ? `${state.profile.email} · sign-in email`
+                        : "Signed in"}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-1.5">
+                <div className="hidden items-center gap-2 sm:flex">
+                  <ComingSoon />
                   <Button type="button" variant="outline" size="sm" disabled>
                     <Camera aria-hidden="true" />
-                    Upload photo
+                    Change photo
                   </Button>
-                  <ComingSoon />
                 </div>
               </div>
-              <SettingsRow
-                label="Name"
-                description="Shown on your plan and to advisers who help you."
-                htmlFor={id("name")}
-              >
-                <Input
-                  aria-invalid={Boolean(nameError && dirty) || undefined}
-                  autoComplete="name"
-                  id={id("name")}
-                  onChange={(event) => patch({ name: event.target.value })}
-                  value={draft.name}
-                />
-                {nameError && dirty ? (
-                  <p className="text-xs text-destructive">{nameError}</p>
-                ) : null}
-              </SettingsRow>
-              <SettingsRow
-                label="Preferred name"
-                description="What Coursemap calls you, if not your full name."
-                htmlFor={id("preferred-name")}
-              >
-                <Input
-                  autoComplete="nickname"
-                  id={id("preferred-name")}
-                  maxLength={80}
-                  onChange={(event) =>
-                    patch({ preferredName: event.target.value })
-                  }
-                  value={draft.preferredName ?? ""}
-                />
-              </SettingsRow>
-              <SettingsRow
-                label="Pronouns"
-                description="Shown to advisers who help you."
-                htmlFor={id("pronouns")}
-              >
-                <Input
-                  id={id("pronouns")}
-                  maxLength={40}
-                  onChange={(event) => patch({ pronouns: event.target.value })}
-                  placeholder="e.g. she/her"
-                  value={draft.pronouns ?? ""}
-                />
-              </SettingsRow>
-              <SettingsRow
-                label="Student number"
-                description="Optional."
-                htmlFor={id("student-number")}
-              >
-                <Input
-                  aria-invalid={Boolean(studentNumberError) || undefined}
-                  autoComplete="off"
-                  id={id("student-number")}
-                  onChange={(event) => patch({ studentId: event.target.value })}
-                  placeholder="u1234567"
-                  value={draft.studentId}
-                />
-                {studentNumberError ? (
-                  <p className="text-xs text-destructive">
-                    {studentNumberError}
-                  </p>
-                ) : null}
-              </SettingsRow>
-              <SettingsRow label="Email">
-                <p className="truncate text-[13px] text-foreground">
-                  {guest
-                    ? "No account yet"
-                    : state.profile.email || "Not available"}
-                </p>
-              </SettingsRow>
-            </SettingsSection>
-            <SettingsSection title="At ANU">
-              <SettingsRow
-                label="Expected to finish"
-                description="From when you started and your degree's length."
-              >
-                <p className="text-[13px] text-foreground">
-                  {graduationYear === null
-                    ? "Choose a degree first"
-                    : `End of ${graduationYear}`}
-                </p>
-              </SettingsRow>
-              <SettingsRow label="Residential college">
-                <Input disabled aria-label="Residential college" />
-                <ComingSoon />
-              </SettingsRow>
-            </SettingsSection>
-          </TabsContent>
-
-          <TabsContent value="study" className="space-y-6">
-            <section className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-2">
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    Your degree
-                  </p>
-                  <h2 className="text-xl leading-tight font-semibold text-foreground">
-                    {degree?.name ?? "Choose your degree"}
-                  </h2>
-                  {degree ? null : (
-                    <p className="max-w-xl text-[13px] leading-relaxed text-muted-foreground">
-                      Your requirements, planner and progress all follow the
-                      degree you choose.
-                    </p>
-                  )}
-                  {degree ? (
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {degree.code}
-                      {planningDuration !== null
-                        ? ` · ${planningDuration} ${planningDuration === 1 ? "year" : "years"}`
-                        : ""}
-                      {degree.units ? ` · ${degree.units} units` : ""}
-                    </p>
-                  ) : null}
-                  {degree?.description ? (
-                    <p className="line-clamp-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-                      {degree.description}
-                    </p>
-                  ) : null}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <Button
-                      type="button"
-                      variant={degree ? "outline" : "default"}
-                      onClick={() => setChoosingDegree(true)}
-                    >
-                      {degree ? (
-                        "Change degree"
-                      ) : (
-                        <>
-                          <GraduationCap aria-hidden="true" />
-                          Choose a degree
-                        </>
-                      )}
-                    </Button>
-                    {degree ? (
-                      <Button asChild variant="ghost">
-                        <Link
-                          href={`/${CATALOGUE_KIND_LABELS.programme.segment}/${degree.catalogueYear}/${encodeURIComponent(degree.code.toLowerCase())}`}
-                        >
-                          Explore degree
-                          <ArrowUpRight aria-hidden="true" />
-                        </Link>
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col gap-2 lg:items-end">
-                  <label
-                    htmlFor={id("commencement")}
-                    className="text-xs font-medium text-muted-foreground"
-                  >
-                    Started
-                  </label>
-                  <OptionPicker
-                    className="w-full lg:w-40"
-                    id={id("commencement")}
-                    items={startYears.map((year) => ({
-                      value: String(year),
-                      label: String(year),
-                    }))}
-                    onValueChange={(value) => changeStartYear(Number(value))}
-                    searchable={false}
-                    value={String(draft.commencementYear)}
+              <div className="mt-6 grid gap-x-4 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
+                <Field data-invalid={Boolean(nameError && dirty) || undefined}>
+                  <FieldLabel htmlFor={id("name")}>Name</FieldLabel>
+                  <Input
+                    aria-invalid={Boolean(nameError && dirty) || undefined}
+                    autoComplete="name"
+                    id={id("name")}
+                    onChange={(event) => patch({ name: event.target.value })}
+                    value={draft.name}
                   />
-                  {draft.catalogueYear !== draft.commencementYear ? (
-                    <p className="max-w-56 text-[11px] leading-relaxed text-muted-foreground lg:text-right">
-                      {draft.commencementYear} rules aren&apos;t in Coursemap
-                      yet, so your plan uses {draft.catalogueYear}.
-                    </p>
+                  {nameError && dirty ? (
+                    <FieldError>{nameError}</FieldError>
                   ) : null}
-                </div>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={id("preferred-name")}>
+                    Preferred name
+                  </FieldLabel>
+                  <Input
+                    autoComplete="nickname"
+                    id={id("preferred-name")}
+                    maxLength={80}
+                    onChange={(event) =>
+                      patch({ preferredName: event.target.value })
+                    }
+                    placeholder="What Coursemap calls you"
+                    value={draft.preferredName ?? ""}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={id("pronouns")}>Pronouns</FieldLabel>
+                  <Input
+                    id={id("pronouns")}
+                    maxLength={40}
+                    onChange={(event) =>
+                      patch({ pronouns: event.target.value })
+                    }
+                    placeholder="she/her"
+                    value={draft.pronouns ?? ""}
+                  />
+                </Field>
+                <Field data-invalid={Boolean(studentNumberError) || undefined}>
+                  <FieldLabel htmlFor={id("student-number")}>
+                    ANU student number
+                  </FieldLabel>
+                  <Input
+                    aria-invalid={Boolean(studentNumberError) || undefined}
+                    autoComplete="off"
+                    id={id("student-number")}
+                    onChange={(event) =>
+                      patch({ studentId: event.target.value })
+                    }
+                    placeholder="Optional"
+                    value={draft.studentId}
+                  />
+                  {studentNumberError ? (
+                    <FieldError>{studentNumberError}</FieldError>
+                  ) : null}
+                </Field>
+                <Field className="sm:col-span-2">
+                  <FieldLabel htmlFor={id("college")}>
+                    Residential college <ComingSoon />
+                  </FieldLabel>
+                  <Input disabled id={id("college")} placeholder="None" />
+                </Field>
               </div>
-              {degree && planningDuration === null ? (
-                <div className="px-5 pb-5">
-                  <Alert variant="warning">
-                    <TriangleAlert aria-hidden="true" />
-                    <AlertDescription>
-                      Planning is not available for this programme yet. Your
-                      current plan is unchanged.
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              ) : null}
             </section>
-
-            {majors.length > 0 ? (
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Major{" "}
-                  <span className="font-normal text-muted-foreground">
-                    · optional, pick one
-                  </span>
-                </h2>
-                <StructureCardGrid
-                  kind="major"
-                  options={majors}
-                  selected={draft.majorCode ? [draft.majorCode] : []}
-                  multiple={false}
-                  onChange={([majorCode = ""]) => patch({ majorCode })}
-                />
-              </section>
-            ) : null}
-            {minors.length > 0 ? (
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Minors{" "}
-                  <span className="font-normal text-muted-foreground">
-                    · optional, pick any
-                  </span>
-                </h2>
-                <StructureCardGrid
-                  kind="minor"
-                  options={minors}
-                  selected={draft.minorCodes}
-                  multiple
-                  onChange={(minorCodes) => patch({ minorCodes })}
-                />
-              </section>
-            ) : null}
-            {specialisations.length > 0 ? (
-              <section className="space-y-3">
-                <h2 className="text-sm font-semibold text-foreground">
-                  Specialisations{" "}
-                  <span className="font-normal text-muted-foreground">
-                    · optional, pick any
-                  </span>
-                </h2>
-                <StructureCardGrid
-                  kind="specialisation"
-                  options={specialisations}
-                  selected={draft.specialisationCodes}
-                  multiple
-                  onChange={(specialisationCodes) =>
-                    patch({ specialisationCodes })
-                  }
-                />
-              </section>
-            ) : null}
-
-            <SettingsSection title="Study pattern">
-              <SettingsRow label="Study load">
-                <Segmented
-                  label="Study load"
-                  options={[
-                    { value: "Full time", label: "Full time" },
-                    { value: "Part time", label: "Part time" },
-                  ]}
-                  value={draft.studyLoad}
-                  onChange={(studyLoad) => patch({ studyLoad })}
-                />
-              </SettingsRow>
-              <SettingsRow
-                label="Enrolment mode"
-                description="Some rules differ for double degrees."
+            {guest ? (
+              <SettingsSection
+                title="Guest plan"
+                description="Your plan is saved in this browser's cookies, so it is only here."
               >
-                <Segmented
-                  label="Enrolment mode"
-                  options={[
-                    { value: "unknown", label: "Not specified" },
-                    ...ENROLMENT_MODES.map((value) => ({
-                      value,
-                      label: enrolmentModeLabel(value),
-                    })),
-                  ]}
-                  value={draft.enrolmentMode ?? "unknown"}
-                  onChange={(value) =>
-                    patch({
-                      enrolmentMode: validEnrolmentMode(value) ? value : null,
-                    })
-                  }
-                />
-              </SettingsRow>
-              <SettingsRow
-                label="Fee status"
-                description="Sets which published price your tuition estimate uses."
-              >
-                <Segmented
-                  label="Fee status"
-                  options={FEE_STATUSES.map((value) => ({
-                    value,
-                    label: feeStatusShortLabel(value),
-                  }))}
-                  value={draft.feeStatus ?? DEFAULT_FEE_STATUS}
-                  onChange={(value) =>
-                    patch({
-                      feeStatus: validFeeStatus(value) ? value : null,
-                    })
-                  }
-                />
-              </SettingsRow>
-            </SettingsSection>
-            {choosingDegree ? (
-              <DegreePickerDialog
-                degrees={degrees}
-                selectedCode={draft.degreeCode}
-                onSelect={(degreeCode) => {
-                  if (degreeCode !== draft.degreeCode)
-                    patch({ degreeCode, ...resetStructures });
-                }}
-                onClose={() => setChoosingDegree(false)}
-              />
+                <SettingsRow
+                  label="Keep it everywhere"
+                  description="Create an account and your plan moves into it automatically."
+                >
+                  <div className="flex flex-wrap gap-2">
+                    <Button asChild>
+                      <Link href="/signup">
+                        <UserPlus aria-hidden="true" />
+                        Create an account
+                      </Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href="/login">
+                        <LogIn aria-hidden="true" />
+                        Sign in
+                      </Link>
+                    </Button>
+                  </div>
+                </SettingsRow>
+              </SettingsSection>
             ) : null}
+            {guest ? null : <SecuritySettings logoutFormId="profile-logout" />}
+            {guest ? null : <NotificationSettings />}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {guest ? null : (
+                <section className="rounded-xl border border-border bg-card p-5">
+                  <h2 className="text-sm font-semibold text-foreground">
+                    Theme
+                  </h2>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
+                    Light, dark or your system&apos;s.
+                  </p>
+                  <div className="mt-3">
+                    <AccountAppearance />
+                  </div>
+                </section>
+              )}
+              <section className="rounded-xl border border-border bg-card p-5">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Your data
+                </h2>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">
+                  Your profile, courses and choices as a file.
+                </p>
+                <div className="mt-3">
+                  <DownloadPlanButton />
+                </div>
+              </section>
+            </div>
+
+            {guest ? (
+              <SettingsSection
+                title="Danger zone"
+                className="border-destructive/40"
+              >
+                <SettingsRow
+                  label="Leave guest mode"
+                  description="Deletes the plan saved in this browser."
+                >
+                  <ConfirmDialog
+                    title="Delete your guest plan?"
+                    description="Your degree, courses and stars in this browser are removed. This cannot be undone."
+                    confirmLabel="Delete plan"
+                    destructive
+                    onConfirm={leaveGuestMode}
+                    trigger={
+                      <Button type="button" variant="destructive">
+                        <Trash2 aria-hidden="true" />
+                        Leave guest mode
+                      </Button>
+                    }
+                  />
+                </SettingsRow>
+              </SettingsSection>
+            ) : (
+              <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-destructive/40 bg-card p-5">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    Delete account <ComingSoon />
+                  </h2>
+                  <p className="mt-0.5 text-[13px] text-muted-foreground">
+                    Removes your account, plan and results for good.
+                  </p>
+                </div>
+                <Button type="button" variant="destructive" disabled>
+                  <Trash2 aria-hidden="true" />
+                  Delete account
+                </Button>
+              </section>
+            )}
           </TabsContent>
 
-          <TabsContent value="account">
-            <div className="space-y-6">
-              {guest ? (
-                <SettingsSection
-                  title="Guest plan"
-                  description="Your plan is saved in this browser's cookies, so it is only here."
-                >
-                  <SettingsRow
-                    label="Keep it everywhere"
-                    description="Create an account and your plan moves into it automatically."
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      <Button asChild>
-                        <Link href="/signup">
-                          <UserPlus aria-hidden="true" />
-                          Create an account
-                        </Link>
-                      </Button>
-                      <Button asChild variant="outline">
-                        <Link href="/login">
-                          <LogIn aria-hidden="true" />
-                          Sign in
-                        </Link>
-                      </Button>
-                    </div>
-                  </SettingsRow>
-                </SettingsSection>
-              ) : (
-                <SettingsSection title="Sign-in and security">
-                  <SettingsRow
-                    label="Email"
-                    description="Your sign-in email cannot be changed here."
-                  >
-                    <p className="truncate text-[13px] text-foreground">
-                      {state.profile.email || "Not available"}
-                    </p>
-                  </SettingsRow>
-                  <SettingsRow
-                    label="Sign-in methods"
-                    description="Link Google or Microsoft to sign in with them."
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">Email and password</Badge>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled
-                      >
-                        Link Google
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled
-                      >
-                        Link Microsoft
-                      </Button>
-                    </div>
-                    <ComingSoon />
-                  </SettingsRow>
-                  <SettingsRow label="Password">
-                    <Button type="button" variant="outline" disabled>
-                      <KeyRound aria-hidden="true" />
-                      Change password
-                    </Button>
-                    <ComingSoon />
-                  </SettingsRow>
-                  <SettingsRow label="Sessions">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {
-                        // Associated with the standalone logout form below so
-                        // it never submits the profile form it sits inside.
-                        <Button
-                          form="profile-logout"
-                          type="submit"
-                          variant="outline"
-                        >
-                          <LogOut aria-hidden="true" />
-                          Sign out
-                        </Button>
-                      }
-                      <Button type="button" variant="ghost" disabled>
-                        <MonitorSmartphone aria-hidden="true" />
-                        Sign out everywhere
-                      </Button>
-                    </div>
-                    <ComingSoon />
-                  </SettingsRow>
-                </SettingsSection>
-              )}
+          <TabsContent value="study" className="space-y-4">
+            <CourseOfStudyCard
+              degree={degree}
+              degrees={degrees}
+              options={structureOptions}
+              selection={{
+                majorCode: draft.majorCode,
+                minorCodes: draft.minorCodes,
+                specialisationCodes: draft.specialisationCodes,
+              }}
+              commencementYear={draft.commencementYear}
+              catalogueYear={draft.catalogueYear}
+              startYears={startYears}
+              graduationYear={graduationYear}
+              planningDuration={planningDuration}
+              onStartYearChange={changeStartYear}
+              onDegreeChange={(degreeCode) => {
+                const next = degrees.find((item) => item.code === degreeCode);
+                patch({
+                  degreeCode,
+                  ...resetStructures,
+                  ...(next
+                    ? { enrolmentMode: enrolmentModeForProgramme(next) }
+                    : {}),
+                });
+              }}
+              onSelectionChange={patch}
+            />
 
-              <>
-                {/* Guests follow the system theme, like every signed-out page. */}
-                {guest ? null : (
-                  <SettingsSection title="Appearance">
-                    <SettingsRow
-                      label="Theme"
-                      description="Light, dark or your system's."
-                    >
-                      <AccountAppearance />
-                    </SettingsRow>
-                  </SettingsSection>
-                )}
-                <SettingsSection title="Your data">
-                  <SettingsRow
-                    label="Download"
-                    description="Your profile, courses and choices as a file."
+            <section aria-labelledby={id("pattern")}>
+              <h2 id={id("pattern")} className="sr-only">
+                Study pattern
+              </h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Study load
+                  </p>
+                  <Segmented
+                    stretch
+                    label="Study load"
+                    options={[
+                      { value: "Full time", label: "Full time" },
+                      { value: "Part time", label: "Part time" },
+                    ]}
+                    value={draft.studyLoad}
+                    onChange={(studyLoad) => patch({ studyLoad })}
+                  />
+                </div>
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Fee status · prices your tuition estimate
+                  </p>
+                  <Segmented
+                    stretch
+                    label="Fee status"
+                    options={FEE_STATUSES.map((value) => ({
+                      value,
+                      label: feeStatusShortLabel(value),
+                    }))}
+                    value={draft.feeStatus ?? DEFAULT_FEE_STATUS}
+                    onChange={(value) =>
+                      patch({
+                        feeStatus: validFeeStatus(value) ? value : null,
+                      })
+                    }
+                  />
+                </div>
+                <div className="rounded-xl border border-border bg-card p-5">
+                  <p className="text-xs text-muted-foreground">
+                    Expected to finish
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-foreground">
+                    {graduationYear
+                      ? `End of ${graduationYear}`
+                      : "Choose a degree"}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Add years in the planner if you need longer.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-dashed border-border bg-card p-5">
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    Study abroad <ComingSoon />
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Plan a semester away that counts towards your degree.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled
+                    className="mt-3"
                   >
-                    <DownloadPlanButton />
-                  </SettingsRow>
-                </SettingsSection>
-                <SettingsSection
-                  title="Danger zone"
-                  className="border-destructive/40"
-                >
-                  {guest ? (
-                    <SettingsRow
-                      label="Leave guest mode"
-                      description="Deletes the plan saved in this browser."
-                    >
-                      <ConfirmDialog
-                        title="Delete your guest plan?"
-                        description="Your degree, courses and stars in this browser are removed. This cannot be undone."
-                        confirmLabel="Delete plan"
-                        destructive
-                        onConfirm={leaveGuestMode}
-                        trigger={
-                          <Button type="button" variant="destructive">
-                            <Trash2 aria-hidden="true" />
-                            Leave guest mode
-                          </Button>
-                        }
-                      />
-                    </SettingsRow>
-                  ) : (
-                    <SettingsRow
-                      label="Delete account"
-                      description="Removes your account, plan and recorded results for good."
-                    >
-                      <Button type="button" variant="destructive" disabled>
-                        <Trash2 aria-hidden="true" />
-                        Delete account
-                      </Button>
-                      <ComingSoon />
-                    </SettingsRow>
-                  )}
-                </SettingsSection>
-              </>
-            </div>
+                    <Plane aria-hidden="true" />
+                    Add a semester away
+                  </Button>
+                </div>
+              </div>
+            </section>
           </TabsContent>
 
           {dirty ? (
             <div
-              className="sticky bottom-4 z-10 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background/95 px-4 py-3 shadow-md backdrop-blur supports-[backdrop-filter]:bg-background/80"
+              className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6"
               role="status"
             >
               <p
