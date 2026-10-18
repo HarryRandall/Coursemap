@@ -5107,6 +5107,7 @@ export type Database = {
           detail: Json
         }[]
       }
+      published_course_filter_options: { Args: never; Returns: Json }
       published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: {

@@ -173,7 +173,8 @@ type DirectoryRow = {
 const DIRECTORY_SELECT =
   "academic_year,academic_year_id,code,college,convener_text,delivery_summary,level,school,subject_code,subject_name,title,units,version_id";
 
-const DIRECTORY_VERSION_BATCH_SIZE = 100;
+// Two hundred numeric IDs stay within the database gateway URL limit.
+const DIRECTORY_VERSION_BATCH_SIZE = 200;
 
 const DIRECTORY_BATCH_CONCURRENCY = 4;
 
@@ -203,12 +204,17 @@ async function readDirectoryBatches<T>(
 
 const cachedDirectoryVersionIds = cache(
   unstable_cache(
-    async () => {
+    async (academicYear?: number) => {
       const supabase = createPublicClient();
+      const year =
+        academicYear === undefined
+          ? null
+          : await academicYearRecord(supabase, academicYear);
+      if (academicYear !== undefined && !year) return [];
       const versionIds: number[] = [];
       // Read indexed publication pointers before the security-invoker view.
       for (let start = 0; ; start += 1000) {
-        const { data, error } = await supabase
+        let query = supabase
           .from("catalogue_records")
           .select("published_version_id")
           .eq("kind", "course")
@@ -216,6 +222,8 @@ const cachedDirectoryVersionIds = cache(
           .not("published_version_id", "is", null)
           .order("id")
           .range(start, start + 999);
+        if (year) query = query.eq("academic_year_id", year.id);
+        const { data, error } = await query;
         if (error) throw error;
         for (const record of data ?? []) {
           if (record.published_version_id !== null) {
@@ -226,7 +234,7 @@ const cachedDirectoryVersionIds = cache(
       }
       return versionIds;
     },
-    ["published-course-directory-version-ids"],
+    ["published-course-directory-version-ids-v2"],
     {
       revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
       tags: [PUBLISHED_COURSE_PAGE_TAG],
@@ -252,17 +260,19 @@ const cachedDirectoryBatch = unstable_cache(
 
 // React shares the assembled index within a render without trying to persist
 // that oversized value in the data cache.
-const cachedDirectoryRows = cache(async (): Promise<DirectoryRow[]> => {
-  const rows = await readDirectoryBatches(
-    await cachedDirectoryVersionIds(),
-    cachedDirectoryBatch,
-  );
-  return rows.sort(
-    (left, right) =>
-      left.code.localeCompare(right.code) ||
-      right.academic_year - left.academic_year,
-  );
-});
+const cachedDirectoryRows = cache(
+  async (academicYear?: number): Promise<DirectoryRow[]> => {
+    const rows = await readDirectoryBatches(
+      await cachedDirectoryVersionIds(academicYear),
+      cachedDirectoryBatch,
+    );
+    return rows.sort(
+      (left, right) =>
+        left.code.localeCompare(right.code) ||
+        right.academic_year - left.academic_year,
+    );
+  },
+);
 
 const cachedDirectoryNamePage = unstable_cache(
   async (
@@ -301,8 +311,8 @@ async function directoryNames(
   });
 }
 
-const cachedDirectoryNames = cache(async () => {
-  const versions = await cachedDirectoryVersionIds();
+const cachedDirectoryNames = cache(async (academicYear?: number) => {
+  const versions = await cachedDirectoryVersionIds(academicYear);
   return Promise.all([
     directoryNames("course_areas_of_interest", versions),
     directoryNames("course_tags", versions),
@@ -344,49 +354,66 @@ export async function loadPublishedCourseYears(
 }
 
 async function courseDirectoryFilterOptions(): Promise<CourseFilterOptions> {
-  const [rows, [areas, tags]] = await Promise.all([
-    cachedDirectoryRows(),
-    cachedDirectoryNames(),
-  ]);
-  const versions = new Set(rows.map((row) => row.version_id));
-  const names = (items: Array<{ name: string; version_id: number }>) =>
+  const { data, error } = await createPublicClient().rpc(
+    "published_course_filter_options",
+  );
+  if (error) throw error;
+  if (!isRecord(data))
+    throw new Error("The course filter options could not be loaded.");
+  const strings = (value: Json | undefined) => {
+    if (
+      !Array.isArray(value) ||
+      !value.every((name): name is string => typeof name === "string")
+    ) {
+      throw new Error("The course filter options could not be loaded.");
+    }
+    return value;
+  };
+  const names = (value: Json | undefined) =>
     [
       ...new Map(
-        items
-          .filter((item) => versions.has(item.version_id))
-          .map((item) => [item.name.toLocaleLowerCase(), item.name]),
+        strings(value).map((name) => [name.toLocaleLowerCase(), name]),
       ).values(),
     ].sort((left, right) => left.localeCompare(right));
-  const subjects = new Map<string, string | null>();
-  const colleges = new Set<string>();
-  const years = new Set<number>();
-  const units = new Set<number>();
-  const modes = new Set<string>();
-  for (const row of rows) {
-    years.add(row.academic_year);
-    if (typeof row.units === "number") units.add(row.units);
-    if (row.delivery_summary) modes.add(row.delivery_summary);
-    if (row.subject_code && !subjects.has(row.subject_code)) {
-      subjects.set(row.subject_code, row.subject_name);
+  const numbers = (value: Json | undefined) => {
+    if (
+      !Array.isArray(value) ||
+      !value.every((number): number is number => typeof number === "number")
+    ) {
+      throw new Error("The course filter options could not be loaded.");
     }
-    if (row.college) colleges.add(row.college);
-  }
+    return value;
+  };
+  if (!Array.isArray(data.subjects))
+    throw new Error("The course filter options could not be loaded.");
+  const subjects = data.subjects.map((subject) => {
+    if (
+      !isRecord(subject) ||
+      typeof subject.code !== "string" ||
+      (subject.name !== null && typeof subject.name !== "string")
+    ) {
+      throw new Error("The course filter options could not be loaded.");
+    }
+    return { code: subject.code, name: subject.name };
+  });
   return {
-    subjects: [...subjects]
-      .map(([code, name]) => ({ code, name }))
-      .sort((left, right) => left.code.localeCompare(right.code)),
-    colleges: [...colleges].sort((left, right) => left.localeCompare(right)),
-    years: [...years].sort((left, right) => right - left),
-    units: [...units].sort((left, right) => left - right),
-    modes: [...modes].sort((left, right) => left.localeCompare(right)),
-    areas: names(areas),
-    tags: names(tags),
+    subjects: subjects.sort((left, right) =>
+      left.code.localeCompare(right.code),
+    ),
+    colleges: strings(data.colleges).sort((left, right) =>
+      left.localeCompare(right),
+    ),
+    years: numbers(data.years).sort((left, right) => right - left),
+    units: numbers(data.units).sort((left, right) => left - right),
+    modes: strings(data.modes).sort((left, right) => left.localeCompare(right)),
+    areas: names(data.areas),
+    tags: names(data.tags),
   };
 }
 
 export const loadCourseDirectoryFilterOptions = unstable_cache(
   courseDirectoryFilterOptions,
-  ["published-course-directory-filter-options-v2"],
+  ["published-course-directory-filter-options-v3"],
   {
     revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
     tags: [PUBLISHED_COURSE_PAGE_TAG],
@@ -400,25 +427,30 @@ type CourseDirectoryPageOptions = {
   pageSize?: number;
 };
 
-export async function loadPublishedCourseDirectoryPage({
-  academicYear,
-  filters = {},
-  page = 1,
-  pageSize = 24,
-}: CourseDirectoryPageOptions): Promise<PublishedCoursePage> {
+export async function loadPublishedCourseDirectoryPage(
+  {
+    academicYear,
+    filters = {},
+    page = 1,
+    pageSize = 24,
+  }: CourseDirectoryPageOptions,
+  { sortByTitle = false, sessionByName = false } = {},
+): Promise<PublishedCoursePage> {
   const safePage = Math.max(1, Math.floor(page));
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
   const query = firstFilterValue(filters.query).toLocaleLowerCase();
   const subject = firstFilterValue(filters.subject).toUpperCase();
   const level = courseLevelBounds(firstFilterValue(filters.level));
   const college = firstFilterValue(filters.college);
-  const session = firstFilterValue(filters.session).toUpperCase();
+  const session = sessionByName
+    ? firstFilterValue(filters.session)
+    : firstFilterValue(filters.session).toUpperCase();
   const units = firstFilterValue(filters.units);
   const mode = firstFilterValue(filters.mode);
   const area = firstFilterValue(filters.area);
   const tag = firstFilterValue(filters.tag);
   const supabase = createPublicClient();
-  const directory = await cachedDirectoryRows();
+  const directory = await cachedDirectoryRows(academicYear);
   const prerequisite = firstFilterValue(filters.prerequisite).toUpperCase();
   let unlockedCodes: Set<string> | null = null;
   if (prerequisite) {
@@ -461,7 +493,7 @@ export async function loadPublishedCourseDirectoryPage({
     value: string,
   ) => {
     if (table !== "offering_sessions") {
-      const [areas, tags] = await cachedDirectoryNames();
+      const [areas, tags] = await cachedDirectoryNames(academicYear);
       const names = table === "course_tags" ? tags : areas;
       return new Set(
         names
@@ -471,30 +503,31 @@ export async function loadPublishedCourseDirectoryPage({
           .map((row) => row.version_id),
       );
     }
-    const ids = new Set<number>();
-    for (
-      let batch = 0;
-      batch < directory.length;
-      batch += DIRECTORY_VERSION_BATCH_SIZE
-    ) {
-      const versionIds = directory
-        .slice(batch, batch + DIRECTORY_VERSION_BATCH_SIZE)
-        .map((row) => row.version_id);
-      for (let start = 0; ; start += 1000) {
-        const result = await supabase
-          .from("offering_sessions")
-          .select("version_id")
-          .in("version_id", versionIds)
-          .eq("academic_period_code", value)
-          .order("id")
-          .range(start, start + 999);
-        if (result.error) throw result.error;
-        for (const row of result.data ?? []) {
-          if (row.version_id !== null) ids.add(row.version_id);
+    const versions = await readDirectoryBatches(
+      directory.map((row) => row.version_id),
+      async (versionIds) => {
+        const ids: number[] = [];
+        for (let start = 0; ; start += 1000) {
+          const result = await supabase
+            .from("offering_sessions")
+            .select("version_id")
+            .in("version_id", versionIds)
+            .eq(
+              sessionByName ? "academic_period_name" : "academic_period_code",
+              value,
+            )
+            .order("id")
+            .range(start, start + 999);
+          if (result.error) throw result.error;
+          for (const row of result.data ?? []) {
+            if (row.version_id !== null) ids.push(row.version_id);
+          }
+          if ((result.data ?? []).length < 1000) break;
         }
-        if ((result.data ?? []).length < 1000) break;
-      }
-    }
+        return ids;
+      },
+    );
+    const ids = new Set(versions);
     return ids;
   };
   const [sessionVersions, areaVersions, tagVersions] = await Promise.all([
@@ -537,7 +570,16 @@ export async function loadPublishedCourseDirectoryPage({
     );
   });
   const selected = matches
-    .sort((left, right) => left.code.localeCompare(right.code))
+    .sort((left, right) => {
+      if (!sortByTitle) return left.code.localeCompare(right.code);
+      // Match the previous database order, including NULLS LAST for subjects.
+      if (left.subject_code === null && right.subject_code !== null) return 1;
+      if (left.subject_code !== null && right.subject_code === null) return -1;
+      return (
+        (left.subject_code ?? "").localeCompare(right.subject_code ?? "") ||
+        left.title.localeCompare(right.title)
+      );
+    })
     .slice((safePage - 1) * safePageSize, safePage * safePageSize);
   if (selected.length === 0) {
     return {
@@ -1639,53 +1681,6 @@ function searchPattern(value: string) {
     .trim();
 }
 
-/** Versions carrying an area of interest or tag, matched however it is cased. */
-async function snapshotIdsNamed(
-  table: "course_areas_of_interest" | "course_tags",
-  name: string,
-) {
-  const [areas, tags] = await cachedDirectoryNames();
-  const rows = table === "course_tags" ? tags : areas;
-  return [
-    ...new Set(
-      rows
-        .filter(
-          (row) => row.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
-        )
-        .map((row) => row.version_id),
-    ),
-  ];
-}
-
-function intersect(lists: Array<number[] | null>) {
-  const present = lists.filter((list): list is number[] => list !== null);
-  if (present.length === 0) return null;
-  return present.reduce((kept, list) => {
-    const allowed = new Set(list);
-    return kept.filter((id) => allowed.has(id));
-  });
-}
-
-async function snapshotIdsForSession(
-  supabase: SupabaseClient<Database>,
-  yearId: number,
-  session: string,
-) {
-  const { data, error } = await supabase
-    .from("offering_sessions")
-    .select("version_id")
-    .eq("academic_year_id", yearId)
-    .eq("academic_period_name", session);
-  if (error) throw error;
-  return [
-    ...new Set(
-      (data ?? []).flatMap((row) =>
-        row.version_id === null ? [] : [row.version_id],
-      ),
-    ),
-  ];
-}
-
 async function loadListRelationships(
   supabase: SupabaseClient<Database>,
   snapshots: SnapshotListRow[],
@@ -1936,129 +1931,30 @@ async function loadListRelationships(
   });
 }
 
-async function loadPublishedCoursePageUncached({
-  academicYear,
-  filters = {},
-  page = 1,
-  pageSize = 24,
-}: {
-  academicYear: number;
-  filters?: PublishedCourseFilters;
-  page?: number;
-  pageSize?: number;
-}): Promise<PublishedCoursePage> {
-  const safePage = Math.max(1, Math.floor(page));
-  const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
-  const query = firstFilterValue(filters.query);
-  const subject = firstFilterValue(filters.subject).toUpperCase();
-  const level = courseLevelBounds(firstFilterValue(filters.level));
-  const session = firstFilterValue(filters.session);
-  const college = firstFilterValue(filters.college);
-  const area = firstFilterValue(filters.area);
-  const tag = firstFilterValue(filters.tag);
-
-  const supabase = createPublicClient();
-  const year = await academicYearRecord(supabase, academicYear);
-  if (!year) {
-    return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
-  }
-  const cleanedQuery = searchPattern(query);
-  const snapshotIds = intersect(
-    await Promise.all([
-      session ? snapshotIdsForSession(supabase, year.id, session) : null,
-      area ? snapshotIdsNamed("course_areas_of_interest", area) : null,
-      tag ? snapshotIdsNamed("course_tags", tag) : null,
-    ]),
-  );
-  if (snapshotIds?.length === 0) {
-    return { courses: [], page: safePage, pageSize: safePageSize, total: 0 };
-  }
-
-  let snapshotsQuery = supabase
-    .from("published_course_summaries")
-    .select(SNAPSHOT_LIST_SELECT, { count: "exact" })
-    .eq("academic_year_id", year.id);
-  if (subject)
-    snapshotsQuery = snapshotsQuery.in(
-      "subject_code",
-      subject.split(/[,\s]+/u),
-    );
-  if (filters.codes)
-    snapshotsQuery = snapshotsQuery.in("code", filters.codes.split(","));
-  if (level) {
-    snapshotsQuery = snapshotsQuery.gte("level", level.minimum);
-    if (level.maximum !== null)
-      snapshotsQuery = snapshotsQuery.lte("level", level.maximum);
-  }
-  if (college) snapshotsQuery = snapshotsQuery.eq("college", college);
-  if (snapshotIds) {
-    snapshotsQuery = snapshotsQuery.in("version_id", snapshotIds);
-  }
-  if (cleanedQuery) {
-    const pattern = `*${cleanedQuery}*`;
-    snapshotsQuery = snapshotsQuery.or(
-      `code.ilike.${pattern},title.ilike.${pattern},subject_code.ilike.${pattern},school.ilike.${pattern},convener_text.ilike.${pattern}`,
-    );
-  }
-  const start = (safePage - 1) * safePageSize;
-  const { data, count, error } = await snapshotsQuery
-    .order("subject_code")
-    .order("title")
-    .range(start, start + safePageSize - 1);
-  if (error) throw error;
-  const courses = await loadListRelationships(
-    supabase,
-    (data ?? []) as SnapshotListRow[],
-    year,
-  );
-  return { courses, page: safePage, pageSize: safePageSize, total: count ?? 0 };
-}
-
 export async function loadPublishedCoursePage(args: {
   academicYear: number;
   filters?: PublishedCourseFilters;
   page?: number;
   pageSize?: number;
 }): Promise<PublishedCoursePage> {
-  const safePage = Math.max(1, Math.floor(args.page ?? 1));
-  const safePageSize = Math.min(
-    100,
-    Math.max(1, Math.floor(args.pageSize ?? 24)),
-  );
-  const filters = {
-    codes: firstFilterValue(args.filters?.codes),
-    query: firstFilterValue(args.filters?.query),
-    subject: firstFilterValue(args.filters?.subject).toUpperCase(),
-    level: firstFilterValue(args.filters?.level),
-    session: firstFilterValue(args.filters?.session),
-    college: firstFilterValue(args.filters?.college),
-    area: firstFilterValue(args.filters?.area),
-    tag: firstFilterValue(args.filters?.tag),
-  };
-
-  return unstable_cache(
-    () =>
-      loadPublishedCoursePageUncached({
-        academicYear: args.academicYear,
-        filters,
-        page: safePage,
-        pageSize: safePageSize,
-      }),
-    [
-      "published-course-page",
-      String(args.academicYear),
-      String(safePage),
-      String(safePageSize),
-      ...Object.values(filters),
-    ],
+  // Share bounded publication batches with the directory. Counting the entire
+  // security-invoker view made even a twelve-course suggestion page time out.
+  return loadPublishedCourseDirectoryPage(
     {
-      revalidate: PUBLISHED_READ_REVALIDATE_SECONDS,
-      tags: [
-        PUBLISHED_COURSE_PAGE_TAG,
-        publishedCourseYearTag(args.academicYear),
-      ],
+      ...args,
+      filters: {
+        codes: args.filters?.codes,
+        query: searchPattern(firstFilterValue(args.filters?.query)),
+        subject: args.filters?.subject,
+        level: args.filters?.level,
+        session: args.filters?.session,
+        college: args.filters?.college,
+        area: args.filters?.area,
+        tag: args.filters?.tag,
+      },
     },
-  )();
+    { sortByTitle: true, sessionByName: true },
+  );
 }
 
 export async function loadPublishedCoursesByCodes(
