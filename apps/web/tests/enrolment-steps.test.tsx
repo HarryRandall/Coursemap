@@ -354,3 +354,91 @@ test("course counts, pooled units and careers read as steps with progress", () =
     screen.getByText("You're enrolled in a postgraduate program"),
   ).toBeInTheDocument();
 });
+
+test("soft requirements are labelled and never counted as required", () => {
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "units_total", subject: null, units: 48 },
+          {
+            ...base,
+            hardness: "advisory",
+            kind: "course",
+            code: "MATH1013",
+            minimumMark: null,
+            requirementMode: "completed",
+          },
+          {
+            ...base,
+            hardness: "advisory",
+            kind: "other",
+            text: "Students are required to audition.",
+          },
+        ],
+      }}
+      student={{ ...student, completed: new Map() }}
+    />,
+  );
+  expect(screen.getByText("Required")).toBeInTheDocument();
+  expect(screen.getByText("Recommended")).toBeInTheDocument();
+  expect(screen.getByText("Complete MATH1013")).toBeInTheDocument();
+  expect(screen.getByText("You'll also need")).toBeInTheDocument();
+  expect(
+    screen.getByText("Students are required to audition."),
+  ).toBeInTheDocument();
+  expect(screen.getByText("0 of 1 met")).toBeInTheDocument();
+});
+
+test("labelled notes read Required, Recommended or Check with ANU and never count", () => {
+  const note = (
+    text: string,
+    noteKind: "required" | "recommended" | "check_with_anu",
+  ): CourseRuleExpression => ({
+    ...base,
+    hardness: "advisory",
+    kind: "other",
+    text,
+    noteKind,
+  });
+  render(
+    <EnrolmentSteps
+      academicYear={2026}
+      availableCourseCodes={new Set()}
+      expression={{
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          { ...base, kind: "units_total", subject: null, units: 48 },
+          { ...base, kind: "permission", text: "Request a permission code." },
+          note(
+            "National Police Certificate - Students must complete a National Police Check.",
+            "required",
+          ),
+          note("Completion of a cognate major.", "recommended"),
+          note("Students must attend an interview.", "check_with_anu"),
+        ],
+      }}
+      student={{ ...student, completed: new Map() }}
+    />,
+  );
+  expect(screen.getByText("All 2 required")).toBeInTheDocument();
+  expect(screen.getByText("Required")).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "National Police Certificate - Students must complete a National Police Check.",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Recommended")).toBeInTheDocument();
+  expect(screen.getByText("Check with ANU")).toBeInTheDocument();
+  expect(
+    screen.getByText("Students must attend an interview."),
+  ).toBeInTheDocument();
+  expect(screen.getByText("0 of 1 met")).toBeInTheDocument();
+});

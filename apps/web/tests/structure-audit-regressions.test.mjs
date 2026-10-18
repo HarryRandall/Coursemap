@@ -478,3 +478,25 @@ it.each([
     ).toBe(false);
   },
 );
+
+it("keeps a checked agent answer when the requirements print course alternatives", () => {
+  const entry = samples.find((item) =>
+    /\b[A-Z]{4}\d{4}[A-Z]?\s*(?:\/|or)\s*[A-Z]{4}\d{4}[A-Z]?\b/u.test(
+      item.markdown,
+    ),
+  );
+  const alternativesHeld = (result) =>
+    result.extraction.reviewItems.some((item) =>
+      item.message.startsWith("Course alternatives need review"),
+    );
+  expect(alternativesHeld(replay(entry))).toBe(true);
+  const agent = replay(entry, {
+    claim: {
+      kind: entry.kind,
+      code: entry.code,
+      academicYear: entry.year,
+      requestedModel: "coursemap/agent",
+    },
+  });
+  expect(alternativesHeld(agent)).toBe(false);
+});

@@ -510,9 +510,12 @@ async function processClaimedSync({
         requestArtifactId: requestArtifact.id,
       });
       // A resumed reservation retains its own paid outcome and accounting.
-      const reusable = reservation.created
-        ? await findReusableExtraction(sql, fingerprint)
-        : null;
+      // Agent answers cost nothing to read again and can be corrected after
+      // an import, so they are always read from the answer files.
+      const reusable =
+        reservation.created && !isAgentImportModel(claim.requestedModel)
+          ? await findReusableExtraction(sql, fingerprint)
+          : null;
 
       let result;
       let responseArtifactId: string;

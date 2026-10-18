@@ -7,6 +7,7 @@ import {
   hidesCondition,
   isNotice,
   requirementRowStatus,
+  restates,
   unitsDescription,
 } from "@/ui/requirements/requirement-presentation";
 import type {
@@ -177,7 +178,10 @@ export function RequirementGroupView({
       ) && !(child.type === "condition" && hidesCondition(child, context)),
   );
   const onlyChild = children.length === 1 ? children[0] : null;
+  // A nested group keeps its total, since beside other options it is the
+  // only thing saying what the option asks for.
   const inheritedTarget =
+    !nested &&
     group.minimumUnits === context.unitTarget &&
     (group.maximumUnits === null || group.maximumUnits === context.unitTarget);
   const repeatedBounds =
@@ -188,6 +192,9 @@ export function RequirementGroupView({
     !inheritedTarget && !repeatedBounds
       ? unitsDescription(group.minimumUnits, group.maximumUnits)
       : null;
+  // ANU's own heading names a nested part, such as a breadth requirement.
+  // At the top level the tab already names the structure.
+  const title = nested ? group.title?.trim() || null : null;
   if (children.length === 0) return null;
   const unitPool =
     group.operator === "all_of" &&
@@ -206,8 +213,11 @@ export function RequirementGroupView({
         child.maximumUnits === null,
     );
   const childContext = unitPool ? { ...context, unitPool: true } : context;
-  const rows = children.filter((child) => !isNotice(child));
-  const notices = children.filter(isNotice);
+  // A note offered as one of the options stays in the list, after an "or".
+  const rows = alternative
+    ? children
+    : children.filter((child) => !isNotice(child));
+  const notices = alternative ? [] : children.filter(isNotice);
   // With a plan behind the view, the top level sorts rules by what is left
   // to do. Alternatives keep their order, since the choice is between them.
   const sorted =
@@ -224,21 +234,31 @@ export function RequirementGroupView({
   return (
     <OpenRulesContext.Provider value={openRules}>
       <div className="space-y-4">
-        {alternative || units ? (
+        {alternative || units || title ? (
           <div>
             <h3 className="text-sm font-semibold">
-              {group.operator === "any_of"
-                ? "Choose one of these options"
-                : group.operator === "at_least"
-                  ? `Choose at least ${group.minimumCount ?? 1} of these options`
-                  : "Course requirements"}
+              {title ??
+                (group.operator === "any_of"
+                  ? "Choose one of these options"
+                  : group.operator === "at_least"
+                    ? `Choose at least ${group.minimumCount ?? 1} of these options`
+                    : `${units} ${unitPool ? "from any combination of these courses" : "across these requirements"}`)}
             </h3>
-            {units ? (
+            {title && alternative ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {group.operator === "any_of"
+                  ? "Choose one of these options"
+                  : `Choose at least ${group.minimumCount ?? 1} of these options`}
+                {units ? ` · ${units}` : null}
+              </p>
+            ) : (title || alternative) &&
+              units &&
+              !(title && restates(title, units)) ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 {units}{" "}
                 {unitPool
                   ? "from any combination of these courses"
-                  : "across the following requirements"}
+                  : "across these requirements"}
               </p>
             ) : null}
           </div>

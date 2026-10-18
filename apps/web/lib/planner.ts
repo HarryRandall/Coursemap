@@ -15,6 +15,7 @@ import {
   evaluateCondition,
   groupOperator,
   groupRequiredCount,
+  isSoftExpression,
   studentRecord,
   type StudentRecord,
 } from "@/lib/coursemap/requisite-evaluation";
@@ -431,16 +432,23 @@ function evaluateRelationalPrerequisite(
   record: () => PlannedRecord,
 ): PrerequisiteEvaluation {
   if (expression.kind === "group") {
-    const children = expression.conditions.map((condition) =>
-      evaluateRelationalPrerequisite(
-        condition,
-        attempt,
-        attempts,
-        catalogue,
-        record,
-      ),
-    );
+    // A soft requirement never blocks a plan. Inside a choice it is an
+    // alternative Coursemap cannot rule out, so it reads as unknown rather
+    // than making the hard alternatives stricter or letting them all pass.
+    if (isSoftExpression(expression))
+      return { state: "satisfied", missingCodes: [] };
     const operator = groupOperator(expression);
+    const children = expression.conditions.map((condition) =>
+      operator !== "all_of" && isSoftExpression(condition)
+        ? ({ state: "unknown", missingCodes: [] } as PrerequisiteEvaluation)
+        : evaluateRelationalPrerequisite(
+            condition,
+            attempt,
+            attempts,
+            catalogue,
+            record,
+          ),
+    );
     if (operator === "all_of") {
       const unsatisfied = children.filter(
         (child) => child.state === "unsatisfied",
@@ -507,7 +515,7 @@ function evaluateRelationalPrerequisite(
     };
   }
 
-  if (expression.hardness === "advisory") {
+  if (isSoftExpression(expression)) {
     return { state: "satisfied", missingCodes: [] };
   }
   if (!isCheckable(expression.reviewState)) {

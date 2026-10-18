@@ -155,6 +155,8 @@ export function canonicaliseCourseModelExtraction(
       rule.rules.forEach((child, index) =>
         resolveProgramme(child, `${path}.rules[${index}]`, depth + 1),
       );
+    } else if (rule.op === "soft") {
+      resolveProgramme(rule.rule, `${path}.rule`, depth + 1);
     }
   };
   if (isRecord(canonical.requisites)) {

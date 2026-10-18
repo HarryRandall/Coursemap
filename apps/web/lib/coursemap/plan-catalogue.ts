@@ -228,7 +228,7 @@ export function planCourseFromDetails(course: CourseDetails): Course {
           ? "Review"
           : "Automatic",
     accent: course.accent,
-    prices: coursePrices(course.fees),
+    prices: coursePrices(course.fees, course.feeEstimates),
   };
 }
 

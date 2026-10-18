@@ -8,9 +8,11 @@ import {
   CONDITION_KIND_LABELS,
   conditionFamily,
   courseMatch,
+  NOTE_KIND_SUMMARY_LABELS,
   type ReviewedConditionKind,
   type ReviewedConditionNode,
 } from "@/lib/coursemap/requisite-conditions";
+import { REQUIREMENT_NOTE_KINDS } from "@/lib/catalogue/note-kinds";
 import {
   COURSE_MATCH_OPTIONS,
   CourseMarkInput,
@@ -42,9 +44,17 @@ export const KIND_OPTIONS = CONDITION_FAMILY_KINDS.map((kind) => ({
       career: "Academic career",
       gpa: "Grade average",
       wam: "WAM",
+      field_units: "Units in a named field",
+      subject_sequence: "Not after a later course",
       permission: "Permission",
       other: "Other wording",
     }[kind] ?? CONDITION_KIND_LABELS[kind],
+}));
+/** Labels for an uncheckable note; every one of them is soft. */
+const NOTE_HARDNESS_OPTIONS = REQUIREMENT_NOTE_KINDS.map((noteKind) => ({
+  value: `note:${noteKind}`,
+  label: NOTE_KIND_SUMMARY_LABELS[noteKind],
+  noteKind,
 }));
 const stackedFamilyControl =
   "!h-10 min-h-10 w-full min-w-0 !rounded-none !border-transparent bg-transparent px-3 text-[13px] font-medium text-foreground/80 shadow-none max-md:!h-11 max-md:min-h-11";
@@ -126,6 +136,29 @@ export function ConditionInlineEditor({
           label: option.label,
         }))}
       />
+    ) : condition.kind === "structure" ? (
+      <OptionPicker
+        value={
+          condition.matchesStructure === false ? "not_enrolled" : "enrolled"
+        }
+        onValueChange={(value) =>
+          onChange({
+            ...condition,
+            matchesStructure: value === "not_enrolled" ? false : null,
+          })
+        }
+        {...bindOpen("match")}
+        className={cn(
+          inlineControl,
+          layout === "stacked" && stackedMatchControl,
+        )}
+        aria-label={"Programme requirement"}
+        onPointerDown={(event) => event.stopPropagation()}
+        items={[
+          { value: "enrolled", label: "Enrolment required" },
+          { value: "not_enrolled", label: "Not enrolled in" },
+        ]}
+      />
     ) : (
       <span
         aria-label={`Requirement: ${middle[0]?.label ?? "At least"}`}
@@ -146,6 +179,44 @@ export function ConditionInlineEditor({
       stacked={layout === "stacked"}
     />
   );
+  // A soft requirement is shown to students but never blocks enrolment. A
+  // note can also be labelled; a labelled note is soft whatever its label.
+  const isNote = condition.kind === "other";
+  const hardnessControl = (
+    <OptionPicker
+      value={
+        isNote && condition.noteKind
+          ? `note:${condition.noteKind}`
+          : condition.hardness === "advisory"
+            ? "advisory"
+            : "hard"
+      }
+      onValueChange={(value) => {
+        const noteKind = NOTE_HARDNESS_OPTIONS.find(
+          (option) => option.value === value,
+        )?.noteKind;
+        onChange({
+          ...condition,
+          hardness: value === "hard" ? "hard" : "advisory",
+          noteKind: isNote ? (noteKind ?? null) : condition.noteKind,
+        });
+      }}
+      {...bindOpen("hardness")}
+      className={cn(
+        inlineControl,
+        layout === "stacked" && stackedFamilyControl,
+      )}
+      aria-label={"Hard or soft requirement"}
+      onPointerDown={(event) => event.stopPropagation()}
+      items={[
+        { value: "hard", label: "Hard requirement" },
+        { value: "advisory", label: "Soft requirement" },
+        ...(isNote
+          ? NOTE_HARDNESS_OPTIONS.map(({ value, label }) => ({ value, label }))
+          : []),
+      ]}
+    />
+  );
   const hasMark = condition.kind === "course" && condition.mark != null;
   const markControl = hasMark ? (
     <CourseMarkInput condition={condition} onChange={onChange} />
@@ -159,8 +230,11 @@ export function ConditionInlineEditor({
           className,
         )}
       >
-        <span className="flex min-w-0 items-center border-b border-border">
-          {familyControl}
+        <span className="grid min-w-0 border-b border-border md:grid-cols-[minmax(0,1fr)_12rem]">
+          <span className="flex min-w-0 items-center">{familyControl}</span>
+          <span className="flex min-w-0 items-center border-t border-border md:border-t-0 md:border-l">
+            {hardnessControl}
+          </span>
         </span>
         {family === "course" ? (
           <span
@@ -241,6 +315,7 @@ export function ConditionInlineEditor({
           {values}
         </>
       )}
+      {hardnessControl}
     </span>
   );
 }

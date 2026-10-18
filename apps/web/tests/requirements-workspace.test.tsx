@@ -380,7 +380,7 @@ test("alternative groups and upper limits remain explicit after simplifying wrap
   );
   expect(screen.getByText("Choose one of these options")).toBeVisible();
   expect(
-    screen.getByText("Up to 12 units across the following requirements"),
+    screen.getByText("Up to 12 units across these requirements"),
   ).toBeVisible();
   expect(screen.getByText("or")).toBeVisible();
 });
@@ -575,7 +575,8 @@ test.each([false, true])(
         name: /Pick up to 18 units from 2 courses/,
       }),
     ).toBeVisible();
-    expect(screen.getByText(/Up to 18 units · 2 options/)).toBeVisible();
+    // The title states the bound, so the detail line does not repeat it.
+    expect(screen.queryByText(/Up to 18 units · 2 options/)).toBeNull();
     expect(screen.queryByText(/Pick 0 units/)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 units to/)).not.toBeInTheDocument();
     expect(screen.queryByText("Completed")).not.toBeInTheDocument();

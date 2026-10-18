@@ -5,9 +5,11 @@ export function requirementLevelFilter(
   minimum: number | null,
   maximum: number | null,
 ) {
-  const digit = (value: number) => (value < 10 ? value : value / 1000);
+  // Levels arrive as digits or as bounds such as 1000 and 3999.
+  const digit = (value: number) =>
+    value < 10 ? value : Math.floor(value / 1000);
   if (minimum !== null && maximum !== null)
-    return minimum === maximum
+    return digit(minimum) === digit(maximum)
       ? String(digit(minimum))
       : `${digit(minimum)}-${digit(maximum)}`;
   if (minimum !== null) return `${digit(minimum)}+`;

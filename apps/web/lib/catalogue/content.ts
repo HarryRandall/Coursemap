@@ -2,6 +2,7 @@ import type { EnrolmentMode } from "../academic/enrolment-mode.ts";
 import type { ProgrammeCareer } from "../academic/programme-career.ts";
 import type { CourseSnapshotProjection } from "../catalogue-import/kinds/course/project.ts";
 import type { AcademicStructureSnapshotProjection } from "../catalogue-import/kinds/structure/project.ts";
+import type { RequirementNoteKind } from "./note-kinds.ts";
 import { catalogueKindForCode } from "./record-reference.ts";
 import { evidenceBelongsToReviewUnit } from "./review-units.ts";
 import {
@@ -58,6 +59,8 @@ export type RequirementConditionKind =
   | "career"
   | "gpa"
   | "wam"
+  | "field_units"
+  | "subject_sequence"
   | "permission"
   | "other";
 
@@ -114,8 +117,9 @@ export type RequirementWrite = {
     enrolmentMode?: EnrolmentMode | null;
     matchesEnrolmentMode?: boolean | null;
     /**
-     * Subject and level filters of a course count or filtered unit total.
-     * Absent for every other kind, so earlier content keeps its hash.
+     * Subject and level filters of a course count or filtered unit total, and
+     * the subjects a scoped grade average covers. Absent for every other kind,
+     * so earlier content keeps its hash.
      */
     subjectCodes?: string[] | null;
     courseLevels?: number[] | null;
@@ -136,6 +140,16 @@ export type RequirementWrite = {
     scope?: "degree";
     /** A course list ending "Any other ANU courses"; absent when closed. */
     includesAnyCourse?: true;
+    /**
+     * How an `other` note is labelled. Absent for an ordinary note and every
+     * other kind, so earlier content keeps its hash.
+     */
+    noteKind?: RequirementNoteKind;
+    /**
+     * False when a structure condition means "not enrolled in". Absent when
+     * it means enrolled, so earlier content keeps its hash.
+     */
+    matchesStructure?: false;
   }>;
   options: Array<{
     conditionKey: string;
@@ -681,6 +695,11 @@ export function courseCatalogueContent({
                 courseLevels: condition.courseLevels ?? null,
               }
             : {}),
+          // Only a scoped average carries subjects, so an unscoped one keeps
+          // its earlier hash.
+          ...((kind === "gpa" || kind === "wam") && condition.subjectCodes
+            ? { subjectCodes: condition.subjectCodes }
+            : {}),
           ...(kind === "career"
             ? {
                 career: condition.career ?? null,
@@ -696,6 +715,12 @@ export function courseCatalogueContent({
           sourceLocator: null,
           reviewState: "automatic",
           confidence: ruleConfidence(condition.ruleKey),
+          ...(kind === "other" && condition.noteKind
+            ? { noteKind: condition.noteKind }
+            : {}),
+          ...(kind === "structure" && condition.matchesStructure === false
+            ? { matchesStructure: false as const }
+            : {}),
         };
       }),
       options: projection.ruleConditionCourses.map((member) => ({

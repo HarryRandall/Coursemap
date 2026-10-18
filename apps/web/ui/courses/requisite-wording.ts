@@ -7,10 +7,19 @@ import {
 } from "@/lib/academic/programme-career";
 import { catalogueKindForCode } from "@/lib/catalogue/record-reference";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
-import { groupOperator } from "@/lib/coursemap/requisite-evaluation";
+import {
+  groupOperator,
+  isSoftExpression,
+} from "@/lib/coursemap/requisite-evaluation";
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
 type Group = Extract<CourseRuleExpression, { kind: "group" }>;
+
+function onlyExclusions(node: CourseRuleExpression): boolean {
+  return node.kind === "group"
+    ? node.conditions.every(onlyExclusions)
+    : node.kind === "incompatible" || node.kind === "incompatible_concurrent";
+}
 
 /**
  * Pulls the parts of a rule that are not course relationships out of its
@@ -24,16 +33,21 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
   const incompatible: string[] = [];
   const concurrentIncompatible: string[] = [];
   const advisoryIncompatible: CourseRuleCondition[] = [];
+  /** Soft requirements: shown to the student, never blocking enrolment. */
+  const soft: CourseRuleExpression[] = [];
   const requirements: CourseRuleExpression[] = [];
   const visit = (node: CourseRuleExpression) => {
-    if (node.kind === "permission") permissions.push(node.text);
-    else if (node.kind === "other") notes.push(node.text);
-    else if (
+    if (
       (node.kind === "incompatible" ||
         node.kind === "incompatible_concurrent") &&
       node.hardness === "advisory"
     )
       advisoryIncompatible.push(node);
+    // Advisory exclusions keep their own step, so only a soft group with
+    // something other than exclusions in it becomes a soft requirement.
+    else if (isSoftExpression(node) && !onlyExclusions(node)) soft.push(node);
+    else if (node.kind === "permission") permissions.push(node.text);
+    else if (node.kind === "other") notes.push(node.text);
     else if (node.kind === "incompatible_concurrent")
       concurrentIncompatible.push(node.code);
     else if (node.kind === "incompatible") incompatible.push(node.code);
@@ -51,7 +65,58 @@ export function splitRequisiteRule(expression: CourseRuleExpression | null) {
     incompatible,
     concurrentIncompatible,
     advisoryIncompatible,
+    soft,
   };
+}
+
+/** Whether Coursemap can check a condition against a student's record. */
+function isCheckableCondition(condition: CourseRuleCondition) {
+  switch (condition.kind) {
+    case "other":
+    case "permission":
+    case "field_units":
+    case "elective_units":
+      return false;
+    case "structure":
+      return condition.structureCode !== null;
+    case "gpa":
+    case "wam":
+      return !(
+        condition.scopeText?.trim() &&
+        !condition.subjects?.length &&
+        !condition.courseCodes?.length
+      );
+    default:
+      return true;
+  }
+}
+
+export type SoftRequirementLabel =
+  "Required" | "Recommended" | "You'll also need" | "Check with ANU";
+
+const NOTE_KIND_LABELS = {
+  required: "Required",
+  recommended: "Recommended",
+  check_with_anu: "Check with ANU",
+} as const satisfies Record<string, SoftRequirementLabel>;
+
+/**
+ * How a soft requirement is introduced. A labelled note says so itself: a
+ * mandatory condition Coursemap cannot check is "Required", and ANU wording
+ * the importer could not model is "Check with ANU". Otherwise advice
+ * Coursemap can check is "Recommended", and a condition it cannot check is
+ * something the student will also need to arrange, such as an audition.
+ */
+export function softRequirementLabel(
+  expression: CourseRuleExpression,
+): SoftRequirementLabel {
+  if (expression.kind === "other" && expression.noteKind)
+    return NOTE_KIND_LABELS[expression.noteKind];
+  const checkable = (node: CourseRuleExpression): boolean =>
+    node.kind === "group"
+      ? node.conditions.every(checkable)
+      : isCheckableCondition(node);
+  return checkable(expression) ? "Recommended" : "You'll also need";
 }
 
 /** The heading on a group box: how many of its children are needed. */
@@ -91,6 +156,21 @@ function filteredUnits(
     subjectCodes: condition.subjects,
     courseLevels: condition.levels,
   })}`;
+}
+
+/** What a grade average is taken over: some courses, a recent window or the career. */
+function averageScopePhrase(
+  condition: Extract<CourseRuleCondition, { kind: "gpa" | "wam" }>,
+  article: "the" | "your",
+) {
+  if (condition.subjects?.length)
+    return ` in ${codes(condition.subjects)} courses`;
+  if (condition.courseCodes?.length)
+    return ` across ${codes(condition.courseCodes).replace(/ or /u, " and ")}`;
+  if (condition.scopeText?.trim()) return ` in ${condition.scopeText.trim()}`;
+  return condition.recentGradedUnits
+    ? ` over ${article} most recent ${condition.recentGradedUnits} graded units`
+    : " across your academic career";
 }
 
 /** "the MATH-MAJ major" for a major, minor or specialisation code. */
@@ -141,15 +221,19 @@ export function requisiteNoun(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Year ${condition.minimumYear} or later`;
     case "structure":
-      return `Enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "a program")}`;
+      return `${condition.matchesStructure === false ? "Not enrolled" : "Enrolled"} in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "a program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Enrolled in ${condition.minimumCount} of ${codes(condition.structureCodes)}`
         : `Enrolled in ${codes(condition.structureCodes)}`;
     case "gpa":
-      return `GPA of ${condition.minimumGpa} or more${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
+      return `GPA of ${condition.minimumGpa} or more${averageScopePhrase(condition, "the")}`;
     case "wam":
-      return `WAM of ${condition.minimumWam} or more${condition.recentGradedUnits ? ` over the most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
+      return `WAM of ${condition.minimumWam} or more${averageScopePhrase(condition, "the")}`;
+    case "field_units":
+      return `${condition.units} units in ${condition.field}`;
+    case "subject_sequence":
+      return `No later ${condition.subject} course completed`;
     case "permission":
     case "other":
       return condition.text;
@@ -208,20 +292,37 @@ export function requisiteSentence(condition: CourseRuleCondition): string {
     case "year_standing":
       return `Be in year ${condition.minimumYear} or later of your degree`;
     case "structure":
-      return `Be enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "the required program")}`;
+      return condition.matchesStructure === false
+        ? `Be in a program other than ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "this one")}`
+        : `Be enrolled in ${condition.structureCode ? structureName(condition.structureCode) : (condition.text ?? "the required program")}`;
     case "structure_set":
       return condition.minimumCount && condition.minimumCount > 1
         ? `Be enrolled in ${condition.minimumCount} of these programs`
         : "Be enrolled in one of these programs";
     case "gpa":
-      return `Have a GPA of ${condition.minimumGpa} or more${condition.recentGradedUnits ? ` over your most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
+      return `Have a GPA of ${condition.minimumGpa} or more${averageScopePhrase(condition, "your")}`;
     case "wam":
-      return `Have a WAM of ${condition.minimumWam} or more${condition.recentGradedUnits ? ` over your most recent ${condition.recentGradedUnits} graded units` : " across your academic career"}`;
+      return `Have a WAM of ${condition.minimumWam} or more${averageScopePhrase(condition, "your")}`;
+    case "field_units":
+      return `Complete ${condition.units} units in ${condition.field}`;
+    case "subject_sequence":
+      return `Don't take this after completing a later ${condition.subject} course in the sequence`;
     case "permission":
       return "Get permission to enrol";
     case "other":
       return "Also required";
   }
+}
+
+/**
+ * ANU wording as a sentence on its own. Notes quote bullets exactly, so a
+ * list marker or the comma joining the next bullet is dropped for display.
+ */
+export function standaloneWording(text: string | null) {
+  return (text ?? "")
+    .trim()
+    .replace(/^[-*•]\s+/u, "")
+    .replace(/[,;]$/u, "");
 }
 
 /** A group as the thing a student has to do. */

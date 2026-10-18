@@ -26,6 +26,7 @@ Options:
   --concurrency N                                        Records processed at once (default 6)
   --skip-directory                                       Reuse the saved ANU listing
   --reimport-held                                        Also retry untouched, unpublished agent drafts
+  --refresh                                              Read every record nobody has edited again, published or not
   --answers DIR                                          Agent request and answer folder
 
 Local database only. Records already imported, published or drafted are skipped,
@@ -48,6 +49,7 @@ export function parseYearImportArgs(args) {
     concurrency: 6,
     skipDirectory: false,
     reimportHeld: false,
+    refresh: false,
     answers: null,
   };
   for (let index = 0; index < args.length; index += 1) {
@@ -58,6 +60,10 @@ export function parseYearImportArgs(args) {
     }
     if (flag === "--reimport-held") {
       options.reimportHeld = true;
+      continue;
+    }
+    if (flag === "--refresh") {
+      options.refresh = true;
       continue;
     }
     const value = args[index + 1];
@@ -127,11 +133,22 @@ export async function ensureAgentImportModel(sql) {
 /**
  * Listed records with no source version, publication, draft or active sync.
  * `reimportHeld` adds unpublished records whose untouched draft came from an
- * agent import, so a parser or schema fix can read them again.
+ * agent import, so a parser or schema fix can read them again. `refresh`
+ * takes every record without an administrator's manual corrections (an
+ * accepted first reading is not one), so a year can be
+ * replaced wholesale by agent readings.
  */
 export async function readImportableRecords(
   sql,
-  { kind, year, codes, limit, careers = null, reimportHeld = false },
+  {
+    kind,
+    year,
+    codes,
+    limit,
+    careers = null,
+    reimportHeld = false,
+    refresh = false,
+  },
 ) {
   const rows = await sql`
     select records.id, codes.code from public.catalogue_records records
@@ -142,12 +159,14 @@ export async function readImportableRecords(
       and (${codes === null} or codes.code = any(${codes ?? []}::text[]))
       and (${careers === null} or listings.summary->>'career' = any(${careers ?? []}::text[]))
       and records.archived_at is null and listings.is_current
-      and records.published_version_id is null
       and (
-        (records.latest_source_version_id is null
+        (${refresh}
+          and not exists (select 1 from public.catalogue_draft_provenance provenance where provenance.record_id = records.id and provenance.origin = 'manual'))
+        or (records.published_version_id is null and records.latest_source_version_id is null
           and not exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id))
-        or (${reimportHeld}
-          and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id and drafts.updated_by is null)
+        or (${reimportHeld} and records.published_version_id is null
+          and exists (select 1 from public.catalogue_drafts drafts where drafts.record_id = records.id)
+          and not exists (select 1 from public.catalogue_draft_provenance provenance where provenance.record_id = records.id and provenance.origin = 'manual')
           and exists (select 1 from public.catalogue_syncs syncs where syncs.source_version_id = records.latest_source_version_id and syncs.requested_model = ${AGENT_IMPORT_MODEL}))
       )
       and not exists (select 1 from public.catalogue_syncs syncs where syncs.record_id = records.id and syncs.status in ('queued', 'running'))

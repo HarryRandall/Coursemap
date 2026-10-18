@@ -17,6 +17,20 @@ function money(amount: number) {
   return `$${Math.round(amount).toLocaleString("en-AU")}`;
 }
 
+function courseCount(count: number) {
+  return `${count} ${count === 1 ? "course" : "courses"}`;
+}
+
+function yearCourses(fee: TuitionEstimate["byYear"][number]) {
+  return fee.estimatedCourses
+    ? `${courseCount(fee.courses)}, ${fee.estimatedCourses} estimated`
+    : courseCount(fee.courses);
+}
+
+function estimatedCoursesNote(count: number) {
+  return `ANU didn't list a fee we could read for ${courseCount(count)}, so ${count === 1 ? "it is" : "they are"} priced from similar courses. These are estimates, not official fees.`;
+}
+
 /** Years shown at once; more than this pages with the header arrows. */
 const VISIBLE_YEARS = 3;
 
@@ -48,9 +62,27 @@ export function TuitionMetric({
       header={
         <>
           {tuition ? (
-            <p className="text-xl font-semibold tracking-tight tabular-nums">
-              {money(tuition.total)}
-            </p>
+            <div className="flex min-w-0 items-baseline gap-2">
+              <p className="text-xl font-semibold tracking-tight tabular-nums">
+                {tuition.estimatedCourses > 0 ? "≈ " : ""}
+                {money(tuition.total)}
+              </p>
+              {tuition.estimatedCourses > 0 ? (
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="cursor-help truncate text-xs text-muted-foreground underline decoration-dotted underline-offset-2"
+                    >
+                      Includes estimates
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-64">
+                    {estimatedCoursesNote(tuition.estimatedCourses)}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
           ) : null}
           <div className="flex shrink-0 items-center gap-0.5">
             <h3
@@ -103,7 +135,7 @@ export function TuitionMetric({
             <TooltipTrigger asChild>
               <li
                 tabIndex={0}
-                aria-label={`${fee.year}: ${money(fee.amount)} across ${fee.courses} ${fee.courses === 1 ? "course" : "courses"}`}
+                aria-label={`${fee.year}: ${fee.estimatedCourses ? "about " : ""}${money(fee.amount)} across ${yearCourses(fee)}`}
                 className="group grid h-7 shrink-0 grid-cols-[2.25rem_1fr_auto] items-center gap-2.5 rounded-md text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="text-muted-foreground">{fee.year}</span>
@@ -116,13 +148,12 @@ export function TuitionMetric({
                   />
                 </div>
                 <span className="text-right font-medium tabular-nums">
+                  {fee.estimatedCourses ? "≈ " : ""}
                   {money(fee.amount)}
                 </span>
               </li>
             </TooltipTrigger>
-            <TooltipContent side="top">
-              {fee.courses} {fee.courses === 1 ? "course" : "courses"}
-            </TooltipContent>
+            <TooltipContent side="top">{yearCourses(fee)}</TooltipContent>
           </Tooltip>
         ))}
       </ul>

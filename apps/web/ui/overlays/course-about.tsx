@@ -8,6 +8,7 @@ import {
   DEFAULT_FEE_STATUS,
   feeStatusShortLabel,
 } from "@/lib/academic/fee-status";
+import { feeEstimateNote } from "@/lib/academic/fee-estimates";
 import { useCoursemap } from "@/app/providers";
 import type { Course } from "@/lib/coursemap/types";
 import type { CourseDetailsState } from "@/lib/coursemap/use-course-details";
@@ -43,7 +44,7 @@ export function CourseAbout({
   const feeStatus = state.profile.feeStatus ?? DEFAULT_FEE_STATUS;
   // The full course carries every published price; the summary may not.
   const price = coursePrice({
-    prices: full ? coursePrices(full.fees) : course.prices,
+    prices: full ? coursePrices(full.fees, full.feeEstimates) : course.prices,
     units: course.units,
     feeStatus,
     commencementYear: state.profile.commencementYear ?? null,
@@ -64,9 +65,11 @@ export function CourseAbout({
     course.delivery,
     full?.school ?? course.school,
     course.convener ? `Convener ${course.convener}` : "",
-    price !== null
-      ? `${AUD.format(price)} ${feeStatusShortLabel(feeStatus)}`
-      : "",
+    price === null
+      ? ""
+      : price.estimate
+        ? `≈ ${AUD.format(price.amount)} ${feeStatusShortLabel(feeStatus)}, estimated`
+        : `${AUD.format(price.amount)} ${feeStatusShortLabel(feeStatus)}`,
   ].filter(Boolean);
 
   return (
@@ -145,9 +148,10 @@ export function CourseAbout({
       ) : null}
 
       {footnote.length > 0 ? (
-        <p className="border-t border-border pt-3 text-xs text-muted-foreground">
-          {footnote.join(" · ")}
-        </p>
+        <div className="space-y-1 border-t border-border pt-3 text-xs text-muted-foreground">
+          <p>{footnote.join(" · ")}</p>
+          {price?.estimate ? <p>{feeEstimateNote(price.estimate)}</p> : null}
+        </div>
       ) : null}
     </div>
   );

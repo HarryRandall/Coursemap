@@ -23,6 +23,7 @@ const INLINE =
  */
 function markdownBlocks(markdown: string): Block[] {
   const blocks: Block[] = [];
+  const tableRows = new WeakSet<Block>();
   let paragraph: string[] = [];
   const endParagraph = () => {
     if (paragraph.length) {
@@ -42,6 +43,33 @@ function markdownBlocks(markdown: string): Block[] {
       blocks.push({ kind: "heading", text: heading[1] });
       continue;
     }
+    if (trimmed.startsWith("|")) {
+      endParagraph();
+      // A table row reads as a list item; its heading and rule rows go.
+      const cells = trimmed
+        .replace(/^\||\|$/gu, "")
+        .split("|")
+        .map((cell) => cell.trim());
+      const previous = blocks.at(-1);
+      const continues = previous?.kind === "list" && tableRows.has(previous);
+      if (cells.every((cell) => /^:?-*:?$/u.test(cell))) continue;
+      if (!continues) {
+        // The first row of a table is its heading.
+        const list: Block = { kind: "list", ordered: false, items: [] };
+        tableRows.add(list);
+        blocks.push(list);
+        continue;
+      }
+      const filled = cells.filter(Boolean);
+      const units = /^\d+(?:\.\d+)?$/u.test(filled.at(-1) ?? "")
+        ? filled.pop()
+        : null;
+      if (filled.length && previous?.kind === "list")
+        previous.items.push(
+          `${filled.join(" ")}${units ? ` (${units} units)` : ""}`,
+        );
+      continue;
+    }
     const item = LIST_ITEM.exec(line);
     if (item) {
       endParagraph();
@@ -57,7 +85,45 @@ function markdownBlocks(markdown: string): Block[] {
     paragraph.push(trimmed);
   }
   endParagraph();
-  return blocks;
+  return listedLines(
+    blocks.filter((block) => block.kind !== "list" || block.items.length),
+  );
+}
+
+/** A short line that is not a sentence, such as a degree name. */
+function isListedLine(block: Block) {
+  return (
+    block.kind === "paragraph" &&
+    block.text.length <= 90 &&
+    !block.text.startsWith("**") &&
+    !/[.:;!?]$/u.test(block.text)
+  );
+}
+
+/**
+ * ANU sets some lists as one short paragraph per item. A run of three or
+ * more such lines reads as the list it is.
+ */
+function listedLines(blocks: Block[]): Block[] {
+  const result: Block[] = [];
+  for (let index = 0; index < blocks.length;) {
+    let end = index;
+    while (end < blocks.length && isListedLine(blocks[end])) end += 1;
+    if (end - index >= 3) {
+      result.push({
+        kind: "list",
+        ordered: false,
+        items: blocks
+          .slice(index, end)
+          .map((block) => (block.kind === "paragraph" ? block.text : "")),
+      });
+      index = end;
+    } else {
+      result.push(blocks[index]);
+      index += 1;
+    }
+  }
+  return result;
 }
 
 function Inline({

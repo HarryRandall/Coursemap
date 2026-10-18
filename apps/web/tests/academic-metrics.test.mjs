@@ -362,9 +362,46 @@ test("sums each course's raw domestic fee by study year", () => {
   assert.equal(estimate.total, 3510);
   assert.equal(estimate.pricedCourses, 2);
   assert.equal(estimate.plannedCourses, 3);
+  assert.equal(estimate.estimatedCourses, 0);
   assert.deepEqual(estimate.byYear, [
-    { year: 2025, amount: 1110, courses: 1 },
-    { year: 2026, amount: 2400, courses: 1 },
+    { year: 2025, amount: 1110, courses: 1, estimatedCourses: 0 },
+    { year: 2026, amount: 2400, courses: 1, estimatedCourses: 0 },
+  ]);
+});
+
+test("counts courses priced from similar courses' fees", () => {
+  const estimate = tuitionEstimate({
+    feeStatus: "domestic_fee",
+    courses: [
+      ...courses,
+      {
+        code: "COMP3600",
+        year: 2026,
+        units: 6,
+        prices: {
+          domestic: null,
+          international: 7000,
+          contributionBand: 2,
+          estimates: {
+            domestic: {
+              perUnit: 818,
+              scope: "subject",
+              scopeValue: "COMP",
+              sampleSize: 12,
+            },
+          },
+        },
+      },
+    ],
+    attempts: [
+      attempt({ courseCode: "COMP2100", termId: "2026-s1", status: "planned" }),
+      attempt({ courseCode: "COMP3600", termId: "2026-s2", status: "planned" }),
+    ],
+  });
+  assert.equal(estimate.total, 2400 + 4910);
+  assert.equal(estimate.estimatedCourses, 1);
+  assert.deepEqual(estimate.byYear, [
+    { year: 2026, amount: 7310, courses: 2, estimatedCourses: 1 },
   ]);
 });
 

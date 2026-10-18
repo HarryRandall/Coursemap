@@ -22,8 +22,38 @@ function hasEnrolmentRequirement(text: string) {
   );
 }
 
+/**
+ * Eligibility wording found outside the requisite section, by the review
+ * message it raised. Each clause is one printed sentence or paragraph; the
+ * message can be lifted once the modelled rule represents every clause.
+ */
+export type SourceEligibilityClauses = Array<{
+  message: string;
+  clauses: string[];
+}>;
+
+/** The sentences of a passage, or the passage itself when it has one. */
+function sentencesMatching(passage: string, test: (text: string) => boolean) {
+  const sentences = passage
+    .split(/(?<=[.!?])\s+|\n\s*\n/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const matching = sentences.filter(test);
+  return matching.length ? matching : [passage.trim()];
+}
+
 /** Copy printed facts before asking a model to interpret eligibility wording. */
-export function parseCourseSource({
+export function parseCourseSource(input: {
+  code: string;
+  year: number;
+  markdown: string;
+  context?: PromptContext;
+}): CourseExtraction {
+  return readCourseSource(input).course;
+}
+
+/** The parsed course, with the eligibility clauses its review items flag. */
+export function readCourseSource({
   code,
   year,
   markdown,
@@ -33,13 +63,22 @@ export function parseCourseSource({
   year: number;
   markdown: string;
   context?: PromptContext;
-}): CourseExtraction {
+}): { course: CourseExtraction; eligibilityClauses: SourceEligibilityClauses } {
+  const eligibilityClauses: SourceEligibilityClauses = [];
+  const flagEligibility = (message: string, clauses: string[]) => {
+    const entry = eligibilityClauses.find((item) => item.message === message);
+    if (entry) entry.clauses.push(...clauses);
+    else eligibilityClauses.push({ message, clauses: [...clauses] });
+  };
   const section = (heading: string) =>
     markdown.split(`## ${heading}\n`)[1]?.split(/^## /mu)[0]?.trim() || null;
   const field = (label: string) =>
     markdown.match(new RegExp(`^- ${label} (.+)$`, "mu"))?.[1]?.trim() ?? null;
   const title = markdown.match(/^# (.+)$/mu)?.[1] ?? null;
   const course = emptyCourseExtraction({ code, year, title });
+  // Errors hold a draft back from publication. Parts a student can do
+  // without, such as fees, outcomes or one unknown period, are warnings so
+  // the rest of the course still publishes.
   const review = (
     fieldKey: string,
     message: string,
@@ -221,18 +260,21 @@ export function parseCourseSource({
       .join("\n\n")
       .trim() || null;
   course.introduction = course.description;
-  if (
-    course.description &&
-    /(?:must|should) have (?:achieved|completed)|students enrolling|only available to/iu.test(
-      course.description,
-    )
-  )
-    review(
-      "requisites",
-      "The introduction includes eligibility wording that needs review alongside the requisite section.",
+  const introductionEligibility =
+    /(?:must|should) have (?:achieved|completed)|students enrolling|only available to/iu;
+  if (course.description && introductionEligibility.test(course.description)) {
+    const message =
+      "The introduction includes eligibility wording that needs review alongside the requisite section.";
+    review("requisites", message);
+    flagEligibility(
+      message,
+      sentencesMatching(course.description, (text) =>
+        introductionEligibility.test(text),
+      ),
     );
+  }
   if (!course.description)
-    review("description", "The introduction layout needs review.");
+    review("description", "The introduction layout needs review.", "warning");
   course.workloadText = section("Workload");
   const integratedLearning = section("Work Integrated Learning");
   if (integratedLearning) {
@@ -261,11 +303,15 @@ export function parseCourseSource({
     for (const paragraph of otherInformation.split("\n\n"))
       if (hasEnrolmentRequirement(paragraph)) {
         supplementaryRequisites.push(paragraph);
-        if (!parsePlainCourseRequisites(paragraph))
-          review(
-            "requisites",
-            "The other information section includes eligibility wording that needs review.",
+        if (!parsePlainCourseRequisites(paragraph)) {
+          const message =
+            "The other information section includes eligibility wording that needs review.";
+          review("requisites", message);
+          flagEligibility(
+            message,
+            sentencesMatching(paragraph, hasEnrolmentRequirement),
           );
+        }
       }
   }
   const hours = course.workloadText?.match(
@@ -287,9 +333,12 @@ export function parseCourseSource({
       .join("\n\n");
     if (hasEnrolmentRequirement(preliminaryReading)) {
       supplementaryRequisites.push(preliminaryReading);
-      review(
-        "requisites",
-        "The preliminary reading section includes eligibility wording that needs review.",
+      const message =
+        "The preliminary reading section includes eligibility wording that needs review.";
+      review("requisites", message);
+      flagEligibility(
+        message,
+        sentencesMatching(preliminaryReading, hasEnrolmentRequirement),
       );
     }
   }
@@ -327,10 +376,10 @@ export function parseCourseSource({
       )
     ) {
       supplementaryRequisites.push(sentence);
-      review(
-        "requisites",
-        "The assumed knowledge section includes mandatory eligibility wording that needs review.",
-      );
+      const message =
+        "The assumed knowledge section includes mandatory eligibility wording that needs review.";
+      review("requisites", message);
+      flagEligibility(message, [sentence]);
     }
   }
   const requisite =
@@ -364,6 +413,7 @@ export function parseCourseSource({
     review(
       "learningOutcomes",
       "No learning outcomes were read from the source.",
+      "warning",
     );
   const assessment = section("Indicative Assessment");
   const assessmentLines = (assessment?.split("\n") ?? []).filter(
@@ -381,8 +431,10 @@ export function parseCourseSource({
     const outcomes =
       value
         .match(/\[(?:LO|Learning Outcomes?) ([\d, ]+)\]/u)?.[1]
-        ?.split(",")
-        .map(Number) ?? [];
+        ?.split(/[,\s]+/u)
+        .filter(Boolean)
+        .map(Number)
+        .filter(Number.isFinite) ?? [];
     return {
       position: i + 1,
       title: courseDisplayText(
@@ -399,7 +451,7 @@ export function parseCourseSource({
     };
   });
   if (!course.assessmentItems.length)
-    review("assessmentItems", "The assessment layout needs review.");
+    review("assessmentItems", "The assessment layout needs review.", "warning");
   const fees = section("Course fees");
   for (const audience of ["domestic", "international"] as const) {
     const label =
@@ -434,7 +486,7 @@ export function parseCourseSource({
         fees ?? "",
       )
     )
-      review("fees", `${label} could not be read from the source.`);
+      review("fees", `${label} could not be read from the source.`, "warning");
   }
   const feeSection = section("Fees");
   const band = feeSection?.match(
@@ -515,6 +567,7 @@ export function parseCourseSource({
         review(
           "offerings",
           `The period '${name}' has no matching calendar identity.`,
+          "warning",
         );
         continue;
       }
@@ -574,6 +627,7 @@ export function parseCourseSource({
     review(
       "offerings",
       "No selected-year class table was read. Availability remains unknown.",
+      "warning",
     );
   for (const key of [
     "school",
@@ -608,5 +662,5 @@ export function parseCourseSource({
     for (const item of course[key])
       evidence(key, "sourceText" in item ? item.sourceText : item.text);
   course.overallConfidence = null;
-  return course;
+  return { course, eligibilityClauses };
 }

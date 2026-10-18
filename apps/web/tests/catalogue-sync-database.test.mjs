@@ -21,6 +21,7 @@ import { loadKnownCourseTags } from "../lib/catalogue-import/kinds/course/tags.t
 import { projectCourseSnapshot } from "../lib/catalogue-import/kinds/course/project.ts";
 import { persistSourceVersion } from "../lib/catalogue-sync/persist-source-version.ts";
 import { requirementWriteWithTree } from "../lib/catalogue-import/requirement-tree.ts";
+import { requisiteFallbackContent } from "../lib/catalogue-import/requisite-fallback.ts";
 import {
   ensureAnuSourceId,
   startSyncStage,
@@ -41,6 +42,7 @@ const MANUAL_CODE = "TSTC9102";
 const COHORT_CODE = "TSTC9103";
 const OFFERING_CODE = "TSTC9104";
 const REPEAT_CODE = "TSTC9105";
+const NEGATED_PROGRAMME = "TSTCPROG";
 
 let sql;
 let yearId;
@@ -67,10 +69,12 @@ async function removeFixtures() {
   await sql`alter table public.catalogue_change_events disable trigger catalogue_change_events_reject_mutation`;
   await sql`alter table public.catalogue_field_changes disable trigger catalogue_field_changes_reject_mutation`;
   try {
-    // The repeatable record's options reference two other fixture courses.
-    await sql`delete from public.catalogue_codes where kind = 'course' and code = ${REPEAT_CODE}`;
+    // The repeatable record's options reference two other fixture courses,
+    // and the offering record's scoped average references one.
+    await sql`delete from public.catalogue_codes where kind = 'course' and code in (${REPEAT_CODE}, ${OFFERING_CODE})`;
     await sql`delete from public.catalogue_codes where kind = 'course' and code in (${EMPTY_CODE}, ${MANUAL_CODE}, ${COHORT_CODE}, ${OFFERING_CODE}, ${REPEAT_CODE})`;
     await sql`delete from public.catalogue_codes where kind = 'specialisation' and code = 'TSTC-HSPC'`;
+    await sql`delete from public.catalogue_codes where kind = 'programme' and code = ${NEGATED_PROGRAMME}`;
   } finally {
     await sql`alter table public.catalogue_field_changes enable trigger catalogue_field_changes_reject_mutation`;
     await sql`alter table public.catalogue_change_events enable trigger catalogue_change_events_reject_mutation`;
@@ -1483,5 +1487,270 @@ test("a repeat allowance survives persistence, readback and the published projec
       [MANUAL_CODE, undefined],
     ],
   );
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+});
+
+test("soft conditions, scoped averages, field units and sequences survive persistence with the same hash", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Soft requisite persistence",
+  });
+  model.requisites.prerequisiteText =
+    "Students must be enrolled in a science degree with a Credit average in Science courses, and a GPA of 5 in TSTC courses and TSTC9101. 24 units or 12 units in the relevant field. Students are not permitted to enrol in a language course below one that they have already completed. Enrolment depends on a placement.";
+  model.requisites.prerequisiteRule = {
+    op: "all_of",
+    rules: [
+      {
+        op: "soft",
+        rule: {
+          op: "enrolled_in_programme_family",
+          family: "a science degree",
+        },
+      },
+      {
+        op: "soft",
+        rule: {
+          op: "minimum_gpa",
+          value: 5,
+          scale: "anu7",
+          scopeText: "Science courses",
+        },
+      },
+      {
+        op: "minimum_gpa",
+        value: 5,
+        scale: "anu7",
+        subjectCodes: ["TSTC"],
+        courseCodes: [EMPTY_CODE],
+      },
+      {
+        op: "one_of",
+        rules: [
+          { op: "min_units_total", minimumUnits: 24 },
+          {
+            op: "soft",
+            rule: {
+              op: "min_units_in_field",
+              minimumUnits: 12,
+              field: "the relevant field",
+            },
+          },
+        ],
+      },
+      {
+        op: "soft",
+        rule: { op: "no_higher_course_in_subject", subjectCode: "TSTC" },
+      },
+      { op: "note", sourceText: "Enrolment depends on a placement." },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  const fixture = await createSyncFixture(OFFERING_CODE, content.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write: content,
+  });
+  const stored = await sql`
+    select conditions.condition_kind, conditions.hardness, conditions.subject_code,
+      conditions.subject_codes, conditions.minimum_units, conditions.free_text,
+      codes.code as item_code
+    from public.requirement_conditions as conditions
+    left join public.catalogue_codes as codes on codes.id = conditions.code_id
+    where conditions.version_id = ${result.sourceVersionId}
+    order by conditions.condition_key
+  `;
+  assert.deepEqual(
+    stored.map((row) => [
+      row.condition_kind,
+      row.hardness,
+      row.subject_code,
+      row.subject_codes,
+      row.minimum_units,
+      row.free_text,
+      row.item_code,
+    ]),
+    [
+      ["structure", "advisory", null, null, null, "a science degree", null],
+      ["gpa", "advisory", null, null, null, "Science courses", null],
+      ["gpa", "hard", null, ["TSTC"], null, null, null],
+      ["units_total", "hard", null, null, "24.00", null, null],
+      [
+        "field_units",
+        "advisory",
+        null,
+        null,
+        "12.00",
+        "the relevant field",
+        null,
+      ],
+      ["subject_sequence", "advisory", "TSTC", null, null, OFFERING_CODE, null],
+      [
+        "other",
+        "advisory",
+        null,
+        null,
+        null,
+        "Enrolment depends on a placement.",
+        null,
+      ],
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, content.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), content.contentHash);
+
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  // A scoped average's courses are not prerequisites.
+  assert.equal(
+    projection.content.prerequisiteCodes.includes(EMPTY_CODE),
+    false,
+  );
+  const expression = readProjectionPrerequisiteRule(
+    projection.content,
+  ).relationalExpression;
+  const [family, science, scoped, units, sequence, note] =
+    expression.conditions;
+  assert.deepEqual(
+    [family.kind, family.hardness, family.text],
+    ["structure", "advisory", "a science degree"],
+  );
+  assert.equal(science.scopeText, "Science courses");
+  assert.deepEqual(scoped.subjects, ["TSTC"]);
+  assert.deepEqual(scoped.courseCodes, [EMPTY_CODE]);
+  assert.deepEqual(
+    units.conditions.map((condition) => [condition.kind, condition.hardness]),
+    [
+      ["units_total", "hard"],
+      ["field_units", "advisory"],
+    ],
+  );
+  assert.deepEqual(
+    [sequence.kind, sequence.subject, sequence.code],
+    ["subject_sequence", "TSTC", OFFERING_CODE],
+  );
+  assert.deepEqual([note.kind, note.hardness], ["other", "advisory"]);
+  await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
+});
+
+test("labelled notes, not-enrolled programmes and fallback notes survive persistence with the same hash", async () => {
+  const model = emptyCourseExtraction({
+    code: OFFERING_CODE,
+    year: YEAR,
+    title: "Labelled note persistence",
+  });
+  model.requisites.prerequisiteText =
+    "Students in the program must have completed TSTC9101. Students in other programs must have completed 24 units. Students must complete a National Police Check. Completion of a cognate major.";
+  model.requisites.prerequisiteRule = {
+    op: "one_of",
+    rules: [
+      {
+        op: "all_of",
+        rules: [
+          { op: "enrolled_in", programmeCode: NEGATED_PROGRAMME },
+          { op: "completed", courseCode: EMPTY_CODE },
+        ],
+      },
+      {
+        op: "all_of",
+        rules: [
+          {
+            op: "enrolled_in",
+            programmeCode: NEGATED_PROGRAMME,
+            matches: false,
+          },
+          { op: "min_units_total", minimumUnits: 24 },
+          {
+            op: "note",
+            sourceText: "Students must complete a National Police Check.",
+            required: true,
+          },
+          {
+            op: "note",
+            sourceText: "Completion of a cognate major.",
+            recommended: true,
+          },
+        ],
+      },
+    ],
+  };
+  const content = courseCatalogueContent({
+    projection: projectCourseSnapshot(model),
+    flags: [
+      {
+        fieldPath: "requisites",
+        severity: "error",
+        code: "UNSUPPORTED",
+        message:
+          "The other information section includes eligibility wording that needs review.",
+        sourceExcerpt: "Students must attend an interview.",
+      },
+    ],
+  });
+  content.contentHash = contentHashForCatalogueContent(content);
+  // The fallback adds a new all-of root above the choice and a note beside it.
+  const fallback = requisiteFallbackContent(content);
+  assert.deepEqual(fallback.notes, ["Students must attend an interview."]);
+  const write = fallback.content;
+  const fixture = await createSyncFixture(OFFERING_CODE, write.contentHash);
+  const result = await persistSourceVersion(sql, {
+    claim: fixture.claim,
+    sourceDocumentId: fixture.documentId,
+    write,
+  });
+  const stored = await sql`
+    select conditions.condition_kind, conditions.note_kind,
+      conditions.matches_structure, conditions.hardness, codes.code as item_code
+    from public.requirement_conditions as conditions
+    left join public.catalogue_codes as codes on codes.id = conditions.code_id
+    where conditions.version_id = ${result.sourceVersionId}
+    order by conditions.id
+  `;
+  assert.deepEqual(
+    stored.map((row) => [
+      row.condition_kind,
+      row.note_kind,
+      row.matches_structure,
+      row.hardness,
+      row.item_code,
+    ]),
+    [
+      ["structure", null, null, "hard", NEGATED_PROGRAMME],
+      ["course", null, null, "hard", EMPTY_CODE],
+      ["structure", null, false, "hard", NEGATED_PROGRAMME],
+      ["units_total", null, null, "hard", null],
+      ["other", "required", null, "advisory", null],
+      ["other", "recommended", null, "advisory", null],
+      ["other", "check_with_anu", null, "advisory", null],
+    ],
+  );
+  const roundtrip = await readVersionContent(sql, result.sourceVersionId);
+  assert.deepEqual(roundtrip.requirements, write.requirements);
+  assert.equal(contentHashForCatalogueContent(roundtrip), write.contentHash);
+
+  const [projection] =
+    await sql`select private.course_version_projection(${result.sourceVersionId}) as content`;
+  const expression = readProjectionPrerequisiteRule(
+    projection.content,
+  ).relationalExpression;
+  assert.equal(expression.operator, "all_of");
+  const [choice, interview] = expression.conditions;
+  assert.deepEqual(
+    [interview.kind, interview.noteKind, interview.hardness],
+    ["other", "check_with_anu", "advisory"],
+  );
+  const [, otherPrograms] = choice.conditions;
+  const [programme, , police, major] = otherPrograms.conditions;
+  assert.deepEqual(
+    [programme.kind, programme.structureCode, programme.matchesStructure],
+    ["structure", NEGATED_PROGRAMME, false],
+  );
+  assert.equal(police.noteKind, "required");
+  assert.equal(major.noteKind, "recommended");
   await sql`update public.catalogue_syncs set status = 'applied', completed_at = now() where id = ${fixture.claim.syncId}`;
 });

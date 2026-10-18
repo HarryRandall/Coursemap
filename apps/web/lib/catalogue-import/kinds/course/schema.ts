@@ -394,6 +394,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in" },
             programmeCode: { type: "string", pattern: "^[A-Z0-9-]{3,20}$" },
+            matches: { type: "boolean" },
           },
         },
         {
@@ -403,6 +404,7 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "enrolled_in" },
             programmeTitle: { type: "string", minLength: 1 },
+            matches: { type: "boolean" },
           },
         },
         {
@@ -509,6 +511,14 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
               minimum: 1,
               maximum: 300,
             },
+            subjectCodes: { $ref: "#/$defs/subjectCodes" },
+            courseCodes: {
+              type: ["array", "null"],
+              minItems: 1,
+              uniqueItems: true,
+              items: { type: "string", pattern: "^[A-Z]{4}[0-9]{4}[A-Z]?$" },
+            },
+            scopeText: { type: ["string", "null"], minLength: 1 },
           },
         },
         {
@@ -518,6 +528,55 @@ export const COURSE_EXTRACTION_JSON_SCHEMA = {
           properties: {
             op: { const: "permission" },
             sourceText: { type: ["string", "null"], minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "rule"],
+          properties: {
+            op: { const: "soft" },
+            rule: { $ref: "#/$defs/rule" },
+            sourceText: { type: ["string", "null"], minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "sourceText"],
+          properties: {
+            op: { const: "note" },
+            sourceText: { type: "string", minLength: 1 },
+            required: { type: "boolean" },
+            recommended: { type: "boolean" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "minimumUnits", "field"],
+          properties: {
+            op: { const: "min_units_in_field" },
+            minimumUnits: { type: "number", exclusiveMinimum: 0 },
+            field: { type: "string", minLength: 1 },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "subjectCode"],
+          properties: {
+            op: { const: "no_higher_course_in_subject" },
+            subjectCode: { type: "string", pattern: "^[A-Z]{4}$" },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["op", "family"],
+          properties: {
+            op: { const: "enrolled_in_programme_family" },
+            family: { type: "string", minLength: 1 },
           },
         },
       ],

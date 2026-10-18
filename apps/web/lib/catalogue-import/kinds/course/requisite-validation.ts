@@ -297,7 +297,10 @@ function validateRule(
       path,
       ["op", isTitle ? "programmeTitle" : "programmeCode"],
       issues,
+      ["matches"],
     );
+    if (record && record.matches !== undefined && record.matches !== null)
+      requireBoolean(record.matches, `${path}.matches`, issues);
     if (record && isTitle)
       requireString(record.programmeTitle, `${path}.programmeTitle`, issues);
     else if (record)
@@ -392,6 +395,9 @@ function validateRule(
   } else if (op === "minimum_gpa") {
     const record = exactRecord(value, path, ["op", "value", "scale"], issues, [
       "recentGradedUnits",
+      "subjectCodes",
+      "courseCodes",
+      "scopeText",
     ]);
     if (record) {
       requireNumber(record.value, `${path}.value`, issues, {
@@ -406,7 +412,99 @@ function validateRule(
           issues,
           { nullable: true, integer: true, minimum: 1, maximum: 300 },
         );
+      if (record.subjectCodes !== undefined)
+        validateFilterList(
+          record.subjectCodes,
+          `${path}.subjectCodes`,
+          issues,
+          {
+            validate: (item, itemPath) =>
+              requireString(item, itemPath, issues, { pattern: /^[A-Z]{4}$/ }),
+            label: "subject",
+          },
+        );
+      if (record.courseCodes !== undefined)
+        validateFilterList(record.courseCodes, `${path}.courseCodes`, issues, {
+          validate: (item, itemPath) =>
+            requireString(item, itemPath, issues, {
+              pattern: COURSE_CODE_PATTERN,
+            }),
+          label: "course",
+        });
+      if (record.scopeText !== undefined)
+        requireString(record.scopeText, `${path}.scopeText`, issues, {
+          nullable: true,
+        });
+      const scoped =
+        (record.subjectCodes ?? null) !== null ||
+        (record.courseCodes ?? null) !== null ||
+        (record.scopeText ?? null) !== null;
+      if (scoped && (record.recentGradedUnits ?? null) !== null)
+        issues.push({
+          path,
+          message:
+            "must not combine a most-recent graded-units window with a subject or course scope",
+        });
     }
+  } else if (op === "soft") {
+    const record = exactRecord(value, path, ["op", "rule"], issues, [
+      "sourceText",
+    ]);
+    if (record) {
+      if (record.sourceText !== undefined)
+        requireString(record.sourceText, `${path}.sourceText`, issues, {
+          nullable: true,
+        });
+      const inner = record.rule as UnknownRecord | null;
+      if (
+        typeof inner === "object" &&
+        inner !== null &&
+        (inner.op === "soft" || inner.op === "note")
+      )
+        issues.push({
+          path: `${path}.rule`,
+          message: `is already soft; use ${String(inner.op)} without the soft wrapper`,
+        });
+      else validateRule(record.rule, `${path}.rule`, issues, depth + 1);
+    }
+  } else if (op === "note") {
+    const record = exactRecord(value, path, ["op", "sourceText"], issues, [
+      "required",
+      "recommended",
+    ]);
+    if (record) {
+      requireString(record.sourceText, `${path}.sourceText`, issues);
+      for (const key of ["required", "recommended"] as const)
+        if (record[key] !== undefined && record[key] !== null)
+          requireBoolean(record[key], `${path}.${key}`, issues);
+      if (record.required === true && record.recommended === true)
+        issues.push({
+          path,
+          message: "must not be both required and recommended",
+        });
+    }
+  } else if (op === "min_units_in_field") {
+    const record = exactRecord(
+      value,
+      path,
+      ["op", "minimumUnits", "field"],
+      issues,
+    );
+    if (record) {
+      requireNumber(record.minimumUnits, `${path}.minimumUnits`, issues, {
+        exclusiveMinimum: 0,
+      });
+      requireString(record.field, `${path}.field`, issues);
+    }
+  } else if (op === "no_higher_course_in_subject") {
+    const record = exactRecord(value, path, ["op", "subjectCode"], issues);
+    if (record)
+      requireString(record.subjectCode, `${path}.subjectCode`, issues, {
+        pattern: /^[A-Z]{4}$/,
+      });
+  } else if (op === "enrolled_in_programme_family") {
+    const record = exactRecord(value, path, ["op", "family"], issues);
+    if (record) requireString(record.family, `${path}.family`, issues);
   } else if (op === "permission") {
     const record = exactRecord(value, path, ["op"], issues, ["sourceText"]);
     if (record?.sourceText !== undefined) {

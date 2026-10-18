@@ -1,3 +1,4 @@
+import { isAgentImportModel } from "../../agent-extraction.ts";
 import type { CatalogueSyncAdapter } from "../../../catalogue-sync/kind-adapter.ts";
 import { structureKindAdapter } from "./adapter.ts";
 import { emptyAcademicStructureExtraction } from "./finalise.ts";
@@ -141,8 +142,10 @@ export const compactStructureAdapter: CatalogueSyncAdapter<AcademicStructureExtr
           ],
         };
         // A flat model pool can count equivalent course codes twice and omit a
-        // compulsory slot. Keep the original rule until alternatives are verified.
+        // compulsory slot. Keep the original rule until alternatives are
+        // verified; an agent answer was already checked for exactly that.
         if (
+          !isAgentImportModel(input.claim.requestedModel) &&
           /\b[A-Z]{4}\d{4}[A-Z]?\s*(?:\/|or)\s*[A-Z]{4}\d{4}[A-Z]?\b/u.test(
             source.requirementsText ?? "",
           )

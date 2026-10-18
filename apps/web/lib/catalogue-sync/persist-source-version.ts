@@ -19,6 +19,7 @@ import {
   contentHashForCatalogueContent,
   readVersionContent,
 } from "../catalogue-import/version-content.ts";
+import { isAgentImportModel } from "../catalogue-import/agent-extraction.ts";
 import {
   generateFirstReadReview,
   generateSourceReview,
@@ -386,7 +387,8 @@ async function insertRequirements(
         minimum_count, subject_code, minimum_level, maximum_level, minimum_year, minimum_commencement_year, maximum_commencement_year, enrolment_mode, matches_enrolment_mode,
         subject_codes, course_levels, career, matches_career,
         minimum_gpa, minimum_wam, tag, free_text, hardness, source_text, source_locator,
-        review_state, confidence, scope, includes_any_course
+        review_state, confidence, scope, includes_any_course, note_kind,
+        matches_structure
       ) values (
         ${ruleId}, ${snapshotId}, ${groupId}, ${condition.key}, ${condition.position},
         ${condition.kind}, ${conditionItemId},
@@ -400,7 +402,8 @@ async function insertRequirements(
         ${condition.tag}, ${condition.freeText}, ${condition.hardness},
         ${condition.sourceText}, ${condition.sourceLocator}, ${condition.reviewState},
         ${condition.confidence}, ${condition.scope ?? "part"},
-        ${condition.includesAnyCourse ?? false}
+        ${condition.includesAnyCourse ?? false}, ${condition.noteKind ?? null},
+        ${condition.matchesStructure ?? null}
       )
       returning id
     `;
@@ -614,10 +617,28 @@ async function persistUnderLease(
   }
   const lockDraft = async () => {
     const [row] =
-      await tx`select content, content_hash, updated_by from public.catalogue_drafts
+      await tx`select content, content_hash, updated_by, base_version_id from public.catalogue_drafts
         where record_id = ${claim.recordId} for update`;
     return row;
   };
+  // Agent answers were approved by an independent check before they were
+  // saved, so a local agent import replaces any draft nobody has edited
+  // instead of queueing the reading for review.
+  const publishedContentHash = async () => {
+    if (record.published_version_id === null) return null;
+    const [published] =
+      await tx`select content_hash from public.catalogue_versions where id = ${record.published_version_id}`;
+    return published ? String(published.content_hash) : null;
+  };
+  // Accepting a first reading stamps the draft with the administrator, so
+  // only manual corrections mark it as edited.
+  const [manualCorrection] = await tx`
+      select 1 from public.catalogue_draft_provenance
+      where record_id = ${claim.recordId} and origin = 'manual' limit 1
+    `;
+  const adoptsAgentReading = (draft: Record<string, unknown> | undefined) =>
+    isAgentImportModel(claim.requestedModel) &&
+    (draft === undefined || draft.updated_by === null || !manualCorrection);
   const hasMeaningfulLocalContent = (
     draft: Record<string, unknown> | undefined,
   ) => {
@@ -710,6 +731,22 @@ async function persistUnderLease(
         populatedDraft: true,
       };
     }
+    if (
+      previous.sync_id !== null &&
+      adoptsAgentReading(draft) &&
+      (draft
+        ? Number(draft.base_version_id) !== previousSourceVersionId ||
+          JSON.stringify((draft.content as { flags?: unknown }).flags ?? []) !==
+            JSON.stringify(write.flags)
+        : (await publishedContentHash()) !== write.contentHash)
+    ) {
+      await populateDraft(previousSourceVersionId!, String(previous.sync_id));
+      return {
+        status: "applied",
+        sourceVersionId: previousSourceVersionId!,
+        populatedDraft: true,
+      };
+    }
     await tx`insert into public.catalogue_change_events (
         record_id, event_kind, origin, actor_id, version_id
       ) values (${claim.recordId}, 'source_checked', 'source', null, ${previousSourceVersionId})`;
@@ -751,7 +788,7 @@ async function persistUnderLease(
   const draft = await lockDraft();
   // A record with nothing of its own, never read or discarded since, takes
   // the reading whole rather than comparing it with nothing.
-  if (!hasMeaningfulLocalContent(draft)) {
+  if (!hasMeaningfulLocalContent(draft) || adoptsAgentReading(draft)) {
     await populateDraft(sourceVersionId, claim.syncId);
     return { status: "applied", sourceVersionId, populatedDraft: true };
   }

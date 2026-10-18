@@ -1,6 +1,8 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
 import type { ProgrammeCareer } from "../academic/programme-career";
 import type { WorkloadHoursBasis } from "@/lib/academic/workload";
+import type { CourseFeeEstimates } from "@/lib/academic/fee-estimates";
+import type { RequirementNoteKind } from "@/lib/catalogue/note-kinds";
 import type { RequisiteExpression } from "./requisite-summary";
 
 export type CourseRuleReviewState = "automatic" | "review" | "verified";
@@ -11,6 +13,17 @@ type CourseRuleConditionBase = {
   hardness: CourseRuleHardness;
   reviewState: CourseRuleReviewState;
   sourceText: string;
+};
+
+/**
+ * The courses a grade average is taken over. Absent or empty for a
+ * whole-career average; scopeText alone is a printed scope that cannot be
+ * checked.
+ */
+type AverageScope = {
+  subjects?: string[] | null;
+  courseCodes?: string[] | null;
+  scopeText?: string | null;
 };
 
 export type CourseRuleExpression =
@@ -85,6 +98,8 @@ export type CourseRuleExpression =
       kind: "structure";
       structureCode: string | null;
       text: string | null;
+      /** False for "not enrolled in"; absent or true for enrolled. */
+      matchesStructure?: boolean;
     })
   | (CourseRuleConditionBase & {
       kind: "structure_set";
@@ -105,15 +120,33 @@ export type CourseRuleExpression =
       kind: "gpa";
       minimumGpa: number;
       recentGradedUnits?: number | null;
-    })
+    } & AverageScope)
   | (CourseRuleConditionBase & {
       kind: "wam";
       minimumWam: number;
       recentGradedUnits?: number | null;
+    } & AverageScope)
+  | (CourseRuleConditionBase & {
+      kind: "field_units";
+      /** The field as printed, such as "the relevant field/discipline". */
+      field: string;
+      units: number;
     })
   | (CourseRuleConditionBase & {
-      kind: "permission" | "other";
+      kind: "subject_sequence";
+      subject: string;
+      /** The course whose place in the sequence later courses are compared with. */
+      code: string;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "permission";
       text: string;
+    })
+  | (CourseRuleConditionBase & {
+      kind: "other";
+      text: string;
+      /** How an uncheckable note is labelled; absent for an ordinary note. */
+      noteKind?: RequirementNoteKind | null;
     })
   | {
       conditions: CourseRuleExpression[];
@@ -217,6 +250,11 @@ export type CourseDetails = {
   inherentRequirements: string | null;
   prescribedTexts: string | null;
   fees: CourseFee[];
+  /**
+   * Fees estimated at read time from similar published courses, for audiences
+   * the source listed no readable fee for. Never stored with the catalogue.
+   */
+  feeEstimates?: CourseFeeEstimates;
   learningOutcomes: Array<{ body: string; position: number }>;
   relatedCourses: CourseRelatedCourse[];
   prerequisiteText: string;

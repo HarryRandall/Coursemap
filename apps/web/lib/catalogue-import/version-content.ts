@@ -2,6 +2,7 @@ import { validEnrolmentMode } from "../academic/enrolment-mode.ts";
 import { validProgrammeCareer } from "../academic/programme-career.ts";
 import type postgres from "postgres";
 import { workloadHoursBasis } from "../academic/workload.ts";
+import { requirementNoteKind } from "../catalogue/note-kinds.ts";
 import { stableFingerprint } from "./canonical.ts";
 import type {
   SyncSql,
@@ -57,12 +58,15 @@ async function readRequirements(
   const groupKeyById = new Map(
     groups.map((group) => [Number(group.id), String(group.group_key)]),
   );
+  // Conditions are inserted in content order. Ordering by position instead
+  // interleaves a nested group's conditions with the root's, so a rule with
+  // an alternative after its first clauses would read back with a new hash.
   const conditions = await sql`
     select conditions.*, codes.code as item_code, codes.kind as item_kind
     from public.requirement_conditions as conditions
     left join public.catalogue_codes as codes on codes.id = conditions.code_id
     where conditions.version_id = ${versionId}
-    order by conditions.rule_id, conditions.position, conditions.id
+    order by conditions.id
   `;
   const conditionKeyById = new Map(
     conditions.map((condition) => [
@@ -158,6 +162,13 @@ async function readRequirements(
                 : (condition.course_levels as unknown[]).map(Number),
           }
         : {}),
+      ...((condition.condition_kind === "gpa" ||
+        condition.condition_kind === "wam") &&
+      condition.subject_codes !== null
+        ? {
+            subjectCodes: (condition.subject_codes as string[]).map(String),
+          }
+        : {}),
       ...(condition.condition_kind === "career"
         ? {
             career: validProgrammeCareer(condition.career)
@@ -178,6 +189,14 @@ async function readRequirements(
       ...(condition.scope === "degree" ? { scope: "degree" as const } : {}),
       ...(condition.includes_any_course
         ? { includesAnyCourse: true as const }
+        : {}),
+      ...(condition.condition_kind === "other" &&
+      requirementNoteKind(condition.note_kind)
+        ? { noteKind: requirementNoteKind(condition.note_kind)! }
+        : {}),
+      ...(condition.condition_kind === "structure" &&
+      condition.matches_structure === false
+        ? { matchesStructure: false as const }
         : {}),
     })),
     options: options.map((option) => ({

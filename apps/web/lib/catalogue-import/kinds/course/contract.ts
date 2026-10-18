@@ -119,9 +119,13 @@ export type CourseRule =
       levels: number[] | null;
       includeConcurrent: boolean;
     }
-  | { op: "enrolled_in"; programmeCode: string }
+  /**
+   * Enrolment in a programme. matches false is "not enrolled in", such as a
+   * route for "students in other programs"; absent or true means enrolled.
+   */
+  | { op: "enrolled_in"; programmeCode: string; matches?: boolean | null }
   /** A programme the source names only by title, copied exactly. */
-  | { op: "enrolled_in"; programmeTitle: string }
+  | { op: "enrolled_in"; programmeTitle: string; matches?: boolean | null }
   | { op: "enrolled_in_career"; career: ProgrammeCareer; matches: boolean }
   | {
       op: "enrolled_in_structure";
@@ -143,8 +147,45 @@ export type CourseRule =
       value: number;
       scale: "anu7" | "wam100";
       recentGradedUnits?: number | null;
+      /** An average over these subjects only, rather than the whole career. */
+      subjectCodes?: string[] | null;
+      /** An average over these courses only. */
+      courseCodes?: string[] | null;
+      /** A printed scope with no codes, such as "Science courses", copied exactly. */
+      scopeText?: string | null;
     }
-  | { op: "permission"; sourceText?: string | null };
+  | { op: "permission"; sourceText?: string | null }
+  /**
+   * The wrapped rule is a soft requirement: shown to students, never blocking
+   * a plan. Advisory wording ("should have completed") and conditions the
+   * planner cannot check use it. sourceText is the exact clause it covers.
+   */
+  | { op: "soft"; rule: CourseRule; sourceText?: string | null }
+  /**
+   * A condition Coursemap cannot check, with one exact sentence as its
+   * wording. It never blocks a plan. required marks a mandatory condition,
+   * such as a police check, shown as "Required"; recommended marks prose
+   * assumed knowledge, shown as "Recommended". At most one is true.
+   */
+  | {
+      op: "note";
+      sourceText: string;
+      required?: boolean | null;
+      recommended?: boolean | null;
+    }
+  /**
+   * Units in a field the source does not name by subject code, or in a
+   * programme's courses ("144 units of Bachelor of Philosophy (Arts)
+   * courses"), with the scope copied exactly.
+   */
+  | { op: "min_units_in_field"; minimumUnits: number; field: string }
+  /**
+   * Not already completed a later course in the subject's sequence, such as
+   * a language course below one the student has passed.
+   */
+  | { op: "no_higher_course_in_subject"; subjectCode: string }
+  /** Enrolment in a family of programmes named without codes, copied exactly. */
+  | { op: "enrolled_in_programme_family"; family: string };
 
 export type CourseIncompatibilityRule =
   | { op: "not_completed" | "not_concurrent"; courseCode: string }
@@ -200,6 +241,12 @@ export type CourseExtractionReviewItem = {
     | "evidence_missing";
   severity: "warning" | "error";
   message: string;
+  /**
+   * The exact source wording the item is about, when the importer knows it.
+   * Eligibility clauses the rule does not represent are kept here, separated
+   * by blank lines, so a later step can show them verbatim.
+   */
+  sourceExcerpt?: string | null;
 };
 
 /**
@@ -762,8 +809,13 @@ function validateExtractionShape(
       path,
       ["fieldKey", "kind", "severity", "message"],
       issues,
+      ["sourceExcerpt"],
     );
     if (!review) return;
+    if (review.sourceExcerpt !== undefined)
+      requireString(review.sourceExcerpt, `${path}.sourceExcerpt`, issues, {
+        nullable: true,
+      });
     requireString(review.fieldKey, `${path}.fieldKey`, issues);
     requireEnum(
       review.kind,

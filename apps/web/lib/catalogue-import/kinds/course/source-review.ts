@@ -85,25 +85,24 @@ function unsupportedCollegeNames(
   rule: CourseRule | null,
   pageMarkdown: string,
 ): string[] {
-  if (!rule) return [];
-  if (rule.op === "all_of" || rule.op === "one_of")
-    return rule.rules.flatMap((child) =>
-      unsupportedCollegeNames(child, pageMarkdown),
-    );
-  if (rule.op !== "enrolled_in_college") return [];
-  return unsupportedModelWording(
-    { college: { sourceText: rule.college } },
-    pageMarkdown,
-  ).length
-    ? [rule.college]
-    : [];
+  return ruleLeaves(rule).flatMap((leaf) =>
+    leaf.op === "enrolled_in_college" &&
+    unsupportedModelWording(
+      { college: { sourceText: leaf.college } },
+      pageMarkdown,
+    ).length
+      ? [leaf.college]
+      : [],
+  );
 }
 
-function ruleLeaves(rule: CourseRule | null): CourseRule[] {
+/** Every leaf, looking through groups and soft wrappers. */
+export function ruleLeaves(rule: CourseRule | null): CourseRule[] {
   if (!rule) return [];
-  return rule.op === "all_of" || rule.op === "one_of"
-    ? rule.rules.flatMap(ruleLeaves)
-    : [rule];
+  if (rule.op === "all_of" || rule.op === "one_of")
+    return rule.rules.flatMap(ruleLeaves);
+  if (rule.op === "soft") return ruleLeaves(rule.rule);
+  return [rule];
 }
 
 function escapeRegExp(value: string) {
@@ -148,25 +147,52 @@ function unprintedRuleValues(
         ).length
       )
         missing.add(leaf.programmeTitle);
+    } else if (leaf.op === "minimum_gpa") {
+      for (const code of [
+        ...(leaf.subjectCodes ?? []),
+        ...(leaf.courseCodes ?? []),
+      ])
+        if (!pagePrints(pageMarkdown, code)) missing.add(code);
+      if (
+        leaf.scopeText &&
+        unsupportedModelWording(
+          { scope: { sourceText: leaf.scopeText } },
+          pageMarkdown,
+        ).length
+      )
+        missing.add(leaf.scopeText);
+    } else if (
+      leaf.op === "enrolled_in_programme_family" ||
+      leaf.op === "min_units_in_field"
+    ) {
+      const wording =
+        leaf.op === "enrolled_in_programme_family" ? leaf.family : leaf.field;
+      if (
+        unsupportedModelWording(
+          { value: { sourceText: wording } },
+          pageMarkdown,
+        ).length
+      )
+        missing.add(wording);
+    } else if (leaf.op === "no_higher_course_in_subject") {
+      // The subject is printed alone or as the prefix of a course code, such
+      // as the page's own code.
+      if (
+        !pagePrints(pageMarkdown, leaf.subjectCode) &&
+        !new RegExp(`\\b${leaf.subjectCode}\\d{4}`, "u").test(pageMarkdown)
+      )
+        missing.add(leaf.subjectCode);
     }
   }
   return [...missing];
 }
 
 function hasCollegeEnrolment(rule: CourseRule | null): boolean {
-  if (!rule) return false;
-  if (rule.op === "enrolled_in_college") return true;
-  if (rule.op === "all_of" || rule.op === "one_of")
-    return rule.rules.some(hasCollegeEnrolment);
-  return false;
+  return ruleLeaves(rule).some((leaf) => leaf.op === "enrolled_in_college");
 }
 
 function hasMinimumGpa(rule: CourseRule | null): boolean {
-  if (!rule) return false;
-  if (rule.op === "minimum_gpa") return true;
-  if (rule.op === "all_of" || rule.op === "one_of")
-    return rule.rules.some(hasMinimumGpa);
-  return false;
+  return ruleLeaves(rule).some((leaf) => leaf.op === "minimum_gpa");
 }
 
 function missingMinimumGpa(
@@ -212,6 +238,21 @@ function missingCollegeEnrolment(
   );
 }
 
+/**
+ * A comma before the joining word separates the clauses when each part uses
+ * only the other word: "A or B, and C or D" and "A and B, or C and D".
+ */
+function commaScoped(sentence: string) {
+  const separatedBy = (join: "and" | "or", inner: "and" | "or") => {
+    const parts = sentence.split(new RegExp(`,\\s*${join}\\b`, "iu"));
+    return (
+      parts.length > 1 &&
+      parts.every((part) => !new RegExp(`\\b${inner}\\b`, "iu").test(part))
+    );
+  };
+  return separatedBy("and", "and") || separatedBy("or", "or");
+}
+
 /** Plain mixed conjunctions do not establish the scope of a prerequisite. */
 function unscopedPrerequisiteClauses(
   pageMarkdown: string,
@@ -231,19 +272,192 @@ function unscopedPrerequisiteClauses(
         /\bor\b/iu.test(sentence) &&
         (sentence.match(/\b[A-Z]{4}\d{4}[A-Z]?\b/gu)?.length ?? 0) >= 2 &&
         !/\beither\b|\bboth\b|[();]/iu.test(sentence) &&
+        !commaScoped(sentence) &&
         JSON.stringify(
           parsePlainCourseRequisites(sentence)?.prerequisiteRule,
-        ) !== JSON.stringify(rule),
+        ) !== JSON.stringify(rule) &&
+        // A soft requirement never blocks a student, so its scope cannot
+        // make the rule stricter than the source.
+        !ruleCoversClause([rule], sentence, { softOnly: true }),
     );
+}
+
+/** Lowercase words only, with Markdown links reduced to their text. */
+function comparableWords(text: string) {
+  return text
+    .replace(/\[([^\]]*)\]\([^)]*\)/gu, "$1")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, " ")
+    .trim();
+}
+
+/** Whether recorded wording is the clause, or contains most of it. */
+function wordingCovers(wording: string, clause: string) {
+  const recorded = comparableWords(wording);
+  const target = comparableWords(clause);
+  if (recorded.length < 12 || !target) return false;
+  return (
+    recorded.includes(target) ||
+    (target.includes(recorded) && recorded.length >= target.length * 0.6)
+  );
+}
+
+/** Every node of a rule, with whether a soft wrapper encloses it. */
+function ruleNodes(
+  rule: CourseRule | null,
+  isSoft = false,
+): Array<{ node: CourseRule; isSoft: boolean }> {
+  if (!rule) return [];
+  const here = { node: rule, isSoft: isSoft || rule.op === "note" };
+  if (rule.op === "all_of" || rule.op === "one_of")
+    return [here, ...rule.rules.flatMap((child) => ruleNodes(child, isSoft))];
+  if (rule.op === "soft")
+    return [{ node: rule, isSoft: true }, ...ruleNodes(rule.rule, true)];
+  return [here];
+}
+
+function nodeWording(node: CourseRule): string | null {
+  switch (node.op) {
+    case "soft":
+    case "permission":
+      return node.sourceText ?? null;
+    case "note":
+    case "external_requirement":
+    case "equivalent_course":
+      return node.sourceText;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Whether the modelled rules represent one printed eligibility clause: a
+ * text-bearing condition records its wording, or the clause's plain reading
+ * is part of the rule. With softOnly, only soft parts count, which is what
+ * makes an unscoped AND/OR clause safe to keep.
+ */
+/** The course codes a leaf names, including a scoped average's courses. */
+function leafCourseCodes(leaf: CourseRule): string[] {
+  switch (leaf.op) {
+    case "completed":
+    case "completed_or_concurrent":
+      return [leaf.courseCode];
+    case "min_units_from_courses":
+      return leaf.courseCodes;
+    case "minimum_gpa":
+      return leaf.courseCodes ?? [];
+    default:
+      return [];
+  }
+}
+
+/**
+ * A soft wrapper's sourceText is the exact clause it covers, which can be
+ * shorter than the printed sentence ("assumes ... knowledge learnt in
+ * MEDI8011"). Soft clauses taken from the sentence represent it when,
+ * together, their rules name every course code the sentence prints. A
+ * sentence without codes needs wording that covers it.
+ */
+function softClausesCoverCodes(
+  nodes: ReadonlyArray<{ node: CourseRule; isSoft: boolean }>,
+  clause: string,
+) {
+  const codes = [...new Set(clause.match(/\b[A-Z]{4}\d{4}[A-Z]?\b/gu) ?? [])];
+  if (!codes.length) return false;
+  const sentence = comparableWords(clause);
+  const named = new Set(
+    nodes.flatMap(({ node }) => {
+      if (node.op !== "soft" || !node.sourceText) return [];
+      const wording = comparableWords(node.sourceText);
+      return wording && sentence.includes(wording)
+        ? ruleLeaves(node.rule).flatMap(leafCourseCodes)
+        : [];
+    }),
+  );
+  return codes.every((code) => named.has(code));
+}
+
+export function ruleCoversClause(
+  rules: readonly (CourseRule | null)[],
+  clause: string,
+  { softOnly = false }: { softOnly?: boolean } = {},
+) {
+  const nodes = rules
+    .flatMap((rule) => ruleNodes(rule))
+    .filter((entry) => !softOnly || entry.isSoft);
+  if (
+    nodes.some(({ node }) => {
+      const wording = nodeWording(node);
+      return wording !== null && wordingCovers(wording, clause);
+    })
+  )
+    return true;
+  if (softClausesCoverCodes(nodes, clause)) return true;
+  const plain = parsePlainCourseRequisites(clause)?.prerequisiteRule;
+  if (!plain) return false;
+  const reading = JSON.stringify(plain);
+  return nodes.some(
+    ({ node }) =>
+      JSON.stringify(node) === reading ||
+      (node.op === "soft" && JSON.stringify(node.rule) === reading),
+  );
+}
+
+/**
+ * Eligibility wording found outside the requisite section raises an error
+ * until a reader checks it. Once the modelled rules represent every flagged
+ * clause, as a permission, a soft note or a rule that reads the same, the
+ * error becomes a warning so the course is not held for wording it already
+ * shows. Wording left in unmodelledText keeps its own error. An error that
+ * stays keeps the clauses the rule does not represent as its source excerpt,
+ * separated by blank lines. Mutates extraction.reviewItems and returns how
+ * many errors were lifted.
+ */
+export function liftRepresentedEligibilityFlags(
+  extraction: CourseExtraction,
+  eligibilityClauses: ReadonlyArray<{ message: string; clauses: string[] }>,
+) {
+  const rules = [
+    extraction.requisites.prerequisiteRule,
+    extraction.requisites.corequisiteRule,
+  ];
+  let lifted = 0;
+  for (const { message, clauses } of eligibilityClauses) {
+    const uncovered = clauses.filter(
+      (clause) => !ruleCoversClause(rules, clause),
+    );
+    if (uncovered.length) {
+      const sourceExcerpt = [...new Set(uncovered)].join("\n\n");
+      extraction.reviewItems = extraction.reviewItems.map((item) =>
+        item.message === message && item.severity === "error"
+          ? { ...item, sourceExcerpt }
+          : item,
+      );
+      continue;
+    }
+    extraction.reviewItems = extraction.reviewItems.map((item) => {
+      if (item.message !== message || item.severity !== "error") return item;
+      lifted += 1;
+      return {
+        ...item,
+        severity: "warning",
+        message: `${message} The modelled rule represents it.`,
+      };
+    });
+  }
+  return lifted;
 }
 
 /** Source-backed checks return review items and diagnostics without changing model rules. */
 export function reviewCourseSourceRules({
   requisites,
   pageMarkdown,
+  checkedScope = false,
 }: {
   requisites: CourseExtraction["requisites"];
   pageMarkdown: string;
+  /** An independent check already confirmed the rule's AND/OR scope. */
+  checkedScope?: boolean;
 }): {
   reviewItems: CourseExtractionReviewItem[];
   unsupportedCollegeNames: string[];
@@ -255,9 +469,10 @@ export function reviewCourseSourceRules({
     [requisites.prerequisiteRule, requisites.corequisiteRule],
     pageMarkdown,
   );
-  const unscoped = requisites.prerequisiteRule
-    ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
-    : [];
+  const unscoped =
+    requisites.prerequisiteRule && !checkedScope
+      ? unscopedPrerequisiteClauses(pageMarkdown, requisites.prerequisiteRule)
+      : [];
   const collegeNames = [
     ...new Set([
       ...unsupportedCollegeNames(requisites.prerequisiteRule, pageMarkdown),

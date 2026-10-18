@@ -12,6 +12,7 @@ import {
 } from "../lib/catalogue-import/agent-extraction.ts";
 import {
   applyBatchAnswers,
+  carryAnswers,
   deduplicationKey,
   prepareBatches,
   rekeyAnswers,
@@ -200,6 +201,7 @@ test("year import options require a supported year and known kinds", () => {
       "--codes",
       "comp1100, math1013",
       "--skip-directory",
+      "--refresh",
     ]),
     {
       year: 2026,
@@ -210,6 +212,7 @@ test("year import options require a supported year and known kinds", () => {
       concurrency: 6,
       skipDirectory: true,
       reimportHeld: false,
+      refresh: true,
       answers: null,
     },
   );
@@ -265,5 +268,82 @@ test("rekeying gives a regenerated request its record's previous answer", async 
   assert.deepEqual(
     JSON.parse(await readFile(join(root, "answers", "new.json"), "utf8")),
     { requisites: {} },
+  );
+});
+
+test("carrying gives a new year's identical wording the saved answer and leaves the rest pending", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-carry-"));
+  await mkdir(join(root, "requests"));
+  await mkdir(join(root, "answers"));
+  const request = (year, schemaName, modelInput, kind = "course") => ({
+    key: `${schemaName}-${year}-${modelInput.length}`,
+    kind,
+    code: "COMP2100",
+    academicYear: year,
+    schemaName,
+    systemPrompt: REQUEST.systemPrompt,
+    modelInput,
+  });
+  const answered = request(2026, "course_requisites", courseInput(2026));
+  const same = request(2025, "course_requisites", courseInput(2025));
+  const changed = request(
+    2025,
+    "course_requisites",
+    courseInput(2025, "Completed COMP1110 and COMP1600."),
+  );
+  const rejected = request(
+    2024,
+    "course_requisites",
+    courseInput(2024),
+    "major",
+  );
+  const programme = request(
+    2025,
+    "academic_structure_extraction",
+    "Programme page",
+    "programme",
+  );
+  const programmeAnswered = request(
+    2026,
+    "academic_structure_extraction",
+    "Programme page",
+    "programme",
+  );
+  for (const item of [
+    answered,
+    same,
+    changed,
+    rejected,
+    programme,
+    programmeAnswered,
+  ])
+    await writeFile(
+      join(root, "requests", `${item.key}.json`),
+      JSON.stringify(item),
+    );
+  const answerFile = (item) => join(root, "answers", `${item.key}.json`);
+  await writeFile(answerFile(answered), JSON.stringify({ requisites: {} }));
+  await writeFile(
+    answerFile(programmeAnswered),
+    JSON.stringify({ year: 2026 }),
+  );
+
+  const result = await carryAnswers(root, {
+    validate: ({ kind }) => (kind === "course" ? [] : ["wrong kind"]),
+  });
+
+  assert.equal(result.carried, 1);
+  assert.equal(result.unmatched, 1);
+  assert.deepEqual(result.invalid, [
+    { record: "major:COMP2100:2024", issues: ["wrong kind"] },
+  ]);
+  assert.deepEqual(JSON.parse(await readFile(answerFile(same), "utf8")), {
+    requisites: {},
+  });
+  assert.deepEqual(
+    (await readdir(join(root, "answers"))).sort(),
+    [answered, same, programmeAnswered]
+      .map((item) => `${item.key}.json`)
+      .sort(),
   );
 });

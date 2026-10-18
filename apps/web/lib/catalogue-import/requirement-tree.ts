@@ -30,6 +30,8 @@ const EDITABLE_KINDS = new Set([
   "career",
   "gpa",
   "wam",
+  "field_units",
+  "subject_sequence",
   "permission",
   "other",
 ]);
@@ -98,7 +100,9 @@ export function treeFromRequirementWrite(
             condition.kind === "incompatible" ||
             condition.kind === "incompatible_concurrent"
               ? condition.itemCode
-              : null,
+              : condition.kind === "subject_sequence"
+                ? condition.freeText
+                : null,
           courseRequirementMode: condition.requirementMode,
           hardness: condition.hardness,
           structureCode:
@@ -108,7 +112,14 @@ export function treeFromRequirementWrite(
           courseCodes:
             condition.kind === "course_set_units"
               ? optionsFor(condition.key)
-              : null,
+              : (condition.kind === "gpa" || condition.kind === "wam") &&
+                  optionsFor(condition.key).length
+                ? optionsFor(condition.key)
+                : null,
+          ...((condition.kind === "gpa" || condition.kind === "wam") &&
+          condition.subjectCodes
+            ? { subjectCodes: condition.subjectCodes }
+            : {}),
           subjectCode: condition.subjectCode,
           level: condition.minimumLevel,
           minimumYear: condition.minimumYear,
@@ -150,6 +161,13 @@ export function treeFromRequirementWrite(
           freeText: EDITABLE_KINDS.has(condition.kind)
             ? condition.freeText
             : (condition.freeText ?? condition.sourceText ?? condition.kind),
+          ...(condition.kind === "other" && condition.noteKind
+            ? { noteKind: condition.noteKind }
+            : {}),
+          ...(condition.kind === "structure" &&
+          condition.matchesStructure === false
+            ? { matchesStructure: false }
+            : {}),
         },
       }));
     const children = [...childGroups, ...leaves]
@@ -311,16 +329,39 @@ export function requirementWriteWithTree(
               matchesCareer: child.matchesCareer ?? null,
             }
           : {}),
+        ...((child.kind === "gpa" || child.kind === "wam") &&
+        child.subjectCodes?.length
+          ? { subjectCodes: child.subjectCodes }
+          : {}),
         minimumGpa: child.gpa ?? null,
         minimumWam: child.wam ?? null,
         tag: null,
-        freeText: child.freeText ?? null,
+        // A sequence keeps its anchor course as text, not a catalogue item.
+        freeText:
+          child.kind === "subject_sequence"
+            ? (child.courseCode ?? null)
+            : (child.freeText ?? null),
+        // A labelled note is never checked, so it is always advisory.
         hardness:
-          child.hardness ?? previous?.hardness ?? existing?.hardness ?? "hard",
-        sourceText: child.freeText ?? previous?.sourceText ?? null,
+          child.kind === "other" && child.noteKind
+            ? "advisory"
+            : (child.hardness ??
+              previous?.hardness ??
+              existing?.hardness ??
+              "hard"),
+        sourceText:
+          (child.kind === "subject_sequence" ? null : child.freeText) ??
+          previous?.sourceText ??
+          null,
         sourceLocator: previous?.sourceLocator ?? null,
         reviewState: "verified",
         confidence: 1,
+        ...(child.kind === "other" && child.noteKind
+          ? { noteKind: child.noteKind }
+          : {}),
+        ...(child.kind === "structure" && child.matchesStructure === false
+          ? { matchesStructure: false as const }
+          : {}),
       });
       (child.courseCodes ?? []).forEach((code, optionIndex) => {
         next.options.push({

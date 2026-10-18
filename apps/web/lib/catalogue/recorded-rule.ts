@@ -8,6 +8,7 @@ import {
   type CatalogueContent,
   type RequirementRuleKind,
 } from "./content.ts";
+import { REQUIREMENT_NOTE_KINDS } from "./note-kinds.ts";
 
 const text = z.string().nullable();
 const amount = z.number().nonnegative().nullable();
@@ -68,6 +69,8 @@ const conditionSchema = z
       "career",
       "gpa",
       "wam",
+      "field_units",
+      "subject_sequence",
       "permission",
       "other",
     ]),
@@ -114,6 +117,8 @@ const conditionSchema = z
     confidence: z.number().min(0).max(1),
     scope: z.literal("degree").optional(),
     includesAnyCourse: z.literal(true).optional(),
+    noteKind: z.enum(REQUIREMENT_NOTE_KINDS).optional(),
+    matchesStructure: z.literal(false).optional(),
   })
   .strict();
 const recordedRuleSchema = z

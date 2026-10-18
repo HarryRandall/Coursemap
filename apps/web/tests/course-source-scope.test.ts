@@ -110,3 +110,101 @@ describe("source prerequisite scope", () => {
     expect(outcome.extraction.requisites.unmodelledText).toEqual([clause]);
   });
 });
+
+describe("comma-separated prerequisite clauses", () => {
+  it("keeps a rule whose clauses a comma separates", () => {
+    const requisiteMarkdown =
+      "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed STAT2001 or STAT2013, and have completed MATH1113 or MATH1014 or MATH1116.\n";
+    const model = emptyCourseExtraction({
+      code: "STAT4027",
+      year: 2026,
+      title: "STAT4027",
+    });
+    model.requisites.prerequisiteText = requisiteMarkdown
+      .replace(/^## [^\n]+\n+/u, "")
+      .trim();
+    model.requisites.prerequisiteRule = {
+      op: "all_of",
+      rules: [
+        {
+          op: "one_of",
+          rules: [
+            { op: "completed", courseCode: "STAT2001" },
+            { op: "completed", courseCode: "STAT2013" },
+          ],
+        },
+        {
+          op: "one_of",
+          rules: [
+            { op: "completed", courseCode: "MATH1113" },
+            { op: "completed", courseCode: "MATH1014" },
+            { op: "completed", courseCode: "MATH1116" },
+          ],
+        },
+        { op: "permission", sourceText: "with permission" },
+      ],
+    };
+    model.overallConfidence = 1;
+    const outcome = finaliseCourseExtraction({
+      code: "STAT4027",
+      year: 2026,
+      listingTitle: "STAT4027",
+      model,
+      pageMarkdown: requisiteMarkdown,
+      finishReason: "stop",
+      responseError: null,
+    });
+    expect(outcome.extraction.requisites.prerequisiteRule).not.toBeNull();
+    expect(outcome.extraction.requisites.unmodelledText).toHaveLength(0);
+  });
+});
+
+describe("independently checked scope", () => {
+  it("keeps an agent rule the plain-conjunction guess would withhold", () => {
+    const requisiteMarkdown =
+      "## Requisite and Incompatibility\n\nTo enrol in this course you must have completed STAT6039 or STAT7039 or STAT6013 and have completed STAT6038 or STAT7038.\n";
+    const finalise = (checkedScope: boolean) => {
+      const model = emptyCourseExtraction({
+        code: "STAT6016",
+        year: 2026,
+        title: "STAT6016",
+      });
+      model.requisites.prerequisiteText = requisiteMarkdown
+        .replace(/^## [^\n]+\n+/u, "")
+        .trim();
+      model.requisites.prerequisiteRule = {
+        op: "all_of",
+        rules: [
+          {
+            op: "one_of",
+            rules: ["STAT6039", "STAT7039", "STAT6013"].map((courseCode) => ({
+              op: "completed" as const,
+              courseCode,
+            })),
+          },
+          {
+            op: "one_of",
+            rules: ["STAT6038", "STAT7038"].map((courseCode) => ({
+              op: "completed" as const,
+              courseCode,
+            })),
+          },
+          { op: "permission", sourceText: "with permission" },
+        ],
+      };
+      model.overallConfidence = 1;
+      return finaliseCourseExtraction({
+        code: "STAT6016",
+        year: 2026,
+        listingTitle: "STAT6016",
+        model,
+        pageMarkdown: requisiteMarkdown,
+        finishReason: "stop",
+        responseError: null,
+        checkedScope,
+      }).extraction.requisites.prerequisiteRule;
+    };
+    expect(finalise(false)).toBeNull();
+    expect(finalise(true)).not.toBeNull();
+  });
+});

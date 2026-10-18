@@ -35,6 +35,42 @@ function listValues(text: string) {
     .filter(Boolean);
 }
 
+/** The subjects or printed wording a grade average is limited to. */
+function AverageScopeInputs({
+  condition,
+  onChange,
+}: {
+  condition: ReviewedConditionNode;
+  onChange: (next: ReviewedConditionNode) => void;
+}) {
+  return (
+    <>
+      {/* Uncontrolled, so a separator typed between codes is not reformatted away. */}
+      <Input
+        aria-label="Average over subjects, separated by commas, blank for all"
+        className={cn(inlineControl, "w-40 min-w-40")}
+        defaultValue={(condition.subjectCodes ?? []).join(", ")}
+        onChange={(event) => {
+          const codes = listValues(event.target.value).map((code) =>
+            code.toUpperCase(),
+          );
+          onChange({ ...condition, subjectCodes: codes.length ? codes : null });
+        }}
+        placeholder="All subjects"
+      />
+      <Input
+        aria-label="Average scope as printed, when no codes are given"
+        className={cn(inlineControl, "w-44 min-w-44")}
+        onChange={(event) =>
+          onChange({ ...condition, freeText: event.target.value || null })
+        }
+        placeholder="Printed scope, optional"
+        value={condition.freeText ?? ""}
+      />
+    </>
+  );
+}
+
 export function InlineValueFields({
   bindOpen,
   condition,
@@ -505,6 +541,7 @@ export function InlineValueFields({
           type="number"
           value={condition.recentGradedUnits ?? ""}
         />
+        <AverageScopeInputs condition={condition} onChange={onChange} />
       </span>
     );
   }
@@ -545,6 +582,80 @@ export function InlineValueFields({
           step={1}
           type="number"
           value={condition.recentGradedUnits ?? ""}
+        />
+        <AverageScopeInputs condition={condition} onChange={onChange} />
+      </span>
+    );
+  }
+
+  if (condition.kind === "field_units") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <UnitsInput condition={condition} onChange={onChange} />
+        <span
+          data-slot="condition-grammar"
+          className="text-xs text-muted-foreground"
+        >
+          in
+        </span>
+        <Input
+          aria-label="Field as printed"
+          className={cn(
+            inlineControl,
+            "min-w-[14rem] max-md:w-full max-md:min-w-0",
+          )}
+          onChange={(event) =>
+            onChange({ ...condition, freeText: event.target.value })
+          }
+          placeholder="the relevant discipline"
+          value={condition.freeText ?? ""}
+        />
+      </span>
+    );
+  }
+
+  if (condition.kind === "subject_sequence") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5">
+        <span
+          data-slot="condition-grammar"
+          className="text-xs text-muted-foreground"
+        >
+          No completed
+        </span>
+        <Input
+          aria-label="Subject code"
+          className={cn(inlineControl, "w-28 min-w-28")}
+          maxLength={4}
+          onChange={(event) =>
+            onChange({
+              ...condition,
+              subjectCode: event.target.value.toUpperCase() || null,
+            })
+          }
+          placeholder="VIET"
+          value={condition.subjectCode ?? ""}
+        />
+        <span
+          data-slot="condition-grammar"
+          className="text-xs text-muted-foreground"
+        >
+          course later than
+        </span>
+        <SearchPicker
+          className={cn(
+            inlineControl,
+            stacked ? "min-w-[8rem]" : "w-52 min-w-52",
+          )}
+          empty="No courses match."
+          label="Course"
+          onSearch={searchCourses}
+          onSelect={(code, title) =>
+            onChange({ ...condition, courseCode: code, courseTitle: title })
+          }
+          value={condition.courseCode ?? ""}
+          valueTitle={condition.courseTitle}
+          {...bindOpen("course")}
         />
       </span>
     );

@@ -13,6 +13,17 @@ export type RequirementRuleSlice = {
 
 type Condition = RequirementWrite["conditions"][number];
 
+/** A scoped average's subjects, courses and printed scope; empty when unscoped. */
+function averageScope(condition: Condition, optionCodes: string[]) {
+  return {
+    ...(condition.subjectCodes?.length
+      ? { subjects: condition.subjectCodes }
+      : {}),
+    ...(optionCodes.length ? { courseCodes: optionCodes } : {}),
+    ...(condition.freeText?.trim() ? { scopeText: condition.freeText } : {}),
+  };
+}
+
 function conditionExpression(
   condition: Condition,
   optionCodes: string[],
@@ -182,6 +193,9 @@ function conditionExpression(
         kind: "structure",
         structureCode: condition.itemCode,
         text: condition.freeText,
+        ...(condition.matchesStructure === false
+          ? { matchesStructure: false }
+          : {}),
       };
     case "structure_set":
       return {
@@ -198,6 +212,7 @@ function conditionExpression(
           kind: "gpa",
           minimumGpa: condition.minimumGpa,
           recentGradedUnits: condition.minimumCount,
+          ...averageScope(condition, optionCodes),
         };
       }
       break;
@@ -208,13 +223,39 @@ function conditionExpression(
           kind: "wam",
           minimumWam: condition.minimumWam,
           recentGradedUnits: condition.minimumCount,
+          ...averageScope(condition, optionCodes),
         };
       }
+      break;
+    case "field_units":
+      if (units !== null && condition.freeText?.trim())
+        return {
+          ...base,
+          kind: "field_units",
+          field: condition.freeText,
+          units,
+        };
+      break;
+    case "subject_sequence":
+      if (condition.subjectCode && condition.freeText?.trim())
+        return {
+          ...base,
+          kind: "subject_sequence",
+          subject: condition.subjectCode,
+          code: condition.freeText.trim().toUpperCase(),
+        };
       break;
     case "permission":
       return { ...base, kind: "permission", text };
   }
-  return { ...base, kind: "other", text };
+  return {
+    ...base,
+    kind: "other",
+    text,
+    ...(condition.kind === "other" && condition.noteKind
+      ? { noteKind: condition.noteKind }
+      : {}),
+  };
 }
 
 /**
