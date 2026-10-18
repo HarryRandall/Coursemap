@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { tables, failures, reads } = vi.hoisted(() => ({
+const {
+  tables,
+  failures,
+  reads,
+  cachedReads,
+  cacheTags,
+  oversizedWrites,
+  concurrency,
+} = vi.hoisted(() => ({
   tables: new Map<string, Array<Record<string, unknown>>>(),
+  cachedReads: new Map<string, unknown>(),
+  cacheTags: new Map<string, string[]>(),
+  oversizedWrites: [] as number[],
+  concurrency: { active: 0, peak: 0, delay: 0 },
   failures: new Map<string, { code: string; message: string }>(),
   reads: [] as Array<{
     table: string;
@@ -11,7 +23,37 @@ const { tables, failures, reads } = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("next/cache", () => ({ unstable_cache: (read: unknown) => read }));
+vi.mock("next/cache", async () => {
+  const { AsyncLocalStorage } = await import("node:async_hooks");
+  const cacheContext = new AsyncLocalStorage<boolean>();
+  return {
+    unstable_cache:
+      (
+        read: (...args: unknown[]) => Promise<unknown>,
+        keyParts: string[] = [],
+        options: { tags?: string[] } = {},
+      ) =>
+      async (...args: unknown[]) => {
+        const key = JSON.stringify([read.toString(), keyParts, args]);
+        if (!cacheContext.getStore() && cachedReads.has(key))
+          return cachedReads.get(key);
+        const result = await cacheContext.run(true, () => read(...args));
+        const size = JSON.stringify(result).length;
+        // Production Next.js silently declines oversized data-cache entries.
+        if (size > 2 * 1024 * 1024) oversizedWrites.push(size);
+        else {
+          cachedReads.set(key, result);
+          cacheTags.set(key, options.tags ?? []);
+        }
+        return result;
+      },
+    updateTag: (tag: string) => {
+      for (const [key, tags] of cacheTags) {
+        if (tags.includes(tag)) cachedReads.delete(key);
+      }
+    },
+  };
+});
 vi.mock("../lib/supabase/public-server", () => ({
   createPublicClient: () => ({
     async rpc(
@@ -73,7 +115,13 @@ vi.mock("../lib/supabase/public-server", () => ({
           rows = rows.slice(start, end + 1);
           return query;
         },
-        then(resolve: (result: unknown) => unknown) {
+        async then(resolve: (result: unknown) => unknown) {
+          concurrency.active += 1;
+          concurrency.peak = Math.max(concurrency.peak, concurrency.active);
+          if (concurrency.delay) {
+            await new Promise((done) => setTimeout(done, concurrency.delay));
+          }
+          concurrency.active -= 1;
           const error =
             failures.get(table) ??
             (!bounded ? { code: "57014", message: "statement timeout" } : null);
@@ -91,7 +139,15 @@ import {
   loadPublishedCourseYears,
 } from "../lib/coursemap/published-courses";
 
+import { revalidatePublishedRecord } from "../lib/coursemap/published-cache";
+
 beforeEach(() => {
+  cachedReads.clear();
+  cacheTags.clear();
+  oversizedWrites.length = 0;
+  concurrency.active = 0;
+  concurrency.peak = 0;
+  concurrency.delay = 0;
   reads.length = 0;
   tables.clear();
   failures.clear();
@@ -313,7 +369,7 @@ it("bounds catalogue code lookups even when one page references hundreds of cour
 
 it("shares publication IDs between both name batches on a cold filter-options fill", async () => {
   await loadCourseDirectoryFilterOptions();
-  // Two publication pages each for the directory and the shared name lookup.
+  // Both cold callers read the same two publication pages before cache writes.
   expect(
     reads.filter((read) => read.table === "catalogue_records"),
   ).toHaveLength(4);
@@ -448,4 +504,76 @@ it("keeps both level bounds and subject sets before directory pagination", async
     "COMP1100",
     "MATH3100",
   ]);
+});
+
+it("retains a multi-year directory larger than the data-cache limit across page selections", async () => {
+  const summaries = Array.from({ length: 6200 }, (_, index) => ({
+    version_id: index + 1,
+    code: `COMP${String(index).padStart(4, "0")}`,
+    title: "A".repeat(400),
+    academic_year: 2026,
+    academic_year_id: 26,
+    subject_code: "COMP",
+  }));
+  expect(JSON.stringify(summaries).length).toBeGreaterThan(2 * 1024 * 1024);
+  tables.set("published_course_summaries", summaries);
+  tables.set(
+    "catalogue_records",
+    summaries.map((row) => ({
+      id: row.version_id,
+      kind: "course",
+      archived_at: null,
+      published_version_id: row.version_id,
+    })),
+  );
+  tables.set("course_areas_of_interest", []);
+  tables.set("course_tags", []);
+  await loadCourseDirectoryFilterOptions();
+  reads.length = 0;
+  const result = await loadPublishedCourseDirectoryPage({ page: 2 });
+  expect(result.total).toBe(6200);
+  expect(result.courses[0]?.code).toBe("COMP0024");
+  expect(reads.some((read) => read.table === "catalogue_records")).toBe(false);
+  expect(
+    reads.filter((read) => read.table === "published_course_summaries"),
+  ).toHaveLength(1);
+  expect(oversizedWrites).toEqual([]);
+});
+
+it("reuses hydrated pages and filter options without database reads", async () => {
+  const options = await loadCourseDirectoryFilterOptions();
+  const first = await loadPublishedCourseDirectoryPage({});
+  reads.length = 0;
+  expect(await loadCourseDirectoryFilterOptions()).toEqual(options);
+  expect(await loadPublishedCourseDirectoryPage({})).toEqual(first);
+  expect(reads).toEqual([]);
+});
+
+it("refreshes directory batches, filter options and hydrated pages after publication", async () => {
+  await loadCourseDirectoryFilterOptions();
+  await loadPublishedCourseDirectoryPage({});
+  tables.set(
+    "published_course_summaries",
+    (tables.get("published_course_summaries") ?? []).map((row) => ({
+      ...row,
+      title: "Published replacement",
+      academic_year: 2027,
+    })),
+  );
+  revalidatePublishedRecord({
+    kind: "course",
+    academicYear: 2027,
+    code: "ECON1101",
+  });
+  expect((await loadCourseDirectoryFilterOptions()).years).toEqual([2027]);
+  const refreshed = await loadPublishedCourseDirectoryPage({});
+  expect(refreshed.courses[0]?.name).toBe("Published replacement");
+  expect(refreshed.courses[0]?.year).toBe(2027);
+});
+
+it("overlaps cold directory reads without exceeding four concurrent batches", async () => {
+  concurrency.delay = 1;
+  await loadPublishedCourseDirectoryPage({ pageSize: 1 });
+  expect(concurrency.peak).toBe(4);
+  expect(concurrency.active).toBe(0);
 });
