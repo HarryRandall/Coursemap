@@ -44,7 +44,7 @@ export function SettingsRow({
   children,
   className,
 }: {
-  label: string;
+  label: ReactNode;
   description?: ReactNode;
   /** The control's id, for a label that focuses it. */
   htmlFor?: string;
@@ -65,7 +65,7 @@ export function SettingsRow({
         <Label
           id={labelId}
           htmlFor={htmlFor}
-          className="text-[13px] font-medium text-foreground"
+          className="flex flex-wrap items-center gap-2 text-[13px] font-medium text-foreground"
         >
           {label}
         </Label>

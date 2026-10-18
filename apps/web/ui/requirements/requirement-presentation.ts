@@ -3,6 +3,12 @@ import {
   requirementTitle,
   requirementCourseCount,
 } from "@/lib/coursemap/requirement-titles";
+import {
+  conditionTone,
+  hidesCondition,
+  type ConditionTone,
+  type RequirementReading,
+} from "@/lib/coursemap/requirement-classification";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type {
@@ -20,6 +26,7 @@ import {
 } from "@/lib/coursemap/requirement-progress";
 
 export type {
+  ConditionTone,
   RequirementTreeCondition,
   RequirementTreeGroup,
   RequirementTreeNode,
@@ -112,32 +119,12 @@ function conditionText(condition: RequirementTreeCondition) {
 }
 
 /**
- * How a condition should read. A cap on where units may come from is not
- * something to complete, and an incompatibility is a warning rather than a
- * rule to work towards, so neither may be drawn as progress.
+ * ANU wording with paragraphs, a list or bold text, to be read as it was set;
+ * null when the note is plain prose.
  */
-export type ConditionTone = "requirement" | "limit" | "warning" | "note";
-
-export function conditionTone(
-  condition: RequirementTreeCondition,
-): ConditionTone {
-  if (condition.conditionKind === "incompatible") return "warning";
-  if (
-    condition.conditionKind === "permission" ||
-    condition.conditionKind === "other"
-  ) {
-    return "note";
-  }
-  if (
-    condition.maximumUnits !== null &&
-    (condition.minimumUnits === null ||
-      (condition.minimumUnits === 0 &&
-        condition.maximumUnits > 0 &&
-        (condition.minimumCourses === null || condition.minimumCourses === 0)))
-  ) {
-    return "limit";
-  }
-  return "requirement";
+export function formattedNoteText(condition: RequirementTreeCondition) {
+  const text = conditionText(condition) ?? "";
+  return /\n\s*\n|\*\*|^\s*[-*]\s/mu.test(text) ? text : null;
 }
 
 /** A short title for a condition. Never the stored condition kind itself. */
@@ -323,7 +310,7 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
   } else if (condition.conditionKind === "structure") {
     parts.push(
       code
-        ? `Enrolment in ${code}`
+        ? `${condition.matchesStructure === false ? "Not enrolled in" : "Enrolment in"} ${code}`
         : (conditionText(condition) ?? "Enrolment requirement"),
     );
   } else if (condition.conditionKind === "course_set_units") {
@@ -404,7 +391,7 @@ export function conditionInterpretation(condition: RequirementTreeCondition) {
   }
   return parts.join(" · ");
 }
-export type TreeContext = {
+export type TreeContext = RequirementReading & {
   structureCode?: string;
   catalogue: PlanCatalogue;
   attemptStatusByCode: ReadonlyMap<
@@ -413,16 +400,11 @@ export type TreeContext = {
   >;
   selectedStructureCodes: ReadonlySet<string>;
   progress: RequirementTreeProgress;
-  unitTarget?: number | null;
   /** Neutral selectors within a group that owns their combined unit target. */
   unitPool?: boolean;
+  /** Rows under a "Limits" heading, which need not each say they are a limit. */
+  limitsStage?: boolean;
   onAddCourse?: (course: Course) => void;
-  /**
-   * The requirements workspace picks majors and minors through its own
-   * chooser, so it leaves structure options out of the tree. Reading surfaces
-   * with no chooser of their own opt in.
-   */
-  showStructureOptions?: boolean;
   /**
    * Off for readers with no plan behind the view, such as the administrator
    * preview and the published structure page, where a progress bar would
@@ -483,25 +465,6 @@ export function readingTreeContext({
     showStructureOptions: true,
     showPlanProgress: false,
   };
-}
-
-/**
- * Whether a condition draws nothing: a total that only restates the unit
- * target already shown above the tree, or structure options on a surface
- * that picks structures through its own chooser.
- */
-export function hidesCondition(
-  condition: RequirementTreeCondition,
-  context: TreeContext,
-) {
-  if (condition.conditionKind === "structure_set") {
-    return !context.showStructureOptions;
-  }
-  return (
-    condition.conditionKind === "units_total" &&
-    condition.minimumUnits === context.unitTarget &&
-    condition.maximumUnits === null
-  );
 }
 
 /** Warnings and notes read as alerts rather than as rules to meet. */

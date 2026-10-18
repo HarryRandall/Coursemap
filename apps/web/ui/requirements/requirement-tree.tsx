@@ -1,10 +1,10 @@
 "use client";
 import { useContext, useId, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { hidesCondition } from "@/lib/coursemap/requirement-classification";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import {
   flattenRules,
-  hidesCondition,
   isNotice,
   requirementRowStatus,
   restates,

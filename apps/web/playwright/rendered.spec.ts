@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
   await stubRoomMapRequests(page);
 });
 
-test("students save and clear explicit enrolment mode across desktop and mobile", async ({
+test("saving the profile records the enrolment mode its degree implies across desktop and mobile", async ({
   page,
   planner,
 }) => {
@@ -25,16 +25,13 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
     await page
       .getByRole("tab", { name: "Course of study", exact: true })
       .click();
-    const mode = page.getByRole("radiogroup", {
-      name: "Enrolment mode",
-      exact: true,
-    });
+    // The mode follows from the degree, so students are never asked for it.
     await expect(
-      mode.getByRole("radio", { name: "Not specified", exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
-    await mode
-      .getByRole("radio", { name: "Flexible Double Degree", exact: true })
-      .click();
+      page.getByRole("radiogroup", { name: "Enrolment mode", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByText("Single degree", { exact: true }),
+    ).toBeVisible();
     await page
       .getByRole("button", { name: "Save changes", exact: true })
       .click();
@@ -44,13 +41,15 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
           await sql`select enrolment_mode from public.plans where owner_id = ${planner.id}::uuid and is_primary`;
         return plan.enrolment_mode;
       })
-      .toBe("flexible_double_degree");
+      .toBe("single_degree");
     await page.reload();
     await expect(
-      mode.getByRole("radio", { name: "Flexible Double Degree", exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
+      page.getByText("Single degree", { exact: true }),
+    ).toBeVisible();
     await page.setViewportSize({ width: 390, height: 844 });
-    await expect(mode).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Change degree", exact: true }),
+    ).toBeVisible();
     await expect
       .poll(() =>
         page.evaluate(
@@ -59,26 +58,9 @@ test("students save and clear explicit enrolment mode across desktop and mobile"
       )
       .toBe(true);
     await page.screenshot({
-      path: test.info().outputPath("enrolment-mode-mobile.png"),
+      path: test.info().outputPath("course-of-study-mobile.png"),
       fullPage: true,
     });
-    await mode
-      .getByRole("radio", { name: "Not specified", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Save changes", exact: true })
-      .click();
-    await expect
-      .poll(async () => {
-        const [plan] =
-          await sql`select enrolment_mode from public.plans where owner_id = ${planner.id}::uuid and is_primary`;
-        return plan.enrolment_mode;
-      })
-      .toBe(null);
-    await page.reload();
-    await expect(
-      mode.getByRole("radio", { name: "Not specified", exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
   } finally {
     await sql.end();
   }

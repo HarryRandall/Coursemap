@@ -287,3 +287,16 @@ test("planner browse links keep the selected catalogue year and inclusive level 
   expect(params.get("subject")).toBe("COMP");
   expect(params.get("level")).toBe("2-3");
 });
+
+test("a cap over a single listed course names the course", () => {
+  const rule = clarityRule({
+    minimumUnits: null,
+    maximumUnits: 18,
+    options: [
+      { code: "COMP3100", kind: "course", position: 0, structureKind: null },
+    ],
+  });
+  expect(requirementTitle(rule, courses)).toBe(
+    "Pick up to 18 units from COMP3100",
+  );
+});

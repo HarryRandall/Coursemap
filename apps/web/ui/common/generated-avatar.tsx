@@ -19,7 +19,7 @@ function initials(name?: string | null, email?: string | null) {
   return (
     words.length > 1
       ? `${words[0][0]}${words.at(-1)![0]}`
-      : words[0]?.slice(0, 2) || "CM"
+      : words[0]?.[0] || "CM"
   ).toUpperCase();
 }
 

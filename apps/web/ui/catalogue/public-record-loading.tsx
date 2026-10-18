@@ -26,9 +26,10 @@ export function PublicRecordLoading({
     >
       <div aria-busy="true" className="space-y-4">
         <span className="sr-only">{`Loading ${label}`}</span>
-        <div className="space-y-3 pb-5">
+        <div className="space-y-2.5 pb-6">
+          <Skeleton className="h-3 w-36" />
           <Skeleton className="h-8 w-80 max-w-full" />
-          <Skeleton className="h-5 w-64 max-w-full" />
+          <Skeleton className="h-4 w-72 max-w-full" />
         </div>
         {children ?? (
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">

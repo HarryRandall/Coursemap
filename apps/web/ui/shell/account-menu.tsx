@@ -8,7 +8,6 @@ import {
   LogIn,
   LogOut,
   MessageCircle,
-  Shield,
   SunMoon,
   UserPlus,
   UserRound,
@@ -29,13 +28,12 @@ import { GeneratedAvatar } from "@/ui/common/generated-avatar";
 import { AccountAppearance } from "@/ui/shell/account-appearance";
 
 const accountLinks = [
-  { href: "/profile", label: "Edit details", icon: UserRound },
+  { href: "/profile", label: "Account", icon: UserRound },
   {
     href: "/profile?tab=study",
-    label: "Update degree plan",
+    label: "Course of study",
     icon: GraduationCap,
   },
-  { href: "/profile?tab=account", label: "Account", icon: Shield },
 ];
 
 export function AccountMenu() {

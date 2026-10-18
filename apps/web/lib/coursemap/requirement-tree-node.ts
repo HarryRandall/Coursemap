@@ -1,4 +1,5 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
+import type { RequirementNoteKind } from "@/lib/catalogue/note-kinds";
 import type {
   PlanRequirementCondition,
   PlanRequirementGroup,
@@ -33,6 +34,10 @@ export type RequirementTreeCondition = Omit<
   minimumCommencementYear?: number | null;
   maximumCommencementYear?: number | null;
   requirementMode?: "completed" | "completed_or_concurrent" | null;
+  /** How an `other` note is labelled; absent for an ordinary note. */
+  noteKind?: RequirementNoteKind | null;
+  /** False when a structure condition means "not enrolled in". */
+  matchesStructure?: boolean | null;
 };
 
 export type RequirementTreeGroup = Omit<PlanRequirementGroup, "children"> & {

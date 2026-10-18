@@ -90,11 +90,13 @@ export function requirementTitle(
         ? `Pick one: ${joined(codes, "or")}`
         : `Pick one of ${codes.length} courses`;
     if (count !== null) return `Pick ${count} of ${codes.length} courses`;
+    // A list of one course is named, since "from 1 courses" reads as a slip.
+    const listed = codes.length === 1 ? codes[0] : `${codes.length} courses`;
     if (rule.minimumUnits !== null && rule.minimumUnits > 0)
-      return `Pick ${rule.minimumUnits} units from ${codes.length} courses`;
+      return `Pick ${rule.minimumUnits} units from ${listed}`;
     if (rule.maximumUnits !== null)
-      return `Pick up to ${rule.maximumUnits} units from ${codes.length} courses`;
-    return `Pick from ${codes.length} courses`;
+      return `Pick up to ${rule.maximumUnits} units from ${listed}`;
+    return `Pick from ${listed}`;
   }
   const quantity =
     rule.minimumUnits && rule.minimumUnits > 0

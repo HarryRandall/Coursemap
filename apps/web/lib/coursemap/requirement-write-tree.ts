@@ -1,4 +1,5 @@
 import type { EnrolmentMode } from "../academic/enrolment-mode";
+import type { RequirementNoteKind } from "@/lib/catalogue/note-kinds";
 import type {
   RequirementTreeCondition,
   RequirementTreeGroup,
@@ -55,6 +56,8 @@ export type RequirementTreeSource = {
     sourceLocator?: string | null;
     scope?: string | null;
     includesAnyCourse?: boolean | null;
+    noteKind?: RequirementNoteKind | null;
+    matchesStructure?: boolean | null;
   }>;
   options: ReadonlyArray<{
     conditionKey: string;
@@ -140,6 +143,12 @@ export function requirementTreeFromSource(
             minimumCommencementYear: condition.minimumCommencementYear ?? null,
             maximumCommencementYear: condition.maximumCommencementYear ?? null,
           }
+        : {}),
+      ...(condition.kind === "other" && condition.noteKind
+        ? { noteKind: condition.noteKind }
+        : {}),
+      ...(condition.kind === "structure" && condition.matchesStructure === false
+        ? { matchesStructure: false }
         : {}),
       options: (optionsByCondition.get(condition.key) ?? [])
         .toSorted((left, right) => left.position - right.position)
