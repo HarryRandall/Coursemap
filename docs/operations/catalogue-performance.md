@@ -31,9 +31,16 @@ and paginate the small index, then hydrate only the selected page. Candidate
 search retains subject/title order and teaching-period names; the directory
 retains course-code order and teaching-period codes.
 
+Rich course-detail calls contain at most twelve codes, with two calls in flight.
+A timed-out batch splits into smaller sequential reads; a single-course failure
+still rejects the whole read. This preserves courses and their requested order
+without repeating an oversized statement or hiding a missing course.
+
 Filter menus use `published_course_filter_options()`. This aggregates only live
 published course versions and returns labels across all years in one response.
 Its public grants are intentional and covered by the anonymous RPC allow-list.
+A cold statement timeout gets one retry; another timeout or a different error
+reaches the caller. Failed reads do not become empty, cached filter choices.
 
 `published_requirement_graph()` also projects only live published versions.
 Its security-definer boundary avoids repeated editorial policies while keeping

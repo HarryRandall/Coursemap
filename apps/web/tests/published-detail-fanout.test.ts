@@ -30,7 +30,7 @@ function batchRows(args: BatchArgs, missing: readonly string[] = []) {
 }
 
 test.each(["codes", "selections"])(
-  "reads %s in batches of 25, at most four calls at once, keeping normalisation",
+  "reads %s in batches of 12, at most two calls at once, keeping normalisation",
   async (kind) => {
     let active = 0;
     let maximum = 0;
@@ -57,12 +57,12 @@ test.each(["codes", "selections"])(
             { code: "invalid", year: 2026 },
           ]);
     expect(courses.map((course) => course.code)).toEqual(codes);
-    expect(rpc).toHaveBeenCalledTimes(5);
+    expect(rpc).toHaveBeenCalledTimes(10);
     for (const [name, args] of rpc.mock.calls) {
       expect(name).toBe("published_course_details");
-      expect(args.p_course_codes.length).toBeLessThanOrEqual(25);
+      expect(args.p_course_codes.length).toBeLessThanOrEqual(12);
     }
-    expect(maximum).toBeLessThanOrEqual(4);
+    expect(maximum).toBeLessThanOrEqual(2);
   },
 );
 
@@ -93,4 +93,55 @@ test("a failed detail read still rejects instead of dropping the course", async 
   await expect(loadPublishedCoursesByCodes(["COMP1100"], 2026)).rejects.toThrow(
     "statement timeout",
   );
+});
+
+test("splits timed-out rich projections without losing courses or changing their order", async () => {
+  let active = 0;
+  let maximum = 0;
+  rpc.mockImplementation(async (_name: string, args: BatchArgs) => {
+    active++;
+    maximum = Math.max(maximum, active);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    active--;
+    return args.p_course_codes.length > 3
+      ? { data: null, error: { code: "57014", message: "statement timeout" } }
+      : { data: batchRows(args), error: null };
+  });
+  const codes = Array.from({ length: 30 }, (_, index) => `COMP${1130 - index}`);
+  const courses = await loadPublishedCoursesByCodes(
+    [...codes, "comp1130"],
+    2026,
+  );
+  expect(courses.map((course) => course.code)).toEqual(codes);
+  expect(maximum).toBeLessThanOrEqual(2);
+  expect(
+    rpc.mock.calls.every(([, args]) => args.p_course_codes.length <= 12),
+  ).toBe(true);
+});
+
+test("a timeout for one course terminates instead of retrying forever or omitting it", async () => {
+  rpc.mockResolvedValue({
+    data: null,
+    error: { code: "57014", message: "statement timeout" },
+  });
+  await expect(
+    loadPublishedCoursesByCodes(
+      ["COMP1100", "COMP1110", "COMP2100", "COMP2400"],
+      2026,
+    ),
+  ).rejects.toThrow("statement timeout");
+  expect(rpc.mock.calls.map(([, args]) => args.p_course_codes.length)).toEqual([
+    4, 2, 1,
+  ]);
+});
+
+test("other detail errors propagate without subdividing the batch", async () => {
+  rpc.mockResolvedValue({
+    data: null,
+    error: { code: "42501", message: "permission denied" },
+  });
+  await expect(
+    loadPublishedCoursesByCodes(["COMP1100", "COMP1110"], 2026),
+  ).rejects.toThrow("permission denied");
+  expect(rpc).toHaveBeenCalledTimes(1);
 });

@@ -354,9 +354,14 @@ export async function loadPublishedCourseYears(
 }
 
 async function courseDirectoryFilterOptions(): Promise<CourseFilterOptions> {
-  const { data, error } = await createPublicClient().rpc(
-    "published_course_filter_options",
-  );
+  const client = createPublicClient();
+  let result = await client.rpc("published_course_filter_options");
+  // A cold public read can time out before an immediate repeat finishes quickly.
+  // Retry this read once; persistent timeouts and other errors still surface.
+  if (result.error?.code === "57014") {
+    result = await client.rpc("published_course_filter_options");
+  }
+  const { data, error } = result;
   if (error) throw error;
   if (!isRecord(data))
     throw new Error("The course filter options could not be loaded.");
@@ -2012,7 +2017,7 @@ export async function loadPublishedCoursesBySelections(
 function loadPublishedCourseBatch(
   codes: readonly string[],
   academicYear: number,
-) {
+): Promise<CourseDetails[]> {
   const sortedCodes = codes.toSorted();
   return unstable_cache(
     async (): Promise<CourseDetails[]> => {
@@ -2020,6 +2025,20 @@ function loadPublishedCourseBatch(
         "published_course_details",
         { p_academic_year: academicYear, p_course_codes: sortedCodes },
       );
+      if (error?.code === "57014" && sortedCodes.length > 1) {
+        // A cold rich projection can exceed the public statement budget. Split
+        // it into smaller reads, sequentially, without dropping any courses.
+        const middle = Math.ceil(sortedCodes.length / 2);
+        const first = await loadPublishedCourseBatch(
+          sortedCodes.slice(0, middle),
+          academicYear,
+        );
+        const second = await loadPublishedCourseBatch(
+          sortedCodes.slice(middle),
+          academicYear,
+        );
+        return [...first, ...second];
+      }
       if (error) throw new Error(error.message);
       return (data ?? []).flatMap(({ detail }) => {
         const course = detail ? detailAsCourseDetails(detail) : null;
