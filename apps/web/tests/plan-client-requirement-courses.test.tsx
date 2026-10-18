@@ -9,12 +9,18 @@ const boards = vi.hoisted(() => ({ mounts: 0 }));
 vi.mock("@/ui/plan/plan-board", async () => {
   const { useEffect } = await import("react");
   return {
-    PlanBoard: ({ catalogue }: { catalogue: PlanCatalogue }) => {
+    PlanBoard: ({
+      catalogue,
+      suggestionsLoading,
+    }: {
+      catalogue: PlanCatalogue;
+      suggestionsLoading: boolean;
+    }) => {
       useEffect(() => {
         boards.mounts++;
       }, []);
       return (
-        <p data-testid="codes">
+        <p data-testid="codes" aria-busy={suggestionsLoading}>
           {catalogue.courses.map((course) => course.code).join(",")}
         </p>
       );
@@ -46,12 +52,14 @@ test("the board renders before requirement courses arrive, then gains them witho
     />,
   );
   expect(screen.getByTestId("codes").textContent).toBe(planned.code);
+  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "true");
 
   await act(async () => resolve([suggested]));
   expect(screen.getByTestId("codes").textContent).toBe(
     `${planned.code},${suggested.code}`,
   );
   expect(boards.mounts).toBe(1);
+  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "false");
 });
 
 test("courses from a previous catalogue's promise are not shown with a new one", async () => {
@@ -69,4 +77,17 @@ test("courses from a previous catalogue's promise are not shown with a new one",
     />,
   );
   expect(screen.getByTestId("codes").textContent).toBe(planned.code);
+  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "true");
+});
+
+test("an empty suggestions response finishes loading", async () => {
+  const requirementCourses = Promise.resolve([]);
+  render(
+    <PlanClient
+      catalogue={catalogue}
+      requirementCourses={requirementCourses}
+    />,
+  );
+  await act(async () => requirementCourses);
+  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "false");
 });

@@ -41,6 +41,7 @@ import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { StatusMark } from "@/ui/plan/status-mark";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
+import { CoursesToPlanSkeleton } from "@/ui/plan/courses-to-plan-skeleton";
 import {
   courseForTerm,
   structuresToPlan,
@@ -145,7 +146,13 @@ function settledFlags(
       };
 }
 
-export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
+export function PlanBoard({
+  catalogue,
+  suggestionsLoading = false,
+}: {
+  catalogue: PlanCatalogue;
+  suggestionsLoading?: boolean;
+}) {
   const overloadFocus = useReturnFocus();
   const {
     state,
@@ -1376,6 +1383,7 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
           </section>
           <aside
             aria-label="Courses to plan"
+            aria-busy={suggestionsLoading}
             data-drop-remove
             className={cn(
               "relative min-w-0 rounded-xl transition lg:w-[24rem] lg:shrink-0 lg:self-stretch",
@@ -1383,14 +1391,18 @@ export function PlanBoard({ catalogue }: { catalogue: PlanCatalogue }) {
                 "ring-2 ring-destructive/40",
             )}
           >
-            <CoursesToPlan
-              structures={toPlan}
-              starred={starred}
-              inPlan={statuses}
-              onAdd={addToSelectedYear}
-              onOpen={openCourse}
-              onDragStart={startSuggestionDrag}
-            />
+            {suggestionsLoading ? (
+              <CoursesToPlanSkeleton className="lg:absolute lg:inset-0" />
+            ) : (
+              <CoursesToPlan
+                structures={toPlan}
+                starred={starred}
+                inPlan={statuses}
+                onAdd={addToSelectedYear}
+                onOpen={openCourse}
+                onDragStart={startSuggestionDrag}
+              />
+            )}
           </aside>
         </div>
       </div>

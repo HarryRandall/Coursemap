@@ -1,3 +1,4 @@
+import { CoursesToPlanSkeleton } from "@/ui/plan/courses-to-plan-skeleton";
 import { Skeleton } from "@coursemap/ui/primitives/skeleton";
 
 /**
@@ -44,22 +45,7 @@ export function PlannerSkeleton() {
             </div>
           ))}
         </div>
-        <div className="space-y-4 rounded-xl border border-border bg-card p-4 lg:h-[calc(100dvh-12rem)] lg:w-[24rem] lg:shrink-0">
-          <div className="flex gap-4">
-            <Skeleton className="h-4 w-16" />
-            <Skeleton className="h-4 w-14" />
-          </div>
-          {[0, 1, 2, 3].map((rule) => (
-            <div key={rule} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Skeleton className="h-3.5 w-32" />
-                <Skeleton className="h-4 w-16 rounded-full" />
-              </div>
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-3/4" />
-            </div>
-          ))}
-        </div>
+        <CoursesToPlanSkeleton className="lg:h-[calc(100dvh-12rem)] lg:w-[24rem] lg:shrink-0" />
       </div>
     </div>
   );

@@ -35,5 +35,10 @@ export function PlanClient({
         : catalogue,
     [catalogue, addedCourses],
   );
-  return <PlanBoard catalogue={withRequirementCourses} />;
+  return (
+    <PlanBoard
+      catalogue={withRequirementCourses}
+      suggestionsLoading={addedCourses === null}
+    />
+  );
 }
