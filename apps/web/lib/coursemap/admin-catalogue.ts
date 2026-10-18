@@ -1,7 +1,6 @@
 import "server-only";
 import { emptyCatalogueContent } from "@/lib/catalogue/content";
 import { contentHashForCatalogueContent } from "@/lib/catalogue-import/version-content";
-import { readAllRows } from "@/lib/supabase/read-all-rows";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CatalogueDirectoryPage,
@@ -9,7 +8,6 @@ import type {
   CatalogueKind,
   CatalogueRecordState,
 } from "./catalogue-kinds";
-import { catalogueRecordMatchesState } from "./catalogue-kinds";
 
 export * from "./catalogue-kinds";
 
@@ -61,273 +59,54 @@ export async function loadCatalogueDirectoryPage({
   page?: number;
 }): Promise<CatalogueDirectoryPage> {
   const supabase = await createClient();
-  const years = await loadCatalogueYears();
-  const { data: year } = await supabase
-    .from("academic_years")
-    .select("id")
-    .eq("year", academicYear)
-    .maybeSingle();
-  const empty: CatalogueDirectoryPage = {
-    kind,
-    academicYear,
-    years,
-    status: { state: "never", refreshedAt: null, message: null, entryCount: 0 },
-    records: [],
-    total: 0,
-    page: 1,
-    pageSize: PAGE_SIZE,
-  };
-  if (!year) return empty;
-
-  const [status, listings, records] = await Promise.all([
-    supabase
-      .from("catalogue_discovery_statuses")
-      .select("status,refreshed_at,message,entry_count")
-      .eq("academic_year_id", year.id)
-      .eq("kind", kind)
-      .maybeSingle(),
-    readAllRows((from, to) =>
-      supabase
-        .from("catalogue_listings")
-        .select("code,title,summary,code_id,is_current,last_seen_at")
-        .eq("academic_year_id", year.id)
-        .eq("kind", kind)
-        .order("code")
-        .range(from, to),
-    ),
-    readAllRows((from, to) =>
-      supabase
-        .from("catalogue_records")
-        .select("id,code_id,published_version_id,archived_at")
-        .eq("academic_year_id", year.id)
-        .eq("kind", kind)
-        .order("code_id")
-        .range(from, to),
-    ),
-  ]);
-  if (status.error) throw status.error;
-  if (listings.error) throw listings.error;
-  if (records.error) throw records.error;
-
-  // These select by the record's year and kind rather than by a list of record
-  // identifiers. A year holds thousands of records, and naming each one puts
-  // the whole list in the query string, which the database gateway rejects as
-  // a URI too long once a directory has been discovered in full.
-  const [drafts, syncs, openChanges] = await Promise.all([
-    readAllRows((from, to) =>
-      supabase
-        .from("catalogue_drafts")
-        .select(
-          "record_id,content_hash,revision,catalogue_records!inner(academic_year_id,kind)",
-        )
-        .eq("catalogue_records.academic_year_id", year.id)
-        .eq("catalogue_records.kind", kind)
-        .order("record_id")
-        .range(from, to),
-    ),
-    readAllRows((from, to) =>
-      supabase
-        .from("catalogue_syncs")
-        .select(
-          "id,record_id,status,error_message,completed_at,created_at,catalogue_records!inner(academic_year_id,kind)",
-        )
-        .eq("catalogue_records.academic_year_id", year.id)
-        .eq("catalogue_records.kind", kind)
-        .order("created_at", { ascending: false })
-        .range(from, to),
-    ),
-    readAllRows((from, to) =>
-      supabase
-        .from("catalogue_sync_changes")
-        .select(
-          "record_id,classification,catalogue_records!inner(academic_year_id,kind)",
-        )
-        .eq("catalogue_records.academic_year_id", year.id)
-        .eq("catalogue_records.kind", kind)
-        .in("classification", ["source_change", "conflict"])
-        .is("decision", null)
-        .is("superseded_at", null)
-        .order("record_id")
-        .range(from, to),
-    ),
-  ]);
-  if (drafts.error) throw drafts.error;
-  if (syncs.error) throw syncs.error;
-  if (openChanges.error) throw openChanges.error;
-  const openChangeCounts = new Map<
-    number,
-    { open: number; conflicts: number }
-  >();
-  for (const change of openChanges.data ?? []) {
-    const counts = openChangeCounts.get(change.record_id) ?? {
-      open: 0,
-      conflicts: 0,
-    };
-    counts.open += 1;
-    if (change.classification === "conflict") counts.conflicts += 1;
-    openChangeCounts.set(change.record_id, counts);
-  }
-  const recordByCodeId = new Map(
-    records.data.map((record) => [record.code_id, record]),
-  );
-  // A draft row is only worth reporting when it says something the record did
-  // not already say. Comparing hashes keeps a draft that was restored from the
-  // publication, or edited back to match it, out of the Draft state.
-  const draftRows = new Map(
-    (drafts.data ?? []).map((draft) => [draft.record_id, draft]),
-  );
-  const draftedPublishedVersionIds = records.data.flatMap((record) =>
-    draftRows.has(record.id) && record.published_version_id
-      ? [record.published_version_id]
-      : [],
-  );
-  // Named by identifier rather than filtered by year, because only records
-  // that carry a draft reach this list and that is a handful, not thousands.
-  const { data: publishedVersions } = draftedPublishedVersionIds.length
-    ? await supabase
-        .from("catalogue_versions")
-        .select("id,content_hash")
-        .in("id", draftedPublishedVersionIds)
-    : { data: [] as Array<{ id: number; content_hash: string }> };
-  const publishedHashes = new Map(
-    (publishedVersions ?? []).map((version) => [
-      version.id,
-      version.content_hash,
-    ]),
-  );
-  const latestSync = new Map<number, (typeof syncs.data)[number]>();
-  for (const sync of syncs.data ?? [])
-    if (!latestSync.has(sync.record_id)) latestSync.set(sync.record_id, sync);
-  const listedIds = new Set(
-    listings.data.flatMap((listing) =>
-      listing.code_id ? [listing.code_id] : [],
-    ),
-  );
-  const extraIds = records.data
-    .map((record) => record.code_id)
-    .filter((id) => !listedIds.has(id));
-  const { data: extraCodes } = extraIds.length
-    ? await supabase
-        .from("catalogue_codes")
-        .select("id,code")
-        .in("id", extraIds)
-    : { data: [] as Array<{ id: number; code: string }> };
-
-  const rows = [
-    ...listings.data.map((listing) => ({
-      ...listing,
-      itemId: listing.code_id,
-    })),
-    ...(extraCodes ?? []).map((code) => ({
-      code: code.code,
-      title: null,
-      summary: {},
-      itemId: code.id,
-      is_current: null,
-      last_seen_at: null,
-    })),
-  ].map((listing) => {
-    const record = listing.itemId
-      ? recordByCodeId.get(listing.itemId)
-      : undefined;
-    const sync = record ? latestSync.get(record.id) : undefined;
-    const draftRow = record ? draftRows.get(record.id) : undefined;
-    // What the draft would have started as. An unpublished record starts
-    // empty, so a draft holding nothing has been opened but says nothing new.
-    const baseHash = !draftRow
-      ? null
-      : record?.published_version_id
-        ? publishedHashes.get(record.published_version_id)
-        : contentHashForCatalogueContent(
-            emptyCatalogueContent({
-              kind,
-              code: listing.code,
-              academicYear,
-              title: listing.title,
-            }),
-          );
-    const hasDraft = draftRow !== undefined;
-    const hasChanges = hasDraft && draftRow.content_hash !== baseHash;
-    const isPublished = Boolean(
-      record?.published_version_id && !record.archived_at,
-    );
-    const counts = record
-      ? (openChangeCounts.get(record.id) ?? { open: 0, conflicts: 0 })
-      : { open: 0, conflicts: 0 };
-    const sourceState: CatalogueDirectoryRecord["sourceState"] = !sync
-      ? "never_synced"
-      : sync.status === "queued" || sync.status === "running"
-        ? "syncing"
-        : sync.status === "paused"
-          ? "paused"
-          : sync.status === "failed"
-            ? "sync_failed"
-            : counts.open > 0
-              ? "changes_available"
-              : "up_to_date";
-    return {
-      code: listing.code,
-      title: listing.title,
-      summary: (listing.summary ?? {}) as Record<string, unknown>,
-      recordId: record?.id ?? null,
-      hasDraft,
-      hasChanges,
-      draftRevision: draftRow?.revision ?? null,
-      isPublished,
-      isListedByAnu: listing.is_current,
-      lastSeenAt: listing.last_seen_at,
-      sourceState,
-      openChangeCount: counts.open,
-      conflictCount: counts.conflicts,
-      latestSync: sync
-        ? {
-            id: sync.id,
-            status: sync.status,
-            errorMessage: sync.error_message,
-            completedAt: sync.completed_at,
-          }
-        : null,
-    } satisfies CatalogueDirectoryRecord;
+  const { data, error } = await supabase.rpc("admin_catalogue_directory_page", {
+    p_kind: kind,
+    p_academic_year: academicYear,
+    p_query: query,
+    p_state: state ?? undefined,
+    p_page: Math.max(1, Math.floor(page)),
   });
-  // Every word must appear somewhere in the code or title, in any order and
-  // ignoring punctuation, so "Human Centred Computing" finds
-  // "Human-Centred and Creative Computing".
-  const words = query
-    .toUpperCase()
-    .split(/[^A-Z0-9]+/u)
-    .filter(Boolean);
-  const filtered = rows
-    .filter((row) => {
-      if (!words.length) return true;
-      const haystack = `${row.code} ${row.title ?? ""}`
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/gu, " ");
-      return words.every((word) => haystack.includes(word));
-    })
-    // The whole year is already in memory, so narrowing by state costs a pass
-    // rather than a query. Published includes records with retained draft work.
-    .filter((row) => catalogueRecordMatchesState(row, state))
-    .sort((left, right) => left.code.localeCompare(right.code));
-  const safePage = Math.max(
-    1,
-    Math.min(page, Math.ceil(filtered.length / PAGE_SIZE) || 1),
-  );
-  const start = (safePage - 1) * PAGE_SIZE;
+  if (error) throw error;
+  // The RPC returns only the selected page. Keep canonical empty-draft hashing
+  // here so SQL does not duplicate the catalogue content serialisation contract.
+  const result = data as unknown as {
+    years: number[];
+    status: CatalogueDirectoryPage["status"];
+    total: number;
+    page: number;
+    records: Array<
+      Omit<CatalogueDirectoryRecord, "hasChanges"> & {
+        draftHash: string | null;
+        publishedHash: string | null;
+        hasPublication: boolean;
+      }
+    >;
+  };
   return {
     kind,
     academicYear,
-    years,
-    status: {
-      state:
-        (status.data?.status as CatalogueDirectoryPage["status"]["state"]) ??
-        "never",
-      refreshedAt: status.data?.refreshed_at ?? null,
-      message: status.data?.message ?? null,
-      entryCount: status.data?.entry_count ?? 0,
-    },
-    records: filtered.slice(start, start + PAGE_SIZE),
-    total: filtered.length,
-    page: safePage,
+    years: result.years,
+    status: result.status,
+    total: result.total,
+    page: result.page,
     pageSize: PAGE_SIZE,
+    records: result.records.map(
+      ({ draftHash, publishedHash, hasPublication, ...record }) => ({
+        ...record,
+        hasChanges:
+          record.hasDraft &&
+          draftHash !==
+            (hasPublication
+              ? publishedHash
+              : contentHashForCatalogueContent(
+                  emptyCatalogueContent({
+                    kind,
+                    code: record.code,
+                    academicYear,
+                    title: record.title,
+                  }),
+                )),
+      }),
+    ),
   };
 }

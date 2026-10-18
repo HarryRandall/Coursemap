@@ -59,28 +59,115 @@ vi.mock("next/cache", async () => {
 });
 vi.mock("../lib/supabase/public-server", () => ({
   createPublicClient: () => ({
-    async rpc(
+    rpc(
       name: string,
-      args?: { p_academic_year: number; p_course_code: string },
+      args?: {
+        p_academic_year?: number;
+        p_course_code?: string;
+        p_offset?: number;
+        p_limit?: number;
+        p_kind?: string;
+        p_value?: string;
+      },
     ) {
+      if (name === "published_course_directory_page") {
+        reads.push({
+          table: name,
+          yearId: args?.p_academic_year ?? null,
+          ids: [args?.p_offset, args?.p_limit],
+        });
+        const records = tables.get("catalogue_records") ?? [];
+        const preferred = new Map<string, Record<string, unknown>>();
+        for (const row of tables.get("published_course_summaries") ?? []) {
+          if (
+            !records.some(
+              (record) =>
+                record.published_version_id === row.version_id &&
+                record.archived_at === null,
+            )
+          )
+            continue;
+          if (
+            args?.p_academic_year &&
+            row.academic_year !== args.p_academic_year
+          )
+            continue;
+          const code = String(row.code);
+          const current = preferred.get(code);
+          if (
+            !current ||
+            (row.academic_year === 2026 && current.academic_year !== 2026) ||
+            (current.academic_year !== 2026 &&
+              Number(row.academic_year) > Number(current.academic_year))
+          )
+            preferred.set(code, row);
+        }
+        const rows = [...preferred.values()].sort((a, b) =>
+          String(a.code).localeCompare(String(b.code)),
+        );
+        return Promise.resolve({
+          data: rows.slice(
+            args?.p_offset ?? 0,
+            (args?.p_offset ?? 0) + (args?.p_limit ?? 500),
+          ),
+          error: failures.get(name) ?? null,
+        });
+      }
+      if (name === "published_course_filter_versions") {
+        reads.push({ table: name, named: args?.p_kind });
+        const table =
+          args?.p_kind === "area"
+            ? "course_areas_of_interest"
+            : args?.p_kind === "tag"
+              ? "course_tags"
+              : "offering_sessions";
+        const column =
+          args?.p_kind === "session_name"
+            ? "academic_period_name"
+            : args?.p_kind === "session_code"
+              ? "academic_period_code"
+              : "name";
+        const records = tables.get("catalogue_records") ?? [];
+        const year = (tables.get("academic_years") ?? []).find(
+          (row) => row.year === args?.p_academic_year,
+        );
+        const data = (tables.get(table) ?? [])
+          .filter((row) =>
+            records.some(
+              (record) =>
+                record.published_version_id === row.version_id &&
+                record.archived_at === null &&
+                (!args?.p_academic_year ||
+                  record.academic_year_id === year?.id),
+            ),
+          )
+          .filter((row) =>
+            column === "name"
+              ? String(row[column]).toLowerCase() ===
+                String(args?.p_value).toLowerCase()
+              : row[column] === args?.p_value,
+          )
+          .map((row) => row.version_id);
+        return Promise.resolve({ data, error: failures.get(table) ?? null });
+      }
       if (name === "published_course_filter_options") {
         reads.push({ table: name });
-        return {
+        return Promise.resolve({
           data: tables.get("filter_options")?.[0] ?? null,
           error: filterOptionErrors.length
             ? filterOptionErrors.shift()
             : (failures.get(name) ?? null),
-        };
+        });
       }
       if (!args) throw new Error("Missing graph arguments.");
-      return {
+      return Promise.resolve({
         data: (tables.get("graph") ?? []).filter(
           (row) =>
             row.year === args.p_academic_year &&
             row.from_code === args.p_course_code,
         ),
         error: failures.get("graph") ?? null,
-      };
+      });
     },
     from(table: string) {
       let rows = tables.get(table) ?? [];
@@ -359,16 +446,19 @@ it("loads one course's years without a cold fill of the entire directory", async
   ).toBe(true);
 });
 
-it("reuses bounded published name batches instead of scanning tags by name", async () => {
+it("reads only matching tag identifiers without loading area metadata", async () => {
   await loadPublishedCourseDirectoryPage({
     academicYear: 2026,
     filters: { tag: "bUsInEsS" },
   });
   expect(
-    reads
-      .filter((read) => read.table === "course_tags")
-      .every((read) => !read.named && (read.ids?.length ?? 0) <= 200),
-  ).toBe(true);
+    reads.filter((read) => read.table === "published_course_filter_versions"),
+  ).toEqual([{ table: "published_course_filter_versions", named: "tag" }]);
+  expect(
+    reads.some((read) =>
+      ["course_tags", "course_areas_of_interest"].includes(read.table),
+    ),
+  ).toBe(false);
 });
 
 it("bounds catalogue code lookups even when one page references hundreds of courses", async () => {
@@ -631,10 +721,10 @@ it("refreshes directory batches, filter options and hydrated pages after publica
   expect(refreshed.courses[0]?.year).toBe(2027);
 });
 
-it("overlaps cold directory reads without exceeding four concurrent batches", async () => {
+it("bounds relationship concurrency after reading compact directory pages", async () => {
   concurrency.delay = 1;
   await loadPublishedCourseDirectoryPage({ pageSize: 1 });
-  expect(concurrency.peak).toBe(4);
+  expect(concurrency.peak).toBeLessThanOrEqual(4);
   expect(concurrency.active).toBe(0);
 });
 
@@ -695,7 +785,9 @@ it("returns an empty unavailable year without reading publication batches", asyn
   expect(
     (await loadPublishedCourseDirectoryPage({ academicYear: 1900 })).total,
   ).toBe(0);
-  expect(reads.map((read) => read.table)).toEqual(["academic_years"]);
+  expect(reads.map((read) => read.table)).toEqual([
+    "published_course_directory_page",
+  ]);
 });
 
 it("sorts compact options and rejects malformed RPC results", async () => {
@@ -888,4 +980,50 @@ it("does not retry other filter-options errors", async () => {
     code: "42501",
   });
   expect(reads).toEqual([{ table: "published_course_filter_options" }]);
+});
+
+it("uses bounded cached pages for thousands of preferred editions", async () => {
+  const rows = Array.from({ length: 1250 }, (_, index) => ({
+    version_id: index + 1,
+    code: `COMP${index + 1000}`,
+    academic_year: 2026,
+    academic_year_id: 26,
+    title: "Course",
+  }));
+  tables.set("published_course_summaries", rows);
+  tables.set(
+    "catalogue_records",
+    rows.map((row) => ({
+      published_version_id: row.version_id,
+      archived_at: null,
+    })),
+  );
+  const result = await loadPublishedCourseDirectoryPage({
+    filters: { query: "no match" },
+  });
+  expect(result.total).toBe(0);
+  expect(reads).toEqual(
+    [0, 500, 1000].map((offset) => ({
+      table: "published_course_directory_page",
+      yearId: null,
+      ids: [offset, 500],
+    })),
+  );
+  reads.length = 0;
+  await loadPublishedCourseDirectoryPage({
+    filters: { query: "another no match" },
+  });
+  expect(reads).toEqual([]);
+});
+
+it("propagates directory projection failures instead of caching an empty page", async () => {
+  failures.set("published_course_directory_page", {
+    code: "57014",
+    message: "timeout",
+  });
+  await expect(loadPublishedCourseDirectoryPage({})).rejects.toMatchObject({
+    code: "57014",
+  });
+  failures.clear();
+  expect((await loadPublishedCourseDirectoryPage({})).total).toBe(1);
 });

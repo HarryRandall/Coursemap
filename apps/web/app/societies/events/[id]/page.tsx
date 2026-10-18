@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { CalendarDays, MapPin, ExternalLink } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
 import { formatEventDate } from "@/lib/society-events";
-import { loadSocieties } from "@/lib/societies-data";
+import { loadSocietyEvent } from "@/lib/societies-data";
 import { AppShell } from "@/ui/shell/app-shell";
 import { EventArtwork } from "@/ui/societies/event-artwork";
 import { SocietyEmblem } from "@/ui/societies/society-emblem";
@@ -16,15 +16,10 @@ export default async function SocietyEventPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { societies, events } = await loadSocieties();
-  const event = events.find((item) => item.id === id);
-  if (!event) {
-    const previousEvent = events.find((item) => item.sourceId === id);
-    if (previousEvent)
-      permanentRedirect(`/societies/events/${previousEvent.id}`);
-    notFound();
-  }
-  const society = societies.find((item) => item.slug === event.societySlug);
+  const event = await loadSocietyEvent(id);
+  if (!event) notFound();
+  if (event.id !== id) permanentRedirect(`/societies/events/${event.id}`);
+  const society = event.society;
   return (
     <AppShell currentBreadcrumbLabel={event.title}>
       <div className="grid items-start gap-8 lg:grid-cols-3">

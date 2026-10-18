@@ -16,3 +16,18 @@ export function batchCampusMapQueryValues<T>(
   }
   return batches;
 }
+
+/** Two public streams can run together without flooding the database. */
+export async function readCampusMapQueryBatches<T, U>(
+  values: readonly T[],
+  read: (batch: T[]) => PromiseLike<U>,
+): Promise<U[]> {
+  const batches = batchCampusMapQueryValues(values);
+  const results: U[] = [];
+  for (let index = 0; index < batches.length; index += 2) {
+    results.push(
+      ...(await Promise.all(batches.slice(index, index + 2).map(read))),
+    );
+  }
+  return results;
+}

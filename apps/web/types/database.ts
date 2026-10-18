@@ -5030,9 +5030,26 @@ export type Database = {
         }
         Returns: string
       }
+      admin_catalogue_directory_page: {
+        Args: {
+          p_academic_year: number
+          p_kind: string
+          p_page?: number
+          p_query?: string
+          p_state?: string
+        }
+        Returns: Json
+      }
       admin_catalogue_version_projection: {
         Args: { p_version_id: number }
         Returns: Json
+      }
+      admin_top_courses: {
+        Args: { p_limit?: number }
+        Returns: {
+          code: string
+          students: number
+        }[]
       }
       approve_university_calendar_review: {
         Args: { p_review_id: string }
@@ -5107,7 +5124,20 @@ export type Database = {
           detail: Json
         }[]
       }
+      published_course_directory_page: {
+        Args: { p_academic_year?: number; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       published_course_filter_options: { Args: never; Returns: Json }
+      published_course_filter_versions: {
+        Args: { p_academic_year?: number; p_kind?: string; p_value?: string }
+        Returns: Json
+      }
+      published_fee_reference_courses: {
+        Args: { academic_year: number }
+        Returns: Json
+      }
+      published_onboarding_catalogue: { Args: never; Returns: Json }
       published_requirement_graph: {
         Args: { p_academic_year: number; p_course_code: string }
         Returns: {

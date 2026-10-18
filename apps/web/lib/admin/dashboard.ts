@@ -9,7 +9,7 @@ import {
 } from "@/lib/admin/dashboard-series";
 import { canReadStudentRecords } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
-import { readAllRows, readRowsForIds } from "@/lib/supabase/read-all-rows";
+import { readAllRows } from "@/lib/supabase/read-all-rows";
 
 const SYNC_DAYS = 30;
 const CHANGE_WEEKS = 26;
@@ -304,45 +304,14 @@ async function loadChanges(now: Date) {
 
 async function loadTopCourses() {
   const supabase = await createClient();
-  const items = await allRows<{
-    owner_id: string;
-    catalogue_record_id: number;
-  }>((from, to) =>
-    supabase
-      .from("plan_items")
-      .select("id,owner_id,catalogue_record_id")
-      .order("id")
-      .range(from, to),
-  );
-  const recordIds = [...new Set(items.map((item) => item.catalogue_record_id))];
-  const { data: records, error } = await readRowsForIds(
-    recordIds,
-    (batch, from, to) =>
-      supabase
-        .from("catalogue_records")
-        .select("id,catalogue_codes(code)")
-        .in("id", batch)
-        .order("id")
-        .range(from, to),
-  );
+  const { data, error } = await supabase.rpc("admin_top_courses", {
+    p_limit: TOP_COURSE_COUNT,
+  });
   if (error) throw new Error(error.message);
-  const codeByRecord = new Map<number, string>();
-  for (const row of records) {
-    const code = row.catalogue_codes?.code;
-    if (code) codeByRecord.set(row.id, code);
-  }
-  // A course planned in two years by the same student counts once.
-  const students = new Map<string, Set<string>>();
-  for (const item of items) {
-    const code = codeByRecord.get(item.catalogue_record_id);
-    if (!code) continue;
-    if (!students.has(code)) students.set(code, new Set());
-    students.get(code)!.add(item.owner_id);
-  }
-  return [...students]
-    .map(([code, owners]) => ({ code, students: owners.size }))
-    .sort((left, right) => right.students - left.students)
-    .slice(0, TOP_COURSE_COUNT);
+  return (data ?? []).map((row) => ({
+    code: row.code,
+    students: Number(row.students),
+  }));
 }
 
 async function loadSelt(publishedCourseCodes: ReadonlySet<number>) {

@@ -17,7 +17,7 @@ import {
 } from "@/lib/rooms/campus-map";
 import { readCampusIndoorDocument } from "@/lib/rooms/indoor-map-migrate";
 import { buildCampusRoomIndex } from "@/lib/rooms/indoor-room-index";
-import { batchCampusMapQueryValues } from "@/lib/rooms/campus-map-query";
+import { readCampusMapQueryBatches } from "@/lib/rooms/campus-map-query";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 import { createPublicClient } from "@/lib/supabase/public-server";
 import { createClient } from "@/lib/supabase/server";
@@ -248,29 +248,24 @@ async function readPublishedCampusMapData(): Promise<CampusMapLoadResult> {
 
     const placeRows = placesResult.data ?? [];
     const placeIds = placeRows.map((place) => place.id);
-    const placeIdBatches = batchCampusMapQueryValues(placeIds);
     const [detailResults, indoorMapResults] = await Promise.all([
-      Promise.all(
-        placeIdBatches.map((placeIdBatch) =>
-          publicSupabase
-            .from("campus_map_place_details")
-            .select("id,place_id,kind,label,sort_order,created_at,updated_at")
-            .in("place_id", placeIdBatch)
-            .order("sort_order")
-            .order("label"),
-        ),
+      readCampusMapQueryBatches(placeIds, (placeIdBatch) =>
+        publicSupabase
+          .from("campus_map_place_details")
+          .select("id,place_id,kind,label,sort_order,created_at,updated_at")
+          .in("place_id", placeIdBatch)
+          .order("sort_order")
+          .order("label"),
       ),
-      Promise.all(
-        placeIdBatches.map((placeIdBatch) => {
-          const query = publicSupabase
-            .from("campus_indoor_maps")
-            .select(
-              "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
-            )
-            .in("building_place_id", placeIdBatch);
-          return query.eq("status", "published").order("name");
-        }),
-      ),
+      readCampusMapQueryBatches(placeIds, (placeIdBatch) => {
+        const query = publicSupabase
+          .from("campus_indoor_maps")
+          .select(
+            "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
+          )
+          .in("building_place_id", placeIdBatch);
+        return query.eq("status", "published").order("name");
+      }),
     ]);
 
     if (
@@ -367,18 +362,17 @@ export async function loadCampusMapData(
     }
     // Only the manager's indoor preview uses auth. It never enters the shared cache.
     const indoorSupabase = await createClient();
-    const results = await Promise.all(
-      batchCampusMapQueryValues(data.places.map((place) => place.id)).map(
-        (ids) =>
-          indoorSupabase
-            .from("campus_indoor_maps")
-            .select(
-              "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
-            )
-            .in("building_place_id", ids)
-            .in("status", ["published", "draft"])
-            .order("name"),
-      ),
+    const results = await readCampusMapQueryBatches(
+      data.places.map((place) => place.id),
+      (ids) =>
+        indoorSupabase
+          .from("campus_indoor_maps")
+          .select(
+            "id,building_place_id,name,document,status,revision,source_provider,source_url,source_license,published_at,created_at,updated_at",
+          )
+          .in("building_place_id", ids)
+          .in("status", ["published", "draft"])
+          .order("name"),
     );
     for (const result of results) if (result.error) throw result.error;
     const indoorMaps = results
