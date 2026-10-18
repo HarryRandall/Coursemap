@@ -2,6 +2,10 @@ import {
   boundedRequirement,
   requirementCourseParams,
 } from "@/lib/coursemap/requirement-course-filters";
+import {
+  conditionTone,
+  hidesCondition,
+} from "@/lib/coursemap/requirement-classification";
 import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
@@ -12,8 +16,6 @@ import {
   conditionHeading,
   courseSearchHref,
   conditionSummary,
-  conditionTone,
-  hidesCondition,
   listedCourseCounts,
   requirementRowStatus,
   type RequirementTreeCondition,

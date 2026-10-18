@@ -1,4 +1,5 @@
 import { validEnrolmentMode } from "../academic/enrolment-mode";
+import { requirementNoteKind } from "@/lib/catalogue/note-kinds";
 import {
   PUBLISHED_READ_REVALIDATE_SECONDS,
   PUBLISHED_STRUCTURE_DETAIL_TAG,
@@ -84,6 +85,7 @@ function requirementTree(
         maximumUnits: readNullableNumber(group.maximumUnits),
         sourceText: readNullableString(group.sourceText),
         position: readNumber(group.position),
+        scope: readNullableString(group.scope),
       })),
       conditions: readRecords(requirements.ruleConditions).map((condition) => ({
         key: readString(condition.key),
@@ -135,6 +137,12 @@ function requirementTree(
         tag: readNullableString(condition.tag),
         freeText: readNullableString(condition.freeText),
         sourceText: readNullableString(condition.sourceText),
+        scope: readNullableString(condition.scope),
+        noteKind: requirementNoteKind(condition.noteKind),
+        matchesStructure:
+          typeof condition.matchesStructure === "boolean"
+            ? condition.matchesStructure
+            : null,
       })),
       options: readRecords(requirements.ruleConditionCourses).map((option) => {
         const code = readString(option.sourceCourseCode).toUpperCase();

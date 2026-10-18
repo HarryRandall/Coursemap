@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Link from "next/link";
 import {
   ChevronDown,
   Circle,
@@ -24,17 +23,18 @@ import {
   AlertTitle,
 } from "@coursemap/ui/components/alert";
 import { Badge } from "@coursemap/ui/components/badge";
+import {
+  conditionTone,
+  hidesCondition,
+} from "@/lib/coursemap/requirement-classification";
 import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
-import { isCatalogueKind } from "@/lib/catalogue/content";
-import { publicCatalogueRecordPath } from "@/lib/coursemap/catalogue-kinds";
 import { cn } from "@/lib/cn";
 import {
   conditionHeading,
   conditionInterpretation,
   conditionSummary,
-  conditionTone,
   courseListTitle,
-  hidesCondition,
+  formattedNoteText,
   listedCourseCounts,
   repeatAllowancesByCode,
   requirementRowStatus,
@@ -48,6 +48,7 @@ import type {
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementCourseOptions } from "./requirement-course-options";
 import { MatchingCourses } from "./matching-courses";
+import { StructureOptions } from "@/ui/requirements/structure-options";
 import { UnitsBar } from "@/ui/requirements/units-bar";
 import { CatalogueMarkdown } from "@/ui/common/catalogue-markdown";
 
@@ -339,10 +340,7 @@ function StatedCondition({
   const interpretation =
     conditionInterpretation(displayedCondition) || condition.freeText;
   if (tone === "warning" || tone === "note") {
-    // ANU wording with paragraphs, a list or bold text reads as it was set.
-    const text = condition.freeText ?? condition.sourceText ?? "";
-    const formatted =
-      tone === "note" && /\n\s*\n|\*\*|^\s*[-*]\s/mu.test(text) ? text : null;
+    const formatted = tone === "note" ? formattedNoteText(condition) : null;
     return (
       <Alert variant={tone === "warning" ? "warning" : "default"}>
         {tone === "warning" ? (
@@ -431,7 +429,9 @@ function StatedCondition({
       }
       status={status}
       title={title}
-      badge={!status && tone === "limit" ? "Limit" : null}
+      badge={
+        !status && tone === "limit" && !context?.limitsStage ? "Limit" : null
+      }
       detail={detail}
       bar={
         status && progress && progress.state !== "unmeasured" ? (
@@ -451,69 +451,6 @@ function StatedCondition({
         </div>
       ) : null}
     </RuleRow>
-  );
-}
-
-/** Academic structures a rule offers, for readers with no chooser of their own. */
-function StructureOptions({
-  condition,
-  academicYear,
-}: {
-  condition: RequirementTreeCondition;
-  academicYear: number | null;
-}) {
-  const options = condition.options.filter(
-    (option) => option.kind !== "course",
-  );
-  return (
-    <section className="px-4 py-3 sm:px-5">
-      <h3 className="text-sm font-medium">{conditionHeading(condition)}</h3>
-      <p className="mt-0.5 text-sm text-muted-foreground">
-        {conditionInterpretation(condition)}
-      </p>
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-        {options.map((option) => {
-          const name = (
-            <span className="min-w-0">
-              <span className="font-mono text-sm font-semibold">
-                {option.code}
-              </span>
-              {option.title ? (
-                <span className="ml-2 text-muted-foreground">
-                  {option.title}
-                </span>
-              ) : null}
-            </span>
-          );
-          // Every catalogue page is addressed by year. Without one there is no
-          // page to send the reader to, so the option reads as plain text.
-          const href =
-            academicYear !== null && isCatalogueKind(option.kind)
-              ? publicCatalogueRecordPath(
-                  option.kind,
-                  academicYear,
-                  option.code,
-                )
-              : null;
-          return (
-            <li key={`${option.kind}-${option.code}`}>
-              {href ? (
-                <Link
-                  href={href}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm transition-colors hover:border-foreground/20 hover:bg-muted/40 motion-reduce:transition-none"
-                >
-                  {name}
-                </Link>
-              ) : (
-                <span className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-sm">
-                  {name}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
   );
 }
 

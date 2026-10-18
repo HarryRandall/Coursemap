@@ -221,10 +221,13 @@ export function CatalogueMarkdown({
   markdown,
   academicYear,
   availableCourseCodes,
+  size = "sm",
 }: {
   markdown: string;
   academicYear: number;
   availableCourseCodes: ReadonlySet<string>;
+  /** `md` for a page given over to reading, where a card's small type tires. */
+  size?: "sm" | "md";
 }) {
   const inline = (text: string) => (
     <Inline
@@ -234,13 +237,23 @@ export function CatalogueMarkdown({
     />
   );
   return (
-    <div className="flex flex-col gap-3 text-sm leading-relaxed text-foreground/80">
+    <div
+      className={
+        size === "md"
+          ? "flex flex-col gap-4 text-[15px] leading-7 text-foreground/85"
+          : "flex flex-col gap-3 text-sm leading-relaxed text-foreground/80"
+      }
+    >
       {markdownBlocks(markdown).map((block, index) => {
         if (block.kind === "heading") {
           return (
             <h3
               key={index}
-              className="pt-1 text-sm font-semibold text-foreground"
+              className={
+                size === "md"
+                  ? "pt-2 text-base font-semibold text-foreground"
+                  : "pt-1 text-sm font-semibold text-foreground"
+              }
             >
               {inline(block.text)}
             </h3>
