@@ -485,3 +485,68 @@ test("the dialog fills in workload, assessment and outcomes once the published c
     vi.unstubAllGlobals();
   }
 });
+
+test("the plan dialog ticks modelled clauses and marks an unmodelled one as unchecked", () => {
+  const clause =
+    "Students enrolled in a Bachelor of Science (BSC) must have successfully completed COMP1600.";
+  const scoped = {
+    ...catalogue,
+    courses: catalogue.courses.map((course) =>
+      course.code === "COMP1110"
+        ? {
+            ...course,
+            incompatibilityRule: null,
+            prerequisiteRule: {
+              ...base,
+              reviewState: "review" as const,
+              confidence: 0,
+              expression: null,
+              relationalExpression: {
+                kind: "group" as const,
+                operator: "all_of" as const,
+                minimumCount: null,
+                conditions: [
+                  {
+                    ...base,
+                    kind: "level_units" as const,
+                    minimumLevel: 1000,
+                    maximumLevel: 1000,
+                    subject: "MATH",
+                    units: 6,
+                  },
+                  {
+                    ...base,
+                    reviewState: "review" as const,
+                    kind: "other" as const,
+                    text: clause,
+                  },
+                ],
+              },
+            },
+          }
+        : course,
+    ),
+  };
+  fixture.attempts = [
+    {
+      id: "maths",
+      courseCode: "MATH1005",
+      termId: "2026-s1",
+      academicYear: 2026,
+      status: "planned",
+    },
+    {
+      id: "target",
+      courseCode: "COMP1110",
+      termId: "2026-s2",
+      academicYear: 2026,
+      status: "planned",
+    },
+  ];
+  render(
+    <CourseDialog attemptId="target" catalogue={scoped} onClose={vi.fn()} />,
+  );
+  expect(screen.getByLabelText("met")).toBeVisible();
+  expect(screen.getByText(clause)).toBeVisible();
+  expect(screen.getByRole("img", { name: "not checked" })).toBeVisible();
+});

@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, CircleQuestionMark } from "lucide-react";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import {
   evaluateRule,
@@ -32,11 +32,24 @@ function groupWord(group: Extract<CourseRuleExpression, { kind: "group" }>) {
   return `${group.minimumCount ?? 1} of`;
 }
 
+/** Marks a clause Coursemap could not check, so the student reads it themselves. */
+export function UncheckedMark() {
+  return (
+    <CircleQuestionMark
+      size={12}
+      strokeWidth={2.5}
+      role="img"
+      aria-label="not checked"
+      className="shrink-0 text-amber-600 dark:text-amber-400"
+    />
+  );
+}
+
 /**
  * One requirement inline: course codes as chips ticked once the plan covers
  * them, groups as "one of" or "all of" runs, and anything else as a short
- * sentence with how the plan stands against it. Without a student every chip
- * stays neutral.
+ * sentence with how the plan stands against it. A clause the plan can't
+ * check carries a question mark. Without a student every chip stays neutral.
  */
 export function RequirementChips({
   node,
@@ -75,6 +88,7 @@ export function RequirementChips({
   }
   const result = student ? evaluateRule(node, student) : null;
   const met = result?.status === "met";
+  const unchecked = result?.status === "unknown";
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-foreground/85">
       {met ? (
@@ -84,6 +98,8 @@ export function RequirementChips({
           aria-label="met"
           className="text-emerald-600 dark:text-emerald-400"
         />
+      ) : unchecked ? (
+        <UncheckedMark />
       ) : null}
       {requisiteSentence(node)}
       {result?.detail ? (

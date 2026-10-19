@@ -119,8 +119,55 @@ test("all required clauses retain permission and unverified wording alongside a 
     ["offering", "soft"],
   ]);
   expect(issues[2].detail).toBe(
-    "Coursemap couldn't check this requirement: read it on the course page",
+    'Coursemap couldn\'t check "Additional requirement": read it on the course page',
   );
+});
+
+test("a rule flagged for review still checks the clauses the importer modelled", () => {
+  const clause =
+    "Students enrolled in a Bachelor of Science (BSC) must have successfully completed:\n\nCOMP1600.";
+  const course = {
+    ...base,
+    prerequisiteRule: {
+      ...rule({
+        kind: "group",
+        operator: "all_of",
+        minimumCount: null,
+        conditions: [
+          {
+            ...metadata,
+            kind: "course",
+            code: "COMP1100",
+            minimumMark: null,
+            requirementMode: "completed",
+          },
+          { ...metadata, kind: "other", text: clause, reviewState: "review" },
+        ],
+      }),
+      reviewState: "review" as const,
+      confidence: 0,
+    },
+  };
+  const prior: Attempt = {
+    ...target,
+    id: "prior",
+    courseCode: "COMP1100",
+    termId: "2026-s1",
+  };
+  // Only the unmodelled clause is left to the student, and it is named.
+  expect(status(course, [prior, target]).issues).toEqual([
+    {
+      code: "unverified",
+      severity: "soft",
+      detail:
+        'Coursemap couldn\'t check "Students enrolled in a Bachelor of Science (BSC) must have successfully completed: COMP1600.": read it on the course page',
+    },
+  ]);
+  // A modelled clause the plan misses is still a hard block.
+  expect(status(course).issues.map((issue) => issue.detail)).toEqual([
+    "Needs COMP1100 first",
+    'Coursemap couldn\'t check "Students enrolled in a Bachelor of Science (BSC) must have successfully completed: COMP1600.": read it on the course page',
+  ]);
 });
 
 test("a satisfied alternative creates no issue for the other option", () => {
@@ -147,7 +194,7 @@ test("a satisfied alternative creates no issue for the other option", () => {
   ).toEqual([]);
 });
 
-test("rules flagged for review stay soft and overload is retained independently", () => {
+test("a modelled condition in a rule flagged for review is checked and overload is retained independently", () => {
   const overloaded = Array.from({ length: 5 }, (_, index) => ({
     ...target,
     id: String(index),
@@ -166,7 +213,7 @@ test("rules flagged for review stay soft and overload is retained independently"
       issue.severity,
     ]),
   ).toEqual([
-    ["unverified", "soft"],
+    ["permission", "soft"],
     ["overload", "soft"],
   ]);
 });
