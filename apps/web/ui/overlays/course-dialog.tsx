@@ -41,6 +41,7 @@ import { FactRow } from "@/ui/overlays/fact-row";
 import {
   PlanCodeChip,
   RequirementChips,
+  UncheckedMark,
 } from "@/ui/overlays/requirement-chips";
 import { useCourseDetails } from "@/lib/coursemap/use-course-details";
 import {
@@ -230,6 +231,8 @@ export function CourseDialog({
   );
   const split = splitRequisiteRule(prerequisite);
   const requirements = split.requirements;
+  // Clauses the importer could not model stay visible, marked as unchecked.
+  const uncheckedNotes = split.notes;
   // An exclusion with a way around it, such as "unless approved", stays a rule.
   const excludedRules = splitRequisiteRule(incompatibility).requirements;
   const excluded = [
@@ -359,7 +362,7 @@ export function CourseDialog({
               </FactRow>
 
               <FactRow label="Requires">
-                {requirements.length > 0 ? (
+                {requirements.length > 0 || uncheckedNotes.length > 0 ? (
                   <span className="flex flex-col items-start gap-2">
                     {requirements.map((node, index) => (
                       <RequirementChips
@@ -367,6 +370,17 @@ export function CourseDialog({
                         node={node}
                         student={checkedStudent}
                       />
+                    ))}
+                    {uncheckedNotes.map((text) => (
+                      <span
+                        key={text}
+                        className="inline-flex items-start gap-1.5 text-xs whitespace-pre-line text-foreground/85"
+                      >
+                        <span className="mt-0.5">
+                          <UncheckedMark />
+                        </span>
+                        {text}
+                      </span>
                     ))}
                   </span>
                 ) : !prerequisite && course.prerequisiteCodes.length > 0 ? (

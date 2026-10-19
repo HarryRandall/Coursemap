@@ -417,11 +417,41 @@ function evaluatePlannedCondition(
 }
 
 /**
- * Parsed and verified rules are both checked, as the course page checks them.
- * Only a rule the importer flagged for review is left to the student to read.
+ * Parsed and verified conditions are both checked, as the course page checks
+ * them. A rule flagged for review is still checked condition by condition, so
+ * only the clauses the importer could not model are left to the student.
  */
 function isCheckable(reviewState: string) {
   return reviewState !== "review";
+}
+
+const UNCHECKED_CLAUSE_LENGTH = 160;
+
+/** The wording of the first clause in an expression that Coursemap left unmodelled. */
+function uncheckedClause(expression: CourseRuleExpression): string | null {
+  if (expression.kind === "group") {
+    for (const condition of expression.conditions) {
+      const clause = uncheckedClause(condition);
+      if (clause) return clause;
+    }
+    return null;
+  }
+  if (expression.kind !== "other") return null;
+  const text = expression.text.replace(/\s+/gu, " ").trim();
+  if (!text) return null;
+  return text.length > UNCHECKED_CLAUSE_LENGTH
+    ? `${text.slice(0, UNCHECKED_CLAUSE_LENGTH - 1).trimEnd()}…`
+    : text;
+}
+
+const UNCHECKED_DETAIL =
+  "Coursemap couldn't check this requirement: read it on the course page";
+
+function uncheckedDetail(expression: CourseRuleExpression | null) {
+  const clause = expression ? uncheckedClause(expression) : null;
+  return clause
+    ? `Coursemap couldn't check "${clause}": read it on the course page`
+    : UNCHECKED_DETAIL;
 }
 
 function evaluateRelationalPrerequisite(
@@ -651,10 +681,7 @@ export function evaluateCoursePrerequisites(
   if (course.prerequisiteRule.hardness === "advisory") {
     return { state: "satisfied", missingCodes: [] };
   }
-  if (
-    !isCheckable(course.prerequisiteRule.reviewState) ||
-    course.prerequisiteRule.relationalExpression === null
-  ) {
+  if (course.prerequisiteRule.relationalExpression === null) {
     return { state: "unknown", missingCodes: [] };
   }
   return evaluateRelationalPrerequisite(
@@ -679,8 +706,7 @@ export function evaluateCourseIncompatibilities(
   )?.incompatibilityRule;
   if (!rule || rule.hardness === "advisory")
     return { state: "satisfied", missingCodes: [] };
-  if (!isCheckable(rule.reviewState) || !rule.relationalExpression)
-    return { state: "unknown", missingCodes: [] };
+  if (!rule.relationalExpression) return { state: "unknown", missingCodes: [] };
   return evaluateRelationalPrerequisite(
     rule.relationalExpression,
     attempt,
@@ -751,11 +777,7 @@ export function coursePlanStatus(
   }
   const course = planningCourseForAttempt(attempt, catalogue);
   if (!course) {
-    add(
-      "unverified",
-      "soft",
-      "Coursemap couldn't check this requirement: read it on the course page",
-    );
+    add("unverified", "soft", UNCHECKED_DETAIL);
     return { lifecycle, issues };
   }
   const record = lazyPlannedRecord(attempt, attempts, catalogue);
@@ -775,38 +797,37 @@ export function coursePlanStatus(
       catalogue,
       record,
     );
-    report(evaluation, code, expression.kind === "group" ? null : expression);
+    report(evaluation, code, expression);
   };
   const report = (
     evaluation: PrerequisiteEvaluation,
     code: "prerequisite" | "incompatibility",
-    expression: Exclude<CourseRuleExpression, { kind: "group" }> | null,
+    expression: CourseRuleExpression | null,
   ) => {
     if (evaluation.state === "satisfied") return;
     if (evaluation.state === "unknown") {
-      add(
-        "unverified",
-        "soft",
-        "Coursemap couldn't check this requirement: read it on the course page",
-      );
-    } else if (evaluation.permissionCanSatisfy) {
+      add("unverified", "soft", uncheckedDetail(expression));
+      return;
+    }
+    const leaf = expression?.kind === "group" ? null : expression;
+    if (evaluation.permissionCanSatisfy) {
       add(
         "permission",
         "soft",
         "Course permission is required before enrolment",
       );
     } else if (
-      expression?.kind === "incompatible" ||
-      expression?.kind === "incompatible_concurrent"
+      leaf?.kind === "incompatible" ||
+      leaf?.kind === "incompatible_concurrent"
     ) {
-      add("incompatibility", "hard", `Can't be taken with ${expression.code}`);
+      add("incompatibility", "hard", `Can't be taken with ${leaf.code}`);
     } else {
       add(
         code,
         "hard",
         evaluation.missingCodes.length > 0
           ? `Needs ${evaluation.missingCodes.join(" and ")} first`
-          : expression?.sourceText ||
+          : leaf?.sourceText ||
               course.prerequisiteText ||
               "A required eligibility condition is not met.",
       );
@@ -817,8 +838,7 @@ export function coursePlanStatus(
     ["incompatibility", course.incompatibilityRule],
   ] as const) {
     if (rule?.hardness === "advisory") continue;
-    if (rule && isCheckable(rule.reviewState) && rule.relationalExpression)
-      check(rule.relationalExpression, code);
+    if (rule?.relationalExpression) check(rule.relationalExpression, code);
     else if (
       code === "prerequisite" &&
       rule === undefined &&
