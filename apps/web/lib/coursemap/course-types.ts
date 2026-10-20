@@ -65,6 +65,8 @@ export type CourseRuleExpression =
     })
   | (CourseRuleConditionBase & {
       kind: "filtered_units";
+      /** Additional named courses accepted outside the subject and level filter. */
+      courseCodes?: string[] | null;
       subjects: string[] | null;
       levels: number[] | null;
       units: number;

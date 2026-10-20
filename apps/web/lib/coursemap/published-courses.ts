@@ -978,6 +978,9 @@ function readProjectionCourseRule(
       return {
         ...base,
         kind: "filtered_units",
+        ...(condition.courseSetCodes.length
+          ? { courseCodes: condition.courseSetCodes }
+          : {}),
         subjects: condition.subjectCodes,
         levels: condition.courseLevels,
         units: condition.units,

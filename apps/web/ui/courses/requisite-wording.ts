@@ -155,6 +155,7 @@ function filteredUnits(
   return `${condition.units} units of ${courseFilterLabel({
     subjectCodes: condition.subjects,
     courseLevels: condition.levels,
+    includeCourseCodes: condition.courseCodes,
   })}`;
 }
 

@@ -288,7 +288,10 @@ export function evaluateCondition(
     case "course_count": {
       const { completed, enrolled } = matchingCourses(
         student,
-        { subjectCodes: condition.subjects, courseLevels: condition.levels },
+        {
+          subjectCodes: condition.subjects,
+          courseLevels: condition.levels,
+        },
         condition.requirementMode === "completed_or_concurrent",
       );
       const count = completed.length + enrolled.length;
@@ -309,7 +312,11 @@ export function evaluateCondition(
     case "filtered_units": {
       const { completed, enrolled } = matchingCourses(
         student,
-        { subjectCodes: condition.subjects, courseLevels: condition.levels },
+        {
+          subjectCodes: condition.subjects,
+          courseLevels: condition.levels,
+          includeCourseCodes: condition.courseCodes,
+        },
         condition.requirementMode === "completed_or_concurrent",
       );
       let units = completed.reduce(

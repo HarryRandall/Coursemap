@@ -573,6 +573,10 @@ function storedConditionToView(
             ...(condition.kind === "course_count"
               ? { courseCount: condition.courseCount }
               : { units: condition.units }),
+            ...(condition.kind === "filtered_units" &&
+            condition.courseCodes?.length
+              ? { courseCodes: condition.courseCodes }
+              : {}),
             subjectCodes: condition.subjectCodes ?? null,
             courseLevels: condition.courseLevels ?? null,
             courseRequirementMode:
@@ -986,12 +990,20 @@ function normaliseCondition(
           },
         };
       }
+      const courseCodes = (condition.courseCodes ?? []).map((code) =>
+        code.trim().toUpperCase(),
+      );
+      if (courseCodes.some((code) => !COURSE_CODE_PATTERN.test(code)))
+        return { message: "Choose valid additional course codes." };
+      if (new Set(courseCodes).size !== courseCodes.length)
+        return { message: "Each additional course must be listed once." };
       const units = Number(condition.units);
       if (!Number.isFinite(units) || units <= 0)
         return { message: "Units must be greater than zero." };
       return {
         condition: {
           kind: "filtered_units",
+          ...(courseCodes.length ? { courseCodes } : {}),
           units,
           subjectCodes: subjects,
           courseLevels: levels,
@@ -1171,6 +1183,8 @@ function filteredConditionSummary(condition: ReviewedConditionView) {
   const filter = {
     subjectCodes: condition.subjectCodes ?? null,
     courseLevels: condition.courseLevels ?? null,
+    includeCourseCodes:
+      condition.kind === "filtered_units" ? condition.courseCodes : null,
   };
   const concurrent =
     condition.courseRequirementMode === "completed_or_concurrent"

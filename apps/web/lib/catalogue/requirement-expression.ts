@@ -110,6 +110,7 @@ function conditionExpression(
         return {
           ...base,
           kind: "filtered_units",
+          ...(optionCodes.length ? { courseCodes: optionCodes } : {}),
           subjects: condition.subjectCodes ?? null,
           levels: condition.courseLevels ?? null,
           units,
