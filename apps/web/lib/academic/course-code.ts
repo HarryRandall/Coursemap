@@ -39,11 +39,14 @@ export function courseMatchesLevel(code: string, level: number): boolean {
 export type CourseFilter = {
   subjectCodes: readonly string[] | null;
   courseLevels: readonly number[] | null;
+  /** Named alternatives outside the subject and level filter. */
+  includeCourseCodes?: readonly string[] | null;
 };
 
 export function courseMatchesFilter(code: string, filter: CourseFilter) {
   const subject = courseSubjectForCode(code);
   if (subject === null) return false;
+  if (filter.includeCourseCodes?.includes(code)) return true;
   if (filter.subjectCodes && !filter.subjectCodes.includes(subject))
     return false;
   return (
@@ -67,5 +70,8 @@ export function courseFilterLabel(filter: CourseFilter, isSingular = false) {
   const levels = filter.courseLevels?.length
     ? ` at ${listWithOr(filter.courseLevels)} level`
     : "";
-  return `${subjects}${noun}${levels}`;
+  const exceptions = filter.includeCourseCodes?.length
+    ? ` or ${listWithOr(filter.includeCourseCodes)}`
+    : "";
+  return `${subjects}${noun}${levels}${exceptions}`;
 }

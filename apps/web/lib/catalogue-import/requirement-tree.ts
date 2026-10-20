@@ -110,7 +110,8 @@ export function treeFromRequirementWrite(
           units: condition.minimumUnits,
           courseCount: condition.minimumCount,
           courseCodes:
-            condition.kind === "course_set_units"
+            condition.kind === "course_set_units" ||
+            condition.kind === "filtered_units"
               ? optionsFor(condition.key)
               : (condition.kind === "gpa" || condition.kind === "wam") &&
                   optionsFor(condition.key).length
