@@ -1,3 +1,4 @@
+import type { TdUnits } from "./td-designation";
 export type RequisiteCondition =
   | {
       kind: "course";
@@ -38,6 +39,7 @@ export type RequisiteExpression =
     };
 
 export type CompletedRequisiteCourse = {
+  tdUnits?: TdUnits;
   code: string;
   units: number;
   /** The tags on the version the student completed. */

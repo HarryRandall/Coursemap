@@ -1,3 +1,4 @@
+import { TD_TAG, type TdUnits } from "./td-designation";
 import {
   collegeEnrolmentStatus,
   type ProgrammeCollege,
@@ -50,6 +51,7 @@ export type StudentRecord = {
       mark: number | null;
       resultCode?: string;
       tags?: readonly string[];
+      tdUnits?: TdUnits;
     }
   >;
   /** Courses taken this semester, which satisfy a concurrent requisite. */
@@ -520,6 +522,34 @@ export function evaluateCondition(
     case "tagged_units": {
       // A tag is one category however it is capitalised.
       const wanted = condition.tag.toLowerCase();
+      if (wanted === TD_TAG.toLowerCase()) {
+        let confirmed = 0;
+        let unknown = 0;
+        for (const result of student.completed.values()) {
+          const fallback = result.tags?.some(
+            (tag) => tag.toLowerCase() === wanted,
+          )
+            ? result.units
+            : 0;
+          confirmed += result.tdUnits?.confirmed ?? fallback;
+          unknown += result.tdUnits?.unknown ?? 0;
+        }
+        if (
+          confirmed < condition.units &&
+          confirmed + unknown >= condition.units
+        )
+          return {
+            status: "unknown",
+            measure: {
+              kind: "units",
+              value: confirmed,
+              target: condition.units,
+            },
+            detail:
+              "Review the transdisciplinary designation for the year of completed study.",
+          };
+        return unitsEvaluation(confirmed, condition.units);
+      }
       return unitsEvaluation(
         unitsWhere(student, (_code, tags) =>
           tags.some((tag) => tag.toLowerCase() === wanted),
@@ -667,6 +697,7 @@ export function studentRecord({
           ? { resultCode: gradeByCode.get(course.code.toUpperCase()) }
           : {}),
         tags: course.tags ?? [],
+        tdUnits: course.tdUnits,
       },
     ]),
   );

@@ -20,6 +20,7 @@ import type {
 import type { AppState } from "@/app/providers";
 import { requirementCourseStatus } from "@/lib/coursemap/requirement-display";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
+import { RequirementCondition } from "@/ui/requirements/requirement-condition";
 
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 
@@ -685,3 +686,144 @@ test.each([undefined, 6])(
     expect(within(progress).getByText("0 / 144 units completed")).toBeVisible();
   },
 );
+
+test("uncertain historical designation is visible without awarding unknown credit", () => {
+  const td: PlanRequirementCondition = {
+    ...condition,
+    conditionKind: "tagged_units",
+    minimumCourses: null,
+    minimumUnits: 12,
+    options: [],
+    scope: "degree",
+    tag: "Transdisciplinary Problem-Solving",
+  };
+  render(
+    <RequirementCondition
+      condition={td}
+      context={{
+        catalogue,
+        attemptStatusByCode: new Map(),
+        selectedStructureCodes: new Set(),
+        progress: new Map([
+          [
+            "condition-1",
+            {
+              key: "condition-1",
+              state: "unmeasured",
+              targetUnits: 12,
+              maximumUnits: null,
+              targetCourses: null,
+              completedUnits: 6,
+              plannedUnits: 0,
+              matchedCourseCodes: ["COMP1100"],
+              designationReview: {
+                unknownUnits: 6,
+                detail:
+                  "6 completed units need their transdisciplinary designation checked.",
+              },
+            },
+          ],
+        ]),
+      }}
+    />,
+  );
+  expect(screen.getByText("Review designation")).toBeVisible();
+  expect(
+    screen.getByText(
+      /6 completed units need their transdisciplinary designation checked/,
+    ),
+  ).toBeVisible();
+  expect(screen.queryByText("Complete")).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+test("a catalogue preview does not display a student's designation review", () => {
+  render(
+    <RequirementCondition
+      condition={{
+        ...condition,
+        conditionKind: "tagged_units",
+        minimumCourses: null,
+        minimumUnits: 12,
+        options: [],
+        scope: "degree",
+        tag: "Transdisciplinary Problem-Solving",
+      }}
+      context={{
+        catalogue,
+        showPlanProgress: false,
+        attemptStatusByCode: new Map(),
+        selectedStructureCodes: new Set(),
+        progress: new Map([
+          [
+            "condition-1",
+            {
+              key: "condition-1",
+              state: "unmeasured",
+              targetUnits: 12,
+              maximumUnits: null,
+              targetCourses: null,
+              completedUnits: 6,
+              plannedUnits: 0,
+              matchedCourseCodes: [],
+              designationReview: {
+                unknownUnits: 6,
+                detail: "Historical designation needs review.",
+              },
+            },
+          ],
+        ]),
+      }}
+    />,
+  );
+  expect(screen.queryByText("Review designation")).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("Historical designation needs review."),
+  ).not.toBeInTheDocument();
+});
+
+test("an unresolved designation does not overstate the exact remaining units", () => {
+  render(
+    <RequirementCondition
+      condition={{
+        ...condition,
+        conditionKind: "tagged_units",
+        minimumCourses: null,
+        minimumUnits: 12,
+        options: [],
+        scope: "degree",
+        tag: "Transdisciplinary Problem-Solving",
+      }}
+      context={{
+        catalogue,
+        attemptStatusByCode: new Map(),
+        selectedStructureCodes: new Set(),
+        progress: new Map([
+          [
+            "condition-1",
+            {
+              key: "condition-1",
+              state: "not_started",
+              targetUnits: 12,
+              maximumUnits: null,
+              targetCourses: null,
+              completedUnits: 0,
+              plannedUnits: 0,
+              matchedCourseCodes: [],
+              designationReview: {
+                unknownUnits: 6,
+                affectsResult: false,
+                detail:
+                  "6 completed units need their transdisciplinary designation checked.",
+              },
+            },
+          ],
+        ]),
+      }}
+    />,
+  );
+  expect(screen.getByText("6 to 12 units to plan")).toBeInTheDocument();
+  expect(
+    screen.queryByText("12 units to plan", { exact: true }),
+  ).not.toBeInTheDocument();
+});

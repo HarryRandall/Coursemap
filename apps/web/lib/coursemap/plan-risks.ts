@@ -35,8 +35,17 @@ export function planRisks({
   catalogue: PlanningCatalogue;
   progress: DegreeUnitProgress;
 }): PlanRisk[] {
-  const shortfalls = buckets.flatMap((bucket) => {
+  const shortfalls = buckets.flatMap<PlanRisk>((bucket) => {
     const { status, label } = requirementBucketStatus(bucket);
+    if (status === "review" && bucket.designationReview)
+      return [
+        {
+          id: `bucket-${bucket.key}`,
+          title: bucket.title,
+          detail: bucket.designationReview.detail,
+          severity: "info" as const,
+        },
+      ];
     if (status !== "short") return [];
     return [
       {

@@ -40,6 +40,12 @@ import {
   loadAttemptVersions,
 } from "@/lib/coursemap/plan-reads";
 import { collectPlanCatalogueRecordIds } from "@/lib/coursemap/plan-course-ids";
+import {
+  loadAttemptCalendarYears,
+  loadOwnedAttemptProjections,
+  loadPublishedTdDesignations,
+} from "./historical-td-evidence";
+import type { HistoricalTdContext } from "./td-designation";
 
 export type PlanCatalogue = {
   academicYear: number | null;
@@ -50,6 +56,7 @@ export type PlanCatalogue = {
   courses: Course[];
   /** Snapshot-pinned course rows used only by recorded attempts. */
   snapshotCourses?: Course[];
+  historicalTd?: HistoricalTdContext;
   terms: Term[];
   degrees: Degree[];
   majors: Major[];
@@ -177,7 +184,12 @@ type RequirementOptionRow =
   Database["public"]["Tables"]["requirement_condition_options"]["Row"];
 type PlanCourseRow = { catalogue_record_id: number };
 type PlanStructureRow = { catalogue_record_id: number };
-type AttemptCourseRow = { catalogue_version_id: number };
+type AttemptCourseRow = {
+  id: string;
+  catalogue_version_id: number;
+  academic_period_id: number | null;
+  status: string;
+};
 type AttemptVersionRow = {
   id: number;
   record_id: number;
@@ -793,22 +805,19 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
       ),
     ),
   ];
-  const [publishedCatalogue, projectionsResult] = await Promise.all([
-    loadPublishedPlanCatalogue(
-      year.year,
-      selections,
-      planStructures.map((structure) => structure.catalogue_record_id),
-    ),
-    // Attempts pinned to a version the catalogue does not list need their own
-    // projection. Reading every attempt's alongside the catalogue, then
-    // dropping the listed ones, saves waiting for the catalogue first.
-    versionIds.length
-      ? supabase.rpc("current_user_course_attempt_version_projections", {
-          p_version_ids: versionIds,
-        })
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-  if (projectionsResult.error) throw projectionsResult.error;
+  const [publishedCatalogue, projections, actualYearByAttemptId] =
+    await Promise.all([
+      loadPublishedPlanCatalogue(
+        year.year,
+        selections,
+        planStructures.map((structure) => structure.catalogue_record_id),
+      ),
+      // Attempts pinned to a version the catalogue does not list need their own
+      // projection. Reading every attempt's alongside the catalogue, then
+      // dropping the listed ones, saves waiting for the catalogue first.
+      loadOwnedAttemptProjections(versionIds),
+      loadAttemptCalendarYears(courseAttempts),
+    ]);
   const catalogue = {
     ...publishedCatalogue,
     commencementYear: plan.commencement_year,
@@ -821,10 +830,35 @@ export async function loadCurrentUserPlanCatalogue(): Promise<PlanCatalogue> {
       course.snapshotId === undefined ? [] : [course.snapshotId],
     ),
   );
-  const snapshotCourses = (projectionsResult.data ?? []).flatMap((row) => {
-    if (publishedVersionIds.has(row.version_id)) return [];
+  const trustedCourses = projections.flatMap((row) => {
     const course = courseFromSnapshotProjection(row.projection, row.version_id);
     return course ? [planCourseFromDetails(course)] : [];
   });
-  return { ...catalogue, snapshotCourses };
+  const courseBySnapshotId = new Map(
+    trustedCourses.map((course) => [course.snapshotId, course]),
+  );
+  const designationByCourseYear = await loadPublishedTdDesignations(
+    courseAttempts.flatMap((attempt) => {
+      const course = courseBySnapshotId.get(attempt.catalogue_version_id);
+      const actualYear = actualYearByAttemptId[attempt.id];
+      return attempt.status === "completed" &&
+        course &&
+        actualYear !== undefined
+        ? [{ code: course.code, year: actualYear }]
+        : [];
+    }),
+  );
+  return {
+    ...catalogue,
+    snapshotCourses: trustedCourses.filter(
+      (course) => !publishedVersionIds.has(course.snapshotId!),
+    ),
+    historicalTd: {
+      trustedSnapshotIds: trustedCourses.flatMap((course) =>
+        course.snapshotId === undefined ? [] : [course.snapshotId],
+      ),
+      actualYearByAttemptId,
+      designationByCourseYear,
+    },
+  };
 }

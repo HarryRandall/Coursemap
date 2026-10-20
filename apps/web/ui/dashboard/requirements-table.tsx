@@ -21,6 +21,7 @@ const STATUS_VARIANT = {
   complete: "success",
   scheduled: "default",
   short: "warning",
+  review: "warning",
   untargeted: "outline",
 } as const;
 
@@ -54,6 +55,11 @@ export function RequirementsTable({
                 <span title={bucket.description || bucket.title}>
                   {bucket.title}
                 </span>
+                {status === "review" ? (
+                  <p className="mt-1 text-xs font-normal text-muted-foreground">
+                    {bucket.designationReview?.detail}
+                  </p>
+                ) : null}
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {bucket.kind}

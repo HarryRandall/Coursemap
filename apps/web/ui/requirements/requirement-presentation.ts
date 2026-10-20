@@ -568,7 +568,13 @@ function statusFromProgress(
     progress.completedUnits,
     progress.plannedUnits,
     { value: used, target, unit: "units" },
-    (missing) => `${formatUnits(missing)} to plan`,
+    (missing) => {
+      const possible = progress.designationReview?.unknownUnits ?? 0;
+      const minimum = Math.max(0, missing - possible);
+      return possible > 0 && minimum > 0
+        ? `${minimum.toLocaleString("en-AU", { maximumFractionDigits: 2 })} to ${formatUnits(missing)} to plan`
+        : `${formatUnits(missing)} to plan`;
+    },
   );
 }
 
