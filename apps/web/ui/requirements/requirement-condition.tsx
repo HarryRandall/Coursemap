@@ -397,6 +397,7 @@ function StatedCondition({
       : spansDegree(condition)
         ? "Counts across the whole degree"
         : null,
+    showProgress ? progress?.designationReview?.detail : null,
     note,
   ]
     .filter(Boolean)
@@ -430,7 +431,13 @@ function StatedCondition({
       status={status}
       title={title}
       badge={
-        !status && tone === "limit" && !context?.limitsStage ? "Limit" : null
+        showProgress &&
+        progress?.designationReview &&
+        progress.state === "unmeasured"
+          ? "Review designation"
+          : !status && tone === "limit" && !context?.limitsStage
+            ? "Limit"
+            : null
       }
       detail={detail}
       bar={

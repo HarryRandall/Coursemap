@@ -3,6 +3,17 @@ import { getAuthViewer } from "@/lib/auth/viewer";
 import { createClient } from "@/lib/supabase/server";
 import type { CompletedRequisiteCourse } from "./requisite-summary";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
+import { courseFromSnapshotProjection } from "./published-courses";
+import {
+  loadAttemptCalendarYears,
+  loadOwnedAttemptProjections,
+  loadPublishedTdDesignations,
+} from "./historical-td-evidence";
+import {
+  effectiveTdDesignation,
+  tdUnitsForDesignation,
+  type HistoricalTdContext,
+} from "./td-designation";
 import {
   programmeCareerFromAcademicCareer,
   type ProgrammeCareerRecord,
@@ -20,11 +31,11 @@ export type RequisiteCompletionSnapshot = {
 };
 
 type AttemptRow = {
+  id: string;
+  academic_period_id: number | null;
   catalogue_version_id: number;
   units_earned: number;
 };
-
-type CourseRow = { code: string; id: number };
 
 /**
  * This intentionally reads only completed attempts. A planned or enrolled
@@ -44,83 +55,74 @@ export async function loadCurrentUserRequisiteCompletion(): Promise<RequisiteCom
     const supabase = await createClient();
     const { data: attempts, error: attemptsError } = await supabase
       .from("course_attempts")
-      .select("catalogue_version_id,units_earned")
+      .select("id,catalogue_version_id,academic_period_id,units_earned")
       .eq("owner_id", viewer.id)
       .eq("status", "completed");
     if (attemptsError) throw attemptsError;
 
     const attemptRows = (attempts ?? []) as AttemptRow[];
-    const versionIds = attemptRows.map(
-      (attempt) => attempt.catalogue_version_id,
+    const [projections, actualYearByAttemptId] = await Promise.all([
+      loadOwnedAttemptProjections(
+        attemptRows.map((attempt) => attempt.catalogue_version_id),
+      ),
+      loadAttemptCalendarYears(attemptRows),
+    ]);
+    const trustedCourses = projections.flatMap((row) => {
+      const course = courseFromSnapshotProjection(
+        row.projection,
+        row.version_id,
+      );
+      return course ? [course] : [];
+    });
+    const courseByVersionId = new Map(
+      trustedCourses.map((course) => [course.snapshotId, course]),
     );
-    const { data: versions, error: versionsError } = versionIds.length
-      ? await supabase
-          .from("catalogue_versions")
-          .select("id,record_id")
-          .in("id", versionIds)
-      : { data: [], error: null };
-    if (versionsError) throw versionsError;
-    const recordIds = (versions ?? []).map((version) => version.record_id);
-    const { data: records, error: recordsError } = recordIds.length
-      ? await supabase
-          .from("catalogue_records")
-          .select("id,code_id")
-          .in("id", recordIds)
-      : { data: [], error: null };
-    if (recordsError) throw recordsError;
-    const codeIdByRecordId = new Map(
-      (records ?? []).map((record) => [record.id, record.code_id]),
-    );
-    const codeIdByVersionId = new Map(
-      (versions ?? []).map((version) => [
-        version.id,
-        codeIdByRecordId.get(version.record_id),
-      ]),
-    );
-    const courseIds = [...new Set(codeIdByRecordId.values())];
-    const { data: courses, error: coursesError } = courseIds.length
-      ? await supabase
-          .from("catalogue_codes")
-          .select("code,id")
-          .in("id", courseIds)
-      : { data: [], error: null };
-    if (coursesError) throw coursesError;
-
-    const codeByCourseId = new Map(
-      ((courses ?? []) as CourseRow[]).map((course) => [
-        course.id,
-        course.code,
-      ]),
-    );
-    // A tagged-units rule counts the tags of the version actually completed.
-    const { data: tagRows, error: tagsError } = versionIds.length
-      ? await supabase
-          .from("course_tags")
-          .select("version_id,name")
-          .in("version_id", versionIds)
-      : { data: [], error: null };
-    if (tagsError) throw tagsError;
-    const tagsByVersionId = new Map<number, string[]>();
-    for (const row of tagRows ?? []) {
-      tagsByVersionId.set(row.version_id, [
-        ...(tagsByVersionId.get(row.version_id) ?? []),
-        row.name,
-      ]);
-    }
+    const historicalTd: HistoricalTdContext = {
+      trustedSnapshotIds: trustedCourses.flatMap((course) =>
+        course.snapshotId === undefined ? [] : [course.snapshotId],
+      ),
+      actualYearByAttemptId,
+      designationByCourseYear: await loadPublishedTdDesignations(
+        attemptRows.flatMap((attempt) => {
+          const course = courseByVersionId.get(attempt.catalogue_version_id);
+          const year = actualYearByAttemptId[attempt.id];
+          return course && year !== undefined
+            ? [{ code: course.code, year }]
+            : [];
+        }),
+      ),
+    };
     const programmeContext = await loadEnrolledProgrammeContext(
       supabase,
       viewer.id,
     );
     return {
       completedCourses: attemptRows.flatMap((attempt) => {
-        const codeId = codeIdByVersionId.get(attempt.catalogue_version_id);
-        const code = codeId ? codeByCourseId.get(codeId) : undefined;
-        return code && attempt.units_earned > 0
+        const course = courseByVersionId.get(attempt.catalogue_version_id);
+        const designation = course
+          ? effectiveTdDesignation(
+              {
+                attemptId: attempt.id,
+                code: course.code,
+                status: "completed",
+                snapshotId: course.snapshotId,
+                snapshotYear: course.year,
+                tags: course.tags,
+              },
+              historicalTd,
+            )
+          : undefined;
+        return course && attempt.units_earned > 0
           ? [
               {
-                code,
+                code: course.code,
                 units: attempt.units_earned,
-                tags: tagsByVersionId.get(attempt.catalogue_version_id) ?? [],
+                tags: course.tags,
+                tdUnits: tdUnitsForDesignation(
+                  attempt.units_earned,
+                  designation,
+                  course.tags,
+                ),
               },
             ]
           : [];

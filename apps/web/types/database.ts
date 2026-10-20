@@ -5133,6 +5133,17 @@ export type Database = {
         Args: { p_academic_year?: number; p_kind?: string; p_value?: string }
         Returns: Json
       }
+      published_course_td_designation_evidence: {
+        Args: { p_selections: Json }
+        Returns: {
+          academic_year: number
+          code: string
+          provenance: Json
+          record_id: number
+          snapshot_id: number
+          tags: string[]
+        }[]
+      }
       published_fee_reference_courses: {
         Args: { academic_year: number }
         Returns: Json

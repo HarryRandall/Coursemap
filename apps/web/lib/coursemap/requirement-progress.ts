@@ -1,3 +1,8 @@
+import {
+  isTdTag,
+  tdDesignationForAttempt,
+  type TdDesignation,
+} from "./td-designation";
 import type {
   PlanRequirementCondition,
   PlanRequirementGroup,
@@ -12,7 +17,14 @@ import {
   type PlanningCatalogue,
 } from "@/lib/planner";
 
+export type DesignationReview = {
+  unknownUnits: number;
+  detail: string;
+  affectsResult?: boolean;
+};
+
 export type RequirementBucketProgress = {
+  designationReview?: DesignationReview;
   key: string;
   satisfiedByOverride?: boolean;
   title: string;
@@ -32,6 +44,7 @@ type MatchableCourse = {
   subject: string;
   level: number;
   tags?: readonly string[];
+  tdDesignation?: TdDesignation;
 };
 type CoursePredicate = (course: MatchableCourse) => boolean;
 
@@ -97,6 +110,22 @@ function conditionPredicates(
     );
   } else if (condition.conditionKind === "tagged_units" && condition.tag) {
     // A tag is one category however it is capitalised.
+    if (isTdTag(condition.tag)) {
+      predicates.push(
+        (course) =>
+          (course.tdDesignation === undefined
+            ? (course.tags ?? []).some(
+                (tag) => tag.toLowerCase() === condition.tag!.toLowerCase(),
+              )
+            : course.tdDesignation === "member") &&
+          levelWithin(
+            course.level,
+            condition.minimumLevel,
+            condition.maximumLevel,
+          ),
+      );
+      return predicates;
+    }
     const tag = condition.tag.toLowerCase();
     predicates.push(
       (course) =>
@@ -189,6 +218,13 @@ function nodeRepeatAllowances(node: PlanRequirementNode): Map<string, number> {
 
 function repeatableCourseCodes(node: PlanRequirementNode | null) {
   return new Set(node ? nodeRepeatAllowances(node).keys() : []);
+}
+
+function containsTdRequirement(node: PlanRequirementNode): boolean {
+  return node.type === "group"
+    ? node.children.some(containsTdRequirement)
+    : node.conditionKind === "tagged_units" &&
+        Boolean(node.tag && isTdTag(node.tag));
 }
 
 function collectPredicates(node: PlanRequirementNode): CoursePredicate[] {
@@ -357,17 +393,20 @@ export function requirementBucketProgress({
     repeatableCourseCodes(root),
   );
 
-  const overriddenProgress = overrides.some(
-    (item) => item.structureCode === programme?.structureCode,
-  )
-    ? requirementTreeProgress({
-        root,
-        attempts,
-        catalogue,
-        overrides,
-        structureCode: programme?.structureCode,
-      })
-    : null;
+  const hasTdUncertainty =
+    containsTdRequirement(root) &&
+    credited.some((entry) => entry.course.tdDesignation === "unknown");
+  const overriddenProgress =
+    hasTdUncertainty ||
+    overrides.some((item) => item.structureCode === programme?.structureCode)
+      ? requirementTreeProgress({
+          root,
+          attempts,
+          catalogue,
+          overrides,
+          structureCode: programme?.structureCode,
+        })
+      : null;
   return buckets.map(({ node, title, description }) => {
     const predicates = countableBucketPredicates(node, credited);
     const allowances = nodeRepeatAllowances(node);
@@ -383,13 +422,32 @@ export function requirementBucketProgress({
       if (attempt.status === "completed") completedUnits += units;
       else plannedUnits += units;
     });
-    const overrideProgress = overriddenProgress?.get(requirementNodeKey(node));
+    const overrideProgress =
+      containsTdRequirement(node) ||
+      overrides.some((item) => item.structureCode === programme?.structureCode)
+        ? overriddenProgress?.get(requirementNodeKey(node))
+        : undefined;
     if (overrideProgress) {
       completedUnits = overrideProgress.completedUnits;
       plannedUnits = overrideProgress.plannedUnits;
     }
+    const reviewForNode = (
+      candidate: PlanRequirementNode,
+    ): DesignationReview | undefined => {
+      const result = overriddenProgress?.get(requirementNodeKey(candidate));
+      if (result?.designationReview) return result.designationReview;
+      return candidate.type === "group"
+        ? candidate.children.map(reviewForNode).find(Boolean)
+        : undefined;
+    };
+    const designationReview =
+      overrideProgress &&
+      !["satisfied", "done-by-override"].includes(overrideProgress.state)
+        ? reviewForNode(node)
+        : undefined;
     return {
       key: `${node.type}-${node.id}`,
+      ...(designationReview ? { designationReview } : {}),
       ...(overrideProgress
         ? {
             satisfiedByOverride:
@@ -427,6 +485,7 @@ export type RequirementNodeState =
   | "unmeasured";
 
 export type RequirementNodeProgress = {
+  designationReview?: DesignationReview;
   key: string;
   state: RequirementNodeState;
   override?: RequirementOverride;
@@ -473,15 +532,31 @@ export function creditedAttempts(
   attempts: readonly Attempt[],
   catalogue: PlanningCatalogue,
   repeatable: ReadonlySet<string> = NO_REPEATS,
+  tdPossibility = false,
 ): CreditedAttempt[] {
   const { first, repeats } = activeAttempts(attempts, repeatable);
   const credit = (attempt: Attempt, repeat: boolean): CreditedAttempt[] => {
     const course = planningCourseForAttempt(attempt, catalogue);
     if (!course) return [];
+    const designation = tdDesignationForAttempt(
+      attempt,
+      course,
+      catalogue.historicalTd,
+    );
+    const effectiveCourse =
+      designation === undefined
+        ? course
+        : {
+            ...course,
+            tdDesignation:
+              tdPossibility && designation === "unknown"
+                ? ("member" as const)
+                : designation,
+          };
     return [
       {
         attempt,
-        course,
+        course: effectiveCourse,
         units: unitsForAttempt(attempt, course),
         ...(repeat ? { repeat: true as const } : {}),
       },
@@ -758,6 +833,7 @@ function allocateSingleAlternative({
   catalogue,
   pins = new Map(),
   overrides = [],
+  tdPossibility = false,
 }: {
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
@@ -765,6 +841,7 @@ function allocateSingleAlternative({
   /** A student's chosen part for a course, by course code. */
   pins?: ReadonlyMap<string, string>;
   overrides?: readonly RequirementOverride[];
+  tdPossibility?: boolean;
 }): RequirementAllocation {
   const placements = new Map<string, CoursePlacement>();
   if (!root) return placements;
@@ -775,7 +852,12 @@ function allocateSingleAlternative({
     (leaf) => !overriddenKeys.has(leaf.node.projectionKey),
   );
   const credited = orderedCredit(
-    creditedAttempts(attempts, catalogue, repeatableCourseCodes(root)),
+    creditedAttempts(
+      attempts,
+      catalogue,
+      repeatableCourseCodes(root),
+      tdPossibility,
+    ),
   );
 
   // Caps across the degree decide what may count at all. Further attempts of
@@ -904,12 +986,14 @@ export function allocateRequirements({
   catalogue,
   pins = new Map(),
   overrides = [],
+  tdPossibility = false,
 }: {
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
   pins?: ReadonlyMap<string, string>;
   overrides?: readonly RequirementOverride[];
+  tdPossibility?: boolean;
 }): RequirementAllocation {
   if (!root) return new Map();
   const alternatives = allocationAlternatives(root) as PlanRequirementGroup[];
@@ -922,6 +1006,7 @@ export function allocateRequirements({
       catalogue,
       pins,
       overrides,
+      tdPossibility,
     });
     const progress = requirementTreeProgress({
       root: alternative,
@@ -930,6 +1015,8 @@ export function allocateRequirements({
       allocation,
       overrides,
       structureCode: overrides[0]?.structureCode,
+      tdPossibility,
+      measureTdUncertainty: false,
     });
     const nodes = [...progress.values()];
     const rootProgress = progress.get(requirementNodeKey(root));
@@ -1234,9 +1321,13 @@ export function requirementTreeProgress({
   allocation,
   overrides = [],
   structureCode,
+  tdPossibility = false,
+  measureTdUncertainty = true,
 }: {
   overrides?: readonly RequirementOverride[];
   structureCode?: string;
+  tdPossibility?: boolean;
+  measureTdUncertainty?: boolean;
   root: PlanRequirementGroup | null;
   attempts: readonly Attempt[];
   catalogue: PlanningCatalogue;
@@ -1249,6 +1340,7 @@ export function requirementTreeProgress({
     attempts,
     catalogue,
     repeatableCourseCodes(root),
+    tdPossibility,
   );
   const requirementKeys = new Set(
     [...requirementConditionsByKey(root).values()].map(
@@ -1273,6 +1365,7 @@ export function requirementTreeProgress({
       attempts,
       catalogue,
       overrides: scopedOverrides,
+      tdPossibility,
     });
   const rootProgress = groupProgress(
     allocationRoot(root),
@@ -1306,11 +1399,139 @@ export function requirementTreeProgress({
       rootProgress.state = "over_limit";
   }
   progress.set(rootProgress.key, rootProgress);
+  if (
+    measureTdUncertainty &&
+    containsTdRequirement(root) &&
+    credited.some((entry) => entry.course.tdDesignation === "unknown")
+  ) {
+    const pins = new Map(
+      [...placements].flatMap(([code, placement]) =>
+        placement.pinned && placement.nodeKey
+          ? [[code, placement.nodeKey] as const]
+          : [],
+      ),
+    );
+    const possibleAllocation = allocateRequirements({
+      root,
+      attempts,
+      catalogue,
+      pins,
+      overrides: scopedOverrides,
+      tdPossibility: true,
+    });
+    const possible = requirementTreeProgress({
+      root,
+      attempts,
+      catalogue,
+      allocation: possibleAllocation,
+      overrides: scopedOverrides,
+      structureCode,
+      tdPossibility: true,
+      measureTdUncertainty: false,
+    });
+    const update = (node: PlanRequirementNode): boolean => {
+      const lower = progress.get(requirementNodeKey(node));
+      if (!lower || lower.state === "done-by-override") return false;
+      if (node.type === "condition") {
+        if (
+          node.conditionKind !== "tagged_units" ||
+          !node.tag ||
+          !isTdTag(node.tag)
+        )
+          return false;
+        const upper = possible.get(lower.key);
+        // An optimistic TD cap may exclude precisely the units whose
+        // designation is unknown. That exclusion is itself uncertain.
+        const uncertainCapUnits =
+          node.maximumUnits === null
+            ? 0
+            : credited
+                .filter(
+                  (entry) =>
+                    entry.course.tdDesignation === "unknown" &&
+                    entry.attempt.status === "completed" &&
+                    !entry.repeat &&
+                    levelWithin(
+                      entry.course.level,
+                      node.minimumLevel,
+                      node.maximumLevel,
+                    ) &&
+                    (countsInDegree(entry, placements) ||
+                      possibleAllocation.get(entry.course.code)?.overCapKey ===
+                        lower.key),
+                )
+                .reduce((sum, entry) => sum + entry.units, 0);
+        const unknownUnits = Math.max(
+          uncertainCapUnits,
+          0,
+          (upper?.completedUnits ?? 0) - lower.completedUnits,
+        );
+        if (!upper || unknownUnits === 0) return false;
+        const couldReachUnits =
+          node.minimumUnits !== null &&
+          lower.completedUnits + lower.plannedUnits < node.minimumUnits &&
+          upper.completedUnits + upper.plannedUnits >= node.minimumUnits;
+        const couldExceedMaximum =
+          node.maximumUnits !== null &&
+          lower.completedUnits + lower.plannedUnits <= node.maximumUnits &&
+          upper.completedUnits + upper.plannedUnits > node.maximumUnits;
+        const completedCodes = new Set(
+          credited
+            .filter((entry) => entry.attempt.status === "completed")
+            .map((entry) => entry.course.code),
+        );
+        const couldReachCourses =
+          node.minimumCourses !== null &&
+          lower.matchedCourseCodes.filter((code) => completedCodes.has(code))
+            .length < node.minimumCourses &&
+          upper.matchedCourseCodes.filter((code) => completedCodes.has(code))
+            .length >= node.minimumCourses;
+        const capCouldChangeResult =
+          node.maximumUnits !== null &&
+          lower.completedUnits + lower.plannedUnits + uncertainCapUnits >
+            node.maximumUnits;
+        if (
+          node.minimumUnits === null &&
+          node.minimumCourses === null &&
+          !capCouldChangeResult &&
+          !couldExceedMaximum
+        )
+          return false;
+        lower.designationReview = {
+          unknownUnits,
+          detail: `${unknownUnits.toLocaleString()} completed units need their transdisciplinary designation checked.`,
+        };
+        if (
+          couldReachUnits ||
+          couldExceedMaximum ||
+          couldReachCourses ||
+          (capCouldChangeResult && lower.state !== "over_limit")
+        )
+          lower.state = "unmeasured";
+        lower.designationReview.affectsResult = lower.state === "unmeasured";
+        return true;
+      }
+      const changed = node.children.map(update).some(Boolean);
+      if (changed) {
+        const children = node.children
+          .map((child) => progress.get(requirementNodeKey(child))!)
+          .filter(Boolean);
+        // Uncertain designation cannot erase an already established excess.
+        if (
+          lower.state !== "over_limit" &&
+          groupStateFromChildren(node, children) === "unmeasured"
+        )
+          lower.state = "unmeasured";
+      }
+      return changed;
+    };
+    update(root);
+  }
   return progress;
 }
 
 export type RequirementBucketStatus =
-  "complete" | "scheduled" | "short" | "untargeted";
+  "review" | "complete" | "scheduled" | "short" | "untargeted";
 
 /**
  * How a group reads at a glance. Groups whose published rule states no unit
@@ -1323,6 +1544,8 @@ export function requirementBucketStatus(bucket: RequirementBucketProgress): {
 } {
   if (bucket.satisfiedByOverride)
     return { status: "complete", label: "Marked satisfied" };
+  if (bucket.designationReview?.affectsResult)
+    return { status: "review", label: "Review designation" };
   const target = bucket.targetUnits;
   if (target === null || target === 0)
     return {
@@ -1333,9 +1556,17 @@ export function requirementBucketStatus(bucket: RequirementBucketProgress): {
     return { status: "complete", label: "Complete" };
   if (bucket.completedUnits + bucket.plannedUnits >= target)
     return { status: "scheduled", label: "Scheduled" };
+  const shortfall = target - bucket.completedUnits - bucket.plannedUnits;
+  const possible = Math.max(
+    0,
+    shortfall - (bucket.designationReview?.unknownUnits ?? 0),
+  );
   return {
     status: "short",
-    label: `${target - bucket.completedUnits - bucket.plannedUnits}u short`,
+    label:
+      possible < shortfall
+        ? `${possible} to ${shortfall}u short`
+        : `${shortfall}u short`,
   };
 }
 

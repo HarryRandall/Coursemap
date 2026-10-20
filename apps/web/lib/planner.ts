@@ -1,3 +1,9 @@
+import {
+  tdDesignationForAttempt,
+  tdUnitsForDesignation,
+  type HistoricalTdContext,
+  type TdUnits,
+} from "./coursemap/td-designation";
 import { sessionShortName } from "@/lib/coursemap/academic-periods";
 import type { ProgrammeCollege } from "@/lib/academic/college-enrolment";
 import type { EnrolmentMode } from "@/lib/academic/enrolment-mode";
@@ -22,6 +28,7 @@ import {
 import type { CourseRuleCondition } from "@/lib/coursemap/requisite-tree";
 
 export type PlanningCatalogue = {
+  historicalTd?: HistoricalTdContext;
   courses: readonly Course[];
   courseOverrides?: readonly CourseOverride[];
   creditedRequirementUnits?: number;
@@ -308,16 +315,25 @@ function plannedStudentRecord(
       tags: string[];
       isUnitsKnown: boolean;
       isTagsKnown: boolean;
+      tdUnits: TdUnits;
     }
   >();
   for (const candidate of before.filter(countsTowardsRules)) {
     const course = planningCourseForAttempt(candidate, catalogue);
     const units = unitsForAttempt(candidate, course);
     const previous = done.get(candidate.courseCode);
+    const designation = course
+      ? tdDesignationForAttempt(candidate, course, catalogue?.historicalTd)
+      : undefined;
+    const tdUnits = tdUnitsForDesignation(units, designation, course?.tags);
     // A course missing from the catalogue still has a subject and level in
     // its code. Its units and tags can be unknown.
     done.set(candidate.courseCode, {
       units: (previous?.units ?? 0) + units,
+      tdUnits: {
+        confirmed: (previous?.tdUnits.confirmed ?? 0) + tdUnits.confirmed,
+        unknown: (previous?.tdUnits.unknown ?? 0) + tdUnits.unknown,
+      },
       tags: course?.tags ?? previous?.tags ?? [],
       isUnitsKnown: (previous?.isUnitsKnown ?? true) && (!!course || units > 0),
       isTagsKnown: (previous?.isTagsKnown ?? true) && !!course,
@@ -350,6 +366,7 @@ function plannedStudentRecord(
         code,
         units: course.isUnitsKnown ? course.units : unknownUnits,
         tags: course.tags,
+        tdUnits: course.tdUnits,
       })),
       programmeCodes: catalogue?.programmeCodes ?? [],
       programmeColleges: catalogue?.programmeColleges,
