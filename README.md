@@ -9,16 +9,12 @@
 Prerequisite paths, requirement audits, campus room finding and every key date,
 in one place that updates when the catalogue does.
 
-[![CI](https://github.com/HarryRandall/anu-coursemap/actions/workflows/ci.yml/badge.svg)](https://github.com/HarryRandall/anu-coursemap/actions/workflows/ci.yml)
+[![CI](https://github.com/HarryRandall/Coursemap/actions/workflows/ci.yml/badge.svg)](https://github.com/HarryRandall/Coursemap/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20RLS-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![Built with pnpm](https://img.shields.io/badge/pnpm-workspaces-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/plan-dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="docs/images/plan-light.png" />
-  <img src="docs/images/plan-dark.png" alt="The Coursemap plan board showing a three-year degree plan laid out by year and semester, with unit totals per semester." width="900" />
-</picture>
+<img src="docs/images/dashboard.jpg" alt="The production Coursemap dashboard showing GPA trends, grade distribution, tuition estimates and degree progress." width="1000" />
 
 </div>
 
@@ -27,6 +23,8 @@ in one place that updates when the catalogue does.
 Degree planning at ANU usually means a PDF, a spreadsheet and a lot of hope.
 Coursemap replaces that with something that checks its own work.
 
+- **Dashboard.** Track degree progress, GPA, results and estimated tuition in
+  one overview.
 - **Plan board.** Drag courses across years and semesters. Unit loads total
   themselves, and a course whose prerequisites are not met is flagged in place
   with a suggested fix.
@@ -42,7 +40,10 @@ Coursemap replaces that with something that checks its own work.
   silently.
 
 <div align="center">
-  <img src="docs/images/courses-dark.png" alt="The Coursemap course directory listing courses with their codes, requisites, availability and unit values." width="820" />
+  <img src="docs/images/planner.png" alt="The production planner with the navigation sidebar, degree course suggestions and an expanded prerequisite fix proposing a later semester." width="1000" />
+  <p>Build a semester plan with course suggestions and prerequisite checks alongside it.</p>
+  <img src="docs/images/requirements.jpg" alt="The production requirements audit showing completed and planned units against Bachelor of Computing rules." width="1000" />
+  <p>See how your courses count towards degree, major and minor requirements.</p>
 </div>
 
 > [!NOTE]
@@ -51,29 +52,19 @@ Coursemap replaces that with something that checks its own work.
 
 ## Quick start
 
-You need Node 24, Docker and the Supabase CLI. pnpm comes from the
-`packageManager` field, so any recent pnpm can bootstrap it.
+With Node 24, pnpm, Docker and the Supabase CLI installed:
 
 ```bash
 pnpm install
 cp apps/web/.env.example apps/web/.env.local
-pnpm db:start      # local Supabase stack
-pnpm db:reset      # migrations plus demonstration fixtures
-pnpm dev           # http://127.0.0.1:3000; pnpm dev --port 3001 for another
-# Or build and run the production server against the same local stack:
-pnpm build
-pnpm start
+pnpm db:start
+pnpm db:reset
+pnpm dev
 ```
 
-Sign up at `/signup` and the local stack issues a session straight away. To run
-against a hosted Supabase project instead, configure its URL, publishable key
-and your application origin in `apps/web/.env.local`, then use the explicit
-`pnpm dev:prod`, `pnpm build:prod` and `pnpm start:prod` commands.
-The [environment template](apps/web/.env.example) explains the required settings,
-optional import credentials and map-service defaults.
-
-Development uses webpack, matching production builds, to avoid a Turbopack
-hot-reload panic (`VersionedContents` cells no longer exist).
+Open [localhost:3000](http://127.0.0.1:3000) and sign up at `/signup`.
+See [local setup](CONTRIBUTING.md#local-setup) for environment configuration,
+production previews and hosted development.
 
 ## How it is built
 
@@ -98,26 +89,14 @@ Level Security, and the service-role key never reaches the browser.
 
 ## Commands
 
-| Command              | What it does                                           |
-| -------------------- | ------------------------------------------------------ |
-| `pnpm dev`           | Development server against local Supabase              |
-| `pnpm dev:prod`      | Development server using configured hosted credentials |
-| `pnpm build`         | Production build against local Supabase                |
-| `pnpm start`         | Built production server against local Supabase         |
-| `pnpm preview:local` | Build and start against local Supabase in one step     |
-| `pnpm build:prod`    | Production build using configured hosted credentials   |
-| `pnpm start:prod`    | Built server using configured hosted credentials       |
-| `pnpm check`         | Formatting, lint and strict types                      |
-| `pnpm test`          | Unit and component tests                               |
-| `pnpm test:e2e`      | Authenticated browser journeys                         |
-| `pnpm db:reset`      | Rebuild the local database and reseed fixtures         |
-| `pnpm db:test`       | pgTAP database tests                                   |
-| `pnpm db:types`      | Regenerate committed database types                    |
-| `pnpm verify`        | Local application delivery checks                      |
+| Command       | What it does                      |
+| ------------- | --------------------------------- |
+| `pnpm dev`    | Start local development           |
+| `pnpm check`  | Formatting, lint and strict types |
+| `pnpm test`   | Unit and component tests          |
+| `pnpm verify` | Full local application checks     |
 
-Run `pnpm verify` before opening a pull request. CI additionally runs database
-checks, authenticated browser journeys and a production dependency audit. See
-the [verification matrix](CONTRIBUTING.md#verification).
+See [Contributing](CONTRIBUTING.md) for setup and the full verification matrix.
 
 ## Documentation
 
@@ -128,7 +107,3 @@ the [verification matrix](CONTRIBUTING.md#verification).
 [Database setup](supabase/README.md) ·
 [Security policy](SECURITY.md) ·
 [Agent guide](AGENTS.md)
-
-<div align="center">
-<sub>Screenshots use demonstration fixtures, not real student records.</sub>
-</div>
