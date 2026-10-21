@@ -212,17 +212,20 @@ export function CourseFind({
       <button
         ref={triggerRef}
         type="button"
-        aria-label="Find courses"
+        aria-keyshortcuts="f"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={showFind}
         className="flex h-10 w-full cursor-pointer items-center gap-2 rounded-lg bg-card px-3 text-muted-foreground shadow-xs ring-1 ring-border transition-colors ring-inset group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:text-foreground hover:ring-ring/40"
       >
         <Search size={16} strokeWidth={1.8} aria-hidden="true" />
-        <span className="flex-1 text-left text-[13px] group-data-[collapsible=icon]:hidden">
-          Find
+        <span className="flex-1 text-left text-[13px] group-data-[collapsible=icon]:sr-only">
+          Find<span className="sr-only"> courses</span>
         </span>
-        <kbd className="grid size-6 place-items-center rounded-md border border-border bg-muted text-[11px] font-medium text-muted-foreground shadow-xs group-data-[collapsible=icon]:hidden">
+        <kbd
+          aria-hidden="true"
+          className="grid size-6 place-items-center rounded-md border border-border bg-muted text-[11px] font-medium text-muted-foreground shadow-xs group-data-[collapsible=icon]:hidden"
+        >
           F
         </kbd>
       </button>

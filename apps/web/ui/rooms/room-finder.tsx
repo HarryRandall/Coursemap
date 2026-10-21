@@ -187,7 +187,7 @@ function IndoorDirections({
           return (
             <li key={`${step.kind}-${index}`}>
               <button
-                aria-label={`${title}. ${detail}. Show this floor on the map.`}
+                aria-description="Show this floor on the map."
                 className={cn(
                   "flex min-h-11 w-full items-start gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring",
                   active && "bg-primary/10",

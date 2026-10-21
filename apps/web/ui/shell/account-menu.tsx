@@ -56,7 +56,6 @@ export function AccountMenu() {
         <SidebarMenuButton
           size="lg"
           tooltip="Account options"
-          aria-label="Account options"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
           <GeneratedAvatar name={profile.name} email={profile.email} />
@@ -66,6 +65,7 @@ export function AccountMenu() {
               {detail ?? (profile.studentId || "Personal account")}
             </span>
           </span>
+          <span className="sr-only">Account options</span>
           <EllipsisVertical
             aria-hidden="true"
             className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden"
