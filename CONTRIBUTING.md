@@ -2,6 +2,48 @@
 
 Coursemap is currently a private project. Keep changes focused, reviewable and reproducible.
 
+## Local setup
+
+Install Node 24, Docker and the Supabase CLI. Use the pnpm version pinned in
+`package.json`; a recent pnpm installation can bootstrap that version.
+Use the Supabase CLI version pinned in `.github/workflows/ci.yml`.
+
+```bash
+pnpm install
+cp apps/web/.env.example apps/web/.env.local
+pnpm db:start
+pnpm db:reset
+pnpm dev
+```
+
+`pnpm db:reset` rebuilds the local database and loads demonstration fixtures.
+Open [localhost:3000](http://127.0.0.1:3000) and sign up at `/signup`; the local
+stack issues a session straight away. Use `pnpm dev --port 3001` when another
+server is already using port 3000.
+
+The [environment template](apps/web/.env.example) explains the required settings,
+optional import credentials and map-service defaults. See the
+[database setup guide](supabase/README.md) for local database details.
+
+### Production preview
+
+Build and run the production server against the local Supabase stack:
+
+```bash
+pnpm build
+pnpm start
+```
+
+`pnpm preview:local` builds and starts the local production preview in one step.
+Development uses webpack, matching production builds, to avoid a Turbopack
+hot-reload panic (`VersionedContents` cells no longer exist).
+
+### Hosted development
+
+To use a hosted Supabase project, configure its URL, publishable key and your
+application origin in `apps/web/.env.local`. Then use `pnpm dev:prod`,
+`pnpm build:prod` and `pnpm start:prod` instead of their local equivalents.
+
 ## Workflow
 
 1. Create a branch prefixed with `feat/`, `fix/` or `refactor/`.
