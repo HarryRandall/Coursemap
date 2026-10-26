@@ -6,6 +6,28 @@ export type AssistantCourseReference = {
   units: number;
   sessions: string[];
   prerequisites: string | null;
+  level?: number;
+  /** Where the course sits in the student's plan, such as "Planned for S1 2027". */
+  planStatus?: string;
+  /** Known only for courses in the plan, where the planner has checked them. */
+  prerequisitesMet?: boolean;
+};
+
+/** A student society Compass found, shown as a card under the reply. */
+export type AssistantSociety = {
+  slug: string;
+  name: string;
+  category: string;
+  summary: string;
+  logoUrl?: string;
+};
+
+/** A campus place, with the start point when the student asked for directions. */
+export type AssistantPlace = {
+  slug: string;
+  name: string;
+  address: string;
+  from?: { slug: string; name: string };
 };
 
 export type AssistantVisual =
@@ -33,6 +55,7 @@ export type AssistantVisual =
 
 export const ASSISTANT_VISUAL_MAX_BARS = 12;
 const COURSE_CODE_PATTERN = /^[A-Z]{4}\d{4}[A-Z]?$/u;
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,120}$/u;
 
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -82,6 +105,49 @@ export function readCourseReference(
           .slice(0, 8)
       : [],
     prerequisites: label(course.prerequisites, 400),
+    ...(finite(course.level) !== null ? { level: finite(course.level)! } : {}),
+    ...(label(course.planStatus, 60)
+      ? { planStatus: label(course.planStatus, 60)! }
+      : {}),
+    ...(typeof course.prerequisitesMet === "boolean"
+      ? { prerequisitesMet: course.prerequisitesMet }
+      : {}),
+  };
+}
+
+export function readSociety(value: unknown): AssistantSociety | null {
+  const society = record(value);
+  const slug = typeof society?.slug === "string" ? society.slug : "";
+  const name = label(society?.name, 120);
+  if (!society || !SLUG_PATTERN.test(slug) || !name) return null;
+  const logoUrl =
+    typeof society.logoUrl === "string" && /^https:\/\//u.test(society.logoUrl)
+      ? society.logoUrl
+      : undefined;
+  return {
+    slug,
+    name,
+    category: label(society.category, 60) ?? "",
+    summary: label(society.summary, 280) ?? "",
+    ...(logoUrl ? { logoUrl } : {}),
+  };
+}
+
+export function readPlace(value: unknown): AssistantPlace | null {
+  const place = record(value);
+  const slug = typeof place?.slug === "string" ? place.slug : "";
+  const name = label(place?.name, 120);
+  if (!place || !SLUG_PATTERN.test(slug) || !name) return null;
+  const from = record(place.from);
+  const fromSlug = typeof from?.slug === "string" ? from.slug : "";
+  const fromName = label(from?.name, 120);
+  return {
+    slug,
+    name,
+    address: label(place.address, 160) ?? "",
+    ...(from && SLUG_PATTERN.test(fromSlug) && fromName
+      ? { from: { slug: fromSlug, name: fromName } }
+      : {}),
   };
 }
 

@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from "react";
 
-const REVEAL_INTERVAL_MS = 30;
+// About 25 words a second: quick enough to keep up with the model, slow
+// enough to read as writing rather than a block of text appearing.
+const REVEAL_INTERVAL_MS = 40;
+// How many intervals a backlog is spread over before it is caught up.
+const CATCH_UP_STEPS = 30;
 
 /** The end of the word that follows `from`, `count` words ahead. */
 export function nextWordBoundary(text: string, from: number, count: number) {
@@ -42,7 +46,11 @@ export function useWordReveal(text: string, animate: boolean) {
       }
       const backlog = (text.length - visible) / 6;
       setShown(
-        nextWordBoundary(text, visible, Math.max(1, Math.ceil(backlog / 10))),
+        nextWordBoundary(
+          text,
+          visible,
+          Math.max(1, Math.round(backlog / CATCH_UP_STEPS)),
+        ),
       );
     }, REVEAL_INTERVAL_MS);
     return () => clearTimeout(timer);

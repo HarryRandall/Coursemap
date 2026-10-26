@@ -18,6 +18,8 @@ export type AssistantTool = {
   definition: ChatToolDefinition;
   /** Short present-tense status shown while the tool runs. */
   label: string;
+  /** Tools that only present something, such as a chart, show no step. */
+  silent?: boolean;
   /** A more specific status for one call, such as "Looking up COMP1100". */
   describe?: (input: Record<string, unknown>) => string | null;
   run: (input: Record<string, unknown>) => Promise<unknown>;
@@ -127,7 +129,7 @@ export async function runAssistantTurn({
           id: call.id,
           label: tool.describe?.(input) || tool.label,
         };
-        onTool({ ...step, done: false });
+        if (!tool.silent) onTool({ ...step, done: false });
         try {
           return await tool.run(input);
         } catch (error) {
@@ -138,7 +140,7 @@ export async function runAssistantTurn({
                 : "The tool failed. Answer without it or try a narrower request.",
           };
         } finally {
-          onTool({ ...step, done: true });
+          if (!tool.silent) onTool({ ...step, done: true });
         }
       }),
     );

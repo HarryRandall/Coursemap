@@ -31,8 +31,17 @@ import {
 } from "@/lib/planner";
 import type { PlanningCatalogue } from "@/lib/planner";
 import { academicSummary } from "@/lib/coursemap/academic-metrics";
+import { loadCampusMapData } from "@/lib/rooms/campus-map-data";
+import type { CampusMapPlace } from "@/lib/rooms/campus-map";
+import { filterSocieties } from "@/lib/societies";
+import { loadSocieties } from "@/lib/societies-data";
 import { readAssistantVisual } from "./attachments";
-import type { AssistantCourseReference, AssistantVisual } from "./attachments";
+import type {
+  AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
+  AssistantVisual,
+} from "./attachments";
 import { AssistantToolError } from "./chat-turn";
 import { planVisuals } from "./plan-visuals";
 import type { AssistantTool } from "./chat-turn";
@@ -120,9 +129,13 @@ type ReferencedCourse = {
   units: number;
   sessions: string[];
   prerequisiteText: string;
+  level: number;
 };
 
-function courseReference(course: ReferencedCourse): AssistantCourseReference {
+function courseReference(
+  course: ReferencedCourse,
+  plan?: Pick<AssistantCourseReference, "planStatus" | "prerequisitesMet">,
+): AssistantCourseReference {
   return {
     code: course.code,
     name: course.name,
@@ -130,8 +143,18 @@ function courseReference(course: ReferencedCourse): AssistantCourseReference {
     units: course.units,
     sessions: course.sessions,
     prerequisites: clip(course.prerequisiteText, 400) || null,
+    level: course.level,
+    ...plan,
   };
 }
+
+const PLAN_STATUS_VERB: Record<string, string> = {
+  planned: "Planned for",
+  enrolled: "Enrolled in",
+  completed: "Completed in",
+  failed: "Failed in",
+  withdrawn: "Withdrew in",
+};
 
 function summarisePlan(
   { state, catalogue, planning }: PlanContext,
@@ -158,8 +181,21 @@ function summarisePlan(
         .filter((attempt) => attempt.termId === term.id)
         .map((attempt) => {
           const course = displayCourseForAttempt(attempt, planning);
-          if (course) onCourse(courseReference(course));
           const { issues } = coursePlanStatus(attempt, attempts, planning);
+          if (course)
+            onCourse(
+              courseReference(course, {
+                planStatus: `${PLAN_STATUS_VERB[attempt.status] ?? "In"} ${term.shortName} ${term.year}`,
+                ...(attempt.status === "planned" ||
+                attempt.status === "enrolled"
+                  ? {
+                      prerequisitesMet: !issues.some(
+                        (issue) => issue.code === "prerequisite",
+                      ),
+                    }
+                  : {}),
+              }),
+            );
           return {
             code: attempt.courseCode,
             name: course?.name ?? null,
@@ -223,6 +259,40 @@ function summarisePlan(
 }
 
 /**
+ * Campus places matching a name such as "Hancock" or "CSIT", best first: a
+ * name or marker that starts with the query, then any that contain it, then
+ * matches on search terms and address.
+ */
+function matchPlaces(places: readonly CampusMapPlace[], query: string) {
+  const wanted = query.trim().toLocaleLowerCase("en-AU");
+  if (!wanted) return [];
+  const score = (place: CampusMapPlace) => {
+    const names = [place.name, place.markerLabel].map((name) =>
+      name.toLocaleLowerCase("en-AU"),
+    );
+    if (names.some((name) => name.startsWith(wanted))) return 3;
+    // "CSIT" for "Computer Science and Information Technology".
+    const initials = place.name
+      .split(/[\s-]+/u)
+      .filter((word) => /^[A-Z]/u.test(word))
+      .map((word) => word[0])
+      .join("")
+      .toLocaleLowerCase("en-AU");
+    if (wanted.length > 1 && initials === wanted) return 3;
+    if (names.some((name) => name.includes(wanted))) return 2;
+    const other = [...place.searchTerms, place.address]
+      .join(" ")
+      .toLocaleLowerCase("en-AU");
+    return other.includes(wanted) ? 1 : 0;
+  };
+  return places
+    .map((place) => ({ place, score: score(place) }))
+    .filter((match) => match.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .map((match) => match.place);
+}
+
+/**
  * Builds the tools for one request. Plan reads use the request's Supabase
  * client, so Row Level Security limits them to the signed-in student, and the
  * plan is loaded at most once however many tools ask for it.
@@ -232,10 +302,14 @@ export function assistantTools(
   {
     onCourse,
     onVisual,
+    onSociety,
+    onPlace,
   }: {
-    /** Receives every course a tool returns, for the reply's course cards. */
+    /** Receives every course a tool returns, for the reply's course previews. */
     onCourse: (course: AssistantCourseReference) => void;
     onVisual: (visual: AssistantVisual) => void;
+    onSociety: (society: AssistantSociety) => void;
+    onPlace: (place: AssistantPlace) => void;
   },
 ): AssistantTool[] {
   let plan: Promise<PlanContext> | null = null;
@@ -493,7 +567,129 @@ export function assistantTools(
       },
     },
     {
+      label: "Looking up societies",
+      describe: (input) => {
+        const query = text(input, "query", 40);
+        return query ? `Looking up societies for "${query}"` : null;
+      },
+      definition: {
+        type: "function",
+        function: {
+          name: "find_society",
+          description:
+            "Search ANU student societies and clubs by name, interest or category. The matches are shown to the student as cards with links, so describe them briefly.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description:
+                  "Society name or interest, such as 'robotics' or 'debating'.",
+              },
+            },
+            required: ["query"],
+          },
+        },
+      },
+      async run(input) {
+        const query = text(input, "query", 80);
+        const { societies } = await loadSocieties();
+        const matches = filterSocieties(societies, query, "").slice(0, 4);
+        matches.forEach((society) =>
+          onSociety({
+            slug: society.slug,
+            name: society.name,
+            category: society.category,
+            summary: clip(society.summary, 280),
+            ...(society.logoUrl ? { logoUrl: society.logoUrl } : {}),
+          }),
+        );
+        return {
+          found: matches.length,
+          societies: matches.map((society) => ({
+            name: society.name,
+            category: society.category,
+            summary: clip(society.summary, 200),
+            interests: society.interests.slice(0, 5),
+          })),
+        };
+      },
+    },
+    {
+      label: "Finding the place",
+      describe: (input) => {
+        const query = text(input, "place", 40);
+        return query ? `Finding ${query} on the campus map` : null;
+      },
+      definition: {
+        type: "function",
+        function: {
+          name: "find_place",
+          description:
+            "Find a building or place on the ANU Acton campus map. Give 'from' as well when the student wants directions; the student is shown a card that opens the 3D campus map with the route. Do not write turn-by-turn directions.",
+          parameters: {
+            type: "object",
+            properties: {
+              place: {
+                type: "string",
+                description:
+                  "Building or place name, such as 'Hancock Library' or 'CSIT'.",
+              },
+              from: {
+                type: "string",
+                description:
+                  "Where the student is starting from, for directions.",
+              },
+            },
+            required: ["place"],
+          },
+        },
+      },
+      async run(input) {
+        const { data, error } = await loadCampusMapData();
+        if (error)
+          throw new AssistantToolError(
+            "The campus map is unavailable right now.",
+          );
+        const matches = matchPlaces(
+          data.places,
+          text(input, "place", 80),
+        ).slice(0, 3);
+        const start = input.from
+          ? matchPlaces(
+              data.places.filter((place) => place.isRoutable),
+              text(input, "from", 80),
+            )[0]
+          : undefined;
+        matches.forEach((place, index) =>
+          onPlace({
+            slug: place.slug,
+            name: place.name,
+            address: place.address,
+            // Directions are offered for the best match only.
+            ...(index === 0 && start && place.isRoutable
+              ? { from: { slug: start.slug, name: start.name } }
+              : {}),
+          }),
+        );
+        return {
+          found: matches.length,
+          places: matches.map((place) => ({
+            name: place.name,
+            address: place.address,
+          })),
+          ...(input.from
+            ? {
+                directionsFrom:
+                  start?.name ?? "Start point not found on the map",
+              }
+            : {}),
+        };
+      },
+    },
+    {
       label: "Drawing a chart",
+      silent: true,
       definition: {
         type: "function",
         function: {

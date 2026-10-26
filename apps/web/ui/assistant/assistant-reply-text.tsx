@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import type { AssistantCourseReference } from "@/lib/assistant/attachments";
 import { parseReply } from "@/lib/assistant/reply-format";
 import type { ReplyInline } from "@/lib/assistant/reply-format";
-import { AssistantCourseChip } from "./assistant-course-chip";
+import { AssistantCourseLink } from "./assistant-course-link";
+
+const LINK =
+  "font-medium text-primary underline decoration-primary/30 underline-offset-2 transition-colors hover:decoration-primary";
 
 function Inline({
   parts,
@@ -20,15 +23,17 @@ function Inline({
           {part.text}
         </strong>
       );
+    if (part.kind === "page")
+      return (
+        <Link key={index} href={part.href} className={LINK}>
+          {part.text}
+        </Link>
+      );
     const course = courses.get(part.code);
     return course ? (
-      <AssistantCourseChip key={index} course={course} />
+      <AssistantCourseLink key={index} course={course} className={LINK} />
     ) : (
-      <Link
-        key={index}
-        href={`/courses?q=${part.code}`}
-        className="font-medium text-primary underline-offset-2 hover:underline"
-      >
+      <Link key={index} href={`/courses?q=${part.code}`} className={LINK}>
         {part.code}
       </Link>
     );
@@ -36,9 +41,9 @@ function Inline({
 }
 
 /**
- * A Compass reply as paragraphs and lists. Courses Compass looked up open as
- * cards; any other course code links to the course search, which finds it in
- * whichever catalogue year publishes it.
+ * A Compass reply as paragraphs and lists. Course codes link to the course
+ * Compass looked up, or else to the course search, which finds the code in
+ * whichever catalogue year publishes it. Page paths become page links.
  */
 export function AssistantReplyText({
   text,

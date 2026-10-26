@@ -206,7 +206,7 @@ export function AssistantVisualCard({ visual }: { visual: AssistantVisual }) {
     <TooltipProvider delayDuration={80}>
       <figure
         aria-label={visual.title}
-        className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-xs"
+        className="space-y-3 rounded-xl border border-border p-4"
       >
         <figcaption className="text-xs font-medium text-muted-foreground">
           {visual.title}

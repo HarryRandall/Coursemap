@@ -19,6 +19,8 @@ import type { AssistantChatRequest } from "@/lib/assistant/chat-events";
 import { readAssistantScreen } from "@/lib/assistant/screen-context";
 import type {
   AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
   AssistantVisual,
 } from "@/lib/assistant/attachments";
 import type { AssistantDraft, AssistantMessage } from "@/lib/assistant/history";
@@ -34,6 +36,8 @@ export type AssistantStream = {
   steps: AssistantStreamStep[];
   courses: AssistantCourseReference[];
   visuals: AssistantVisual[];
+  societies: AssistantSociety[];
+  places: AssistantPlace[];
   model?: string;
 };
 
@@ -41,7 +45,7 @@ export type AssistantStreamStep = { id: string; label: string; done: boolean };
 
 type StreamProgress = Pick<
   AssistantStream,
-  "text" | "steps" | "courses" | "visuals" | "model"
+  "text" | "steps" | "courses" | "visuals" | "societies" | "places" | "model"
 >;
 
 // Older turns add cost on every request without changing most answers.
@@ -63,6 +67,8 @@ type AssistantState = {
   send: () => void;
   /** Asks the last question again in place of its reply. */
   retry: () => void;
+  /** Asks `text` straight away, keeping any draft the student is writing. */
+  askNow: (text: string) => void;
   stop: () => void;
   remove: (id: string) => void;
   rename: (id: string, title: string) => void;
@@ -155,6 +161,7 @@ export function AssistantProvider({
     chatId: string,
     earlier: AssistantDraft,
     question: AssistantMessage,
+    { fromDraft = false }: { fromDraft?: boolean } = {},
   ) {
     const replyId = crypto.randomUUID();
     const body: AssistantChatRequest = {
@@ -173,7 +180,7 @@ export function AssistantProvider({
       );
     changeChat((chat) => ({
       ...chat,
-      draft: chat.messages.length === earlier.messages.length ? "" : chat.draft,
+      draft: fromDraft ? "" : chat.draft,
       updatedAt: new Date().toISOString(),
       messages: [...earlier.messages, question],
     }));
@@ -186,13 +193,15 @@ export function AssistantProvider({
       steps: [],
       courses: [],
       visuals: [],
+      societies: [],
+      places: [],
     });
     void streamReply(
       body,
       controller.signal,
       (stream) => setStreaming({ id: replyId, chatId, ...stream }),
       (title) => changeChat((chat) => (chat.title ? chat : { ...chat, title })),
-    ).then(({ text, steps, courses, visuals, model }) => {
+    ).then(({ text, courses, visuals, societies, places, model }) => {
       if (streamAbort.current === controller) streamAbort.current = null;
       setStreaming(null);
       changeChat((chat) => ({
@@ -207,7 +216,8 @@ export function AssistantProvider({
             // Keep cards only for courses the reply names.
             courses: courses.filter((course) => text.includes(course.code)),
             visuals,
-            steps: steps.map((step) => step.label),
+            societies,
+            places,
             model,
           },
         ],
@@ -238,10 +248,23 @@ export function AssistantProvider({
         update,
         send: () => {
           if (!selectedId || streaming || !active?.draft.trim()) return;
+          ask(
+            selectedId,
+            active,
+            {
+              id: crypto.randomUUID(),
+              role: "user",
+              text: active.draft.trim(),
+            },
+            { fromDraft: true },
+          );
+        },
+        askNow: (text) => {
+          if (!selectedId || streaming || !active || !text.trim()) return;
           ask(selectedId, active, {
             id: crypto.randomUUID(),
             role: "user",
-            text: active.draft.trim(),
+            text: text.trim(),
           });
         },
         retry: () => {
@@ -295,6 +318,8 @@ async function streamReply(
     steps: [],
     courses: [],
     visuals: [],
+    societies: [],
+    places: [],
   };
   // Where the answer starts; narration before tool calls is cut back to it.
   let answerStart = 0;
@@ -334,7 +359,16 @@ async function streamReply(
           : [...progress.steps, step];
         answerStart = progress.text.length;
       } else if (event.type === "course") {
-        progress.courses = [...progress.courses, event.course];
+        progress.courses = [
+          ...progress.courses.filter(
+            (course) => course.code !== event.course.code,
+          ),
+          event.course,
+        ];
+      } else if (event.type === "society") {
+        progress.societies = [...progress.societies, event.society];
+      } else if (event.type === "place") {
+        progress.places = [...progress.places, event.place];
       } else if (event.type === "visual") {
         progress.visuals = [...progress.visuals, event.visual];
       } else if (event.type === "error") {

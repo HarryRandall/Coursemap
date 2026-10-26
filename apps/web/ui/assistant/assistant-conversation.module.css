@@ -1,15 +1,15 @@
-/* A light sweep across "Thinking" and running steps, like text being read. */
+/* A band of light sweeping left to right across text while Compass works. */
 .shimmer {
   background: linear-gradient(
-      90deg,
-      var(--muted-foreground) 0%,
+      100deg,
+      var(--muted-foreground) 35%,
       var(--foreground) 50%,
-      var(--muted-foreground) 100%
+      var(--muted-foreground) 65%
     )
-    0 0 / 200% 100%;
+    0 0 / 250% 100%;
   background-clip: text;
   color: transparent;
-  animation: shimmer 1.8s linear infinite;
+  animation: shimmer 1.6s linear infinite;
 }
 
 .caret {
@@ -25,8 +25,11 @@
 }
 
 @keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
   to {
-    background-position: -200% 0;
+    background-position: 0% 0;
   }
 }
 

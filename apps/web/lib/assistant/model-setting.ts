@@ -26,9 +26,13 @@ export const DEFAULT_ASSISTANT_MODELS: AssistantModelOption[] = [
     description: "Lowest cost",
   },
 ];
-/** Chat titles need only a few words, so they use the last, cheapest option. */
+/**
+ * Chat titles use the default model whichever model answers: cheaper models
+ * ignored the length and casing asked for, and a title costs only a few dozen
+ * tokens.
+ */
 export function assistantTitleModel(env: NodeJS.ProcessEnv = process.env) {
-  return assistantModelOptions(env).at(-1)!.id;
+  return assistantModelOptions(env)[0].id;
 }
 
 const MODEL_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._:-]*$/u;

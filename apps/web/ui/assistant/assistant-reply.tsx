@@ -2,12 +2,16 @@
 
 import type {
   AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
   AssistantVisual,
 } from "@/lib/assistant/attachments";
+import { AssistantPlaceCard } from "./assistant-place-card";
+import { AssistantSocietyCard } from "./assistant-society-card";
 import { AssistantIcon } from "./assistant-icon";
 import { AssistantReplyActions } from "./assistant-reply-actions";
 import { AssistantReplyText } from "./assistant-reply-text";
-import { AssistantSteps } from "./assistant-steps";
+import { AssistantActivity } from "./assistant-activity";
 import { AssistantVisualCard } from "./assistant-visual-card";
 import { useWordReveal } from "./use-word-reveal";
 import styles from "./assistant-conversation.module.css";
@@ -21,6 +25,8 @@ export function AssistantReply({
   text,
   courses,
   visuals = [],
+  societies = [],
+  places = [],
   steps = [],
   modelName,
   live,
@@ -29,6 +35,8 @@ export function AssistantReply({
   text: string;
   courses?: AssistantCourseReference[];
   visuals?: AssistantVisual[];
+  societies?: AssistantSociety[];
+  places?: AssistantPlace[];
   steps?: Array<{ label: string; done: boolean }>;
   modelName?: string;
   live: boolean;
@@ -36,7 +44,6 @@ export function AssistantReply({
 }) {
   const reveal = useWordReveal(text, live);
   const writing = live || reveal.revealing;
-  const working = live && !text && steps.every((step) => step.done);
   return (
     <article
       aria-label="Compass reply"
@@ -51,12 +58,7 @@ export function AssistantReply({
           <span className="text-muted-foreground">{modelName}</span>
         ) : null}
       </header>
-      <AssistantSteps steps={steps} live={live && !text} />
-      {working ? (
-        <p className={styles.shimmer}>
-          {steps.length ? "Putting it together..." : "Thinking..."}
-        </p>
-      ) : null}
+      {live && !reveal.text ? <AssistantActivity steps={steps} /> : null}
       {reveal.text ? (
         <div className="space-y-3">
           <AssistantReplyText
@@ -70,8 +72,20 @@ export function AssistantReply({
           />
         </div>
       ) : null}
-      {visuals.length && !reveal.revealing ? (
-        <div className="space-y-3 pt-1">
+      {/* Cards and charts illustrate the answer, so they follow it once it
+          is written. */}
+      {(societies.length || places.length) && !writing ? (
+        <div className="grid gap-2 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none sm:grid-cols-2">
+          {places.map((place) => (
+            <AssistantPlaceCard key={place.slug} place={place} />
+          ))}
+          {societies.map((society) => (
+            <AssistantSocietyCard key={society.slug} society={society} />
+          ))}
+        </div>
+      ) : null}
+      {visuals.length && !writing ? (
+        <div className="space-y-3 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none">
           {visuals.map((visual, index) => (
             <AssistantVisualCard key={index} visual={visual} />
           ))}

@@ -1,4 +1,63 @@
 import { expect, test, vi } from "vitest";
+
+vi.mock("@/lib/rooms/campus-map-data", () => ({
+  loadCampusMapData: vi.fn(async () => ({
+    error: null,
+    data: {
+      places: [
+        {
+          slug: "hancock-library",
+          name: "Hancock Library",
+          markerLabel: "Hancock",
+          address: "43 Linnaeus Way",
+          searchTerms: ["library"],
+          isRoutable: true,
+        },
+        {
+          slug: "csit",
+          name: "Computer Science and Information Technology",
+          markerLabel: "108",
+          address: "108 North Road",
+          searchTerms: [],
+          isRoutable: true,
+        },
+        {
+          slug: "hancock-annex",
+          name: "Old Hancock Annex",
+          markerLabel: "Annex",
+          address: "",
+          searchTerms: [],
+          isRoutable: false,
+        },
+      ],
+    },
+  })),
+}));
+vi.mock("@/lib/societies-data", () => ({
+  loadSocieties: vi.fn(async () => ({
+    events: [],
+    societies: [
+      {
+        slug: "robotics",
+        name: "ANU Robotics Club",
+        shortName: "Robotics",
+        category: "Academic",
+        summary: "Build robots together.",
+        overview: "",
+        interests: ["engineering"],
+      },
+      {
+        slug: "debating",
+        name: "ANU Debating Society",
+        shortName: "Debating",
+        category: "Hobbies and interests",
+        summary: "Weekly debates.",
+        overview: "",
+        interests: ["public speaking"],
+      },
+    ],
+  })),
+}));
 import {
   readAssistantVisual,
   readCourseReference,
@@ -99,7 +158,7 @@ test("draws a requested chart and rejects an incomplete one", async () => {
   const onVisual = vi.fn();
   const tool = assistantTools(
     { id: "student", email: null },
-    { onCourse: vi.fn(), onVisual },
+    { onCourse: vi.fn(), onVisual, onSociety: vi.fn(), onPlace: vi.fn() },
   ).find((item) => item.definition.function.name === "show_visual")!;
   await expect(
     tool.run({ kind: "meter", title: "GPA", value: 5, max: 7, target: 6 }),
@@ -162,4 +221,54 @@ test("charts requirement progress and an unmet GPA rule from the plan", () => {
     },
   ]);
   expect(planVisuals({ gpa: null, requirements: [], terms: [] })).toEqual([]);
+});
+
+function toolNamed(
+  name: string,
+  callbacks: Partial<Parameters<typeof assistantTools>[1]>,
+) {
+  return assistantTools(
+    { id: "student", email: null },
+    {
+      onCourse: vi.fn(),
+      onVisual: vi.fn(),
+      onSociety: vi.fn(),
+      onPlace: vi.fn(),
+      ...callbacks,
+    },
+  ).find((item) => item.definition.function.name === name)!;
+}
+
+test("finds a building and offers directions from a named start", async () => {
+  const onPlace = vi.fn();
+  const result = await toolNamed("find_place", { onPlace }).run({
+    place: "hancock",
+    from: "CSIT",
+  });
+  expect(result).toMatchObject({
+    found: 2,
+    directionsFrom: "Computer Science and Information Technology",
+  });
+  expect(onPlace).toHaveBeenNthCalledWith(1, {
+    slug: "hancock-library",
+    name: "Hancock Library",
+    address: "43 Linnaeus Way",
+    from: {
+      slug: "csit",
+      name: "Computer Science and Information Technology",
+    },
+  });
+  // Only the best match carries the route.
+  expect(onPlace.mock.calls[1][0]).not.toHaveProperty("from");
+});
+
+test("finds societies by interest and shows them as cards", async () => {
+  const onSociety = vi.fn();
+  const result = await toolNamed("find_society", { onSociety }).run({
+    query: "robots",
+  });
+  expect(result).toMatchObject({ found: 1 });
+  expect(onSociety).toHaveBeenCalledWith(
+    expect.objectContaining({ slug: "robotics", name: "ANU Robotics Club" }),
+  );
 });

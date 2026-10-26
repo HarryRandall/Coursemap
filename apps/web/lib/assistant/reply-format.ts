@@ -1,15 +1,31 @@
 export type ReplyInline =
   | { kind: "text"; text: string }
   | { kind: "strong"; text: string }
-  | { kind: "course"; code: string };
+  | { kind: "course"; code: string }
+  | { kind: "page"; href: string; text: string };
 
 export type ReplyBlock =
   | { kind: "paragraph"; lines: ReplyInline[][] }
   | { kind: "list"; ordered: boolean; items: ReplyInline[][] };
 
+/** Coursemap pages Compass may point to, and how a bare path reads. */
+export const REPLY_PAGES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/plan": "Plan",
+  "/requirements": "Requirements",
+  "/courses": "Courses",
+  "/academic": "Academic history",
+  "/calendar": "Calendar",
+  "/profile": "Profile",
+  "/onboarding": "Onboarding",
+};
+
 const COURSE_CODE = /\b([A-Z]{4}\d{4}[A-Z]?)\b/u;
 const BULLET = /^\s*[-*•]\s+/u;
 const NUMBERED = /^\s*\d+[.)]\s+/u;
+// "[Requirements](/requirements)", "the Plan page (/plan)" or a bare "/plan".
+const PAGE_LINK =
+  /\[([^\]\n]+)\]\((\/[a-z-]+)\)|((?:[A-Z][a-z]+ )*[A-Z][a-z]+ page) \((\/[a-z-]+)\)|(?<![\w/])(\/[a-z-]+)(?![\w/])/gu;
 
 function courses(text: string): ReplyInline[] {
   return text
@@ -23,12 +39,35 @@ function courses(text: string): ReplyInline[] {
     );
 }
 
-/** Bold runs and course codes. An unclosed `**` while streaming stays literal. */
+/** Links to Coursemap pages, leaving unknown paths as written. */
+function pages(text: string): ReplyInline[] {
+  const parts: ReplyInline[] = [];
+  let from = 0;
+  for (const match of text.matchAll(PAGE_LINK)) {
+    const [whole, label, labelled, named, namedPath, bare] = match;
+    const href = labelled ?? namedPath ?? bare;
+    if (!(href in REPLY_PAGES)) continue;
+    parts.push(...courses(text.slice(from, match.index)));
+    parts.push({
+      kind: "page",
+      href,
+      text: label ?? named ?? `${REPLY_PAGES[href]} page`,
+    });
+    from = match.index + whole.length;
+  }
+  parts.push(...courses(text.slice(from)));
+  return parts;
+}
+
+/**
+ * Bold runs, page links and course codes. An unclosed `**` while streaming
+ * stays literal.
+ */
 export function parseReplyInline(text: string): ReplyInline[] {
   return text
     .split(/\*\*([^*\n]+)\*\*/u)
     .flatMap((part, index) =>
-      index % 2 ? [{ kind: "strong" as const, text: part }] : courses(part),
+      index % 2 ? [{ kind: "strong" as const, text: part }] : pages(part),
     );
 }
 

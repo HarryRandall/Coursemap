@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@coursemap/ui/primitives/button";
 import {
   DropdownMenu,
@@ -48,17 +48,9 @@ export function AssistantChatPicker() {
               key={chat.id}
               aria-label={assistantTitle(chat)}
               aria-current={chat.id === active?.id ? "true" : undefined}
-              className="aria-[current=true]:bg-accent/60"
+              className="aria-[current=true]:bg-accent aria-[current=true]:font-medium"
               onSelect={() => select(chat.id)}
             >
-              <Check
-                aria-hidden="true"
-                className={
-                  chat.id === active?.id
-                    ? "size-4 text-primary"
-                    : "invisible size-4"
-                }
-              />
               <span className="min-w-0 flex-1 truncate">
                 {assistantTitle(chat)}
               </span>

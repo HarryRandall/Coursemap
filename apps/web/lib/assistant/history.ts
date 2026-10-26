@@ -1,5 +1,15 @@
-import { readAssistantVisual, readCourseReference } from "./attachments";
-import type { AssistantCourseReference, AssistantVisual } from "./attachments";
+import {
+  readAssistantVisual,
+  readCourseReference,
+  readPlace,
+  readSociety,
+} from "./attachments";
+import type {
+  AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
+  AssistantVisual,
+} from "./attachments";
 
 export type AssistantMessage = {
   id: string;
@@ -7,8 +17,8 @@ export type AssistantMessage = {
   text: string;
   courses?: AssistantCourseReference[];
   visuals?: AssistantVisual[];
-  /** What Compass looked up for this reply, such as "Reading your plan". */
-  steps?: string[];
+  societies?: AssistantSociety[];
+  places?: AssistantPlace[];
   /** The OpenRouter model that wrote the reply. */
   model?: string;
 };
@@ -52,11 +62,11 @@ function readMessages(value: unknown): AssistantMessage[] {
       const visuals = Array.isArray(message.visuals)
         ? message.visuals.flatMap((visual) => readAssistantVisual(visual) ?? [])
         : [];
-      const steps = Array.isArray(message.steps)
-        ? message.steps
-            .filter((step): step is string => typeof step === "string")
-            .map((step) => step.slice(0, 120))
-            .slice(0, 12)
+      const societies = Array.isArray(message.societies)
+        ? message.societies.flatMap((item) => readSociety(item) ?? [])
+        : [];
+      const places = Array.isArray(message.places)
+        ? message.places.flatMap((item) => readPlace(item) ?? [])
         : [];
       return {
         id: message.id,
@@ -64,7 +74,8 @@ function readMessages(value: unknown): AssistantMessage[] {
         text: message.text,
         ...(courses.length ? { courses } : {}),
         ...(visuals.length ? { visuals } : {}),
-        ...(steps.length ? { steps } : {}),
+        ...(societies.length ? { societies } : {}),
+        ...(places.length ? { places } : {}),
         ...(typeof message.model === "string" && message.model
           ? { model: message.model.slice(0, 160) }
           : {}),

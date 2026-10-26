@@ -56,7 +56,8 @@ export function AssistantConversation({
           text={message.text}
           courses={message.courses}
           visuals={message.visuals}
-          steps={message.steps?.map((label) => ({ label, done: true }))}
+          societies={message.societies}
+          places={message.places}
           modelName={modelName(message.model)}
           live={false}
           onRetry={message.id === lastReplyId && !streaming ? retry : undefined}
@@ -69,6 +70,8 @@ export function AssistantConversation({
         text={streaming.text}
         courses={streaming.courses}
         visuals={streaming.visuals}
+        societies={streaming.societies}
+        places={streaming.places}
         steps={streaming.steps}
         modelName={modelName(active?.model || catalogue?.defaultModel)}
         live
@@ -76,28 +79,34 @@ export function AssistantConversation({
     ) : null,
   ];
   return (
-    <div
-      onScroll={(event) => {
-        const el = event.currentTarget;
-        follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-        setAwayFromEnd(!follow.current);
-      }}
-      role="log"
-      aria-label="Chat messages"
-      aria-live="polite"
-      aria-busy={Boolean(streaming)}
-      className="relative min-h-0 flex-1 overflow-y-auto px-5 py-6"
-    >
-      <div ref={content} className="mx-auto flex max-w-3xl flex-col gap-6">
-        {items}
-        <div ref={end} />
+    // The jump button sits outside the scrolling log so it floats over the
+    // composer edge instead of over the reply text.
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          follow.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          setAwayFromEnd(!follow.current);
+        }}
+        role="log"
+        aria-label="Chat messages"
+        aria-live="polite"
+        aria-busy={Boolean(streaming)}
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-6"
+      >
+        <div ref={content} className="mx-auto flex max-w-3xl flex-col gap-6">
+          {items}
+          <div ref={end} />
+        </div>
       </div>
       {awayFromEnd ? (
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="sticky bottom-2 left-1/2 -translate-x-1/2 rounded-full shadow-md"
+          size="icon"
+          aria-label="Jump to latest"
+          className="absolute bottom-3 left-1/2 size-9 -translate-x-1/2 rounded-full border-border bg-background text-foreground shadow-lg duration-150 animate-in fade-in-0 zoom-in-95 hover:bg-muted motion-reduce:animate-none"
           onClick={() => {
             follow.current = true;
             setAwayFromEnd(false);
@@ -105,7 +114,6 @@ export function AssistantConversation({
           }}
         >
           <ArrowDown aria-hidden="true" />
-          Jump to latest
         </Button>
       ) : null}
     </div>

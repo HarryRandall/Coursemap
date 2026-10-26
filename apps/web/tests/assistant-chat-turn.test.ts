@@ -363,7 +363,13 @@ test("formats replies into paragraphs, lists, bold and course codes", () => {
     },
     {
       kind: "paragraph",
-      lines: [[{ kind: "text", text: "Then check /plan." }]],
+      lines: [
+        [
+          { kind: "text", text: "Then check " },
+          { kind: "page", href: "/plan", text: "Plan page" },
+          { kind: "text", text: "." },
+        ],
+      ],
     },
   ]);
   expect(parseReply("Take COMP2120 next")).toEqual([
@@ -401,6 +407,9 @@ test("trims a generated chat title to fit the switcher", () => {
   );
   expect(cleanChatTitle("**Fixing COMP3500 prerequisites**")).toBe(
     "Fixing COMP3500 prerequisites",
+  );
+  expect(cleanChatTitle("Tech and Coding Societies & Campus Directions")).toBe(
+    "Tech and coding societies and campus",
   );
   expect(cleanChatTitle("  ")).toBeNull();
 });

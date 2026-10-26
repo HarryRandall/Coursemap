@@ -4,15 +4,28 @@ import { streamChatRound } from "./openrouter-chat";
 import type { ChatUsage } from "./openrouter-chat";
 
 const TITLE_PROMPT =
-  "Write a title of three to six words for a chat that starts with the student's message below. Use sentence case, no quotes and no final full stop. Reply with the title only.";
+  'Write a title of two to four words for a chat that starts with the student\'s message below, such as "COMP gap options" or "GPA and requirements". Use sentence case, no quotes and no final full stop. Reply with the title only.';
 
-/** Trims what a model returns into a title that fits the chat switcher. */
+/**
+ * Trims what a model returns into a title that fits the chat switcher, in
+ * sentence case. Words written in capitals, such as COMP or ANU, keep them.
+ */
 export function cleanChatTitle(raw: string) {
-  const title = raw
+  const words = raw
     .split("\n")[0]
     .replace(/^["'\s*#]+|["'\s*.]+$/gu, "")
-    .replace(/\s+/gu, " ")
-    .slice(0, 64);
+    .replace(/\s*&\s*/gu, " and ")
+    .split(/\s+/u)
+    .filter(Boolean)
+    .map((word, index) =>
+      index && /^[A-Z][a-z]+$/u.test(word) ? word.toLowerCase() : word,
+    );
+  let title = "";
+  for (const word of words) {
+    const next = title ? `${title} ${word}` : word;
+    if (next.length > 40) break;
+    title = next;
+  }
   return title.length >= 3 ? title : null;
 }
 

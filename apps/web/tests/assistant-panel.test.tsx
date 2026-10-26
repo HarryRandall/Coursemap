@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -270,8 +276,9 @@ test("streams a reply with the screen context and restores the conversation", as
     expect(screen.getByRole("log")).toHaveTextContent("COMP2120 fits in S2."),
   );
   expect(screen.getByRole("log")).not.toHaveTextContent("Let me check.");
-  // The lookup folds into one line once the answer is written.
-  expect(screen.getByText("Reading your plan")).toBeVisible();
+  // Lookups show only while Compass works, never under the answer.
+  expect(screen.queryByText(/your plan/)).toBeNull();
+  expect(screen.queryByRole("status")).toBeNull();
   expect(screen.queryByText(/Thinking/)).toBeNull();
   expect(screen.getByRole("link", { name: "COMP2120" })).toHaveAttribute(
     "href",
@@ -322,26 +329,64 @@ test("shows looked-up courses as cards and draws requested charts", async () => 
   );
   const { unmount } = render(view());
   await user.type(screen.getByRole("textbox"), "Can I do the capstone?{Enter}");
-  const chip = await screen.findByRole("button", {
+  const link = await screen.findByRole("link", { name: "COMP3500" });
+  expect(link).toHaveAttribute("href", "/courses/2026/comp3500");
+  // Resting on the code previews the course beside it.
+  await user.hover(link);
+  const preview = await screen.findByRole("dialog", {
     name: "COMP3500 Software Engineering Project",
   });
-  expect(screen.getByRole("figure", { name: "Your GPA" })).toHaveTextContent(
-    "1 below 6",
-  );
-  await user.click(chip);
-  expect(screen.getByText("A GPA of 6.0 or higher")).toBeVisible();
-  expect(screen.getByRole("link", { name: "Open course" })).toHaveAttribute(
-    "href",
-    "/courses/2026/comp3500",
-  );
+  expect(preview).toHaveTextContent("Needs A GPA of 6.0 or higher");
+  expect(preview).toHaveTextContent("6 units");
+  expect(
+    within(preview).getByRole("link", { name: "Open course" }),
+  ).toHaveAttribute("href", "/courses/2026/comp3500");
+  await user.unhover(link);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // The chart follows the answer it illustrates.
+  const figure = screen.getByRole("figure", { name: "Your GPA" });
+  expect(figure).toHaveTextContent("1 below 6");
+  expect(
+    figure.compareDocumentPosition(screen.getByText(/your GPA is below/)) &
+      Node.DOCUMENT_POSITION_PRECEDING,
+  ).toBeTruthy();
   unmount();
   render(view());
-  expect(
-    await screen.findByRole("button", {
-      name: "COMP3500 Software Engineering Project",
-    }),
-  ).toBeVisible();
+  expect(await screen.findByRole("link", { name: "COMP3500" })).toBeVisible();
   expect(screen.getByRole("figure", { name: "Your GPA" })).toBeVisible();
+});
+
+test("shows a campus place with a route into the 3D map", async () => {
+  const user = userEvent.setup();
+  replyWith([
+    {
+      type: "place",
+      place: {
+        slug: "hancock-library",
+        name: "Hancock Library",
+        address: "43 Linnaeus Way",
+        from: { slug: "csit", name: "CSIT Building" },
+      },
+    },
+    { type: "text", delta: "Hancock is a short walk from CSIT." },
+    { type: "done", model: "anthropic/claude-haiku-5.5" },
+  ]);
+  render(
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>,
+  );
+  await user.type(
+    screen.getByRole("textbox"),
+    "How do I get to Hancock?{Enter}",
+  );
+  expect(
+    await screen.findByRole("link", { name: "Directions" }),
+  ).toHaveAttribute("href", "/rooms?from=csit&to=hancock-library");
+  expect(screen.getByRole("link", { name: "Show on map" })).toHaveAttribute(
+    "href",
+    "/rooms?place=hancock-library",
+  );
 });
 
 test("keeps the question and explains a refused request", async () => {

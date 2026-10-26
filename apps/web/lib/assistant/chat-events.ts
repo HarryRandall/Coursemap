@@ -1,5 +1,15 @@
-import { readAssistantVisual, readCourseReference } from "./attachments";
-import type { AssistantCourseReference, AssistantVisual } from "./attachments";
+import {
+  readAssistantVisual,
+  readCourseReference,
+  readPlace,
+  readSociety,
+} from "./attachments";
+import type {
+  AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
+  AssistantVisual,
+} from "./attachments";
 import type { AssistantScreen } from "./screen-context";
 
 export type AssistantChatRequest = {
@@ -17,6 +27,8 @@ export type AssistantChatEvent =
   | { type: "tool"; id: string; label: string; done: boolean }
   | { type: "course"; course: AssistantCourseReference }
   | { type: "visual"; visual: AssistantVisual }
+  | { type: "society"; society: AssistantSociety }
+  | { type: "place"; place: AssistantPlace }
   | { type: "title"; title: string }
   | { type: "done"; model: string }
   | { type: "error"; message: string };
@@ -49,6 +61,14 @@ function readEvent(line: string): AssistantChatEvent | null {
     if (event.type === "course") {
       const course = readCourseReference(event.course);
       return course ? { type: "course", course } : null;
+    }
+    if (event.type === "society") {
+      const society = readSociety(event.society);
+      return society ? { type: "society", society } : null;
+    }
+    if (event.type === "place") {
+      const place = readPlace(event.place);
+      return place ? { type: "place", place } : null;
     }
     if (event.type === "visual") {
       const visual = readAssistantVisual(event.visual);

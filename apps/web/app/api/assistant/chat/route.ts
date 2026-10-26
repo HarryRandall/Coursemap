@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { loadAssistantAllowance } from "@/lib/assistant/allowance";
+import type { AssistantCourseReference } from "@/lib/assistant/attachments";
 import { encodeAssistantEvent } from "@/lib/assistant/chat-events";
 import type { AssistantChatEvent } from "@/lib/assistant/chat-events";
 import { runAssistantTurn } from "@/lib/assistant/chat-turn";
@@ -94,7 +95,7 @@ export async function POST(request: Request) {
           // The student closed the panel or stopped the reply.
         }
       };
-      const referenced = new Set<string>();
+      const referenced = new Map<string, AssistantCourseReference>();
       const spent = {
         model: models[0],
         inputTokens: 0,
@@ -133,12 +134,25 @@ export async function POST(request: Request) {
             today: canberraTodayIso(),
           }),
           tools: assistantTools(viewer, {
+            // Lookups know different things about a course, such as its
+            // place in the plan or its offerings, so each one adds to it.
             onCourse: (course) => {
-              if (referenced.has(course.code)) return;
-              referenced.add(course.code);
-              send({ type: "course", course });
+              const known = referenced.get(course.code);
+              // The plan's view of a course outranks a catalogue lookup.
+              const merged = known?.planStatus
+                ? {
+                    ...course,
+                    planStatus: known.planStatus,
+                    prerequisitesMet: known.prerequisitesMet,
+                  }
+                : { ...known, ...course };
+              if (JSON.stringify(known) === JSON.stringify(merged)) return;
+              referenced.set(course.code, merged);
+              send({ type: "course", course: merged });
             },
             onVisual: (visual) => send({ type: "visual", visual }),
+            onSociety: (society) => send({ type: "society", society }),
+            onPlace: (place) => send({ type: "place", place }),
           }),
           onText: (delta) => send({ type: "text", delta }),
           onAside: () => send({ type: "aside" }),
