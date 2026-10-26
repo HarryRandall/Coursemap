@@ -32,6 +32,9 @@ export function AssistantPanel({
     <AssistantPanelContent
       expanded={false}
       onExpand={() => {
+        // A guest's Compass page is the full view inside the shell, so
+        // pushing it again would do nothing and point the way back at itself.
+        if (pathname.startsWith("/compass/")) return onClose();
         setReturnPath(pathname);
         router.push(`/compass/${active?.id ?? "new"}`);
       }}

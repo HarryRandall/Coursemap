@@ -955,7 +955,7 @@ export function PlanBoard({
         >
           <GripVertical size={13} aria-hidden="true" />
         </button>
-        <Tooltip open={note || usesStandIn ? undefined : false}>
+        <Tooltip open={note ? undefined : false}>
           <TooltipTrigger asChild>
             <button
               type="button"
@@ -986,11 +986,8 @@ export function PlanBoard({
               </span>
             </button>
           </TooltipTrigger>
-          {note || usesStandIn ? (
+          {note ? (
             <TooltipContent align="start" side="bottom">
-              {usesStandIn && (
-                <p>{`ANU hasn't published ${term.year} details yet, so Coursemap uses ${entry.course.year}'s.`}</p>
-              )}
               <ul className="space-y-1">
                 {entry.flags?.issues.map((issue) => (
                   <li key={`${issue.code}:${issue.detail}`}>{issue.detail}</li>

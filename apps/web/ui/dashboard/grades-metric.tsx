@@ -46,7 +46,7 @@ export function GradesMetric({ grades }: { grades: readonly GradeTally[] }) {
         <>
           <h3 className="text-sm font-semibold">Grades</h3>
           {total > 0 ? (
-            <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
+            <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium whitespace-nowrap text-primary">
               {Math.round((distinctions / total) * 100)}% HD
             </span>
           ) : null}

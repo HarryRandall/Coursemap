@@ -12,29 +12,34 @@ export function PlanClient({
   /** Streamed from the server once the board has rendered. */
   requirementCourses: Promise<Course[]>;
 }) {
-  const [added, setAdded] = useState<{
-    from: Promise<Course[]>;
-    courses: Course[];
-  } | null>(null);
+  // Every plan action revalidates the page, which streams a new promise. The
+  // last courses to arrive stay until it settles so the side panel keeps its
+  // content; only the first load has nothing to show yet.
+  const [addedCourses, setAddedCourses] = useState<Course[] | null>(null);
   useEffect(() => {
     let current = true;
     void requirementCourses.then((courses) => {
-      if (current) setAdded({ from: requirementCourses, courses });
+      if (current) setAddedCourses(courses);
     });
     return () => {
       current = false;
     };
   }, [requirementCourses]);
-  // Courses from an earlier render's promise belong to a stale catalogue.
-  const addedCourses =
-    added?.from === requirementCourses ? added.courses : null;
-  const withRequirementCourses = useMemo(
-    () =>
-      addedCourses?.length
-        ? { ...catalogue, courses: [...catalogue.courses, ...addedCourses] }
-        : catalogue,
-    [catalogue, addedCourses],
-  );
+  const withRequirementCourses = useMemo(() => {
+    // Courses held over from an earlier promise may have joined the catalogue
+    // since, and an edition it lists for the plan year replaces them.
+    const known = new Set(
+      catalogue.courses.map((course) => `${course.year}:${course.code}`),
+    );
+    const added = (addedCourses ?? []).filter(
+      (course) =>
+        !known.has(`${course.year}:${course.code}`) &&
+        !known.has(`${catalogue.academicYear}:${course.code}`),
+    );
+    return added.length
+      ? { ...catalogue, courses: [...catalogue.courses, ...added] }
+      : catalogue;
+  }, [catalogue, addedCourses]);
   return (
     <PlanBoard
       catalogue={withRequirementCourses}

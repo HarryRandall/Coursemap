@@ -138,6 +138,9 @@ export function OnboardingForm({
       ? null
       : rulesYearForCommencement(commencementYear, publishedYears);
   const catalogueYear = rulesYearOverride ?? suggestedRulesYear;
+  // A start year without published rules falls back silently.
+  const followsStartYear =
+    commencementYear !== null && suggestedRulesYear === commencementYear;
 
   // The lists are short, so filtering on render is cheaper than memoising.
   const degrees = catalogue.degrees.filter(
@@ -407,19 +410,22 @@ export function OnboardingForm({
                         )}
                         value={commencementYear}
                       />
-                      {commencementYear !== null && catalogueYear !== null ? (
+                      {commencementYear !== null &&
+                      catalogueYear !== null &&
+                      (followsStartYear || publishedYears.length > 1) ? (
                         <div className="space-y-4 rounded-xl bg-muted/50 p-4 text-sm">
-                          <p className="flex gap-2">
-                            <Info
-                              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-                              aria-hidden="true"
-                            />
-                            <span>
-                              {suggestedRulesYear === commencementYear
-                                ? `Your plan follows the ${commencementYear} degree rules, from the year you started.`
-                                : `Coursemap doesn't have the ${commencementYear} degree rules yet, so your plan uses ${suggestedRulesYear}.`}
-                            </span>
-                          </p>
+                          {followsStartYear ? (
+                            <p className="flex gap-2">
+                              <Info
+                                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                                aria-hidden="true"
+                              />
+                              <span>
+                                Your plan follows the {commencementYear} degree
+                                rules, from the year you started.
+                              </span>
+                            </p>
+                          ) : null}
                           {publishedYears.length > 1 ? (
                             <SelectField
                               description="Change this only if you moved to a newer set of rules."

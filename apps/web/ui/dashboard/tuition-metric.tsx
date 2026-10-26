@@ -10,6 +10,7 @@ import {
 } from "@coursemap/ui/primitives/tooltip";
 import type { TuitionEstimate } from "@/lib/coursemap/academic-metrics";
 import { feeStatusLabel, feeStatusShortLabel } from "@/lib/academic/fee-status";
+import { cn } from "@/lib/cn";
 import { AcademicMetricCard } from "./academic-metric-card";
 import { tuitionSkeleton } from "./metric-skeletons";
 
@@ -63,7 +64,7 @@ export function TuitionMetric({
         <>
           {tuition ? (
             <div className="flex min-w-0 items-baseline gap-2">
-              <p className="text-xl font-semibold tracking-tight tabular-nums">
+              <p className="text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums">
                 {tuition.estimatedCourses > 0 ? "≈ " : ""}
                 {money(tuition.total)}
               </p>
@@ -84,13 +85,14 @@ export function TuitionMetric({
               ) : null}
             </div>
           ) : null}
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex min-w-0 items-center gap-0.5">
             <h3
-              className={
+              className={cn(
+                "truncate",
                 tuition
                   ? "text-xs font-medium text-muted-foreground"
-                  : "text-sm font-semibold"
-              }
+                  : "text-sm font-semibold",
+              )}
             >
               Est. tuition
               {tuition ? (
@@ -101,7 +103,7 @@ export function TuitionMetric({
               ) : null}
             </h3>
             {lastStart > 0 ? (
-              <span className="-my-1 ml-1 flex items-center">
+              <span className="-my-1 ml-1 flex shrink-0 items-center">
                 <Button
                   variant="ghost"
                   size="icon"

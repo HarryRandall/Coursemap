@@ -13,7 +13,9 @@ import { StatusMark } from "@/ui/plan/status-mark";
 import {
   suggestionCondition as condition,
   suggestions,
+  suggestionsCatalogue,
 } from "./fixtures/planner-suggestions";
+import { courses } from "./fixtures/catalogue";
 
 vi.mock("@/app/providers", () => ({
   useCoursemap: () => ({
@@ -77,8 +79,47 @@ test("a fully covered tab has a check and Starred remains available", async () =
   expect(
     screen.getByRole("tab", { name: "Degree: 0 courses left to pick" }),
   ).toContainElement(screen.getByLabelText("done"));
+  expect(screen.getByText("Degree requirements planned")).toBeVisible();
   await userEvent.click(screen.getByRole("tab", { name: "Starred" }));
   expect(screen.getByText(/Star a course/)).toBeVisible();
+});
+
+test("a rule course the plan year lacks uses the nearest year's edition, and one no year publishes is left out", async () => {
+  const [comp1100] = courses;
+  const earlier = { ...comp1100, year: 2024, name: "Earlier edition" };
+  const item = suggestions(
+    [condition(1, ["COMP1100", "ZZZZ9999"], { minimumCourses: 1 })],
+    new Map(),
+    [],
+    {
+      ...suggestionsCatalogue,
+      courses: [
+        ...suggestionsCatalogue.courses.filter(
+          (course) => course.code !== "COMP1100",
+        ),
+        { ...comp1100, year: 2028, name: "Later edition" },
+        earlier,
+      ],
+    },
+  );
+  render(
+    <CoursesToPlan
+      structures={[item]}
+      starred={[]}
+      inPlan={new Map()}
+      {...handlers}
+    />,
+  );
+  expect(screen.getByText("Earlier edition")).toBeVisible();
+  expect(screen.queryByText("Later edition")).not.toBeInTheDocument();
+  expect(screen.queryByText("ZZZZ9999")).not.toBeInTheDocument();
+  expect(
+    screen.queryByText(/Not published for this year/),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Add COMP1100 to this year" }),
+  );
+  expect(handlers.onAdd).toHaveBeenCalledWith(earlier);
 });
 
 test("hard issues take the red Ban mark, soft issues amber, and an all-clear plan is dashed", () => {

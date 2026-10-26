@@ -226,7 +226,7 @@ export function ProfileEditorForm({
   return (
     <Tabs className="block" onValueChange={selectSection} value={section}>
       <AppShell tabs={tabs}>
-        <form className="w-full" onSubmit={save} noValidate>
+        <form className="flex w-full flex-1 flex-col" onSubmit={save} noValidate>
           <h1 className="sr-only">Profile and study details</h1>
 
           <TabsContent value="account" className="space-y-4">
@@ -446,7 +446,6 @@ export function ProfileEditorForm({
                 specialisationCodes: draft.specialisationCodes,
               }}
               commencementYear={draft.commencementYear}
-              catalogueYear={draft.catalogueYear}
               startYears={startYears}
               graduationYear={graduationYear}
               planningDuration={planningDuration}
@@ -540,6 +539,7 @@ export function ProfileEditorForm({
 
           {dirty ? (
             <div
+              data-page-actions
               className="sticky bottom-0 z-10 -mx-4 mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:-mx-6 sm:px-6"
               role="status"
             >

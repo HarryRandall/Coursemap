@@ -44,9 +44,10 @@ export function RuleGroup({
       ((rule.courses.length > 0 && rule.courses.length <= 12) ||
         rule.matching !== null),
   );
-  const courses = readOnly
-    ? rule.courses
-    : rule.courses.filter((item) => item.status === null);
+  // A course no catalogue year publishes cannot be planned, so it is left out.
+  const courses = rule.courses.flatMap(({ code, course, status }) =>
+    course && (readOnly || status === null) ? [{ code, course, status }] : [],
+  );
   const expandable =
     courses.length > 0 ||
     Boolean(rule.options?.length) ||
@@ -136,37 +137,22 @@ export function RuleGroup({
       </div>
       {expandable && open ? (
         <ul>
-          {courses.map(({ code, course, status }) =>
-            course ? (
-              <CourseRow
-                key={code}
-                item={{
-                  course,
-                  required: rule.compulsory,
-                  tag: rule.heading,
-                  structureKind: kind,
-                }}
-                status={status}
-                readOnly={readOnly}
-                onAdd={onAdd}
-                onOpen={onOpen}
-                onDragStart={onDragStart}
-              />
-            ) : (
-              <li
-                key={code}
-                className="grid grid-cols-[1.5rem_4.25rem_minmax(0,1fr)] items-center gap-x-1.5 py-1.5"
-              >
-                <span />
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {code}
-                </span>
-                <span className="truncate text-[12px] text-muted-foreground">
-                  Not published for this year
-                </span>
-              </li>
-            ),
-          )}
+          {courses.map(({ code, course, status }) => (
+            <CourseRow
+              key={code}
+              item={{
+                course,
+                required: rule.compulsory,
+                tag: rule.heading,
+                structureKind: kind,
+              }}
+              status={status}
+              readOnly={readOnly}
+              onAdd={onAdd}
+              onOpen={onOpen}
+              onDragStart={onDragStart}
+            />
+          ))}
         </ul>
       ) : null}
       {expandable && open && rule.matching ? (

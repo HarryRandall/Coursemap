@@ -184,6 +184,22 @@ test("keeps the panel visible until fullscreen navigation takes over", async () 
   ).toBeInTheDocument();
 });
 
+test("closes the dock rather than reopening the Compass page beneath it", async () => {
+  navigation.pathname = "/compass/new";
+  const user = userEvent.setup();
+  render(
+    <AssistantProvider owner="test">
+      <ExpansionHarness />
+    </AssistantProvider>,
+  );
+  await user.click(screen.getByRole("button", { name: "Open Compass" }));
+  await user.click(screen.getByRole("button", { name: "Expand assistant" }));
+  expect(push).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("complementary", { name: "Compass" }),
+  ).not.toBeInTheDocument();
+});
+
 test("sends locally, replies with fixed text, and restores the conversation", async () => {
   const user = userEvent.setup();
   const { unmount } = render(

@@ -20,7 +20,7 @@ export function AcademicMetricCard({
   return (
     <Card className="min-w-0 py-0">
       <CardContent className="flex flex-1 flex-col gap-3 p-4">
-        <div className="flex min-h-7 items-center justify-between gap-2">
+        <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-2 gap-y-2">
           {header}
           {empty ? (
             <span className="text-xs text-muted-foreground">{empty.label}</span>

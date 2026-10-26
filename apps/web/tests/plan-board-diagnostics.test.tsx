@@ -275,7 +275,7 @@ test("a course tooltip lists every hard and soft issue", async () => {
   expect(tooltip).toHaveTextContent("Convener permission is required");
 });
 
-test("an unimported planning year shows the stand-in edition and explains it", async () => {
+test("an unimported planning year shows the stand-in edition without a tooltip", async () => {
   fixtures.attempts = [
     {
       id: "future",
@@ -301,9 +301,8 @@ test("an unimported planning year shows the stand-in edition and explains it", a
   await userEvent.hover(
     screen.getByRole("button", { name: new RegExp(courses[0].name) }),
   );
-  expect(await screen.findByRole("tooltip")).toHaveTextContent(
-    "ANU hasn't published 2027 details yet, so Coursemap uses 2026's.",
-  );
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  expect(screen.queryByText(/hasn't published/)).not.toBeInTheDocument();
   await userEvent.click(
     screen.getByRole("button", { name: new RegExp(courses[0].name) }),
   );

@@ -7,6 +7,7 @@ import {
   hidesCondition,
 } from "@/lib/coursemap/requirement-classification";
 import { requirementTitle } from "@/lib/coursemap/requirement-titles";
+import { closestCourseEdition } from "@/lib/coursemap/course-edition-year";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
@@ -57,7 +58,10 @@ export function courseForTerm(
 /** A course a rule lists, and where it stands in the student's plan. */
 export type RuleCourse = {
   code: string;
-  /** Null when the catalogue year the plan uses does not publish it. */
+  /**
+   * The plan year's edition, or the nearest year's when that year does not
+   * publish it. Null when the catalogue holds no edition at all.
+   */
   course: Course | null;
   /** Completed, planned or enrolled; null while it is not in the plan. */
   status: AttemptStatus | null;
@@ -199,10 +203,7 @@ export function structuresToPlan({
   catalogue: PlanCatalogue;
 }): StructureToPlan[] {
   const courseFor = (code: string) =>
-    catalogue.courses.find(
-      (item) => item.code === code && item.year === catalogue.academicYear,
-    ) ??
-    catalogue.courses.find((item) => item.code === code) ??
+    closestCourseEdition(catalogue.courses, code, catalogue.academicYear) ??
     null;
   return structures.map((structure) => {
     const { context } = structure;

@@ -133,6 +133,17 @@ export function Requirements({
       setPending(false);
     }
   }
+  function structureChoices(kind: SelectableStructureKind) {
+    return (
+      <StructureChoices
+        key={kind}
+        kind={kind}
+        options={options[kind].filter((item) => !selectedCodes.has(item.code))}
+        pending={pending}
+        onSelect={(option) => void chooseStructure(kind, option)}
+      />
+    );
+  }
   // Without a degree the whole page is its outline behind the set-up
   // prompt, as on the dashboard, rather than empty figures and tabs.
   if (!degree) {
@@ -190,33 +201,12 @@ export function Requirements({
             className={`workspace-scroll mt-0 ${fillEmpty ? "flex flex-col" : "space-y-6"}`}
           >
             {kind !== "programme" &&
-            selected[kind].length > 0 &&
-            (choosing ||
-              options[kind].some((item) => !selectedCodes.has(item.code))) ? (
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => setChoosing(!choosing)}
-                >
-                  {choosing ? (
-                    <X size={14} aria-hidden="true" />
-                  ) : (
-                    <Plus size={14} aria-hidden="true" />
-                  )}
-                  {choosing
-                    ? "Close choices"
-                    : kind === "major"
-                      ? "Change major"
-                      : `Add ${kind}`}
-                </Button>
-              </div>
-            ) : null}
-            {kind !== "programme" &&
             selected[kind].length === 0 &&
             !choosing ? (
-              <SkeletonBackdrop backdrop={<RequirementsSkeleton rulesOnly />}>
+              <SkeletonBackdrop
+                fill
+                backdrop={<RequirementsSkeleton rulesOnly />}
+              >
                 <StructureEmptyState
                   kind={kind}
                   available={options[kind].length > 0}
@@ -225,18 +215,10 @@ export function Requirements({
                 />
               </SkeletonBackdrop>
             ) : null}
-            {kind !== "programme" && choosing ? (
-              <StructureChoices
-                key={kind}
-                kind={kind}
-                options={options[kind].filter(
-                  (item) => !selectedCodes.has(item.code),
-                )}
-                pending={pending}
-                onSelect={(option) => void chooseStructure(kind, option)}
-              />
-            ) : null}
-            {selected[kind].map((code) => {
+            {kind !== "programme" && selected[kind].length === 0 && choosing
+              ? structureChoices(kind)
+              : null}
+            {selected[kind].map((code, index) => {
               const requirements = catalogue.structureRequirements.find(
                 (item) =>
                   item.structureCode === code && item.structureKind === kind,
@@ -280,15 +262,36 @@ export function Requirements({
               return (
                 <div key={code} className="space-y-5">
                   {kind !== "programme" && (
-                    <h2 className="text-base font-semibold">
-                      {structure?.name ?? option?.name ?? code}
-                      {target !== null && (
-                        <span className="ml-2 text-sm font-normal text-muted-foreground">
-                          {target} units
-                        </span>
-                      )}
-                    </h2>
+                    <div className="flex items-center justify-between gap-4">
+                      <h2 className="min-w-0 text-base font-semibold">
+                        {structure?.name ?? option?.name ?? code}
+                        {target !== null && (
+                          <span className="ml-2 text-sm font-normal text-muted-foreground">
+                            {target} units
+                          </span>
+                        )}
+                      </h2>
+                      {index === 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          disabled={pending}
+                          onClick={() => setChoosing(!choosing)}
+                        >
+                          {choosing ? (
+                            <X size={14} aria-hidden="true" />
+                          ) : (
+                            <Plus size={14} aria-hidden="true" />
+                          )}
+                          {choosing ? "Close choices" : `Change ${kind}`}
+                        </Button>
+                      ) : null}
+                    </div>
                   )}
+                  {kind !== "programme" && index === 0 && choosing
+                    ? structureChoices(kind)
+                    : null}
                   {requirements?.root ? (
                     <RequirementGroupView
                       group={requirements.root}

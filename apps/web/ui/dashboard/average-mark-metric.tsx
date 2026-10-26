@@ -36,14 +36,16 @@ export function AverageMarkMetric({
       }
       header={
         <>
-          <h3 className="flex items-baseline gap-1.5">
+          <h3 className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
             {semester ? (
               <span className="text-xl font-semibold tabular-nums">
                 {Math.round(semester.wam)}%
               </span>
             ) : null}
             {semester ? (
-              <span className="text-xs text-muted-foreground">Avg. mark</span>
+              <span className="truncate text-xs text-muted-foreground">
+                Avg. mark
+              </span>
             ) : (
               <span className="text-sm font-semibold">Avg. mark</span>
             )}
@@ -60,7 +62,7 @@ export function AverageMarkMetric({
                 <ChevronLeft size={16} aria-hidden="true" />
               </Button>
               <span
-                className="text-[10px] text-muted-foreground"
+                className="text-[10px] whitespace-nowrap text-muted-foreground"
                 aria-live="polite"
               >
                 {semester.label}

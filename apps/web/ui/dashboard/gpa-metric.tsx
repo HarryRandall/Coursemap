@@ -35,7 +35,7 @@ export function GpaMetric({
         <>
           <h3 className="text-sm font-semibold">GPA</h3>
           {gpa !== null ? (
-            <span className="text-sm font-semibold tabular-nums">
+            <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
               {gpa.toFixed(1)}
               <span className="ml-1 text-xs font-normal text-muted-foreground">
                 / 7
