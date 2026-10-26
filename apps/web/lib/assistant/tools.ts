@@ -215,11 +215,7 @@ function summarisePlan(
       return { id: term.id, name: `${term.name} ${term.year}`, courses };
     })
     .filter((term) => term.courses.length);
-  const charts = planVisuals({
-    gpa: academic.gpa,
-    requirements: buckets,
-    terms,
-  });
+  const charts = planVisuals({ gpa: academic.gpa, terms });
   charts.forEach(onVisual);
   return {
     // Already drawn under the reply; mention them rather than repeat them.
@@ -338,7 +334,7 @@ export function assistantTools(
         function: {
           name: "get_plan",
           description:
-            "The student's programme, major and minors, unit progress, requirement progress, plan risks and every planned, enrolled or completed course by study period with any problems Coursemap has found (unmet prerequisites, not offered, overload, incompatibility). Call this before giving advice about their plan. It also shows the student a requirement progress chart, and a GPA chart when a GPA rule is unmet.",
+            "The student's programme, major and minors, unit progress, requirement progress, plan risks and every planned, enrolled or completed course by study period with any problems Coursemap has found (unmet prerequisites, not offered, overload, incompatibility). Call this before giving advice about their plan. It also shows the student a GPA chart when a planned course has a GPA rule they do not meet.",
           parameters: { type: "object", properties: {} },
         },
       },

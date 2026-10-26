@@ -22,7 +22,7 @@ export function AssistantComposer({
   const { streaming, stop } = useAssistant();
   return (
     <form
-      className="shrink-0 space-y-3 p-4"
+      className="shrink-0 space-y-2 px-4 pt-4 pb-2"
       onSubmit={(event) => {
         event.preventDefault();
         onSend();
@@ -71,6 +71,10 @@ export function AssistantComposer({
           )}
         </div>
       </div>
+      <p className="text-center text-[11px] text-muted-foreground">
+        Compass can make mistakes. Check important details with ANU or your
+        college.
+      </p>
     </form>
   );
 }

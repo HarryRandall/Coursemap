@@ -175,23 +175,9 @@ test("draws a requested chart and rejects an incomplete one", async () => {
   );
 });
 
-test("charts requirement progress and an unmet GPA rule from the plan", () => {
+test("charts an unmet GPA rule from the plan", () => {
   const visuals = planVisuals({
     gpa: 5.2,
-    requirements: [
-      {
-        title: "COMP courses",
-        targetUnits: 24,
-        completedUnits: 6,
-        plannedUnits: 6,
-      },
-      {
-        title: "Transdisciplinary",
-        targetUnits: null,
-        completedUnits: 0,
-        plannedUnits: 0,
-      },
-    ],
     terms: [
       {
         courses: [
@@ -213,14 +199,10 @@ test("charts requirement progress and an unmet GPA rule from the plan", () => {
       target: 6,
       unit: "GPA",
     },
-    {
-      kind: "bars",
-      title: "Units placed per requirement",
-      unit: "units",
-      items: [{ label: "COMP courses", value: 6, planned: 6, target: 24 }],
-    },
   ]);
-  expect(planVisuals({ gpa: null, requirements: [], terms: [] })).toEqual([]);
+  expect(
+    planVisuals({ gpa: 6.5, terms: [{ courses: [{ code: "COMP2120" }] }] }),
+  ).toEqual([]);
 });
 
 function toolNamed(

@@ -115,6 +115,131 @@ function MeterChart({ visual }: { visual: MeterVisual }) {
   );
 }
 
+// ANU's 7-point scale: the grade each whole point stands for.
+const GPA_BANDS = [
+  { from: 0, to: 4, label: "Below pass" },
+  { from: 4, to: 5, label: "Pass" },
+  { from: 5, to: 6, label: "Credit" },
+  { from: 6, to: 7, label: "Distinction" },
+] as const;
+
+function gpaBandLabel(gpa: number) {
+  if (gpa >= 7) return "High distinction average";
+  const band = GPA_BANDS.findLast((item) => gpa >= item.from);
+  return band ? `${band.label} average` : "";
+}
+
+/**
+ * A GPA on ANU's grade bands, zoomed to the bands that matter, with the
+ * student's GPA and any required GPA marked on the same scale.
+ */
+function GpaMeter({ visual }: { visual: MeterVisual }) {
+  const { value, target } = visual;
+  const meets = target === undefined || value >= target;
+  // Show from the pass band down to whatever band the values reach.
+  const low = Math.min(4, Math.floor(Math.min(value, target ?? value)));
+  const span = 7 - low;
+  const at = (point: number) => percent(point - low, span);
+  const bands = GPA_BANDS.filter((band) => band.to > low).map((band) => ({
+    ...band,
+    from: Math.max(band.from, low),
+  }));
+  const summary = `GPA ${value.toFixed(2)} of 7, ${gpaBandLabel(value).toLowerCase()}${
+    target === undefined
+      ? ""
+      : meets
+        ? `, meets the ${amount(target)} required`
+        : `, ${(target - value).toFixed(2)} below the ${amount(target)} required`
+  }`;
+  return (
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-3xl leading-none font-semibold tracking-tight tabular-nums">
+            {value.toFixed(2)}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">
+              / 7
+            </span>
+          </p>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {gpaBandLabel(value)}
+          </p>
+        </div>
+        {target !== undefined ? (
+          <Badge
+            variant={meets ? "success" : "warning"}
+            className={darkStatusTint[meets ? "success" : "warning"]}
+          >
+            {meets ? (
+              <CircleCheck aria-hidden="true" />
+            ) : (
+              <CircleAlert aria-hidden="true" />
+            )}
+            {meets
+              ? `Meets ${amount(target)}`
+              : `${(target - value).toFixed(2)} below ${amount(target)}`}
+          </Badge>
+        ) : null}
+      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            tabIndex={0}
+            aria-label={summary}
+            className="relative mt-7 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full">
+              {bands.map((band, index) => (
+                <span
+                  key={band.label}
+                  className="h-full"
+                  style={{
+                    width: percent(band.to - band.from, span),
+                    // Bands deepen towards a high distinction.
+                    background: `color-mix(in oklab, var(--primary) ${18 + index * 14}%, var(--border))`,
+                  }}
+                />
+              ))}
+            </div>
+            {target !== undefined ? (
+              <span
+                aria-hidden="true"
+                className="absolute -top-5 bottom-[-6px] flex -translate-x-1/2 flex-col items-center"
+                style={{ left: at(target) }}
+              >
+                <span className="text-[10px] leading-none font-medium whitespace-nowrap text-muted-foreground">
+                  Needs {amount(target)}
+                </span>
+                <span className="mt-1 w-px flex-1 border-l border-dashed border-foreground/70" />
+              </span>
+            ) : null}
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background bg-primary shadow-sm"
+              style={{ left: at(value) }}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>{summary}</TooltipContent>
+      </Tooltip>
+      <div
+        aria-hidden="true"
+        className="relative mt-2.5 h-3 text-[10px] text-muted-foreground"
+      >
+        {bands.map((band) => (
+          <span
+            key={band.label}
+            className="absolute -translate-x-1/2 whitespace-nowrap"
+            style={{ left: at((band.from + band.to) / 2) }}
+          >
+            {band.label}
+          </span>
+        ))}
+      </div>
+    </>
+  );
+}
+
 /**
  * Progress for several items, each a row with completed then planned units
  * against its own target, matching the dashboard's requirement bars.
@@ -211,7 +336,11 @@ export function AssistantVisualCard({ visual }: { visual: AssistantVisual }) {
         <figcaption className="text-xs font-medium text-muted-foreground">
           {visual.title}
         </figcaption>
-        {visual.kind === "meter" ? (
+        {visual.kind === "meter" &&
+        visual.unit === "GPA" &&
+        visual.max === 7 ? (
+          <GpaMeter visual={visual} />
+        ) : visual.kind === "meter" ? (
           <MeterChart visual={visual} />
         ) : (
           <BarsChart visual={visual} />
