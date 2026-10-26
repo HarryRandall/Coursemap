@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
+import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import type { Attempt } from "@/lib/coursemap/types";
@@ -331,7 +332,7 @@ test("the plan dialog evaluates a cohort waiver from the saved profile year", as
   expect(screen.getByText("You commenced in 2020")).toBeVisible();
 });
 
-test("a planned course shows what it needs and unlocks, and a completed one leaves results to academic history", () => {
+test("a planned course shows what it needs and unlocks, and a completed one can be removed after a confirmation", async () => {
   const planned: Attempt = {
     id: "target",
     courseCode: "COMP2100",
@@ -349,6 +350,7 @@ test("a planned course shows what it needs and unlocks, and a completed one leav
   fixture.attempts = [planned, later];
   const view = render(
     <CourseDialog attemptId="target" catalogue={catalogue} onClose={vi.fn()} />,
+    { wrapper: TooltipProvider },
   );
   expect(
     screen.getByText("Prerequisites aren't planned before this yet"),
@@ -370,10 +372,13 @@ test("a planned course shows what it needs and unlocks, and a completed one leav
   expect(
     screen.queryByText("Prerequisites aren't planned before this yet"),
   ).toBeNull();
-  expect(screen.queryByRole("button", { name: "Remove" })).toBeNull();
   expect(
     screen.getByRole("link", { name: "Edit in academic history" }),
   ).toHaveAttribute("href", "/academic");
+  await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+  expect(
+    await screen.findByRole("dialog", { name: "Remove COMP2100?" }),
+  ).toHaveTextContent(/comes out of your academic history/);
 });
 
 test("the dialog fills in workload, assessment and outcomes once the published course loads", async () => {

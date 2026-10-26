@@ -141,3 +141,20 @@ test("planner browse links retain the requirement's year, subjects and both leve
   expect(params.get("subject")).toBe("COMP,MATH");
   expect(params.get("level")).toBe("2-3");
 });
+
+test("a choice with only one option left to plan reads as that option", () => {
+  const item = suggestions([
+    group(
+      10,
+      [condition(11, ["COMP1100", "COMP1110"], { minimumCourses: 2 })],
+      "any_of",
+    ),
+  ]);
+  expect(item.rules.map((rule) => rule.heading)).not.toContain(
+    "Pick one option",
+  );
+  expect(item.rules[0]?.courses.map((course) => course.code)).toEqual([
+    "COMP1100",
+    "COMP1110",
+  ]);
+});

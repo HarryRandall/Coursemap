@@ -574,11 +574,7 @@ export function AppProvider({
   const removeAttempt = useCallback(
     async (attemptId: string) => {
       const attempt = state.attempts.find((item) => item.id === attemptId);
-      if (
-        attempt?.status === "completed" ||
-        attempt?.status === "failed" ||
-        attempt?.status === "withdrawn"
-      ) {
+      if (attempt?.status === "withdrawn") {
         return {
           ok: false,
           message: "Recorded attempts stay in your academic history",
@@ -595,10 +591,10 @@ export function AppProvider({
           "Course removed from the plan",
         );
       }
-      // An enrolment is a recorded attempt rather than a plan item, and has
-      // no result yet, so it is removed from the academic record instead.
+      // An enrolment or a result is a recorded attempt rather than a plan
+      // item, so it is removed from the academic record instead.
       const result =
-        attempt.status === "enrolled"
+        attempt.status !== "planned"
           ? await saveAcademicResult(attemptId, "remove").then((response) => ({
               ok: response.ok,
               message: response.ok

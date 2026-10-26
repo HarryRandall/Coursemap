@@ -106,7 +106,7 @@ test("a requirement can be marked satisfied and an existing override undone", as
   );
 });
 
-test("the planner side panel exposes the same override control in its rule header", async () => {
+test("the planner side panel only asks what to add and leaves overrides to Requirements", () => {
   const item: StructureToPlan = {
     structure: {
       code: "TEST",
@@ -140,6 +140,9 @@ test("the planner side panel exposes the same override control in its rule heade
         detail: "6 elective units",
         count: "0 / 6 units",
         progress: 0,
+        bar: { completed: 0, planned: 0, target: 6 },
+        left: "6 units left",
+        choice: null,
         covered: false,
         compulsory: false,
         courses: [],
@@ -164,16 +167,8 @@ test("the planner side panel exposes the same override control in its rule heade
       />
     </TooltipProvider>,
   );
-  fireEvent.keyDown(
-    screen.getByRole("button", { name: "Requirement options" }),
-    { key: "ArrowDown" },
-  );
-  fireEvent.click(
-    await screen.findByRole("menuitem", { name: "Mark as satisfied" }),
-  );
+  expect(screen.getByText("Electives")).toBeVisible();
   expect(
-    await screen.findByRole("dialog", {
-      name: "Mark requirement as satisfied",
-    }),
-  ).toBeVisible();
+    screen.queryByRole("button", { name: "Requirement options" }),
+  ).not.toBeInTheDocument();
 });

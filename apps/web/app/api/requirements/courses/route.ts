@@ -11,6 +11,8 @@ export async function GET(request: Request) {
   const subject = params.get("subject") ?? "";
   const tag = params.get("tag") ?? "";
   const level = params.get("level") ?? "";
+  // Narrows the rule's courses by code or name as a student types.
+  const query = params.get("q")?.trim() ?? "";
   if (
     !Number.isInteger(year) ||
     year < 2020 ||
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
     (!codes && !subject && !tag) ||
     codes.length > 12000 ||
     tag.length > 200 ||
+    query.length > 80 ||
     (codes &&
       !codes.split(",").every((code) => /^[A-Z]{4}\d{4}[A-Z]?$/u.test(code))) ||
     (subject &&
@@ -35,7 +38,7 @@ export async function GET(request: Request) {
   try {
     const result = await loadPublishedCoursePage({
       academicYear: year,
-      filters: { codes, subject, tag, level },
+      filters: { codes, subject, tag, level, query },
       page: cursor,
       pageSize: 12,
     });

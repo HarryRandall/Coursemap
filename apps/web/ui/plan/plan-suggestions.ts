@@ -6,8 +6,10 @@ import {
   conditionTone,
   hidesCondition,
 } from "@/lib/coursemap/requirement-classification";
+import { requirementNodeKey } from "@/lib/coursemap/requirement-progress";
 import { requirementTitle } from "@/lib/coursemap/requirement-titles";
 import { closestCourseEdition } from "@/lib/coursemap/course-edition-year";
+import type { PlanPrerequisites } from "@/lib/coursemap/term-placement";
 import type { AttemptStatus, Course, Term } from "@/lib/coursemap/types";
 import type {
   PlanCatalogue,
@@ -80,6 +82,12 @@ export type RuleToPlan = {
   count: string;
   /** Share of the rule completed or planned, from 0 to 1. */
   progress: number;
+  /** Completed and planned amounts against the target, in the rule's own unit. */
+  bar: { completed: number; planned: number; target: number } | null;
+  /** What the rule still needs in a few words, such as "6 units left". Null once covered. */
+  left: string | null;
+  /** How many of the listed courses to choose, for a rule that offers a choice. */
+  choice: number | null;
   /** Whether the plan already covers the rule. */
   covered: boolean;
   compulsory: boolean;
@@ -221,6 +229,9 @@ export function structuresToPlan({
         const options = rule.children
           .filter((child) => requirementRules(child, context).length > 0)
           .map(toRule);
+        // A choice with one option left to plan, such as COMP units beside
+        // majors the planner cannot list, is simply that option.
+        if (options.length === 1) return options[0]!;
         const status = requirementRowStatus(rule, context);
         const covered = status.kind === "planned" || status.kind === "complete";
         const required =
@@ -247,6 +258,11 @@ export function structuresToPlan({
           detail: rule.sourceText ?? "Choose courses from the options below",
           count: "",
           progress: covered ? 1 : 0,
+          bar: null,
+          choice: null,
+          left: covered
+            ? null
+            : `Choose ${Math.max(1, required - coveredOptions)}`,
           covered,
           compulsory: false,
           catchAll: false,
@@ -284,6 +300,31 @@ export function structuresToPlan({
       const status = requirementRowStatus(rule, context);
       const figure = status.kind === "unmeasured" ? null : status.figure;
       const covered = status.kind === "planned" || status.kind === "complete";
+      const measured = context.progress.get(requirementNodeKey(rule));
+      const bar = figure
+        ? figure.unit === "courses"
+          ? {
+              completed: listed.done,
+              planned: listed.planned,
+              target: figure.target,
+            }
+          : {
+              completed: measured?.completedUnits ?? 0,
+              planned: measured?.plannedUnits ?? 0,
+              target: figure.target,
+            }
+        : null;
+      const shortfall = figure ? Math.max(0, figure.target - figure.value) : 0;
+      const choice =
+        !compulsory && listed.codes.length > 0 ? rule.minimumCourses : null;
+      const left =
+        covered || !figure || shortfall === 0
+          ? null
+          : choice !== null && figure.unit === "courses"
+            ? `Choose ${shortfall}`
+            : figure.unit === "courses"
+              ? `${shortfall} ${shortfall === 1 ? "course" : "courses"} left`
+              : `${shortfall} units left`;
       const courses = listed.codes.map((code) => ({
         code,
         course: courseFor(code),
@@ -352,6 +393,9 @@ export function structuresToPlan({
           figure && figure.target > 0
             ? Math.min(1, figure.value / figure.target)
             : 0,
+        bar,
+        left,
+        choice,
         covered,
         compulsory,
         courses,
@@ -393,4 +437,72 @@ export function structuresToPlan({
       ),
     };
   });
+}
+
+/** What the planner knows about a course before it is added. */
+export type CourseHints = {
+  academicYear: number | null;
+  /**
+   * The course levels a rule any course fills draws on, such as "1-4" for an
+   * undergraduate degree. Undefined lists every level.
+   */
+  electiveLevel?: string;
+  /** Where the course's prerequisites stand against the plan. */
+  prerequisites: (course: Course) => PlanPrerequisites;
+  /** Courses best first for this student, leaving out ones that clash with the plan. */
+  rank: (courses: readonly Course[]) => Course[];
+};
+
+/** Covered prerequisites rank first; a rule to read or a permission to ask comes next. */
+const PREREQUISITE_SCORE: Record<PlanPrerequisites, number> = {
+  met: 100,
+  permission: 60,
+  unknown: 60,
+  missing: 0,
+};
+
+const COURSE_CODE = /\b[A-Z]{4}\d{4}\b/gu;
+
+/**
+ * Orders courses for a student: prerequisites the plan already covers first,
+ * then subjects they already study, then levels near the highest they have
+ * reached. A course listed as incompatible with one in the plan is left out.
+ */
+export function rankCourses(
+  courses: readonly Course[],
+  {
+    planCodes,
+    prerequisites,
+  }: {
+    planCodes: ReadonlySet<string>;
+    prerequisites: (course: Course) => PlanPrerequisites;
+  },
+): Course[] {
+  const subjectCounts = new Map<string, number>();
+  let topLevel = 1000;
+  for (const code of planCodes) {
+    const subject = code.slice(0, 4);
+    subjectCounts.set(subject, (subjectCounts.get(subject) ?? 0) + 1);
+    const level = Number(code.slice(4, 5)) * 1000;
+    if (level > topLevel) topLevel = level;
+  }
+  const score = (course: Course) =>
+    PREREQUISITE_SCORE[prerequisites(course)] +
+    Math.min(40, (subjectCounts.get(course.code.slice(0, 4)) ?? 0) * 5) -
+    Math.abs(course.level - topLevel) / 250;
+  return courses
+    .filter(
+      (course) =>
+        !planCodes.has(course.code) &&
+        !(course.incompatibilities.join(" ").match(COURSE_CODE) ?? []).some(
+          (code) => planCodes.has(code),
+        ),
+    )
+    .map((course) => ({ course, score: score(course) }))
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.course.code.localeCompare(right.course.code),
+    )
+    .map(({ course }) => course);
 }

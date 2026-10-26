@@ -1,7 +1,8 @@
 "use client";
+import { Badge } from "@coursemap/ui/components/badge";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
-import type { RuleToPlan } from "@/ui/plan/plan-suggestions";
+import type { CourseHints, RuleToPlan } from "@/ui/plan/plan-suggestions";
 import { CourseRow, type DragStart } from "@/ui/plan/course-row";
 
 /**
@@ -11,12 +12,14 @@ import { CourseRow, type DragStart } from "@/ui/plan/course-row";
 export function RequiredCourses({
   rules,
   kind,
+  hints,
   onAdd,
   onOpen,
   onDragStart,
 }: {
   rules: readonly RuleToPlan[];
   kind: PlanStructureKind;
+  hints?: CourseHints;
   onAdd: (course: Course) => void;
   onOpen: (course: Course) => void;
   onDragStart: DragStart;
@@ -32,12 +35,12 @@ export function RequiredCourses({
   );
   if (courses.length === 0) return null;
   return (
-    <section aria-label="Required courses" className="space-y-1">
-      <div className="flex items-center justify-between px-1 py-1">
-        <h3 className="text-xs font-semibold text-foreground">Required</h3>
-        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary tabular-nums">
-          {`${courses.length} to add`}
-        </span>
+    <section aria-label="Required courses" className="space-y-2">
+      <div className="flex min-h-7 items-center justify-between gap-2 px-1">
+        <h3 className="text-[13px] font-semibold text-foreground">Must take</h3>
+        <Badge variant="warning-light" className="tabular-nums">
+          {`${courses.length} left`}
+        </Badge>
       </div>
       <ul>
         {courses.map(({ course, heading }) => (
@@ -45,6 +48,7 @@ export function RequiredCourses({
             key={course.code}
             item={{ course, required: true, tag: heading, structureKind: kind }}
             status={null}
+            prerequisites={hints?.prerequisites(course)}
             onAdd={onAdd}
             onOpen={onOpen}
             onDragStart={onDragStart}

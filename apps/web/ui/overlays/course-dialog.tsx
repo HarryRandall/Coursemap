@@ -15,21 +15,19 @@ import {
 
 import { useCoursemap } from "@/app/providers";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
-import type { Attempt, Course, Profile } from "@/lib/coursemap/types";
+import type { Attempt, Course } from "@/lib/coursemap/types";
 import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
   effectiveStatus,
-  isActiveAttempt,
   missingPrereqs,
   planningCourseForAttempt,
   plannedDependents,
   termForAttempt,
-  termIndex,
   unitsForAttempt,
 } from "@/lib/planner";
 import type { CourseRuleExpression } from "@/lib/coursemap/course-types";
 import { permissionClauses } from "@/lib/coursemap/requisite-tree";
-import type { StudentRecord } from "@/lib/coursemap/requisite-evaluation";
+import { planStudentRecord } from "@/lib/coursemap/plan-student-record";
 import {
   groupSentence,
   requisiteSentence,
@@ -55,6 +53,7 @@ import { StatusPill } from "@/ui/common/status-pill";
 import { CourseAbout } from "@/ui/overlays/course-about";
 import { StarButton } from "@/ui/common/star-button";
 import { FixIssueButton } from "@/ui/plan/fix-issue-button";
+import { ConfirmDialog } from "@/ui/common/confirm-dialog";
 
 /** "First Semester" as S1, so the header stays one line. */
 function shortSession(session: string) {
@@ -63,67 +62,6 @@ function shortSession(session: string) {
   return session;
 }
 const COURSE_CODE = /\b[A-Z]{4}\d{4}\b/g;
-
-/**
- * The plan as a student record for one course's requisites: courses planned
- * or done before its semester count as completed, and ones beside it as
- * taken at the same time.
- */
-function planStudentRecord(
-  attempt: Attempt,
-  attempts: Attempt[],
-  profile: Pick<
-    Profile,
-    "degreeCode" | "majorCode" | "minorCodes" | "specialisationCodes"
-  >,
-  commencementYear: number | null,
-  catalogue?: PlanCatalogue,
-): StudentRecord {
-  const order = termIndex(attempt.termId, catalogue);
-  const others = attempts.filter(
-    (other) => other.id !== attempt.id && isActiveAttempt(other),
-  );
-  return {
-    completed: new Map(
-      others
-        .filter((other) => termIndex(other.termId, catalogue) < order)
-        .map((other) => {
-          const course = planningCourseForAttempt(other, catalogue);
-          return [
-            other.courseCode.toUpperCase(),
-            {
-              units: unitsForAttempt(other, course),
-              mark: other.mark ?? null,
-              tags: course?.tags ?? [],
-            },
-          ];
-        }),
-    ),
-    enrolled: new Set(
-      others
-        .filter((other) => termIndex(other.termId, catalogue) === order)
-        .map((other) => other.courseCode.toUpperCase()),
-    ),
-    enrolledUnits: new Map(
-      others
-        .filter((other) => termIndex(other.termId, catalogue) === order)
-        .map((other) => [
-          other.courseCode.toUpperCase(),
-          unitsForAttempt(other, planningCourseForAttempt(other, catalogue)),
-        ]),
-    ),
-    commencementYear,
-    enrolmentMode: catalogue?.enrolmentMode,
-    programmeCodes: profile.degreeCode ? [profile.degreeCode] : [],
-    programmeColleges: catalogue?.programmeColleges,
-    programmeCareers: catalogue?.programmeCareers,
-    structureCodes: planStructureCodes(profile),
-    permissionApproved: attempt.permissionApproved ?? false,
-    wam: null,
-    gpa: null,
-    studyYear: null,
-  };
-}
 
 /** A course that is not in the plan yet, opened to read before adding it. */
 export type CoursePreview = {
@@ -533,6 +471,26 @@ export function CourseDialog({
             </div>
           ) : final ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {attempt.status === "withdrawn" ? null : (
+                <ConfirmDialog
+                  title={`Remove ${course.code}?`}
+                  description={`Its result comes out of your academic history and its ${unitsForAttempt(attempt, course)} units stop counting towards your requirements. Use this when it was added by mistake.`}
+                  confirmLabel="Remove course"
+                  destructive
+                  onConfirm={remove}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                    >
+                      <Trash2 size={14} />
+                      Remove
+                    </Button>
+                  }
+                />
+              )}
               <p className="mr-auto">Result recorded</p>
               <Button asChild variant="ghost" size="sm">
                 <ReuiLink href="/academic">Edit in academic history</ReuiLink>

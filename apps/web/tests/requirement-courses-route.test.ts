@@ -26,7 +26,7 @@ test("bounded rules return twelve courses with totals and cursor in the requeste
   });
   expect(loadPage).toHaveBeenCalledWith({
     academicYear: 2025,
-    filters: { codes: "", subject: "COMP", tag: "", level: "2-3" },
+    filters: { codes: "", subject: "COMP", tag: "", level: "2-3", query: "" },
     page: 2,
     pageSize: 12,
   });
@@ -81,4 +81,26 @@ test("catalogue failures return a retryable error", async () => {
   expect(await result.json()).toEqual({
     error: "Matching courses are temporarily unavailable.",
   });
+});
+test("a search narrows a rule's courses by code or name", async () => {
+  loadPage.mockResolvedValue({ courses: [], total: 0 });
+  await GET(
+    new Request(
+      "http://localhost/api/requirements/courses?year=2026&subject=COMP&q=%20machine%20",
+    ),
+  );
+  expect(loadPage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      filters: expect.objectContaining({ subject: "COMP", query: "machine" }),
+    }),
+  );
+});
+test("an overlong search is rejected", async () => {
+  const result = await GET(
+    new Request(
+      `http://localhost/api/requirements/courses?year=2026&subject=COMP&q=${"a".repeat(81)}`,
+    ),
+  );
+  expect(result.status).toBe(400);
+  expect(loadPage).not.toHaveBeenCalled();
 });
