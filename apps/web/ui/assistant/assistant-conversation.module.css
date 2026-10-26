@@ -1,18 +1,49 @@
-.word {
-  animation: reveal 180ms ease-out both;
+/* A light sweep across "Thinking" and running steps, like text being read. */
+.shimmer {
+  background: linear-gradient(
+      90deg,
+      var(--muted-foreground) 0%,
+      var(--foreground) 50%,
+      var(--muted-foreground) 100%
+    )
+    0 0 / 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
 }
 
-@keyframes reveal {
-  from {
-    opacity: 0;
-  }
+.caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 0.15em;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.6;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes shimmer {
   to {
-    opacity: 1;
+    background-position: -200% 0;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word {
+  .shimmer {
+    animation: none;
+    background: none;
+    color: var(--muted-foreground);
+  }
+
+  .caret {
     animation: none;
   }
 }

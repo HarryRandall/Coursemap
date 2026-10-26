@@ -1,7 +1,16 @@
+import { readAssistantVisual, readCourseReference } from "./attachments";
+import type { AssistantCourseReference, AssistantVisual } from "./attachments";
+
 export type AssistantMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
+  courses?: AssistantCourseReference[];
+  visuals?: AssistantVisual[];
+  /** What Compass looked up for this reply, such as "Reading your plan". */
+  steps?: string[];
+  /** The OpenRouter model that wrote the reply. */
+  model?: string;
 };
 
 export type AssistantDraft = {
@@ -12,9 +21,6 @@ export type AssistantDraft = {
   updatedAt: string;
   messages: AssistantMessage[];
 };
-
-export const ASSISTANT_PREVIEW_RESPONSE =
-  "Let's work through your degree plan.\n\nStart with the requirements you still need to complete, then check which courses are offered and whether you meet their prerequisites. From there, you can build a balanced semester around your core courses and electives.\n\nWhich semester would you like to plan?";
 
 export function assistantTitle(chat: AssistantDraft | undefined) {
   return (
@@ -30,14 +36,40 @@ export function assistantTitle(chat: AssistantDraft | undefined) {
 
 function readMessages(value: unknown): AssistantMessage[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(
-    (message): message is AssistantMessage =>
-      typeof message === "object" &&
-      message !== null &&
-      typeof message.id === "string" &&
-      typeof message.text === "string" &&
-      (message.role === "user" || message.role === "assistant"),
-  );
+  return value
+    .filter(
+      (message): message is AssistantMessage =>
+        typeof message === "object" &&
+        message !== null &&
+        typeof message.id === "string" &&
+        typeof message.text === "string" &&
+        (message.role === "user" || message.role === "assistant"),
+    )
+    .map((message) => {
+      const courses = Array.isArray(message.courses)
+        ? message.courses.flatMap((course) => readCourseReference(course) ?? [])
+        : [];
+      const visuals = Array.isArray(message.visuals)
+        ? message.visuals.flatMap((visual) => readAssistantVisual(visual) ?? [])
+        : [];
+      const steps = Array.isArray(message.steps)
+        ? message.steps
+            .filter((step): step is string => typeof step === "string")
+            .map((step) => step.slice(0, 120))
+            .slice(0, 12)
+        : [];
+      return {
+        id: message.id,
+        role: message.role,
+        text: message.text,
+        ...(courses.length ? { courses } : {}),
+        ...(visuals.length ? { visuals } : {}),
+        ...(steps.length ? { steps } : {}),
+        ...(typeof message.model === "string" && message.model
+          ? { model: message.model.slice(0, 160) }
+          : {}),
+      };
+    });
 }
 
 export function readAssistantHistory(raw: string | null): AssistantDraft[] {
@@ -82,24 +114,4 @@ export function assistantAge(updatedAt: string, now: number) {
   if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
   if (minutes < 10080) return `${Math.floor(minutes / 1440)}d`;
   return `${Math.floor(minutes / 10080)}w`;
-}
-
-export function assistantMockResponse(prompt: string, previousReplies: number) {
-  if (/requirement|prerequisite/iu.test(prompt))
-    return `We can start with the requirements you still need to complete.
-
-Check your core courses first, then your major and elective requirements. For each course, look at its prerequisites and the semesters it is offered.
-
-Which requirement would you like to work through first?`;
-  if (/next semester|which courses/iu.test(prompt))
-    return `Let's put together a shortlist for next semester.
-
-Start with any core courses that unlock later subjects, then leave room for a major course or an elective. Check that each course is offered in your chosen semester and that you meet its prerequisites.
-
-Which degree are you planning, and how many courses would you like to take?`;
-  if (previousReplies)
-    return `Got it. We can take this one step at a time.
-
-Tell me the course or requirement you want to focus on, and we can work through where it fits in your plan.`;
-  return ASSISTANT_PREVIEW_RESPONSE;
 }

@@ -434,6 +434,48 @@ export type Database = {
           },
         ]
       }
+      assistant_usage: {
+        Row: {
+          cached_input_tokens: number
+          chat_id: string
+          cost_usd: number
+          created_at: string
+          id: string
+          input_tokens: number
+          latency_ms: number
+          model: string
+          output_tokens: number
+          owner_id: string
+          tool_calls: number
+        }
+        Insert: {
+          cached_input_tokens?: number
+          chat_id: string
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number
+          model: string
+          output_tokens?: number
+          owner_id: string
+          tool_calls?: number
+        }
+        Update: {
+          cached_input_tokens?: number
+          chat_id?: string
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          input_tokens?: number
+          latency_ms?: number
+          model?: string
+          output_tokens?: number
+          owner_id?: string
+          tool_calls?: number
+        }
+        Relationships: []
+      }
       campus_indoor_maps: {
         Row: {
           building_place_id: string

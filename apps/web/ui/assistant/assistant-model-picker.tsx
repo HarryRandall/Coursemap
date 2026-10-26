@@ -60,7 +60,14 @@ export function AssistantModelPicker({
             aria-label={`${model.name}${selected?.id === model.id ? ", selected" : ""}`}
           >
             <ImportModelLogo model={model.id} className="size-5 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{model.name}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{model.name}</span>
+              {model.description ? (
+                <span className="block text-xs text-muted-foreground">
+                  {model.description}
+                </span>
+              ) : null}
+            </span>
             {selected?.id === model.id ? (
               <Check aria-hidden="true" className="size-4" />
             ) : null}
