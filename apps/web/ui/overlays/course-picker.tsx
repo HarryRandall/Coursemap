@@ -464,9 +464,11 @@ export function CoursePicker({
           footer; the row's add button skips that step.
         */}
         <Command
+          // cmdk names its input from this hidden label, which overrides the
+          // input's own aria-label.
+          label={`Search ${academicYear} courses`}
           shouldFilter={false}
           loop
-          label="Course catalogue"
           className="flex min-h-0 w-full min-w-0 flex-auto flex-col bg-transparent"
         >
           {/* The picker's own shortcuts (arrows, Enter) come from the search

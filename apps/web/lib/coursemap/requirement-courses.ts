@@ -106,8 +106,7 @@ export async function loadRequirementCourses(
         ...pages.flatMap((page) => page?.courses ?? []),
       ]
         .filter(
-          (course) =>
-            !known(course.code) && !known(course.code, course.year),
+          (course) => !known(course.code) && !known(course.code, course.year),
         )
         .map((course) => [course.code, planCourseFromDetails(course)]),
     ).values(),

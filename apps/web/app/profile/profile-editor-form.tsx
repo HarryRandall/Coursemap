@@ -226,7 +226,11 @@ export function ProfileEditorForm({
   return (
     <Tabs className="block" onValueChange={selectSection} value={section}>
       <AppShell tabs={tabs}>
-        <form className="flex w-full flex-1 flex-col" onSubmit={save} noValidate>
+        <form
+          className="flex w-full flex-1 flex-col"
+          onSubmit={save}
+          noValidate
+        >
           <h1 className="sr-only">Profile and study details</h1>
 
           <TabsContent value="account" className="space-y-4">

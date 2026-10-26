@@ -64,9 +64,7 @@ export function AcademicMetricCard({
           )}
         </div>
         {footer && !empty ? (
-          <div className="flex min-h-6 items-center gap-2">
-            {footer}
-          </div>
+          <div className="flex min-h-6 items-center gap-2">{footer}</div>
         ) : null}
       </CardContent>
     </Card>
