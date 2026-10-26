@@ -9,6 +9,8 @@ import {
   TooltipTrigger,
 } from "@coursemap/ui/primitives/tooltip";
 import type { AssistantVisual } from "@/lib/assistant/attachments";
+import { AssistantColumnChart } from "./assistant-column-chart";
+import { AssistantTrendChart } from "./assistant-trend-chart";
 import { darkStatusTint } from "@/ui/dashboard/status-badge-tint";
 import { RequirementBar } from "@/ui/dashboard/requirement-bar";
 
@@ -45,7 +47,7 @@ function MeterChart({ visual }: { visual: MeterVisual }) {
   return (
     <>
       <div className="flex items-end justify-between gap-3">
-        <p className="text-3xl leading-none font-semibold tracking-tight tabular-nums">
+        <p className="text-xl leading-none font-semibold tracking-tight tabular-nums">
           {amount(value)}
           <span className="ml-1 text-sm font-normal text-muted-foreground">
             / {amount(max)}
@@ -155,13 +157,13 @@ function GpaMeter({ visual }: { visual: MeterVisual }) {
     <>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-3xl leading-none font-semibold tracking-tight tabular-nums">
+          <p className="text-xl leading-none font-semibold tracking-tight tabular-nums">
             {value.toFixed(2)}
             <span className="ml-1 text-sm font-normal text-muted-foreground">
               / 7
             </span>
           </p>
-          <p className="mt-1.5 text-xs text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {gpaBandLabel(value)}
           </p>
         </div>
@@ -186,7 +188,7 @@ function GpaMeter({ visual }: { visual: MeterVisual }) {
           <div
             tabIndex={0}
             aria-label={summary}
-            className="relative mt-7 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="relative mt-6 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full">
               {bands.map((band, index) => (
@@ -331,7 +333,7 @@ export function AssistantVisualCard({ visual }: { visual: AssistantVisual }) {
     <TooltipProvider delayDuration={80}>
       <figure
         aria-label={visual.title}
-        className="space-y-3 rounded-xl border border-border p-4"
+        className="space-y-2.5 rounded-xl border border-border p-3.5"
       >
         <figcaption className="text-xs font-medium text-muted-foreground">
           {visual.title}
@@ -342,6 +344,10 @@ export function AssistantVisualCard({ visual }: { visual: AssistantVisual }) {
           <GpaMeter visual={visual} />
         ) : visual.kind === "meter" ? (
           <MeterChart visual={visual} />
+        ) : visual.kind === "line" ? (
+          <AssistantTrendChart visual={visual} />
+        ) : visual.kind === "columns" ? (
+          <AssistantColumnChart visual={visual} />
         ) : (
           <BarsChart visual={visual} />
         )}

@@ -254,3 +254,38 @@ test("finds societies by interest and shows them as cards", async () => {
     expect.objectContaining({ slug: "robotics", name: "ANU Robotics Club" }),
   );
 });
+
+test("accepts line and column charts and drops malformed parts", () => {
+  expect(
+    readAssistantVisual({
+      kind: "line",
+      title: "Results",
+      series: [
+        { name: "GPA", min: 0, max: 7, points: [{ label: "S1", value: 5 }] },
+        { name: "Broken", min: 5, max: 1, points: [{ label: "S1", value: 5 }] },
+      ],
+    }),
+  ).toEqual({
+    kind: "line",
+    title: "Results",
+    series: [
+      { name: "GPA", min: 0, max: 7, points: [{ label: "S1", value: 5 }] },
+    ],
+  });
+  expect(
+    readAssistantVisual({
+      kind: "columns",
+      title: "Load",
+      reference: { value: 24, label: "Full-time 24" },
+      items: [
+        { label: "S1 '26", value: 12, planned: 12 },
+        { label: "Bad", value: -1 },
+      ],
+    }),
+  ).toEqual({
+    kind: "columns",
+    title: "Load",
+    reference: { value: 24, label: "Full-time 24" },
+    items: [{ label: "S1 '26", value: 12, planned: 12 }],
+  });
+});

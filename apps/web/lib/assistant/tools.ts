@@ -31,7 +31,16 @@ import {
   unitsForAttempt,
 } from "@/lib/planner";
 import type { PlanningCatalogue } from "@/lib/planner";
-import { academicSummary } from "@/lib/coursemap/academic-metrics";
+import { feeStatusLabel } from "@/lib/academic/fee-status";
+import {
+  academicSummary,
+  academicTermPoints,
+  gradeDistribution,
+  tuitionEstimate,
+} from "@/lib/coursemap/academic-metrics";
+import { dashboardTermLoads } from "@/lib/coursemap/dashboard-series";
+import { degreeComposition } from "@/lib/coursemap/degree-composition";
+import { loadOnboardingCatalogue } from "@/lib/coursemap/onboarding-catalogue";
 import { loadCampusMapData } from "@/lib/rooms/campus-map-data";
 import type { CampusMapPlace } from "@/lib/rooms/campus-map";
 import { filterSocieties } from "@/lib/societies";
@@ -252,6 +261,209 @@ function summarisePlan(
     emptyTerms: planning.terms
       .filter((term) => !terms.some((item) => item.id === term.id))
       .map((term) => term.id),
+  };
+}
+
+const COMPOSITION_LABELS = {
+  core: "Programme core",
+  major: "Major",
+  minor: "Minor",
+  electives: "Electives",
+} as const;
+
+export const ASSISTANT_CHARTS = [
+  "tuition",
+  "gpa_trend",
+  "grades",
+  "load",
+  "composition",
+  "requirements",
+] as const;
+export type AssistantChartName = (typeof ASSISTANT_CHARTS)[number];
+
+/**
+ * One of the student's own charts, computed from their plan the way the
+ * dashboard computes it, with a compact summary for the model to write from.
+ * Returns null when the plan has nothing to chart yet.
+ */
+async function planChart(
+  name: AssistantChartName,
+  { state, catalogue, planning }: PlanContext,
+): Promise<{ visual: AssistantVisual; summary: unknown } | null> {
+  const { profile, attempts } = state;
+  const academic = { ...planning, attempts };
+  if (name === "tuition") {
+    const estimate = tuitionEstimate({
+      ...academic,
+      feeStatus: profile.feeStatus,
+      commencementYear: profile.commencementYear,
+    });
+    if (!estimate) return null;
+    const status = feeStatusLabel(estimate.feeStatus);
+    return {
+      visual: {
+        kind: "columns",
+        title: `Estimated tuition by year, ${status.toLowerCase()}`,
+        format: "currency",
+        items: estimate.byYear.map((year) => ({
+          label: String(year.year),
+          value: Math.round(year.amount),
+          detail: `${year.year}: ${year.courses} courses`,
+        })),
+        ...(estimate.estimatedCourses
+          ? {
+              note: `Includes ${estimate.estimatedCourses} courses ANU lists no fee for, priced from similar courses.`,
+            }
+          : {}),
+      },
+      summary: {
+        feeStatus: status,
+        totalAud: Math.round(estimate.total),
+        byYear: estimate.byYear.map((year) => ({
+          year: year.year,
+          aud: Math.round(year.amount),
+        })),
+        estimatedCourses: estimate.estimatedCourses,
+      },
+    };
+  }
+  if (name === "gpa_trend") {
+    const points = academicTermPoints(academic);
+    const gpa = points.flatMap((point) =>
+      point.gpa === null ? [] : [{ label: point.label, value: point.gpa }],
+    );
+    const wam = points.flatMap((point) =>
+      point.wam === null ? [] : [{ label: point.label, value: point.wam }],
+    );
+    if (!gpa.length && !wam.length) return null;
+    return {
+      visual: {
+        kind: "line",
+        title: "Your results by study period",
+        series: [
+          ...(gpa.length ? [{ name: "GPA", min: 0, max: 7, points: gpa }] : []),
+          ...(wam.length
+            ? [{ name: "WAM", min: 0, max: 100, points: wam }]
+            : []),
+        ],
+      },
+      summary: { gpaByPeriod: gpa, wamByPeriod: wam },
+    };
+  }
+  if (name === "grades") {
+    const tallies = gradeDistribution(academic);
+    if (!tallies.some((tally) => tally.count)) return null;
+    return {
+      visual: {
+        kind: "columns",
+        title: "Your grades",
+        palette: "grades",
+        unit: "courses",
+        items: tallies.map((tally) => ({
+          label: tally.code,
+          value: tally.count,
+          detail: tally.label,
+        })),
+      },
+      summary: Object.fromEntries(
+        tallies.map((tally) => [tally.label, tally.count]),
+      ),
+    };
+  }
+  if (name === "load") {
+    const loads = dashboardTermLoads(academic).filter(
+      (term) => term.units > 0 || term.isSemester,
+    );
+    if (!loads.some((term) => term.units)) return null;
+    return {
+      visual: {
+        kind: "columns",
+        title: "Units per study period",
+        unit: "units",
+        reference: { value: 24, label: "Full-time 24" },
+        items: loads.map((term) => ({
+          label: term.label,
+          value: term.completed,
+          ...(term.planned ? { planned: term.planned } : {}),
+          detail: term.label,
+        })),
+      },
+      summary: loads.map((term) => ({
+        period: term.label,
+        completed: term.completed,
+        planned: term.planned,
+      })),
+    };
+  }
+  if (name === "composition") {
+    const choices = await loadOnboardingCatalogue();
+    const inYear = <T extends { catalogueYear: number }>(items: T[]) =>
+      items.filter((item) => item.catalogueYear === catalogue.academicYear);
+    const degree = catalogue.degrees.find(
+      (item) => item.code === profile.degreeCode,
+    );
+    const sections = degreeComposition({
+      degreeUnits: degree?.units ?? null,
+      profile,
+      programme:
+        inYear(choices.degrees).find(
+          (item) => item.code === profile.degreeCode,
+        ) ?? null,
+      structureOptions: [...inYear(choices.majors), ...inYear(choices.minors)],
+      requirements: catalogue.structureRequirements,
+      attempts,
+      catalogue: planning,
+    });
+    if (!sections.length) return null;
+    const items = sections.map((section) => {
+      const units = (status: "completed" | "planned") =>
+        section.courses
+          .filter((course) => course.status === status)
+          .reduce((total, course) => total + course.units, 0);
+      return {
+        label: section.structureName
+          ? `${COMPOSITION_LABELS[section.kind]}: ${section.structureName}`
+          : section.unchosen
+            ? `${COMPOSITION_LABELS[section.kind]} (not chosen)`
+            : COMPOSITION_LABELS[section.kind],
+        value: units("completed"),
+        ...(units("planned") ? { planned: units("planned") } : {}),
+        ...(section.targetUnits ? { target: section.targetUnits } : {}),
+      };
+    });
+    return {
+      visual: {
+        kind: "bars",
+        title: "What your degree is made of",
+        unit: "units",
+        items,
+      },
+      summary: items,
+    };
+  }
+  const buckets = requirementBucketProgress({
+    requirements: catalogue.structureRequirements,
+    overrides: state.requirementOverrides ?? [],
+    attempts,
+    catalogue: planning,
+  }).filter((bucket) => (bucket.targetUnits ?? 0) > 0);
+  if (!buckets.length) return null;
+  return {
+    visual: {
+      kind: "bars",
+      title: "Units placed per requirement",
+      unit: "units",
+      items: buckets.slice(0, 8).map((bucket) => ({
+        label: bucket.title,
+        value: bucket.completedUnits,
+        ...(bucket.plannedUnits ? { planned: bucket.plannedUnits } : {}),
+        target: bucket.targetUnits ?? undefined,
+      })),
+    },
+    summary: buckets.map((bucket) => ({
+      requirement: bucket.title,
+      status: requirementBucketStatus(bucket).label,
+    })),
   };
 }
 
@@ -694,6 +906,51 @@ export function assistantTools(
               }
             : {}),
         };
+      },
+    },
+    {
+      label: "Drawing your chart",
+      describe: (input) => {
+        const chart = text(input, "chart", 20);
+        const names: Record<string, string> = {
+          tuition: "Adding up your tuition",
+          gpa_trend: "Charting your results",
+          grades: "Counting your grades",
+          load: "Charting your study load",
+          composition: "Mapping your degree",
+          requirements: "Charting your requirements",
+        };
+        return names[chart] ?? null;
+      },
+      definition: {
+        type: "function",
+        function: {
+          name: "show_chart",
+          description:
+            "Show the student a chart of their own figures, computed from their plan. tuition: estimated fees by year for their fee status. gpa_trend: GPA and WAM by study period. grades: how many of each grade. load: units per study period against a full-time load. composition: programme core, major, minor and electives. requirements: units placed per requirement. Use this instead of show_visual for any of these. The chart appears below your reply and shows the figures, so write one or two sentences on what stands out rather than listing them.",
+          parameters: {
+            type: "object",
+            properties: {
+              chart: { type: "string", enum: [...ASSISTANT_CHARTS] },
+            },
+            required: ["chart"],
+          },
+        },
+      },
+      async run(input) {
+        const chart = text(input, "chart", 20) as AssistantChartName;
+        if (!ASSISTANT_CHARTS.includes(chart))
+          throw new AssistantToolError(
+            `Choose one of: ${ASSISTANT_CHARTS.join(", ")}.`,
+          );
+        const result = await planChart(chart, await loadPlan());
+        if (!result)
+          return {
+            shown: false,
+            note: "There is nothing to chart for this yet, such as no recorded results or no priced courses.",
+          };
+        onVisual(result.visual);
+        return { shown: true, data: result.summary };
       },
     },
     {

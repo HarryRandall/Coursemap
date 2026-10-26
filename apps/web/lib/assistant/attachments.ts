@@ -51,6 +51,39 @@ export type AssistantVisual =
         planned?: number;
         target?: number;
       }>;
+    }
+  | {
+      /** One or more series over study periods, shown one at a time. */
+      kind: "line";
+      title: string;
+      series: Array<{
+        name: string;
+        /** The scale to draw against, such as 0 to 7 for a GPA. */
+        min: number;
+        max: number;
+        points: Array<{ label: string; value: number }>;
+      }>;
+    }
+  | {
+      /** Vertical columns, such as units per study period or grade counts. */
+      kind: "columns";
+      title: string;
+      unit?: string;
+      /** "currency" formats values as dollars and totals them. */
+      format?: "number" | "currency";
+      /** "grades" colours each column by its grade, like the result chips. */
+      palette?: "brand" | "grades";
+      items: Array<{
+        label: string;
+        value: number;
+        /** Stacked above `value` in a lighter shade. */
+        planned?: number;
+        /** Shown on hover, such as the grade's full name. */
+        detail?: string;
+      }>;
+      /** A horizontal guide such as the standard 24-unit load. */
+      reference?: { value: number; label: string };
+      note?: string;
     };
 
 export const ASSISTANT_VISUAL_MAX_BARS = 12;
@@ -197,6 +230,69 @@ export function readAssistantVisual(value: unknown): AssistantVisual | null {
     return items.length
       ? { kind: "bars", title, items, ...(unit ? { unit } : {}) }
       : null;
+  }
+  if (visual.kind === "line" && Array.isArray(visual.series)) {
+    const series = visual.series
+      .flatMap((item) => {
+        const line = record(item);
+        const name = label(line?.name, 40);
+        const min = finite(line?.min);
+        const max = finite(line?.max);
+        if (!line || !name || min === null || max === null || max <= min)
+          return [];
+        const points = Array.isArray(line.points)
+          ? line.points
+              .flatMap((point) => {
+                const entry = record(point);
+                const pointLabel = label(entry?.label, 24);
+                const pointValue = finite(entry?.value);
+                return pointLabel && pointValue !== null
+                  ? [{ label: pointLabel, value: pointValue }]
+                  : [];
+              })
+              .slice(0, 24)
+          : [];
+        return points.length ? [{ name, min, max, points }] : [];
+      })
+      .slice(0, 3);
+    return series.length ? { kind: "line", title, series } : null;
+  }
+  if (visual.kind === "columns" && Array.isArray(visual.items)) {
+    const items = visual.items
+      .flatMap((item) => {
+        const column = record(item);
+        const name = label(column?.label, 24);
+        const amount = nonNegative(column?.value);
+        if (!name || amount === null) return [];
+        const planned = nonNegative(column?.planned);
+        const detail = label(column?.detail, 80);
+        return [
+          {
+            label: name,
+            value: amount,
+            ...(planned ? { planned } : {}),
+            ...(detail ? { detail } : {}),
+          },
+        ];
+      })
+      .slice(0, 16);
+    if (!items.length) return null;
+    const reference = record(visual.reference);
+    const referenceValue = nonNegative(reference?.value);
+    const referenceLabel = label(reference?.label, 40);
+    const note = label(visual.note, 160);
+    return {
+      kind: "columns",
+      title,
+      items,
+      ...(unit ? { unit } : {}),
+      ...(visual.format === "currency" ? { format: "currency" as const } : {}),
+      ...(visual.palette === "grades" ? { palette: "grades" as const } : {}),
+      ...(referenceValue !== null && referenceLabel
+        ? { reference: { value: referenceValue, label: referenceLabel } }
+        : {}),
+      ...(note ? { note } : {}),
+    };
   }
   return null;
 }
