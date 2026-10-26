@@ -224,7 +224,7 @@ function courseLink(code: string) {
 test("requirements use separate tabs without source disclosures or the summary sidebar", async () => {
   const user = userEvent.setup();
   render(<Requirements catalogue={catalogue} choices={choices} />);
-  expect(screen.getByRole("tab", { name: "Degree" })).toHaveAttribute(
+  expect(screen.getByRole("tab", { name: /^Degree/ })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -236,7 +236,7 @@ test("requirements use separate tabs without source disclosures or the summary s
   expect(
     screen.getByRole("heading", { name: /Pick one: COMP1100 or COMP1110/ }),
   ).toBeVisible();
-  await user.click(screen.getByRole("tab", { name: "Minors" }));
+  await user.click(screen.getByRole("tab", { name: /^Minors/ }));
   expect(
     screen.getByRole("heading", { name: /Business Information Systems/ }),
   ).toBeVisible();
@@ -248,7 +248,7 @@ test("requirements use separate tabs without source disclosures or the summary s
 test("eligible major cards save through the existing profile action", async () => {
   const user = userEvent.setup();
   render(<Requirements catalogue={catalogue} choices={choices} />);
-  await user.click(screen.getByRole("tab", { name: "Major" }));
+  await user.click(screen.getByRole("tab", { name: /^Major/ }));
   expect(screen.getByText("No major selected yet")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Choose a major" }));
   expect(
@@ -273,7 +273,7 @@ test("adding a minor preserves the existing minor and failed saves keep the choi
     message: "Could not save",
   });
   render(<Requirements catalogue={catalogue} choices={choices} />);
-  await user.click(screen.getByRole("tab", { name: "Minors" }));
+  await user.click(screen.getByRole("tab", { name: /^Minors/ }));
   await user.click(screen.getByRole("button", { name: "Change minor" }));
   await user.click(
     screen.getByRole("button", { name: /Choose minor.*Mathematics/ }),
@@ -300,7 +300,7 @@ test("a selected structure can be changed even when nothing else is on offer", a
       }}
     />,
   );
-  await user.click(screen.getByRole("tab", { name: "Minors" }));
+  await user.click(screen.getByRole("tab", { name: /^Minors/ }));
   await user.click(screen.getByRole("button", { name: "Change minor" }));
   expect(screen.getByText("No minor options available")).toBeVisible();
   await user.click(screen.getByRole("button", { name: "Close choices" }));
@@ -309,7 +309,7 @@ test("a selected structure can be changed even when nothing else is on offer", a
   ).not.toBeInTheDocument();
 });
 
-test("a course opens the semester chooser and is saved in the selected year", async () => {
+test("a course opens the add sheet and is saved in the semester it suggests", async () => {
   const user = userEvent.setup();
   vi.stubGlobal(
     "fetch",
@@ -328,6 +328,7 @@ test("a course opens the semester chooser and is saved in the selected year", as
     }),
   );
   render(<Requirements catalogue={catalogue} choices={choices} />);
+  await user.click(screen.getByRole("button", { name: "Show every rule" }));
   await user.click(screen.getByRole("button", { name: /View courses/ }));
   expect(courseLink("COMP1100")).toHaveAttribute(
     "href",
@@ -337,9 +338,7 @@ test("a course opens the semester chooser and is saved in the selected year", as
     screen.getByRole("button", { name: "Add COMP1100 to plan" }),
   );
   const dialog = await screen.findByRole("dialog");
-  await user.click(
-    await within(dialog).findByRole("button", { name: /Semester 1 2026/ }),
-  );
+  await user.click(within(dialog).getByRole("button", { name: /^Add to S1/ }));
   await waitFor(() =>
     expect(actions.addCourse).toHaveBeenCalledWith("COMP1100", "2026-s1", 2026),
   );
@@ -372,6 +371,7 @@ test("completed study takes precedence over a planned repeat and existing course
   ];
   expect(requirementCourseStatus("COMP1100", state.attempts)).toBe("completed");
   render(<Requirements catalogue={catalogue} choices={choices} />);
+  await user.click(screen.getByRole("button", { name: "Show every rule" }));
   await user.click(screen.getByRole("button", { name: /View courses/ }));
   const done = courseLink("COMP1100").closest("li")!;
   expect(within(done).getByText("Completed")).toBeVisible();
@@ -422,6 +422,7 @@ test("unpublished requirement courses still link and retain planned status", asy
       choices={choices}
     />,
   );
+  await user.click(screen.getByRole("button", { name: "Show every rule" }));
   await user.click(screen.getByRole("button", { name: /View courses/ }));
   const course = courseLink("COMP1100");
   expect(course).toHaveAttribute("href", "/courses/2026/comp1100");
@@ -464,12 +465,12 @@ test("unavailable structures show illustrations without selection actions", asyn
       choices={{ ...choices, majors: [], specialisations: [] }}
     />,
   );
-  await user.click(screen.getByRole("tab", { name: "Major" }));
+  await user.click(screen.getByRole("tab", { name: /^Major/ }));
   expect(screen.getByText("No major options available")).toBeVisible();
   expect(
     screen.queryByRole("button", { name: /Choose.*major/ }),
   ).not.toBeInTheDocument();
-  await user.click(screen.getByRole("tab", { name: "Specialisations" }));
+  await user.click(screen.getByRole("tab", { name: /^Specialisations/ }));
   expect(screen.getByText("No specialisation options available")).toBeVisible();
   expect(
     screen.queryByRole("button", { name: /Choose.*specialisation/ }),
