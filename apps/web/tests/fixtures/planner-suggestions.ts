@@ -79,6 +79,7 @@ export function suggestions(
   statuses: TreeContext["attemptStatusByCode"] = new Map(),
   progress: RequirementNodeProgress[] = [],
   catalogue: PlanCatalogue = suggestionsCatalogue,
+  placement?: TreeContext["placement"],
 ) {
   const root = suggestionGroup(100, children);
   const context: TreeContext = {
@@ -86,6 +87,7 @@ export function suggestions(
     attemptStatusByCode: statuses,
     selectedStructureCodes: new Set(),
     progress: new Map(progress.map((item) => [item.key, item])),
+    placement,
   };
   return structuresToPlan({
     catalogue,

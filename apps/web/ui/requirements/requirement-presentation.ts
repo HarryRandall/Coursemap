@@ -511,6 +511,8 @@ export function listedCourseCounts(
     planned: codes.filter((code) =>
       ["planned", "enrolled"].includes(statusOf(code) ?? ""),
     ).length,
+    /** Listed courses not in the plan, or in it but counting elsewhere. */
+    outstanding: codes.filter((code) => statusOf(code) === undefined),
   };
 }
 

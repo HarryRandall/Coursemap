@@ -330,7 +330,6 @@ export function structuresToPlan({
         course: courseFor(code),
         status: context.attemptStatusByCode.get(code) ?? null,
       }));
-      const remaining = courses.filter((item) => item.status === null);
       const remainingUnits =
         figure?.unit === "units"
           ? Math.max(0, figure.target - figure.value)
@@ -341,8 +340,8 @@ export function structuresToPlan({
         (figure?.unit === "units" || remainingUnits !== null);
       const remainingCourses = covered
         ? 0
-        : compulsory
-          ? remaining.length
+        : compulsory && listed.outstanding.length > 0
+          ? listed.outstanding.length
           : figure
             ? Math.ceil(
                 Math.max(0, figure.target - figure.value) /
@@ -368,11 +367,11 @@ export function structuresToPlan({
                   (course) => course.year === catalogue.academicYear,
                 ),
               ) ?? shortHeading(rule, compulsory))
-            : compulsory && !covered
-              ? remaining.length === 1
-                ? `Take ${remaining[0].code}`
-                : `Take ${remaining.length} more core courses`
-              : estimatedCount && remainingUnits !== null
+            : compulsory && !covered && listed.outstanding.length > 0
+              ? listed.outstanding.length === 1
+                ? `Take ${listed.outstanding[0]}`
+                : `Take ${listed.outstanding.length} more core courses`
+              : !covered && estimatedCount && remainingUnits
                 ? `Pick ${remainingUnits} units`
                 : (requirementTitle(
                     rule,
