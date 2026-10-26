@@ -173,6 +173,7 @@ export function SemesterProgressRings({
   planned,
   target,
   children,
+  className,
 }: {
   completed: number;
   enrolled: number;
@@ -180,12 +181,17 @@ export function SemesterProgressRings({
   planned: number;
   target: number;
   children: ReactNode;
+  /** Overrides the ring size, such as size-16 for a compact summary. */
+  className?: string;
 }) {
   const [hover, setHover] = useState<Hover | null>(null);
   const entered = useEntered();
   return (
     <div
-      className="relative grid size-28 shrink-0 place-items-center"
+      className={cn(
+        "relative grid size-28 shrink-0 place-items-center",
+        className,
+      )}
       data-entered={entered || undefined}
     >
       {/* Unrotated so pointer positions match the tooltip's coordinates. */}

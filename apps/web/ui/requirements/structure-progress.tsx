@@ -1,6 +1,11 @@
 import type { DegreeUnitProgress } from "@/lib/planner";
 import { SemesterProgressRings } from "@/ui/common/semester-progress-rings";
 
+/**
+ * The degree's progress in one compact row: the semester rings with the
+ * share completed, units completed against the target, then the completed,
+ * planned and still-to-plan figures, which move underneath when narrow.
+ */
 export function StructureProgress({
   name,
   target,
@@ -15,33 +20,35 @@ export function StructureProgress({
   return (
     <section
       aria-label={`${name} progress`}
-      className="@container mb-5 shrink-0 rounded-2xl border border-border bg-card p-5"
+      className="@container mb-4 shrink-0 rounded-xl border border-border bg-card px-4 py-3"
     >
-      <div className="flex flex-wrap items-center justify-between gap-6 @md:flex-nowrap">
-        <div className="flex flex-wrap items-center gap-5">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex min-w-0 items-center gap-3">
           <SemesterProgressRings
+            className="size-16"
             completed={progress.completed}
             enrolled={enrolledUnits}
             planned={Math.max(0, progress.planned - enrolledUnits)}
             target={target ?? 0}
           >
-            {target
-              ? Math.min(100, Math.round((progress.completed / target) * 100))
-              : 0}
-            %
+            {/* A block, so the ring's larger centre text does not lower it to its baseline. */}
+            <span className="block text-xs leading-none font-semibold tabular-nums">
+              {target
+                ? Math.min(100, Math.round((progress.completed / target) * 100))
+                : 0}
+              %
+            </span>
           </SemesterProgressRings>
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold tracking-tight">
               Overall progress
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground tabular-nums">
               {progress.completed} / {target ?? "—"} units completed
             </p>
           </div>
         </div>
-        {/* Figures sit in three even columns under the ring in a narrow
-            card and move beside it once there is room. */}
-        <dl className="grid w-full grid-cols-3 gap-4 @4xl:flex @4xl:w-auto @4xl:gap-6">
+        <dl className="flex gap-6 @xl:ml-auto">
           {[
             ["Completed", progress.completed, "text-success"],
             ["Planned", progress.planned, "text-primary"],
@@ -52,12 +59,10 @@ export function StructureProgress({
             ],
           ].map(([label, value, colour]) => (
             <div key={label} className="min-w-0">
-              <dt className="text-xs text-muted-foreground">{label}</dt>
-              <dd
-                className={`mt-1 text-xl font-semibold tabular-nums @4xl:text-2xl ${colour}`}
-              >
+              <dt className="text-[11px] text-muted-foreground">{label}</dt>
+              <dd className={`text-base font-semibold tabular-nums ${colour}`}>
                 {value}
-                <span className="ml-1 text-xs font-normal"> units</span>
+                <span className="ml-1 text-[11px] font-normal">units</span>
               </dd>
             </div>
           ))}

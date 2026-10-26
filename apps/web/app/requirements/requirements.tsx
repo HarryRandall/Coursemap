@@ -35,7 +35,14 @@ import { creditedRequirementUnits } from "@/lib/coursemap/requirement-progress";
 import { StructureProgress } from "@/ui/requirements/structure-progress";
 import { StructureEmptyState } from "@/ui/requirements/structure-empty-state";
 import { StructureChoices } from "@/ui/requirements/structure-choices";
-import { TermChooser } from "@/ui/overlays/term-chooser";
+import { Badge } from "@coursemap/ui/components/badge";
+import { GuidedRequirements } from "@/ui/requirements/guided-requirements";
+import {
+  structuresToPlan,
+  type PlannedStructure,
+} from "@/ui/plan/plan-suggestions";
+import { useCoursePlacement } from "@/ui/plan/use-course-placement";
+import { usePlanningCatalogue } from "@/ui/plan/use-planning-catalogue";
 
 const sections = [
   { kind: "programme", label: "Degree" },
@@ -59,7 +66,6 @@ export function Requirements({
   const [tab, setTab] = useState<PlanStructureKind>(initialTab);
   const [choosing, setChoosing] = useState(false);
   const [pending, setPending] = useState(false);
-  const [addingCourse, setAddingCourse] = useState<Course | null>(null);
   const degree = catalogue.degrees.find(
     (item) => item.code === state.profile.degreeCode,
   );
@@ -93,6 +99,67 @@ export function Requirements({
         programme?.specialisationCodes.includes(item.code),
     ),
   };
+  const { timelineTerms, planningCatalogue } = usePlanningCatalogue(catalogue);
+  const findCourse = (code: string) =>
+    planningCatalogue.courses.find(
+      (course) =>
+        course.code === code && course.year === catalogue.academicYear,
+    ) ?? planningCatalogue.courses.find((course) => course.code === code);
+  const placement = useCoursePlacement({
+    catalogue: planningCatalogue,
+    timelineTerms,
+    findCourse,
+  });
+  const openCourse = (course: Course) =>
+    router.push(`/courses/${course.year}/${course.code.toLowerCase()}`);
+  const plannedStructures: PlannedStructure[] = sections.flatMap(({ kind }) =>
+    selected[kind].flatMap((code) => {
+      const requirements = catalogue.structureRequirements.find(
+        (item) => item.structureCode === code && item.structureKind === kind,
+      );
+      if (!requirements?.root) return [];
+      const structure = catalogue.structures.find(
+        (item) => item.code === code && item.kind === kind,
+      );
+      return [
+        {
+          code,
+          kind,
+          name:
+            kind === "programme"
+              ? (programme?.name ?? degree?.name ?? requirements.structureName)
+              : (structure?.name ?? requirements.structureName),
+          root: requirements.root,
+          context: planTreeContext({
+            structureCode: code,
+            root: requirements.root,
+            catalogue: planningCatalogue,
+            attempts: state.attempts,
+            placements: state.placements ?? [],
+            overrides: state.requirementOverrides ?? [],
+            statuses: attemptStatuses,
+            selectedStructureCodes: selectedCodes,
+            unitTarget: kind === "programme" ? (degree?.units ?? null) : null,
+            onPlace: (courseCode, placementChoice) => {
+              void setPlacement(courseCode, placementChoice).then((result) => {
+                if (!result.ok) notify(result.message, "warning");
+              });
+            },
+            onAddCourse: placement.open,
+          }),
+        },
+      ];
+    }),
+  );
+  const toPlan = structuresToPlan({
+    structures: plannedStructures,
+    catalogue: planningCatalogue,
+  });
+  const openRules = (kind: PlanStructureKind) =>
+    toPlan
+      .filter((item) => item.structure.kind === kind)
+      .flatMap((item) => item.rules)
+      .filter((rule) => !rule.covered && !rule.note).length;
   function changeTab(kind: PlanStructureKind) {
     setTab(kind);
     setChoosing(false);
@@ -132,17 +199,6 @@ export function Requirements({
     } finally {
       setPending(false);
     }
-  }
-  function structureChoices(kind: SelectableStructureKind) {
-    return (
-      <StructureChoices
-        key={kind}
-        kind={kind}
-        options={options[kind].filter((item) => !selectedCodes.has(item.code))}
-        pending={pending}
-        onSelect={(option) => void chooseStructure(kind, option)}
-      />
-    );
   }
   // Without a degree the whole page is its outline behind the set-up
   // prompt, as on the dashboard, rather than empty figures and tabs.
@@ -186,11 +242,11 @@ export function Requirements({
           {sections.map(({ kind, label }) => (
             <TabsTrigger key={kind} value={kind}>
               {label}
-              {selected[kind].length > 1 && (
-                <span className="ml-1 text-xs text-muted-foreground">
-                  {selected[kind].length}
-                </span>
-              )}
+              {openRules(kind) > 0 ? (
+                <Badge variant="warning-light" className="ml-1.5 tabular-nums">
+                  {openRules(kind)}
+                </Badge>
+              ) : null}
             </TabsTrigger>
           ))}
         </OutlinedTabsList>
@@ -200,6 +256,30 @@ export function Requirements({
             value={kind}
             className={`workspace-scroll mt-0 ${fillEmpty ? "flex flex-col" : "space-y-6"}`}
           >
+            {kind !== "programme" && selected[kind].length > 0 ? (
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="min-w-0 text-base font-semibold">
+                  {toPlan
+                    .filter((item) => item.structure.kind === kind)
+                    .map((item) => item.structure.name)
+                    .join(" and ") || selected[kind].join(" and ")}
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  disabled={pending}
+                  onClick={() => setChoosing(!choosing)}
+                >
+                  {choosing ? (
+                    <X size={14} aria-hidden="true" />
+                  ) : (
+                    <Plus size={14} aria-hidden="true" />
+                  )}
+                  {choosing ? "Close choices" : `Change ${kind}`}
+                </Button>
+              </div>
+            ) : null}
             {kind !== "programme" &&
             selected[kind].length === 0 &&
             !choosing ? (
@@ -215,110 +295,110 @@ export function Requirements({
                 />
               </SkeletonBackdrop>
             ) : null}
-            {kind !== "programme" && selected[kind].length === 0 && choosing
-              ? structureChoices(kind)
-              : null}
-            {selected[kind].map((code, index) => {
-              const requirements = catalogue.structureRequirements.find(
-                (item) =>
-                  item.structureCode === code && item.structureKind === kind,
-              );
-              const structure = catalogue.structures.find(
-                (item) => item.code === code && item.kind === kind,
-              );
-              const option =
-                kind === "programme"
-                  ? programme
-                  : [
-                      ...choices.majors,
-                      ...choices.minors,
-                      ...choices.specialisations,
-                    ].find(
-                      (item) =>
-                        item.code === code &&
-                        item.catalogueYear === catalogue.academicYear,
-                    );
-              const target =
-                kind === "programme"
-                  ? (degree?.units ?? null)
-                  : (option?.units ?? null);
-              const context = planTreeContext({
-                structureCode: code,
-                root: requirements?.root ?? null,
-                catalogue,
-                attempts: state.attempts,
-                placements: state.placements ?? [],
-                overrides: state.requirementOverrides ?? [],
-                statuses: attemptStatuses,
-                selectedStructureCodes: selectedCodes,
-                unitTarget: target,
-                onPlace: (courseCode, placement) => {
-                  void setPlacement(courseCode, placement).then((result) => {
-                    if (!result.ok) notify(result.message, "warning");
-                  });
-                },
-                onAddCourse: setAddingCourse,
-              });
-              return (
-                <div key={code} className="space-y-5">
-                  {kind !== "programme" && (
-                    <div className="flex items-center justify-between gap-4">
-                      <h2 className="min-w-0 text-base font-semibold">
-                        {structure?.name ?? option?.name ?? code}
-                        {target !== null && (
-                          <span className="ml-2 text-sm font-normal text-muted-foreground">
-                            {target} units
-                          </span>
-                        )}
-                      </h2>
-                      {index === 0 ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0"
-                          disabled={pending}
-                          onClick={() => setChoosing(!choosing)}
-                        >
-                          {choosing ? (
-                            <X size={14} aria-hidden="true" />
-                          ) : (
-                            <Plus size={14} aria-hidden="true" />
+            {kind !== "programme" && choosing ? (
+              <StructureChoices
+                key={kind}
+                kind={kind}
+                options={options[kind].filter(
+                  (item) => !selectedCodes.has(item.code),
+                )}
+                pending={pending}
+                onSelect={(option) => void chooseStructure(kind, option)}
+              />
+            ) : null}
+            {selected[kind].length > 0 && !choosing ? (
+              <GuidedRequirements
+                key={kind}
+                structures={toPlan.filter(
+                  (item) => item.structure.kind === kind,
+                )}
+                hints={placement.hints}
+                onAdd={placement.open}
+                onOpen={openCourse}
+                fullRules={
+                  <div className="space-y-6">
+                    {selected[kind].map((code) => {
+                      const requirements = catalogue.structureRequirements.find(
+                        (item) =>
+                          item.structureCode === code &&
+                          item.structureKind === kind,
+                      );
+                      const structure = catalogue.structures.find(
+                        (item) => item.code === code && item.kind === kind,
+                      );
+                      const option =
+                        kind === "programme"
+                          ? programme
+                          : [
+                              ...choices.majors,
+                              ...choices.minors,
+                              ...choices.specialisations,
+                            ].find(
+                              (item) =>
+                                item.code === code &&
+                                item.catalogueYear === catalogue.academicYear,
+                            );
+                      const target =
+                        kind === "programme"
+                          ? (degree?.units ?? null)
+                          : (option?.units ?? null);
+                      const context = planTreeContext({
+                        structureCode: code,
+                        root: requirements?.root ?? null,
+                        catalogue,
+                        attempts: state.attempts,
+                        placements: state.placements ?? [],
+                        overrides: state.requirementOverrides ?? [],
+                        statuses: attemptStatuses,
+                        selectedStructureCodes: selectedCodes,
+                        unitTarget: target,
+                        onPlace: (courseCode, placement) => {
+                          void setPlacement(courseCode, placement).then(
+                            (result) => {
+                              if (!result.ok) notify(result.message, "warning");
+                            },
+                          );
+                        },
+                        onAddCourse: placement.open,
+                      });
+                      return (
+                        <div key={code} className="space-y-5">
+                          {kind !== "programme" && (
+                            <h2 className="text-base font-semibold">
+                              {structure?.name ?? option?.name ?? code}
+                              {target !== null && (
+                                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                                  {target} units
+                                </span>
+                              )}
+                            </h2>
                           )}
-                          {choosing ? "Close choices" : `Change ${kind}`}
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                  {kind !== "programme" && index === 0 && choosing
-                    ? structureChoices(kind)
-                    : null}
-                  {requirements?.root ? (
-                    <RequirementGroupView
-                      group={requirements.root}
-                      context={context}
-                    />
-                  ) : (
-                    <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
-                      Your {label.toLowerCase()} is selected.{" "}
-                      <Link
-                        className="font-medium text-primary hover:underline"
-                        href="/plan"
-                      >
-                        Continue planning courses
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                          {requirements?.root ? (
+                            <RequirementGroupView
+                              group={requirements.root}
+                              context={context}
+                            />
+                          ) : (
+                            <div className="rounded-xl border border-border p-8 text-center text-sm text-muted-foreground">
+                              Your {label.toLowerCase()} is selected.{" "}
+                              <Link
+                                className="font-medium text-primary hover:underline"
+                                href="/plan"
+                              >
+                                Continue planning courses
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                }
+              />
+            ) : null}
           </TabsContent>
         ))}
-        {addingCourse ? (
-          <TermChooser
-            course={addingCourse}
-            onClose={() => setAddingCourse(null)}
-          />
-        ) : null}
+        {placement.sheet}
       </AppShell>
     </Tabs>
   );
