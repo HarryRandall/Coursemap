@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowUpRight,
   CalendarCheck,
   CalendarDays,
   CircleAlert,
   CircleCheck,
   ListChecks,
-  MessageCircle,
 } from "lucide-react";
 import {
   Popover,
@@ -17,10 +14,8 @@ import {
   PopoverContent,
 } from "@coursemap/ui/primitives/popover";
 import type { AssistantCourseReference } from "@/lib/assistant/attachments";
-import { useAssistant } from "./assistant-provider";
-
-const OPEN_DELAY_MS = 250;
-const CLOSE_DELAY_MS = 150;
+import { AssistantPreviewActions } from "./assistant-preview-actions";
+import { useHoverPane } from "./use-hover-pane";
 
 export function assistantCourseHref(course: AssistantCourseReference) {
   return `/courses/${course.year}/${course.code.toLowerCase()}`;
@@ -86,35 +81,7 @@ export function AssistantCourseLink({
   course: AssistantCourseReference;
   className: string;
 }) {
-  const { askNow, streaming } = useAssistant();
-  const [open, setOpen] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-  // The pane belongs to a spot in the text, so scrolling the chat (or the
-  // page) closes it rather than leaving it floating over other lines.
-  useEffect(() => {
-    if (!open) return;
-    const close = () => setOpen(false);
-    window.addEventListener("scroll", close, { capture: true, passive: true });
-    return () => window.removeEventListener("scroll", close, { capture: true });
-  }, [open]);
-  function after(delay: number, next: boolean) {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => setOpen(next), delay);
-  }
-  const hover = {
-    onPointerEnter: (event: React.PointerEvent) => {
-      if (event.pointerType === "mouse") after(OPEN_DELAY_MS, true);
-    },
-    onPointerLeave: (event: React.PointerEvent) => {
-      if (event.pointerType === "mouse") after(CLOSE_DELAY_MS, false);
-    },
-  };
+  const { open, setOpen, triggerProps, paneProps } = useHoverPane();
   const facts = [
     `${course.units} units`,
     // ANU writes levels as "3000-level"; some records store just the digit.
@@ -129,9 +96,7 @@ export function AssistantCourseLink({
         <Link
           href={assistantCourseHref(course)}
           className={className}
-          onFocus={() => after(OPEN_DELAY_MS, true)}
-          onBlur={() => after(CLOSE_DELAY_MS, false)}
-          {...hover}
+          {...triggerProps}
         >
           {course.code}
         </Link>
@@ -142,11 +107,7 @@ export function AssistantCourseLink({
         sideOffset={6}
         aria-label={`${course.code} ${course.name}`}
         className="flex h-48 w-72 flex-col gap-0 overflow-hidden p-0 text-xs"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onCloseAutoFocus={(event) => event.preventDefault()}
-        onFocus={() => after(0, true)}
-        onBlur={() => after(CLOSE_DELAY_MS, false)}
-        {...hover}
+        {...paneProps}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3.5">
           <div className="space-y-0.5">
@@ -173,27 +134,12 @@ export function AssistantCourseLink({
             )}
           </div>
         </div>
-        <div className="grid shrink-0 grid-cols-2 border-t border-border">
-          <Link
-            href={assistantCourseHref(course)}
-            className="flex items-center justify-center gap-1.5 py-2.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
-          >
-            <ArrowUpRight aria-hidden="true" className="size-3.5" />
-            Open course
-          </Link>
-          <button
-            type="button"
-            disabled={Boolean(streaming)}
-            onClick={() => {
-              setOpen(false);
-              askNow(`Tell me about ${course.code} ${course.name}.`);
-            }}
-            className="flex items-center justify-center gap-1.5 border-l border-border py-2.5 font-medium text-foreground transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none disabled:opacity-50"
-          >
-            <MessageCircle aria-hidden="true" className="size-3.5" />
-            Ask in chat
-          </button>
-        </div>
+        <AssistantPreviewActions
+          href={assistantCourseHref(course)}
+          openLabel="Open course"
+          question={`Tell me about ${course.code} ${course.name}.`}
+          onAsk={() => setOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );

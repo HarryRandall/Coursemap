@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // About 25 words a second: quick enough to keep up with the model, slow
 // enough to read as writing rather than a block of text appearing.
@@ -37,23 +37,35 @@ function prefersInstantText() {
 export function useWordReveal(text: string, animate: boolean) {
   const [shown, setShown] = useState(animate ? 0 : text.length);
   const visible = Math.min(shown, text.length);
+  const latest = useRef(text);
   useEffect(() => {
-    if (visible >= text.length) return;
-    const timer = setTimeout(() => {
+    latest.current = text;
+  }, [text]);
+  const revealing = visible < text.length;
+  // One steady clock while there is text to reveal. Streaming chunks change
+  // `text` every few milliseconds, so a timer restarted on each change would
+  // never fire until the stream ended.
+  useEffect(() => {
+    if (!revealing) return;
+    let last = performance.now();
+    const timer = setInterval(() => {
       if (prefersInstantText()) {
-        setShown(text.length);
+        setShown(Number.MAX_SAFE_INTEGER);
         return;
       }
-      const backlog = (text.length - visible) / 6;
-      setShown(
-        nextWordBoundary(
-          text,
-          visible,
-          Math.max(1, Math.round(backlog / CATCH_UP_STEPS)),
-        ),
-      );
+      const now = performance.now();
+      // A throttled background tab catches up rather than crawling.
+      const steps = Math.max(1, Math.round((now - last) / REVEAL_INTERVAL_MS));
+      last = now;
+      setShown((current) => {
+        const target = latest.current;
+        const from = Math.min(current, target.length);
+        const backlog = (target.length - from) / 6;
+        const words = steps * Math.max(1, Math.round(backlog / CATCH_UP_STEPS));
+        return nextWordBoundary(target, from, words);
+      });
     }, REVEAL_INTERVAL_MS);
-    return () => clearTimeout(timer);
-  }, [text, visible]);
-  return { text: text.slice(0, visible), revealing: visible < text.length };
+    return () => clearInterval(timer);
+  }, [revealing]);
+  return { text: text.slice(0, visible), revealing };
 }

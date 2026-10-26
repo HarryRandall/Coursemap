@@ -83,10 +83,11 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
   });
-  // Public survey responses and catalogue search must not refresh sessions or
-  // inherit private caching; search runs on every keystroke.
+  // Public survey responses, catalogue search and the published campus map
+  // must not refresh sessions or inherit private caching; search runs on every
+  // keystroke and the map is shared by every embedded preview.
   if (
-    /^\/api\/courses\/(?:[^/]+\/surveys|search)\/?$/u.test(
+    /^\/api\/(?:courses\/(?:[^/]+\/surveys|search)|rooms\/map)\/?$/u.test(
       request.nextUrl.pathname,
     )
   )

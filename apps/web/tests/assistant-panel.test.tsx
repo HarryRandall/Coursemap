@@ -357,6 +357,14 @@ test("shows looked-up courses as cards and draws requested charts", async () => 
 });
 
 test("shows a campus place with a route into the 3D map", async () => {
+  // jsdom has no IntersectionObserver; the map stays unloaded off screen.
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
   const user = userEvent.setup();
   replyWith([
     {
@@ -387,6 +395,49 @@ test("shows a campus place with a route into the 3D map", async () => {
     "href",
     "/rooms?place=hancock-library",
   );
+  expect(
+    screen.getByRole("link", {
+      name: "Open directions to Hancock Library in the Room finder",
+    }),
+  ).toHaveAttribute("href", "/rooms?from=csit&to=hancock-library");
+});
+
+test("previews a society named in a reply on hover", async () => {
+  const user = userEvent.setup();
+  replyWith([
+    {
+      type: "society",
+      society: {
+        slug: "cssa",
+        name: "ANU Computer Science Students' Association",
+        category: "Academic",
+        summary: "A community for computing students.",
+      },
+    },
+    {
+      type: "text",
+      delta: "Try the ANU Computer Science Students' Association.",
+    },
+    { type: "done", model: "anthropic/claude-haiku-5.5" },
+  ]);
+  render(
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>,
+  );
+  await user.type(screen.getByRole("textbox"), "Any coding clubs?{Enter}");
+  const [link] = await screen.findAllByRole("link", {
+    name: "ANU Computer Science Students' Association",
+  });
+  expect(link).toHaveAttribute("href", "/societies/cssa");
+  await user.hover(link);
+  const preview = await screen.findByRole("dialog", {
+    name: "ANU Computer Science Students' Association",
+  });
+  expect(preview).toHaveTextContent("A community for computing students.");
+  expect(
+    within(preview).getByRole("link", { name: "Open society" }),
+  ).toHaveAttribute("href", "/societies/cssa");
 });
 
 test("keeps the question and explains a refused request", async () => {

@@ -64,6 +64,7 @@ export function AssistantReply({
           <AssistantReplyText
             text={reveal.text}
             courses={courses}
+            societies={societies}
             trailing={
               writing ? (
                 <span aria-hidden="true" className={styles.caret} />
@@ -76,8 +77,13 @@ export function AssistantReply({
           is written. */}
       {(societies.length || places.length) && !writing ? (
         <div className="grid gap-2 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none sm:grid-cols-2">
-          {places.map((place) => (
-            <AssistantPlaceCard key={place.slug} place={place} />
+          {places.map((place, index) => (
+            <AssistantPlaceCard
+              key={place.slug}
+              place={place}
+              // One live map per reply keeps WebGL contexts and data in check.
+              showMap={index === 0}
+            />
           ))}
           {societies.map((society) => (
             <AssistantSocietyCard key={society.slug} society={society} />
