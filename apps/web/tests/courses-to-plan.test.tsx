@@ -1,7 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 import {
-  fireEvent,
   render as renderComponent,
   screen,
   within,
@@ -27,7 +26,7 @@ vi.mock("@/app/providers", () => ({
 
 const handlers = { onAdd: vi.fn(), onOpen: vi.fn(), onDragStart: vi.fn() };
 
-test("open rules hide completed and planned courses, and covered rules leave the panel", () => {
+test("open rules hide completed and planned courses, and covered rules fold into one line that opens", async () => {
   const item = suggestions(
     [
       condition(1, ["COMP1100", "COMP1110", "MATH1005"]),
@@ -52,18 +51,27 @@ test("open rules hide completed and planned courses, and covered rules leave the
   expect(
     within(screen.getByRole("region", { name: "Required courses" })).getByRole(
       "button",
-      { name: "Add MATH1005 to this year" },
+      { name: "Add MATH1005 to your plan" },
     ),
   ).toBeVisible();
   expect(screen.queryByText("COMP1100")).not.toBeInTheDocument();
   expect(screen.queryByText("COMP1110")).not.toBeInTheDocument();
-  expect(screen.queryByText(/rules covered/)).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Add COMP1100 to this year" }),
+    screen.queryByRole("button", { name: "Add COMP1100 to your plan" }),
   ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "1 rule done or planned" }),
+  );
+  await userEvent.click(
+    within(
+      screen.getByRole("group", { name: "Rules done or planned" }),
+    ).getByRole("button", { expanded: false }),
+  );
+  expect(screen.getByText("COMP1100")).toBeVisible();
+  expect(screen.getByLabelText("Completed")).toBeVisible();
 });
 
-test("a fully covered tab has a check and Starred remains available", async () => {
+test("a fully covered tab has a check and Starred hides while nothing is starred", () => {
   const item = suggestions(
     [condition(1, ["COMP1100"])],
     new Map([["COMP1100", "planned"]]),
@@ -80,8 +88,9 @@ test("a fully covered tab has a check and Starred remains available", async () =
     screen.getByRole("tab", { name: "Degree: 0 courses left to pick" }),
   ).toContainElement(screen.getByLabelText("done"));
   expect(screen.getByText("Degree requirements planned")).toBeVisible();
-  await userEvent.click(screen.getByRole("tab", { name: "Starred" }));
-  expect(screen.getByText(/Star a course/)).toBeVisible();
+  expect(
+    screen.queryByRole("tab", { name: "Starred" }),
+  ).not.toBeInTheDocument();
 });
 
 test("a rule course the plan year lacks uses the nearest year's edition, and one no year publishes is left out", async () => {
@@ -117,7 +126,7 @@ test("a rule course the plan year lacks uses the nearest year's edition, and one
     screen.queryByText(/Not published for this year/),
   ).not.toBeInTheDocument();
   await userEvent.click(
-    screen.getByRole("button", { name: "Add COMP1100 to this year" }),
+    screen.getByRole("button", { name: "Add COMP1100 to your plan" }),
   );
   expect(handlers.onAdd).toHaveBeenCalledWith(earlier);
 });
@@ -192,6 +201,78 @@ test("unit-only tab counts are explicitly labelled as estimates", () => {
   ).not.toBeInTheDocument();
 });
 
+test("a long rule suggests a few courses, and showing all of them brings a search box", async () => {
+  const item = suggestions([
+    condition(
+      1,
+      ["COMP1100", "COMP1110", "COMP1600", "COMP2100", "COMP2300", "COMP2400"],
+      { minimumCourses: 1 },
+    ),
+  ]);
+  render(
+    <CoursesToPlan
+      structures={[item]}
+      starred={[]}
+      inPlan={new Map()}
+      {...handlers}
+    />,
+  );
+  expect(screen.getByText("Suggested")).toBeVisible();
+  expect(screen.getAllByRole("button", { name: /to your plan$/ })).toHaveLength(
+    3,
+  );
+  expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Show all 6/ }));
+  expect(screen.getAllByRole("button", { name: /to your plan$/ })).toHaveLength(
+    6,
+  );
+  await userEvent.type(screen.getByRole("searchbox"), "2300");
+  expect(
+    screen.getByRole("button", { name: "Add COMP2300 to your plan" }),
+  ).toBeVisible();
+  expect(screen.getByText("1 match")).toBeVisible();
+});
+
+test("a pick-one rule opens first with every option and no repeated count", () => {
+  const item = suggestions([
+    condition(1, ["COMP1100", "COMP1110"], { minimumCourses: 1 }),
+  ]);
+  render(
+    <CoursesToPlan
+      structures={[item]}
+      starred={[]}
+      inPlan={new Map()}
+      {...handlers}
+    />,
+  );
+  expect(screen.getAllByRole("button", { name: /to your plan$/ })).toHaveLength(
+    2,
+  );
+  expect(screen.queryByText(/\/ 1 courses/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+});
+
 function render(ui: ReactElement) {
   return renderComponent(ui, { wrapper: TooltipProvider });
 }
+
+test("quick choices between a few courses come before rules with long lists", () => {
+  const item = suggestions([
+    condition(
+      1,
+      ["COMP1100", "COMP1110", "COMP1600", "COMP2100", "COMP2300", "COMP2400"],
+      { minimumCourses: 1 },
+    ),
+    condition(2, ["MATH1005", "COMP2310"], { minimumCourses: 1 }),
+  ]);
+  render(
+    <CoursesToPlan
+      structures={[item]}
+      starred={[]}
+      inPlan={new Map()}
+      {...handlers}
+    />,
+  );
+  const [first] = screen.getAllByRole("region");
+  expect(first).toHaveTextContent(/MATH1005/);
+});

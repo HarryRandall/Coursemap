@@ -17,7 +17,6 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { creditedRequirementUnits } from "@/lib/coursemap/requirement-progress";
 import { cn } from "@/lib/cn";
 import { useCoursemap } from "@/app/providers";
 import { AppShell } from "@/ui/shell";
@@ -41,6 +40,8 @@ import type { Attempt, Course, Term } from "@/lib/coursemap/types";
 import { YearTabs, type YearTab } from "@/ui/plan/year-tabs";
 import { StatusMark } from "@/ui/plan/status-mark";
 import { CoursesToPlan } from "@/ui/plan/courses-to-plan";
+import { usePlanningCatalogue } from "@/ui/plan/use-planning-catalogue";
+import { useCoursePlacement } from "@/ui/plan/use-course-placement";
 import { CoursesToPlanSkeleton } from "@/ui/plan/courses-to-plan-skeleton";
 import {
   courseForTerm,
@@ -56,16 +57,11 @@ import { ResolvePanel } from "@/ui/plan/resolve-panel";
 import { OVERRIDE_REASONS } from "@/lib/coursemap/plan-overrides";
 import type { PlanCatalogue } from "@/lib/coursemap/plan-catalogue";
 import { recommendedCourseCodes } from "@/lib/coursemap/requirement-display";
-import { planStructureCodes } from "@/lib/coursemap/plan-structure-codes";
 import {
   isSemesterTerm,
   sessionShortName,
 } from "@/lib/coursemap/academic-periods";
-import {
-  MAX_PLAN_EXTENSION_YEARS,
-  planTimelineTerms,
-  planTimelineYears,
-} from "@/lib/coursemap/plan-timeline";
+import { MAX_PLAN_EXTENSION_YEARS } from "@/lib/coursemap/plan-timeline";
 import {
   STANDARD_COURSE_SLOTS,
   STANDARD_TERM_UNITS,
@@ -216,75 +212,10 @@ export function PlanBoard({
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerCleanupRef = useRef<(() => void) | null>(null);
 
-  const degree = catalogue.degrees.find(
-    (item) => item.code === state.profile.degreeCode,
-  );
-  const timelineDegree = degree ?? undefined;
-  const degreeYears = useMemo(
-    () =>
-      planTimelineYears({
-        degree: timelineDegree,
-        commencementYear: state.profile.commencementYear,
-        extensionYears: state.profile.extensionYears,
-      }),
-    [
-      state.profile.commencementYear,
-      state.profile.extensionYears,
-      timelineDegree,
-    ],
-  );
-  const timelineTerms = useMemo(
-    () => planTimelineTerms({ terms: catalogue.terms, years: degreeYears }),
-    [catalogue.terms, degreeYears],
-  );
-  const planningCatalogue = useMemo(() => {
-    const known = [
-      ...catalogue.courses,
-      ...fetchedCourses.filter(
-        (course) =>
-          !catalogue.courses.some((item) => item.code === course.code),
-      ),
-    ];
-    const base = {
-      ...catalogue,
-      courseOverrides: state.courseOverrides,
-      creditedRequirementUnits: creditedRequirementUnits(
-        catalogue.structureRequirements,
-        state.requirementOverrides ?? [],
-        new Set([
-          state.profile.degreeCode,
-          state.profile.majorCode,
-          ...(state.profile.minorCodes ?? []),
-          ...(state.profile.specialisationCodes ?? []),
-        ]),
-      ),
-      courses: known,
-      terms: timelineTerms,
-      commencementYear: state.profile.commencementYear,
-      enrolmentMode: state.profile.enrolmentMode,
-      programmeCodes: state.profile.degreeCode
-        ? [state.profile.degreeCode]
-        : [],
-      structureCodes: planStructureCodes({
-        majorCode: state.profile.majorCode,
-        minorCodes: state.profile.minorCodes,
-        specialisationCodes: state.profile.specialisationCodes,
-      }),
-    };
-    return base;
-  }, [
+  const { degree, timelineTerms, planningCatalogue } = usePlanningCatalogue(
     catalogue,
     fetchedCourses,
-    timelineTerms,
-    state.courseOverrides,
-    state.requirementOverrides,
-    state.profile.majorCode,
-    state.profile.minorCodes,
-    state.profile.specialisationCodes,
-    state.profile.commencementYear,
-    state.profile.enrolmentMode,
-    state.profile.degreeCode,
-  ]);
+  );
   const recommendedCodes = useMemo(
     () => recommendedCourseCodes(catalogue, state.profile, state.attempts),
     [catalogue, state.profile, state.attempts],
@@ -558,6 +489,11 @@ export function PlanBoard({
       .filter((attempt) => attempt.status !== "withdrawn")
       .map((attempt) => attempt.courseCode),
   );
+  const placement = useCoursePlacement({
+    catalogue: planningCatalogue,
+    timelineTerms,
+    findCourse,
+  });
   const starred: CourseToPlan[] = starredCodes.flatMap((code) => {
     const course = inPlan.has(code) ? undefined : findCourse(code);
     return course
@@ -1401,7 +1337,8 @@ export function PlanBoard({
                 structures={toPlan}
                 starred={starred}
                 inPlan={statuses}
-                onAdd={addToSelectedYear}
+                hints={placement.hints}
+                onAdd={placement.open}
                 onOpen={openCourse}
                 onDragStart={startSuggestionDrag}
               />
@@ -1550,13 +1487,14 @@ export function PlanBoard({
         <CourseDialog
           preview={{
             course: previewCourse,
-            addLabel: `Add to ${selectedYear?.label ?? "this year"}`,
-            onAdd: () => addToSelectedYear(previewCourse),
+            addLabel: "Add to plan",
+            onAdd: () => placement.open(previewCourse),
           }}
           catalogue={planningCatalogue}
           onClose={() => setPreviewCourse(null)}
         />
       )}
+      {placement.sheet}
     </AppShell>
   );
 }

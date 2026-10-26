@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, ChevronDown, Info } from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronDown } from "lucide-react";
+import { Badge } from "@coursemap/ui/components/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -10,20 +11,28 @@ import {
 import { cn } from "@/lib/cn";
 import type { Course } from "@/lib/coursemap/types";
 import type { PlanStructureKind } from "@/lib/coursemap/plan-catalogue";
-import type { RuleToPlan } from "@/ui/plan/plan-suggestions";
-import { CourseRow, type DragStart } from "@/ui/plan/course-row";
-import { RuleMatchingCourses } from "@/ui/plan/rule-matching-courses";
-import { RequirementOverrideControl } from "@/ui/requirements/requirement-override-control";
+import type { CourseHints, RuleToPlan } from "@/ui/plan/plan-suggestions";
+import type { DragStart } from "@/ui/plan/course-row";
+import { hasRuleCourses, RuleCourses } from "@/ui/plan/rule-courses";
+import { UnitsBar } from "@/ui/requirements/units-bar";
+
+/** Whether a rule's heading already says how many to choose, as "Pick one: A or B" does. */
+export function headingSaysChoice(rule: RuleToPlan) {
+  return rule.choice !== null && /^pick\b/iu.test(rule.heading);
+}
 
 /**
- * A rule as a group that opens to its courses, with how much of it the plan
- * covers. Tag and subject rules load the courses they match; a rule any
- * course fills points to the course directory instead.
+ * A rule as a group: its heading with what it still needs, then, once open,
+ * a bar of how far the plan has come and the courses that count. Marking a
+ * rule satisfied lives on Requirements, so this list only ever asks what to
+ * add.
  */
 export function RuleGroup({
   rule,
-  structureCode,
   kind,
+  defaultOpen = false,
+  hints,
+  suggested,
   onAdd,
   onOpen,
   onDragStart,
@@ -31,135 +40,99 @@ export function RuleGroup({
 }: {
   readOnly?: boolean;
   rule: RuleToPlan;
-  /** The structure the rule belongs to, so it can be marked satisfied. */
-  structureCode?: string;
   kind: PlanStructureKind;
+  /** Opens the group at first, for the first rule in a list. */
+  defaultOpen?: boolean;
+  hints?: CourseHints;
+  /** Codes to suggest first, chosen so another group does not repeat them. */
+  suggested?: readonly string[];
   onAdd: (course: Course) => void;
   onOpen: (course: Course) => void;
-  onDragStart: DragStart;
+  onDragStart?: DragStart;
 }) {
-  const [open, setOpen] = useState(
-    () =>
-      !rule.covered &&
-      ((rule.courses.length > 0 && rule.courses.length <= 12) ||
-        rule.matching !== null),
-  );
-  // A course no catalogue year publishes cannot be planned, so it is left out.
-  const courses = rule.courses.flatMap(({ code, course, status }) =>
-    course && (readOnly || status === null) ? [{ code, course, status }] : [],
-  );
-  const expandable =
-    courses.length > 0 ||
-    Boolean(rule.options?.length) ||
-    rule.matching !== null;
+  const [open, setOpen] = useState(defaultOpen);
+  // A bar of zero or one course says nothing a pick rule's heading does not.
+  const pickRule = rule.choice !== null;
+  const expandable = hasRuleCourses(rule, hints, readOnly);
   const toggle = () => setOpen((value) => !value);
-  const count = rule.count ? (
-    <span
-      className={cn(
-        "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap tabular-nums",
-        rule.covered
-          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-          : "bg-primary/10 text-primary",
-      )}
-    >
-      {rule.count}
-    </span>
-  ) : null;
   return (
-    <section aria-label={rule.detail} className="space-y-1">
-      {/* One line: the heading, an (i) with the rule in full, then progress. */}
-      <div className="flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-muted/50">
-        <span className="flex min-w-0 flex-1 items-center gap-1">
+    <section aria-label={rule.detail} className="space-y-2">
+      <div className="space-y-2 px-1">
+        <div className="flex min-h-7 items-center gap-2">
           {rule.covered ? (
             <CheckCircle2
-              size={13}
+              size={14}
               aria-label="Covered"
               className="shrink-0 text-emerald-600 dark:text-emerald-400"
             />
           ) : null}
-          {expandable ? (
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={toggle}
-              className="min-w-0 cursor-pointer truncate text-left text-xs font-semibold text-foreground"
-            >
-              {rule.heading}
-            </button>
-          ) : (
-            <span className="min-w-0 truncate text-xs font-semibold text-foreground">
-              {rule.heading}
-            </span>
-          )}
-          <Tooltip delayDuration={100}>
+          <Tooltip delayDuration={300}>
             <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label={`About ${rule.heading}: ${rule.detail}`}
-                className="grid size-5 shrink-0 cursor-help place-items-center rounded text-muted-foreground/70 transition hover:text-foreground"
-              >
-                <Info size={12} aria-hidden="true" />
-              </button>
+              {expandable ? (
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={toggle}
+                  className="min-w-0 flex-1 cursor-pointer truncate text-left text-[13px] font-semibold text-foreground"
+                >
+                  {rule.heading}
+                </button>
+              ) : (
+                <span
+                  tabIndex={0}
+                  className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground"
+                >
+                  {rule.heading}
+                </span>
+              )}
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-64 text-xs">
               {rule.detail}
             </TooltipContent>
           </Tooltip>
+          {rule.left && !headingSaysChoice(rule) ? (
+            <Badge variant="warning-light" className="tabular-nums">
+              {rule.left}
+            </Badge>
+          ) : null}
           {expandable ? (
-            <span
+            <button
+              type="button"
+              tabIndex={-1}
               aria-hidden="true"
               onClick={toggle}
-              className="min-w-2 flex-1 cursor-pointer self-stretch"
-            />
+              className="grid size-5 shrink-0 cursor-pointer place-items-center text-muted-foreground"
+            >
+              <ChevronDown
+                size={14}
+                className={cn("transition-transform", open && "rotate-180")}
+              />
+            </button>
           ) : null}
-        </span>
-        {count}
-        {expandable ? (
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={toggle}
-            className="grid size-5 shrink-0 cursor-pointer place-items-center text-muted-foreground"
-          >
-            <ChevronDown
-              size={14}
-              className={cn("transition-transform", open && "rotate-180")}
+        </div>
+        {open && rule.bar && !rule.covered && !pickRule ? (
+          <div className="flex items-center gap-2.5">
+            <UnitsBar
+              completed={rule.bar.completed}
+              planned={rule.bar.planned}
+              goal={rule.bar.target}
+              className="flex-1"
             />
-          </button>
+            <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+              {rule.count}
+            </span>
+          </div>
         ) : null}
-        {structureCode && rule.requirementKey && !readOnly ? (
-          <RequirementOverrideControl
-            structureCode={structureCode}
-            requirementKey={rule.requirementKey}
-          />
+        {rule.note && !readOnly ? (
+          <p className="text-[11px] text-muted-foreground">{rule.note}</p>
         ) : null}
       </div>
       {expandable && open ? (
-        <ul>
-          {courses.map(({ code, course, status }) => (
-            <CourseRow
-              key={code}
-              item={{
-                course,
-                required: rule.compulsory,
-                tag: rule.heading,
-                structureKind: kind,
-              }}
-              status={status}
-              readOnly={readOnly}
-              onAdd={onAdd}
-              onOpen={onOpen}
-              onDragStart={onDragStart}
-            />
-          ))}
-        </ul>
-      ) : null}
-      {expandable && open && rule.matching ? (
-        <RuleMatchingCourses
+        <RuleCourses
           rule={rule}
-          matching={rule.matching}
           kind={kind}
+          hints={hints}
+          suggested={suggested}
           onAdd={onAdd}
           onOpen={onOpen}
           onDragStart={onDragStart}
@@ -172,6 +145,7 @@ export function RuleGroup({
             <RuleGroup
               rule={option}
               kind={kind}
+              hints={hints}
               onAdd={onAdd}
               onOpen={onOpen}
               onDragStart={onDragStart}

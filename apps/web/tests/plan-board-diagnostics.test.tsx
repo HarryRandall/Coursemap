@@ -193,14 +193,25 @@ test("the planner offers study periods without a Later lane", () => {
   expect(screen.getByTestId("term-2026-s1")).toBeVisible();
 });
 
-test("a starred course added to the open year lands in a semester it runs in", async () => {
+test("a starred course is placed from the add sheet, which offers a semester it runs in", async () => {
   fixtures.attempts = [];
   fixtures.starredCourses = ["COMP1100"];
   fixtures.addCourse.mockClear();
-  render(<PlanBoard catalogue={{ ...catalogue, courses, terms }} />);
+  render(
+    <TooltipProvider>
+      <PlanBoard catalogue={{ ...catalogue, courses, terms }} />
+    </TooltipProvider>,
+  );
   fireEvent.click(screen.getByRole("tab", { name: /Starred/ }));
   fireEvent.click(
-    screen.getByRole("button", { name: "Add COMP1100 to this year" }),
+    screen.getByRole("button", { name: "Add COMP1100 to your plan" }),
+  );
+  const sheet = await screen.findByRole("dialog", {
+    name: /COMP1100|Programming/,
+  });
+  expect(within(sheet).getByRole("radio", { name: /S1 2026/ })).toBeChecked();
+  fireEvent.click(
+    within(sheet).getByRole("button", { name: "Add to S1 2026" }),
   );
   await waitFor(() =>
     expect(fixtures.addCourse).toHaveBeenCalledWith(

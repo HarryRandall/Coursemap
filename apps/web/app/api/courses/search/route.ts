@@ -20,6 +20,9 @@ function searchCourse(course: CourseDetails) {
     description: course.description,
     prerequisiteText: course.prerequisiteText,
     prerequisiteCodes: course.prerequisiteCodes,
+    // Lets a list of results say whether the plan covers each course's rules.
+    prerequisiteRule: course.prerequisiteRule,
+    incompatibilityRule: course.incompatibilityRule,
     incompatibilities: course.incompatibilityText
       ? [course.incompatibilityText]
       : [],
