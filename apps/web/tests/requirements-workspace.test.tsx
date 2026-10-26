@@ -274,7 +274,7 @@ test("adding a minor preserves the existing minor and failed saves keep the choi
   });
   render(<Requirements catalogue={catalogue} choices={choices} />);
   await user.click(screen.getByRole("tab", { name: "Minors" }));
-  await user.click(screen.getByRole("button", { name: "Add minor" }));
+  await user.click(screen.getByRole("button", { name: "Change minor" }));
   await user.click(
     screen.getByRole("button", { name: /Choose minor.*Mathematics/ }),
   );
@@ -287,6 +287,26 @@ test("adding a minor preserves the existing minor and failed saves keep the choi
   expect(
     screen.getByRole("button", { name: /Choose minor.*Mathematics/ }),
   ).toBeVisible();
+});
+
+test("a selected structure can be changed even when nothing else is on offer", async () => {
+  const user = userEvent.setup();
+  render(
+    <Requirements
+      catalogue={catalogue}
+      choices={{
+        ...choices,
+        minors: [option("BISM-MIN", "Business Information Systems")],
+      }}
+    />,
+  );
+  await user.click(screen.getByRole("tab", { name: "Minors" }));
+  await user.click(screen.getByRole("button", { name: "Change minor" }));
+  expect(screen.getByText("No minor options available")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Close choices" }));
+  expect(
+    screen.queryByText("No minor options available"),
+  ).not.toBeInTheDocument();
 });
 
 test("a course opens the semester chooser and is saved in the selected year", async () => {

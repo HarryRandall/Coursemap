@@ -31,25 +31,53 @@ import {
   SearchFailure,
 } from "@/ui/overlays/course-result-states";
 
-type CourseSearchResponse = {
-  academicYear: number;
-  filters: string;
+type CourseSearchPage = {
   courses: Course[];
   page: number;
   pageSize: number;
-  query: string;
   total: number;
 };
-function requestKey(
-  query: string,
-  page: number,
-  academicYear: number,
-  filters: string,
-) {
-  return `${academicYear}:${filters}:${query}:${page}`;
-}
 
 const LEVELS = [1, 2, 3, 4] as const;
+const SEARCH_PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 100;
+const SEARCH_CACHE_LIMIT = 60;
+
+// Shared by every picker in the tab, so reopening the picker or returning to
+// an earlier query or filter shows the pages it already fetched.
+const searchPageCache = new Map<string, CourseSearchPage>();
+
+function searchCacheKey(query: string, academicYear: number, filters: string) {
+  return `${academicYear}:${filters}:${query}`;
+}
+
+function pageCacheKey(searchKey: string, page: number) {
+  return `${searchKey}:${page}`;
+}
+
+/** Stores a page, evicting the least recently stored beyond the limit. */
+function rememberSearchPage(key: string, result: CourseSearchPage) {
+  searchPageCache.delete(key);
+  searchPageCache.set(key, result);
+  if (searchPageCache.size <= SEARCH_CACHE_LIMIT) return;
+  const oldest = searchPageCache.keys().next().value;
+  if (oldest !== undefined) searchPageCache.delete(oldest);
+}
+
+/** A search's pages from the first, up to `pageCount` or the first gap. */
+function loadedSearchPages(
+  pages: ReadonlyMap<string, CourseSearchPage>,
+  searchKey: string,
+  pageCount: number,
+) {
+  const loaded: CourseSearchPage[] = [];
+  for (let page = 1; page <= pageCount; page += 1) {
+    const result = pages.get(pageCacheKey(searchKey, page));
+    if (!result) break;
+    loaded.push(result);
+  }
+  return loaded;
+}
 
 /** "First Semester" as S1, so a row's offerings stay on one line. */
 function sessionLabel(session: string) {
@@ -75,9 +103,15 @@ export function CoursePicker({
   const { state, addCourse, notify } = useCoursemap();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [response, setResponse] = useState<CourseSearchResponse | null>(null);
+  const [pagesByKey, setPagesByKey] = useState<
+    ReadonlyMap<string, CourseSearchPage>
+  >(() => new Map(searchPageCache));
+  const [shownSearch, setShownSearch] = useState<{
+    key: string;
+    query: string;
+    pageCount: number;
+  } | null>(null);
   const [previewing, setPreviewing] = useState<Course | null>(null);
-  const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [addingCode, setAddingCode] = useState<string | null>(null);
@@ -95,34 +129,69 @@ export function CoursePicker({
       : null,
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const trimmedQuery = query.trim();
   // Under two characters the picker browses the filtered catalogue instead.
   const searchQuery = trimmedQuery.length >= 2 ? trimmedQuery : "";
   const academicYear = term?.year ?? state.profile.catalogueYear;
   const filterKey = `${session}|${level ?? ""}`;
-  const currentRequestKey = requestKey(
-    searchQuery,
-    page,
-    academicYear,
-    filterKey,
-  );
+  const searchKey = searchCacheKey(searchQuery, academicYear, filterKey);
   const recommendationKey = `${academicYear}:${recommendedCodes.join(",")}`;
-  const loading = loadingKey === currentRequestKey;
-  const failed = failedKey === currentRequestKey;
+  const currentPages = loadedSearchPages(pagesByKey, searchKey, page);
+  const missingPage =
+    currentPages.length < page ? currentPages.length + 1 : null;
+  const missingKey =
+    missingPage === null ? null : pageCacheKey(searchKey, missingPage);
+  const failed = missingKey !== null && failedKey === missingKey;
+  const pending = missingKey !== null && !failed;
+  const lastPage = currentPages.at(-1);
+  const hasNextPage = Boolean(
+    lastPage && lastPage.page * lastPage.pageSize < lastPage.total,
+  );
+  const canLoadMore = hasNextPage && missingPage === null;
+  const nextPage = currentPages.length + 1;
+
+  if (
+    currentPages.length > 0 &&
+    (!shownSearch ||
+      shownSearch.key !== searchKey ||
+      shownSearch.pageCount !== currentPages.length)
+  ) {
+    setShownSearch({
+      key: searchKey,
+      query: searchQuery,
+      pageCount: currentPages.length,
+    });
+  }
+  // While a new search loads, the previous results stay in place, dimmed,
+  // rather than emptying the list between keystrokes.
+  const fallbackSearch =
+    currentPages.length === 0 && pending ? shownSearch : null;
+  const shownPages = fallbackSearch
+    ? loadedSearchPages(
+        pagesByKey,
+        fallbackSearch.key,
+        fallbackSearch.pageCount,
+      )
+    : currentPages;
+  const stale = fallbackSearch !== null;
+  const resultQuery = fallbackSearch?.query ?? searchQuery;
 
   useEffect(() => {
-    if (!term) return;
+    if (!term || missingPage === null) return;
 
+    const key = pageCacheKey(searchKey, missingPage);
     const controller = new AbortController();
+    // Typing waits for a pause; filters and further pages load straight away.
+    const delayMs = missingPage === 1 && searchQuery ? SEARCH_DEBOUNCE_MS : 0;
     const timeout = window.setTimeout(async () => {
-      setLoadingKey(currentRequestKey);
-      setFailedKey(null);
       try {
         const params = new URLSearchParams({
           q: searchQuery,
           ...(searchQuery ? {} : { browse: "1" }),
-          page: String(page),
-          pageSize: "10",
+          page: String(missingPage),
+          pageSize: String(SEARCH_PAGE_SIZE),
           year: String(academicYear),
         });
         if (session) params.set("session", session);
@@ -130,45 +199,16 @@ export function CoursePicker({
         const result = await fetch(`/api/courses/search?${params}`, {
           signal: controller.signal,
         });
-        if (!result.ok) throw new Error("Course search is unavailable");
+        if (!result.ok) throw new Error("Course search is unavailable.");
 
-        const next = (await result.json()) as Omit<
-          CourseSearchResponse,
-          "academicYear" | "query"
-        >;
+        const next = (await result.json()) as CourseSearchPage;
         if (controller.signal.aborted) return;
-
-        setResponse((current) => {
-          const previous =
-            page > 1 &&
-            current?.query === searchQuery &&
-            current.academicYear === academicYear &&
-            current.filters === filterKey
-              ? current.courses
-              : [];
-          const courses = [...previous, ...next.courses].filter(
-            (course, index, all) =>
-              all.findIndex((candidate) => candidate.code === course.code) ===
-              index,
-          );
-          return {
-            ...next,
-            academicYear,
-            filters: filterKey,
-            courses,
-            query: searchQuery,
-          };
-        });
+        rememberSearchPage(key, next);
+        setPagesByKey(new Map(searchPageCache));
       } catch {
-        if (!controller.signal.aborted) setFailedKey(currentRequestKey);
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingKey((current) =>
-            current === currentRequestKey ? null : current,
-          );
-        }
+        if (!controller.signal.aborted) setFailedKey(key);
       }
-    }, 180);
+    }, delayMs);
 
     return () => {
       controller.abort();
@@ -176,15 +216,36 @@ export function CoursePicker({
     };
   }, [
     academicYear,
-    currentRequestKey,
-    filterKey,
     level,
-    page,
+    missingPage,
     retryCount,
+    searchKey,
+    searchQuery,
     session,
     term,
-    searchQuery,
   ]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    const sentinel = sentinelRef.current;
+    // jsdom has no IntersectionObserver; the sentinel's button still loads more.
+    if (
+      !canLoadMore ||
+      !list ||
+      !sentinel ||
+      typeof IntersectionObserver === "undefined"
+    )
+      return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setPage(nextPage);
+      },
+      // Request the next page about four rows before the end scrolls into view.
+      { root: list, rootMargin: "0px 0px 240px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [canLoadMore, nextPage]);
 
   useEffect(() => {
     if (!term || recommendedCodes.length === 0) return;
@@ -222,13 +283,7 @@ export function CoursePicker({
     term,
   ]);
 
-  const activeResponse =
-    response?.query === searchQuery &&
-    response.academicYear === academicYear &&
-    response.filters === filterKey
-      ? response
-      : null;
-  const browsing = trimmedQuery.length < 2;
+  const browsing = !searchQuery;
   const recommendationsLoading =
     browsing &&
     recommendedCodes.length > 0 &&
@@ -247,9 +302,15 @@ export function CoursePicker({
   const recommendedCodeSet = new Set(
     recommendedShown.map((course) => course.code),
   );
-  const results = (activeResponse?.courses ?? []).filter(
-    (course) => !recommendedCodeSet.has(course.code),
-  );
+  const listedCodes = new Set(recommendedCodeSet);
+  const results = shownPages
+    .flatMap((result) => result.courses)
+    .filter((course) => {
+      if (listedCodes.has(course.code)) return false;
+      listedCodes.add(course.code);
+      return true;
+    });
+  const resultTotal = shownPages.at(-1)?.total ?? results.length;
   const courses = [...recommendedShown, ...results];
   const courseCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -280,15 +341,11 @@ export function CoursePicker({
     else setAddingCode(null);
   };
 
-  const hasNextPage = Boolean(
-    activeResponse &&
-    activeResponse.page * activeResponse.pageSize < activeResponse.total,
-  );
   const firstPageLoading =
     courses.length === 0 &&
-    (recommendationsLoading || (page === 1 && !activeResponse && !failed));
-  const firstPageFailed =
-    courses.length === 0 && failed && page === 1 && !activeResponse;
+    (recommendationsLoading || (shownPages.length === 0 && !failed));
+  const firstPageFailed = courses.length === 0 && failed;
+  const searching = pending && missingPage === 1 && !firstPageLoading;
   const filtersActive = Boolean(session || level);
   const changeFilters = (next: () => void) => {
     next();
@@ -299,15 +356,11 @@ export function CoursePicker({
 
   const retrySearch = () => {
     setFailedKey(null);
-    setLoadingKey(currentRequestKey);
     setRetryCount((count) => count + 1);
   };
 
   const loadNextPage = () => {
-    if (loading || failed || !hasNextPage) return;
-    const nextPage = page + 1;
-    setLoadingKey(requestKey(searchQuery, nextPage, academicYear, filterKey));
-    setPage(nextPage);
+    if (canLoadMore) setPage(nextPage);
   };
 
   const renderCourse = (course: Course) => {
@@ -388,7 +441,7 @@ export function CoursePicker({
       }}
     >
       <DialogContent
-        className="top-[max(1rem,10dvh)] flex w-[calc(100vw-2rem)] max-w-[40rem] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[40rem]"
+        className="top-[max(1rem,10dvh)] flex max-h-[min(44rem,calc(100dvh-max(2rem,20dvh)))] w-[calc(100vw-2rem)] max-w-[40rem] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[40rem]"
         showCloseButton={false}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -411,15 +464,17 @@ export function CoursePicker({
           footer; the row's add button skips that step.
         */}
         <Command
+          // cmdk names its input from this hidden label, which overrides the
+          // input's own aria-label.
+          label={`Search ${academicYear} courses`}
           shouldFilter={false}
           loop
-          label="Course catalogue"
-          className="flex min-h-0 w-full min-w-0 flex-col bg-transparent"
+          className="flex min-h-0 w-full min-w-0 flex-auto flex-col bg-transparent"
         >
           {/* The picker's own shortcuts (arrows, Enter) come from the search
               field; keys on the filter chips stay with those chips. */}
           <div
-            className="border-b border-border/60"
+            className="shrink-0 border-b border-border/60"
             onKeyDown={(event) => {
               if (event.target !== inputRef.current) event.stopPropagation();
             }}
@@ -444,7 +499,7 @@ export function CoursePicker({
               </DialogClose>
             </div>
             <div className="mx-3 flex h-11 items-center gap-3 rounded-lg bg-muted/60 px-3 ring-1 ring-border ring-inset focus-within:ring-ring/60">
-              {loading && !firstPageLoading ? (
+              {searching ? (
                 <LoaderCircle
                   size={18}
                   aria-label="Searching"
@@ -463,9 +518,10 @@ export function CoursePicker({
                 value={query}
                 onValueChange={(value) => {
                   const nextQuery = value.trim();
-                  const queryChanged = nextQuery !== trimmedQuery;
+                  const nextSearchQuery =
+                    nextQuery.length >= 2 ? nextQuery : "";
                   setQuery(value);
-                  if (queryChanged) {
+                  if (nextSearchQuery !== searchQuery) {
                     setPage(1);
                     setFailedKey(null);
                   }
@@ -512,13 +568,17 @@ export function CoursePicker({
             </div>
           </div>
 
+          {/* The dialog grows with its results up to the viewport limit, then
+              the list scrolls; the ReUI list's own max height is lifted. */}
           <section
             aria-label="Course results"
-            className="flex h-[min(28rem,calc(100dvh-max(1rem,10dvh)-12rem))] min-h-0 flex-col"
+            aria-busy={pending}
+            className="flex min-h-0 flex-auto flex-col"
           >
             <CommandList
+              ref={listRef}
               label="Course results"
-              className="min-h-0 flex-1 overflow-y-auto p-2"
+              className="max-h-none min-h-0 flex-auto overflow-y-auto overscroll-contain p-2"
             >
               {firstPageLoading ? (
                 <CourseResultSkeleton />
@@ -526,10 +586,15 @@ export function CoursePicker({
                 <SearchFailure />
               ) : (
                 <>
-                  <CommandEmpty className="px-6 py-10 text-center text-sm text-muted-foreground">
-                    {browsing
+                  <CommandEmpty
+                    className={cn(
+                      "px-6 py-10 text-center text-sm text-muted-foreground transition-opacity",
+                      stale && "opacity-60",
+                    )}
+                  >
+                    {!resultQuery
                       ? "No courses match these filters."
-                      : `No published ${academicYear} courses match ‘${trimmedQuery}’.${
+                      : `No published ${academicYear} courses match ‘${resultQuery}’.${
                           filtersActive
                             ? " Try clearing the filters."
                             : " Try a course code such as COMP1100."
@@ -543,46 +608,52 @@ export function CoursePicker({
                   {results.length > 0 ? (
                     <CommandGroup
                       heading={
-                        !browsing
-                          ? `${activeResponse?.total ?? results.length} results`
+                        resultQuery
+                          ? `${resultTotal} results`
                           : session
                             ? `Offered in ${term.shortName}`
                             : "All courses"
                       }
+                      className={cn(
+                        "transition-opacity",
+                        stale && "opacity-60",
+                      )}
                     >
                       {results.map(renderCourse)}
                     </CommandGroup>
+                  ) : null}
+                  {hasNextPage && !failed ? (
+                    <div
+                      ref={sentinelRef}
+                      className="flex justify-center p-1"
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      {pending ? (
+                        <span className="inline-flex h-8 items-center gap-2 text-xs text-muted-foreground">
+                          <LoaderCircle
+                            size={14}
+                            className="animate-spin"
+                            aria-hidden="true"
+                          />
+                          Loading more courses
+                        </span>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={loadNextPage}
+                          type="button"
+                        >
+                          Load more courses
+                        </Button>
+                      )}
+                    </div>
                   ) : null}
                 </>
               )}
             </CommandList>
 
-            {hasNextPage && !failed ? (
-              <div
-                className="shrink-0 border-t border-border/60 p-2"
-                onKeyDown={(event) => event.stopPropagation()}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={loading}
-                  onClick={loadNextPage}
-                  className="w-full"
-                  type="button"
-                >
-                  {loading ? (
-                    <LoaderCircle
-                      size={14}
-                      className="animate-spin"
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                  {loading ? "Loading courses" : "Load more courses"}
-                </Button>
-              </div>
-            ) : null}
-
-            {firstPageFailed || (failed && page > 1) ? (
+            {failed ? (
               <div
                 className="shrink-0 border-t border-border/60 p-2"
                 onKeyDown={(event) => event.stopPropagation()}
@@ -594,7 +665,9 @@ export function CoursePicker({
                   className="w-full"
                   type="button"
                 >
-                  {page > 1 ? "Retry loading results" : "Retry search"}
+                  {currentPages.length > 0
+                    ? "Retry loading results"
+                    : "Retry search"}
                 </Button>
               </div>
             ) : null}

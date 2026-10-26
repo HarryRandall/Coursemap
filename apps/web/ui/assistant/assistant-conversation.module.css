@@ -1,18 +1,52 @@
-.word {
-  animation: reveal 180ms ease-out both;
+/* A band of light sweeping left to right across text while Compass works. */
+.shimmer {
+  background: linear-gradient(
+      100deg,
+      var(--muted-foreground) 35%,
+      var(--foreground) 50%,
+      var(--muted-foreground) 65%
+    )
+    0 0 / 250% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
 }
 
-@keyframes reveal {
+.caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 0.15em;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.6;
+  animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes shimmer {
   from {
-    opacity: 0;
+    background-position: 100% 0;
   }
   to {
-    opacity: 1;
+    background-position: 0% 0;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word {
+  .shimmer {
+    animation: none;
+    background: none;
+    color: var(--muted-foreground);
+  }
+
+  .caret {
     animation: none;
   }
 }

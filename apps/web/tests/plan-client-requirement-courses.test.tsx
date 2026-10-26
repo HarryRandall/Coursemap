@@ -62,7 +62,8 @@ test("the board renders before requirement courses arrive, then gains them witho
   expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "false");
 });
 
-test("courses from a previous catalogue's promise are not shown with a new one", async () => {
+test("a revalidated page keeps the previous courses until the new ones arrive", async () => {
+  const [, , replacement] = courses;
   const first = Promise.resolve([suggested]);
   const { rerender } = render(
     <PlanClient catalogue={catalogue} requirementCourses={first} />,
@@ -70,14 +71,40 @@ test("courses from a previous catalogue's promise are not shown with a new one",
   await act(async () => first);
   expect(screen.getByTestId("codes").textContent).toContain(suggested.code);
 
+  let resolve: (courses: Course[]) => void = () => undefined;
+  const next = new Promise<Course[]>((done) => {
+    resolve = done;
+  });
+  rerender(
+    <PlanClient catalogue={{ ...catalogue }} requirementCourses={next} />,
+  );
+  expect(screen.getByTestId("codes").textContent).toBe(
+    `${planned.code},${suggested.code}`,
+  );
+  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "false");
+
+  await act(async () => resolve([replacement]));
+  expect(screen.getByTestId("codes").textContent).toBe(
+    `${planned.code},${replacement.code}`,
+  );
+});
+
+test("held-over courses the new catalogue already lists do not double", async () => {
+  const first = Promise.resolve([suggested]);
+  const { rerender } = render(
+    <PlanClient catalogue={catalogue} requirementCourses={first} />,
+  );
+  await act(async () => first);
+
   rerender(
     <PlanClient
-      catalogue={catalogue}
+      catalogue={{ ...catalogue, courses: [planned, suggested] }}
       requirementCourses={new Promise<Course[]>(() => undefined)}
     />,
   );
-  expect(screen.getByTestId("codes").textContent).toBe(planned.code);
-  expect(screen.getByTestId("codes")).toHaveAttribute("aria-busy", "true");
+  expect(screen.getByTestId("codes").textContent).toBe(
+    `${planned.code},${suggested.code}`,
+  );
 });
 
 test("an empty suggestions response finishes loading", async () => {

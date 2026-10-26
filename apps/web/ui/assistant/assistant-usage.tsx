@@ -6,35 +6,60 @@ import {
   CardContent,
 } from "@coursemap/ui/primitives/card";
 import { Progress } from "@coursemap/ui/primitives/progress";
+import type { AssistantUsageSummary } from "@/lib/assistant/usage";
 
-const metrics = [
-  { label: "Messages", value: "128", detail: "Across 24 conversations" },
-  { label: "Tokens", value: "42.8k", detail: "31.2k input · 11.6k output" },
-  {
-    label: "Average response",
-    value: "1.8s",
-    detail: "Time to first response",
-  },
-  {
-    label: "Estimated cost",
-    value: "$0.24",
-    detail: "Estimated cost in USD",
-  },
-];
-const activity = [18, 12, 24, 16, 31, 15, 12];
+const COUNT = new Intl.NumberFormat("en-AU", { notation: "compact" });
+const USD = new Intl.NumberFormat("en-AU", {
+  style: "currency",
+  currency: "USD",
+  currencyDisplay: "narrowSymbol",
+  // Most months cost cents, so a third decimal keeps small totals readable.
+  maximumFractionDigits: 3,
+  minimumFractionDigits: 2,
+});
 
-export function AssistantUsage() {
+export function AssistantUsage({
+  summary,
+}: {
+  summary: AssistantUsageSummary;
+}) {
+  const { allowance, daily } = summary;
+  const peak = Math.max(1, ...daily.map((day) => day.messages));
+  const metrics = [
+    {
+      label: "Messages",
+      value: COUNT.format(summary.messages),
+      detail: `Across ${summary.chats} ${summary.chats === 1 ? "chat" : "chats"}`,
+    },
+    {
+      label: "Tokens",
+      value: COUNT.format(summary.inputTokens + summary.outputTokens),
+      detail: `${COUNT.format(summary.inputTokens)} input · ${COUNT.format(summary.outputTokens)} output`,
+    },
+    {
+      label: "Average reply",
+      value:
+        summary.averageLatencyMs === null
+          ? "None"
+          : `${(summary.averageLatencyMs / 1000).toFixed(1)}s`,
+      detail: "Including course and plan lookups",
+    },
+    {
+      label: "Cost",
+      value: USD.format(summary.costUsd),
+      detail: "Model cost in US dollars",
+    },
+  ];
+  const remaining = Math.max(
+    0,
+    allowance.dailyMessageLimit - allowance.messagesToday,
+  );
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
       <div className="space-y-6">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold">Compass usage preview</h1>
-          </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Sample activity, costs and allowance for the interface preview.
-            These figures do not reflect your account.
-          </p>
+          <h1 className="sr-only">Compass usage</h1>
+          <p className="text-sm text-muted-foreground">Your last 30 days.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => (
@@ -55,30 +80,28 @@ export function AssistantUsage() {
           <Card>
             <CardHeader>
               <CardTitle>Daily activity</CardTitle>
-              <CardDescription>
-                Messages sent over the last week
-              </CardDescription>
+              <CardDescription>Messages over the last week</CardDescription>
             </CardHeader>
             <CardContent>
               <div
                 className="flex h-52 items-end gap-3"
                 role="img"
-                aria-label="Daily messages: Monday 18, Tuesday 12, Wednesday 24, Thursday 16, Friday 31, Saturday 15, Sunday 12"
+                aria-label={`Daily messages: ${daily.map((day) => `${day.label} ${day.messages}`).join(", ")}`}
               >
-                {activity.map((count, index) => (
+                {daily.map((day) => (
                   <div
-                    key={index}
+                    key={day.day}
                     className="flex h-full min-w-0 flex-1 flex-col justify-end gap-2 text-center"
                   >
                     <span className="text-xs text-muted-foreground tabular-nums">
-                      {count}
+                      {day.messages}
                     </span>
                     <div
-                      className="rounded-t-md bg-primary/75"
-                      style={{ height: `${(count / 31) * 75}%` }}
+                      className="min-h-px rounded-t-md bg-primary/75"
+                      style={{ height: `${(day.messages / peak) * 75}%` }}
                     />
                     <span className="text-xs text-muted-foreground">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index]}
+                      {day.label}
                     </span>
                   </div>
                 ))}
@@ -87,22 +110,31 @@ export function AssistantUsage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Message allowance</CardTitle>
-              <CardDescription>Monthly allowance</CardDescription>
+              <CardTitle>Daily allowance</CardTitle>
+              <CardDescription>Resets over a rolling 24 hours</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex items-baseline justify-between">
                 <span className="text-2xl font-semibold tabular-nums">
-                  128{" "}
+                  {allowance.messagesToday}{" "}
                   <span className="text-sm font-normal text-muted-foreground">
-                    / 500 messages
+                    / {allowance.dailyMessageLimit} messages
                   </span>
                 </span>
-                <span className="text-sm text-muted-foreground">26%</span>
               </div>
-              <Progress value={25.6} aria-label="Message allowance used" />
+              <Progress
+                value={Math.min(
+                  100,
+                  (allowance.messagesToday / allowance.dailyMessageLimit) * 100,
+                )}
+                aria-label="Daily allowance used"
+              />
               <p className="text-sm text-muted-foreground">
-                372 messages remaining.
+                {allowance.allowed
+                  ? `${remaining} ${remaining === 1 ? "message" : "messages"} left today.`
+                  : allowance.messagesToday >= allowance.dailyMessageLimit
+                    ? "No messages left today."
+                    : "This month's allowance is used up."}
               </p>
             </CardContent>
           </Card>

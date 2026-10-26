@@ -17,7 +17,6 @@ export function DegreeSummaryCard({
   degree,
   headingId,
   commencementYear,
-  catalogueYear,
   startYears,
   graduationYear,
   planningDuration,
@@ -27,7 +26,6 @@ export function DegreeSummaryCard({
   degree: ProgrammeOption | undefined;
   headingId: string;
   commencementYear: number;
-  catalogueYear: number;
   startYears: number[];
   graduationYear: number | null;
   planningDuration: number | null;
@@ -129,12 +127,6 @@ export function DegreeSummaryCard({
       </div>
       {graduationYear !== null ? (
         <p className="sr-only">Finishes end of {graduationYear}</p>
-      ) : null}
-      {catalogueYear !== commencementYear ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {commencementYear} rules aren&apos;t in Coursemap yet, so your plan
-          uses {catalogueYear}.
-        </p>
       ) : null}
       {degree && planningDuration === null ? (
         <Alert variant="warning" className="mt-5">

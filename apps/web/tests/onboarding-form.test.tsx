@@ -74,9 +74,8 @@ test("walks through every step and saves the start year as the commencement year
   ).toHaveFocus();
 
   await user.click(screen.getByRole("radio", { name: "2025" }));
-  expect(
-    screen.getByText(/doesn't have the 2025 degree rules yet/),
-  ).toBeVisible();
+  expect(screen.queryByText(/2025 degree rules/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/so your plan uses/)).not.toBeInTheDocument();
   await user.click(screen.getByRole("radio", { name: "2024" }));
   expect(screen.getByText(/follows the 2024 degree rules/)).toBeVisible();
   await user.click(screen.getByRole("button", { name: /continue/i }));

@@ -188,7 +188,7 @@ function StatusSummary({ status }: { status: RequirementRowStatus }) {
   return (
     <div className="flex shrink-0 items-center gap-2">
       {figure ? (
-        <span className="text-xs text-muted-foreground tabular-nums">
+        <span className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
           <span className="font-semibold text-foreground">
             {figure.maximum
               ? figure.value
@@ -288,13 +288,23 @@ function RuleRow({
             <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
           ) : null}
         </div>
-        {overrideControl}
-        {status ? <StatusSummary status={status} /> : null}
+        {overrideControl || status ? (
+          // One title line tall so the larger menu button centres on the
+          // title, with a set figure width so menus line up down the card.
+          <div className="flex h-5 shrink-0 items-center gap-3">
+            {overrideControl}
+            <div className="flex min-w-24 justify-end">
+              {status ? <StatusSummary status={status} /> : null}
+            </div>
+          </div>
+        ) : null}
         {expandable ? (
           <ChevronDown
             aria-hidden="true"
             className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:text-foreground motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
           />
+        ) : overrideControl || status ? (
+          <span aria-hidden="true" className="size-4 shrink-0" />
         ) : null}
       </div>
       {/* A finished rule's tick says it all; a full bar would only repeat it. */}

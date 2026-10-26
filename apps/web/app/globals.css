@@ -464,6 +464,13 @@
   }
 }
 
+/* Sticky offsets are measured inside the scroller's padding, so the page's
+   bottom inset would leave content showing beneath sticky page actions.
+   While they are shown they end the page, flush with the scroll area's edge. */
+.page-padded:has([data-page-actions]) {
+  padding-bottom: 0;
+}
+
 @media (min-width: 48rem) {
   .workspace-stack > header,
   .workspace-stack > nav,

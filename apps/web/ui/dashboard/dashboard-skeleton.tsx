@@ -14,19 +14,14 @@ import {
 
 /** A metric card that pulses the outline of the chart it will show. */
 function LoadingMetric({ skeleton }: { skeleton: ReactNode }) {
-  return (
-    <AcademicMetricCard
-      header={<Skeleton className="h-4 w-20" />}
-      empty={{ label: "", skeleton }}
-    />
-  );
+  return <AcademicMetricCard empty={{ label: "", skeleton }} />;
 }
 
 /** The dashboard's layout in outline, for loading and for empty plans. */
 export function DashboardSkeleton() {
   return (
-    <div className="flex min-w-0 flex-col gap-6">
-      <div className="grid animate-pulse gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="@container flex min-w-0 flex-col gap-6">
+      <div className="grid animate-pulse gap-4 @2xl:grid-cols-2 @5xl:grid-cols-4">
         {[
           gpaSkeleton,
           gradesSkeleton,
@@ -54,7 +49,7 @@ export function DashboardSkeleton() {
         </CardContent>
       </Card>
 
-      <div className="grid animate-pulse items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+      <div className="grid animate-pulse items-stretch gap-4 @3xl:grid-cols-[minmax(0,1fr)_19rem]">
         <Card className="py-0">
           <CardContent className="flex h-full flex-col gap-4 p-4">
             <div className="flex items-center justify-between">
@@ -83,7 +78,7 @@ export function DashboardSkeleton() {
         </Card>
       </div>
 
-      <div className="grid animate-pulse gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid animate-pulse gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3">
         {[keyDatesSkeleton, coverageSkeleton, upcomingLoadSkeleton].map(
           (skeleton, index) => (
             <LoadingMetric key={index} skeleton={skeleton} />

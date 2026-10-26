@@ -54,7 +54,7 @@ export function StructureSlotsCard({
   const total = degreeUnits && chosenUnits <= degreeUnits ? degreeUnits : null;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card">
+    <section className="@container overflow-hidden rounded-xl border border-border bg-card">
       <div className="space-y-4 px-5 pt-5 pb-4 sm:px-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-foreground">
@@ -92,7 +92,7 @@ export function StructureSlotsCard({
             return (
               <li
                 key={slot.kind}
-                className="grid gap-3 px-5 py-4 sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center sm:px-6"
+                className="grid gap-3 px-5 py-4 sm:px-6 @xl:grid-cols-[10rem_minmax(0,1fr)_auto] @xl:items-center"
               >
                 <div>
                   <p className="text-sm font-semibold text-foreground">
@@ -155,7 +155,7 @@ export function StructureSlotsCard({
                 <Button
                   type="button"
                   variant="outline"
-                  className="justify-self-start sm:justify-self-end"
+                  className="justify-self-start @xl:justify-self-end"
                   onClick={() => onPick(slot.kind)}
                 >
                   {canAdd ? <Plus aria-hidden="true" /> : null}

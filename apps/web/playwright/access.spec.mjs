@@ -207,3 +207,18 @@ test("anonymous users cannot preview or start paid course import runs", async ({
   ]);
   for (const response of responses) assert.equal(response.status, 403);
 });
+
+test("anonymous users cannot call the paid Compass model", async ({
+  request: api,
+}) => {
+  const response = await request(api, "/api/assistant/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      chatId: "00000000-0000-4000-8000-000000000001",
+      messages: [{ role: "user", text: "Which courses should I take?" }],
+      screen: null,
+    }),
+  });
+  assert.equal(response.status, 401);
+});

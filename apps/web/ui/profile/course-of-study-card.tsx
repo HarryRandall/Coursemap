@@ -50,7 +50,6 @@ export function CourseOfStudyCard({
   options,
   selection,
   commencementYear,
-  catalogueYear,
   startYears,
   graduationYear,
   planningDuration,
@@ -65,7 +64,6 @@ export function CourseOfStudyCard({
   options: Record<StructureSlotKind, ProgrammeOption[]>;
   selection: StudySelection;
   commencementYear: number;
-  catalogueYear: number;
   startYears: number[];
   graduationYear: number | null;
   planningDuration: number | null;
@@ -120,7 +118,6 @@ export function CourseOfStudyCard({
         degree={degree}
         headingId={headingId}
         commencementYear={commencementYear}
-        catalogueYear={catalogueYear}
         startYears={startYears}
         graduationYear={graduationYear}
         planningDuration={planningDuration}

@@ -1,5 +1,8 @@
 import { expect, test, vi } from "vitest";
-import { loadPlanningCourseEditions } from "@/lib/coursemap/planning-course-editions";
+import {
+  loadClosestCourseEditions,
+  loadPlanningCourseEditions,
+} from "@/lib/coursemap/planning-course-editions";
 
 const fixtures = vi.hoisted(() => ({
   load: vi.fn(async (selections: unknown) => selections),
@@ -33,5 +36,14 @@ test("guest planning selections load real editions before and after imported yea
     { code: "COMP1110", year: 2026 },
     { code: "COMP1110", year: 2024 },
     { code: "COMP1110", year: 2028 },
+  ]);
+});
+
+test("requirement courses load the nearest edition, the earlier on a tie, and skip unpublished codes", async () => {
+  expect(
+    await loadClosestCourseEditions(["COMP1110", "COMP9999"], 2027),
+  ).toEqual([{ code: "COMP1110", year: 2026 }]);
+  expect(await loadClosestCourseEditions(["COMP1110"], 2025)).toEqual([
+    { code: "COMP1110", year: 2024 },
   ]);
 });

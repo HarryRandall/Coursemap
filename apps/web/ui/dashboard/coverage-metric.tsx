@@ -53,18 +53,16 @@ export function CoverageMetric({
           ? { label: "Nothing placed yet", skeleton: coverageSkeleton }
           : null
       }
-      header={
-        <>
-          <h3 className="text-sm font-semibold">Planning coverage</h3>
-          {percent !== null && mapped > 0 ? (
-            <span className="text-sm font-semibold tabular-nums">
-              {percent}%
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                placed
-              </span>
+      title="Planning coverage"
+      aside={
+        percent !== null && mapped > 0 ? (
+          <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
+            {percent}%
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              placed
             </span>
-          ) : null}
-        </>
+          </span>
+        ) : null
       }
     >
       <div className="flex h-24 flex-col">

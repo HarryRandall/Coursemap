@@ -26,11 +26,14 @@ export function AssistantChatPicker() {
         <Button
           variant="ghost"
           size="sm"
-          className="max-w-full min-w-0 shrink"
+          className="group max-w-full min-w-0 shrink font-medium data-[state=open]:bg-accent"
           aria-label="Switch chat"
         >
           <span className="truncate">{assistantTitle(active)}</span>
-          <ChevronDown aria-hidden="true" className="size-4 shrink-0" />
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+          />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -44,6 +47,8 @@ export function AssistantChatPicker() {
             <DropdownMenuItem
               key={chat.id}
               aria-label={assistantTitle(chat)}
+              aria-current={chat.id === active?.id ? "true" : undefined}
+              className="aria-[current=true]:bg-accent aria-[current=true]:font-medium"
               onSelect={() => select(chat.id)}
             >
               <span className="min-w-0 flex-1 truncate">

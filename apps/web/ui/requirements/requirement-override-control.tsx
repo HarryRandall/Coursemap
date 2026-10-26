@@ -68,8 +68,11 @@ export function RequirementOverrideControl({
               <MoreHorizontal size={15} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => setOpen(true)}>
+          <DropdownMenuContent side="bottom" align="end" className="w-max">
+            <DropdownMenuItem
+              className="whitespace-nowrap"
+              onSelect={() => setOpen(true)}
+            >
               Mark as satisfied
             </DropdownMenuItem>
           </DropdownMenuContent>

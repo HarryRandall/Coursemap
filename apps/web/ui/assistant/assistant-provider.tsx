@@ -14,13 +14,45 @@ import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { loadAssistantModels } from "@/lib/assistant/model-actions";
 import { createAssistantDraftStore } from "@/lib/assistant/draft-store";
-import { assistantMockResponse } from "@/lib/assistant/history";
-import type { AssistantDraft } from "@/lib/assistant/history";
+import { readAssistantEvents } from "@/lib/assistant/chat-events";
+import type { AssistantChatRequest } from "@/lib/assistant/chat-events";
+import { readAssistantScreen } from "@/lib/assistant/screen-context";
+import type {
+  AssistantCourseReference,
+  AssistantPlace,
+  AssistantSociety,
+  AssistantVisual,
+} from "@/lib/assistant/attachments";
+import type { AssistantDraft, AssistantMessage } from "@/lib/assistant/history";
 
 type ModelCatalogue = Awaited<ReturnType<typeof loadAssistantModels>>;
 
+// The streamed reply lives in React state until it finishes, so browser
+// storage is written once per reply rather than once per token.
+export type AssistantStream = {
+  id: string;
+  chatId: string;
+  text: string;
+  steps: AssistantStreamStep[];
+  courses: AssistantCourseReference[];
+  visuals: AssistantVisual[];
+  societies: AssistantSociety[];
+  places: AssistantPlace[];
+  model?: string;
+};
+
+export type AssistantStreamStep = { id: string; label: string; done: boolean };
+
+type StreamProgress = Pick<
+  AssistantStream,
+  "text" | "steps" | "courses" | "visuals" | "societies" | "places" | "model"
+>;
+
+// Older turns add cost on every request without changing most answers.
+const ASSISTANT_HISTORY_MESSAGES = 12;
+
 type AssistantState = {
-  streaming: { id: string; length: number } | null;
+  streaming: AssistantStream | null;
   catalogue: ModelCatalogue | null;
   loadModels: () => void;
   panelOpen: boolean;
@@ -33,6 +65,11 @@ type AssistantState = {
   newChat: () => void;
   update: (patch: Partial<Pick<AssistantDraft, "draft" | "model">>) => void;
   send: () => void;
+  /** Asks the last question again in place of its reply. */
+  retry: () => void;
+  /** Asks `text` straight away, keeping any draft the student is writing. */
+  askNow: (text: string) => void;
+  stop: () => void;
   remove: (id: string) => void;
   rename: (id: string, title: string) => void;
 };
@@ -45,17 +82,9 @@ export function AssistantProvider({
   children: ReactNode;
   owner: string | null;
 }) {
-  const [streaming, setStreaming] = useState<{
-    id: string;
-    length: number;
-  } | null>(null);
-  const streamTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(
-    () => () => {
-      if (streamTimer.current) clearInterval(streamTimer.current);
-    },
-    [],
-  );
+  const [streaming, setStreaming] = useState<AssistantStream | null>(null);
+  const streamAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => streamAbort.current?.abort(), []);
   const [catalogue, setCatalogue] = useState<ModelCatalogue | null>(null);
   const modelRequest = useRef<Promise<void> | null>(null);
   const loadModels = useCallback(() => {
@@ -123,6 +152,79 @@ export function AssistantProvider({
     },
     [selectedId, store, routeId, router],
   );
+  /**
+   * Sends `question` after the messages in `earlier`, which is the chat as it
+   * should stand before the question: the whole chat for a new question, or
+   * the chat without its last exchange for a retry, which replaces it.
+   */
+  function ask(
+    chatId: string,
+    earlier: AssistantDraft,
+    question: AssistantMessage,
+    { fromDraft = false }: { fromDraft?: boolean } = {},
+  ) {
+    const replyId = crypto.randomUUID();
+    const body: AssistantChatRequest = {
+      chatId,
+      model: earlier.model || undefined,
+      messages: [...earlier.messages, question]
+        .filter((message) => message.text.trim())
+        .slice(-ASSISTANT_HISTORY_MESSAGES)
+        .map(({ role, text }) => ({ role, text })),
+      // The full-page workspace shows only the chat itself.
+      screen: pathname.startsWith("/compass") ? null : readAssistantScreen(),
+    };
+    const changeChat = (change: (chat: AssistantDraft) => AssistantDraft) =>
+      store.update((previous) =>
+        previous.map((chat) => (chat.id === chatId ? change(chat) : chat)),
+      );
+    changeChat((chat) => ({
+      ...chat,
+      draft: fromDraft ? "" : chat.draft,
+      updatedAt: new Date().toISOString(),
+      messages: [...earlier.messages, question],
+    }));
+    const controller = new AbortController();
+    streamAbort.current = controller;
+    setStreaming({
+      id: replyId,
+      chatId,
+      text: "",
+      steps: [],
+      courses: [],
+      visuals: [],
+      societies: [],
+      places: [],
+    });
+    void streamReply(
+      body,
+      controller.signal,
+      (stream) => setStreaming({ id: replyId, chatId, ...stream }),
+      (title) => changeChat((chat) => (chat.title ? chat : { ...chat, title })),
+    ).then(({ text, courses, visuals, societies, places, model }) => {
+      if (streamAbort.current === controller) streamAbort.current = null;
+      setStreaming(null);
+      changeChat((chat) => ({
+        ...chat,
+        updatedAt: new Date().toISOString(),
+        messages: [
+          ...chat.messages,
+          {
+            id: replyId,
+            role: "assistant",
+            text,
+            // Keep cards only for courses the reply names.
+            courses: courses.filter((course) => text.includes(course.code)),
+            visuals,
+            societies,
+            places,
+            model,
+          },
+        ],
+      }));
+    });
+  }
+
   return (
     <AssistantContext.Provider
       value={{
@@ -146,50 +248,37 @@ export function AssistantProvider({
         update,
         send: () => {
           if (!selectedId || streaming || !active?.draft.trim()) return;
-          const replyId = crypto.randomUUID();
-          const response = assistantMockResponse(
-            active.draft,
-            active.messages.filter((message) => message.role === "assistant")
-              .length,
-          );
-          const words = response.match(/\S+\s*/gu) ?? [];
-          let word = 0;
-          let length = 0;
-          const startedAt = Date.now();
-          setStreaming({ id: replyId, length });
-          streamTimer.current = setInterval(() => {
-            if (Date.now() - startedAt < 900) return;
-            length += words[word++]?.length ?? 0;
-            if (word > words.length) {
-              if (streamTimer.current) clearInterval(streamTimer.current);
-              streamTimer.current = null;
-              setStreaming(null);
-            } else setStreaming({ id: replyId, length });
-          }, 35);
-          store.update((previous) =>
-            previous.map((chat) => {
-              if (chat.id !== selectedId || !chat.draft.trim()) return chat;
-              return {
-                ...chat,
-                draft: "",
-                updatedAt: new Date().toISOString(),
-                messages: [
-                  ...chat.messages,
-                  {
-                    id: crypto.randomUUID(),
-                    role: "user" as const,
-                    text: chat.draft.trim(),
-                  },
-                  {
-                    id: replyId,
-                    role: "assistant" as const,
-                    text: response,
-                  },
-                ],
-              };
-            }),
+          ask(
+            selectedId,
+            active,
+            {
+              id: crypto.randomUUID(),
+              role: "user",
+              text: active.draft.trim(),
+            },
+            { fromDraft: true },
           );
         },
+        askNow: (text) => {
+          if (!selectedId || streaming || !active || !text.trim()) return;
+          ask(selectedId, active, {
+            id: crypto.randomUUID(),
+            role: "user",
+            text: text.trim(),
+          });
+        },
+        retry: () => {
+          if (!selectedId || streaming || !active) return;
+          const last = active.messages.at(-1);
+          const question = active.messages.at(-2);
+          if (last?.role !== "assistant" || question?.role !== "user") return;
+          ask(
+            selectedId,
+            { ...active, messages: active.messages.slice(0, -2) },
+            question,
+          );
+        },
+        stop: () => streamAbort.current?.abort(),
         rename: (id, title) => {
           const name = title.trim().replace(/\s+/g, " ").slice(0, 64);
           if (!name) return;
@@ -211,6 +300,95 @@ export function AssistantProvider({
       {children}
     </AssistantContext.Provider>
   );
+}
+
+/**
+ * Streams one reply from the chat route and resolves with the reply to keep.
+ * Failures resolve with a readable message rather than rejecting, so the
+ * question stays in the chat with an explanation beside it.
+ */
+async function streamReply(
+  body: AssistantChatRequest,
+  signal: AbortSignal,
+  onProgress: (stream: StreamProgress) => void,
+  onTitle: (title: string) => void,
+): Promise<StreamProgress> {
+  const progress: StreamProgress = {
+    text: "",
+    steps: [],
+    courses: [],
+    visuals: [],
+    societies: [],
+    places: [],
+  };
+  // Where the answer starts; narration before tool calls is cut back to it.
+  let answerStart = 0;
+  const reply = (text: string) => ({ ...progress, text });
+  try {
+    const response = await fetch("/api/assistant/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal,
+    });
+    if (!response.body) throw new Error("Compass did not reply.");
+    if (!response.ok) {
+      const failure: unknown = await response.json().catch(() => null);
+      return reply(
+        typeof failure === "object" &&
+          failure !== null &&
+          "error" in failure &&
+          typeof failure.error === "string"
+          ? failure.error
+          : "Compass could not answer. Try again.",
+      );
+    }
+    for await (const event of readAssistantEvents(response.body)) {
+      if (event.type === "text") {
+        progress.text += event.delta;
+      } else if (event.type === "title") {
+        onTitle(event.title);
+      } else if (event.type === "done") {
+        progress.model = event.model || undefined;
+      } else if (event.type === "aside") {
+        progress.text = progress.text.slice(0, answerStart);
+      } else if (event.type === "tool") {
+        const step = { id: event.id, label: event.label, done: event.done };
+        progress.steps = progress.steps.some((item) => item.id === event.id)
+          ? progress.steps.map((item) => (item.id === event.id ? step : item))
+          : [...progress.steps, step];
+        answerStart = progress.text.length;
+      } else if (event.type === "course") {
+        progress.courses = [
+          ...progress.courses.filter(
+            (course) => course.code !== event.course.code,
+          ),
+          event.course,
+        ];
+      } else if (event.type === "society") {
+        progress.societies = [...progress.societies, event.society];
+      } else if (event.type === "place") {
+        progress.places = [...progress.places, event.place];
+      } else if (event.type === "visual") {
+        progress.visuals = [...progress.visuals, event.visual];
+      } else if (event.type === "error") {
+        return reply(
+          progress.text
+            ? `${progress.text}\n\n${event.message}`
+            : event.message,
+        );
+      }
+      onProgress({ ...progress });
+    }
+    return reply(progress.text || "Compass did not reply. Try asking again.");
+  } catch {
+    if (signal.aborted) return reply(progress.text || "Stopped.");
+    return reply(
+      progress.text
+        ? `${progress.text}\n\nThe reply was interrupted.`
+        : "Compass could not answer. Try again.",
+    );
+  }
 }
 
 export function useAssistant() {

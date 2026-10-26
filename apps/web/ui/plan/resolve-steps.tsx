@@ -51,7 +51,7 @@ export function ResolveSteps({
           return (
             <li
               key={index}
-              className="grid grid-cols-[4.5rem_1.25rem_minmax(0,1fr)] items-center gap-2 text-xs"
+              className="grid grid-cols-[5.5rem_1.25rem_minmax(0,1fr)] items-center gap-2 text-xs"
             >
               <span className="rounded-md bg-background px-1.5 py-0.5 text-center text-[11px] font-medium text-muted-foreground tabular-nums ring-1 ring-border">
                 {term

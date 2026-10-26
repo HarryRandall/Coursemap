@@ -481,40 +481,45 @@ export async function loadPublishedCourseDirectoryPage(
 const cachedDirectoryCourses = unstable_cache(
   async (selected: DirectoryRow[]): Promise<CourseDetails[]> => {
     const supabase = createPublicClient();
-    const { data, error } = await supabase
-      .from("published_course_summaries")
-      .select(SNAPSHOT_LIST_SELECT)
-      .in(
-        "version_id",
-        selected.map((row) => row.version_id),
-      );
-    if (error) throw error;
-    const snapshots = (data ?? []) as SnapshotListRow[];
-    const years = new Map<number, AcademicYearRow>();
+    const years = new Map<
+      number,
+      { year: AcademicYearRow; versionIds: Set<number> }
+    >();
     for (const row of selected) {
-      years.set(row.academic_year_id, {
-        id: row.academic_year_id,
-        year: row.academic_year,
-      });
+      const entry = years.get(row.academic_year_id) ?? {
+        year: { id: row.academic_year_id, year: row.academic_year },
+        versionIds: new Set<number>(),
+      };
+      entry.versionIds.add(row.version_id);
+      years.set(row.academic_year_id, entry);
     }
-    const loaded = await Promise.all(
-      [...years.values()].map((year) =>
-        loadListRelationships(
-          supabase,
-          snapshots.filter((snapshot) =>
-            selected.some(
-              (row) =>
-                row.version_id === snapshot.version_id &&
-                row.academic_year_id === year.id,
-            ),
-          ),
-          year,
+    // The directory row already names each version, so relationships load
+    // alongside the summaries instead of waiting for them.
+    const [summaries, relationships] = await Promise.all([
+      supabase
+        .from("published_course_summaries")
+        .select(SNAPSHOT_LIST_SELECT)
+        .in(
+          "version_id",
+          selected.map((row) => row.version_id),
+        ),
+      Promise.all(
+        [...years.values()].map(({ year, versionIds }) =>
+          loadListRelationships(supabase, [...versionIds], year),
         ),
       ),
+    ]);
+    if (summaries.error) throw summaries.error;
+    const snapshots = (summaries.data ?? []) as SnapshotListRow[];
+    const loaded = relationships.flatMap((yearRelationships) =>
+      listCoursesFromSnapshots(
+        snapshots.filter((snapshot) =>
+          yearRelationships.versionIds.has(snapshot.version_id),
+        ),
+        yearRelationships,
+      ),
     );
-    const courseByCode = new Map(
-      loaded.flat().map((course) => [course.code, course]),
-    );
+    const courseByCode = new Map(loaded.map((course) => [course.code, course]));
     return selected.flatMap((row) => {
       const course = courseByCode.get(row.code);
       return course ? [course] : [];
@@ -1563,14 +1568,16 @@ function searchPattern(value: string) {
     .trim();
 }
 
+type ListRelationships = Awaited<ReturnType<typeof loadListRelationships>>;
+
 async function loadListRelationships(
   supabase: SupabaseClient<Database>,
-  snapshots: SnapshotListRow[],
+  snapshotIds: number[],
   year: AcademicYearRow,
 ) {
-  const snapshotIds = snapshots.map((snapshot) => snapshot.version_id);
-  if (snapshotIds.length === 0) return [];
-  const [offeringsResult, rulesResult] = await Promise.all([
+  // Sessions carry their offering's version through a composite foreign key,
+  // so they load with the offerings rather than after them.
+  const [offeringsResult, rulesResult, sessionsResult] = await Promise.all([
     supabase
       .from("course_offerings")
       .select("id,version_id,delivery_mode,location")
@@ -1580,39 +1587,35 @@ async function loadListRelationships(
       .select("id,version_id,rule_kind,source_text,confidence,review_state")
       .in("version_id", snapshotIds)
       .in("rule_kind", ["prerequisite", "incompatibility"]),
+    supabase
+      .from("offering_sessions")
+      .select(
+        "course_offering_id,version_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
+      )
+      .in("version_id", snapshotIds),
   ]);
   if (offeringsResult.error) throw offeringsResult.error;
   if (rulesResult.error) throw rulesResult.error;
+  if (sessionsResult.error) throw sessionsResult.error;
   const offerings = (offeringsResult.data ?? []) as OfferingRow[];
   const rules = (rulesResult.data ?? []) as RuleRow[];
-  const offeringIds = offerings.map((offering) => offering.id);
   const ruleIds = rules.map((rule) => rule.id);
-  const [sessionsResult, referencesResult, conditionsResult] =
-    await Promise.all([
-      offeringIds.length
-        ? supabase
-            .from("offering_sessions")
-            .select(
-              "course_offering_id,version_id,position,academic_period_code,academic_period_name,class_number,starts_on,enrol_closes_on,census_on,ends_on,delivery_mode,location,class_summary_url",
-            )
-            .in("course_offering_id", offeringIds)
-        : Promise.resolve({ data: [], error: null }),
-      ruleIds.length
-        ? supabase
-            .from("requirement_item_references")
-            .select("rule_id,code_id")
-            .in("rule_id", ruleIds)
-        : Promise.resolve({ data: [], error: null }),
-      ruleIds.length
-        ? supabase
-            .from("requirement_conditions")
-            .select("rule_id,code_id")
-            .in("rule_id", ruleIds)
-            .eq("condition_kind", "course")
-            .not("code_id", "is", null)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
-  if (sessionsResult.error) throw sessionsResult.error;
+  const [referencesResult, conditionsResult] = await Promise.all([
+    ruleIds.length
+      ? supabase
+          .from("requirement_item_references")
+          .select("rule_id,code_id")
+          .in("rule_id", ruleIds)
+      : Promise.resolve({ data: [], error: null }),
+    ruleIds.length
+      ? supabase
+          .from("requirement_conditions")
+          .select("rule_id,code_id")
+          .in("rule_id", ruleIds)
+          .eq("condition_kind", "course")
+          .not("code_id", "is", null)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
   if (referencesResult.error) throw referencesResult.error;
   if (conditionsResult.error) throw conditionsResult.error;
   const references = (referencesResult.data ?? []) as RuleReferenceRow[];
@@ -1677,7 +1680,30 @@ async function loadListRelationships(
     existing.add(condition.code_id);
     referencedIdsByRule.set(condition.rule_id, existing);
   }
+  return {
+    codeById,
+    offeringBySnapshot,
+    publishedReferenceIds,
+    referencedIdsByRule,
+    rulesBySnapshot,
+    sessionsBySnapshot,
+    versionIds: new Set(snapshotIds),
+    year,
+  };
+}
 
+function listCoursesFromSnapshots(
+  snapshots: SnapshotListRow[],
+  {
+    codeById,
+    offeringBySnapshot,
+    publishedReferenceIds,
+    referencedIdsByRule,
+    rulesBySnapshot,
+    sessionsBySnapshot,
+    year,
+  }: ListRelationships,
+) {
   return snapshots.flatMap((snapshot) => {
     const code = snapshot.code;
     const snapshotSessions = sessionsBySnapshot.get(snapshot.version_id) ?? [];

@@ -1,6 +1,13 @@
 "use client";
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, CheckCircle2 } from "lucide-react";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@coursemap/ui/primitives/empty";
 import {
   Tabs,
   TabsContent,
@@ -24,6 +31,23 @@ const KIND_LABELS: Record<PlanStructureKind, string> = {
   minor: "Minor",
   specialisation: "Specialisation",
 };
+
+/** A tab whose rules the plan already covers, so it reads as finished. */
+function RequirementsPlanned({ kind }: { kind: PlanStructureKind }) {
+  return (
+    <Empty className="gap-0 px-4 py-8">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <CheckCircle2 aria-hidden="true" />
+        </EmptyMedia>
+        <EmptyTitle>{`${KIND_LABELS[kind]} requirements planned`}</EmptyTitle>
+        <EmptyDescription className="text-xs">
+          A rule shows here again if a change to your plan reopens it.
+        </EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
 
 /**
  * Each part of the degree as a tab of its rules, in the style of a course
@@ -58,7 +82,7 @@ export function CoursesToPlan({
   }));
   const [tab, setTab] = useState(() => tabs[0]?.value ?? "starred");
   return (
-    <div className="flex max-h-[70dvh] flex-col overflow-hidden rounded-xl border border-border bg-card lg:absolute lg:inset-0 lg:max-h-none">
+    <div className="flex max-h-[70dvh] flex-col overflow-hidden rounded-xl border border-border bg-card @4xl:absolute @4xl:inset-0 @4xl:max-h-none">
       <Tabs
         value={tab}
         onValueChange={setTab}
@@ -103,38 +127,48 @@ export function CoursesToPlan({
           </TabsList>
         </div>
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-gutter:stable] overflow-y-auto border-t border-border py-3 pr-1.5 pl-3">
-          {tabs.map(({ value, item }) => (
-            <TabsContent key={value} value={value} className="mt-0 space-y-4">
-              {item.rules.length === 0 ? (
-                <p className="px-1 py-1 text-xs text-muted-foreground">
-                  The {item.structure.name} has no rules to plan against yet.
-                </p>
-              ) : (
-                <>
-                  <RequiredCourses
-                    rules={item.rules.filter(
-                      (rule) => !rule.covered && rule.compulsory,
-                    )}
-                    kind={item.structure.kind}
-                    onAdd={onAdd}
-                    onOpen={onOpen}
-                    onDragStart={onDragStart}
-                  />
-                  {item.rules
-                    // A degree total is filled by every other rule, so it
-                    // only repeats them here, and required courses sit above.
-                    .filter(
-                      (rule) =>
-                        !rule.covered &&
-                        !rule.note &&
-                        !(
-                          rule.compulsory &&
-                          rule.courses.every(
-                            (course) => course.status !== null || course.course,
-                          )
-                        ),
-                    )
-                    .map((rule) => (
+          {tabs.map(({ value, item }) => {
+            const requiredRules = item.rules.filter(
+              (rule) => !rule.covered && rule.compulsory,
+            );
+            // A degree total is filled by every other rule, so it only
+            // repeats them here, and required courses sit above.
+            const openRules = item.rules.filter(
+              (rule) =>
+                !rule.covered &&
+                !rule.note &&
+                !(
+                  rule.compulsory &&
+                  rule.courses.every(
+                    (course) => course.status !== null || course.course,
+                  )
+                ),
+            );
+            const hasRequired = requiredRules.some((rule) =>
+              rule.courses.some(
+                (course) => course.status === null && course.course,
+              ),
+            );
+            return (
+              <TabsContent key={value} value={value} className="mt-0 space-y-4">
+                {item.rules.length === 0 ? (
+                  <p className="px-1 py-1 text-xs text-muted-foreground">
+                    The {item.structure.name} has no rules to plan against yet.
+                  </p>
+                ) : item.openCount === 0 &&
+                  !hasRequired &&
+                  openRules.length === 0 ? (
+                  <RequirementsPlanned kind={item.structure.kind} />
+                ) : (
+                  <>
+                    <RequiredCourses
+                      rules={requiredRules}
+                      kind={item.structure.kind}
+                      onAdd={onAdd}
+                      onOpen={onOpen}
+                      onDragStart={onDragStart}
+                    />
+                    {openRules.map((rule) => (
                       <RuleGroup
                         key={rule.key}
                         rule={rule}
@@ -145,10 +179,11 @@ export function CoursesToPlan({
                         onDragStart={onDragStart}
                       />
                     ))}
-                </>
-              )}
-            </TabsContent>
-          ))}
+                  </>
+                )}
+              </TabsContent>
+            );
+          })}
           <TabsContent value="starred" className="mt-0">
             {starred.length === 0 ? (
               <p className="px-1 py-1 text-xs text-muted-foreground">

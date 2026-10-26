@@ -11,6 +11,7 @@ import {
   loadPublishedCoursePage,
   loadPublishedCoursesByCodes,
 } from "@/lib/coursemap/published-courses";
+import { loadClosestCourseEditions } from "@/lib/coursemap/planning-course-editions";
 import { requirementCourseCodes } from "@/lib/coursemap/requirement-display";
 
 /** Candidate courses fetched for each rule that counts units by filter. */
@@ -48,6 +49,8 @@ function searchFilters(condition: PlanRequirementCondition) {
  * The courses a student's structures list, and a page of the courses each
  * subject or tag rule would count, so requirements can name and suggest
  * courses that are not in the plan yet. Only courses the catalogue lacks.
+ * A listed course its year does not publish comes from the nearest year that
+ * does; one no year publishes is left out.
  */
 export async function loadRequirementCourses(
   catalogue: PlanCatalogue,
@@ -55,9 +58,9 @@ export async function loadRequirementCourses(
 ): Promise<Course[]> {
   const academicYear = catalogue.academicYear;
   if (academicYear === null) return [];
-  const known = (code: string) =>
+  const known = (code: string, year = academicYear) =>
     catalogue.courses.some(
-      (course) => course.code === code && course.year === academicYear,
+      (course) => course.code === code && course.year === year,
     );
   const codes = [
     ...new Set(
@@ -89,10 +92,22 @@ export async function loadRequirementCourses(
       }).catch(() => null),
     ),
   ]);
+  const listedCodes = new Set(listed.map((course) => course.code));
+  // A failed read of other years still leaves this year's courses.
+  const fromOtherYears = await loadClosestCourseEditions(
+    codes.filter((code) => !listedCodes.has(code)),
+    academicYear,
+  ).catch(() => []);
   return [
     ...new Map(
-      [...listed, ...pages.flatMap((page) => page?.courses ?? [])]
-        .filter((course) => !known(course.code))
+      [
+        ...listed,
+        ...fromOtherYears,
+        ...pages.flatMap((page) => page?.courses ?? []),
+      ]
+        .filter(
+          (course) => !known(course.code) && !known(course.code, course.year),
+        )
         .map((course) => [course.code, planCourseFromDetails(course)]),
     ).values(),
   ];

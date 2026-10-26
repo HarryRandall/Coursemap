@@ -1,10 +1,14 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { TooltipProvider } from "@coursemap/ui/primitives/tooltip";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 import { loadAssistantModels } from "@/lib/assistant/model-actions";
-import { toast } from "sonner";
-import { ASSISTANT_PREVIEW_RESPONSE } from "@/lib/assistant/history";
 import { SidebarProvider, SidebarMenu } from "@coursemap/ui/primitives/sidebar";
 import { AssistantRecentChat } from "@/ui/assistant/assistant-recent-chat";
 import { assistantTitle, readAssistantHistory } from "@/lib/assistant/history";
@@ -28,7 +32,33 @@ beforeEach(() => {
   localStorage.clear();
   navigation.pathname = "/dashboard";
   vi.clearAllMocks();
+  replyWith([{ type: "text", delta: "Happy to help." }, { type: "done" }]);
 });
+
+/**
+ * Answers the next chat requests with a stream the test controls. Lines are
+ * written when `flush` is called, so a test can observe the pending state.
+ */
+function replyWith(events: object[], { hold = false } = {}) {
+  let release = () => {};
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const fetchMock = vi.fn(async () => {
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        if (hold) await held;
+        for (const event of events)
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        controller.close();
+      },
+    });
+    return new Response(body, { status: 200 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return { fetchMock, flush: release };
+}
 
 vi.mock("@/lib/assistant/model-actions", () => ({
   loadAssistantModels: vi.fn(async () => ({
@@ -46,8 +76,6 @@ vi.mock("@/lib/assistant/model-actions", () => ({
     })),
   })),
 }));
-
-vi.mock("sonner", () => ({ toast: { info: vi.fn() } }));
 
 vi.mock("@coursemap/ui/hooks/use-mobile", () => ({ useIsMobile: () => false }));
 
@@ -127,7 +155,7 @@ test("loads the shared model catalogue and allows a chat selection", async () =>
   expect(screen.queryByText(/Chat is not connected/)).not.toBeInTheDocument();
 });
 
-test("restores a previous chat and keeps the microphone inert", async () => {
+test("restores a previous chat from the chat switcher", async () => {
   const user = userEvent.setup();
   render(
     <AssistantProvider owner="test">
@@ -152,11 +180,7 @@ test("restores a previous chat and keeps the microphone inert", async () => {
   await user.click(screen.getByRole("button", { name: "Switch chat" }));
   await user.click(screen.getByRole("menuitem", { name: "Plan my semester" }));
   expect(screen.getByRole("log")).toHaveTextContent("Plan my semester");
-  const microphone = screen.getByRole("button", { name: "Microphone" });
-  expect(microphone).toBeEnabled();
-  await user.click(microphone);
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(screen.getByRole("log")).toHaveTextContent("Plan my semester");
+  expect(await screen.findByText("Happy to help.")).toBeVisible();
 });
 
 function ExpansionHarness() {
@@ -184,54 +208,263 @@ test("keeps the panel visible until fullscreen navigation takes over", async () 
   ).toBeInTheDocument();
 });
 
-test("sends locally, replies with fixed text, and restores the conversation", async () => {
+test("closes the dock rather than reopening the Compass page beneath it", async () => {
+  navigation.pathname = "/compass/new";
   const user = userEvent.setup();
+  render(
+    <AssistantProvider owner="test">
+      <ExpansionHarness />
+    </AssistantProvider>,
+  );
+  await user.click(screen.getByRole("button", { name: "Open Compass" }));
+  await user.click(screen.getByRole("button", { name: "Expand assistant" }));
+  expect(push).not.toHaveBeenCalled();
+  expect(
+    screen.queryByRole("complementary", { name: "Compass" }),
+  ).not.toBeInTheDocument();
+});
+
+test("streams a reply with the screen context and restores the conversation", async () => {
+  const user = userEvent.setup();
+  document.body.insertAdjacentHTML(
+    "beforeend",
+    '<main data-slot="sidebar-inset"><h1>COMP2120 Software Engineering</h1></main>',
+  );
+  const { fetchMock, flush } = replyWith(
+    [
+      { type: "text", delta: "Let me check. " },
+      { type: "aside" },
+      { type: "tool", id: "call_1", label: "Reading your plan", done: false },
+      { type: "tool", id: "call_1", label: "Reading your plan", done: true },
+      { type: "text", delta: "COMP2120 fits in S2." },
+      { type: "done" },
+    ],
+    { hold: true },
+  );
   const { unmount } = render(
     <AssistantProvider owner="test">
       <AssistantPanel open onClose={vi.fn()} />
     </AssistantProvider>,
   );
   expect(
-    screen.queryByText(
-      "Preview with sample replies. Chats stay in this browser.",
-    ),
+    screen.queryByRole("button", { name: "Add attachments and tools" }),
   ).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Microphone" })).toBeNull();
   expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
-  await user.type(screen.getByRole("textbox"), "Hello Compass");
-  await user.click(screen.getByRole("button", { name: "Microphone" }));
-  expect(screen.queryByRole("log")).not.toBeInTheDocument();
+  await user.type(screen.getByRole("textbox"), "Can I take this?");
   await user.click(screen.getByRole("button", { name: "Send message" }));
-  expect(screen.getByRole("log")).toHaveTextContent("Hello Compass");
+  expect(screen.getByRole("log")).toHaveTextContent("Can I take this?");
   expect(screen.getByRole("log")).toHaveAttribute("aria-busy", "true");
-  expect(screen.getByRole("log")).toHaveTextContent("Thinking...");
-  expect(screen.getByRole("log")).not.toHaveTextContent(
-    ASSISTANT_PREVIEW_RESPONSE.replace(/\s+/g, " "),
-  );
-  await waitFor(
-    () => expect(screen.getByRole("log")).toHaveAttribute("aria-busy", "false"),
-    { timeout: 5000 },
-  );
-  expect(screen.getByRole("log")).toHaveTextContent(
-    ASSISTANT_PREVIEW_RESPONSE.replace(/\s+/g, " "),
-  );
+  expect(screen.getByText("Thinking...")).toBeVisible();
+  expect(screen.getByRole("button", { name: "Stop reply" })).toBeVisible();
   expect(screen.getByRole("textbox")).toHaveValue("");
-  await user.type(screen.getByRole("textbox"), "Second message{Enter}");
-  expect(screen.getByRole("log")).toHaveTextContent("Second message");
+
+  const [url, init] = fetchMock.mock.calls[0] as unknown as [
+    string,
+    RequestInit,
+  ];
+  expect(url).toBe("/api/assistant/chat");
+  const body = JSON.parse(String(init.body));
+  expect(body.messages).toEqual([{ role: "user", text: "Can I take this?" }]);
+  expect(body.screen.text).toContain("COMP2120 Software Engineering");
+
+  flush();
+  await waitFor(() =>
+    expect(screen.getByRole("log")).toHaveAttribute("aria-busy", "false"),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("log")).toHaveTextContent("COMP2120 fits in S2."),
+  );
+  expect(screen.getByRole("log")).not.toHaveTextContent("Let me check.");
+  // Lookups show only while Compass works, never under the answer.
+  expect(screen.queryByText(/your plan/)).toBeNull();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByText(/Thinking/)).toBeNull();
+  expect(screen.getByRole("link", { name: "COMP2120" })).toHaveAttribute(
+    "href",
+    "/courses?q=COMP2120",
+  );
+  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   unmount();
+  document.querySelector("main")?.remove();
   render(
     <AssistantProvider owner="test">
       <AssistantPanel open onClose={vi.fn()} />
     </AssistantProvider>,
   );
-  expect(await screen.findByRole("log")).toHaveTextContent("Second message");
-  await user.click(
-    screen.getByRole("button", { name: "Add attachments and tools" }),
+  expect(await screen.findByRole("log")).toHaveTextContent(
+    "COMP2120 fits in S2.",
+  );
+});
+
+test("shows looked-up courses as cards and draws requested charts", async () => {
+  const user = userEvent.setup();
+  replyWith([
+    {
+      type: "course",
+      course: {
+        code: "COMP3500",
+        name: "Software Engineering Project",
+        year: 2026,
+        units: 6,
+        sessions: ["First Semester"],
+        prerequisites: "A GPA of 6.0 or higher",
+      },
+    },
+    {
+      type: "visual",
+      visual: { kind: "meter", title: "Your GPA", value: 5, max: 7, target: 6 },
+    },
+    {
+      type: "text",
+      delta:
+        "You would need COMP3500 later, but your GPA is below the requirement.",
+    },
+    { type: "done" },
+  ]);
+  const view = () => (
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>
+  );
+  const { unmount } = render(view());
+  await user.type(screen.getByRole("textbox"), "Can I do the capstone?{Enter}");
+  const link = await screen.findByRole("link", { name: "COMP3500" });
+  expect(link).toHaveAttribute("href", "/courses/2026/comp3500");
+  // Resting on the code previews the course beside it.
+  await user.hover(link);
+  const preview = await screen.findByRole("dialog", {
+    name: "COMP3500 Software Engineering Project",
+  });
+  expect(preview).toHaveTextContent("Needs A GPA of 6.0 or higher");
+  expect(preview).toHaveTextContent("6 units");
+  expect(
+    within(preview).getByRole("link", { name: "Open course" }),
+  ).toHaveAttribute("href", "/courses/2026/comp3500");
+  await user.unhover(link);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // The chart follows the answer it illustrates.
+  const figure = screen.getByRole("figure", { name: "Your GPA" });
+  expect(figure).toHaveTextContent("1 below 6");
+  expect(
+    figure.compareDocumentPosition(screen.getByText(/your GPA is below/)) &
+      Node.DOCUMENT_POSITION_PRECEDING,
+  ).toBeTruthy();
+  unmount();
+  render(view());
+  expect(await screen.findByRole("link", { name: "COMP3500" })).toBeVisible();
+  expect(screen.getByRole("figure", { name: "Your GPA" })).toBeVisible();
+});
+
+test("shows a campus place with a route into the 3D map", async () => {
+  // jsdom has no IntersectionObserver; the map stays unloaded off screen.
+  vi.stubGlobal(
+    "IntersectionObserver",
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  );
+  const user = userEvent.setup();
+  replyWith([
+    {
+      type: "place",
+      place: {
+        slug: "hancock-library",
+        name: "Hancock Library",
+        address: "43 Linnaeus Way",
+        from: { slug: "csit", name: "CSIT Building" },
+      },
+    },
+    { type: "text", delta: "Hancock is a short walk from CSIT." },
+    { type: "done", model: "anthropic/claude-haiku-5.5" },
+  ]);
+  render(
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>,
+  );
+  await user.type(
+    screen.getByRole("textbox"),
+    "How do I get to Hancock?{Enter}",
   );
   expect(
-    screen.getByRole("menuitem", { name: "Add files or photos" }),
+    await screen.findByRole("link", { name: "Directions" }),
+  ).toHaveAttribute("href", "/rooms?from=csit&to=hancock-library");
+  expect(screen.getByRole("link", { name: "Show on map" })).toHaveAttribute(
+    "href",
+    "/rooms?place=hancock-library",
+  );
+  expect(
+    screen.getByRole("link", {
+      name: "Open directions to Hancock Library in the Room finder",
+    }),
+  ).toHaveAttribute("href", "/rooms?from=csit&to=hancock-library");
+});
+
+test("previews a society named in a reply on hover", async () => {
+  const user = userEvent.setup();
+  replyWith([
+    {
+      type: "society",
+      society: {
+        slug: "cssa",
+        name: "ANU Computer Science Students' Association",
+        category: "Academic",
+        summary: "A community for computing students.",
+      },
+    },
+    {
+      type: "text",
+      delta: "Try the ANU Computer Science Students' Association.",
+    },
+    { type: "done", model: "anthropic/claude-haiku-5.5" },
+  ]);
+  render(
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>,
+  );
+  await user.type(screen.getByRole("textbox"), "Any coding clubs?{Enter}");
+  const [link] = await screen.findAllByRole("link", {
+    name: "ANU Computer Science Students' Association",
+  });
+  expect(link).toHaveAttribute("href", "/societies/cssa");
+  await user.hover(link);
+  const preview = await screen.findByRole("dialog", {
+    name: "ANU Computer Science Students' Association",
+  });
+  expect(preview).toHaveTextContent("A community for computing students.");
+  expect(
+    within(preview).getByRole("link", { name: "Open society" }),
+  ).toHaveAttribute("href", "/societies/cssa");
+});
+
+test("keeps the question and explains a refused request", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            error:
+              "You have used today's 40 Compass messages. Try again tomorrow.",
+          }),
+          { status: 429 },
+        ),
+    ),
+  );
+  render(
+    <AssistantProvider owner="test">
+      <AssistantPanel open onClose={vi.fn()} />
+    </AssistantProvider>,
+  );
+  await user.type(screen.getByRole("textbox"), "Plan my degree{Enter}");
+  expect(
+    await screen.findByText(/used today's 40 Compass messages/),
   ).toBeVisible();
-  await user.click(screen.getByRole("menuitem", { name: "Web search" }));
-  expect(toast.info).toHaveBeenCalledWith("Coming soon");
+  expect(screen.getByRole("log")).toHaveTextContent("Plan my degree");
 });
 
 test("uses the chat URL for selection and gives a new draft its own route", () => {

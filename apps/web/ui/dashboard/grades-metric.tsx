@@ -39,18 +39,16 @@ export function GradesMetric({ grades }: { grades: readonly GradeTally[] }) {
   const distinctions = grades.find((grade) => grade.code === "HD")?.count ?? 0;
   return (
     <AcademicMetricCard
+      title="Grades"
       empty={
         total === 0 ? { label: "No marks yet", skeleton: gradesSkeleton } : null
       }
-      header={
-        <>
-          <h3 className="text-sm font-semibold">Grades</h3>
-          {total > 0 ? (
-            <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">
-              {Math.round((distinctions / total) * 100)}% HD
-            </span>
-          ) : null}
-        </>
+      aside={
+        total > 0 ? (
+          <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium whitespace-nowrap text-primary">
+            {Math.round((distinctions / total) * 100)}% HD
+          </span>
+        ) : null
       }
     >
       <div

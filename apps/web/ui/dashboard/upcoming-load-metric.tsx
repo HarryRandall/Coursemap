@@ -38,18 +38,16 @@ export function UpcomingLoadMetric({
           ? { label: "No semesters planned", skeleton: upcomingLoadSkeleton }
           : null
       }
-      header={
-        <>
-          <h3 className="text-sm font-semibold">Upcoming load</h3>
-          {next ? (
-            <span className="text-sm font-semibold tabular-nums">
-              {next.units}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                units {next.label}
-              </span>
+      title="Upcoming load"
+      aside={
+        next ? (
+          <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
+            {next.units}
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              units {next.label}
             </span>
-          ) : null}
-        </>
+          </span>
+        ) : null
       }
     >
       <div className="flex h-24 flex-col">

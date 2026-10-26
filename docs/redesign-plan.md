@@ -91,14 +91,12 @@ tools and plan-risk notifications.
   administrators, key dates within seven days, new plan risks, published
   changes to a course in the student's plan. The bell reads real rows and the
   sample array is deleted.
-- Compass: `assistant_chats`, `assistant_messages` and `assistant_usage`
-  tables with own-row RLS. A streaming route at `app/api/assistant/chat` calls
-  OpenRouter with the model from `app_settings[assistant.model]`, separate
-  from the import model, with tools for course search, plan reading,
-  requirement evaluation and requirement progress. Usage records tokens and
-  cost per message and the usage page reads them. The `localStorage` draft
-  store becomes an optimistic cache only. The "Coming soon" tools menu is
-  removed.
+- Compass: the streaming route, tools, usage metering and allowance have
+  landed (see [architecture](architecture.md)). The model is configured with
+  `COURSEMAP_ASSISTANT_MODELS` rather than `app_settings`, which students
+  cannot read. Still to do: `assistant_chats` and `assistant_messages` tables
+  with own-row RLS, so the `localStorage` draft store becomes an optimistic
+  cache only.
 - Landing: copy and screenshots reflect the shipped product, popular searches
   come from the published catalogue, and the primary call to action leads to
   onboarding.
@@ -108,13 +106,13 @@ tools and plan-risk notifications.
 
 ### Stacked pull requests
 
-| Order | Branch                             | Scope                                                      |
-| ----- | ---------------------------------- | ---------------------------------------------------------- |
-| C1    | `refactor/student-ui-01-states`    | Shared empty and loading states and adoption.              |
-| C2    | `feat/student-ui-02-notifications` | Table, producers, bell inbox, mark-read.                   |
-| C3    | `feat/student-ui-03-compass`       | Persistence, streaming route, tools, usage, model setting. |
-| C4    | `feat/student-ui-04-landing`       | Landing refresh and data-driven searches.                  |
-| C5    | `feat/student-ui-05-onboarding`    | Onboarding and dashboard polish, roadmap update.           |
+| Order | Branch                             | Scope                                                       |
+| ----- | ---------------------------------- | ----------------------------------------------------------- |
+| C1    | `refactor/student-ui-01-states`    | Shared empty and loading states and adoption.               |
+| C2    | `feat/student-ui-02-notifications` | Table, producers, bell inbox, mark-read.                    |
+| C3    | `feat/student-ui-03-compass`       | Chat persistence (streaming route, tools and usage landed). |
+| C4    | `feat/student-ui-04-landing`       | Landing refresh and data-driven searches.                   |
+| C5    | `feat/student-ui-05-onboarding`    | Onboarding and dashboard polish, roadmap update.            |
 
 ### Verification
 

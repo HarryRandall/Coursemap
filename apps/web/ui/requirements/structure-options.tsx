@@ -22,7 +22,7 @@ export function StructureOptions({
     (option) => option.kind !== "course",
   );
   return (
-    <section className="px-4 py-3 sm:px-5">
+    <section className="@container px-4 py-3 sm:px-5">
       {headed ? (
         <>
           <h3 className="text-sm font-medium">{conditionHeading(condition)}</h3>
@@ -35,7 +35,7 @@ export function StructureOptions({
           {conditionInterpretation(condition)}
         </p>
       )}
-      <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-3 grid gap-2 @md:grid-cols-2">
         {options.map((option) => {
           const name = (
             <span className="min-w-0">
