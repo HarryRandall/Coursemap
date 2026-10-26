@@ -181,7 +181,8 @@ describe("runAssistantTurn", () => {
       "Looking up COMP1100:false",
       "Looking up COMP1100:true",
     ]);
-    expect(text.join("")).toBe("Let me check.|aside|COMP1100 runs in S1.");
+    // Short narration before a tool call is held back and never shown.
+    expect(text.join("")).toBe("COMP1100 runs in S1.");
     expect(rounds).toEqual([0.001, 0.0005]);
     const second = JSON.parse(
       String((fetchImpl.mock.calls[1] as [string, RequestInit])[1].body),
@@ -191,6 +192,47 @@ describe("runAssistantTurn", () => {
       tool_call_id: "call_1",
       content: '{"code":"COMP1100","offerings":["S1"]}',
     });
+  });
+
+  test("withdraws narration that was long enough to show", async () => {
+    const narration = "Let me look at that. ".repeat(12);
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        sse(
+          { choices: [{ delta: { content: narration } }] },
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: "call_1",
+                      function: { name: "get_course", arguments: "{}" },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          usage(0.001),
+        ),
+      )
+      .mockResolvedValueOnce(answerRound("Done."));
+    const events: string[] = [];
+    await runAssistantTurn({
+      models: ["openai/gpt-6-luna"],
+      messages: [{ role: "user", content: "?" }],
+      tools: [fakeTool("get_course", async () => ({}))],
+      onText: (delta) => events.push(delta === "Done." ? "answer" : "text"),
+      onAside: () => events.push("aside"),
+      onTool: () => {},
+      onRound: () => {},
+      env,
+      fetchImpl,
+    });
+    expect(events).toEqual(["text", "aside", "answer"]);
   });
 
   test("passes safe tool errors to the model and hides unexpected ones", async () => {

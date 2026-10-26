@@ -13,6 +13,7 @@ import {
 import {
   loadPublishedCourse,
   loadPublishedCourseDirectoryPage,
+  loadPublishedCourseYears,
 } from "@/lib/coursemap/published-courses";
 import {
   creditedRequirementUnits,
@@ -464,13 +465,25 @@ export function assistantTools(
       async run(input) {
         const code = courseCode(input);
         const year = academicYear(input, await defaultYear());
-        const course = await loadPublishedCourse(code, year);
+        // Older or newer handbook years still answer most questions, so a
+        // course missing from the plan's year falls back to the nearest one.
+        let course = await loadPublishedCourse(code, year);
+        if (!course) {
+          const years = await loadPublishedCourseYears(code);
+          const nearest =
+            years.filter((item) => item <= year).sort((a, b) => b - a)[0] ??
+            years.sort((a, b) => a - b)[0];
+          course = nearest ? await loadPublishedCourse(code, nearest) : null;
+        }
         if (!course)
-          return {
-            error: `${code} is not published for ${year}. Try another year.`,
-          };
+          return { error: `${code} is not in the published catalogue.` };
         onCourse(courseReference(course));
         return {
+          ...(course.year !== year
+            ? {
+                note: `Not published for ${year}; these are the ${course.year} details.`,
+              }
+            : {}),
           code: course.code,
           name: course.name,
           year: course.year,
@@ -577,7 +590,7 @@ export function assistantTools(
         function: {
           name: "find_society",
           description:
-            "Search ANU student societies and clubs by name, interest or category. The matches are shown to the student as cards with links, so describe them briefly.",
+            "Search ANU student societies and clubs by name, interest or category. Write each society's full name in your reply; the name opens a preview for the student.",
           parameters: {
             type: "object",
             properties: {

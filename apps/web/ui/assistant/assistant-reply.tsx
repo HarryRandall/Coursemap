@@ -7,7 +7,6 @@ import type {
   AssistantVisual,
 } from "@/lib/assistant/attachments";
 import { AssistantPlaceCard } from "./assistant-place-card";
-import { AssistantSocietyCard } from "./assistant-society-card";
 import { AssistantIcon } from "./assistant-icon";
 import { AssistantReplyActions } from "./assistant-reply-actions";
 import { AssistantReplyText } from "./assistant-reply-text";
@@ -73,9 +72,9 @@ export function AssistantReply({
           />
         </div>
       ) : null}
-      {/* Cards and charts illustrate the answer, so they follow it once it
-          is written. */}
-      {(societies.length || places.length) && !writing ? (
+      {/* Maps and charts illustrate the answer, so they follow it once it
+          is written. Courses and societies preview from the text instead. */}
+      {places.length && !writing ? (
         <div className="grid gap-2 duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none sm:grid-cols-2">
           {places.map((place, index) => (
             <AssistantPlaceCard
@@ -84,9 +83,6 @@ export function AssistantReply({
               // One live map per reply keeps WebGL contexts and data in check.
               showMap={index === 0}
             />
-          ))}
-          {societies.map((society) => (
-            <AssistantSocietyCard key={society.slug} society={society} />
           ))}
         </div>
       ) : null}

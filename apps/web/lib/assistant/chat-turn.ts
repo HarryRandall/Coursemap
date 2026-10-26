@@ -10,6 +10,10 @@ import type {
 /** Tool rounds per reply. The last round must answer with what it has. */
 export const ASSISTANT_MAX_TOOL_ROUNDS = 4;
 export const ASSISTANT_MAX_OUTPUT_TOKENS = 1_500;
+// Models often say "Let me check your plan" before a tool call. Text is held
+// back until it is longer than that kind of aside, so narration followed by a
+// lookup never reaches the student and the reply does not flash.
+export const ASSISTANT_NARRATION_HOLD_LENGTH = 200;
 // Tool results are re-sent on every later round, so a long search result is
 // paid for several times. The cap keeps one result from dominating the bill.
 export const ASSISTANT_TOOL_RESULT_MAX_LENGTH = 8_000;
@@ -89,13 +93,21 @@ export async function runAssistantTurn({
   const conversation = [...messages];
   for (let round = 0; round <= ASSISTANT_MAX_TOOL_ROUNDS; round += 1) {
     const finalRound = round === ASSISTANT_MAX_TOOL_ROUNDS;
+    let held = "";
+    let released = finalRound;
     const result = await streamChatRound({
       models,
       messages: conversation,
       tools: tools.map((tool) => tool.definition),
       toolChoice: finalRound ? "none" : "auto",
       maxOutputTokens: ASSISTANT_MAX_OUTPUT_TOKENS,
-      onText,
+      onText: (delta) => {
+        if (released) return onText(delta);
+        held += delta;
+        if (held.length < ASSISTANT_NARRATION_HOLD_LENGTH) return;
+        released = true;
+        onText(held);
+      },
       signal,
       env,
       fetchImpl,
@@ -107,14 +119,15 @@ export async function runAssistantTurn({
       toolCalls: toolCalls.length,
     });
     if (!toolCalls.length) {
+      if (!released && held) onText(held);
       if (result.finishReason === "length")
         onText("\n\nThis reply reached its length limit. Ask me to continue.");
       return;
     }
 
-    // Text before a tool call, such as "Let me check", has already streamed.
-    // The steps already say what Compass is doing, so it is not the answer.
-    if (result.content) onAside();
+    // Narration long enough to have been shown is withdrawn; shorter
+    // narration was never shown. The status line says what Compass is doing.
+    if (released && result.content) onAside();
     conversation.push({
       role: "assistant",
       content: result.content || null,
