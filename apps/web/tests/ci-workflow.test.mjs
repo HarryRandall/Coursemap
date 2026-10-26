@@ -128,6 +128,78 @@ test.each(["pull_request", "push"])(
   },
 );
 
+function backgroundStart(start, wait, supabaseStatus) {
+  const root = mkdtempSync(join(tmpdir(), "coursemap-supabase-start-"));
+  roots.push(root);
+  writeFileSync(
+    join(root, "supabase"),
+    `#!/bin/bash\necho "supabase $*"\nexit ${supabaseStatus}\n`,
+    { mode: 0o755 },
+  );
+  const env = {
+    ...process.env,
+    PATH: `${root}:${process.env.PATH}`,
+    RUNNER_TEMP: root,
+  };
+  const started = spawnSync("bash", ["-e", "-c", stepCommand(start)], {
+    encoding: "utf8",
+    env,
+    timeout: 10_000,
+  });
+  const waited = spawnSync("bash", ["-e", "-c", stepCommand(wait)], {
+    encoding: "utf8",
+    env,
+    timeout: 10_000,
+  });
+  return { started, waited };
+}
+
+test.each([
+  ["Start local database", "Wait for local database"],
+  ["Start local services", "Wait for local services"],
+])("%s returns at once and %s reports the CLI result", (start, wait) => {
+  const success = backgroundStart(start, wait, 0);
+  expect(success.started.status).toBe(0);
+  expect(success.waited.status).toBe(0);
+  expect(success.waited.stdout).toContain("supabase start --exclude studio,");
+
+  const failure = backgroundStart(start, wait, 3);
+  expect(failure.started.status).toBe(0);
+  expect(failure.waited.status).toBe(3);
+});
+
+test("browser shards cover the whole suite and the gate waits for all of them", () => {
+  const shards = jobSource("browser-shards");
+  const [, list] = shards.match(/shard: \[([\d, ]+)\]/);
+  const total = list.split(",").length;
+  expect(list.split(",").map(Number)).toEqual(
+    Array.from({ length: total }, (_, index) => index + 1),
+  );
+  expect(shards).toContain(`name: Browser shard \${{ matrix.shard }}/${total}`);
+  expect(shards).toContain(`--shard=\${{ matrix.shard }}/${total}`);
+  expect(shards).toMatch(/fail-fast: false/);
+
+  const gate = jobSource("browser");
+  expect(gate).toMatch(/name: Browser gate\n/);
+  expect(gate).toMatch(/needs: browser-shards\n/);
+  expect(gate).toContain("if: ${{ !cancelled() }}");
+  expect(jobSource("production-database")).toMatch(/\n {6}- browser\n/);
+});
+
+test.each([
+  ["success", 0],
+  ["failure", 1],
+  ["cancelled", 1],
+  ["skipped", 1],
+])("the browser gate treats a %s shard result as exit %i", (result, status) => {
+  const run = spawnSync(
+    "bash",
+    ["-e", "-c", stepCommand("Require every browser shard to pass")],
+    { encoding: "utf8", env: { ...process.env, SHARD_RESULT: result } },
+  );
+  expect(run.status).toBe(status);
+});
+
 test("masks the encoded database password before exporting the connection URL", () => {
   const command = stepCommand("Prepare production database connection");
   const [, script] = command.match(/^node -e '([\s\S]*)'$/);

@@ -78,16 +78,33 @@ jobs:
           cache: true
           require-lockfile: true
 
-      - name: Restore Turborepo cache
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @coursemap/web exec playwright --version | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: .turbo/cache
-          key: turbo-routes-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-routes-${{ runner.os }}-
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
 
+      # Headless runs use the Chromium headless shell, so the full browser is not needed.
       - name: Install Chromium
-        run: pnpm --filter @coursemap/web exec playwright install --with-deps chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @coursemap/web exec playwright install --with-deps --only-shell chromium
+
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @coursemap/web exec playwright install-deps chromium
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/.next/cache
+          key: next-access-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            next-access-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Check authenticated access control
         run: pnpm --filter @coursemap/web test:build:auth && pnpm --filter @coursemap/web test:auth-access
@@ -129,19 +146,34 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Install pnpm and dependencies
-        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          cache: true
-          require-lockfile: true
-
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.114.0
 
       - name: Start local database
-        run: pnpm db:start
+        # Image pulls overlap dependency installation. A later step waits for
+        # the result. These jobs use no Studio, analytics, edge functions or
+        # image transformation.
+        run: |
+          (
+            status=0
+            supabase start --exclude studio,logflare,vector,edge-runtime,imgproxy || status=$?
+            echo "$status" > "$RUNNER_TEMP/supabase-start.status"
+          ) > "$RUNNER_TEMP/supabase-start.log" 2>&1 &
+
+      - name: Install pnpm and dependencies
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          cache: true
+          require-lockfile: true
+
+      - name: Wait for local database
+        timeout-minutes: 8
+        run: |
+          until [ -f "$RUNNER_TEMP/supabase-start.status" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/supabase-start.log"
+          exit "$(cat "$RUNNER_TEMP/supabase-start.status")"
 
       - name: Reset and seed local preview database
         run: pnpm db:reset
@@ -161,10 +193,15 @@ jobs:
       - name: Test catalogue database import
         run: pnpm test:catalogue-db
 
-  browser:
-    name: Browser gate
+  browser-shards:
+    name: Browser shard ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      # Report every failing shard rather than cancelling the others.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
 
     steps:
       - name: Check out repository
@@ -175,46 +212,113 @@ jobs:
         with:
           node-version-file: .node-version
 
-      - name: Install pnpm and dependencies
-        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
-        with:
-          cache: true
-          require-lockfile: true
-
-      - name: Restore Turborepo cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .turbo/cache
-          key: turbo-browser-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-browser-${{ runner.os }}-
-
-      - name: Install Chromium
-        run: pnpm --filter @coursemap/web exec playwright install --with-deps chromium
-
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.114.0
 
       - name: Start local services
-        run: pnpm db:start
+        # Image pulls overlap dependency installation. A later step waits for
+        # the result. These jobs use no Studio, analytics, edge functions or
+        # image transformation.
+        run: |
+          (
+            status=0
+            supabase start --exclude studio,postgres-meta,logflare,vector,edge-runtime,imgproxy || status=$?
+            echo "$status" > "$RUNNER_TEMP/supabase-start.status"
+          ) > "$RUNNER_TEMP/supabase-start.log" 2>&1 &
+
+      - name: Install pnpm and dependencies
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          cache: true
+          require-lockfile: true
+
+      - name: Read Playwright version
+        id: playwright
+        run: echo "version=$(pnpm --filter @coursemap/web exec playwright --version | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-shell-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # Headless runs use the Chromium headless shell, so the full browser is not needed.
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @coursemap/web exec playwright install --with-deps --only-shell chromium
+
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @coursemap/web exec playwright install-deps chromium
+
+      - name: Wait for local services
+        timeout-minutes: 8
+        run: |
+          until [ -f "$RUNNER_TEMP/supabase-start.status" ]; do sleep 2; done
+          cat "$RUNNER_TEMP/supabase-start.log"
+          exit "$(cat "$RUNNER_TEMP/supabase-start.status")"
 
       - name: Seed local catalogue
         run: pnpm db:reset
 
+      - name: Restore Next.js build cache
+        id: next-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/.next/cache
+          key: next-e2e-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            next-e2e-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      # The Route gate build type-checks the same source.
+      - name: Build for browser journeys
+        env:
+          COURSEMAP_SKIP_BUILD_TYPECHECK: 1
+        run: pnpm --filter @coursemap/web test:e2e:build
+
+      # Every shard builds the same output, so one shard saves the cache.
+      - name: Save Next.js build cache
+        if: matrix.shard == 1 && steps.next-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: apps/web/.next/cache
+          key: next-e2e-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+      # Each shard has its own database, so tests split individually rather
+      # than by file. Tests within a shard still run one at a time.
       - name: Run authenticated browser journeys
-        run: pnpm test:e2e
+        run: pnpm --filter @coursemap/web test:e2e --shard=${{ matrix.shard }}/4 --fully-parallel
 
       - name: Upload Playwright report and failure traces
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-browser-report
+          name: playwright-browser-report-${{ matrix.shard }}
           path: |
             apps/web/playwright-report
             apps/web/test-results
           retention-days: 7
+
+  browser:
+    name: Browser gate
+    # Runs after a failed shard too, so a failure reports under the gate's name.
+    if: ${{ !cancelled() }}
+    needs: browser-shards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require every browser shard to pass
+        env:
+          SHARD_RESULT: ${{ needs.browser-shards.result }}
+        run: |
+          if [ "$SHARD_RESULT" != "success" ]; then
+            echo "::error::Browser shards finished with result: ${SHARD_RESULT}."
+            exit 1
+          fi
 
   production-database:
     name: Apply production migrations
