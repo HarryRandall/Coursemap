@@ -28,21 +28,19 @@ export function GpaMetric({
   );
   return (
     <AcademicMetricCard
+      title="GPA"
       empty={
         gpa === null ? { label: "No grades yet", skeleton: gpaSkeleton } : null
       }
-      header={
-        <>
-          <h3 className="text-sm font-semibold">GPA</h3>
-          {gpa !== null ? (
-            <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
-              {gpa.toFixed(1)}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                / 7
-              </span>
+      aside={
+        gpa !== null ? (
+          <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
+            {gpa.toFixed(1)}
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              / 7
             </span>
-          ) : null}
-        </>
+          </span>
+        ) : null
       }
     >
       {series.length === 1 ? (

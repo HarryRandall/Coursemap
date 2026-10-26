@@ -33,22 +33,20 @@ export function KeyDatesMetric({
 }) {
   return (
     <AcademicMetricCard
+      title="Key dates"
       empty={
         events.length === 0
           ? { label: "None coming up", skeleton: keyDatesSkeleton }
           : null
       }
-      header={
-        <>
-          <h3 className="text-sm font-semibold">Key dates</h3>
-          <Link
-            href="/key-dates"
-            className="-my-1 flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-          >
-            All dates
-            <ArrowRight size={12} aria-hidden="true" />
-          </Link>
-        </>
+      aside={
+        <Link
+          href="/key-dates"
+          className="-my-1 flex items-center gap-1 rounded-md px-1.5 py-1 text-xs whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          All dates
+          <ArrowRight size={12} aria-hidden="true" />
+        </Link>
       }
     >
       <ul className="flex h-24 flex-col justify-center gap-2">

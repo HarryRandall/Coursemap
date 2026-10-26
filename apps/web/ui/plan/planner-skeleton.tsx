@@ -7,7 +7,7 @@ import { Skeleton } from "@coursemap/ui/primitives/skeleton";
  */
 export function PlannerSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container flex flex-col gap-4">
       <div className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-2">
         {[0, 1, 2].map((year) => (
           <div
@@ -21,7 +21,7 @@ export function PlannerSkeleton() {
         ))}
         <div className="rounded-xl border border-dashed border-border" />
       </div>
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-6 @4xl:flex-row @4xl:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-3">
           {["First Semester", "Second Semester"].map((name) => (
             <div
@@ -45,7 +45,7 @@ export function PlannerSkeleton() {
             </div>
           ))}
         </div>
-        <CoursesToPlanSkeleton className="lg:h-[calc(100dvh-12rem)] lg:w-[24rem] lg:shrink-0" />
+        <CoursesToPlanSkeleton className="@4xl:h-[calc(100dvh-12rem)] @4xl:w-[24rem] @4xl:shrink-0" />
       </div>
     </div>
   );

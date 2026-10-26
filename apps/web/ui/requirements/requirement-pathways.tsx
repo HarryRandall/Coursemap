@@ -13,16 +13,19 @@ import type {
 } from "@/ui/requirements/requirement-presentation";
 import { RequirementGroupView } from "@/ui/requirements/requirement-tree";
 
+// Columns follow the card's width, since each rule row needs room for its
+// status beside the title.
 const COLUMN_CLASS: Record<number, string> = {
-  2: "md:grid-cols-2",
-  3: "md:grid-cols-3",
+  2: "@2xl:grid-cols-2",
+  3: "@4xl:grid-cols-3",
 };
 
 /**
- * A choice between pathways drawn side by side, each under its own number,
- * so three honours routes read as three parallel options rather than a stack
- * of panels split by "or". Four or more fall into two columns. A short line
- * above says how many to choose, since "Option 1" alone does not.
+ * A choice between pathways drawn side by side when the card has room, each
+ * under its own number, so three honours routes read as three parallel
+ * options rather than a stack of panels split by "or". Four or more fall into
+ * two columns. A short line above says how many to choose, since "Option 1"
+ * alone does not.
  */
 export function RequirementPathways({
   group,
@@ -48,7 +51,7 @@ export function RequirementPathways({
   const description = omitHeading && !group.title ? null : group.description;
   const instruction = omitInstruction ? null : pathwayInstruction(group);
   return (
-    <div>
+    <div className="@container">
       {title || description || instruction ? (
         <div className="border-b border-border px-4 py-2 sm:px-5">
           {title ? <p className="text-sm font-semibold">{title}</p> : null}
@@ -66,7 +69,7 @@ export function RequirementPathways({
         className={cn(
           "grid gap-px bg-border",
           COLUMN_CLASS[options.length] ??
-            (options.length > 3 ? "md:grid-cols-2" : ""),
+            (options.length > 3 ? "@2xl:grid-cols-2" : ""),
         )}
       >
         {options.map((option, index) => {

@@ -82,7 +82,7 @@ export function CoursesToPlan({
   }));
   const [tab, setTab] = useState(() => tabs[0]?.value ?? "starred");
   return (
-    <div className="flex max-h-[70dvh] flex-col overflow-hidden rounded-xl border border-border bg-card lg:absolute lg:inset-0 lg:max-h-none">
+    <div className="flex max-h-[70dvh] flex-col overflow-hidden rounded-xl border border-border bg-card @4xl:absolute @4xl:inset-0 @4xl:max-h-none">
       <Tabs
         value={tab}
         onValueChange={setTab}

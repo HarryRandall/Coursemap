@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@coursemap/ui/primitives/button";
 import type { AcademicTermPoint } from "@/lib/coursemap/academic-metrics";
-import { AcademicMetricCard } from "./academic-metric-card";
+import { AcademicMetricCard, MetricPager } from "./academic-metric-card";
 import { averageMarkSkeleton } from "./metric-skeletons";
 import { brand } from "./grade-colours";
 
@@ -29,58 +27,35 @@ export function AverageMarkMetric({
   const semester = semesters[index];
   return (
     <AcademicMetricCard
+      title="Avg. mark"
       empty={
         semester
           ? null
           : { label: "No marks yet", skeleton: averageMarkSkeleton }
       }
-      header={
-        <>
-          <h3 className="flex min-w-0 items-baseline gap-1.5 whitespace-nowrap">
-            {semester ? (
-              <span className="text-xl font-semibold tabular-nums">
-                {Math.round(semester.wam)}%
-              </span>
-            ) : null}
-            {semester ? (
-              <span className="truncate text-xs text-muted-foreground">
-                Avg. mark
-              </span>
-            ) : (
-              <span className="text-sm font-semibold">Avg. mark</span>
-            )}
-          </h3>
-          {semester ? (
-            <div className="-my-1 flex shrink-0 items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Previous semester marks"
-                disabled={index === 0}
-                onClick={() => setPicked(Math.max(0, index - 1))}
-              >
-                <ChevronLeft size={16} aria-hidden="true" />
-              </Button>
-              <span
-                className="text-[10px] whitespace-nowrap text-muted-foreground"
-                aria-live="polite"
-              >
-                {semester.label}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Next semester marks"
-                disabled={index === semesters.length - 1}
-                onClick={() =>
-                  setPicked(Math.min(semesters.length - 1, index + 1))
-                }
-              >
-                <ChevronRight size={16} aria-hidden="true" />
-              </Button>
-            </div>
-          ) : null}
-        </>
+      aside={
+        semester ? (
+          <span className="text-sm font-semibold whitespace-nowrap tabular-nums">
+            {Math.round(semester.wam)}%
+          </span>
+        ) : null
+      }
+      footer={
+        semester ? (
+          <MetricPager
+            label={semester.label}
+            earlierLabel="Previous semester marks"
+            laterLabel="Next semester marks"
+            onEarlier={
+              index > 0 ? () => setPicked(Math.max(0, index - 1)) : undefined
+            }
+            onLater={
+              index < last
+                ? () => setPicked(Math.min(last, index + 1))
+                : undefined
+            }
+          />
+        ) : null
       }
     >
       {semester ? (

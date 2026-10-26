@@ -9,7 +9,7 @@ export default function ProfileLoading() {
     <AppShell loading tabs={<TabsLoading widths={["w-16", "w-28"]} />}>
       <div aria-busy="true" className="w-full space-y-4">
         <span className="sr-only">Loading profile and study details</span>
-        <Card className="min-w-0 gap-0 p-5 sm:p-6">
+        <Card className="@container min-w-0 gap-0 p-5 sm:p-6">
           <div className="flex items-center gap-4">
             <Skeleton className="size-14 rounded-full" />
             <div className="space-y-2">
@@ -17,7 +17,7 @@ export default function ProfileLoading() {
               <Skeleton className="h-3 w-48" />
             </div>
           </div>
-          <div className="mt-6 grid gap-x-4 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid gap-x-4 gap-y-5 @lg:grid-cols-2 @4xl:grid-cols-4">
             {[0, 1, 2, 3].map((field) => (
               <div key={field} className="space-y-2">
                 <Skeleton className="h-3.5 w-24" />

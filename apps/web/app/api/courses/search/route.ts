@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  loadPublishedCoursePage,
-  loadPublishedCoursesByCodes,
-} from "@/lib/coursemap/published-courses";
+import { loadPublishedCoursePage } from "@/lib/coursemap/published-courses";
 import type { CourseDetails } from "@/lib/coursemap/course-types";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +41,7 @@ export async function GET(request: Request) {
   // Recommendations ask for known codes instead of a query.
   const codes = (searchParams.get("codes") ?? "")
     .split(",")
-    .map((code) => code.trim())
+    .map((code) => code.trim().toUpperCase())
     .filter(Boolean)
     .slice(0, 60);
   // Browsing lists the filtered catalogue before anything is typed.
@@ -65,12 +62,18 @@ export async function GET(request: Request) {
 
   try {
     if (!query && !browse) {
-      const courses = await loadPublishedCoursesByCodes(codes, academicYear);
+      // The response carries list fields only, so the compact directory read
+      // serves it instead of the full requisite and fee projection.
+      const result = await loadPublishedCoursePage({
+        academicYear,
+        filters: { codes: codes.join(",") },
+        pageSize: codes.length,
+      });
       return NextResponse.json({
-        courses: courses.map(searchCourse),
+        courses: result.courses.map(searchCourse),
         page: 1,
-        pageSize: courses.length,
-        total: courses.length,
+        pageSize: result.courses.length,
+        total: result.courses.length,
       });
     }
     const requestedPage = Number(searchParams.get("page") ?? "1");

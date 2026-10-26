@@ -83,8 +83,13 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: request.headers },
   });
-  // Public survey responses must not refresh sessions or inherit private caching.
-  if (/^\/api\/courses\/[^/]+\/surveys\/?$/u.test(request.nextUrl.pathname))
+  // Public survey responses and catalogue search must not refresh sessions or
+  // inherit private caching; search runs on every keystroke.
+  if (
+    /^\/api\/courses\/(?:[^/]+\/surveys|search)\/?$/u.test(
+      request.nextUrl.pathname,
+    )
+  )
     return response;
   const protectedRoute = isProtectedRoute(request.nextUrl.pathname);
 

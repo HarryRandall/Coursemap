@@ -232,7 +232,7 @@ export function ProfileEditorForm({
           <TabsContent value="account" className="space-y-4">
             <section
               aria-labelledby={id("details")}
-              className="rounded-xl border border-border bg-card p-5 sm:p-6"
+              className="@container rounded-xl border border-border bg-card p-5 sm:p-6"
             >
               <h2 id={id("details")} className="sr-only">
                 Personal details
@@ -270,7 +270,7 @@ export function ProfileEditorForm({
                   </Button>
                 </div>
               </div>
-              <div className="mt-6 grid gap-x-4 gap-y-5 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-6 grid gap-x-4 gap-y-5 @lg:grid-cols-2 @4xl:grid-cols-4">
                 <Field data-invalid={Boolean(nameError && dirty) || undefined}>
                   <FieldLabel htmlFor={id("name")}>Name</FieldLabel>
                   <Input
@@ -329,7 +329,7 @@ export function ProfileEditorForm({
                     <FieldError>{studentNumberError}</FieldError>
                   ) : null}
                 </Field>
-                <Field className="sm:col-span-2">
+                <Field className="@lg:col-span-2">
                   <FieldLabel htmlFor={id("college")}>
                     Residential college <ComingSoon />
                   </FieldLabel>

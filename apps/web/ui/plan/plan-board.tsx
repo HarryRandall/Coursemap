@@ -1327,7 +1327,10 @@ export function PlanBoard({
   return (
     <AppShell fill fullWidth>
       <h1 className="sr-only">Planner</h1>
-      <div className="workspace-scroll flex flex-col gap-4" ref={boardRef}>
+      <div
+        className="workspace-scroll @container flex flex-col gap-4"
+        ref={boardRef}
+      >
         <YearTabs
           years={yearTabs.map((year) => ({
             ...year,
@@ -1352,7 +1355,10 @@ export function PlanBoard({
               : undefined
           }
         />
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {/* The aside sits beside the board only when the board keeps room for
+            its rows, which the window width cannot tell when the assistant
+            panel is docked. */}
+        <div className="flex flex-col gap-6 @4xl:flex-row @4xl:items-start">
           <section
             aria-label="Course plan"
             data-testid="roadmap-board"
@@ -1383,13 +1389,13 @@ export function PlanBoard({
             aria-busy={suggestionsLoading}
             data-drop-remove
             className={cn(
-              "relative min-w-0 rounded-xl transition lg:w-[24rem] lg:shrink-0 lg:self-stretch",
+              "relative min-w-0 rounded-xl transition @4xl:w-[24rem] @4xl:shrink-0 @4xl:self-stretch",
               dragPreview?.termId === REMOVE_DROP &&
                 "ring-2 ring-destructive/40",
             )}
           >
             {suggestionsLoading ? (
-              <CoursesToPlanSkeleton className="lg:absolute lg:inset-0" />
+              <CoursesToPlanSkeleton className="@4xl:absolute @4xl:inset-0" />
             ) : (
               <CoursesToPlan
                 structures={toPlan}

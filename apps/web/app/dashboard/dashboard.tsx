@@ -330,11 +330,16 @@ export function Dashboard({
 
   return (
     <AppShell>
-      <div className="flex flex-col gap-6" data-entered={entered || undefined}>
+      {/* Columns follow this container rather than the window, so they
+          narrow when the assistant panel is docked beside the page. */}
+      <div
+        className="@container flex flex-col gap-6"
+        data-entered={entered || undefined}
+      >
         <h1 className="sr-only">Dashboard</h1>
 
         <section aria-label="Your metrics" className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-4">
             <GpaMetric gpa={academic.gpa} points={markTrend} />
             <GradesMetric grades={grades} />
             <TuitionMetric tuition={tuition} />
@@ -351,7 +356,7 @@ export function Dashboard({
         </div>
 
         <div
-          className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]"
+          className="grid items-stretch gap-4 @3xl:grid-cols-[minmax(0,1fr)_19rem]"
           style={{ "--enter-delay": "140ms" } as CSSProperties}
         >
           <DegreeComposition
@@ -362,7 +367,7 @@ export function Dashboard({
         </div>
 
         <div
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+          className="grid gap-4 @2xl:grid-cols-2 @4xl:grid-cols-3"
           style={{ "--enter-delay": "210ms" } as CSSProperties}
         >
           <KeyDatesMetric events={keyDates} todayIso={todayIso} />

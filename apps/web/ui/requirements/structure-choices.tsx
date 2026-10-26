@@ -29,7 +29,7 @@ export function StructureChoices({
   if (!options.length)
     return <StructureEmptyState kind={kind} available={false} />;
   return (
-    <section aria-label={`Choose a ${label}`} className="space-y-5">
+    <section aria-label={`Choose a ${label}`} className="@container space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">Choose a {label}</h2>
         {options.length > 6 ? (
@@ -50,7 +50,7 @@ export function StructureChoices({
         ) : null}
       </div>
       {visible.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
           {visible.map((option) => (
             <article
               key={option.code}

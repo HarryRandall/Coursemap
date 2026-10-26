@@ -17,7 +17,7 @@ export function validFeeStatus(value: unknown): value is FeeStatus {
   return FEE_STATUSES.includes(value as FeeStatus);
 }
 
-/** The short form for tight labels, such as the tuition card's heading. */
+/** The short form for tight labels, such as the tuition card's fee badge. */
 export function feeStatusShortLabel(status: FeeStatus) {
   if (status === "commonwealth_supported") return "CSP";
   if (status === "domestic_fee") return "Domestic fee";

@@ -51,7 +51,7 @@ export function RequirementsTable({
           const { status, label } = requirementBucketStatus(bucket);
           return (
             <TableRow key={bucket.key}>
-              <TableCell className="font-medium">
+              <TableCell className="min-w-48 font-medium whitespace-normal">
                 <span title={bucket.description || bucket.title}>
                   {bucket.title}
                 </span>

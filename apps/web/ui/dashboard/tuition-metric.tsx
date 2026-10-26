@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@coursemap/ui/primitives/button";
 import {
   Tooltip,
   TooltipContent,
@@ -10,8 +8,7 @@ import {
 } from "@coursemap/ui/primitives/tooltip";
 import type { TuitionEstimate } from "@/lib/coursemap/academic-metrics";
 import { feeStatusLabel, feeStatusShortLabel } from "@/lib/academic/fee-status";
-import { cn } from "@/lib/cn";
-import { AcademicMetricCard } from "./academic-metric-card";
+import { AcademicMetricCard, MetricPager } from "./academic-metric-card";
 import { tuitionSkeleton } from "./metric-skeletons";
 
 function money(amount: number) {
@@ -32,7 +29,7 @@ function estimatedCoursesNote(count: number) {
   return `ANU didn't list a fee we could read for ${courseCount(count)}, so ${count === 1 ? "it is" : "they are"} priced from similar courses. These are estimates, not official fees.`;
 }
 
-/** Years shown at once; more than this pages with the header arrows. */
+/** Years shown at once; more than this pages with the footer arrows. */
 const VISIBLE_YEARS = 3;
 
 /**
@@ -55,77 +52,62 @@ export function TuitionMetric({
   const largest = Math.max(1, ...years.map((fee) => fee.amount));
   return (
     <AcademicMetricCard
+      title="Est. tuition"
       empty={
         tuition === null
           ? { label: "Fees not published", skeleton: tuitionSkeleton }
           : null
       }
-      header={
-        <>
-          {tuition ? (
-            <div className="flex min-w-0 items-baseline gap-2">
-              <p className="text-xl font-semibold tracking-tight whitespace-nowrap tabular-nums">
-                {tuition.estimatedCourses > 0 ? "≈ " : ""}
-                {money(tuition.total)}
-              </p>
-              {tuition.estimatedCourses > 0 ? (
-                <Tooltip delayDuration={100}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="cursor-help truncate text-xs text-muted-foreground underline decoration-dotted underline-offset-2"
-                    >
-                      Includes estimates
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-64">
-                    {estimatedCoursesNote(tuition.estimatedCourses)}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="flex min-w-0 items-center gap-0.5">
-            <h3
-              className={cn(
-                "truncate",
-                tuition
-                  ? "text-xs font-medium text-muted-foreground"
-                  : "text-sm font-semibold",
-              )}
+      aside={
+        tuition ? (
+          <p className="text-sm font-semibold whitespace-nowrap tabular-nums">
+            {tuition.estimatedCourses > 0 ? "≈ " : ""}
+            {money(tuition.total)}
+          </p>
+        ) : null
+      }
+      footer={
+        tuition ? (
+          <>
+            <span
+              className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-muted-foreground"
+              title={`Priced as ${feeStatusLabel(tuition.feeStatus)}`}
             >
-              Est. tuition
-              {tuition ? (
-                <span title={`Priced as ${feeStatusLabel(tuition.feeStatus)}`}>
-                  {" "}
-                  · {feeStatusShortLabel(tuition.feeStatus)}
-                </span>
-              ) : null}
-            </h3>
-            {lastStart > 0 ? (
-              <span className="-my-1 ml-1 flex shrink-0 items-center">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Earlier years"
-                  disabled={start === 0}
-                  onClick={() => setPicked(Math.max(0, start - 1))}
-                >
-                  <ChevronLeft size={16} aria-hidden="true" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Later years"
-                  disabled={start === lastStart}
-                  onClick={() => setPicked(Math.min(lastStart, start + 1))}
-                >
-                  <ChevronRight size={16} aria-hidden="true" />
-                </Button>
-              </span>
+              {feeStatusShortLabel(tuition.feeStatus)}
+            </span>
+            {tuition.estimatedCourses > 0 ? (
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="min-w-0 cursor-help truncate text-xs text-muted-foreground underline decoration-dotted underline-offset-2"
+                  >
+                    Includes estimates
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64">
+                  {estimatedCoursesNote(tuition.estimatedCourses)}
+                </TooltipContent>
+              </Tooltip>
             ) : null}
-          </div>
-        </>
+            {lastStart > 0 ? (
+              <MetricPager
+                earlierLabel="Earlier years"
+                laterLabel="Later years"
+                onEarlier={
+                  start > 0
+                    ? () => setPicked(Math.max(0, start - 1))
+                    : undefined
+                }
+                onLater={
+                  start < lastStart
+                    ? () => setPicked(Math.min(lastStart, start + 1))
+                    : undefined
+                }
+              />
+            ) : null}
+          </>
+        ) : null
       }
     >
       <ul

@@ -58,14 +58,14 @@ export function YearTabs({
               )}
             >
               <span className="flex items-baseline gap-1.5 truncate">
-                <span className="text-[13px] font-semibold text-foreground">
+                <span className="shrink-0 text-[13px] font-semibold text-foreground">
                   {year.label}
                 </span>
-                <span className="text-xs text-muted-foreground">
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
                   {year.detail}
                 </span>
                 {year.previewChanges ? (
-                  <span className="ml-auto rounded-full bg-primary/15 px-1.5 text-[10px] font-medium text-primary duration-200 animate-in fade-in-0">
+                  <span className="ml-auto shrink-0 rounded-full bg-primary/15 px-1.5 text-[10px] font-medium whitespace-nowrap text-primary duration-200 animate-in fade-in-0">
                     {`+${year.previewChanges} ${year.previewChanges === 1 ? "change" : "changes"}`}
                   </span>
                 ) : null}
