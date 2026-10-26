@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   experimental: { staleTimes: { dynamic: 300, static: 300 } },
   // The shared UI package exports TypeScript source rather than prebuilt JavaScript.
   transpilePackages: ["@coursemap/ui"],
+  // CI browser shards rebuild source the Route gate build has already type-checked.
+  typescript: {
+    ignoreBuildErrors: process.env.COURSEMAP_SKIP_BUILD_TYPECHECK === "1",
+  },
   // Repository-owned instructions take precedence over Next.js-generated agent guides.
   agentRules: false,
   // The local preview and test scripts bind to this loopback origin.
