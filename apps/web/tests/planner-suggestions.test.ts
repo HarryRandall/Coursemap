@@ -1,9 +1,11 @@
 import { describe, expect, it, test } from "vitest";
 import { openCourseCount } from "@/ui/plan/plan-suggestions";
+import type { TreeContext } from "@/ui/requirements/requirement-presentation";
 import {
   suggestionCondition as condition,
   suggestionGroup as group,
   suggestions,
+  suggestionsCatalogue,
 } from "./fixtures/planner-suggestions";
 
 test("counts remaining compulsory courses and names the last course", () => {
@@ -17,6 +19,62 @@ test("counts remaining compulsory courses and names the last course", () => {
   expect(result.openCount).toBe(1);
   expect(result.rules[0].heading).toBe("Take MATH1005");
   expect(result.estimatedCount).toBe(false);
+});
+
+test("a core course allocated to another rule still reads as one to take", () => {
+  const result = suggestions(
+    [condition(1, ["COMP1100", "COMP2100"])],
+    new Map([
+      ["COMP1100", "planned"],
+      ["COMP2100", "planned"],
+    ]),
+    [
+      {
+        key: "condition-1",
+        state: "in_progress",
+        targetUnits: 12,
+        maximumUnits: null,
+        targetCourses: 2,
+        completedUnits: 0,
+        plannedUnits: 6,
+        matchedCourseCodes: ["COMP1100"],
+      },
+    ],
+    suggestionsCatalogue,
+    {} as NonNullable<TreeContext["placement"]>,
+  );
+  expect(result.rules[0].covered).toBe(false);
+  expect(result.rules[0].heading).toBe("Take COMP2100");
+  expect(result.openCount).toBe(1);
+});
+
+test("a covered unit rule never asks for zero units", () => {
+  const result = suggestions(
+    [
+      condition(1, ["COMP1100", "COMP1110", "MATH1005"], {
+        minimumCourses: null,
+        minimumUnits: 12,
+      }),
+    ],
+    new Map([
+      ["COMP1100", "completed"],
+      ["COMP1110", "planned"],
+    ]),
+    [
+      {
+        key: "condition-1",
+        state: "satisfied",
+        targetUnits: 12,
+        maximumUnits: null,
+        targetCourses: null,
+        completedUnits: 6,
+        plannedUnits: 6,
+        matchedCourseCodes: ["COMP1100", "COMP1110"],
+      },
+    ],
+  );
+  expect(result.rules[0].covered).toBe(true);
+  expect(result.rules[0].heading).toBe("Pick 12 units from 3 courses");
 });
 
 test("covered rules contribute no courses left to pick", () => {
